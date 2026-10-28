@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPEEDS, DEFAULT_CPS, pickVoices, estimate, spoken, tts } from '../app/js/tts.js';
+import { SPEEDS, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts } from '../app/js/tts.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -37,4 +37,11 @@ test('reading time scales with length and speed', () => {
 
 test('tags and line breaks are not read out', () => {
   assert.equal(spoken('<i>Hello</i>\n  {\\an8}there'), 'Hello there');
+});
+
+test('the voice menu lists voices on this computer before online ones', () => {
+  const groups = groupVoices(pickVoices(voices, { online: true, lang: 'en-US' }));
+  assert.deepEqual(groups.map(([label]) => label), ['On this computer', 'Online: the text is sent to the provider']);
+  assert.deepEqual(groups[0][1].map((x) => x.name), ['Anna', 'Zed', 'Alex', 'Amélie']);
+  assert.deepEqual(groups[1][1].map((x) => x.name), ['Google UK']);
 });

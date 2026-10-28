@@ -28,6 +28,14 @@ export function pickVoices(voices, { online = false, lang = 'en' } = {}) {
     .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
 
+// Splits voices for the menu: ones that run on this computer, then online ones.
+export function groupVoices(voices) {
+  return [
+    ['On this computer', voices.filter((v) => v.localService)],
+    ['Online: the text is sent to the provider', voices.filter((v) => !v.localService)],
+  ];
+}
+
 // Seconds a line takes to say, from a voice's measured characters per second.
 export function estimate(text, cps = DEFAULT_CPS, speed = 1) {
   const n = spoken(text).length;
@@ -140,11 +148,25 @@ function fillVoices() {
   voices = allowed();
   const sel = $('ttsVoice');
   sel.textContent = '';
-  for (const v of voices) {
-    const o = document.createElement('option');
-    o.value = v.voiceURI;
-    o.textContent = `${v.name} (${v.lang})${v.localService ? '' : ' · online'}`;
-    sel.append(o);
+  for (const [label, list] of groupVoices(voices)) {
+    const online = label.startsWith('Online');
+    if (online && !tts.online) continue;
+    const g = document.createElement('optgroup');
+    g.label = label;
+    for (const v of list) {
+      const o = document.createElement('option');
+      o.value = v.voiceURI;
+      o.textContent = `${v.name} (${v.lang})`;
+      g.append(o);
+    }
+    if (!list.length) {
+      // Say so, rather than leaving people wondering whether the option did anything.
+      const o = document.createElement('option');
+      o.disabled = true;
+      o.textContent = online ? 'This browser has no online voices' : 'None installed';
+      g.append(o);
+    }
+    sel.append(g);
   }
   const cur = currentVoice();
   if (cur) sel.value = cur.voiceURI;
