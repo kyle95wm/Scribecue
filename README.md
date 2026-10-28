@@ -5,6 +5,8 @@ entirely on your machine. Video, audio and subtitle files are opened straight fr
 with `blob:` URLs and are never uploaded. The container only serves static files and is
 bound to `127.0.0.1`. A strict CSP stops the page from talking to any other origin.
 
+![Scribecue with a video, its audio description track and five text blocks on the timeline](docs/screenshots/main.png)
+
 ## Run
 
 ```bash
@@ -56,6 +58,8 @@ The keyboard layout follows the
 [Frazier Mac cheat sheet](https://www.videotovoice.com/docs/en/cheatsheet/mac.html)
 (see [Credits](#credits); this project isn't affiliated with Frazier).
 Press `?` or `⇧O` in the app for the full list.
+
+![The keyboard shortcuts overlay](docs/screenshots/shortcuts.png)
 
 ### Timeline (Frazier)
 
@@ -126,6 +130,8 @@ For transcribing existing audio description at its original timing:
 3. Let go when they stop. Playback pauses and the new block opens for typing.
 4. Type the line and press `↵` or `Esc`. Playback carries on from where it paused.
 
+![Hold-to-mark: a dashed block grows on the timeline while H is held](docs/screenshots/hold-to-mark.png)
+
 Both edges move back by a reaction offset (200 ms to begin with), because key presses lag
 what you hear. `⇧H` or clicking `H −200ms` under the video changes it, and the choice is
 remembered. The edges then snap to the nearest point within 300 ms where the waveform
@@ -150,6 +156,9 @@ The app is plain static files with no build step:
 ```bash
 python3 -m http.server -d app 8484
 ```
+
+The screenshots use a generated test video (colour gradients with tone-based audio), not
+real programme material.
 
 ## Credits
 
