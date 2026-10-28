@@ -1228,7 +1228,13 @@ function fitAllAuto() {
 
 // Update all timings: set every block's end from its reading, optionally reading each
 // one silently first so every length is exact. One undo step.
-const ttsAll = $('ttsAll'), ttsAllStop = $('ttsAllStop'), ttsAllStatus = $('ttsAllStatus');
+const ttsAll = $('ttsAll'), ttsAllStop = $('ttsAllStop'), ttsAllStatus = $('ttsAllStatus'), ttsAllBar = $('ttsAllBar');
+// While a job runs, its button gives way to a progress bar.
+function busy(btn, bar, on) {
+  btn.hidden = on;
+  bar.hidden = !on;
+  bar.value = 0;
+}
 let measuring = false;
 async function updateAllTimings() {
   const blocks = S.cues.filter((c) => spoken(c.text));
@@ -1240,15 +1246,17 @@ async function updateAllTimings() {
     const todo = blocks.filter((c) => !speechLength(c.text, c.speed).exact);
     pause();
     measuring = true;
-    ttsAll.disabled = true;
+    busy(ttsAll, ttsAllBar, true);
     ttsAllStop.hidden = false;
     for (let k = 0; k < todo.length && measuring; k++) {
-      ttsAllStatus.textContent = piper ? `Making readings: ${k + 1} of ${todo.length}…` : `Reading block ${k + 1} of ${todo.length} silently…`;
+      ttsAllBar.value = k / todo.length;
+      ttsAllStatus.textContent = piper ? `Making readings: ${k + 1} of ${todo.length}` : `Reading block ${k + 1} of ${todo.length} silently`;
       await measure(todo[k].text, todo[k].speed);
     }
+    ttsAllBar.value = 1;
     const stopped = !measuring;
     measuring = false;
-    ttsAll.disabled = false;
+    busy(ttsAll, ttsAllBar, false);
     ttsAllStop.hidden = true;
     if (stopped) return (ttsAllStatus.textContent = 'Stopped. No timings were changed.');
   }
@@ -1279,15 +1287,15 @@ ttsAll.addEventListener('click', updateAllTimings);
 
 // Export description track: every block's Piper reading in one WAV file, each at its
 // block's start, as long as the video (or the last reading, without one).
-const ttsExport = $('ttsExport'), ttsExportStatus = $('ttsExportStatus');
+const ttsExport = $('ttsExport'), ttsExportStatus = $('ttsExportStatus'), ttsExportBar = $('ttsExportBar');
 ttsExport.addEventListener('click', async () => {
   const blocks = S.cues.filter((c) => spoken(c.text)).map(({ start, text, speed }) => ({ start, text, speed }));
   if (!blocks.length) return (ttsExportStatus.textContent = 'There are no blocks with text yet.');
   pause();
-  ttsExport.disabled = true;
+  busy(ttsExport, ttsExportBar, true);
   try {
     const { blob, overlaps } = await renderTrack(blocks, S.hasVideo ? duration() : 0,
-      (k, n) => { ttsExportStatus.textContent = `Making readings: ${k} of ${n}…`; });
+      (k, n) => { ttsExportBar.value = k / n; ttsExportStatus.textContent = `Making readings: ${k} of ${n}`; });
     const name = `${baseName()} - audio description.wav`;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1300,6 +1308,7 @@ ttsExport.addEventListener('click', async () => {
   } catch (e) {
     ttsExportStatus.textContent = `Couldn’t export: ${e.message}`;
   } finally {
+    busy(ttsExport, ttsExportBar, false);
     ttsExport.disabled = !usingPiper();
   }
 });

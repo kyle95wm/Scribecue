@@ -144,11 +144,13 @@
       <label class="updopt" id="ttsAllExactRow"><input type="checkbox" id="ttsAllExact"> Read each block silently
         first, for exact lengths (takes about as long as reading them all)</label>
       <p class="updstatus"><button id="ttsAll">Update all timings</button>
+        <progress id="ttsAllBar" class="jobbar" max="1" value="0" hidden aria-label="Updating timings"></progress>
         <button id="ttsAllStop" hidden>Stop</button> <span id="ttsAllStatus" class="dim"></span></p>
       <h3>Export description track</h3>
       <p class="small">Save every block's reading as one WAV file, each starting at its block's start
         time, ready to mix with the programme.</p>
       <p class="updstatus"><button id="ttsExport">Export description track</button>
+        <progress id="ttsExportBar" class="jobbar" max="1" value="0" hidden aria-label="Exporting the description track"></progress>
         <span id="ttsExportStatus" class="dim"></span></p>
       <p id="ttsExportNote" class="dim small"></p>
       <h3>Online voices</h3>
