@@ -463,6 +463,16 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
   user-select: text;
 }
+.wizard { width: min(600px, 92vw); }
+.wzhead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.wzcard { display: flex; gap: 10px; align-items: flex-start; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.wzcard:hover { border-color: var(--faint); }
+.wzcard:has(input:checked) { border-color: var(--accent); background: var(--raise); }
+.wzcard input { margin-top: 3px; }
+.wzcard > span { display: flex; flex-direction: column; gap: 2px; }
+.wizard section[hidden], #wzBack[hidden] { display: none; }
+.wizard ul { margin: 8px 0; padding-left: 20px; }
+.wzkeys { margin: 4px 0; }
 .updbox::backdrop { background: rgba(0, 0, 0, 0.7); }
 .updbox h2 { margin: 0 0 12px; font-size: 18px; }
 .updbox h3 { margin: 18px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }

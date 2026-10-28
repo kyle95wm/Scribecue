@@ -336,9 +336,9 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
   return true;
 }
 
-function fillVoices() {
+// Fills a voice menu (the panel's, or the welcome wizard's) with the voices on offer.
+export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
   voices = allowed();
-  const sel = $('ttsVoice');
   sel.textContent = '';
   for (const [label, list] of groupVoices(voices)) {
     const online = label.startsWith('Online');
@@ -361,9 +361,13 @@ function fillVoices() {
     }
     sel.append(g);
   }
-  const cur = currentVoice();
-  if (cur) sel.value = cur.voiceURI;
+  if (selected) sel.value = selected;
   sel.disabled = !voices.length;
+}
+export const chosenVoice = () => currentVoice()?.voiceURI || '';
+
+function fillVoices() {
+  fillVoiceSelect($('ttsVoice'));
   $('ttsNoVoices').hidden = !!voices.length || !anyVoices();
   $('ttsNoOnline').hidden = !tts.online || voices.some((v) => !v.localService);
   $('ttsNoVoices').textContent = tts.online
@@ -390,6 +394,14 @@ function render() {
   $('ttsAuto').checked = tts.autoEnd;
   $('ttsOnline').checked = tts.online;
   fillVoices();
+}
+
+// Change a setting from outside the panel, such as the welcome wizard.
+export function setTtsOption(k, v) {
+  tts[k] = v;
+  save();
+  if ($('ttsDlg').open) render();
+  hooks.changed();
 }
 
 export function openTts() {

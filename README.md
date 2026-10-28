@@ -50,7 +50,8 @@ Chrome or Edge.
    docker compose up -d --build
    ```
 
-3. Open <http://localhost:8484>.
+3. Open <http://localhost:8484>. A short setup asks what you're working on and turns on
+   the tools for it. Run it again any time with **Setup** at the top.
 
 To stop it, run `docker compose down`. To use a different port, start it with
 `SCRIBECUE_PORT=9000 docker compose up -d`.
@@ -77,7 +78,9 @@ Press `?` at any time to see every shortcut.
 ## Modes: Transcribe and Write
 
 The switch next to the Scribecue name picks what you're doing, and shows only the features
-for it. Your choice is remembered.
+for it. Your choice is remembered. The setup that opens the first time you use Scribecue
+asks this too, along with the tools for that mode and whether to check for updates.
+**Setup** at the top runs it again. Nothing changes until you press **Finish**.
 
 | | Transcribe | Write |
 | --- | --- | --- |
@@ -383,7 +386,7 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
 
 ## Updating
 
-The first time you open Scribecue, it asks whether it may check GitHub for updates.
+The first time you open Scribecue, its setup asks whether it may check GitHub for updates.
 
 - **Check once a day:** GitHub sees the request and your IP address, like any website
   visit. Nothing about your files or text blocks is sent.

@@ -1,5 +1,6 @@
 import { parseSubs, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
-import { initUpdates } from './update.js';
+import { initUpdates, openUpdates, updateChoice } from './update.js';
+import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
   usingPiper, measure, prefetch, renderTrack } from './tts.js';
 
@@ -25,6 +26,10 @@ const FRAME = 1 / 25;
 const MAX_PPS = 1500;
 const DEFAULT_LEN = 2;
 const STORE_KEY = 'scribecue.v1';
+// Nothing saved yet, under this name or the old one: a new user, who gets the welcome wizard.
+const FIRST_RUN = (() => {
+  try { return !Object.keys(localStorage).some((k) => k.startsWith('scribecue.') || k.startsWith('subed.')); } catch { return false; }
+})();
 // Carry over work and settings saved under the editor's old name.
 try {
   for (const k of ['v1', 'offset']) {
@@ -1446,6 +1451,13 @@ function holdEnd() {
   toast(`Block #${idx(c.id) + 1} marked — type it, then ↵ or Esc to carry on`);
 }
 
+function setOffset(v) {
+  if (!OFFSETS.includes(v)) return;
+  S.offset = v;
+  try { localStorage.setItem('scribecue.offset', S.offset); } catch { /* ignore */ }
+  updateInd();
+}
+
 function cycleOffset() {
   if (writing()) return modeOnly('Hold-to-mark', 'transcribe');
   S.offset = OFFSETS[(OFFSETS.indexOf(S.offset) + 1) % OFFSETS.length];
@@ -1831,6 +1843,7 @@ const actions = {
   exportSrt: () => exportSubs('srt'),
   exportVtt: () => exportSubs('vtt'),
   help: () => toggleHelp(),
+  setup: () => openWelcome(),
   clear: () => {
     if (!S.cues.length) return toast('Nothing to clear');
     const n = S.cues.length;
@@ -2095,7 +2108,7 @@ document.querySelectorAll('[data-tip]').forEach((el) => { el.dataset.tip = pcKey
 if (!IS_MAC) {
   // Rows whose keys differ off the Mac carry their own markup in data-pc.
   document.querySelectorAll('[data-pc]').forEach((el) => { el.innerHTML = el.dataset.pc; });
-  for (const root of [helpEl, document.querySelector('nav'), document.querySelector('.hint'), $('stageEmpty'), $('ctrls')]) {
+  for (const root of [helpEl, document.querySelector('nav'), document.querySelector('.hint'), $('stageEmpty'), $('ctrls'), $('welcome')]) {
     const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     while (walk.nextNode()) walk.currentNode.nodeValue = pcKeys(walk.currentNode.nodeValue);
   }
@@ -2115,7 +2128,8 @@ if (restored) {
 } else {
   toast('Ready. Press ? for keyboard shortcuts.');
 }
-initUpdates({ toast });
+// A new user's first-run questions, update checks included, are in the welcome wizard.
+initUpdates({ toast, ask: !FIRST_RUN });
 initTts({
   toast,
   rate: () => S.rate,
@@ -2123,4 +2137,21 @@ initTts({
   sample: () => spoken(selCue()?.text || ''),
   changed: () => { fitAllAuto(); renderList(); updateEditor(); updateInd(); tlDirty = true; },
 });
+initWelcome({
+  getMode: () => S.mode,
+  setMode,
+  getOffset: () => S.offset,
+  setOffset,
+  offsets: OFFSETS,
+  toast,
+}, (finished) => {
+  // Skipped before answering about updates: ask the usual way instead.
+  if (!finished && updateChoice() === null) setTimeout(openUpdates, 300);
+});
+if (FIRST_RUN) setTimeout(openWelcome, 400);
+else if (!welcomed()) {
+  // Someone who used Scribecue before the wizard existed: mention it once.
+  markWelcomed();
+  setTimeout(() => toast('New: Setup at the top walks you through choosing your task and its tools'), 2500);
+}
 requestAnimationFrame(tick);

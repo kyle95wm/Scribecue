@@ -26,6 +26,7 @@
       <button data-act="exportSrt" data-tip="Save the script as an SRT file ({mod}S)">Export SRT <kbd><span class="mod"></span>S</kbd></button>
       <button data-act="exportVtt" data-tip="Save the script as a WebVTT file, which also keeps block speeds ({mod}⇧S)">VTT <kbd><span class="mod"></span>⇧S</kbd></button>
       <button data-act="clear" class="tip-end" data-tip="Remove every text block (asks first). Undo with {mod}Z">Clear</button>
+      <button data-act="setup" class="tip-end" data-tip="Run the welcome setup again: your task, its tools and update checks">Setup</button>
       <button data-act="help" class="hl tip-end" data-tip="Show all keyboard shortcuts (? or ⇧O)">Shortcuts <kbd>?</kbd></button>
     </nav>
   </header>
@@ -116,6 +117,73 @@
     </span>
     <button id="verBtn" class="ver tip-end"></button>
   </footer>
+
+  <dialog id="welcome" class="updbox wizard" aria-labelledby="wzTitle">
+    <div class="wzhead"><span id="wzStep" class="dim small"></span><button id="wzSkip" class="link">Skip setup</button></div>
+    <section data-step="welcome">
+      <h2 id="wzTitle">Welcome to Scribecue</h2>
+      <p>Scribecue is a keyboard-first editor for audio description scripts. Your video and your
+        script stay on your computer: nothing is uploaded.</p>
+      <p>This quick setup picks the tools you need. You can change any of it later, and run it
+        again with <strong>Setup</strong> at the top.</p>
+    </section>
+    <section data-step="task" hidden>
+      <h2>What are you working on?</h2>
+      <label class="wzcard"><input type="radio" name="wzMode" value="transcribe">
+        <span><strong>Transcribing existing audio description</strong>
+          <span class="dim">Copy the narrator's lines at their original timing. Hold H while they speak to mark each line.</span></span></label>
+      <label class="wzcard"><input type="radio" name="wzMode" value="write">
+        <span><strong>Writing new audio description</strong>
+          <span class="dim">Hear your lines read aloud, and check each one fits before the next piece of dialogue.</span></span></label>
+      <p class="dim small">You can switch at any time with the Transcribe / Write switch at the top.</p>
+    </section>
+    <section data-step="transcribe" hidden>
+      <h2>Hold-to-mark</h2>
+      <p>Play the video, hold <kbd>H</kbd> while the narrator speaks a line, and let go when they stop.
+        A block appears, ready for you to type the line.</p>
+      <div class="ttsgrid"><label for="wzOffset">Reaction offset</label><select id="wzOffset"></select></div>
+      <p class="dim small">Both edges of a mark move back by this much, because your key press comes a moment
+        after you hear the voice. 200 ms suits most people.</p>
+    </section>
+    <section data-step="write" hidden>
+      <h2>Text to speech</h2>
+      <p>Hear each block read aloud, and see how long it takes to say, so you know it fits.</p>
+      <label class="updopt"><input type="checkbox" id="wzTts"> Turn on text to speech</label>
+      <div id="wzTtsBody" class="ttsbody">
+        <div class="ttsgrid">
+          <label for="wzVoice">Voice</label><select id="wzVoice"></select>
+          <label for="wzSpeed">Speed</label><select id="wzSpeed"></select>
+        </div>
+        <p id="wzPiper" class="dim small"></p>
+        <label class="updopt"><input type="checkbox" id="wzLive"> Read blocks aloud while playing</label>
+        <label class="updopt"><input type="checkbox" id="wzAuto"> Set the end of new blocks from the reading as you type</label>
+      </div>
+    </section>
+    <section data-step="updates" hidden>
+      <h2>Updates</h2>
+      <p>Scribecue can check GitHub once a day and tell you when a new version is out.</p>
+      <label class="wzcard"><input type="radio" name="wzUpd" value="1">
+        <span><strong>Check once a day</strong>
+          <span class="dim">GitHub sees the request and your IP address, like any website visit. Nothing about your files or text blocks is sent.</span></span></label>
+      <label class="wzcard"><input type="radio" name="wzUpd" value="0">
+        <span><strong>Don't check</strong>
+          <span class="dim">Scribecue never contacts anything outside your computer.</span></span></label>
+    </section>
+    <section data-step="done" hidden>
+      <h2>You're set up</h2>
+      <ul id="wzSummary"></ul>
+      <h3>To get started</h3>
+      <dl class="wzkeys">
+        <dt><kbd><span class="mod"></span>⇧O</kbd></dt><dd>Open a video or audio file, or drop it on the window</dd>
+        <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
+        <dt><kbd>↵</kbd></dt><dd>Create a block at the playhead, or edit the one there</dd>
+        <dt id="wzModeKey"></dt><dd id="wzModeDesc"></dd>
+        <dt><kbd>?</kbd></dt><dd>All keyboard shortcuts</dd>
+      </dl>
+      <p class="dim small">Run this again any time with <strong>Setup</strong> at the top.</p>
+    </section>
+    <div class="updbtns"><button id="wzBack">Back</button><span class="grow"></span><button id="wzNext" class="hl">Next</button></div>
+  </dialog>
 
   <dialog id="ttsDlg" class="updbox" aria-labelledby="ttsTitle">
     <h2 id="ttsTitle">Text to speech</h2>
@@ -231,6 +299,7 @@ docker compose up -d --build</code></pre>
             <dt>Drag block</dt><dd>Move · drag an edge to resize</dd>
             <dt>Drag empty lane</dt><dd>Draw a new block</dd>
             <dt>Buttons under video</dt><dd>Block, 3 s and frame steps, play, play block, loop block</dd>
+            <dt>Setup</dt><dd>Run the welcome setup again</dd>
             <dt>Wheel</dt><dd>Pan · <kbd><span class="mod"></span></kbd>/pinch to zoom</dd>
           </dl>
         </section>

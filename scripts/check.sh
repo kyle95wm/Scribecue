@@ -41,7 +41,7 @@ echo "$headers" | grep -qi "^content-security-policy: default-src 'self'" || fai
 echo "$headers" | grep -qi '^x-content-type-options: nosniff' || fail 'missing X-Content-Type-Options'
 echo "$headers" | grep -qi '^referrer-policy: no-referrer' || fail 'missing Referrer-Policy'
 curl -fsS "$base/" | grep -q '<title>Scribecue</title>' || fail 'index.html not served'
-for f in js/app.js js/formats.js js/tts.js js/update.js js/wave-worker.js css/style.css; do
+for f in js/app.js js/formats.js js/tts.js js/update.js js/welcome.js js/wave-worker.js css/style.css; do
   curl -fsS -o /dev/null "$base/$f" || fail "$f not served"
 done
 curl -fsSI "$base/js/app.js" | grep -qi '^content-type: .*javascript' || fail 'app.js has the wrong content type'

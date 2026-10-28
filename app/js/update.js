@@ -105,6 +105,10 @@ export function openUpdates() {
   if (!dlg().open) dlg().showModal();
 }
 
+// The update check choice: '1' checks, '0' never, null if not asked yet.
+export const updateChoice = () => get(K_OPT);
+export function setUpdateChoice(on) { choose(on); }
+
 function choose(on) {
   set(K_OPT, on ? '1' : '0');
   if (!on) set(K_LAST, null);
@@ -112,6 +116,7 @@ function choose(on) {
   if (on) check();
 }
 
+// ask: false leaves the first-run question to the welcome wizard.
 export function initUpdates(opts = {}) {
   toast = opts.toast || toast;
   const d = dlg();
@@ -128,7 +133,7 @@ export function initUpdates(opts = {}) {
   document.addEventListener('keydown', (e) => { if (d.open) e.stopPropagation(); }, true);
   // Asking counts as an answer only once a button is pressed; Esc asks again next time.
   render();
-  if (get(K_OPT) === null) setTimeout(openUpdates, 800);
+  if (get(K_OPT) === null) { if (opts.ask !== false) setTimeout(openUpdates, 800); }
   else {
     const c = lastCheck();
     if (get(K_OPT) === '1' && (!c || Date.now() - c.at > DAY)) check();
