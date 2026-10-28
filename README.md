@@ -88,7 +88,8 @@ Your offset and snapping choices are remembered.
 
 ### Looping a block
 
-Press `L` to loop the block under the playhead (or the selected block). Press `↵` to type
+Press `L`, or click the loop button under the video, to loop the block under the playhead
+(or the selected block). Press `↵` to type
 while it repeats, then `Esc` when you're done, and the loop stops. Press `L` again to stop
 it without editing.
 
@@ -120,6 +121,9 @@ afterwards is instant. Safari switches tracks itself.
   Press `/` to jump to it. `⇧F` opens quick navigation, and `⌥⇧J` jumps to a timecode.
 - **Reading speed:** the CPS column turns amber above 17 characters per second and red
   above 21. Press `I`, or click `CPS`, to hide it.
+- **Player controls:** the buttons under the video step to the previous or next block,
+  jump 3 seconds or one frame, play or pause, play just the selected block, and loop the
+  block under the playhead. Hover over one to see its key.
 - **Copy a timecode:** click the clock under the video. To set a block's start or end to
   the playhead, press `A` or `S`.
 - **Mouse:** drag a block to move it, drag an edge to resize it, or drag across empty

@@ -7,7 +7,7 @@ const tl = $('tl'), ruler = $('ruler'), lane = $('lane'), wave = $('wave'), cues
 const playheadEl = $('playhead'), dragtip = $('dragtip'), overview = $('overview'), ovWin = $('ovWin');
 const edText = $('edText'), edStart = $('edStart'), edEnd = $('edEnd');
 const edIdx = $('edIdx'), edDur = $('edDur'), edStats = $('edStats');
-const clockEl = $('clock'), durEl = $('durEl'), playState = $('playState'), ind = $('ind');
+const clockEl = $('clock'), durEl = $('durEl'), ind = $('ind');
 const toastEl = $('toast'), helpEl = $('help'), fileSubs = $('fileSubs'), fileVideo = $('fileVideo');
 
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -1077,9 +1077,27 @@ function updateInd() {
     ind.append(s);
   }
   const p = isPlaying();
-  playState.textContent = p ? (S.playUntil != null ? 'CUE' : 'PLAYING') : 'PAUSED';
-  playState.classList.toggle('on', p);
+  ctrls.classList.toggle('playing', p);
+  ctrls.querySelector('[data-ctl="playBlock"]').classList.toggle('on', p && S.playUntil != null);
+  ctrls.querySelector('[data-ctl="loop"]').classList.toggle('on', S.loop);
 }
+
+// Player controls under the video: each button does what its key does.
+const ctrls = $('ctrls');
+const CTL = {
+  prevBlock: () => selectRel(-1),
+  back3: () => seekBy(-3),
+  backFrame: () => seekBy(-FRAME),
+  play: () => togglePlay(),
+  fwdFrame: () => seekBy(FRAME),
+  fwd3: () => seekBy(3),
+  nextBlock: () => selectRel(1),
+  playBlock: () => playCue(),
+  loop: () => loopBlock(),
+};
+// Don't take focus, so Space and the other keys keep working on the timeline.
+ctrls.addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
+ctrls.addEventListener('click', (e) => CTL[e.target.closest('button')?.dataset.ctl]?.());
 clockEl.addEventListener('click', async () => {
   const tc = fmtTime(now(), '.');
   let ok = false;
