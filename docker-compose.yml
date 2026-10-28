@@ -1,12 +1,12 @@
 services:
-  subed:
+  scribecue:
     build: .
-    image: subed:latest
-    container_name: subed
+    image: scribecue:latest
+    container_name: scribecue
     # Bound to 127.0.0.1 so only this machine can reach the editor.
-    # Change the port with SUBED_PORT=9000 docker compose up -d
+    # Change the port with SCRIBECUE_PORT=9000 docker compose up -d
     ports:
-      - "127.0.0.1:${SUBED_PORT:-8484}:8080"
+      - "127.0.0.1:${SCRIBECUE_PORT:-8484}:8080"
     read_only: true
     tmpfs:
       - /tmp

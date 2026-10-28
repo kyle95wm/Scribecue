@@ -1,9 +1,9 @@
-# SUBED — keyboard-first subtitle editor
+# Scribecue — keyboard-first subtitle and audio description editor
 
-A browser-based subtitle editor that runs entirely on your machine. Video, audio and
-subtitle files are opened straight from disk with `blob:` URLs and are never uploaded.
-The container only serves static files and is bound to `127.0.0.1`. A strict CSP
-stops the page from talking to any other origin.
+Scribecue is a browser-based editor for subtitles and audio description scripts that runs
+entirely on your machine. Video, audio and subtitle files are opened straight from disk
+with `blob:` URLs and are never uploaded. The container only serves static files and is
+bound to `127.0.0.1`. A strict CSP stops the page from talking to any other origin.
 
 ## Run
 
@@ -12,7 +12,7 @@ docker compose up -d --build
 ```
 
 Then open <http://localhost:8484>. Stop it with `docker compose down`.
-To use another port, run `SUBED_PORT=9000 docker compose up -d`.
+To use another port, run `SCRIBECUE_PORT=9000 docker compose up -d`.
 
 ## Workflow
 
@@ -53,7 +53,8 @@ need to reopen the media file after a reload.
 ## Keys
 
 The keyboard layout follows the
-[Frazier Mac cheat sheet](https://www.videotovoice.com/docs/en/cheatsheet/mac.html).
+[Frazier Mac cheat sheet](https://www.videotovoice.com/docs/en/cheatsheet/mac.html)
+(see [Credits](#credits); this project isn't affiliated with Frazier).
 Press `?` or `⇧O` in the app for the full list.
 
 ### Timeline (Frazier)
@@ -149,6 +150,17 @@ The app is plain static files with no build step:
 ```bash
 python3 -m http.server -d app 8484
 ```
+
+## Credits
+
+The keyboard layout is modelled on [Frazier](https://www.videotovoice.com/) by
+videotovoice, an audio description tool, so writers who already know Frazier can switch
+between the two without relearning keys. Thanks to the Frazier team for publishing their
+shortcut cheat sheet.
+
+This project is independent. It is not affiliated with, endorsed by or connected to
+Frazier or videotovoice. Frazier is their product name, used here only to describe the
+keyboard layout.
 
 ## License
 

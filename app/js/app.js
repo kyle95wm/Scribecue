@@ -15,7 +15,15 @@ const FRAME = 1 / 25;
 const MAX_PPS = 1500;
 const DEFAULT_LEN = 2;
 const SNAP_PX = 8;
-const STORE_KEY = 'subed.v1';
+const STORE_KEY = 'scribecue.v1';
+// Carry over work and settings saved under the editor's old name.
+try {
+  for (const k of ['v1', 'cps', 'snap', 'offset']) {
+    const old = localStorage.getItem('subed.' + k);
+    if (old !== null && localStorage.getItem('scribecue.' + k) === null) localStorage.setItem('scribecue.' + k, old);
+    localStorage.removeItem('subed.' + k);
+  }
+} catch { /* storage blocked */ }
 const PEAK_RATE = 200; // waveform bins per second
 const OFFSETS = [0, 0.1, 0.15, 0.2, 0.25, 0.3]; // hold-to-mark reaction offsets, ⇧H cycles
 const SNAP_WIN = 0.3; // how far hold-to-mark edges may move to meet the waveform
@@ -34,9 +42,9 @@ const S = {
   follow: true,
   loop: false,
   loopOnce: false, // loop started with L: ends when the block editor closes
-  cps: (() => { try { return localStorage.getItem('subed.cps') !== '0'; } catch { return true; } })(),
-  snap: (() => { try { return localStorage.getItem('subed.snap') !== '0'; } catch { return true; } })(),
-  offset: (() => { try { const v = parseFloat(localStorage.getItem('subed.offset')); return OFFSETS.includes(v) ? v : 0.2; } catch { return 0.2; } })(),
+  cps: (() => { try { return localStorage.getItem('scribecue.cps') !== '0'; } catch { return true; } })(),
+  snap: (() => { try { return localStorage.getItem('scribecue.snap') !== '0'; } catch { return true; } })(),
+  offset: (() => { try { const v = parseFloat(localStorage.getItem('scribecue.offset')); return OFFSETS.includes(v) ? v : 0.2; } catch { return 0.2; } })(),
   resumeAfterEdit: false, // hold-to-mark paused playback; closing the editor resumes it
   rate: 1,
   hasVideo: false,
@@ -1100,9 +1108,9 @@ function toggleFlag(k) {
   if (k === 'cps') {
     document.body.classList.toggle('no-cps', !S.cps);
     updateEditor();
-    try { localStorage.setItem('subed.cps', S.cps ? '1' : '0'); } catch { /* ignore */ }
+    try { localStorage.setItem('scribecue.cps', S.cps ? '1' : '0'); } catch { /* ignore */ }
   }
-  if (k === 'snap') try { localStorage.setItem('subed.snap', S.snap ? '1' : '0'); } catch { /* ignore */ }
+  if (k === 'snap') try { localStorage.setItem('scribecue.snap', S.snap ? '1' : '0'); } catch { /* ignore */ }
   updateInd();
   toast(`${k[0].toUpperCase() + k.slice(1)} ${S[k] ? 'on' : 'off'}`);
 }
@@ -1199,7 +1207,7 @@ function waveEdge(t, rising) {
 
 function cycleOffset() {
   S.offset = OFFSETS[(OFFSETS.indexOf(S.offset) + 1) % OFFSETS.length];
-  try { localStorage.setItem('subed.offset', S.offset); } catch { /* ignore */ }
+  try { localStorage.setItem('scribecue.offset', S.offset); } catch { /* ignore */ }
   updateInd();
   toast(`Hold-to-mark reaction offset ${Math.round(S.offset * 1000)} ms`);
 }
