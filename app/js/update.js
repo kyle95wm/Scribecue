@@ -19,7 +19,7 @@ const set = (k, v) => { try { v === null ? localStorage.removeItem(k) : localSto
 const lastCheck = () => { try { return JSON.parse(get(K_LAST)) || null; } catch { return null; } };
 
 // 1.10.0 > 1.9.2; a leading "v" and anything after "-" are ignored.
-function newer(a, b) {
+export function newer(a, b) {
   const p = (v) => String(v).replace(/^v/, '').split('-')[0].split('.').map((n) => parseInt(n, 10) || 0);
   const x = p(a), y = p(b);
   for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);

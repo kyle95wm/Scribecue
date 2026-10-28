@@ -287,10 +287,21 @@ The app is plain HTML, CSS and JavaScript with no build step. To run it without 
 python3 -m http.server -d app 8484
 ```
 
+Run the checks before committing, pushing or opening a pull request:
+
+```bash
+scripts/check.sh
+```
+
+This checks the JavaScript syntax, runs the unit tests in `tests/` (subtitle parsing, the
+version check and the waveform reader), then builds the Docker image and checks that it
+serves the app with its security headers. Use `scripts/check.sh --no-docker` to skip the
+Docker part. The same checks run on GitHub for every push and pull request.
+
 To release a new version:
 
 1. Change `VERSION` in [app/js/update.js](app/js/update.js), for example to `0.2.0`.
-2. Commit and push.
+2. Run `scripts/check.sh`, then commit and push.
 3. Publish a GitHub release with the same number. Its notes are what **What's new** links to.
 
    ```bash
