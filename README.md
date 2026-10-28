@@ -16,6 +16,7 @@
 - [Transcribing audio description](#transcribing-audio-description)
   - [Hold-to-mark](#hold-to-mark)
   - [Looping a block](#looping-a-block)
+  - [Text to speech](#text-to-speech)
 - [Files with several audio tracks](#files-with-several-audio-tracks)
 - [Other handy features](#other-handy-features)
 - [Keyboard shortcuts](#keyboard-shortcuts)
@@ -95,6 +96,35 @@ while it repeats, then `Esc` when you're done, and the loop stops. Press `L` aga
 it without editing.
 
 For a loop that stays on until you turn it off, use `O` instead.
+
+### Text to speech
+
+Hear your lines read aloud, to check where each one sits and whether it fits before the
+next piece of dialogue. It's off until you turn it on: press `⌥⇧V`, or click `TTS` under
+the video, then tick **Turn on text to speech**.
+
+| Key | Action |
+| --- | --- |
+| `V` | Read the block from its start, with the video playing. Playback stops at the block's end, or where the reading ends if it runs over |
+| `⇧V` | Read the block, then set its end to where the reading finishes |
+| `⌥⇧V` | Choose the voice and speed |
+
+- **Speed:** very slow (−30%), slow (−15%), normal, fast (+15%), very fast (+30%), and
+  experimental +50% and +100%. The voice also follows the playback speed.
+- **Read blocks aloud while playing:** each block is read as the playhead reaches it,
+  with the original audio turned down. You can turn either part off.
+- **Timing check:** the editor shows how long the reading takes, such as `TTS 2.9 s`, in red
+  if it's longer than the block. `~` means it's an estimate. It becomes exact once the
+  block has been read, and the estimates get more accurate for a voice as you use it.
+
+Scribecue uses the voices built into your computer, so the text stays on it. macOS and
+Windows come with several voices. Linux may need speech voices installed.
+
+**Online voices** are a separate opt-in in the same panel. They often sound more natural,
+but each block's text is sent to the company that runs the voice, such as Google or
+Microsoft, to be spoken. Leave them off if your script mustn't leave your computer.
+
+Text to speech is for checking timing. It doesn't create an audio file.
 
 ## Files with several audio tracks
 
@@ -199,6 +229,8 @@ The tables use Mac symbols; on Windows and Linux, see [below](#windows-and-linux
 | `F` | Follow the playhead on / off |
 | `B` | Snapping on / off |
 | `I` | Reading speed (CPS) on / off |
+| `V` / `⇧V` | [Read the block aloud](#text-to-speech) / fit the block to the reading |
+| `⌥⇧V` | Text to speech settings |
 | `⌥=` `⌥-` `⌥0` | Zoom the timeline in / out / to fit |
 | `\` | Reset speed to 1× |
 
@@ -250,6 +282,8 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
   (`127.0.0.1`).
 - A strict security policy stops the page from contacting any other site. The one exception
   is the [update check](#updating), which only runs if you agree to it.
+- [Text to speech](#text-to-speech) uses the voices on your computer. Online voices, which
+  send the text to their provider, are only offered if you turn them on.
 
 ## Updating
 

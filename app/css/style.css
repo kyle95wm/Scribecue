@@ -476,6 +476,22 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 .updopt { display: flex; gap: 8px; align-items: center; cursor: pointer; }
 .updstatus { font-size: 13px; }
 
+.ttsbody.off { opacity: 0.45; pointer-events: none; }
+.ttsgrid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 12px; align-items: center; margin: 12px 0; }
+.ttsgrid select, .updbox select {
+  min-width: 0;
+  font: 13px var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+.updopt + .updopt { margin-top: 6px; }
+.warnbox { padding: 8px 10px; border: 1px solid var(--warn); border-radius: 6px; color: var(--warn); font-size: 13px; }
+.warnbox[hidden] { display: none; }
+#edStats .tts { white-space: nowrap; }
+
 /* ---------- quick navigation / timecode palette ---------- */
 #palette { align-items: flex-start; padding-top: 12vh; }
 .palbox {

@@ -110,6 +110,38 @@
     <button id="verBtn" class="ver tip-end"></button>
   </footer>
 
+  <dialog id="ttsDlg" class="updbox" aria-labelledby="ttsTitle">
+    <h2 id="ttsTitle">Text to speech</h2>
+    <p>Hear blocks read aloud, to check where each line sits and whether it fits before the
+      next piece of dialogue.</p>
+    <p id="ttsUnavailable" class="warnbox" hidden>This browser doesn't support text to speech.</p>
+    <label class="updopt"><input type="checkbox" id="ttsOn"> Turn on text to speech</label>
+    <div id="ttsBody" class="ttsbody">
+      <div class="ttsgrid">
+        <label for="ttsVoice">Voice</label>
+        <select id="ttsVoice"></select>
+        <label for="ttsSpeed">Speed</label>
+        <select id="ttsSpeed"></select>
+      </div>
+      <p id="ttsNoVoices" class="warnbox" hidden></p>
+      <label class="updopt"><input type="checkbox" id="ttsLive"> Read blocks aloud while playing</label>
+      <label class="updopt"><input type="checkbox" id="ttsDuck"> Lower the original audio while a block is read</label>
+      <h3>Online voices</h3>
+      <label class="updopt"><input type="checkbox" id="ttsOnline"> Include online voices</label>
+      <p class="dim small">Online voices often sound more natural, but each block's text is sent to the
+        company that runs the voice, such as Google or Microsoft, to be spoken. Leave this off if your
+        script mustn't leave your computer. The voices built into your computer keep everything on it.</p>
+      <h3>Keys</h3>
+      <p class="small"><kbd>V</kbd> read the selected block from its start ·
+        <kbd>⇧</kbd><kbd>V</kbd> set the block's end to where the reading finishes ·
+        <kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd> this panel</p>
+    </div>
+    <div class="updbtns">
+      <button id="ttsTry" class="hl">Try it</button>
+      <button id="ttsClose">Close</button>
+    </div>
+  </dialog>
+
   <dialog id="updates" class="updbox" aria-labelledby="updTitle">
     <section id="updAsk">
       <h2 id="updTitle">Check for updates?</h2>
@@ -206,6 +238,9 @@ docker compose up -d --build</code></pre>
             <dt><kbd>L</kbd></dt><dd>Loop this block and play. ↵ to type, Esc when done ends the loop</dd>
             <dt><kbd>O</kbd> <kbd>F</kbd> <kbd>B</kbd></dt><dd>Loop (stays on) · follow playhead · snapping on / off (dragging and H)</dd>
             <dt><kbd>I</kbd></dt><dd>Show / hide reading speed (CPS)</dd>
+            <dt><kbd>V</kbd></dt><dd>Text to speech: read the selected block from its start</dd>
+            <dt><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Set the block's end to where the reading finishes</dd>
+            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Text to speech settings (voice, speed, online voices)</dd>
             <dt><kbd>\</kbd></dt><dd>Reset speed to 1×</dd>
             <dt><kbd>⌥</kbd><kbd>=</kbd> <kbd>⌥</kbd><kbd>-</kbd> <kbd>⌥</kbd><kbd>0</kbd></dt><dd>Zoom timeline in / out / fit</dd>
           </dl>

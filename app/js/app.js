@@ -1,5 +1,6 @@
 import { parseSubs, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
 import { initUpdates } from './update.js';
+import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
 const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('list');
@@ -93,6 +94,7 @@ const isPlaying = () => (S.hasVideo ? !video.paused && !video.ended : S.vplaying
 
 function setTime(t) {
   t = clamp(t, 0, duration());
+  if (tts.speaking && Math.abs(t - now()) > 0.05) stopSpeech(); // a jump ends the reading
   if (S.hasVideo) video.currentTime = t;
   else S.vt = t;
 }
@@ -110,6 +112,7 @@ function play() {
   updateInd();
 }
 function pause() {
+  stopSpeech();
   if (S.hasVideo) video.pause();
   else S.vplaying = false;
   updateInd();
@@ -454,6 +457,11 @@ function updateEditor() {
     edStats.append(s, ' · ');
   };
   if (S.cps) add(`CPS ${v.toFixed(1)}`, cpsClass(v));
+  if (tts.on && spoken(c.text)) {
+    // How long the voice takes to read it: "~" until it has actually been read.
+    const { secs, exact } = speechLength(c.text);
+    add(`TTS ${exact ? '' : '~'}${secs.toFixed(1)} s`, 'tts ' + (secs > c.end - c.start + 0.05 ? 'bad' : ''));
+  }
   add(`${lines.length} line${lines.length > 1 ? 's' : ''}`, lines.length > 2 ? 'warn' : '');
   add(`max ${maxLine} ch`, maxLine > 42 ? 'warn' : '');
   edStats.lastChild.remove();
@@ -1064,6 +1072,7 @@ const IND_TIPS = {
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
   offset: 'Hold-to-mark reaction offset: marks made with H move back by this much. ⇧H or click to change',
   cps: 'Show reading speed (characters per second) in the list and editor (I)',
+  tts: 'Text to speech: hear blocks read aloud (V). Click to choose the voice and speed, or to turn it on (⌥⇧V)',
   snap: 'Snap (B): dragged edges stick to the playhead and neighbouring blocks, and blocks marked with H move to where the waveform rises and falls. Hold {nosnap} to override',
 };
 function updateInd() {
@@ -1074,6 +1083,7 @@ function updateInd() {
     ['offset', `H −${Math.round(S.offset * 1000)}ms`, false],
     ['cps', 'CPS', S.cps],
     ['snap', 'SNAP', S.snap],
+    ['tts', tts.on && tts.speed !== 1 ? `TTS ${tts.speed > 1 ? '+' : '−'}${Math.round(Math.abs(tts.speed - 1) * 100)}%` : 'TTS', tts.on],
   ];
   ind.textContent = '';
   for (const [key, label, on] of items) {
@@ -1126,6 +1136,7 @@ ind.addEventListener('click', (e) => {
   const k = e.target.dataset.key;
   if (k === 'speed') setRate(1);
   else if (k === 'offset') cycleOffset();
+  else if (k === 'tts') openTts();
   else if (k) toggleFlag(k);
 });
 
@@ -1158,6 +1169,64 @@ function stopLoop() {
   S.loop = S.loopOnce = false;
   updateInd();
   toast('Loop off');
+}
+
+// ---------------------------------------------------------------- text to speech
+
+// V: read the block under the playhead (or the selected one) from its start, with the
+// video playing alongside. Playback stops at the block's end, or where the reading
+// ends if it runs over. ⇧V then sets the block's end to where the reading finished.
+function speakBlock(fit) {
+  if (!tts.on) { openTts(); return toast('Turn on text to speech to hear blocks read aloud'); }
+  const c = cueAt(now()) || selCue();
+  if (!c) return toast('No text block here — move the playhead into one or select one');
+  if (!spoken(c.text)) return toast('This block has no text to read yet');
+  select(c.id, { seek: false });
+  if (S.loop) { S.loop = S.loopOnce = false; updateInd(); }
+  S.playUntil = null;
+  setTime(c.start);
+  const id = c.id;
+  speak(c.text, {
+    id, manual: true,
+    done: (secs) => {
+      const cur = S.cues[idx(id)];
+      if (secs == null || !cur) return;
+      if (fit) { pause(); fitToSpeech(cur, secs); return; }
+      const room = cur.end - cur.start;
+      if (now() >= cur.end) pause(); else S.playUntil = cur.end;
+      toast(secs > room + 0.05
+        ? `Reading takes ${secs.toFixed(1)} s, ${(secs - room).toFixed(1)} s longer than the block. ⇧V fits the block to it`
+        : `Reading takes ${secs.toFixed(1)} s and fits, with ${(room - secs).toFixed(1)} s to spare`);
+    },
+  });
+  play();
+  toast(fit ? 'Reading the block to measure it…' : 'Reading the block…');
+}
+
+function fitToSpeech(c, secs) {
+  const i = idx(c.id), { hi } = bounds(i);
+  const end = clamp(c.start + secs, c.start + MIN_DUR, hi);
+  pushUndo();
+  c.end = end;
+  select(c.id, { seek: false });
+  changed(c.id);
+  toast(c.start + secs > hi + 0.001
+    ? `Reading takes ${secs.toFixed(1)} s, but the next block starts first, so the end stops there`
+    : `Block now ends where the reading finishes (${secs.toFixed(1)} s)`);
+}
+
+// While playing, read each block as the playhead reaches its start.
+function liveSpeech(prevT, t) {
+  if (!tts.on || !tts.live || tts.speaking?.manual) return;
+  const a = cueAt(t);
+  if (a && prevT <= a.start && t > a.start && t - prevT < 0.5 && tts.speaking?.id !== a.id) speak(a.text, { id: a.id });
+}
+
+// Lower the original audio while a block is read.
+function duckAudio(on) {
+  const v = on && tts.duck ? 0.3 : 1;
+  video.volume = v;
+  altAudio.volume = v;
 }
 
 // ---------------------------------------------------------------- hold-to-mark
@@ -1751,6 +1820,7 @@ document.addEventListener('keydown', (e) => {
       case 'ArrowRight': selectRel(1); break;
       case 'KeyJ': openPalette('time'); break;
       case 'KeyD': confirmDelete(); break;
+      case 'KeyV': openTts(); break;
       case 'KeyM': case 'KeyC': toast(`${e.code === 'KeyM' ? 'Markers' : 'Comments'} are not part of this editor`); break;
       default: handled = false;
     }
@@ -1775,6 +1845,7 @@ document.addEventListener('keydown', (e) => {
       case 'KeyG': gotoSel(true); break;
       case 'KeyT': stepTrack(-1); break;
       case 'KeyH': cycleOffset(); break;
+      case 'KeyV': speakBlock(true); break;
       case 'KeyQ': nudge('start', -0.01); break;
       case 'KeyW': nudge('start', 0.01); break;
       case 'KeyE': nudge('end', -0.01); break;
@@ -1825,6 +1896,7 @@ document.addEventListener('keydown', (e) => {
       case 'KeyF': toggleFlag('follow'); break;
       case 'KeyB': toggleFlag('snap'); break;
       case 'KeyI': toggleFlag('cps'); break;
+      case 'KeyV': speakBlock(false); break;
       case 'Backslash': setRate(1); break;
       default: handled = false;
     }
@@ -1845,6 +1917,7 @@ function tick(ts) {
   const playing = isPlaying();
   if (playing) {
     const c = selCue(), t = now();
+    liveSpeech(lastT, t);
     if (S.playUntil != null && t >= S.playUntil) {
       pause();
       setTime(S.playUntil);
@@ -1896,4 +1969,11 @@ if (restored) {
   toast('Ready. Press ? for keyboard shortcuts.');
 }
 initUpdates({ toast });
+initTts({
+  toast,
+  rate: () => S.rate,
+  duck: duckAudio,
+  sample: () => spoken(selCue()?.text || ''),
+  changed: () => { updateEditor(); updateInd(); },
+});
 requestAnimationFrame(tick);
