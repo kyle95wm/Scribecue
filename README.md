@@ -12,9 +12,80 @@
 
 ![Scribecue with a video, its audio description track and five text blocks on the timeline](docs/screenshots/main.png)
 
+## Quick start
+
+You'll need three free things. Install any you don't have yet:
+
+- **[Docker Desktop](https://www.docker.com/products/docker-desktop/)**, which runs
+  Scribecue. On Linux, Docker Engine with the Compose plugin works too. Start it once
+  after installing, and leave it running.
+- **[Git](https://git-scm.com/downloads)**, to download Scribecue and its updates. It's
+  already on most Macs and Linux computers.
+- **A recent Chrome or Edge**, to use Scribecue in.
+
+Then open a terminal: **Terminal** on a Mac or Linux, or **PowerShell** on Windows. Run
+these one at a time.
+
+1. Download Scribecue:
+
+   ```bash
+   git clone https://github.com/kyle95wm/Scribecue.git
+   ```
+
+2. Go into its folder:
+
+   ```bash
+   cd Scribecue
+   ```
+
+3. Build and start it. The first time takes a minute or two:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. Open <http://localhost:8484> in Chrome or Edge.
+
+A short setup opens and asks what you're working on, then turns on the tools for it. You
+can run it again any time with **Setup** at the top.
+
+Scribecue keeps running in the background, and starts again whenever Docker does, until
+you stop it. To stop it, run `docker compose down` in the `Scribecue` folder. To start it
+again, run `docker compose up -d` there.
+
+### Optional: natural-sounding voices
+
+For text to speech voices that sound natural and run on your computer, add
+[Piper](#piper-voices) before step 3 by creating a file called `.env` in the `Scribecue`
+folder. On a Mac or Linux:
+
+```bash
+echo "COMPOSE_PROFILES=piper" > .env
+```
+
+On Windows, in PowerShell:
+
+```powershell
+Set-Content .env "COMPOSE_PROFILES=piper"
+```
+
+Then carry on with step 3. Piper adds about 1 GB to the download. If Scribecue is already
+running, run step 3 again to add it.
+
+### If something goes wrong
+
+- **"Cannot connect to the Docker daemon"** or a similar error: Docker Desktop isn't
+  running. Start it, wait until it says it's running, and try again.
+- **"port is already allocated":** something else is using port 8484. Add a line such as
+  `SCRIBECUE_PORT=9000` to the `.env` file (create it if it isn't there), run step 3
+  again, and open <http://localhost:9000> instead.
+- **The page doesn't load straight away:** wait a few seconds after step 3, then reload.
+
+To get a newer version later, see [Updating](#updating).
+
 ## Contents
 
-- [Getting started](#getting-started)
+- [Quick start](#quick-start)
 - [Your first script](#your-first-script)
 - [Modes: Transcribe and Write](#modes-transcribe-and-write)
 - [Transcribing audio description](#transcribing-audio-description)
@@ -32,32 +103,6 @@
 - [Development](#development)
 - [Credits](#credits)
 - [License](#license)
-
-## Getting started
-
-You need [Docker](https://www.docker.com/products/docker-desktop/) and a recent
-Chrome or Edge.
-
-1. Download Scribecue:
-
-   ```bash
-   git clone https://github.com/kyle95wm/Scribecue.git
-   ```
-
-2. Start it from the `Scribecue` folder:
-
-   ```bash
-   docker compose up -d --build
-   ```
-
-3. Open <http://localhost:8484>. A short setup asks what you're working on and turns on
-   the tools for it. Run it again any time with **Setup** at the top.
-
-To stop it, run `docker compose down`. To use a different port, start it with
-`SCRIBECUE_PORT=9000 docker compose up -d`.
-
-For natural-sounding text to speech voices that run on your computer, you can also
-[add Piper](#piper-voices).
 
 ## Your first script
 
