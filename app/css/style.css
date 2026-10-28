@@ -26,6 +26,7 @@ body {
   margin: 0;
   display: grid;
   grid-template-rows: 44px minmax(0, 1fr) 210px 28px;
+  grid-template-columns: minmax(0, 1fr);
   background: var(--bg);
   color: var(--text);
   font: 14px/1.4 var(--sans);
@@ -131,6 +132,7 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
 .transport {
   display: flex;
   align-items: center;
+  flex-wrap: wrap; /* in a narrow window the indicators drop to a second line */
   gap: 6px 8px;
   padding: 6px 12px;
   background: var(--panel);
@@ -147,7 +149,7 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
   color: var(--dim);
 }
 .pill.on { background: var(--play); color: #fff; }
-#ind { display: flex; flex-shrink: 0; gap: 6px; font: 12px var(--mono); }
+#ind { display: flex; flex-shrink: 0; margin-left: auto; gap: 6px; font: 12px var(--mono); }
 #ind span {
   white-space: nowrap;
   padding: 1px 8px;
@@ -359,16 +361,15 @@ textarea:disabled { opacity: 0.5; }
 .status {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 0 12px;
   background: var(--panel);
   border-top: 1px solid var(--line);
   font-size: 12px;
 }
-#toast { color: var(--accent); transition: opacity 0.4s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#toast { min-width: 0; color: var(--accent); transition: opacity 0.4s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #toast.fade { opacity: 0; }
-.hint { color: var(--dim); white-space: nowrap; }
+.hint { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dim); white-space: nowrap; }
 .hint kbd { margin-left: 6px; }
 
 /* ---------- help ---------- */
@@ -406,6 +407,54 @@ dd { margin: 0; }
   nav button kbd, .hint { display: none; }
   .cols { grid-template-columns: 1fr; }
 }
+
+/* ---------- version and updates ---------- */
+button.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+button.link:hover { background: none; text-decoration: underline; }
+button.link:disabled { color: var(--faint); cursor: default; text-decoration: none; }
+.ver {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  font: 11px var(--mono);
+  color: var(--dim);
+  white-space: nowrap;
+}
+.ver.new { color: var(--bg); background: var(--accent); border-color: var(--accent); font-weight: 600; }
+.ver.new:hover { background: var(--warn); }
+.updnotice { display: flex; gap: 10px; align-items: center; flex-shrink: 0; white-space: nowrap; color: var(--text); }
+.updnotice[hidden] { display: none; }
+#updNoticeClose { color: var(--dim); font-size: 15px; line-height: 1; }
+.updbox {
+  width: min(560px, 92vw);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 20px 24px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  user-select: text;
+}
+.updbox::backdrop { background: rgba(0, 0, 0, 0.7); }
+.updbox h2 { margin: 0 0 12px; font-size: 18px; }
+.updbox h3 { margin: 18px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+.updbox p { margin: 8px 0; }
+.updbox .small { font-size: 12px; }
+.updbox a { color: var(--accent); }
+.updbox code { font: 12px var(--mono); }
+.updbox pre { margin: 8px 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; user-select: all; }
+.updbtns { display: flex; gap: 8px; margin-top: 16px; }
+.updnew { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 6px; }
+.updopt { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.updstatus { font-size: 13px; }
 
 /* ---------- quick navigation / timecode palette ---------- */
 #palette { align-items: flex-start; padding-top: 12vh; }
@@ -524,3 +573,5 @@ dd { margin: 0; }
   padding: 2px 6px;
 }
 #trackSel:focus { outline: none; border-color: var(--accent); }
+/* the footer is at the bottom of the window, so its tips open upwards */
+.status [data-tip]::after { top: auto; bottom: calc(100% + 8px); }

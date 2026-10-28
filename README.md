@@ -3,7 +3,8 @@
 Scribecue is a browser-based editor for subtitles and audio description scripts that runs
 entirely on your machine. Video, audio and subtitle files are opened straight from disk
 with `blob:` URLs and are never uploaded. The container only serves static files and is
-bound to `127.0.0.1`. A strict CSP stops the page from talking to any other origin.
+bound to `127.0.0.1`. A strict CSP stops the page from talking to any other origin. The one
+exception is an [update check](#updating) that only runs if you agree to it.
 
 ![Scribecue with a video, its audio description track and five text blocks on the timeline](docs/screenshots/main.png)
 
@@ -15,6 +16,36 @@ docker compose up -d --build
 
 Then open <http://localhost:8484>. Stop it with `docker compose down`.
 To use another port, run `SCRIBECUE_PORT=9000 docker compose up -d`.
+
+## Updating
+
+The first time you open Scribecue, it asks whether it may check GitHub for updates.
+
+- **Check once a day:** Scribecue asks GitHub's API for the latest release at most once a
+  day. GitHub sees the request and your IP address, like any website visit. No cookies,
+  referrer, files or text blocks are sent.
+- **Don't check:** Scribecue never contacts anything outside your computer.
+
+Click the version number in the bottom right to change this, check now, or see the update
+steps. When a newer version is out, the version number turns into **Update available** and
+a notice appears next to it, which you can hide until the next version.
+
+To update a copy you got with `git clone`, run these in the Scribecue folder:
+
+```bash
+git pull
+```
+
+```bash
+docker compose up -d --build
+```
+
+If you downloaded a zip instead, download the
+[latest release](https://github.com/kyle95wm/Scribecue/releases/latest), replace the old
+folder with it, and run `docker compose up -d --build` inside it. Then reload the page.
+
+Your text blocks and settings are kept, because they're saved in the browser for that
+address. Open Scribecue at the same address and port as before, or they won't show up.
 
 ## Workflow
 
@@ -159,6 +190,18 @@ python3 -m http.server -d app 8484
 
 The screenshots use a generated test video (colour gradients with tone-based audio), not
 real programme material.
+
+### Releasing a new version
+
+1. Change `VERSION` in [app/js/update.js](app/js/update.js), for example to `0.2.0`.
+2. Commit, then tag and publish a GitHub release with the same number:
+
+   ```bash
+   gh release create v0.2.0 --generate-notes
+   ```
+
+Copies that have update checks turned on will see the new version within a day. The
+release notes are what **What's new** links to.
 
 ## Credits
 

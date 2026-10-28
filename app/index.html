@@ -91,7 +91,47 @@
       <kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>⌥⇧←</kbd><kbd>⌥⇧→</kbd> block
       <kbd>↵</kbd> create/edit <kbd>⇧F</kbd> find <kbd>⇧O</kbd> all keys
     </span>
+    <span id="updNotice" class="updnotice" hidden>
+      <span id="updNoticeText"></span>
+      <button id="updNoticeOpen" class="link">How to update</button>
+      <button id="updNoticeClose" class="link" aria-label="Hide until the next version" data-tip="Hide until the next version">×</button>
+    </span>
+    <button id="verBtn" class="ver tip-end"></button>
   </footer>
+
+  <dialog id="updates" class="updbox" aria-labelledby="updTitle">
+    <section id="updAsk">
+      <h2 id="updTitle">Check for updates?</h2>
+      <p>Scribecue can check GitHub once a day and tell you when a new version is out.</p>
+      <p class="dim">GitHub sees the request and your IP address, like any website visit. Nothing about
+        your files or text blocks is sent. If you say no, Scribecue never contacts anything outside
+        your computer.</p>
+      <div class="updbtns">
+        <button id="updYes" class="hl">Check once a day</button>
+        <button id="updNo">Don't check</button>
+      </div>
+      <p class="dim small">You can change this later by clicking the version number in the bottom right.</p>
+    </section>
+    <section id="updMain" hidden>
+      <h2>Scribecue <span id="updCurrent" class="dim"></span></h2>
+      <div id="updNew" class="updnew" hidden>
+        <strong id="updNewText"></strong>
+        <a id="updNotes" target="_blank" rel="noopener noreferrer">What's new</a>
+      </div>
+      <label class="updopt"><input type="checkbox" id="updOpt"> Check GitHub for updates once a day</label>
+      <p class="updstatus"><span id="updStatus" class="dim"></span> <button id="updNow" class="link">Check now</button></p>
+      <h3>How to update</h3>
+      <p>If you got Scribecue with <code>git clone</code>, run these in the Scribecue folder:</p>
+      <pre><code>git pull
+docker compose up -d --build</code></pre>
+      <p>If you downloaded a zip, download the
+        <a href="https://github.com/kyle95wm/Scribecue/releases/latest" target="_blank" rel="noopener noreferrer">latest release</a>,
+        replace the old folder with it, and run <code>docker compose up -d --build</code> inside it.</p>
+      <p>Then reload this page. Your text blocks and settings are kept, as long as you open Scribecue at
+        the same address and port as before. Export a copy first if you want to be safe.</p>
+      <div class="updbtns"><button id="updClose">Close</button></div>
+    </section>
+  </dialog>
 
   <div id="help" class="help" hidden>
     <div class="helpbox">

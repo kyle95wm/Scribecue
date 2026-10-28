@@ -1,4 +1,5 @@
 import { parseSubs, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
+import { initUpdates } from './update.js';
 
 const $ = (id) => document.getElementById(id);
 const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('list');
@@ -1853,4 +1854,5 @@ if (restored) {
 } else {
   toast('Ready. Press ? for keyboard shortcuts.');
 }
+initUpdates({ toast });
 requestAnimationFrame(tick);
