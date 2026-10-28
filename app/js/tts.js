@@ -163,7 +163,7 @@ function fillVoices() {
       // Say so, rather than leaving people wondering whether the option did anything.
       const o = document.createElement('option');
       o.disabled = true;
-      o.textContent = online ? 'This browser has no online voices' : 'None installed';
+      o.textContent = online ? 'None in this browser: try Edge or Chrome' : 'None installed';
       g.append(o);
     }
     sel.append(g);
@@ -172,8 +172,9 @@ function fillVoices() {
   if (cur) sel.value = cur.voiceURI;
   sel.disabled = !voices.length;
   $('ttsNoVoices').hidden = !!voices.length || !tts.available;
+  $('ttsNoOnline').hidden = !tts.online || voices.some((v) => !v.localService);
   $('ttsNoVoices').textContent = tts.online
-    ? 'This browser has no voices.'
+    ? 'This browser has no voices. Try Microsoft Edge or Google Chrome.'
     : 'No voices on this computer. Your system may need speech voices installed, or you can allow online voices below.';
 }
 

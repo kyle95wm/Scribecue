@@ -123,6 +123,13 @@ Windows come with several voices. Linux may need speech voices installed.
 **Online voices** are a separate opt-in in the same panel. They often sound more natural,
 but each block's text is sent to the company that runs the voice, such as Google or
 Microsoft, to be spoken. Leave them off if your script mustn't leave your computer.
+They come from the browser, so which ones you get depends on where you open Scribecue:
+Microsoft Edge has dozens, Chrome has a few Google voices, and Safari and Firefox have
+none. They only work while you're online.
+
+For better voices that stay on a Mac, open System Settings → Accessibility → Spoken
+Content, click ⓘ next to **System voice**, and download an "Enhanced" or "Premium" voice.
+Then reload Scribecue. Not every browser lists these newer voices.
 
 Text to speech is for checking timing. It doesn't create an audio file.
 
