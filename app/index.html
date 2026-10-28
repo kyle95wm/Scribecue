@@ -11,6 +11,10 @@
 <body>
   <header class="top">
     <div class="brand">SCRIBE<span>CUE</span></div>
+    <div class="modesw" id="modeSw" role="radiogroup" aria-label="Mode">
+      <button role="radio" data-mode="transcribe" data-tip="Transcribe existing audio description at its original timing, with hold-to-mark (H)">Transcribe</button>
+      <button role="radio" data-mode="write" data-tip="Write new audio description, with text to speech, reading times and block speeds">Write</button>
+    </div>
     <div class="files">
       <span id="subName" title="Subtitle file">untitled.srt</span>
       <span class="sep">/</span>
@@ -241,8 +245,8 @@ docker compose up -d --build</code></pre>
             <dt><kbd><span class="mod"></span>O</kbd> <kbd><span class="mod"></span>⇧O</kbd></dt><dd>Open SRT/VTT · open video/audio</dd>
             <dt><kbd><span class="mod"></span>S</kbd> <kbd><span class="mod"></span>⇧S</kbd></dt><dd>Export SRT · export VTT</dd>
           </dl>
-          <h3>Text to speech</h3>
-          <dl>
+          <h3 class="write-only">Text to speech</h3>
+          <dl class="write-only">
             <dt><kbd>V</kbd></dt><dd>Read the selected block from its start</dd>
             <dt><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Set the block's end to where the reading finishes</dd>
             <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>This block's reading slower / faster</dd>
@@ -266,8 +270,8 @@ docker compose up -d --build</code></pre>
             <dt><kbd>T</kbd> / <kbd>⇧</kbd><kbd>T</kbd></dt><dd>Next / previous audio track</dd>
             <dt><kbd>/</kbd></dt><dd>Search the block list (↑ ↓ step through matches, ↵ back to timeline, Esc clears)</dd>
             <dt><kbd>G</kbd> / <kbd>⇧</kbd><kbd>G</kbd></dt><dd>Playhead to block start / end</dd>
-            <dt>Hold <kbd>H</kbd></dt><dd data-pc="Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on. Snaps to the waveform unless snapping (B) is off; hold Alt or Ctrl as you release to skip it once">Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on. Snaps to the waveform unless snapping (B) is off; hold ⌥ as you release to skip it once</dd>
-            <dt><kbd>⇧</kbd><kbd>H</kbd></dt><dd>Change the hold-to-mark reaction offset</dd>
+            <dt class="transcribe-only">Hold <kbd>H</kbd></dt><dd class="transcribe-only" data-pc="Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on. Snaps to the waveform unless snapping (B) is off; hold Alt or Ctrl as you release to skip it once">Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on. Snaps to the waveform unless snapping (B) is off; hold ⌥ as you release to skip it once</dd>
+            <dt class="transcribe-only"><kbd>⇧</kbd><kbd>H</kbd></dt><dd class="transcribe-only">Change the hold-to-mark reaction offset</dd>
             <dt><kbd>L</kbd></dt><dd>Loop this block and play. ↵ to type, Esc when done ends the loop</dd>
             <dt><kbd>O</kbd> <kbd>F</kbd> <kbd>B</kbd></dt><dd>Loop (stays on) · follow playhead · snapping on / off (dragging and H)</dd>
             <dt><kbd>I</kbd></dt><dd>Show / hide reading speed (CPS)</dd>

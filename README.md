@@ -13,6 +13,7 @@
 
 - [Getting started](#getting-started)
 - [Your first script](#your-first-script)
+- [Modes: Transcribe and Write](#modes-transcribe-and-write)
 - [Transcribing audio description](#transcribing-audio-description)
   - [Hold-to-mark](#hold-to-mark)
   - [Looping a block](#looping-a-block)
@@ -20,7 +21,7 @@
 - [Files with several audio tracks](#files-with-several-audio-tracks)
 - [Other handy features](#other-handy-features)
 - [Keyboard shortcuts](#keyboard-shortcuts)
-  - [Windows and Linux](#windows-and-linux)
+  - [Keys on Mac, Windows and Linux](#keys-on-mac-windows-and-linux)
 - [Supported files](#supported-files)
 - [Privacy](#privacy)
 - [Updating](#updating)
@@ -52,19 +53,34 @@ To stop it, run `docker compose down`. To use a different port, start it with
 
 ## Your first script
 
-1. **Open a video or audio file** with `⌘/Ctrl+⇧O`, or drop it on the window. A waveform
+1. **Open a video or audio file** with `Ctrl/Cmd+Shift+O`, or drop it on the window. A waveform
    of the audio appears on the timeline.
-2. **Open existing subtitles** with `⌘/Ctrl+O` (`.srt` or `.vtt`), or start from nothing.
-3. **Move around** with `←` `→` (one frame), `⇧←` `⇧→` (3 seconds) and `⌥⇧←` `⌥⇧→`
+2. **Open existing subtitles** with `Ctrl/Cmd+O` (`.srt` or `.vtt`), or start from nothing.
+3. **Move around** with `←` `→` (one frame), `Shift+←` `Shift+→` (3 seconds) and `Alt+Shift+←` `Alt+Shift+→`
    (previous / next block).
-4. **Write** by pressing `↵`. This creates a block at the playhead, or edits the block
-   already there. Press `Esc` or `↵` when you're done.
-5. **Export** with `⌘/Ctrl+S` (SRT) or `⌘/Ctrl+⇧S` (VTT).
+4. **Write** by pressing `Enter`. This creates a block at the playhead, or edits the block
+   already there. Press `Esc` or `Enter` when you're done.
+5. **Export** with `Ctrl/Cmd+S` (SRT) or `Ctrl/Cmd+Shift+S` (VTT).
 
 Your work is saved in the browser as you go, so reloading the page keeps your blocks.
 You'll need to reopen the media file after a reload.
 
 Press `?` at any time to see every shortcut.
+
+## Modes: Transcribe and Write
+
+The switch next to the Scribecue name picks what you're doing, and shows only the features
+for it. Your choice is remembered.
+
+| | Transcribe | Write |
+| --- | --- | --- |
+| For | Existing audio description, at its original timing | New audio description |
+| [Hold-to-mark](#hold-to-mark) (`H`, `Shift+H`) | ✓ | |
+| [Text to speech](#text-to-speech) (`V`, `Shift+V`, `[` `]`, reading times, block speeds) | | ✓ |
+| Everything else | ✓ | ✓ |
+
+Switching only hides features. Block speeds and settings are kept for when you switch
+back. Pressing a key from the other mode tells you which mode it's in.
 
 ## Transcribing audio description
 
@@ -72,17 +88,19 @@ Press `?` at any time to see every shortcut.
 
 ![Hold-to-mark: a dashed block grows on the timeline while H is held](docs/screenshots/hold-to-mark.png)
 
+In Transcribe mode:
+
 1. Play the file with the description track selected.
 2. **Hold `H`** while the narrator speaks a line. A dashed block grows on the timeline.
 3. **Let go** when they stop. Playback pauses and the new block opens for typing.
-4. Type the line and press `↵` or `Esc`. Playback carries on.
+4. Type the line and press `Enter` or `Esc`. Playback carries on.
 
 Scribecue tidies up the timing for you:
 
 | | What happens | Change it with |
 | --- | --- | --- |
-| **Reaction offset** | Both edges move back 200 ms, because your key press comes a moment after you hear the voice. | `⇧H`, or click `H −200ms` under the video (0–300 ms) |
-| **Snapping** | Each edge moves to where the waveform rises or falls sharply within 300 ms, so it lands on the narrator, not your key press. | `B`, or click `SNAP` (turns off all snapping, including when dragging). Hold `⌥` as you let go to skip it once |
+| **Reaction offset** | Both edges move back 200 ms, because your key press comes a moment after you hear the voice. | `Shift+H`, or click `H −200ms` under the video (0–300 ms) |
+| **Snapping** | Each edge moves to where the waveform rises or falls sharply within 300 ms, so it lands on the narrator, not your key press. | `B`, or click `SNAP` (turns off all snapping, including when dragging). Hold `Alt` as you let go to skip it once |
 | **Starting from pause** | If you pause first and then hold `H`, the block starts exactly where you paused, with no offset. | Turn snapping off to keep it exactly there |
 | **No overlaps** | A new block is trimmed to fit the gap it starts in. | |
 
@@ -91,7 +109,7 @@ Your offset and snapping choices are remembered.
 ### Looping a block
 
 Press `L`, or click the loop button under the video, to loop the block under the playhead
-(or the selected block). Press `↵` to type
+(or the selected block). Press `Enter` to type
 while it repeats, then `Esc` when you're done, and the loop stops. Press `L` again to stop
 it without editing.
 
@@ -100,17 +118,17 @@ For a loop that stays on until you turn it off, use `O` instead.
 ### Text to speech
 
 Hear your lines read aloud, to check where each one sits and whether it fits before the
-next piece of dialogue. It's off until you turn it on: press `⌥⇧V`, or click `TTS` under
-the video, then tick **Turn on text to speech**.
+next piece of dialogue. It's part of Write mode, and off until you turn it on: press
+`Alt+Shift+V`, or click `TTS` under the video, then tick **Turn on text to speech**.
 
 ![The text to speech panel, with voice, speed and Update all timings](docs/screenshots/text-to-speech.png)
 
 | Key | Action |
 | --- | --- |
 | `V` | Read the block from its start, with the video playing. Playback stops at the block's end, or where the reading ends if it runs over |
-| `⇧V` | Read the block, then set its end to where the reading finishes |
+| `Shift+V` | Read the block, then set its end to where the reading finishes |
 | `[` `]` | Make the selected block's reading slower / faster |
-| `⌥⇧V` | Choose the voice and speed |
+| `Alt+Shift+V` | Choose the voice and speed |
 
 - **Speed:** very slow (−30%), slow (−15%), normal, fast (+15%), very fast (+30%), and
   experimental +50% and +100%. The voice also follows the playback speed.
@@ -121,7 +139,7 @@ the video, then tick **Turn on text to speech**.
   files, as notes that other programs ignore. SRT files can't store them.
 - **Read blocks aloud while playing:** each block is read as the playhead reaches it,
   with the original audio turned down. You can turn either part off.
-- **Ends set from the reading:** while text to speech is on, a new block made with `↵` or
+- **Ends set from the reading:** while text to speech is on, a new block made with `Enter` or
   `N` takes its end from how long the reading takes, and keeps following it as you type
   or change the speed. An `auto` tag next to OUT shows this. It never runs into the next
   block. Once you set the end yourself, by dragging, `S`, `E` / `R` or typing in OUT,
@@ -129,7 +147,7 @@ the video, then tick **Turn on text to speech**.
   are never changed. You can turn this off in the text to speech panel.
 - **Update all timings:** a button in the text to speech panel sets the end of every block
   with text from its reading, using each block's own speed. It asks first, because it also
-  changes blocks marked with `H` or opened from a file, and `⌘Z` undoes it. Ends never run
+  changes blocks marked with `H` or opened from a file, and `Ctrl/Cmd+Z` undoes it. Ends never run
   into the next block. Tick **Read each block silently first** for exact lengths. That
   takes about as long as reading them all, shows its progress, and can be stopped.
 - **Timing check:** the editor shows how long the reading takes, such as `TTS 2.9 s`, in red
@@ -137,8 +155,9 @@ the video, then tick **Turn on text to speech**.
   means it's an estimate. It becomes exact once the
   block has been read, and the estimates get more accurate for a voice as you use it.
 
-Scribecue uses the voices built into your computer, so the text stays on it. macOS and
-Windows come with several voices. Linux may need speech voices installed.
+Scribecue uses the voices built into your computer, so the text stays on it. Mac and
+Windows come with several. On Linux, browsers read through speech-dispatcher, so you may
+need to install it with a voice such as espeak-ng from your distribution's packages.
 
 **Online voices** are a separate opt-in in the same panel. They often sound more natural,
 but each block's text is sent to the company that runs the voice, such as Google or
@@ -147,16 +166,21 @@ They come from the browser, so which ones you get depends on where you open Scri
 Microsoft Edge has dozens, Chrome has a few Google voices, and Safari and Firefox have
 none. They only work while you're online.
 
-For better voices that stay on a Mac, open System Settings → Accessibility → Spoken
-Content, click ⓘ next to **System voice**, and download an "Enhanced" or "Premium" voice.
-Then reload Scribecue. Not every browser lists these newer voices.
+To add more voices that stay on your computer, then reload Scribecue:
+
+- **Mac:** System Settings → Accessibility → Spoken Content, click ⓘ next to **System
+  voice**, and download an "Enhanced" or "Premium" voice.
+- **Windows:** Settings → Time & language → Speech, then **Add voices**.
+- **Linux:** install more speech-dispatcher voices from your distribution's packages.
+
+Not every browser lists every installed voice.
 
 Text to speech is for checking timing. It doesn't create an audio file.
 
 ## Files with several audio tracks
 
 When a file has more than one audio track, such as the original mix and an audio
-description mix, an **Audio** picker appears under the video. Press `T` / `⇧T` to switch
+description mix, an **Audio** picker appears under the video. Press `T` / `Shift+T` to switch
 tracks. The waveform always shows the track you're hearing.
 
 A track marked as audio description is picked automatically. Scribecue looks for
@@ -176,7 +200,7 @@ afterwards is instant. Safari switches tracks itself.
 ## Other handy features
 
 - **Search:** the box above the list filters blocks by text, or by number with `#12`.
-  Press `/` to jump to it. `⇧F` opens quick navigation, and `⌥⇧J` jumps to a timecode.
+  Press `/` to jump to it. `Shift+F` opens quick navigation, and `Alt+Shift+J` jumps to a timecode.
 - **Reading speed:** the CPS column turns amber above 17 characters per second and red
   above 21. Press `I`, or click `CPS`, to hide it.
 - **Player controls:** the buttons under the video step to the previous or next block,
@@ -185,15 +209,16 @@ afterwards is instant. Safari switches tracks itself.
 - **Copy a timecode:** click the clock under the video. To set a block's start or end to
   the playhead, press `A` or `S`.
 - **Mouse:** drag a block to move it, drag an edge to resize it, or drag across empty
-  space to draw a new block. Scroll to pan, and `⌘/Ctrl`+scroll or pinch to zoom.
+  space to draw a new block. Scroll to pan, and `Ctrl/Cmd`+scroll or pinch to zoom.
 
 ## Keyboard shortcuts
 
 ![The keyboard shortcuts overlay](docs/screenshots/shortcuts.png)
 
 The layout follows the
-[Frazier Mac cheat sheet](https://www.videotovoice.com/docs/en/cheatsheet/mac.html).
-The tables use Mac symbols; on Windows and Linux, see [below](#windows-and-linux).
+[Frazier cheat sheet](https://www.videotovoice.com/docs/en/cheatsheet/mac.html).
+See [Keys on Mac, Windows and Linux](#keys-on-mac-windows-and-linux) for how the modifier
+keys are named on each system.
 
 <details open>
 <summary><strong>Timeline</strong></summary>
@@ -202,15 +227,15 @@ The tables use Mac symbols; on Windows and Linux, see [below](#windows-and-linux
 | --- | --- |
 | `Space` | Play / pause |
 | `←` `→` | One frame back / forward |
-| `⇧←` `⇧→` | Three seconds back / forward |
-| `⌥⇧←` `⌥⇧→` | Previous / next block |
-| `Fn←` `Fn→` (Home / End) | Beginning / end of the video |
-| `⌥⇧J` | Jump to a timecode (`hh:mm:ss.mmm`, `hh:mm:ss:ff`, `mm:ss` or seconds) |
-| `⇧F` | Quick navigation: find a block by text or number |
+| `Shift+←` `Shift+→` | Three seconds back / forward |
+| `Alt+Shift+←` `Alt+Shift+→` | Previous / next block |
+| `Home` `End` | Beginning / end of the video (`Fn+←` `Fn+→` on Mac laptops) |
+| `Alt+Shift+J` | Jump to a timecode (`hh:mm:ss.mmm`, `hh:mm:ss:ff`, `mm:ss` or seconds) |
+| `Shift+F` | Quick navigation: find a block by text or number |
 | `+` `-` | Faster / slower playback |
-| `↵` | Create or edit a block |
-| `⌥⇧D` | Delete a block (asks first) |
-| `⇧O` or `?` | Show all shortcuts |
+| `Enter` | Create or edit a block |
+| `Alt+Shift+D` | Delete a block (asks first) |
+| `Shift+O` or `?` | Show all shortcuts |
 
 </details>
 
@@ -219,14 +244,14 @@ The tables use Mac symbols; on Windows and Linux, see [below](#windows-and-linux
 
 | Key | Action |
 | --- | --- |
-| `⇥` `⇧⇥` | Next / previous field (text → IN → OUT) |
-| `Esc` or `↵` | Close the editor |
-| `⇧↵` | New line |
+| `Tab` `Shift+Tab` | Next / previous field (text → IN → OUT) |
+| `Esc` or `Enter` | Close the editor |
+| `Shift+Enter` | New line |
 | `↑` `↓` | Previous / next block (from the first / last line) |
-| `⌥⇧←` `⌥⇧→` | Move the block one frame back / forward |
-| `⌥Space` | Play / pause while typing |
-| `⌘B` `⌘I` `⌘U` | Bold / italic / underline |
-| `⌘Z` `⌘⇧Z` | Undo / redo |
+| `Alt+Shift+←` `Alt+Shift+→` | Move the block one frame back / forward |
+| `Alt+Space` | Play / pause while typing |
+| `Ctrl/Cmd+B` `Ctrl/Cmd+I` `Ctrl/Cmd+U` | Bold / italic / underline |
+| `Ctrl/Cmd+Z` `Ctrl/Cmd+Shift+Z` | Undo / redo |
 
 </details>
 
@@ -236,54 +261,48 @@ The tables use Mac symbols; on Windows and Linux, see [below](#windows-and-linux
 | Key | Action |
 | --- | --- |
 | Hold `H` | [Hold-to-mark](#hold-to-mark) a block while the narrator speaks |
-| `⇧H` | Change the hold-to-mark reaction offset |
+| `Shift+H` | Change the hold-to-mark reaction offset |
 | `L` | [Loop this block](#looping-a-block) until you finish editing it |
 | `N` | New block at the playhead |
 | `A` / `S` | Set start / end to the playhead |
-| `Q` `W` | Start −/+ 100 ms (with `⇧`: 10 ms) |
-| `E` `R` | End −/+ 100 ms (with `⇧`: 10 ms) |
-| `,` `.` | Move the block −/+ 100 ms (with `⇧`: 10 ms) |
+| `Q` `W` | Start −/+ 100 ms (with `Shift`: 10 ms) |
+| `E` `R` | End −/+ 100 ms (with `Shift`: 10 ms) |
+| `,` `.` | Move the block −/+ 100 ms (with `Shift`: 10 ms) |
 | `X` / `M` | Split at the playhead / merge with the next block |
-| `Del` | Delete the block straight away (undo with `⌘Z`) |
+| `Del` | Delete the block straight away (undo with `Ctrl/Cmd+Z`) |
 | `↑` `↓` or `K` `J` | Previous / next block |
 | `PgUp` `PgDn` | Jump 10 blocks |
-| `G` / `⇧G` | Playhead to the block's start / end |
+| `G` / `Shift+G` | Playhead to the block's start / end |
 | `C` | Select the block under the playhead |
-| `⇧Space` | Play just the selected block |
-| `T` / `⇧T` | Next / previous audio track |
+| `Shift+Space` | Play just the selected block |
+| `T` / `Shift+T` | Next / previous audio track |
 | `/` | Search the block list |
 | `O` | Loop on / off |
 | `F` | Follow the playhead on / off |
 | `B` | Snapping on / off |
 | `I` | Reading speed (CPS) on / off |
-| `V` / `⇧V` | [Read the block aloud](#text-to-speech) / fit the block to the reading |
+| `V` / `Shift+V` | [Read the block aloud](#text-to-speech) / fit the block to the reading |
 | `[` `]` | Make the block's reading slower / faster |
-| `⌥⇧V` | Text to speech settings |
-| `⌥=` `⌥-` `⌥0` | Zoom the timeline in / out / to fit |
+| `Alt+Shift+V` | Text to speech settings |
+| `Alt+=` `Alt+-` `Alt+0` | Zoom the timeline in / out / to fit |
 | `\` | Reset speed to 1× |
 
 </details>
 
-### Windows and Linux
+### Keys on Mac, Windows and Linux
 
-The keys are in the same places. Scribecue shows them with Windows and Linux names in the
-app, so the shortcuts overlay and tooltips say `Ctrl`, `Alt` and `Shift`.
+The keys are in the same places on every system. `Ctrl/Cmd` means `Ctrl` on Windows and
+Linux and `Cmd` (⌘) on a Mac. `Alt` is `Option` (⌥) on a Mac. Scribecue shows the right
+names for your system in the app.
 
-| On a Mac | On Windows and Linux |
-| --- | --- |
-| `⌘` | `Ctrl` |
-| `⌥` (Option) | `Alt` |
-| `⇧` | `Shift` |
-| `Fn←` `Fn→` | `Home` `End` |
+A few keys differ, to avoid clashes with the system:
 
-A few keys are different, to avoid clashes with the system:
+- **Play / pause while typing:** `Alt+Space` on a Mac, `Ctrl+Space` on Windows and Linux,
+  because Windows keeps `Alt+Space` for the window menu.
+- **Turning snapping off for one drag or mark:** hold `Alt`, or `Ctrl` on Windows and
+  Linux. Some Linux desktops move the whole window when you drag with `Alt` held.
 
-- **Play / pause while typing** is `Ctrl+Space`, because Windows keeps `Alt+Space` for the
-  window menu.
-- **Turning snapping off for one drag or mark:** hold `Alt` or `Ctrl`. Some Linux desktops
-  move the whole window when you drag with `Alt` held.
-
-If `Alt+Shift` switches your keyboard layout on Windows, the block shortcuts still have
+If `Alt+Shift` switches your keyboard layout on Windows, the block shortcuts also have
 other keys: `↑` `↓` or `K` `J` for previous / next block, and `Del` to delete. You can also
 drop a media file on the window instead of pressing `Ctrl+Shift+O`.
 

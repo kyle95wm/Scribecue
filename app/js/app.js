@@ -13,6 +13,8 @@ const toastEl = $('toast'), helpEl = $('help'), fileSubs = $('fileSubs'), fileVi
 
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform);
 // Mac key symbols as Windows and Linux users know them: ⌥⇧← becomes Alt+Shift+←.
+const writing = () => S.mode === 'write';
+const ttsOn = () => tts.on && writing();
 const pcKeys = (s) => (IS_MAC ? s : s
   .replace(/⌘(?=\S)/g, 'Ctrl+').replace(/⌘/g, 'Ctrl')
   .replace(/⌥(?=\S)/g, 'Alt+').replace(/⌥/g, 'Alt')
@@ -42,7 +44,12 @@ const C = Object.fromEntries(['panel', 'line', 'dim', 'faint', 'accent', 'bg'].m
 C.wave = '#3b7f86';
 C.grid = '#1b2028';
 
+// Modes show the features for the task at hand. Transcribe: existing audio description
+// at its original timing, with hold-to-mark. Write: new audio description, with text to
+// speech. Someone who already turned text to speech on starts in Write.
+const savedMode = (() => { try { return localStorage.getItem('scribecue.mode'); } catch { return null; } })();
 const S = {
+  mode: savedMode === 'write' || savedMode === 'transcribe' ? savedMode : tts.on ? 'write' : 'transcribe',
   cues: [],
   sel: null,
   activeId: null,
@@ -356,7 +363,7 @@ function newCue() {
   pushUndo();
   const c = mk(t, end);
   // A block written with text to speech on takes its end from the reading.
-  if (tts.on && tts.autoEnd) c.auto = true;
+  if (ttsOn() && tts.autoEnd) c.auto = true;
   S.cues.push(c);
   changed();
   select(c.id, { seek: false });
@@ -453,9 +460,9 @@ function updateEditor() {
   edIdx.textContent = `#${i + 1}`;
   if (document.activeElement !== edStart) edStart.value = fmtTime(c.start, '.');
   if (document.activeElement !== edEnd) edEnd.value = fmtTime(c.end, '.');
-  edAuto.hidden = !(c.auto && tts.on && tts.autoEnd);
+  edAuto.hidden = !(c.auto && ttsOn() && tts.autoEnd);
   edDur.textContent = `${(c.end - c.start).toFixed(3)} s`;
-  edSpeedWrap.hidden = !tts.on;
+  edSpeedWrap.hidden = !ttsOn();
   edSpeed.options[0].textContent = `default (${speedLabel(tts.speed)})`;
   if (document.activeElement !== edSpeed) edSpeed.value = c.speed ? String(c.speed) : '';
   if (!edit || edit.id !== c.id) edText.value = c.text;
@@ -470,7 +477,7 @@ function updateEditor() {
     edStats.append(s, ' · ');
   };
   if (S.cps) add(`CPS ${v.toFixed(1)}`, cpsClass(v));
-  if (tts.on && spoken(c.text)) {
+  if (ttsOn() && spoken(c.text)) {
     // How long the voice takes to read it: "~" until it has actually been read.
     const { secs, exact } = speechLength(c.text, c.speed);
     add(`TTS ${exact ? '' : '~'}${secs.toFixed(1)} s`, 'tts ' + (secs > c.end - c.start + 0.05 ? 'bad' : ''));
@@ -735,9 +742,9 @@ function fillRow(r, c, i) {
   const [n, t, tx, cp] = r.children;
   n.textContent = i + 1;
   t.children[0].textContent = fmtTime(c.start, '.');
-  t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (tts.on && c.speed ? ` · TTS ${speedLabel(c.speed)}` : '');
+  t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${speedLabel(c.speed)}` : '');
   // Red when the reading is longer than the block.
-  t.children[1].classList.toggle('over', tts.on && !!spoken(c.text) && speechLength(c.text, c.speed).secs > c.end - c.start + 0.05);
+  t.children[1].classList.toggle('over', ttsOn() && !!spoken(c.text) && speechLength(c.text, c.speed).secs > c.end - c.start + 0.05);
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
   r.hidden = !matches(c, i);
@@ -899,7 +906,7 @@ function drawCues(W) {
     el.classList.toggle('sel', c.id === S.sel);
     el.classList.toggle('active', c.id === S.activeId);
     el.classList.toggle('faded', !matches(c, i));
-    el.children[1].textContent = w > 28 ? '#' + (i + 1) + (tts.on && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') : '';
+    el.children[1].textContent = w > 28 ? '#' + (i + 1) + (ttsOn() && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') : '';
     if (el._text !== c.text) { el._text = c.text; el.children[2].textContent = c.text; }
   }
   for (const [id, el] of cueEls) if (!seen.has(id)) { el.remove(); cueEls.delete(id); }
@@ -1098,10 +1105,10 @@ function updateInd() {
     ['speed', `${S.rate.toFixed(2)}×`, S.rate !== 1],
     ['follow', 'FOLLOW', S.follow],
     ['loop', 'LOOP', S.loop],
-    ['offset', `H −${Math.round(S.offset * 1000)}ms`, false],
+    ...(writing() ? [] : [['offset', `H −${Math.round(S.offset * 1000)}ms`, false]]),
     ['cps', 'CPS', S.cps],
     ['snap', 'SNAP', S.snap],
-    ['tts', tts.on && tts.speed !== 1 ? `TTS ${speedLabel(tts.speed)}` : 'TTS', tts.on],
+    ...(writing() ? [['tts', tts.on && tts.speed !== 1 ? `TTS ${speedLabel(tts.speed)}` : 'TTS', tts.on]] : []),
   ];
   ind.textContent = '';
   for (const [key, label, on] of items) {
@@ -1195,6 +1202,7 @@ function stopLoop() {
 // video playing alongside. Playback stops at the block's end, or where the reading
 // ends if it runs over. ⇧V then sets the block's end to where the reading finished.
 function speakBlock(fit) {
+  if (!writing()) return modeOnly('Text to speech', 'write');
   if (!tts.on) { openTts(); return toast('Turn on text to speech to hear blocks read aloud'); }
   const c = cueAt(now()) || selCue();
   if (!c) return toast('No text block here — move the playhead into one or select one');
@@ -1238,7 +1246,7 @@ function fitToSpeech(c, secs) {
 // Blocks marked auto take their end from how long the reading takes, until the end is
 // set by hand. It never runs into the next block.
 function fitAuto(c) {
-  if (!c?.auto || !tts.on || !tts.autoEnd || !spoken(c.text)) return false;
+  if (!c?.auto || !ttsOn() || !tts.autoEnd || !spoken(c.text)) return false;
   const i = idx(c.id);
   if (i < 0) return false;
   const { hi } = bounds(i);
@@ -1318,6 +1326,7 @@ function setBlockSpeed(c, v) {
 }
 // [ and ]: one speed step slower or faster for the selected block.
 function stepBlockSpeed(d) {
+  if (!writing()) return modeOnly('Text to speech', 'write');
   if (!tts.on) return toast('Turn on text to speech first (⌥⇧V)');
   const c = needSel(); if (!c) return;
   const list = SPEEDS.map(([s]) => s);
@@ -1335,7 +1344,7 @@ edSpeed.addEventListener('change', () => {
 
 // While playing, read each block as the playhead reaches its start.
 function liveSpeech(prevT, t) {
-  if (!tts.on || !tts.live || tts.speaking?.manual) return;
+  if (!ttsOn() || !tts.live || tts.speaking?.manual) return;
   const a = cueAt(t);
   if (a && prevT <= a.start && t > a.start && t - prevT < 0.5 && tts.speaking?.id !== a.id) speak(a.text, { id: a.id, speed: a.speed });
 }
@@ -1346,6 +1355,41 @@ function duckAudio(on) {
   video.volume = v;
   altAudio.volume = v;
 }
+
+// ---------------------------------------------------------------- modes
+
+const MODE_NAMES = { transcribe: 'Transcribe', write: 'Write' };
+function modeOnly(feature, mode) {
+  toast(`${feature} is part of ${MODE_NAMES[mode]} mode. Switch modes at the top`);
+}
+function setMode(m, quiet = false) {
+  if (!MODE_NAMES[m]) return;
+  S.mode = m;
+  try { localStorage.setItem('scribecue.mode', m); } catch { /* ignore */ }
+  document.body.classList.toggle('mode-write', m === 'write');
+  document.body.classList.toggle('mode-transcribe', m === 'transcribe');
+  for (const b of document.querySelectorAll('#modeSw button')) {
+    const on = b.dataset.mode === m;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', on);
+  }
+  if (m === 'write') { holdEnd(true); fitAllAuto(); } else stopSpeech();
+  renderList();
+  updateEditor();
+  updateInd();
+  tlDirty = true;
+  if (!quiet) {
+    toast(m === 'write'
+      ? `Write mode: text to speech${tts.on ? '' : ' (turn it on with ⌥⇧V or TTS under the video)'}, reading times and block speeds`
+      : 'Transcribe mode: hold H while the narrator speaks to mark each line');
+  }
+}
+document.getElementById('modeSw').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  b.blur();
+  setMode(b.dataset.mode);
+});
 
 // ---------------------------------------------------------------- hold-to-mark
 
@@ -1359,6 +1403,7 @@ markEl.hidden = true;
 
 function holdStart() {
   if (hold) return;
+  if (writing()) return modeOnly('Hold-to-mark', 'transcribe');
   const wasPlaying = isPlaying();
   if (!wasPlaying) play();
   hold = { t0: now() - (wasPlaying ? S.offset * S.rate : 0) };
@@ -1420,6 +1465,7 @@ function waveEdge(t, rising) {
 }
 
 function cycleOffset() {
+  if (writing()) return modeOnly('Hold-to-mark', 'transcribe');
   S.offset = OFFSETS[(OFFSETS.indexOf(S.offset) + 1) % OFFSETS.length];
   try { localStorage.setItem('scribecue.offset', S.offset); } catch { /* ignore */ }
   updateInd();
@@ -1944,7 +1990,7 @@ document.addEventListener('keydown', (e) => {
       case 'ArrowRight': selectRel(1); break;
       case 'KeyJ': openPalette('time'); break;
       case 'KeyD': confirmDelete(); break;
-      case 'KeyV': openTts(); break;
+      case 'KeyV': if (writing()) openTts(); else modeOnly('Text to speech', 'write'); break;
       case 'KeyM': case 'KeyC': toast(`${e.code === 'KeyM' ? 'Markers' : 'Comments'} are not part of this editor`); break;
       default: handled = false;
     }
@@ -2085,6 +2131,7 @@ S.pps = Math.max(20, tl.clientWidth / 20);
 changed();
 updateInd();
 document.body.classList.toggle('no-cps', !S.cps);
+setMode(S.mode, true);
 durEl.textContent = S.hasVideo ? fmtTime(duration(), '.') : '--:--:--.---';
 if (restored) {
   select(S.cues[0].id, { seek: false });
