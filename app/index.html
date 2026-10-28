@@ -21,11 +21,12 @@
       <span id="videoName" class="dim" title="Media file">no media</span>
     </div>
     <nav>
-      <button data-act="openSubs" data-tip="Open a script saved as SRT or VTT ({mod}O)">Open script <kbd><span class="mod"></span>O</kbd></button>
+      <button data-act="openSubs" data-tip="Open a Scribecue project, or a script saved as SRT or VTT ({mod}O)">Open <kbd><span class="mod"></span>O</kbd></button>
       <button data-act="openVideo" data-tip="Open a video or audio file to time against. It stays on your machine ({mod}⇧O)">Open media <kbd><span class="mod"></span>⇧O</kbd></button>
-      <button data-act="exportSrt" data-tip="Save the script as an SRT file ({mod}S)">Export SRT <kbd><span class="mod"></span>S</kbd></button>
-      <button data-act="exportVtt" data-tip="Save the script as a WebVTT file, which also keeps block speeds ({mod}⇧S)">VTT <kbd><span class="mod"></span>⇧S</kbd></button>
-      <button data-act="clear" class="tip-end" data-tip="Remove every text block (asks first). Undo with {mod}Z">Clear</button>
+      <button data-act="saveProject" data-tip="Save the project: blocks, settings and where you were ({mod}S). Save as a new file with {mod}⇧S">Save <kbd><span class="mod"></span>S</kbd></button>
+      <button data-act="exportSrt" data-tip="Export the script as an SRT file, to hand on or for the final output ({mod}E)">Export SRT <kbd><span class="mod"></span>E</kbd></button>
+      <button data-act="exportVtt" class="tip-end" data-tip="Export the script as a WebVTT file, which also keeps block speeds ({mod}⇧E)">VTT <kbd><span class="mod"></span>⇧E</kbd></button>
+      <button data-act="newProject" class="tip-end" data-tip="Start a new project (asks first). Undo with {mod}Z">New</button>
       <button data-act="setup" class="tip-end" data-tip="Run the welcome setup again: your task, its tools and update checks">Setup</button>
       <button data-act="help" class="hl tip-end" data-tip="Show all keyboard shortcuts (? or ⇧O)">Shortcuts <kbd>?</kbd></button>
     </nav>
@@ -110,13 +111,24 @@
       <kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>⌥⇧←</kbd><kbd>⌥⇧→</kbd> block
       <kbd>↵</kbd> create/edit <kbd>⇧F</kbd> find <kbd>⇧O</kbd> all keys
     </span>
-    <span id="updNotice" class="updnotice" hidden>
-      <span id="updNoticeText"></span>
-      <button id="updNoticeOpen" class="link">How to update</button>
-      <button id="updNoticeClose" class="link" aria-label="Hide until the next version" data-tip="Hide until the next version">×</button>
-    </span>
     <button id="verBtn" class="ver tip-end"></button>
   </footer>
+
+  <div id="updAlert" class="updalert" role="alertdialog" aria-labelledby="updAlertTitle" hidden>
+    <h2 id="updAlertTitle"></h2>
+    <p id="updAlertHave" class="dim"></p>
+    <p>To update, run these in the Scribecue folder, then reload this page:</p>
+    <pre><code>git pull
+docker compose up -d --build</code></pre>
+    <p class="dim small">Your text blocks and settings are kept. If you downloaded a zip rather than using
+      git, download the latest release instead.</p>
+    <div class="updbtns">
+      <a id="updAlertNotes" class="btnlink" target="_blank" rel="noopener noreferrer">What's new</a>
+      <span class="grow"></span>
+      <button id="updAlertSkip">Skip this version</button>
+      <button id="updAlertLater" class="hl">Later</button>
+    </div>
+  </div>
 
   <dialog id="welcome" class="updbox wizard" aria-labelledby="wzTitle">
     <div class="wzhead"><span id="wzStep" class="dim small"></span><button id="wzSkip" class="link">Skip setup</button></div>
@@ -178,6 +190,7 @@
         <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
         <dt><kbd>↵</kbd></dt><dd>Create a block at the playhead, or edit the one there</dd>
         <dt id="wzModeKey"></dt><dd id="wzModeDesc"></dd>
+        <dt><kbd><span class="mod"></span>S</kbd></dt><dd>Save your work as a project</dd>
         <dt><kbd>?</kbd></dt><dd>All keyboard shortcuts</dd>
       </dl>
       <p class="dim small">Run this again any time with <strong>Setup</strong> at the top.</p>
@@ -319,8 +332,9 @@ docker compose up -d --build</code></pre>
           </dl>
           <h3>File</h3>
           <dl>
-            <dt><kbd><span class="mod"></span>O</kbd> <kbd><span class="mod"></span>⇧O</kbd></dt><dd>Open SRT/VTT · open video/audio</dd>
-            <dt><kbd><span class="mod"></span>S</kbd> <kbd><span class="mod"></span>⇧S</kbd></dt><dd>Export SRT · export VTT</dd>
+            <dt><kbd><span class="mod"></span>O</kbd> <kbd><span class="mod"></span>⇧O</kbd></dt><dd>Open a project or SRT/VTT · open video/audio</dd>
+            <dt><kbd><span class="mod"></span>S</kbd> <kbd><span class="mod"></span>⇧S</kbd></dt><dd>Save project · save project as</dd>
+            <dt><kbd><span class="mod"></span>E</kbd> <kbd><span class="mod"></span>⇧E</kbd></dt><dd>Export SRT · export VTT</dd>
           </dl>
           <h3 class="write-only">Text to speech</h3>
           <dl class="write-only">
@@ -368,7 +382,7 @@ docker compose up -d --build</code></pre>
     </div>
   </div>
 
-  <input type="file" id="fileSubs" accept=".srt,.vtt,.txt" hidden>
+  <input type="file" id="fileSubs" accept=".scribecue,.srt,.vtt,.txt" hidden>
   <input type="file" id="fileVideo" accept="video/*,audio/*,.mkv,.mov,.m4a" hidden>
 </body>
 </html>

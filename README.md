@@ -152,13 +152,33 @@ To hear a block again while you type, press `L`. It loops until you close the bl
 
 ### Saving
 
-Your work is saved in the browser as you go, so reloading keeps your blocks. After a reload,
-open the video again. To save a file:
+**Save your work as a project** with `Ctrl/Cmd+S`. A project (`.scribecue`) keeps
+everything: the blocks, each block's text to speech speed and whether its end follows the
+reading, the mode and its settings, where you were, and which video it belongs to. Keep
+one per programme, and open any of them with `Ctrl/Cmd+O`.
 
-- `Ctrl/Cmd+Shift+S` saves WebVTT, which also keeps each block's text to speech speed.
-- `Ctrl/Cmd+S` saves SRT.
+- The first save asks where to put the file. After that, `Ctrl/Cmd+S` saves straight back
+  to it, even after a reload. `Ctrl/Cmd+Shift+S` saves a copy under a new name.
+- A dot after the project name at the top, such as `lights-ad.scribecue •`, means there
+  are changes you haven't saved yet.
+- Browsers can't remember where a video is, so after opening a project, open its video
+  with `Ctrl/Cmd+Shift+O`. Scribecue tells you which one, and warns you if you pick a
+  different file.
+- **New** at the top starts a fresh project. It asks first, and `Ctrl/Cmd+Z` undoes it.
+
+Saving in place needs Chrome or Edge. Other browsers download a copy of the project each
+time you save.
+
+**Export** when the script is finished, or to hand it to someone who doesn't use
+Scribecue, such as another writer or a QC reviewer:
+
+- `Ctrl/Cmd+E` exports SRT.
+- `Ctrl/Cmd+Shift+E` exports WebVTT, which also keeps each block's text to speech speed.
 - With a [Piper voice](#piper-voices), **Export description track** in the text to speech
   panel saves the readings as a WAV file.
+
+`Ctrl/Cmd+O` also opens SRT and VTT files. Your work in progress is saved in the browser
+as you go too, so reloading the page doesn't lose anything.
 
 ### Getting around
 
@@ -415,6 +435,9 @@ keys are named on each system.
 | `Alt+Space` | Play / pause while typing |
 | `Ctrl/Cmd+B` `Ctrl/Cmd+I` `Ctrl/Cmd+U` | Bold / italic / underline |
 | `Ctrl/Cmd+Z` `Ctrl/Cmd+Shift+Z` | Undo / redo |
+| `Ctrl/Cmd+S` / `Ctrl/Cmd+Shift+S` | Save the project / save it as a new file |
+| `Ctrl/Cmd+E` / `Ctrl/Cmd+Shift+E` | Export SRT / WebVTT |
+| `Ctrl/Cmd+O` / `Ctrl/Cmd+Shift+O` | Open a project or script / open a video or audio file |
 
 </details>
 
@@ -472,7 +495,8 @@ marks. Their keys show a short notice instead.
 
 | | Supported |
 | --- | --- |
-| **Subtitles** | SRT and WebVTT, to open and to export |
+| **Projects** | Scribecue projects (`.scribecue`), to open and save |
+| **Scripts** | SRT and WebVTT, to open and to export |
 | **Video and audio** | MP4, MOV, M4A, MKV, WebM and WAV, with AAC, Opus, Vorbis, FLAC, MP3 or PCM audio |
 | **Very large files** | Fine: the waveform is built by streaming the file from disk, and fills in as it goes |
 | **Other formats** | The whole file is decoded in memory, so they need to be under 2 GB |
@@ -500,8 +524,11 @@ The first time you open Scribecue, its setup asks whether it may check GitHub fo
   visit. Nothing about your files or text blocks is sent.
 - **Don't check:** Scribecue never contacts anything outside your computer.
 
-When a new version is out, the version number in the bottom right turns into **Update
-available**. Click the version number at any time to change your choice or check now.
+When a new version is out, an alert drops down at the top of the window with the update
+steps and a link to what's new. **Later** hides it until you next open Scribecue, and
+**Skip this version** hides it until a newer one comes out. The version number in the
+bottom right also turns into **Update available**. Click it at any time to see the steps,
+check now, or change your choice.
 
 To update, run these in the `Scribecue` folder, then reload the page:
 

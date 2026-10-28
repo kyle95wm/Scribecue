@@ -38,6 +38,7 @@ function ago(ms) {
 
 let toast = () => {};
 let checking = false;
+let later = false; // Later pressed: hide the alert until Scribecue is next opened
 let failed = false;
 const dlg = () => $('updates');
 
@@ -75,9 +76,15 @@ function render() {
   btn.classList.toggle('new', !!up);
   btn.dataset.tip = up ? 'A newer version of Scribecue is out. Click for what\'s new and how to update'
     : 'Scribecue version and update settings';
-  const notice = $('updNotice');
-  notice.hidden = !up || get(K_DISMISS) === up.latest;
-  if (up) $('updNoticeText').textContent = `Scribecue ${up.latest.replace(/^v/, '')} is available.`;
+  // The alert drops down at the top for people who check for updates, until they skip
+  // that version or put it off for this session.
+  const alert = $('updAlert');
+  alert.hidden = !up || get(K_DISMISS) === up.latest || later;
+  if (up) {
+    $('updAlertTitle').textContent = `Scribecue ${up.latest.replace(/^v/, '')} is available`;
+    $('updAlertHave').textContent = `You have ${VERSION}.`;
+    $('updAlertNotes').href = up.url;
+  }
 
   const opt = get(K_OPT);
   $('updAsk').hidden = opt !== null;
@@ -121,8 +128,12 @@ export function initUpdates(opts = {}) {
   toast = opts.toast || toast;
   const d = dlg();
   $('verBtn').addEventListener('click', (e) => { e.currentTarget.blur(); openUpdates(); });
-  $('updNoticeOpen').addEventListener('click', openUpdates);
-  $('updNoticeClose').addEventListener('click', () => { set(K_DISMISS, available()?.latest || null); render(); });
+  $('updAlertLater').addEventListener('click', () => { later = true; render(); });
+  $('updAlertSkip').addEventListener('click', () => {
+    set(K_DISMISS, available()?.latest || null);
+    render();
+    toast('You won’t be reminded about this version. The version number, bottom right, still shows it');
+  });
   $('updYes').addEventListener('click', () => { choose(true); d.close(); toast('Scribecue will check for updates once a day'); });
   $('updNo').addEventListener('click', () => { choose(false); d.close(); toast('Update checks are off. Turn them on from the version number, bottom right'); });
   $('updOpt').addEventListener('change', (e) => choose(e.target.checked));

@@ -1,8 +1,10 @@
 import { parseSubs, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
 import { initUpdates, openUpdates, updateChoice } from './update.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
+import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
+import { VERSION } from './update.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
-  usingPiper, measure, prefetch, renderTrack } from './tts.js';
+  usingPiper, measure, prefetch, renderTrack, chosenVoice, setTtsOption } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
 const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('list');
@@ -77,7 +79,11 @@ const S = {
   tracks: [], // audio tracks in the media file, as listed by the worker
   track: 0,
   maxEnd: 0,
-  subName: 'untitled.srt',
+  subName: 'untitled.srt', // the open project or script's file name
+  dirty: false, // changed since the project was last saved or opened
+  handle: null, // where the project saves to, when the browser allows saving in place
+  projectMedia: null, // { name, size } of the video the open project belongs to
+  pendingPlayhead: null, // where to put the playhead once that video is open
 };
 
 let nextId = 1;
@@ -224,6 +230,7 @@ function doRedo() {
 let saveTimer = 0;
 function changed(id = null) {
   S.maxEnd = S.cues.reduce((m, c) => Math.max(m, c.end), 0);
+  if (!S.dirty) { S.dirty = true; showDocName(); }
   if (id != null) {
     const i = idx(id), c = S.cues[i];
     const ordered = c && (i === 0 || S.cues[i - 1].start <= c.start) &&
@@ -250,6 +257,8 @@ function save() {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify({
       subName: S.subName,
+      dirty: S.dirty,
+      projectMedia: S.projectMedia,
       cues: S.cues.map(({ start, end, text, speed, auto }) => ({ start, end, text, speed, auto })),
     }));
   } catch { /* storage full or blocked */ }
@@ -260,6 +269,8 @@ function loadSaved() {
     if (o?.cues?.length) {
       S.cues = o.cues.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.auto ? { auto: true } : {}));
       S.subName = o.subName || S.subName;
+      S.savedDirty = o.dirty !== false;
+      S.projectMedia = o.projectMedia || null;
       return S.cues.length;
     }
   } catch { /* ignore */ }
@@ -553,7 +564,7 @@ function editorKeys(e, field) {
     return true;
   }
   if (os && e.code === 'KeyD') { e.preventDefault(); confirmDelete(); return true; }
-  if (mod && e.code === 'KeyS') return false; // let export through
+  if (mod && ['s', 'e', 'o'].includes(e.key.toLowerCase())) return false; // let file keys through
   // Windows keeps Alt+Space for the window menu, so Ctrl+Space works too off the Mac.
   if (e.code === 'Space' && (e.altKey || (!IS_MAC && e.ctrlKey)) && !e.shiftKey) { e.preventDefault(); togglePlay(); return true; }
   return false;
@@ -607,7 +618,7 @@ edText.addEventListener('keydown', (e) => {
     toggleTag(e.code[3].toLowerCase());
     return;
   }
-  if (mod && e.code === 'KeyS') { e.preventDefault(); exportSubs(e.shiftKey ? 'vtt' : 'srt'); return; }
+  if (fileKeys(e)) return;
   // ↑ on the first line / ↓ on the last line moves to the previous / next block
   if (!e.shiftKey && !e.altKey && !mod && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
     const v = edText.value, a = edText.selectionStart, b = edText.selectionEnd;
@@ -644,7 +655,7 @@ function bindTimeInput(input, which) {
       e.preventDefault();
       apply();
       blockStep(e.key === 'ArrowUp' ? -1 : 1, input);
-    } else if ((e.metaKey || e.ctrlKey) && e.code === 'KeyS') { e.preventDefault(); exportSubs(e.shiftKey ? 'vtt' : 'srt'); }
+    } else fileKeys(e);
   });
   input.addEventListener('blur', apply);
   input.addEventListener('focus', () => {
@@ -732,10 +743,7 @@ listSearch.addEventListener('keydown', (e) => {
   } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
     stepMatch(e.key === 'ArrowDown' ? 1 : -1);
-  } else if ((e.metaKey || e.ctrlKey) && e.code === 'KeyS') {
-    e.preventDefault();
-    exportSubs(e.shiftKey ? 'vtt' : 'srt');
-  }
+  } else fileKeys(e);
 });
 
 function fillRow(r, c, i) {
@@ -1487,8 +1495,165 @@ helpEl.addEventListener('click', (e) => { if (e.target === helpEl) toggleHelp(fa
 // ---------------------------------------------------------------- files
 
 function baseName() {
-  const n = S.subName !== 'untitled.srt' ? S.subName : S.videoFile?.name || 'subtitles';
+  const n = S.subName !== 'untitled.srt' ? S.subName : S.videoFile?.name || 'script';
   return n.replace(/\.[^.]+$/, '');
+}
+
+// The project or script name in the header, with a dot while there are unsaved changes.
+function showDocName() {
+  const name = S.subName === 'untitled.srt' ? 'Untitled' : S.subName;
+  const el = $('subName');
+  el.textContent = name + (S.dirty && S.cues.length ? ' •' : '');
+  el.title = S.dirty && S.cues.length ? 'Unsaved changes: save the project with ' + (IS_MAC ? '⌘S' : 'Ctrl+S') : 'Project or script file';
+  document.title = `${name}${S.dirty && S.cues.length ? ' •' : ''} · Scribecue`;
+}
+
+// ---- project files
+
+// The last project saved or opened in place, kept between reloads (IndexedDB, since
+// file handles can't go in localStorage).
+const handleStore = {
+  db: () => new Promise((ok, fail) => {
+    const r = indexedDB.open('scribecue', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('files');
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => fail(r.error);
+  }),
+  async get() {
+    try {
+      const db = await this.db();
+      return await new Promise((ok) => { const q = db.transaction('files').objectStore('files').get('project'); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); });
+    } catch { return null; }
+  },
+  async set(h) {
+    try {
+      const db = await this.db();
+      const st = db.transaction('files', 'readwrite').objectStore('files');
+      h ? st.put(h, 'project') : st.delete('project');
+    } catch { /* ignore */ }
+  },
+};
+
+const PROJECT_TYPES = [{ description: 'Scribecue project', accept: { 'application/json': [PROJECT_EXT] } }];
+
+function projectData() {
+  const m = S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size, duration: S.hasVideo ? duration() : null } : S.projectMedia;
+  return toProject({
+    app: VERSION,
+    blocks: S.cues,
+    media: m,
+    settings: { mode: S.mode, offset: S.offset, ttsSpeed: tts.speed, ttsVoice: chosenVoice() },
+    view: { playhead: now(), ...(selIdx() >= 0 ? { selected: selIdx() } : {}) },
+  });
+}
+
+function projectSaved(name) {
+  S.subName = name;
+  S.dirty = false;
+  showDocName();
+  save();
+}
+
+// Ctrl/Cmd+S saves in place once the project has a file; Ctrl/Cmd+Shift+S always asks.
+// Browsers that can't save in place download a copy instead.
+async function saveProject(as = false) {
+  if (!S.cues.length) return toast('Nothing to save yet');
+  const text = JSON.stringify(projectData(), null, 1);
+  const name = `${baseName()}${PROJECT_EXT}`;
+  if (!window.showSaveFilePicker) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    projectSaved(name);
+    return toast(`Saved ${name} to your downloads`);
+  }
+  try {
+    let h = as ? null : S.handle;
+    if (h && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted' &&
+      (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') h = null;
+    if (!h) h = await window.showSaveFilePicker({ suggestedName: name, types: PROJECT_TYPES });
+    const w = await h.createWritable();
+    await w.write(text);
+    await w.close();
+    S.handle = h;
+    handleStore.set(h);
+    projectSaved(h.name);
+    toast(`Saved ${h.name}`);
+  } catch (e) {
+    if (e.name !== 'AbortError') toast(`Couldn’t save the project: ${e.message}`);
+  }
+}
+
+// Asks before replacing work that isn't saved in a project. It can still be undone.
+function okToReplace(what) {
+  if (!S.dirty || !S.cues.length) return true;
+  return confirm(`Your changes to ${S.subName === 'untitled.srt' ? 'this project' : S.subName} aren't saved in a project file. ${what} anyway? You can undo it with ${IS_MAC ? '⌘Z' : 'Ctrl+Z'}.`);
+}
+
+async function openProject(file, handle = null) {
+  let p;
+  try { p = fromProject(JSON.parse(await file.text())); }
+  catch (e) { return toast(`Couldn’t open ${file.name}: ${e instanceof SyntaxError ? 'the file is damaged' : e.message}`); }
+  if (!okToReplace(`Open ${file.name}`)) return;
+  pushUndo();
+  S.cues = p.blocks.map((b) => Object.assign(mk(b.start, b.end, b.text, b.speed), b.auto ? { auto: true } : {}));
+  S.handle = handle;
+  handleStore.set(handle);
+  S.projectMedia = p.media;
+  const { mode, offset, ttsSpeed, ttsVoice } = p.settings;
+  if (mode) setMode(mode, true);
+  if (offset != null) setOffset(offset);
+  if (isSpeed(ttsSpeed)) setTtsOption('speed', ttsSpeed);
+  if (ttsVoice) setTtsOption('voice', ttsVoice);
+  changed();
+  select(S.cues[p.view.selected]?.id ?? S.cues[0]?.id ?? null, { seek: false });
+  S.pendingPlayhead = p.view.playhead ?? null;
+  const ready = S.videoFile && sameMedia(p.media, S.videoFile);
+  if (ready && S.pendingPlayhead != null) { seek(S.pendingPlayhead); S.pendingPlayhead = null; }
+  projectSaved(file.name);
+  toast(`Opened ${file.name} (${S.cues.length} blocks)` + (p.media && !ready
+    ? `. Now open its video, ${p.media.name}, with ${IS_MAC ? '⌘⇧O' : 'Ctrl+Shift+O'}` : ''));
+}
+
+// Ctrl/Cmd+O: a project, or a script saved as SRT or VTT.
+async function openAny() {
+  if (!window.showOpenFilePicker) return fileSubs.click();
+  try {
+    const [h] = await window.showOpenFilePicker({
+      types: [{ description: 'Scribecue project or script', accept: { 'application/json': [PROJECT_EXT], 'text/plain': ['.srt', '.vtt', '.txt'] } }],
+    });
+    const file = await h.getFile();
+    if (file.name.toLowerCase().endsWith(PROJECT_EXT)) openProject(file, h);
+    else loadSubsFile(file);
+  } catch (e) {
+    if (e.name !== 'AbortError') toast(`Couldn’t open the file: ${e.message}`);
+  }
+}
+
+function newProject() {
+  if (S.cues.length && !confirm(`Start a new project? This removes every block${S.dirty ? ', and your changes aren’t saved in a project file' : ''}. You can undo it with ${IS_MAC ? '⌘Z' : 'Ctrl+Z'}.`)) return;
+  pushUndo();
+  S.cues = [];
+  S.handle = null;
+  handleStore.set(null);
+  S.projectMedia = null;
+  S.pendingPlayhead = null;
+  changed();
+  select(null);
+  projectSaved('untitled.srt');
+  toast('New project');
+}
+
+// File keys, wherever focus is: save, export, open. Matched by the letter on the key.
+function fileKeys(e) {
+  if (!(e.metaKey || e.ctrlKey) || e.altKey) return false;
+  const k = e.key.toLowerCase();
+  if (k === 's') { e.preventDefault(); saveProject(e.shiftKey); return true; }
+  if (k === 'e') { e.preventDefault(); exportSubs(e.shiftKey ? 'vtt' : 'srt'); return true; }
+  if (k === 'o') { e.preventDefault(); e.shiftKey ? fileVideo.click() : openAny(); return true; }
+  return false;
 }
 
 function exportSubs(fmt) {
@@ -1507,11 +1672,16 @@ function exportSubs(fmt) {
 async function loadSubsFile(file) {
   const parsed = parseSubs(await file.text());
   if (!parsed.length) return toast(`No cues found in ${file.name}`);
+  if (!okToReplace(`Open ${file.name}`)) return;
   pushUndo();
   S.cues = parsed.map((c) => mk(c.start, c.end, c.text, c.speed));
   S.subName = file.name;
-  $('subName').textContent = file.name;
+  S.handle = null; // saving makes a project next to it, rather than overwriting the script
+  handleStore.set(null);
+  S.projectMedia = null;
   changed();
+  S.dirty = true;
+  showDocName();
   select(S.cues[0].id);
   toast(`Loaded ${parsed.length} cues from ${file.name}${undoStack.length > 1 ? ' — undo restores previous' : ''}`);
 }
@@ -1813,7 +1983,11 @@ video.addEventListener('loadedmetadata', () => {
   durEl.textContent = fmtTime(duration(), '.');
   if (S.pps * duration() < tl.clientWidth) fitAll();
   tlDirty = true;
-  toast(`Loaded ${S.videoFile?.name || 'media'}`);
+  const f = S.videoFile;
+  if (f && S.projectMedia && !sameMedia(S.projectMedia, f)) {
+    toast(`Loaded ${f.name}, but this project was saved with ${S.projectMedia.name}. Check it's the right video`);
+  } else toast(`Loaded ${f?.name || 'media'}`);
+  if (f && S.pendingPlayhead != null && sameMedia(S.projectMedia, f)) { seek(S.pendingPlayhead); S.pendingPlayhead = null; }
 });
 video.addEventListener('error', () => toast('This browser cannot play that file (try MP4/H.264 or WebM)'));
 video.addEventListener('play', updateInd);
@@ -1822,7 +1996,8 @@ video.addEventListener('click', togglePlay);
 
 function openFiles(files) {
   for (const f of files) {
-    if (/\.(srt|vtt|txt)$/i.test(f.name)) loadSubsFile(f);
+    if (f.name.toLowerCase().endsWith(PROJECT_EXT)) openProject(f);
+    else if (/\.(srt|vtt|txt)$/i.test(f.name)) loadSubsFile(f);
     else loadVideoFile(f);
   }
 }
@@ -1838,24 +2013,14 @@ window.addEventListener('drop', (e) => {
 });
 
 const actions = {
-  openSubs: () => fileSubs.click(),
+  openSubs: () => openAny(),
+  saveProject: () => saveProject(),
   openVideo: () => fileVideo.click(),
   exportSrt: () => exportSubs('srt'),
   exportVtt: () => exportSubs('vtt'),
   help: () => toggleHelp(),
   setup: () => openWelcome(),
-  clear: () => {
-    if (!S.cues.length) return toast('Nothing to clear');
-    const n = S.cues.length;
-    if (!confirm(`Clear all ${n} text block${n > 1 ? 's' : ''}? Export first if you want to keep them.`)) return;
-    pushUndo();
-    S.cues = [];
-    S.subName = 'untitled.srt';
-    $('subName').textContent = S.subName;
-    changed();
-    select(null);
-    toast(`Cleared — ${IS_MAC ? '⌘' : 'Ctrl+'}Z to undo`);
-  },
+  newProject: () => newProject(),
 };
 document.querySelector('nav').addEventListener('click', (e) => {
   const b = e.target.closest('button');
@@ -1955,8 +2120,7 @@ const FRAZIER_ONLY = {
 
 document.addEventListener('keydown', (e) => {
   const mod = e.metaKey || e.ctrlKey;
-  if (mod && e.code === 'KeyO') { e.preventDefault(); (e.shiftKey ? fileVideo : fileSubs).click(); return; }
-  if (mod && e.code === 'KeyS') { e.preventDefault(); exportSubs(e.shiftKey ? 'vtt' : 'srt'); return; }
+  if (fileKeys(e)) return;
   if (!helpEl.hidden) {
     if (e.key === 'Escape' || isHelpKey(e) || (e.shiftKey && e.code === 'KeyO')) { e.preventDefault(); toggleHelp(false); }
     return;
@@ -2116,9 +2280,14 @@ if (!IS_MAC) {
   edText.placeholder = pcKeys(edText.placeholder);
 }
 const restored = loadSaved();
-$('subName').textContent = S.subName;
+S.dirty = false;
+showDocName();
 S.pps = Math.max(20, tl.clientWidth / 20);
 changed();
+S.dirty = restored ? S.savedDirty : false;
+showDocName();
+// Keep saving in place to the project that was open before the reload.
+handleStore.get().then((h) => { if (h && h.name === S.subName) S.handle = h; });
 updateInd();
 setMode(S.mode, true);
 durEl.textContent = S.hasVideo ? fmtTime(duration(), '.') : '--:--:--.---';
