@@ -1,0 +1,17 @@
+services:
+  subed:
+    build: .
+    image: subed:latest
+    container_name: subed
+    # Bound to 127.0.0.1 so only this machine can reach the editor.
+    # Change the port with SUBED_PORT=9000 docker compose up -d
+    ports:
+      - "127.0.0.1:${SUBED_PORT:-8484}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped

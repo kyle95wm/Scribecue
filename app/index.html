@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subtitle Editor</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">SUB<span>ED</span></div>
+    <div class="files">
+      <span id="subName" title="Subtitle file">untitled.srt</span>
+      <span class="sep">/</span>
+      <span id="videoName" class="dim" title="Media file">no media</span>
+    </div>
+    <nav>
+      <button data-act="openSubs" data-tip="Open an SRT or VTT subtitle file ({mod}O)">Open subs <kbd><span class="mod"></span>O</kbd></button>
+      <button data-act="openVideo" data-tip="Open a video or audio file to time against. It stays on your machine ({mod}⇧O)">Open media <kbd><span class="mod"></span>⇧O</kbd></button>
+      <button data-act="exportSrt" data-tip="Download the subtitles as an SRT file ({mod}S)">Export SRT <kbd><span class="mod"></span>S</kbd></button>
+      <button data-act="exportVtt" data-tip="Download the subtitles as a WebVTT file ({mod}⇧S)">VTT <kbd><span class="mod"></span>⇧S</kbd></button>
+      <button data-act="clear" class="tip-end" data-tip="Remove every text block (asks first). Undo with {mod}Z">Clear</button>
+      <button data-act="help" class="hl tip-end" data-tip="Show all keyboard shortcuts (? or ⇧O)">Shortcuts <kbd>?</kbd></button>
+    </nav>
+  </header>
+
+  <main>
+    <aside class="listwrap">
+      <div class="editor" id="editor">
+        <div class="meta">
+          <span id="edIdx" class="idx">#–</span>
+          <label>IN <input id="edStart" class="time" spellcheck="false" autocomplete="off"></label>
+          <label>OUT <input id="edEnd" class="time" spellcheck="false" autocomplete="off"></label>
+          <span id="edDur" class="dim"></span>
+          <span class="grow"></span>
+          <span id="edStats"></span>
+        </div>
+        <textarea id="edText" rows="3" spellcheck="true"
+          placeholder="Press ↵ on the timeline to create or edit a block. ⇧↵ new line · ⇥ next field · Esc back to timeline"></textarea>
+      </div>
+      <div class="search">
+        <input id="listSearch" type="search" placeholder="Search text, or #12 for a block number"
+          spellcheck="false" autocomplete="off" aria-label="Search text blocks">
+        <span id="listCount" class="dim"></span>
+      </div>
+      <div class="listhead">
+        <span>#</span><span>Start / Dur</span><span>Text</span><span title="Characters per second">CPS</span>
+      </div>
+      <div class="list" id="list"></div>
+    </aside>
+
+    <section class="right">
+      <div class="stage" id="stage">
+        <video id="video" preload="auto" playsinline></video>
+        <div class="empty" id="stageEmpty">
+          <div>Drop a video or audio file here</div>
+          <div class="dim">or press <kbd><span class="mod"></span>⇧O</kbd> — files never leave your machine</div>
+        </div>
+        <div class="overlay" id="overlay"></div>
+      </div>
+      <div class="transport">
+        <span class="clock copy" id="clock" data-tip="Click to copy this timecode">00:00:00.000</span>
+        <span class="dim">/</span>
+        <span class="clock dim" id="durEl">00:00:00.000</span>
+        <span id="playState" class="pill">PAUSED</span>
+        <span class="grow"></span>
+        <label class="trackpick" id="trackPick" hidden
+          data-tip="Audio track to hear and draw in the waveform. T / ⇧T switch tracks">Audio
+          <select id="trackSel"></select></label>
+        <span id="ind"></span>
+      </div>
+    </section>
+  </main>
+
+  <section class="timeline" id="tl">
+    <canvas id="ruler"></canvas>
+    <div class="lane" id="lane">
+      <canvas id="wave"></canvas>
+      <div id="cues"></div>
+      <div id="dragtip" hidden></div>
+    </div>
+    <div class="overview" id="overview"><div id="ovWin"></div></div>
+    <div class="playhead" id="playhead"></div>
+  </section>
+
+  <footer class="status">
+    <span id="toast"></span>
+    <span class="hint">
+      <kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>⌥⇧←</kbd><kbd>⌥⇧→</kbd> block
+      <kbd>↵</kbd> create/edit <kbd>⇧F</kbd> find <kbd>⇧O</kbd> all keys
+    </span>
+  </footer>
+
+  <div id="help" class="help" hidden>
+    <div class="helpbox">
+      <h2>Keyboard shortcuts <span class="dim">— Frazier layout. Esc, ? or ⇧O to close</span></h2>
+      <div class="cols">
+        <section>
+          <h3>Timeline · navigation</h3>
+          <dl>
+            <dt><kbd>Space</kbd></dt><dd>Start / stop video</dd>
+            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>One frame back / forward</dd>
+            <dt><kbd>⇧</kbd><kbd>←</kbd> <kbd>⇧</kbd><kbd>→</kbd></dt><dd>Three seconds back / forward</dd>
+            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>←</kbd> <kbd>→</kbd></dt><dd>Previous / next text block</dd>
+            <dt><kbd>Fn</kbd><kbd>←</kbd> <kbd>Fn</kbd><kbd>→</kbd></dt><dd>Beginning / end of video (Home / End)</dd>
+            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>J</kbd></dt><dd>Jump to a timecode</dd>
+            <dt><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Quick navigation (search blocks)</dd>
+            <dt><kbd>⇧</kbd><kbd>O</kbd></dt><dd>Options / this overlay</dd>
+            <dt><kbd>+</kbd> <kbd>-</kbd></dt><dd>Increase / reduce speed</dd>
+            <dt><kbd>↵</kbd></dt><dd>Create or edit text block</dd>
+            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>D</kbd></dt><dd>Delete text block (after confirmation)</dd>
+          </dl>
+        </section>
+        <section>
+          <h3>Block editor</h3>
+          <dl>
+            <dt><kbd>⇥</kbd> <kbd>⇧</kbd><kbd>⇥</kbd></dt><dd>Next / previous field (text → IN → OUT)</dd>
+            <dt><kbd>Esc</kbd> or <kbd>↵</kbd></dt><dd>Close editor, focus timeline</dd>
+            <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Previous / next text block (from the first / last line)</dd>
+            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>←</kbd> <kbd>→</kbd></dt><dd>Move block one frame back / forward</dd>
+            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>D</kbd></dt><dd>Delete text block (after confirmation)</dd>
+            <dt><kbd>⇧</kbd><kbd>↵</kbd></dt><dd>Insert new line</dd>
+            <dt><kbd>⇧</kbd><kbd>←</kbd> <kbd>→</kbd> / <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Select text / text line</dd>
+            <dt><kbd><span class="mod"></span>B</kbd> <kbd><span class="mod"></span>I</kbd> <kbd><span class="mod"></span>U</kbd></dt><dd>Bold / italic / underline</dd>
+            <dt><kbd><span class="mod"></span>Z</kbd> <kbd><span class="mod"></span>⇧Z</kbd></dt><dd>Undo / redo</dd>
+            <dt><kbd>⌥</kbd><kbd>Space</kbd></dt><dd>Play / pause while typing</dd>
+          </dl>
+          <h3>File</h3>
+          <dl>
+            <dt><kbd><span class="mod"></span>O</kbd> <kbd><span class="mod"></span>⇧O</kbd></dt><dd>Open SRT/VTT · open video/audio</dd>
+            <dt><kbd><span class="mod"></span>S</kbd> <kbd><span class="mod"></span>⇧S</kbd></dt><dd>Export SRT · export VTT</dd>
+          </dl>
+        </section>
+        <section>
+          <h3>Subtitle extras</h3>
+          <dl>
+            <dt><kbd>↑</kbd> <kbd>↓</kbd> / <kbd>K</kbd> <kbd>J</kbd></dt><dd>Previous / next block</dd>
+            <dt><kbd>PgUp</kbd> <kbd>PgDn</kbd></dt><dd>Jump 10 blocks</dd>
+            <dt><kbd>⇧</kbd><kbd>Space</kbd></dt><dd>Play selected block only</dd>
+            <dt><kbd>N</kbd></dt><dd>New block at playhead</dd>
+            <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Set start / end to playhead</dd>
+            <dt><kbd>Q</kbd> <kbd>W</kbd></dt><dd>Start −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
+            <dt><kbd>E</kbd> <kbd>R</kbd></dt><dd>End −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
+            <dt><kbd>,</kbd> <kbd>.</kbd></dt><dd>Move block −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
+            <dt><kbd>X</kbd> / <kbd>M</kbd></dt><dd>Split at playhead / merge with next</dd>
+            <dt><kbd>Del</kbd></dt><dd>Delete block now (undoable)</dd>
+            <dt><kbd>C</kbd></dt><dd>Select block under playhead</dd>
+            <dt><kbd>T</kbd> / <kbd>⇧</kbd><kbd>T</kbd></dt><dd>Next / previous audio track</dd>
+            <dt><kbd>/</kbd></dt><dd>Search the block list (↑ ↓ step through matches, ↵ back to timeline, Esc clears)</dd>
+            <dt><kbd>G</kbd> / <kbd>⇧</kbd><kbd>G</kbd></dt><dd>Playhead to block start / end</dd>
+            <dt>Hold <kbd>H</kbd></dt><dd>Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on. Snaps to the waveform unless snapping (B) is off; hold ⌥ as you release to skip it once</dd>
+            <dt><kbd>⇧</kbd><kbd>H</kbd></dt><dd>Change the hold-to-mark reaction offset</dd>
+            <dt><kbd>L</kbd></dt><dd>Loop this block and play. ↵ to type, Esc when done ends the loop</dd>
+            <dt><kbd>O</kbd> <kbd>F</kbd> <kbd>B</kbd></dt><dd>Loop (stays on) · follow playhead · snapping on / off (dragging and H)</dd>
+            <dt><kbd>I</kbd></dt><dd>Show / hide reading speed (CPS)</dd>
+            <dt><kbd>\</kbd></dt><dd>Reset speed to 1×</dd>
+            <dt><kbd>⌥</kbd><kbd>=</kbd> <kbd>⌥</kbd><kbd>-</kbd> <kbd>⌥</kbd><kbd>0</kbd></dt><dd>Zoom timeline in / out / fit</dd>
+          </dl>
+          <h3>Mouse</h3>
+          <dl>
+            <dt>Drag block</dt><dd>Move · drag an edge to resize</dd>
+            <dt>Drag empty lane</dt><dd>Draw a new block</dd>
+            <dt>Hold <kbd>⌥</kbd></dt><dd>No snapping while dragging</dd>
+            <dt>Wheel</dt><dd>Pan · <kbd><span class="mod"></span></kbd>/pinch to zoom</dd>
+          </dl>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div id="palette" class="help" hidden>
+    <div class="palbox" role="dialog" aria-labelledby="palTitle">
+      <div class="paltitle" id="palTitle">Quick navigation</div>
+      <input id="palInput" autocomplete="off" spellcheck="false">
+      <div class="palhint dim" id="palHint"></div>
+      <div class="pallist" id="palList"></div>
+    </div>
+  </div>
+
+  <input type="file" id="fileSubs" accept=".srt,.vtt,.txt" hidden>
+  <input type="file" id="fileVideo" accept="video/*,audio/*,.mkv,.mov,.m4a" hidden>
+</body>
+</html>
