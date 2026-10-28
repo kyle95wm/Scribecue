@@ -34,6 +34,8 @@
           <label>IN <input id="edStart" class="time" spellcheck="false" autocomplete="off"></label>
           <label>OUT <input id="edEnd" class="time" spellcheck="false" autocomplete="off"></label>
           <span id="edDur" class="dim"></span>
+          <label id="edSpeedWrap" class="edspeed" hidden data-tip="Text to speech speed for this block. [ and ] change it">TTS
+            <select id="edSpeed"><option value="">default</option></select></label>
           <span class="grow"></span>
           <span id="edStats"></span>
         </div>
@@ -137,6 +139,7 @@
       <h3>Keys</h3>
       <p class="small"><kbd>V</kbd> read the selected block from its start ·
         <kbd>⇧</kbd><kbd>V</kbd> set the block's end to where the reading finishes ·
+        <kbd>[</kbd> <kbd>]</kbd> this block slower / faster ·
         <kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd> this panel</p>
     </div>
     <div class="updbtns">
@@ -243,6 +246,7 @@ docker compose up -d --build</code></pre>
             <dt><kbd>I</kbd></dt><dd>Show / hide reading speed (CPS)</dd>
             <dt><kbd>V</kbd></dt><dd>Text to speech: read the selected block from its start</dd>
             <dt><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Set the block's end to where the reading finishes</dd>
+            <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>This block's reading slower / faster</dd>
             <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Text to speech settings (voice, speed, online voices)</dd>
             <dt><kbd>\</kbd></dt><dd>Reset speed to 1×</dd>
             <dt><kbd>⌥</kbd><kbd>=</kbd> <kbd>⌥</kbd><kbd>-</kbd> <kbd>⌥</kbd><kbd>0</kbd></dt><dd>Zoom timeline in / out / fit</dd>

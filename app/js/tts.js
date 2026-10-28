@@ -12,6 +12,10 @@ export const SPEEDS = [
   [1.5, 'experimental (+50%)'],
   [2, 'experimental (+100%)'],
 ];
+export const isSpeed = (v) => SPEEDS.some(([s]) => s === v);
+// Short form for markers: "+15%", "−30%", "normal".
+export const speedLabel = (s) => (s === 1 ? 'normal' : `${s > 1 ? '+' : '−'}${Math.round(Math.abs(s - 1) * 100)}%`);
+
 // Characters per second at normal speed before a voice has been measured.
 export const DEFAULT_CPS = 15;
 
@@ -56,7 +60,7 @@ export const tts = {
 };
 try { Object.assign(tts, JSON.parse(localStorage.getItem(KEY)) || {}); } catch { /* ignore */ }
 tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
-if (!SPEEDS.some(([s]) => s === tts.speed)) tts.speed = 1;
+if (!isSpeed(tts.speed)) tts.speed = 1;
 
 const save = () => {
   const { on, voice, speed, live, duck, online, cps } = tts;
@@ -74,14 +78,15 @@ function currentVoice() {
   return voices.find((v) => v.voiceURI === tts.voice) || voices.find((v) => v.default) || voices[0] || null;
 }
 const voiceKey = () => currentVoice()?.voiceURI || '';
-const measureKey = (text) => `${voiceKey()}|${tts.speed}|${spoken(text)}`;
+const measureKey = (text, speed) => `${voiceKey()}|${speed}|${spoken(text)}`;
 
-// How long the text takes to say at the chosen voice and speed, in video seconds.
-// Uses the last real reading of this exact text, or an estimate.
-export function duration(text) {
-  const m = measured.get(measureKey(text));
+// How long the text takes to say with the chosen voice, in video seconds, at a block's
+// own speed or the overall one. Uses the last real reading of this exact text, or an
+// estimate.
+export function duration(text, speed = tts.speed) {
+  const m = measured.get(measureKey(text, speed));
   if (m != null) return { secs: m, exact: true };
-  return { secs: estimate(text, tts.cps[voiceKey()] || DEFAULT_CPS, tts.speed), exact: false };
+  return { secs: estimate(text, tts.cps[voiceKey()] || DEFAULT_CPS, speed), exact: false };
 }
 
 // The utterance being spoken. Keeping a reference also stops Chrome dropping its
@@ -100,7 +105,7 @@ export function stop() {
 
 // Read text aloud. done(secs) runs with the spoken length in video seconds when it
 // finishes on its own, or with null if it was stopped or failed.
-export function speak(text, { id = null, manual = false, done = () => {} } = {}) {
+export function speak(text, { id = null, manual = false, speed = tts.speed, done = () => {} } = {}) {
   if (!tts.available) { done(null); return false; }
   stop();
   const words = spoken(text);
@@ -109,8 +114,8 @@ export function speak(text, { id = null, manual = false, done = () => {} } = {})
   const voice = currentVoice();
   if (voice) { u.voice = voice; u.lang = voice.lang; }
   const playRate = hooks.rate();
-  u.rate = Math.min(10, Math.max(0.1, tts.speed * playRate));
-  const key = measureKey(text);
+  u.rate = Math.min(10, Math.max(0.1, speed * playRate));
+  const key = measureKey(text, speed);
   let t0 = 0;
   u.onstart = () => { t0 = performance.now(); };
   const finish = (ok) => {
@@ -123,7 +128,7 @@ export function speak(text, { id = null, manual = false, done = () => {} } = {})
     const secs = ((performance.now() - t0) / 1000) * playRate;
     measured.set(key, secs);
     if (words.length > 8) {
-      tts.cps[voiceKey()] = words.length / (secs * tts.speed);
+      tts.cps[voiceKey()] = words.length / (secs * speed);
       save();
     }
     hooks.changed();

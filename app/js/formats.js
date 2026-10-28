@@ -18,18 +18,30 @@ export function fmtTime(t, sep = ',') {
   return `${p2(h)}:${p2(m)}:${p2(s)}${sep}${p3(ms)}`;
 }
 
+// A block's text to speech speed is kept in exported VTT files as a note just
+// before the block. Other programs ignore notes.
+const SPEED_NOTE = 'NOTE Scribecue text to speech speed:';
+const speedNote = (block) => {
+  const m = block.trim().match(/^NOTE Scribecue text to speech speed: (\d+(?:\.\d+)?)$/);
+  return m ? +m[1] : null;
+};
+
 export function parseSubs(text) {
   text = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
   const cues = [];
+  let speed = null;
   for (const block of text.split(/\n[ \t]*\n/)) {
     const lines = block.split('\n');
     const i = lines.findIndex((l) => l.includes('-->'));
-    if (i < 0) continue;
+    if (i < 0) { speed = speedNote(block); continue; }
     const [a, b = ''] = lines[i].split('-->');
     const start = parseTime(a);
     const end = parseTime(b.trim().split(/\s+/)[0] || '');
     if (Number.isNaN(start) || Number.isNaN(end)) continue;
-    cues.push({ start, end: Math.max(end, start), text: lines.slice(i + 1).join('\n').trim() });
+    const cue = { start, end: Math.max(end, start), text: lines.slice(i + 1).join('\n').trim() };
+    if (speed) cue.speed = speed;
+    speed = null;
+    cues.push(cue);
   }
   return cues.sort((x, y) => x.start - y.start);
 }
@@ -42,6 +54,6 @@ export function toSRT(cues) {
 }
 
 export function toVTT(cues) {
-  return 'WEBVTT\n\n' + cues.map((c, i) =>
+  return 'WEBVTT\n\n' + cues.map((c, i) => (c.speed ? `${SPEED_NOTE} ${c.speed}\n\n` : '') +
     `${i + 1}\n${fmtTime(c.start, '.')} --> ${fmtTime(c.end, '.')}\n${clean(c.text)}`).join('\n\n') + '\n';
 }

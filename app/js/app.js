@@ -1,13 +1,13 @@
 import { parseSubs, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
 import { initUpdates } from './update.js';
-import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken } from './tts.js';
+import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
 const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('list');
 const tl = $('tl'), ruler = $('ruler'), lane = $('lane'), wave = $('wave'), cuesLayer = $('cues');
 const playheadEl = $('playhead'), dragtip = $('dragtip'), overview = $('overview'), ovWin = $('ovWin');
 const edText = $('edText'), edStart = $('edStart'), edEnd = $('edEnd');
-const edIdx = $('edIdx'), edDur = $('edDur'), edStats = $('edStats');
+const edIdx = $('edIdx'), edDur = $('edDur'), edStats = $('edStats'), edSpeed = $('edSpeed'), edSpeedWrap = $('edSpeedWrap');
 const clockEl = $('clock'), durEl = $('durEl'), ind = $('ind');
 const toastEl = $('toast'), helpEl = $('help'), fileSubs = $('fileSubs'), fileVideo = $('fileVideo');
 
@@ -72,7 +72,8 @@ const S = {
 };
 
 let nextId = 1;
-const mk = (start, end, text = '') => ({ id: nextId++, start, end, text });
+// speed: the block's own text to speech speed, if it has one.
+const mk = (start, end, text = '', speed) => ({ id: nextId++, start, end, text, ...(isSpeed(speed) ? { speed } : {}) });
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const idx = (id) => S.cues.findIndex((c) => c.id === id);
 const selIdx = () => (S.sel == null ? -1 : idx(S.sel));
@@ -242,7 +243,7 @@ function save() {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify({
       subName: S.subName,
-      cues: S.cues.map(({ start, end, text }) => ({ start, end, text })),
+      cues: S.cues.map(({ start, end, text, speed }) => ({ start, end, text, speed })),
     }));
   } catch { /* storage full or blocked */ }
 }
@@ -250,7 +251,7 @@ function loadSaved() {
   try {
     const o = JSON.parse(localStorage.getItem(STORE_KEY));
     if (o?.cues?.length) {
-      S.cues = o.cues.map((c) => mk(c.start, c.end, c.text));
+      S.cues = o.cues.map((c) => mk(c.start, c.end, c.text, c.speed));
       S.subName = o.subName || S.subName;
       return S.cues.length;
     }
@@ -381,7 +382,7 @@ function split() {
   if (t <= c.start + MIN_DUR || t >= c.end - MIN_DUR) return toast('Move the playhead inside the selected cue to split');
   pushUndo();
   const [a, b] = splitText(c.text);
-  const c2 = mk(t, c.end, b);
+  const c2 = mk(t, c.end, b, c.speed);
   c.end = t; c.text = a;
   S.cues.push(c2);
   changed();
@@ -432,6 +433,7 @@ let edit = null; // { id, orig, pushed }
 function updateEditor() {
   const c = selCue();
   if (!c) {
+    edSpeedWrap.hidden = true;
     edIdx.textContent = '#–';
     if (document.activeElement !== edStart) edStart.value = '';
     if (document.activeElement !== edEnd) edEnd.value = '';
@@ -445,6 +447,9 @@ function updateEditor() {
   if (document.activeElement !== edStart) edStart.value = fmtTime(c.start, '.');
   if (document.activeElement !== edEnd) edEnd.value = fmtTime(c.end, '.');
   edDur.textContent = `${(c.end - c.start).toFixed(3)} s`;
+  edSpeedWrap.hidden = !tts.on;
+  edSpeed.options[0].textContent = `default (${speedLabel(tts.speed)})`;
+  if (document.activeElement !== edSpeed) edSpeed.value = c.speed ? String(c.speed) : '';
   if (!edit || edit.id !== c.id) edText.value = c.text;
   const lines = plain(c.text).split('\n');
   const maxLine = Math.max(...lines.map((l) => l.length));
@@ -459,7 +464,7 @@ function updateEditor() {
   if (S.cps) add(`CPS ${v.toFixed(1)}`, cpsClass(v));
   if (tts.on && spoken(c.text)) {
     // How long the voice takes to read it: "~" until it has actually been read.
-    const { secs, exact } = speechLength(c.text);
+    const { secs, exact } = speechLength(c.text, c.speed);
     add(`TTS ${exact ? '' : '~'}${secs.toFixed(1)} s`, 'tts ' + (secs > c.end - c.start + 0.05 ? 'bad' : ''));
   }
   add(`${lines.length} line${lines.length > 1 ? 's' : ''}`, lines.length > 2 ? 'warn' : '');
@@ -721,7 +726,7 @@ function fillRow(r, c, i) {
   const [n, t, tx, cp] = r.children;
   n.textContent = i + 1;
   t.children[0].textContent = fmtTime(c.start, '.');
-  t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s`;
+  t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (tts.on && c.speed ? ` · TTS ${speedLabel(c.speed)}` : '');
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
   r.hidden = !matches(c, i);
@@ -883,7 +888,7 @@ function drawCues(W) {
     el.classList.toggle('sel', c.id === S.sel);
     el.classList.toggle('active', c.id === S.activeId);
     el.classList.toggle('faded', !matches(c, i));
-    el.children[1].textContent = w > 28 ? '#' + (i + 1) : '';
+    el.children[1].textContent = w > 28 ? '#' + (i + 1) + (tts.on && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') : '';
     if (el._text !== c.text) { el._text = c.text; el.children[2].textContent = c.text; }
   }
   for (const [id, el] of cueEls) if (!seen.has(id)) { el.remove(); cueEls.delete(id); }
@@ -1083,7 +1088,7 @@ function updateInd() {
     ['offset', `H −${Math.round(S.offset * 1000)}ms`, false],
     ['cps', 'CPS', S.cps],
     ['snap', 'SNAP', S.snap],
-    ['tts', tts.on && tts.speed !== 1 ? `TTS ${tts.speed > 1 ? '+' : '−'}${Math.round(Math.abs(tts.speed - 1) * 100)}%` : 'TTS', tts.on],
+    ['tts', tts.on && tts.speed !== 1 ? `TTS ${speedLabel(tts.speed)}` : 'TTS', tts.on],
   ];
   ind.textContent = '';
   for (const [key, label, on] of items) {
@@ -1187,7 +1192,7 @@ function speakBlock(fit) {
   setTime(c.start);
   const id = c.id;
   speak(c.text, {
-    id, manual: true,
+    id, manual: true, speed: c.speed,
     done: (secs) => {
       const cur = S.cues[idx(id)];
       if (secs == null || !cur) return;
@@ -1215,11 +1220,39 @@ function fitToSpeech(c, secs) {
     : `Block now ends where the reading finishes (${secs.toFixed(1)} s)`);
 }
 
+// A block's own speed. Setting it to the overall speed makes the block follow the
+// overall speed again, so changing that later still applies to it.
+function setBlockSpeed(c, v) {
+  pushUndo(undefined, 'speed-' + c.id);
+  if (!isSpeed(v) || v === tts.speed) delete c.speed;
+  else c.speed = v;
+  changed(c.id);
+  tlDirty = true;
+  toast(c.speed ? `Block #${idx(c.id) + 1} reads at ${SPEEDS.find(([s]) => s === c.speed)[1]}`
+    : `Block #${idx(c.id) + 1} follows the overall speed (${speedLabel(tts.speed)})`);
+}
+// [ and ]: one speed step slower or faster for the selected block.
+function stepBlockSpeed(d) {
+  if (!tts.on) return toast('Turn on text to speech first (⌥⇧V)');
+  const c = needSel(); if (!c) return;
+  const list = SPEEDS.map(([s]) => s);
+  const i = list.indexOf(c.speed ?? tts.speed);
+  const j = clamp(i + d, 0, list.length - 1);
+  if (j === i) return toast(`Already at the ${d < 0 ? 'slowest' : 'fastest'} speed`);
+  setBlockSpeed(c, list[j]);
+}
+for (const [v, label] of SPEEDS) edSpeed.add(new Option(label, String(v)));
+edSpeed.addEventListener('change', () => {
+  const c = selCue();
+  if (c) setBlockSpeed(c, edSpeed.value ? +edSpeed.value : null);
+  edSpeed.blur();
+});
+
 // While playing, read each block as the playhead reaches its start.
 function liveSpeech(prevT, t) {
   if (!tts.on || !tts.live || tts.speaking?.manual) return;
   const a = cueAt(t);
-  if (a && prevT <= a.start && t > a.start && t - prevT < 0.5 && tts.speaking?.id !== a.id) speak(a.text, { id: a.id });
+  if (a && prevT <= a.start && t > a.start && t - prevT < 0.5 && tts.speaking?.id !== a.id) speak(a.text, { id: a.id, speed: a.speed });
 }
 
 // Lower the original audio while a block is read.
@@ -1345,14 +1378,15 @@ function exportSubs(fmt) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  toast(`Exported ${name} (${S.cues.length} cues)`);
+  const speeds = fmt === 'srt' && S.cues.some((c) => c.speed);
+  toast(`Exported ${name} (${S.cues.length} cues)` + (speeds ? '. SRT can’t store block speeds: export VTT to keep them' : ''));
 }
 
 async function loadSubsFile(file) {
   const parsed = parseSubs(await file.text());
   if (!parsed.length) return toast(`No cues found in ${file.name}`);
   pushUndo();
-  S.cues = parsed.map((c) => mk(c.start, c.end, c.text));
+  S.cues = parsed.map((c) => mk(c.start, c.end, c.text, c.speed));
   S.subName = file.name;
   $('subName').textContent = file.name;
   changed();
@@ -1814,7 +1848,10 @@ document.addEventListener('keydown', (e) => {
   const sh = e.shiftKey, alt = e.altKey;
   let handled = true;
 
-  if (alt && sh) {
+  // [ ] by the character typed, since some layouts need ⌥ or AltGr for them.
+  if (e.key === '[' || e.key === ']') {
+    stepBlockSpeed(e.key === '[' ? -1 : 1);
+  } else if (alt && sh) {
     switch (e.code) {
       case 'ArrowLeft': selectRel(-1); break;
       case 'ArrowRight': selectRel(1); break;
@@ -1974,6 +2011,6 @@ initTts({
   rate: () => S.rate,
   duck: duckAudio,
   sample: () => spoken(selCue()?.text || ''),
-  changed: () => { updateEditor(); updateInd(); },
+  changed: () => { renderList(); updateEditor(); updateInd(); tlDirty = true; },
 });
 requestAnimationFrame(tick);

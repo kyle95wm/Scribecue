@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPEEDS, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts } from '../app/js/tts.js';
+import { SPEEDS, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel } from '../app/js/tts.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -44,4 +44,11 @@ test('the voice menu lists voices on this computer before online ones', () => {
   assert.deepEqual(groups.map(([label]) => label), ['On this computer', 'Online: the text is sent to the provider']);
   assert.deepEqual(groups[0][1].map((x) => x.name), ['Anna', 'Zed', 'Alex', 'Amélie']);
   assert.deepEqual(groups[1][1].map((x) => x.name), ['Google UK']);
+});
+
+test('block speed labels and validation', () => {
+  assert.deepEqual(SPEEDS.map(([s]) => speedLabel(s)), ['−30%', '−15%', 'normal', '+15%', '+30%', '+50%', '+100%']);
+  assert.equal(isSpeed(1.15), true);
+  assert.equal(isSpeed(1.2), false);
+  assert.equal(isSpeed(undefined), false);
 });

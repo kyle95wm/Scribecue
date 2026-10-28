@@ -491,6 +491,17 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 .warnbox { padding: 8px 10px; border: 1px solid var(--warn); border-radius: 6px; color: var(--warn); font-size: 13px; }
 .warnbox[hidden] { display: none; }
 #edStats .tts { white-space: nowrap; }
+.edspeed { display: inline-flex; align-items: center; gap: 4px; }
+.edspeed[hidden] { display: none; }
+.edspeed select {
+  max-width: 150px;
+  font: 12px var(--mono);
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 2px;
+}
 
 /* ---------- quick navigation / timecode palette ---------- */
 #palette { align-items: flex-start; padding-top: 12vh; }

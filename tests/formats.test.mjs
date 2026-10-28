@@ -52,3 +52,24 @@ test('toSRT and toVTT round-trip through parseSubs', () => {
 test('blank lines inside a block are collapsed so the file stays valid', () => {
   assert.equal(toSRT([{ start: 0, end: 1, text: 'a\n\n\nb' }]), '1\n00:00:00,000 --> 00:00:01,000\na\nb\n');
 });
+
+test('block speeds are kept in VTT as notes and read back', () => {
+  const cues = [{ start: 1, end: 2, text: 'Fast', speed: 1.15 }, { start: 3, end: 4, text: 'Default' }, { start: 5, end: 6, text: 'Slow', speed: 0.7 }];
+  const vtt = toVTT(cues);
+  assert.match(vtt, /NOTE Scribecue text to speech speed: 1\.15\n\n1\n00:00:01\.000/);
+  assert.equal((vtt.match(/^NOTE/gm) || []).length, 2);
+  assert.deepEqual(parseSubs(vtt), cues);
+});
+
+test('other notes and SRT files leave block speeds unset', () => {
+  const vtt = 'WEBVTT\n\nNOTE written by someone else\n\n00:01.000 --> 00:02.000\nA\n';
+  assert.equal(parseSubs(vtt)[0].speed, undefined);
+  const srt = toSRT([{ start: 1, end: 2, text: 'A', speed: 1.3 }]);
+  assert.doesNotMatch(srt, /NOTE|speed/);
+  assert.equal(parseSubs(srt)[0].speed, undefined);
+});
+
+test('a speed note only applies to the block right after it', () => {
+  const vtt = 'WEBVTT\n\nNOTE Scribecue text to speech speed: 1.3\n\n00:01.000 --> 00:02.000\nA\n\n00:03.000 --> 00:04.000\nB\n';
+  assert.deepEqual(parseSubs(vtt).map((c) => c.speed), [1.3, undefined]);
+});

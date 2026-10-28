@@ -107,10 +107,16 @@ the video, then tick **Turn on text to speech**.
 | --- | --- |
 | `V` | Read the block from its start, with the video playing. Playback stops at the block's end, or where the reading ends if it runs over |
 | `⇧V` | Read the block, then set its end to where the reading finishes |
+| `[` `]` | Make the selected block's reading slower / faster |
 | `⌥⇧V` | Choose the voice and speed |
 
 - **Speed:** very slow (−30%), slow (−15%), normal, fast (+15%), very fast (+30%), and
   experimental +50% and +100%. The voice also follows the playback speed.
+- **Speed per block:** set a block's own speed with `[` `]` or the **TTS** menu in the
+  block editor. Blocks with their own speed show it in the list and on the timeline, such
+  as `+15%`. The rest follow the overall speed. Setting a block back to the overall speed
+  makes it follow that again. Block speeds are saved with your work and in exported VTT
+  files, as notes that other programs ignore. SRT files can't store them.
 - **Read blocks aloud while playing:** each block is read as the playhead reaches it,
   with the original audio turned down. You can turn either part off.
 - **Timing check:** the editor shows how long the reading takes, such as `TTS 2.9 s`, in red
@@ -237,6 +243,7 @@ The tables use Mac symbols; on Windows and Linux, see [below](#windows-and-linux
 | `B` | Snapping on / off |
 | `I` | Reading speed (CPS) on / off |
 | `V` / `⇧V` | [Read the block aloud](#text-to-speech) / fit the block to the reading |
+| `[` `]` | Make the block's reading slower / faster |
 | `⌥⇧V` | Text to speech settings |
 | `⌥=` `⌥-` `⌥0` | Zoom the timeline in / out / to fit |
 | `\` | Reset speed to 1× |
