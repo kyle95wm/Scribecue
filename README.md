@@ -87,9 +87,11 @@ To get a newer version later, see [Updating](#updating).
 
 - [Quick start](#quick-start)
 - [Basic workflows](#basic-workflows)
+  - [The writing loop](#the-writing-loop)
+  - [The transcribing loop](#the-transcribing-loop)
+  - [Saving](#saving)
   - [Getting around](#getting-around)
-  - [Transcribing existing audio description](#transcribing-existing-audio-description)
-  - [Writing new audio description](#writing-new-audio-description)
+  - [Adjusting timing](#adjusting-timing)
 - [Modes: Transcribe and Write](#modes-transcribe-and-write)
 - [Transcribing audio description](#transcribing-audio-description)
   - [Hold-to-mark](#hold-to-mark)
@@ -109,8 +111,54 @@ To get a newer version later, see [Updating](#updating).
 
 ## Basic workflows
 
-Both workflows use the same keys to get around. After that, they differ in how you make
-blocks and check them. Press `?` at any time to see every shortcut.
+Most of the work is one short loop, repeated for every line. Learn the few keys in it and
+you'll rarely need anything else. Press `?` at any time to see every shortcut.
+
+### The writing loop
+
+For new audio description, in **Write** mode with text to speech on (`Alt+Shift+V`, or
+**Setup**). Open the video with `Ctrl/Cmd+Shift+O`, then repeat:
+
+1. **Find a gap.** Play until there's room for a description, and stop there.
+   - `Space` plays or pauses.
+   - `←` `→` move one frame, to get the exact spot.
+2. **Write the description.**
+   - `Enter` makes a block at the playhead and opens it for typing.
+   - Type the line. Its end follows how long the reading takes, and the reading time turns
+     red if the line doesn't fit before the next block.
+   - `Esc` closes the block.
+3. **Listen to it.**
+   - `V` reads the block aloud with the video.
+   - `[` `]` make this block's reading slower or faster.
+
+Then carry on playing to the next gap.
+
+### The transcribing loop
+
+For existing audio description, in **Transcribe** mode. Open the video with
+`Ctrl/Cmd+Shift+O`. If it has a description track and you don't hear it, press `T` to
+switch tracks. Then repeat:
+
+1. **Play to the next line.**
+   - `Space` plays or pauses.
+2. **Mark it.**
+   - Hold `H` while the narrator speaks, and let go when they stop. Playback pauses, and a
+     block opens for typing.
+3. **Type it.**
+   - Type the line.
+   - `Enter` or `Esc` closes the block, and playback carries on.
+
+To hear a block again while you type, press `L`. It loops until you close the block.
+
+### Saving
+
+Your work is saved in the browser as you go, so reloading keeps your blocks. After a reload,
+open the video again. To save a file:
+
+- `Ctrl/Cmd+Shift+S` saves WebVTT, which also keeps each block's text to speech speed.
+- `Ctrl/Cmd+S` saves SRT.
+- With a [Piper voice](#piper-voices), **Export description track** in the text to speech
+  panel saves the readings as a WAV file.
 
 ### Getting around
 
@@ -125,49 +173,15 @@ blocks and check them. Press `?` at any time to see every shortcut.
 | Go to a time | `Alt+Shift+J`, then type it, such as `1:23.5` |
 | Go anywhere | Click the timeline, or drag along the time ruler above it |
 
-### Transcribing existing audio description
+### Adjusting timing
 
-1. **Switch to Transcribe** with the switch at the top.
-2. **Open the video** with `Ctrl/Cmd+Shift+O`, or drop it on the window. If it has an
-   audio description track, Scribecue usually picks it. Otherwise press `T` until you
-   hear it.
-3. **Go to just before the first line,** and press `Space` to play.
-4. **Hold `H`** while the narrator speaks the line, and **let go** when they stop.
-   Playback pauses and the new block opens for typing.
-5. **Type the line,** then press `Enter` or `Esc`. Playback carries on. Repeat steps 4
-   and 5 for each line.
-6. **Check a block** by pressing `L`. It loops while you listen. Press `Enter` to type
-   while it repeats, then `Esc` when you're done, which stops the loop.
-7. **Fine-tune the timing** if you need to:
-   - `A` / `S` set the block's start or end to the playhead.
-   - `Q` `W` move the start, and `E` `R` move the end, by 100 ms. Hold `Shift` for 10 ms.
-   - You can also drag a block's edges on the timeline.
-8. **Save** with `Ctrl/Cmd+S` for SRT, or `Ctrl/Cmd+Shift+S` for WebVTT.
-
-### Writing new audio description
-
-1. **Switch to Write** with the switch at the top, and turn on text to speech if it isn't
-   on yet: press `Alt+Shift+V`, or use **Setup**.
-2. **Open the video** with `Ctrl/Cmd+Shift+O`, or drop it on the window.
-3. **Find a gap in the dialogue.** Play with `Space`, stop where the description should
-   start, and use `←` `→` to get it to the exact frame.
-4. **Press `Enter`** to make a block at the playhead, and type the line. Its end follows
-   how long the reading takes, and the editor shows the reading time, such as `TTS 2.9 s`.
-   It turns red if the line doesn't fit before the next block.
-5. **Press `Esc`,** then **`V`** to hear the line read with the video.
-   - `[` `]` make this block's reading slower or faster.
-   - `Shift+V` sets the block's end to where the reading finishes.
-6. **Move on to the next gap** by playing on, or with `Alt+Shift+→` to jump to the next
-   block. Repeat steps 3 to 5.
-7. **Review the whole script** by playing it from the start. Each block is read as the
-   playhead reaches it. To fit every block to its reading in one go, use **Update all
-   timings** in the text to speech panel (`Alt+Shift+V`).
-8. **Save** with `Ctrl/Cmd+Shift+S` for WebVTT, which also keeps each block's speed, or
-   `Ctrl/Cmd+S` for SRT. With a [Piper voice](#piper-voices), **Export description track**
-   in the text to speech panel saves the readings as a WAV file too.
-
-Your work is also saved in the browser as you go, so reloading the page keeps your blocks.
-After a reload, open the video again with `Ctrl/Cmd+Shift+O`.
+| To | Press |
+| --- | --- |
+| Set the block's start or end to the playhead | `A` / `S` |
+| Move the start or end by 100 ms | `Q` `W` / `E` `R` (with `Shift`: 10 ms) |
+| Move the whole block by 100 ms | `,` `.` (with `Shift`: 10 ms) |
+| Set the end to where the reading finishes (Write) | `Shift+V` |
+| Drag a block, or its edges | Mouse, on the timeline |
 
 ## Modes: Transcribe and Write
 
