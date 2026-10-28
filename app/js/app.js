@@ -11,6 +11,13 @@ const clockEl = $('clock'), durEl = $('durEl'), ind = $('ind');
 const toastEl = $('toast'), helpEl = $('help'), fileSubs = $('fileSubs'), fileVideo = $('fileVideo');
 
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform);
+// Mac key symbols as Windows and Linux users know them: ⌥⇧← becomes Alt+Shift+←.
+const pcKeys = (s) => (IS_MAC ? s : s
+  .replace(/⌘(?=\S)/g, 'Ctrl+').replace(/⌘/g, 'Ctrl')
+  .replace(/⌥(?=\S)/g, 'Alt+').replace(/⌥/g, 'Alt')
+  .replace(/⇧(?=\S)/g, 'Shift+').replace(/⇧/g, 'Shift'));
+// Some Linux desktops move the window on Alt+drag, so Ctrl also skips snapping there.
+const noSnapKey = (e) => e.altKey || (!IS_MAC && e.ctrlKey);
 const MIN_DUR = 0.1;
 const FRAME = 1 / 25;
 const MAX_PPS = 1500;
@@ -519,7 +526,8 @@ function editorKeys(e, field) {
   }
   if (os && e.code === 'KeyD') { e.preventDefault(); confirmDelete(); return true; }
   if (mod && e.code === 'KeyS') return false; // let export through
-  if (e.code === 'Space' && e.altKey && !e.shiftKey) { e.preventDefault(); togglePlay(); return true; }
+  // Windows keeps Alt+Space for the window menu, so Ctrl+Space works too off the Mac.
+  if (e.code === 'Space' && (e.altKey || (!IS_MAC && e.ctrlKey)) && !e.shiftKey) { e.preventDefault(); togglePlay(); return true; }
   return false;
 }
 
@@ -929,7 +937,7 @@ lane.addEventListener('pointermove', (e) => {
     document.body.classList.add('dragging');
     if (drag.mode !== 'move') document.body.classList.add('resize');
   }
-  const noSnap = e.altKey;
+  const noSnap = noSnapKey(e);
 
   if (drag.mode === 'blank') {
     const ni = S.cues.findIndex((c) => c.start > drag.t0);
@@ -1056,7 +1064,7 @@ const IND_TIPS = {
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
   offset: 'Hold-to-mark reaction offset: marks made with H move back by this much. ⇧H or click to change',
   cps: 'Show reading speed (characters per second) in the list and editor (I)',
-  snap: 'Snap (B): dragged edges stick to the playhead and neighbouring blocks, and blocks marked with H move to where the waveform rises and falls. Hold ⌥ to override',
+  snap: 'Snap (B): dragged edges stick to the playhead and neighbouring blocks, and blocks marked with H move to where the waveform rises and falls. Hold {nosnap} to override',
 };
 function updateInd() {
   const items = [
@@ -1072,7 +1080,7 @@ function updateInd() {
     const s = document.createElement('span');
     s.textContent = label;
     s.dataset.key = key;
-    s.dataset.tip = IND_TIPS[key];
+    s.dataset.tip = pcKeys(IND_TIPS[key].replace('{nosnap}', IS_MAC ? '⌥' : 'Alt or Ctrl'));
     s.className = (on ? 'on ' : '') + (key === 'speed' || key === 'follow' ? '' : 'tip-end');
     ind.append(s);
   }
@@ -1231,12 +1239,17 @@ function cycleOffset() {
   toast(`Hold-to-mark reaction offset ${Math.round(S.offset * 1000)} ms`);
 }
 
-document.addEventListener('keyup', (e) => { if (e.code === 'KeyH') holdEnd(e.altKey); });
+document.addEventListener('keyup', (e) => {
+  if (e.code === 'KeyH') holdEnd(noSnapKey(e));
+  // On Windows and Linux, letting go of Alt on its own focuses the browser's menu, which
+  // would swallow the next key after an Alt+drag or an Alt release in hold-to-mark.
+  if (e.key === 'Alt' && !IS_MAC) e.preventDefault();
+});
 window.addEventListener('blur', () => holdEnd(false));
 
 let toastTimer = 0;
 function toast(msg) {
-  toastEl.textContent = msg;
+  toastEl.textContent = pcKeys(msg);
   toastEl.classList.remove('fade');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.add('fade'), 3500);
@@ -1858,7 +1871,17 @@ function tick(ts) {
 // ---------------------------------------------------------------- boot
 
 document.querySelectorAll('.mod').forEach((el) => { el.textContent = IS_MAC ? '⌘' : 'Ctrl+'; });
-document.querySelectorAll('[data-tip]').forEach((el) => { el.dataset.tip = el.dataset.tip.replaceAll('{mod}', IS_MAC ? '⌘' : 'Ctrl+'); });
+document.querySelectorAll('[data-tip]').forEach((el) => { el.dataset.tip = pcKeys(el.dataset.tip.replaceAll('{mod}', IS_MAC ? '⌘' : 'Ctrl+')); });
+if (!IS_MAC) {
+  // Rows whose keys differ off the Mac carry their own markup in data-pc.
+  document.querySelectorAll('[data-pc]').forEach((el) => { el.innerHTML = el.dataset.pc; });
+  for (const root of [helpEl, document.querySelector('nav'), document.querySelector('.hint'), $('stageEmpty'), $('ctrls')]) {
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walk.nextNode()) walk.currentNode.nodeValue = pcKeys(walk.currentNode.nodeValue);
+  }
+  document.querySelectorAll('[aria-label]').forEach((el) => el.setAttribute('aria-label', pcKeys(el.getAttribute('aria-label'))));
+  edText.placeholder = pcKeys(edText.placeholder);
+}
 const restored = loadSaved();
 $('subName').textContent = S.subName;
 S.pps = Math.max(20, tl.clientWidth / 20);

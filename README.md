@@ -19,6 +19,7 @@
 - [Files with several audio tracks](#files-with-several-audio-tracks)
 - [Other handy features](#other-handy-features)
 - [Keyboard shortcuts](#keyboard-shortcuts)
+  - [Windows and Linux](#windows-and-linux)
 - [Supported files](#supported-files)
 - [Privacy](#privacy)
 - [Updating](#updating)
@@ -135,7 +136,7 @@ afterwards is instant. Safari switches tracks itself.
 
 The layout follows the
 [Frazier Mac cheat sheet](https://www.videotovoice.com/docs/en/cheatsheet/mac.html).
-On Windows and Linux, use `Ctrl` for `⌘`.
+The tables use Mac symbols; on Windows and Linux, see [below](#windows-and-linux).
 
 <details open>
 <summary><strong>Timeline</strong></summary>
@@ -202,6 +203,29 @@ On Windows and Linux, use `Ctrl` for `⌘`.
 | `\` | Reset speed to 1× |
 
 </details>
+
+### Windows and Linux
+
+The keys are in the same places. Scribecue shows them with Windows and Linux names in the
+app, so the shortcuts overlay and tooltips say `Ctrl`, `Alt` and `Shift`.
+
+| On a Mac | On Windows and Linux |
+| --- | --- |
+| `⌘` | `Ctrl` |
+| `⌥` (Option) | `Alt` |
+| `⇧` | `Shift` |
+| `Fn←` `Fn→` | `Home` `End` |
+
+A few keys are different, to avoid clashes with the system:
+
+- **Play / pause while typing** is `Ctrl+Space`, because Windows keeps `Alt+Space` for the
+  window menu.
+- **Turning snapping off for one drag or mark:** hold `Alt` or `Ctrl`. Some Linux desktops
+  move the whole window when you drag with `Alt` held.
+
+If `Alt+Shift` switches your keyboard layout on Windows, the block shortcuts still have
+other keys: `↑` `↓` or `K` `J` for previous / next block, and `Del` to delete. You can also
+drop a media file on the window instead of pressing `Ctrl+Shift+O`.
 
 Frazier features with no subtitle equivalent aren't included: glossaries, snippets,
 markers, comments, pronunciation, extended audio description, and instruction or pause
