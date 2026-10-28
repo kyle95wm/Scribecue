@@ -103,6 +103,8 @@ Hear your lines read aloud, to check where each one sits and whether it fits bef
 next piece of dialogue. It's off until you turn it on: press `⌥⇧V`, or click `TTS` under
 the video, then tick **Turn on text to speech**.
 
+![The text to speech panel, with voice, speed and Update all timings](docs/screenshots/text-to-speech.png)
+
 | Key | Action |
 | --- | --- |
 | `V` | Read the block from its start, with the video playing. Playback stops at the block's end, or where the reading ends if it runs over |
