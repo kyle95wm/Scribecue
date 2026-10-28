@@ -7,7 +7,7 @@ const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('
 const tl = $('tl'), ruler = $('ruler'), lane = $('lane'), wave = $('wave'), cuesLayer = $('cues');
 const playheadEl = $('playhead'), dragtip = $('dragtip'), overview = $('overview'), ovWin = $('ovWin');
 const edText = $('edText'), edStart = $('edStart'), edEnd = $('edEnd');
-const edIdx = $('edIdx'), edDur = $('edDur'), edStats = $('edStats'), edSpeed = $('edSpeed'), edSpeedWrap = $('edSpeedWrap');
+const edIdx = $('edIdx'), edDur = $('edDur'), edStats = $('edStats'), edSpeed = $('edSpeed'), edSpeedWrap = $('edSpeedWrap'), edAuto = $('edAuto');
 const clockEl = $('clock'), durEl = $('durEl'), ind = $('ind');
 const toastEl = $('toast'), helpEl = $('help'), fileSubs = $('fileSubs'), fileVideo = $('fileVideo');
 
@@ -243,7 +243,7 @@ function save() {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify({
       subName: S.subName,
-      cues: S.cues.map(({ start, end, text, speed }) => ({ start, end, text, speed })),
+      cues: S.cues.map(({ start, end, text, speed, auto }) => ({ start, end, text, speed, auto })),
     }));
   } catch { /* storage full or blocked */ }
 }
@@ -251,7 +251,7 @@ function loadSaved() {
   try {
     const o = JSON.parse(localStorage.getItem(STORE_KEY));
     if (o?.cues?.length) {
-      S.cues = o.cues.map((c) => mk(c.start, c.end, c.text, c.speed));
+      S.cues = o.cues.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.auto ? { auto: true } : {}));
       S.subName = o.subName || S.subName;
       return S.cues.length;
     }
@@ -316,8 +316,8 @@ function nudge(what, d) {
   const c = needSel(); if (!c) return;
   const { lo, hi } = bounds(selIdx());
   pushUndo(undefined, 'nudge-' + what + c.id);
-  if (what === 'start') c.start = clamp(c.start + d, lo, c.end - MIN_DUR);
-  else if (what === 'end') c.end = clamp(c.end + d, c.start + MIN_DUR, hi);
+  if (what === 'start') { c.start = clamp(c.start + d, lo, c.end - MIN_DUR); fitAuto(c); }
+  else if (what === 'end') { c.end = clamp(c.end + d, c.start + MIN_DUR, hi); delete c.auto; }
   else {
     d = clamp(d, lo - c.start, hi - c.end);
     c.start += d; c.end += d;
@@ -333,10 +333,12 @@ function setEdge(which) {
     if (t > c.end - MIN_DUR) return toast('Playhead is after this cue’s end');
     pushUndo();
     c.start = Math.max(lo, t);
+    fitAuto(c);
   } else {
     if (t < c.start + MIN_DUR) return toast('Playhead is before this cue’s start');
     pushUndo();
     c.end = Math.min(hi, t);
+    delete c.auto;
   }
   changed(c.id);
 }
@@ -353,6 +355,8 @@ function newCue() {
   if (end - t < MIN_DUR) return toast('No room for a cue here');
   pushUndo();
   const c = mk(t, end);
+  // A block written with text to speech on takes its end from the reading.
+  if (tts.on && tts.autoEnd) c.auto = true;
   S.cues.push(c);
   changed();
   select(c.id, { seek: false });
@@ -384,6 +388,7 @@ function split() {
   const [a, b] = splitText(c.text);
   const c2 = mk(t, c.end, b, c.speed);
   c.end = t; c.text = a;
+  delete c.auto;
   S.cues.push(c2);
   changed();
   select(c2.id, { seek: false });
@@ -397,6 +402,7 @@ function merge() {
   pushUndo();
   c.end = Math.max(c.end, n.end);
   c.text = [c.text, n.text].filter(Boolean).join('\n');
+  delete c.auto;
   S.cues.splice(i + 1, 1);
   changed();
   select(c.id, { seek: false });
@@ -434,6 +440,7 @@ function updateEditor() {
   const c = selCue();
   if (!c) {
     edSpeedWrap.hidden = true;
+    edAuto.hidden = true;
     edIdx.textContent = '#–';
     if (document.activeElement !== edStart) edStart.value = '';
     if (document.activeElement !== edEnd) edEnd.value = '';
@@ -446,6 +453,7 @@ function updateEditor() {
   edIdx.textContent = `#${i + 1}`;
   if (document.activeElement !== edStart) edStart.value = fmtTime(c.start, '.');
   if (document.activeElement !== edEnd) edEnd.value = fmtTime(c.end, '.');
+  edAuto.hidden = !(c.auto && tts.on && tts.autoEnd);
   edDur.textContent = `${(c.end - c.start).toFixed(3)} s`;
   edSpeedWrap.hidden = !tts.on;
   edSpeed.options[0].textContent = `default (${speedLabel(tts.speed)})`;
@@ -574,6 +582,7 @@ edText.addEventListener('input', () => {
   if (!c) return;
   if (!edit.pushed) { pushUndo(); edit.pushed = true; }
   c.text = edText.value;
+  fitAuto(c);
   changed(c.id);
 });
 edText.addEventListener('blur', () => {
@@ -612,8 +621,8 @@ function bindTimeInput(input, which) {
     if (Number.isNaN(t)) { toast('Invalid time — use hh:mm:ss.mmm'); }
     else if (Math.abs(t - cur) > 0.0005) {
       pushUndo();
-      if (which === 'start') c.start = clamp(t, 0, c.end - MIN_DUR);
-      else c.end = Math.max(t, c.start + MIN_DUR);
+      if (which === 'start') { c.start = clamp(t, 0, c.end - MIN_DUR); fitAuto(c); }
+      else { c.end = Math.max(t, c.start + MIN_DUR); delete c.auto; }
       changed();
       select(c.id, { seek: false });
     }
@@ -979,8 +988,10 @@ lane.addEventListener('pointermove', (e) => {
     c.start = ns; c.end = ns + len;
   } else if (drag.mode === 'start') {
     c.start = clamp(snapT(drag.s0 + dt, [lo], noSnap), lo, c.end - MIN_DUR);
+    fitAuto(c);
   } else if (drag.mode === 'end') {
     c.end = clamp(snapT(drag.e0 + dt, [hi], noSnap), c.start + MIN_DUR, hi);
+    delete c.auto;
   } else if (drag.mode === 'create') {
     const b = snapT(xToT(e.clientX), [lo, hi], noSnap);
     c.start = clamp(Math.min(drag.t0, b), lo, hi);
@@ -1199,6 +1210,8 @@ function speakBlock(fit) {
       if (fit) { pause(); fitToSpeech(cur, secs); return; }
       const room = cur.end - cur.start;
       if (now() >= cur.end) pause(); else S.playUntil = cur.end;
+      // An auto block has just been refitted to this reading.
+      if (cur.auto && tts.autoEnd && room + 0.0005 >= secs) return toast(`Reading takes ${secs.toFixed(1)} s. The block now ends where the reading finishes`);
       toast(secs > room + 0.05
         ? `Reading takes ${secs.toFixed(1)} s, ${(secs - room).toFixed(1)} s longer than the block. ⇧V fits the block to it`
         : `Reading takes ${secs.toFixed(1)} s and fits, with ${(room - secs).toFixed(1)} s to spare`);
@@ -1220,12 +1233,31 @@ function fitToSpeech(c, secs) {
     : `Block now ends where the reading finishes (${secs.toFixed(1)} s)`);
 }
 
+// Blocks marked auto take their end from how long the reading takes, until the end is
+// set by hand. It never runs into the next block.
+function fitAuto(c) {
+  if (!c?.auto || !tts.on || !tts.autoEnd || !spoken(c.text)) return false;
+  const i = idx(c.id);
+  if (i < 0) return false;
+  const { hi } = bounds(i);
+  const end = clamp(c.start + speechLength(c.text, c.speed).secs, c.start + MIN_DUR, Math.max(hi, c.start + MIN_DUR));
+  if (Math.abs(end - c.end) < 0.0005) return false;
+  c.end = end;
+  return true;
+}
+function fitAllAuto() {
+  let any = false;
+  for (const c of S.cues) any = fitAuto(c) || any;
+  if (any) changed();
+}
+
 // A block's own speed. Setting it to the overall speed makes the block follow the
 // overall speed again, so changing that later still applies to it.
 function setBlockSpeed(c, v) {
   pushUndo(undefined, 'speed-' + c.id);
   if (!isSpeed(v) || v === tts.speed) delete c.speed;
   else c.speed = v;
+  fitAuto(c);
   changed(c.id);
   tlDirty = true;
   toast(c.speed ? `Block #${idx(c.id) + 1} reads at ${SPEEDS.find(([s]) => s === c.speed)[1]}`
@@ -2011,6 +2043,6 @@ initTts({
   rate: () => S.rate,
   duck: duckAudio,
   sample: () => spoken(selCue()?.text || ''),
-  changed: () => { renderList(); updateEditor(); updateInd(); tlDirty = true; },
+  changed: () => { fitAllAuto(); renderList(); updateEditor(); updateInd(); tlDirty = true; },
 });
 requestAnimationFrame(tick);

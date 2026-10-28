@@ -491,6 +491,8 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 .warnbox { padding: 8px 10px; border: 1px solid var(--warn); border-radius: 6px; color: var(--warn); font-size: 13px; }
 .warnbox[hidden] { display: none; }
 #edStats .tts { white-space: nowrap; }
+.autotag { padding: 0 5px; border: 1px solid var(--cue); border-radius: 4px; color: var(--cue); font: 11px var(--mono); }
+.autotag[hidden] { display: none; }
 .edspeed { display: inline-flex; align-items: center; gap: 4px; }
 .edspeed[hidden] { display: none; }
 .edspeed select {

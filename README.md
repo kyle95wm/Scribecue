@@ -119,6 +119,12 @@ the video, then tick **Turn on text to speech**.
   files, as notes that other programs ignore. SRT files can't store them.
 - **Read blocks aloud while playing:** each block is read as the playhead reaches it,
   with the original audio turned down. You can turn either part off.
+- **Ends set from the reading:** while text to speech is on, a new block made with `↵` or
+  `N` takes its end from how long the reading takes, and keeps following it as you type
+  or change the speed. An `auto` tag next to OUT shows this. It never runs into the next
+  block. Once you set the end yourself, by dragging, `S`, `E` / `R` or typing in OUT,
+  the block keeps it. Blocks marked with `H`, drawn on the timeline or opened from a file
+  are never changed. You can turn this off in the text to speech panel.
 - **Timing check:** the editor shows how long the reading takes, such as `TTS 2.9 s`, in red
   if it's longer than the block. `~` means it's an estimate. It becomes exact once the
   block has been read, and the estimates get more accurate for a voice as you use it.

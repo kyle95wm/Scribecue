@@ -50,7 +50,7 @@ export function estimate(text, cps = DEFAULT_CPS, speed = 1) {
 export const spoken = (text) => String(text).replace(/<[^>]*>|\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim();
 
 const KEY = 'scribecue.tts';
-const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, online: false, cps: {} };
+const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, online: false, cps: {} };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -63,8 +63,8 @@ tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
 if (!isSpeed(tts.speed)) tts.speed = 1;
 
 const save = () => {
-  const { on, voice, speed, live, duck, online, cps } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, online, cps })); } catch { /* ignore */ }
+  const { on, voice, speed, live, duck, autoEnd, online, cps } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, autoEnd, online, cps })); } catch { /* ignore */ }
 };
 
 let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1 };
@@ -191,6 +191,7 @@ function render() {
   $('ttsSpeed').value = String(tts.speed);
   $('ttsLive').checked = tts.live;
   $('ttsDuck').checked = tts.duck;
+  $('ttsAuto').checked = tts.autoEnd;
   $('ttsOnline').checked = tts.online;
   if (tts.available) fillVoices();
 }
@@ -217,6 +218,7 @@ export function initTts(h) {
   sp.addEventListener('change', (e) => set('speed', +e.target.value));
   $('ttsLive').addEventListener('change', (e) => set('live', e.target.checked));
   $('ttsDuck').addEventListener('change', (e) => set('duck', e.target.checked));
+  $('ttsAuto').addEventListener('change', (e) => set('autoEnd', e.target.checked));
   $('ttsOnline').addEventListener('change', (e) => {
     // Turning online voices off also drops an online voice that was chosen.
     if (!e.target.checked && currentVoice() && !currentVoice().localService) { stop(); tts.voice = ''; }
