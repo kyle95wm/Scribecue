@@ -7,7 +7,7 @@ set -eu
 cd "$(dirname "$0")/.."
 
 echo '== JavaScript syntax'
-for f in app/js/*.js tests/*.mjs; do node --check "$f"; done
+for f in app/js/*.js tests/*.mjs scripts/*.mjs; do node --check "$f"; done
 
 echo '== Unit tests'
 node --test 'tests/*.test.mjs'

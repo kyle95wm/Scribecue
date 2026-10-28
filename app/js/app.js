@@ -19,25 +19,23 @@ const pcKeys = (s) => (IS_MAC ? s : s
   .replace(/⌘(?=\S)/g, 'Ctrl+').replace(/⌘/g, 'Ctrl')
   .replace(/⌥(?=\S)/g, 'Alt+').replace(/⌥/g, 'Alt')
   .replace(/⇧(?=\S)/g, 'Shift+').replace(/⇧/g, 'Shift'));
-// Some Linux desktops move the window on Alt+drag, so Ctrl also skips snapping there.
-const noSnapKey = (e) => e.altKey || (!IS_MAC && e.ctrlKey);
 const MIN_DUR = 0.1;
 const FRAME = 1 / 25;
 const MAX_PPS = 1500;
 const DEFAULT_LEN = 2;
-const SNAP_PX = 8;
 const STORE_KEY = 'scribecue.v1';
 // Carry over work and settings saved under the editor's old name.
 try {
-  for (const k of ['v1', 'cps', 'snap', 'offset']) {
+  for (const k of ['v1', 'offset']) {
     const old = localStorage.getItem('subed.' + k);
     if (old !== null && localStorage.getItem('scribecue.' + k) === null) localStorage.setItem('scribecue.' + k, old);
     localStorage.removeItem('subed.' + k);
   }
+  // Settings for features that have been removed: reading speed (CPS) and snapping.
+  for (const k of ['cps', 'snap']) { localStorage.removeItem('subed.' + k); localStorage.removeItem('scribecue.' + k); }
 } catch { /* storage blocked */ }
 const PEAK_RATE = 200; // waveform bins per second
 const OFFSETS = [0, 0.1, 0.15, 0.2, 0.25, 0.3]; // hold-to-mark reaction offsets, ⇧H cycles
-const SNAP_WIN = 0.3; // how far hold-to-mark edges may move to meet the waveform
 
 const css = getComputedStyle(document.documentElement);
 const C = Object.fromEntries(['panel', 'line', 'dim', 'faint', 'accent', 'bg'].map((k) => [k, css.getPropertyValue('--' + k).trim()]));
@@ -58,8 +56,6 @@ const S = {
   follow: true,
   loop: false,
   loopOnce: false, // loop started with L: ends when the block editor closes
-  cps: (() => { try { return localStorage.getItem('scribecue.cps') !== '0'; } catch { return true; } })(),
-  snap: (() => { try { return localStorage.getItem('scribecue.snap') !== '0'; } catch { return true; } })(),
   offset: (() => { try { const v = parseFloat(localStorage.getItem('scribecue.offset')); return OFFSETS.includes(v) ? v : 0.2; } catch { return 0.2; } })(),
   resumeAfterEdit: false, // hold-to-mark paused playback; closing the editor resumes it
   rate: 1,
@@ -87,8 +83,6 @@ const selIdx = () => (S.sel == null ? -1 : idx(S.sel));
 const selCue = () => S.cues[selIdx()] || null;
 const sortCues = () => S.cues.sort((a, b) => a.start - b.start || a.end - b.end);
 const plain = (s) => s.replace(/<[^>]*>|\{[^}]*\}/g, '');
-const cps = (c) => plain(c.text).replace(/\n/g, '').length / Math.max(0.001, c.end - c.start);
-const cpsClass = (v) => (v > 21 ? 'bad' : v > 17 ? 'warn' : '');
 let tlDirty = true;
 
 // ---------------------------------------------------------------- time / playback
@@ -466,25 +460,15 @@ function updateEditor() {
   edSpeed.options[0].textContent = `default (${speedLabel(tts.speed)})`;
   if (document.activeElement !== edSpeed) edSpeed.value = c.speed ? String(c.speed) : '';
   if (!edit || edit.id !== c.id) edText.value = c.text;
-  const lines = plain(c.text).split('\n');
-  const maxLine = Math.max(...lines.map((l) => l.length));
-  const v = cps(c);
-  edStats.innerHTML = '';
-  const add = (label, cls) => {
-    const s = document.createElement('span');
-    s.textContent = label;
-    if (cls) s.className = cls;
-    edStats.append(s, ' · ');
-  };
-  if (S.cps) add(`CPS ${v.toFixed(1)}`, cpsClass(v));
+  edStats.textContent = '';
   if (ttsOn() && spoken(c.text)) {
     // How long the voice takes to read it: "~" until it has actually been read.
     const { secs, exact } = speechLength(c.text, c.speed);
-    add(`TTS ${exact ? '' : '~'}${secs.toFixed(1)} s`, 'tts ' + (secs > c.end - c.start + 0.05 ? 'bad' : ''));
+    const s = document.createElement('span');
+    s.textContent = `TTS ${exact ? '' : '~'}${secs.toFixed(1)} s`;
+    s.className = 'tts ' + (secs > c.end - c.start + 0.05 ? 'bad' : '');
+    edStats.append(s);
   }
-  add(`${lines.length} line${lines.length > 1 ? 's' : ''}`, lines.length > 2 ? 'warn' : '');
-  add(`max ${maxLine} ch`, maxLine > 42 ? 'warn' : '');
-  edStats.lastChild.remove();
 }
 
 // Frazier "Enter": edit the block under the playhead, or create one there.
@@ -739,7 +723,7 @@ listSearch.addEventListener('keydown', (e) => {
 });
 
 function fillRow(r, c, i) {
-  const [n, t, tx, cp] = r.children;
+  const [n, t, tx] = r.children;
   n.textContent = i + 1;
   t.children[0].textContent = fmtTime(c.start, '.');
   t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${speedLabel(c.speed)}` : '');
@@ -748,9 +732,6 @@ function fillRow(r, c, i) {
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
   r.hidden = !matches(c, i);
-  const v = cps(c);
-  cp.textContent = c.text ? v.toFixed(0) : '';
-  cp.className = 'cps ' + cpsClass(v);
 }
 
 function renderList() {
@@ -770,7 +751,7 @@ function renderList() {
     const r = document.createElement('div');
     r.className = 'row';
     r.dataset.id = c.id;
-    r.innerHTML = '<span class="n"></span><span class="t"><b></b><i></i></span><span class="tx"></span><span class="cps"></span>';
+    r.innerHTML = '<span class="n"></span><span class="t"><b></b><i></i></span><span class="tx"></span>';
     fillRow(r, c, i);
     if (c.id === S.sel) r.classList.add('sel');
     if (c.id === S.activeId) r.classList.add('active');
@@ -928,18 +909,6 @@ function placePlayhead(t) {
 
 let drag = null;
 
-function snapT(t, extra, noSnap) {
-  if (!S.snap || noSnap) return t;
-  const thr = SNAP_PX / S.pps;
-  let best = t, bd = thr;
-  for (const cand of [now(), ...extra]) {
-    if (cand == null || !Number.isFinite(cand)) continue;
-    const d = Math.abs(cand - t);
-    if (d < bd) { bd = d; best = cand; }
-  }
-  return best;
-}
-
 lane.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
   const el = e.target.closest('.cue');
@@ -968,7 +937,6 @@ lane.addEventListener('pointermove', (e) => {
     document.body.classList.add('dragging');
     if (drag.mode !== 'move') document.body.classList.add('resize');
   }
-  const noSnap = noSnapKey(e);
 
   if (drag.mode === 'blank') {
     const ni = S.cues.findIndex((c) => c.start > drag.t0);
@@ -989,20 +957,16 @@ lane.addEventListener('pointermove', (e) => {
 
   if (drag.mode === 'move') {
     const len = drag.e0 - drag.s0;
-    let ns = drag.s0 + dt;
-    const sSnap = snapT(ns, [lo, hi - len], noSnap);
-    const eSnap = snapT(ns + len, [hi, lo + len], noSnap) - len;
-    ns = Math.abs(sSnap - ns) <= Math.abs(eSnap - ns) ? (sSnap !== ns ? sSnap : eSnap) : eSnap;
-    ns = clamp(ns, lo, hi - len);
+    const ns = clamp(drag.s0 + dt, lo, hi - len);
     c.start = ns; c.end = ns + len;
   } else if (drag.mode === 'start') {
-    c.start = clamp(snapT(drag.s0 + dt, [lo], noSnap), lo, c.end - MIN_DUR);
+    c.start = clamp(drag.s0 + dt, lo, c.end - MIN_DUR);
     fitAuto(c);
   } else if (drag.mode === 'end') {
-    c.end = clamp(snapT(drag.e0 + dt, [hi], noSnap), c.start + MIN_DUR, hi);
+    c.end = clamp(drag.e0 + dt, c.start + MIN_DUR, hi);
     delete c.auto;
   } else if (drag.mode === 'create') {
-    const b = snapT(xToT(e.clientX), [lo, hi], noSnap);
+    const b = xToT(e.clientX);
     c.start = clamp(Math.min(drag.t0, b), lo, hi);
     c.end = clamp(Math.max(drag.t0, b), lo, hi);
     if (c.end - c.start < MIN_DUR) c.end = Math.min(hi, c.start + MIN_DUR);
@@ -1096,9 +1060,7 @@ const IND_TIPS = {
   follow: 'Follow: keep the playhead in view and select each block as it plays (F)',
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
   offset: 'Hold-to-mark reaction offset: marks made with H move back by this much. ⇧H or click to change',
-  cps: 'Show reading speed (characters per second) in the list and editor (I)',
   tts: 'Text to speech: hear blocks read aloud (V). Click to choose the voice and speed, or to turn it on (⌥⇧V)',
-  snap: 'Snap (B): dragged edges stick to the playhead and neighbouring blocks, and blocks marked with H move to where the waveform rises and falls. Hold {nosnap} to override',
 };
 function updateInd() {
   const items = [
@@ -1106,8 +1068,6 @@ function updateInd() {
     ['follow', 'FOLLOW', S.follow],
     ['loop', 'LOOP', S.loop],
     ...(writing() ? [] : [['offset', `H −${Math.round(S.offset * 1000)}ms`, false]]),
-    ['cps', 'CPS', S.cps],
-    ['snap', 'SNAP', S.snap],
     ...(writing() ? [['tts', tts.on && tts.speed !== 1 ? `TTS ${speedLabel(tts.speed)}` : 'TTS', tts.on]] : []),
   ];
   ind.textContent = '';
@@ -1115,7 +1075,7 @@ function updateInd() {
     const s = document.createElement('span');
     s.textContent = label;
     s.dataset.key = key;
-    s.dataset.tip = pcKeys(IND_TIPS[key].replace('{nosnap}', IS_MAC ? '⌥' : 'Alt or Ctrl'));
+    s.dataset.tip = pcKeys(IND_TIPS[key]);
     s.className = (on ? 'on ' : '') + (key === 'speed' || key === 'follow' ? '' : 'tip-end');
     ind.append(s);
   }
@@ -1168,12 +1128,6 @@ ind.addEventListener('click', (e) => {
 function toggleFlag(k) {
   S[k] = !S[k];
   if (k === 'loop') S.loopOnce = false;
-  if (k === 'cps') {
-    document.body.classList.toggle('no-cps', !S.cps);
-    updateEditor();
-    try { localStorage.setItem('scribecue.cps', S.cps ? '1' : '0'); } catch { /* ignore */ }
-  }
-  if (k === 'snap') try { localStorage.setItem('scribecue.snap', S.snap ? '1' : '0'); } catch { /* ignore */ }
   updateInd();
   toast(`${k[0].toUpperCase() + k.slice(1)} ${S[k] ? 'on' : 'off'}`);
 }
@@ -1373,7 +1327,7 @@ function setMode(m, quiet = false) {
     b.classList.toggle('on', on);
     b.setAttribute('aria-checked', on);
   }
-  if (m === 'write') { holdEnd(true); fitAllAuto(); } else stopSpeech();
+  if (m === 'write') { holdEnd(); fitAllAuto(); } else stopSpeech();
   renderList();
   updateEditor();
   updateInd();
@@ -1394,8 +1348,8 @@ document.getElementById('modeSw').addEventListener('click', (e) => {
 // ---------------------------------------------------------------- hold-to-mark
 
 // Hold H while the narrator speaks: press marks the start, release marks the end.
-// Both edges move back by the reaction offset, then snap to where the waveform
-// rises or falls nearby. Releasing pauses and opens the new block for typing.
+// Both edges move back by the reaction offset, since key presses lag what you hear.
+// Releasing pauses and opens the new block for typing.
 let hold = null; // { t0, el }
 const markEl = document.createElement('div');
 markEl.className = 'cue marking';
@@ -1419,7 +1373,7 @@ function updateMark() {
   markEl.style.width = Math.max(2, (b - a) * S.pps) + 'px';
 }
 
-function holdEnd(noSnap) {
+function holdEnd() {
   if (!hold) return;
   const tUp = now();
   let a = Math.max(0, hold.t0), b = tUp - S.offset * S.rate;
@@ -1427,11 +1381,6 @@ function holdEnd(noSnap) {
   markEl.hidden = true;
   pause();
   if (b - a < 0.25) return toast('Hold H for as long as the narrator speaks');
-  const snapped = S.snap && !noSnap && S.peaks && S.peakMax > 0;
-  if (snapped) {
-    a = waveEdge(a, true) ?? a;
-    b = waveEdge(b, false) ?? b;
-  }
   // keep inside the gap the mark started in
   const prev = S.cues.findLast((c) => c.start <= a);
   if (prev && prev.end > a) a = prev.end;
@@ -1445,23 +1394,7 @@ function holdEnd(noSnap) {
   select(c.id, { seek: false });
   S.resumeAfterEdit = true;
   editText();
-  toast(`Block #${idx(c.id) + 1} marked${snapped ? ' and snapped to the waveform' : ''} — type it, then ↵ or Esc to carry on`);
-}
-
-// Find where the waveform rises (start) or falls (end) most sharply near t, in dB.
-// Returns null if nothing within SNAP_WIN changes by at least 6 dB.
-function waveEdge(t, rising) {
-  const P = S.peaks, len = S.peakLen, W = 8; // 8 bins = 40 ms either side
-  const db = (i) => 20 * Math.log10(P[i] / S.peakMax + 1e-4);
-  const mean = (i0, i1) => { let m = 0; for (let i = i0; i < i1; i++) m += db(i); return m / (i1 - i0); };
-  const c = Math.round(t * PEAK_RATE), r = Math.round(SNAP_WIN * PEAK_RATE);
-  let best = null, bestScore = 6;
-  for (let i = Math.max(W, c - r); i <= Math.min(len - W, c + r); i++) {
-    const jump = rising ? mean(i, i + W) - mean(i - W, i) : mean(i - W, i) - mean(i, i + W);
-    const score = jump - Math.abs(i - c) / PEAK_RATE * 5; // prefer edges close to the mark
-    if (score > bestScore) { bestScore = score; best = i; }
-  }
-  return best == null ? null : best / PEAK_RATE;
+  toast(`Block #${idx(c.id) + 1} marked — type it, then ↵ or Esc to carry on`);
 }
 
 function cycleOffset() {
@@ -1473,12 +1406,9 @@ function cycleOffset() {
 }
 
 document.addEventListener('keyup', (e) => {
-  if (e.code === 'KeyH') holdEnd(noSnapKey(e));
-  // On Windows and Linux, letting go of Alt on its own focuses the browser's menu, which
-  // would swallow the next key after an Alt+drag or an Alt release in hold-to-mark.
-  if (e.key === 'Alt' && !IS_MAC) e.preventDefault();
+  if (e.code === 'KeyH') holdEnd();
 });
-window.addEventListener('blur', () => holdEnd(false));
+window.addEventListener('blur', () => holdEnd());
 
 let toastTimer = 0;
 function toast(msg) {
@@ -2064,8 +1994,6 @@ document.addEventListener('keydown', (e) => {
       case 'KeyH': if (!e.repeat) holdStart(); break;
       case 'KeyO': toggleFlag('loop'); break;
       case 'KeyF': toggleFlag('follow'); break;
-      case 'KeyB': toggleFlag('snap'); break;
-      case 'KeyI': toggleFlag('cps'); break;
       case 'KeyV': speakBlock(false); break;
       case 'Backslash': setRate(1); break;
       default: handled = false;
@@ -2130,7 +2058,6 @@ $('subName').textContent = S.subName;
 S.pps = Math.max(20, tl.clientWidth / 20);
 changed();
 updateInd();
-document.body.classList.toggle('no-cps', !S.cps);
 setMode(S.mode, true);
 durEl.textContent = S.hasVideo ? fmtTime(duration(), '.') : '--:--:--.---';
 if (restored) {

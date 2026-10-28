@@ -1,11 +1,14 @@
 # Scribecue
 
-**A keyboard-first editor for subtitles and audio description scripts.**
+**A keyboard-first editor for audio description scripts.**
 
+- **Transcribe** existing audio description at its original timing: hold a key while the
+  narrator speaks and a block appears.
+- **Write** new audio description, with text to speech to hear each line and check it fits
+  before the next piece of dialogue.
 - Runs on your own computer in Docker. Your files are never uploaded.
 - Uses the same keyboard layout as Frazier, so Frazier users don't need to relearn keys.
-- Built for transcribing existing audio description at its original timing: hold a key
-  while the narrator speaks and a block appears.
+- Scripts open and save as SRT or WebVTT files.
 
 ![Scribecue with a video, its audio description track and five text blocks on the timeline](docs/screenshots/main.png)
 
@@ -55,7 +58,7 @@ To stop it, run `docker compose down`. To use a different port, start it with
 
 1. **Open a video or audio file** with `Ctrl/Cmd+Shift+O`, or drop it on the window. A waveform
    of the audio appears on the timeline.
-2. **Open existing subtitles** with `Ctrl/Cmd+O` (`.srt` or `.vtt`), or start from nothing.
+2. **Open an existing script** with `Ctrl/Cmd+O` (`.srt` or `.vtt`), or start from nothing.
 3. **Move around** with `←` `→` (one frame), `Shift+←` `Shift+→` (3 seconds) and `Alt+Shift+←` `Alt+Shift+→`
    (previous / next block).
 4. **Write** by pressing `Enter`. This creates a block at the playhead, or edits the block
@@ -100,11 +103,10 @@ Scribecue tidies up the timing for you:
 | | What happens | Change it with |
 | --- | --- | --- |
 | **Reaction offset** | Both edges move back 200 ms, because your key press comes a moment after you hear the voice. | `Shift+H`, or click `H −200ms` under the video (0–300 ms) |
-| **Snapping** | Each edge moves to where the waveform rises or falls sharply within 300 ms, so it lands on the narrator, not your key press. | `B`, or click `SNAP` (turns off all snapping, including when dragging). Hold `Alt` as you let go to skip it once |
-| **Starting from pause** | If you pause first and then hold `H`, the block starts exactly where you paused, with no offset. | Turn snapping off to keep it exactly there |
+| **Starting from pause** | If you pause first and then hold `H`, the block starts exactly where you paused, with no offset. | |
 | **No overlaps** | A new block is trimmed to fit the gap it starts in. | |
 
-Your offset and snapping choices are remembered.
+Your offset choice is remembered.
 
 ### Looping a block
 
@@ -201,8 +203,6 @@ afterwards is instant. Safari switches tracks itself.
 
 - **Search:** the box above the list filters blocks by text, or by number with `#12`.
   Press `/` to jump to it. `Shift+F` opens quick navigation, and `Alt+Shift+J` jumps to a timecode.
-- **Reading speed:** the CPS column turns amber above 17 characters per second and red
-  above 21. Press `I`, or click `CPS`, to hide it.
 - **Player controls:** the buttons under the video step to the previous or next block,
   jump 3 seconds or one frame, play or pause, play just the selected block, and loop the
   block under the playhead. Hover over one to see its key.
@@ -279,8 +279,6 @@ keys are named on each system.
 | `/` | Search the block list |
 | `O` | Loop on / off |
 | `F` | Follow the playhead on / off |
-| `B` | Snapping on / off |
-| `I` | Reading speed (CPS) on / off |
 | `V` / `Shift+V` | [Read the block aloud](#text-to-speech) / fit the block to the reading |
 | `[` `]` | Make the block's reading slower / faster |
 | `Alt+Shift+V` | Text to speech settings |
@@ -295,18 +293,15 @@ The keys are in the same places on every system. `Ctrl/Cmd` means `Ctrl` on Wind
 Linux and `Cmd` (⌘) on a Mac. `Alt` is `Option` (⌥) on a Mac. Scribecue shows the right
 names for your system in the app.
 
-A few keys differ, to avoid clashes with the system:
-
-- **Play / pause while typing:** `Alt+Space` on a Mac, `Ctrl+Space` on Windows and Linux,
-  because Windows keeps `Alt+Space` for the window menu.
-- **Turning snapping off for one drag or mark:** hold `Alt`, or `Ctrl` on Windows and
-  Linux. Some Linux desktops move the whole window when you drag with `Alt` held.
+One key differs, to avoid a clash with the system: **play / pause while typing** is
+`Alt+Space` on a Mac and `Ctrl+Space` on Windows and Linux, because Windows keeps
+`Alt+Space` for the window menu.
 
 If `Alt+Shift` switches your keyboard layout on Windows, the block shortcuts also have
 other keys: `↑` `↓` or `K` `J` for previous / next block, and `Del` to delete. You can also
 drop a media file on the window instead of pressing `Ctrl+Shift+O`.
 
-Frazier features with no subtitle equivalent aren't included: glossaries, snippets,
+Frazier features that Scribecue doesn't have aren't included: glossaries, snippets,
 markers, comments, pronunciation, extended audio description, and instruction or pause
 marks. Their keys show a short notice instead.
 
@@ -324,7 +319,7 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
 
 ## Privacy
 
-- Video, audio and subtitle files are opened straight from your disk and never uploaded.
+- Video, audio and script files are opened straight from your disk and never uploaded.
 - The server only hands out the app's own files, and only to your own computer
   (`127.0.0.1`).
 - A strict security policy stops the page from contacting any other site. The one exception
@@ -374,7 +369,7 @@ Run the checks before committing, pushing or opening a pull request:
 scripts/check.sh
 ```
 
-This checks the JavaScript syntax, runs the unit tests in `tests/` (subtitle parsing, the
+This checks the JavaScript syntax, runs the unit tests in `tests/` (SRT and VTT parsing, the
 version check and the waveform reader), then builds the Docker image and checks that it
 serves the app with its security headers. Use `scripts/check.sh --no-docker` to skip the
 Docker part. The same checks run on GitHub for every push and pull request.
@@ -389,7 +384,9 @@ To release a new version:
    gh release create v0.2.0 --generate-notes
    ```
 
-The screenshots use a generated test video, not real programme material.
+To retake the README screenshots after a visible change, run `scripts/screenshots.sh`. It
+needs ffmpeg, Node, Python 3 and Google Chrome (set `CHROME` to its path if it isn't in
+the usual Mac location), and uses a generated test video, not real programme material.
 
 ## Credits
 

@@ -16,15 +16,15 @@
       <button role="radio" data-mode="write" data-tip="Write new audio description, with text to speech, reading times and block speeds">Write</button>
     </div>
     <div class="files">
-      <span id="subName" title="Subtitle file">untitled.srt</span>
+      <span id="subName" title="Script file">untitled.srt</span>
       <span class="sep">/</span>
       <span id="videoName" class="dim" title="Media file">no media</span>
     </div>
     <nav>
-      <button data-act="openSubs" data-tip="Open an SRT or VTT subtitle file ({mod}O)">Open subs <kbd><span class="mod"></span>O</kbd></button>
+      <button data-act="openSubs" data-tip="Open a script saved as SRT or VTT ({mod}O)">Open script <kbd><span class="mod"></span>O</kbd></button>
       <button data-act="openVideo" data-tip="Open a video or audio file to time against. It stays on your machine ({mod}⇧O)">Open media <kbd><span class="mod"></span>⇧O</kbd></button>
-      <button data-act="exportSrt" data-tip="Download the subtitles as an SRT file ({mod}S)">Export SRT <kbd><span class="mod"></span>S</kbd></button>
-      <button data-act="exportVtt" data-tip="Download the subtitles as a WebVTT file ({mod}⇧S)">VTT <kbd><span class="mod"></span>⇧S</kbd></button>
+      <button data-act="exportSrt" data-tip="Save the script as an SRT file ({mod}S)">Export SRT <kbd><span class="mod"></span>S</kbd></button>
+      <button data-act="exportVtt" data-tip="Save the script as a WebVTT file, which also keeps block speeds ({mod}⇧S)">VTT <kbd><span class="mod"></span>⇧S</kbd></button>
       <button data-act="clear" class="tip-end" data-tip="Remove every text block (asks first). Undo with {mod}Z">Clear</button>
       <button data-act="help" class="hl tip-end" data-tip="Show all keyboard shortcuts (? or ⇧O)">Shortcuts <kbd>?</kbd></button>
     </nav>
@@ -53,7 +53,7 @@
         <span id="listCount" class="dim"></span>
       </div>
       <div class="listhead">
-        <span>#</span><span>Start / Dur</span><span>Text</span><span title="Characters per second">CPS</span>
+        <span>#</span><span>Start / Dur</span><span>Text</span>
       </div>
       <div class="list" id="list"></div>
     </aside>
@@ -221,7 +221,6 @@ docker compose up -d --build</code></pre>
           <dl>
             <dt>Drag block</dt><dd>Move · drag an edge to resize</dd>
             <dt>Drag empty lane</dt><dd>Draw a new block</dd>
-            <dt data-pc="Hold &lt;kbd&gt;Alt&lt;/kbd&gt; or &lt;kbd&gt;Ctrl&lt;/kbd&gt;">Hold <kbd>⌥</kbd></dt><dd>No snapping while dragging</dd>
             <dt>Buttons under video</dt><dd>Block, 3 s and frame steps, play, play block, loop block</dd>
             <dt>Wheel</dt><dd>Pan · <kbd><span class="mod"></span></kbd>/pinch to zoom</dd>
           </dl>
@@ -254,7 +253,7 @@ docker compose up -d --build</code></pre>
           </dl>
         </section>
         <section>
-          <h3>Subtitle extras</h3>
+          <h3>Extras</h3>
           <dl>
             <dt><kbd>↑</kbd> <kbd>↓</kbd> / <kbd>K</kbd> <kbd>J</kbd></dt><dd>Previous / next block</dd>
             <dt><kbd>PgUp</kbd> <kbd>PgDn</kbd></dt><dd>Jump 10 blocks</dd>
@@ -270,11 +269,10 @@ docker compose up -d --build</code></pre>
             <dt><kbd>T</kbd> / <kbd>⇧</kbd><kbd>T</kbd></dt><dd>Next / previous audio track</dd>
             <dt><kbd>/</kbd></dt><dd>Search the block list (↑ ↓ step through matches, ↵ back to timeline, Esc clears)</dd>
             <dt><kbd>G</kbd> / <kbd>⇧</kbd><kbd>G</kbd></dt><dd>Playhead to block start / end</dd>
-            <dt class="transcribe-only">Hold <kbd>H</kbd></dt><dd class="transcribe-only" data-pc="Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on. Snaps to the waveform unless snapping (B) is off; hold Alt or Ctrl as you release to skip it once">Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on. Snaps to the waveform unless snapping (B) is off; hold ⌥ as you release to skip it once</dd>
+            <dt class="transcribe-only">Hold <kbd>H</kbd></dt><dd class="transcribe-only">Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on</dd>
             <dt class="transcribe-only"><kbd>⇧</kbd><kbd>H</kbd></dt><dd class="transcribe-only">Change the hold-to-mark reaction offset</dd>
             <dt><kbd>L</kbd></dt><dd>Loop this block and play. ↵ to type, Esc when done ends the loop</dd>
-            <dt><kbd>O</kbd> <kbd>F</kbd> <kbd>B</kbd></dt><dd>Loop (stays on) · follow playhead · snapping on / off (dragging and H)</dd>
-            <dt><kbd>I</kbd></dt><dd>Show / hide reading speed (CPS)</dd>
+            <dt><kbd>O</kbd> <kbd>F</kbd></dt><dd>Loop (stays on) · follow playhead</dd>
             <dt><kbd>\</kbd></dt><dd>Reset speed to 1×</dd>
             <dt><kbd>⌥</kbd><kbd>=</kbd> <kbd>⌥</kbd><kbd>-</kbd> <kbd>⌥</kbd><kbd>0</kbd></dt><dd>Zoom timeline in / out / fit</dd>
           </dl>
