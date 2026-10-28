@@ -125,8 +125,14 @@ the video, then tick **Turn on text to speech**.
   block. Once you set the end yourself, by dragging, `S`, `E` / `R` or typing in OUT,
   the block keeps it. Blocks marked with `H`, drawn on the timeline or opened from a file
   are never changed. You can turn this off in the text to speech panel.
+- **Update all timings:** a button in the text to speech panel sets the end of every block
+  with text from its reading, using each block's own speed. It asks first, because it also
+  changes blocks marked with `H` or opened from a file, and `⌘Z` undoes it. Ends never run
+  into the next block. Tick **Read each block silently first** for exact lengths. That
+  takes about as long as reading them all, shows its progress, and can be stopped.
 - **Timing check:** the editor shows how long the reading takes, such as `TTS 2.9 s`, in red
-  if it's longer than the block. `~` means it's an estimate. It becomes exact once the
+  if it's longer than the block, and the list shows that block's duration in red. `~`
+  means it's an estimate. It becomes exact once the
   block has been read, and the estimates get more accurate for a voice as you use it.
 
 Scribecue uses the voices built into your computer, so the text stays on it. macOS and

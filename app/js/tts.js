@@ -100,12 +100,13 @@ export function stop() {
   const c = current;
   current = null;
   if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
-  if (c) { tts.speaking = null; hooks.duck(false); c.done(null); }
+  if (c) { tts.speaking = null; if (!c.silent) hooks.duck(false); c.done(null); }
 }
 
 // Read text aloud. done(secs) runs with the spoken length in video seconds when it
 // finishes on its own, or with null if it was stopped or failed.
-export function speak(text, { id = null, manual = false, speed = tts.speed, done = () => {} } = {}) {
+// silent: read at zero volume, just to measure it.
+export function speak(text, { id = null, manual = false, silent = false, speed = tts.speed, done = () => {} } = {}) {
   if (!tts.available) { done(null); return false; }
   stop();
   const words = spoken(text);
@@ -115,6 +116,7 @@ export function speak(text, { id = null, manual = false, speed = tts.speed, done
   if (voice) { u.voice = voice; u.lang = voice.lang; }
   const playRate = hooks.rate();
   u.rate = Math.min(10, Math.max(0.1, speed * playRate));
+  if (silent) u.volume = 0;
   const key = measureKey(text, speed);
   let t0 = 0;
   u.onstart = () => { t0 = performance.now(); };
@@ -122,7 +124,7 @@ export function speak(text, { id = null, manual = false, speed = tts.speed, done
     if (current?.u !== u) return;
     current = null;
     tts.speaking = null;
-    hooks.duck(false);
+    if (!silent) hooks.duck(false);
     if (!ok || !t0) { done(null); return; }
     // Wall time × playback rate = time on the video's clock.
     const secs = ((performance.now() - t0) / 1000) * playRate;
@@ -136,9 +138,9 @@ export function speak(text, { id = null, manual = false, speed = tts.speed, done
   };
   u.onend = () => finish(true);
   u.onerror = () => finish(false);
-  current = { u, done };
-  tts.speaking = { id, manual };
-  hooks.duck(true);
+  current = { u, done, silent };
+  tts.speaking = { id, manual: manual || silent };
+  if (!silent) hooks.duck(true);
   if (voice && !warmed.has(voice.voiceURI)) {
     warmed.add(voice.voiceURI);
     const w = new SpeechSynthesisUtterance('.');

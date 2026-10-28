@@ -493,6 +493,8 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 #edStats .tts { white-space: nowrap; }
 .autotag { padding: 0 5px; border: 1px solid var(--cue); border-radius: 4px; color: var(--cue); font: 11px var(--mono); }
 .autotag[hidden] { display: none; }
+#list .over { color: var(--bad); }
+#ttsAllStop[hidden] { display: none; }
 .edspeed { display: inline-flex; align-items: center; gap: 4px; }
 .edspeed[hidden] { display: none; }
 .edspeed select {

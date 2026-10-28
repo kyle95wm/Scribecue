@@ -736,6 +736,8 @@ function fillRow(r, c, i) {
   n.textContent = i + 1;
   t.children[0].textContent = fmtTime(c.start, '.');
   t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (tts.on && c.speed ? ` · TTS ${speedLabel(c.speed)}` : '');
+  // Red when the reading is longer than the block.
+  t.children[1].classList.toggle('over', tts.on && !!spoken(c.text) && speechLength(c.text, c.speed).secs > c.end - c.start + 0.05);
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
   r.hidden = !matches(c, i);
@@ -1250,6 +1252,57 @@ function fitAllAuto() {
   for (const c of S.cues) any = fitAuto(c) || any;
   if (any) changed();
 }
+
+// Update all timings: set every block's end from its reading, optionally reading each
+// one silently first so every length is exact. One undo step.
+const ttsAll = $('ttsAll'), ttsAllStop = $('ttsAllStop'), ttsAllStatus = $('ttsAllStatus');
+let measuring = false;
+async function updateAllTimings() {
+  const blocks = S.cues.filter((c) => spoken(c.text));
+  if (!blocks.length) return (ttsAllStatus.textContent = 'There are no blocks with text yet.');
+  if ($('ttsAllExact').checked) {
+    const todo = blocks.filter((c) => !speechLength(c.text, c.speed).exact);
+    pause();
+    measuring = true;
+    ttsAll.disabled = true;
+    ttsAllStop.hidden = false;
+    for (let k = 0; k < todo.length && measuring; k++) {
+      ttsAllStatus.textContent = `Reading block ${k + 1} of ${todo.length} silently…`;
+      const c = todo[k];
+      await new Promise((done) => speak(c.text, { id: c.id, silent: true, speed: c.speed, done }));
+    }
+    const stopped = !measuring;
+    measuring = false;
+    ttsAll.disabled = false;
+    ttsAllStop.hidden = true;
+    if (stopped) return (ttsAllStatus.textContent = 'Stopped. No timings were changed.');
+  }
+  const n = blocks.length;
+  if (!confirm(`Update the end of ${n} block${n > 1 ? 's' : ''} from the reading? This also changes blocks marked with H or opened from a file. You can undo it.`)) {
+    return (ttsAllStatus.textContent = '');
+  }
+  pushUndo();
+  let moved = 0, short = 0, estimated = 0;
+  for (let i = 0; i < S.cues.length; i++) {
+    const c = S.cues[i], next = S.cues[i + 1];
+    if (!spoken(c.text)) continue;
+    const { secs, exact } = speechLength(c.text, c.speed);
+    const hi = next ? Math.max(next.start, c.start + MIN_DUR) : Math.max(duration(), c.start + secs);
+    const end = clamp(c.start + secs, c.start + MIN_DUR, hi);
+    if (c.start + secs > hi + 0.0005) short++;
+    if (!exact) estimated++;
+    if (Math.abs(end - c.end) > 0.0005) { c.end = end; moved++; }
+  }
+  changed();
+  const msg = `Updated ${moved} of ${n} block${n > 1 ? 's' : ''}.` +
+    (short ? ` ${short === 1 ? "1 block doesn't" : `${short} blocks don't`} fit before the next one (red in the list).` : '') +
+    (estimated ? ` ${estimated === n ? 'All' : estimated} used estimated lengths: tick the box above for exact ones.` : '');
+  ttsAllStatus.textContent = msg;
+  toast(msg);
+}
+ttsAll.addEventListener('click', updateAllTimings);
+ttsAllStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
+$('ttsDlg').addEventListener('close', () => { measuring = false; ttsAllStatus.textContent = ''; });
 
 // A block's own speed. Setting it to the overall speed makes the block follow the
 // overall speed again, so changing that later still applies to it.
@@ -1871,8 +1924,10 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
-  if (mod && e.code === 'KeyZ') { e.preventDefault(); e.shiftKey ? doRedo() : doUndo(); return; }
-  if (mod && e.code === 'KeyY') { e.preventDefault(); doRedo(); return; }
+  // Undo and redo follow the letter on the key, like other apps, so ⌘Z is still Z on AZERTY.
+  const letter = e.key.length === 1 ? e.key.toLowerCase() : '';
+  if (mod && letter === 'z') { e.preventDefault(); e.shiftKey ? doRedo() : doUndo(); return; }
+  if (mod && letter === 'y') { e.preventDefault(); doRedo(); return; }
   if (mod) return; // leave other browser shortcuts (zoom, find, reload…) alone
   if (isHelpKey(e)) { e.preventDefault(); toggleHelp(); return; }
   if (e.key === '/' && !e.altKey) { e.preventDefault(); listSearch.focus(); listSearch.select(); return; }
