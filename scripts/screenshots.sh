@@ -38,8 +38,36 @@ echo '== Serving a copy of the app'
 mkdir "$work/site"
 cp -R app/. "$work/site/"
 mv "$work/demo.mkv" "$work/site/"
-python3 -m http.server "$site_port" --bind 127.0.0.1 --directory "$work/site" >/dev/null 2>&1 &
+# Serves the copy, and passes /tts/ on to a running Scribecue with Piper, if there is one,
+# so the text to speech panel can show Piper voices.
+cat > "$work/serve.py" <<'PY'
+import http.server, sys, urllib.request
+site, port, upstream = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+class H(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *a, **k): super().__init__(*a, directory=site, **k)
+    def log_message(self, *a): pass
+    def proxy(self, body=None):
+        try:
+            req = urllib.request.Request(upstream + self.path, data=body, method=self.command,
+                                         headers={'Content-Type': self.headers.get('Content-Type', '')})
+            with urllib.request.urlopen(req, timeout=60) as r: data, code = r.read(), r.status
+        except Exception: data, code = b'', 502
+        self.send_response(code); self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data)
+    def do_GET(self):
+        if self.path.startswith('/tts/'): return self.proxy()
+        super().do_GET()
+    def do_POST(self):
+        if self.path.startswith('/tts/'): return self.proxy(self.rfile.read(int(self.headers.get('Content-Length', 0))))
+        self.send_error(405)
+http.server.ThreadingHTTPServer(('127.0.0.1', port), H).serve_forever()
+PY
+python3 "$work/serve.py" "$work/site" "$site_port" "http://127.0.0.1:${SCRIBECUE_PORT:-8484}" &
 site_pid=$!
+if curl -fs -o /dev/null "http://127.0.0.1:${SCRIBECUE_PORT:-8484}/tts/voices"; then
+  echo 'Using Piper voices from the running Scribecue'
+else
+  echo 'Piper is not running, so the text to speech panel shows browser voices only'
+fi
 "$chrome" --headless=new --mute-audio --remote-debugging-port="$cdp_port" \
   --user-data-dir="$work/profile" --autoplay-policy=no-user-gesture-required --no-first-run \
   about:blank >/dev/null 2>&1 &

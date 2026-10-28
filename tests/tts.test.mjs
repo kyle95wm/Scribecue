@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPEEDS, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel } from '../app/js/tts.js';
+import { SPEEDS, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
+  piperVoiceList, readWav, writeWav, mixTrack } from '../app/js/tts.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -43,11 +44,45 @@ test('tags and line breaks are not read out', () => {
   assert.equal(spoken('<i>Hello</i>\n  {\\an8}there'), 'Hello there');
 });
 
-test('the voice menu lists voices on this computer before online ones', () => {
-  const groups = groupVoices(pickVoices(voices, { online: true, lang: 'en-US' }));
-  assert.deepEqual(groups.map(([label]) => label), ['On this computer', 'Online: the text is sent to the provider']);
-  assert.deepEqual(groups[0][1].map((x) => x.name), ['Anna', 'Zed', 'Alex', 'Amélie']);
-  assert.deepEqual(groups[1][1].map((x) => x.name), ['Google UK']);
+test('the voice menu lists Piper, then voices on this computer, then online ones', () => {
+  const piper = piperVoiceList({ 'en_GB-alba-medium': {}, 'en_US-lessac-medium': {} });
+  const groups = groupVoices([...piper, ...pickVoices(voices, { online: true, lang: 'en-US' })]);
+  assert.deepEqual(groups.map(([label]) => label),
+    ['Piper: natural voices on this computer', 'On this computer', 'Online: the text is sent to the provider']);
+  assert.deepEqual(groups[0][1].map((x) => x.name), ['Alba', 'Lessac']);
+  assert.deepEqual(groups[1][1].map((x) => x.name), ['Anna', 'Zed', 'Alex', 'Amélie']);
+  assert.deepEqual(groups[2][1].map((x) => x.name), ['Google UK']);
+});
+
+test('Piper voice names are made readable', () => {
+  assert.deepEqual(piperVoiceList({ 'en_GB-northern_english_male-medium': {} })[0],
+    { voiceURI: 'piper:en_GB-northern_english_male-medium', piper: 'en_GB-northern_english_male-medium',
+      name: 'Northern English Male', lang: 'en-GB', localService: true });
+  assert.deepEqual(piperVoiceList(null), []);
+});
+
+test('WAV files round-trip, and their length is exact', async () => {
+  const samples = Int16Array.from({ length: 22050 * 2 }, (_, i) => Math.round(8000 * Math.sin(i / 10)));
+  const buf = await writeWav(samples, 22050).arrayBuffer();
+  const wav = readWav(buf);
+  assert.equal(wav.rate, 22050);
+  assert.equal(wav.secs, 2);
+  assert.deepEqual(wav.samples, samples);
+  assert.throws(() => readWav(new ArrayBuffer(20)), /not a WAV/);
+});
+
+test('the description track puts each reading at its start and mixes overlaps', () => {
+  const one = new Int16Array(10).fill(1000), two = new Int16Array(10).fill(30000);
+  const out = mixTrack([{ start: 0.5, samples: one }, { start: 0.8, samples: two }], 20, 2);
+  assert.equal(out.length, 40);
+  assert.equal(out[9], 0);
+  assert.equal(out[10], 1000);
+  assert.equal(out[16], 31000);
+  assert.equal(out[19], 31000);
+  assert.equal(out[25], 30000);
+  assert.equal(out[26], 0);
+  const loud = mixTrack([{ start: 0, samples: two }, { start: 0, samples: two }], 20, 1);
+  assert.equal(loud[0], 32767); // clipped rather than wrapping round
 });
 
 test('block speed labels and validation', () => {

@@ -75,7 +75,8 @@ await shot('shortcuts');
 await js(`document.querySelector('#modeSw [data-mode=write]').click(); 1`); await sleep(200);
 // text to speech panel
 await key('Escape', 'Escape'); await sleep(200);
-await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
+// taller, so the whole panel fits
+await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1500, deviceScaleFactor: 2, mobile: false });
 await sleep(300);
 console.log('voices', await js('speechSynthesis.getVoices().length'));
 await key('KeyV', 'V', { altKey: true, shiftKey: true }); await sleep(500);

@@ -21,6 +21,7 @@
   - [Hold-to-mark](#hold-to-mark)
   - [Looping a block](#looping-a-block)
   - [Text to speech](#text-to-speech)
+  - [Piper voices](#piper-voices)
 - [Files with several audio tracks](#files-with-several-audio-tracks)
 - [Other handy features](#other-handy-features)
 - [Keyboard shortcuts](#keyboard-shortcuts)
@@ -53,6 +54,9 @@ Chrome or Edge.
 
 To stop it, run `docker compose down`. To use a different port, start it with
 `SCRIBECUE_PORT=9000 docker compose up -d`.
+
+For natural-sounding text to speech voices that run on your computer, you can also
+[add Piper](#piper-voices).
 
 ## Your first script
 
@@ -150,15 +154,17 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
 - **Update all timings:** a button in the text to speech panel sets the end of every block
   with text from its reading, using each block's own speed. It asks first, because it also
   changes blocks marked with `H` or opened from a file, and `Ctrl/Cmd+Z` undoes it. Ends never run
-  into the next block. Tick **Read each block silently first** for exact lengths. That
+  into the next block. With a [Piper voice](#piper-voices) the lengths are always exact.
+  With a browser voice, tick **Read each block silently first** for exact lengths. That
   takes about as long as reading them all, shows its progress, and can be stopped.
 - **Timing check:** the editor shows how long the reading takes, such as `TTS 2.9 s`, in red
   if it's longer than the block, and the list shows that block's duration in red. `~`
   means it's an estimate. It becomes exact once the
   block has been read, and the estimates get more accurate for a voice as you use it.
 
-Scribecue uses the voices built into your computer, so the text stays on it. Mac and
-Windows come with several. On Linux, browsers read through speech-dispatcher, so you may
+Scribecue uses the voices built into your computer, so the text stays on it. For much more
+natural voices that also stay on your computer, [add Piper](#piper-voices). Mac and
+Windows come with several built-in voices. On Linux, browsers read through speech-dispatcher, so you may
 need to install it with a voice such as espeak-ng from your distribution's packages.
 
 **Online voices** are a separate opt-in in the same panel. They often sound more natural,
@@ -177,7 +183,53 @@ To add more voices that stay on your computer, then reload Scribecue:
 
 Not every browser lists every installed voice.
 
-Text to speech is for checking timing. It doesn't create an audio file.
+The browser's own voices can only be heard, not recorded. To export the readings as an
+audio file, use a [Piper voice](#piper-voices).
+
+### Piper voices
+
+[Piper](https://github.com/OHF-Voice/piper1-gpl) is an open-source speech engine with
+natural-sounding voices. Scribecue can run it in a second container, next to the editor.
+The voices run on your computer, so your script never leaves it, and they work offline.
+
+With a Piper voice:
+
+- **Lengths are exact straight away.** The editor's `TTS` time, the red durations, block
+  ends set from the reading and **Update all timings** all use the real reading, with no
+  silent read-through.
+- **Each line always takes the same time,** so the timing you see is the timing you get,
+  between sessions and in the export.
+- **You can export a description track.** **Export description track** in the text to
+  speech panel saves every block's reading as one WAV file, each starting at its block's
+  start, as long as the video. It's ready to mix with the programme. Readings that run into
+  the next block overlap in the file, and the panel tells you how many.
+
+To add it, create a file called `.env` in the Scribecue folder containing:
+
+```
+COMPOSE_PROFILES=piper
+```
+
+Then build and start both containers:
+
+```bash
+docker compose up -d --build
+```
+
+The first build downloads Piper and its voices, about 1 GB in all. After that, Piper has no
+internet access, and only Scribecue's own server can reach it. Reload Scribecue, switch to
+Write mode, and pick a voice from the **Piper** group at the top of the voice menu.
+
+Four English voices are included: Lessac and Ryan (US), and Alba and Alan (UK). To choose
+others, add a line like this to `.env`, with names from the
+[Piper voice list](https://huggingface.co/rhasspy/piper-voices), then build again:
+
+```
+PIPER_VOICES=en_US-lessac-medium en_GB-jenny_dioco-medium
+```
+
+To stop using Piper, remove the `COMPOSE_PROFILES` line from `.env` and run
+`docker compose down`, then `docker compose up -d`.
 
 ## Files with several audio tracks
 
@@ -326,6 +378,8 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
   is the [update check](#updating), which only runs if you agree to it.
 - [Text to speech](#text-to-speech) uses the voices on your computer. Online voices, which
   send the text to their provider, are only offered if you turn them on.
+- [Piper](#piper-voices), if you add it, runs in its own container with no internet access
+  and no port of its own. The page reaches it through Scribecue's server.
 
 ## Updating
 
@@ -394,6 +448,11 @@ The keyboard layout is modelled on [Frazier](https://www.videotovoice.com/) by
 videotovoice, an audio description tool, so writers who already know Frazier can switch
 between the two without relearning keys. Thanks to the Frazier team for publishing their
 shortcut cheat sheet.
+
+The optional [Piper voices](#piper-voices) use [Piper](https://github.com/OHF-Voice/piper1-gpl)
+by the Open Home Foundation, which is licensed under the GPL and downloaded when you build
+its container. Each voice has its own licence, listed on its
+[voice page](https://huggingface.co/rhasspy/piper-voices).
 
 Scribecue is an independent project. It is not affiliated with, endorsed by or connected
 to Frazier or videotovoice. Frazier is their product name, used here only to describe the

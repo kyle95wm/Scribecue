@@ -131,6 +131,7 @@
         <select id="ttsSpeed"></select>
       </div>
       <p id="ttsNoVoices" class="warnbox" hidden></p>
+      <p id="ttsPiperNote" class="dim small"></p>
       <label class="updopt"><input type="checkbox" id="ttsLive"> Read blocks aloud while playing</label>
       <label class="updopt"><input type="checkbox" id="ttsDuck"> Lower the original audio while a block is read</label>
       <label class="updopt"><input type="checkbox" id="ttsAuto"> Set the end of new blocks from the reading as you type</label>
@@ -140,10 +141,16 @@
       <p class="small">Set the end of every block from how long its reading takes, with each block's own
         speed. This includes blocks marked with H and blocks opened from a file. Ends never run into the
         next block, and <kbd><span class="mod"></span>Z</kbd> undoes it.</p>
-      <label class="updopt"><input type="checkbox" id="ttsAllExact"> Read each block silently first, for
-        exact lengths (takes about as long as reading them all)</label>
+      <label class="updopt" id="ttsAllExactRow"><input type="checkbox" id="ttsAllExact"> Read each block silently
+        first, for exact lengths (takes about as long as reading them all)</label>
       <p class="updstatus"><button id="ttsAll">Update all timings</button>
         <button id="ttsAllStop" hidden>Stop</button> <span id="ttsAllStatus" class="dim"></span></p>
+      <h3>Export description track</h3>
+      <p class="small">Save every block's reading as one WAV file, each starting at its block's start
+        time, ready to mix with the programme.</p>
+      <p class="updstatus"><button id="ttsExport">Export description track</button>
+        <span id="ttsExportStatus" class="dim"></span></p>
+      <p id="ttsExportNote" class="dim small"></p>
       <h3>Online voices</h3>
       <label class="updopt"><input type="checkbox" id="ttsOnline"> Include online voices</label>
       <p id="ttsNoOnline" class="warnbox" hidden>This browser doesn't offer any online voices. To use

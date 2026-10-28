@@ -7,6 +7,7 @@ services:
     # Change the port with SCRIBECUE_PORT=9000 docker compose up -d
     ports:
       - "127.0.0.1:${SCRIBECUE_PORT:-8484}:8080"
+    networks: [default, voices]
     read_only: true
     tmpfs:
       - /tmp
@@ -15,3 +16,31 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
+
+  # Optional natural-sounding text to speech voices that run on this computer.
+  # Turn it on with COMPOSE_PROFILES=piper in a .env file next to this one (see README).
+  piper:
+    build:
+      context: ./piper
+      args:
+        # Which voices to include, by Piper name. Set PIPER_VOICES in .env to change them,
+        # then rebuild. The first is the default.
+        PIPER_VOICES: ${PIPER_VOICES:-en_US-lessac-medium en_US-ryan-medium en_GB-alba-medium en_GB-alan-medium}
+    image: scribecue-piper:latest
+    container_name: scribecue-piper
+    profiles: [piper]
+    # Only on the internal network: no internet, and no port on this computer.
+    # Scribecue's server is the only thing that can reach it.
+    networks: [voices]
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+networks:
+  voices:
+    internal: true

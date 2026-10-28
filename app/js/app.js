@@ -1,6 +1,7 @@
 import { parseSubs, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
 import { initUpdates } from './update.js';
-import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel } from './tts.js';
+import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
+  usingPiper, measure, prefetch, renderTrack } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
 const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('list');
@@ -468,7 +469,17 @@ function updateEditor() {
     s.textContent = `TTS ${exact ? '' : '~'}${secs.toFixed(1)} s`;
     s.className = 'tts ' + (secs > c.end - c.start + 0.05 ? 'bad' : '');
     edStats.append(s);
+    if (!exact) schedulePrefetch(c);
   }
+}
+
+// With a Piper voice, make the selected block's reading once typing pauses, so its
+// length is exact rather than estimated.
+let prefetchTimer = 0;
+function schedulePrefetch(c) {
+  clearTimeout(prefetchTimer);
+  const { text, speed } = c;
+  prefetchTimer = setTimeout(() => prefetch(text, speed), 500);
 }
 
 // Frazier "Enter": edit the block under the playhead, or create one there.
@@ -1222,16 +1233,18 @@ let measuring = false;
 async function updateAllTimings() {
   const blocks = S.cues.filter((c) => spoken(c.text));
   if (!blocks.length) return (ttsAllStatus.textContent = 'There are no blocks with text yet.');
-  if ($('ttsAllExact').checked) {
+  // Piper makes exact lengths quickly, so it always measures. Browser voices only do
+  // when asked, since they have to read each block in real time.
+  const piper = usingPiper();
+  if (piper || $('ttsAllExact').checked) {
     const todo = blocks.filter((c) => !speechLength(c.text, c.speed).exact);
     pause();
     measuring = true;
     ttsAll.disabled = true;
     ttsAllStop.hidden = false;
     for (let k = 0; k < todo.length && measuring; k++) {
-      ttsAllStatus.textContent = `Reading block ${k + 1} of ${todo.length} silently…`;
-      const c = todo[k];
-      await new Promise((done) => speak(c.text, { id: c.id, silent: true, speed: c.speed, done }));
+      ttsAllStatus.textContent = piper ? `Making readings: ${k + 1} of ${todo.length}…` : `Reading block ${k + 1} of ${todo.length} silently…`;
+      await measure(todo[k].text, todo[k].speed);
     }
     const stopped = !measuring;
     measuring = false;
@@ -1258,11 +1271,38 @@ async function updateAllTimings() {
   changed();
   const msg = `Updated ${moved} of ${n} block${n > 1 ? 's' : ''}.` +
     (short ? ` ${short === 1 ? "1 block doesn't" : `${short} blocks don't`} fit before the next one (red in the list).` : '') +
-    (estimated ? ` ${estimated === n ? 'All' : estimated} used estimated lengths: tick the box above for exact ones.` : '');
+    (estimated && !piper ? ` ${estimated === n ? 'All' : estimated} used estimated lengths: tick the box above for exact ones.` : '');
   ttsAllStatus.textContent = msg;
   toast(msg);
 }
 ttsAll.addEventListener('click', updateAllTimings);
+
+// Export description track: every block's Piper reading in one WAV file, each at its
+// block's start, as long as the video (or the last reading, without one).
+const ttsExport = $('ttsExport'), ttsExportStatus = $('ttsExportStatus');
+ttsExport.addEventListener('click', async () => {
+  const blocks = S.cues.filter((c) => spoken(c.text)).map(({ start, text, speed }) => ({ start, text, speed }));
+  if (!blocks.length) return (ttsExportStatus.textContent = 'There are no blocks with text yet.');
+  pause();
+  ttsExport.disabled = true;
+  try {
+    const { blob, overlaps } = await renderTrack(blocks, S.hasVideo ? duration() : 0,
+      (k, n) => { ttsExportStatus.textContent = `Making readings: ${k} of ${n}…`; });
+    const name = `${baseName()} - audio description.wav`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    ttsExportStatus.textContent = `Saved ${name}.` + (overlaps
+      ? ` ${overlaps === 1 ? '1 reading runs' : `${overlaps} readings run`} into the next block, so they overlap in the file.`
+      : '');
+  } catch (e) {
+    ttsExportStatus.textContent = `Couldn’t export: ${e.message}`;
+  } finally {
+    ttsExport.disabled = !usingPiper();
+  }
+});
 ttsAllStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
 $('ttsDlg').addEventListener('close', () => { measuring = false; ttsAllStatus.textContent = ''; });
 

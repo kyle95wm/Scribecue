@@ -14,6 +14,9 @@ node --test 'tests/*.test.mjs'
 
 [ "${1:-}" = "--no-docker" ] && { echo 'Skipped Docker checks'; exit 0; }
 
+echo '== Docker Compose file'
+COMPOSE_PROFILES=piper docker compose config --quiet
+
 echo '== Docker build and smoke test'
 image=scribecue-check
 name=scribecue-check-$$
