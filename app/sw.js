@@ -9,13 +9,33 @@ const CACHE = `scribecue-${VERSION}`;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'changelog.json', 'css/style.css',
   'js/ai.js', 'js/aidrawer.js', 'js/app.js', 'js/browser.js', 'js/nav.js', 'js/tour.js', 'js/keymap.js', 'js/keys.js', 'js/whatsnew.js', 'js/config.js', 'js/formats.js', 'js/piper-engine.js', 'js/piper-worker.js',
-  'js/project.js', 'js/autosave.js', 'js/reminder.js', 'js/spelling.js', 'js/stt.js', 'js/tts.js', 'js/whisper-worker.js',
+  'js/project.js', 'js/guide.js', 'js/offline.js', 'js/autosave.js', 'js/reminder.js', 'js/spelling.js', 'js/stt.js', 'js/tts.js', 'js/whisper-worker.js',
   'js/update.js', 'js/welcome.js', 'js/wave-worker.js',
   'icons/icon-192.png', 'icons/icon-512.png',
 ];
 
+// The guides and their screenshots, copied next to the app when it's built (see
+// .github/workflows/pages.yml). Kept too if they're there, but the app works without them.
+const GUIDES = [
+  'guides/README.md',
+  'guides/TRANSCRIBING.md',
+  'guides/AI.md',
+  'guides/INSTALL.md',
+  'guides/docs/screenshots/ai-help.png',
+  'guides/docs/screenshots/hold-to-mark.png',
+  'guides/docs/screenshots/import-timings.png',
+  'guides/docs/screenshots/main.png',
+  'guides/docs/screenshots/piper-tip.png',
+  'guides/docs/screenshots/shortcuts.png',
+  'guides/docs/screenshots/sounds-like.png',
+  'guides/docs/screenshots/text-to-speech.png',
+];
+
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
+  e.waitUntil(caches.open(CACHE).then(async (c) => {
+    await c.addAll(FILES);
+    await Promise.allSettled(GUIDES.map((f) => c.add(f)));
+  }));
 });
 
 self.addEventListener('activate', (e) => {

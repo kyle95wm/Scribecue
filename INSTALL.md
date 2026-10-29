@@ -248,6 +248,9 @@ The app is plain HTML, CSS and JavaScript with no build step. To run it without 
 python3 -m http.server -d app 8484
 ```
 
+Served like this, the guides don't open inside Scribecue (links to them go to GitHub), since
+they're copied next to the app only when the web version and the Docker image are built.
+
 Run the checks before committing, pushing or opening a pull request:
 
 ```bash

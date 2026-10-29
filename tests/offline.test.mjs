@@ -1,0 +1,27 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { offlineLabel, checklist } from '../app/js/offline.js';
+
+test('the bottom bar says when you’re offline, and in the web version whether it’s ready', () => {
+  assert.deepEqual(offlineLabel({ hosted: true, offline: true, ready: true }), { text: 'offline', on: true });
+  assert.deepEqual(offlineLabel({ hosted: false, offline: true }), { text: 'offline', on: true });
+  assert.equal(offlineLabel({ hosted: false, offline: false }), null, 'Docker works offline anyway');
+  assert.equal(offlineLabel({ hosted: true, offline: false, ready: true }).text, 'offline ready');
+  assert.equal(offlineLabel({ hosted: true, offline: false, ready: false }).text, 'not ready offline');
+});
+
+test('the checklist says what’s ready and offers what isn’t', () => {
+  const rows = checklist({ hosted: true, appKept: true, guides: true, voices: ['Lessac'], whisper: false, persisted: false, usage: 250e6 });
+  const by = Object.fromEntries(rows.map((r) => [r[1], r]));
+  assert.equal(by['Scribecue itself'][0], true);
+  assert.match(by['Piper voices'][2], /Lessac/);
+  assert.deepEqual([by['Whisper, for speech to text'][0], by['Whisper, for speech to text'][3]], [false, 'whisper']);
+  assert.deepEqual([by['Kept safe'][0], by['Kept safe'][3]], [false, 'persist']);
+  assert.match(by['Space used'][2], /250 MB/);
+  const first = checklist({ hosted: true, appKept: false, guides: false, voices: [], whisper: false, persisted: null, usage: 0 });
+  assert.match(first[0][2], /reload once while online/);
+  assert.ok(!first.some((r) => r[1] === 'Kept safe'), 'no row when the browser can’t say');
+  const docker = checklist({ hosted: false, appKept: false, guides: true, voices: [], whisper: true, persisted: true, usage: 0 });
+  assert.equal(docker[0][0], true, 'Docker runs from this computer');
+  assert.equal(docker.find((r) => r[1] === 'Piper voices')[3], null, 'nothing to download in Docker');
+});

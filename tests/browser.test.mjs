@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { browserName, supported, missingFeatures, knownIssues, noticeItems } from '../app/js/browser.js';
+import { browserName, supported, missingFeatures, knownIssues, noticeItems, isMobile } from '../app/js/browser.js';
 
 const brands = (...b) => b.map((brand) => ({ brand, version: '1' }));
 
@@ -36,4 +36,14 @@ test('Firefox’s known problems are listed after what it lacks', () => {
   assert.match(items[3], /speech to text/);
   assert.deepEqual(knownIssues('Chrome'), []);
   assert.deepEqual(knownIssues('Safari'), []);
+});
+
+test('phones and tablets are recognised, so they get the notice', () => {
+  assert.ok(isMobile({ ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148' }));
+  assert.ok(isMobile({ ua: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/140.0 Mobile Safari/537.36' }));
+  assert.ok(isMobile({ ua: 'Mozilla/5.0 (Linux; Android 14; SM-X710) Chrome/140.0 Safari/537.36' }), 'Android tablet');
+  assert.ok(isMobile({ ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Version/18.0 Safari/605.1.15', touchPoints: 5 }), 'iPad as a Mac');
+  assert.ok(isMobile({ ua: 'Mozilla/5.0 Chrome/140.0', mobile: true }));
+  assert.ok(!isMobile({ ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/140.0 Safari/537.36', touchPoints: 0 }));
+  assert.ok(!isMobile({ ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/140.0 Safari/537.36 Edg/140.0', touchPoints: 10 }), 'a Windows touch laptop');
 });

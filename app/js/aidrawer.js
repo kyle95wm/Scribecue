@@ -95,9 +95,20 @@ function bubble(cls, text = '', frames = []) {
 }
 const note = (text, cls = 'note') => bubble(cls, text);
 
+// Online providers can't be reached without a connection; Ollama, on this computer, can.
+const unreachable = () => navigator.onLine === false && !!ai.provider && !PROVIDERS[ai.provider]?.local;
+function renderOffline() {
+  const off = unreachable();
+  $('aiOffline').hidden = !off;
+  if (off) $('aiOffline').textContent = `You’re offline, so ${PROVIDERS[ai.provider].name} can’t be reached. Ollama, on this computer, works offline: choose it in Settings.`;
+  if (!running) { $('aiSend').disabled = off; $('aiDraft').disabled = off; }
+}
+addEventListener('online', () => renderOffline());
+addEventListener('offline', () => renderOffline());
+
 function busy(on) {
-  $('aiSend').disabled = on;
-  $('aiDraft').disabled = on;
+  $('aiSend').disabled = on || unreachable();
+  $('aiDraft').disabled = on || unreachable();
   $('aiStop').hidden = !on;
   $('aiStatus').textContent = on ? 'Thinking…' : '';
 }
@@ -107,6 +118,7 @@ function busy(on) {
 async function send(msg, shown, frames, draft = null) {
   if (!ready()) { openSettings(); return note('Connect a provider first, in the settings above.'); }
   if (running) return;
+  if (unreachable()) return renderOffline();
   bubble('user', shown, frames);
   const turn = { role: 'user', text: msg, images: frames.map(({ data, at }) => ({ data, at })) };
   const provider = ai.provider, model = ai.models[provider];
@@ -215,6 +227,7 @@ function renderSetup() {
   $('aiForget').hidden = !keys()[p] && !(P.local && ai.provider === p);
 }
 function renderWho() {
+  renderOffline();
   $('aiWho').textContent = ready() ? `${PROVIDERS[ai.provider].name} · ${ai.models[ai.provider]}` : 'not connected';
 }
 function openSettings(show = true) {

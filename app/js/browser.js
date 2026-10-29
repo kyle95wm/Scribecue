@@ -18,6 +18,14 @@ export function browserName(ua = '', brands = []) {
 
 export const supported = (name) => name === 'Chrome' || name === 'Edge';
 
+// Phones and tablets, which Scribecue doesn't work on: it needs a keyboard, to hold keys
+// while the narrator speaks and step frame by frame, and a screen big enough for the
+// timeline. iPads say they're Macs, so a Mac with a touch screen counts as one.
+export function isMobile({ ua = '', mobile = false, touchPoints = 0 } = {}) {
+  return mobile === true || /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle|Opera Mini/i.test(ua) ||
+    (/Macintosh/.test(ua) && touchPoints > 1);
+}
+
 // What this browser can't do that Scribecue uses, in words for the notice.
 export function missingFeatures(w = globalThis) {
   const out = [];

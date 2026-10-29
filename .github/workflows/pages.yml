@@ -40,6 +40,9 @@ jobs:
           cp -R app/. _site/
           sed -i 's/^export const HOSTED = false;/export const HOSTED = true;/' _site/js/config.js
           grep -q '^export const HOSTED = true;' _site/js/config.js
+          mkdir -p _site/guides/docs
+          cp README.md TRANSCRIBING.md AI.md INSTALL.md _site/guides/
+          cp -R docs/screenshots _site/guides/docs/
       - name: Piper voices for the browser
         run: scripts/web-piper.sh _site
       - name: Whisper speech to text for the browser

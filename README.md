@@ -41,7 +41,15 @@ voices, doesn't come across, but project files you saved open here as usual.
 Scribecue is built for Chrome and Edge. Other browsers, such as Safari and Firefox, can
 open it, but some features may not be available or work well, and Scribecue tells you
 which. In Firefox, for example, a file's description track can stutter, and speech to text
-can interrupt the video's sound.
+can interrupt the video's sound. Phones and tablets get a notice instead: Scribecue needs a
+keyboard and a bigger screen.
+
+**Working offline:** once you've opened the web version, it works without a connection,
+and so do Piper voices and Whisper once they're downloaded. **offline ready** in the bottom
+right opens a checklist of what this browser has for working offline, with buttons for
+anything missing, and asks the browser to keep it all safe. While you're offline it says
+**offline**, and online AI providers and online voices say they're unavailable rather than
+failing. The guides, such as this one, open inside Scribecue, so they work offline too.
 
 ### Or run it yourself
 
@@ -458,6 +466,9 @@ afterwards is instant. Safari switches tracks itself.
 - **What's new:** after Scribecue updates, a window lists everything that changed since the
   version you were on. In the web version, click the version number in the bottom right to
   see the current release's notes again.
+- **Guides:** **Guides** in the shortcuts overlay (`?`) opens this README, the
+  [transcribing guide](TRANSCRIBING.md), the [AI guide](AI.md) and [INSTALL.md](INSTALL.md)
+  inside Scribecue, and links to them anywhere in Scribecue open there too.
 - **Scribecue on GitHub:** the small GitHub mark in the bottom right opens the project's
   page, with the source, releases and a place to report problems.
 

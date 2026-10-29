@@ -602,6 +602,41 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 .tipbox strong:first-child { color: var(--cue); }
 .tipbox p { margin: 6px 0; }
 .updbox::backdrop { background: rgba(0, 0, 0, 0.7); }
+
+/* Phones and tablets: only the notice shows. */
+.mobileblock[hidden] { display: none; }
+body.mobile > :not(#mobileBlock) { display: none !important; }
+.mobileblock { max-width: 34rem; margin: 0 auto; padding: 40px 24px; line-height: 1.5; font-size: 17px; }
+.mobileblock h1 { font-size: 24px; margin: 24px 0 12px; }
+
+/* The guides, inside Scribecue (guide.js). */
+.guidebox { width: min(900px, 94vw); height: 88vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.guidebox:not([open]) { display: none; }
+.guidehead { display: flex; align-items: center; gap: 8px; padding: 14px 20px 8px; }
+.guidehead h2 { margin: 0; }
+.guidetabs { display: flex; gap: 6px; padding: 0 20px 10px; border-bottom: 1px solid var(--line); margin: 0; }
+.guidetabs button.on { border-color: var(--accent); color: var(--accent); }
+.guide { flex: 1; overflow: auto; padding: 8px 24px 24px; line-height: 1.55; }
+.guide h2 { font-size: 20px; margin: 22px 0 8px; }
+.guide h3 { font-size: 16px; margin: 18px 0 6px; }
+.guide h4, .guide h5 { font-size: 14px; margin: 14px 0 4px; }
+.guide img { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; }
+.guide table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+.guide th, .guide td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top; }
+.guide pre { padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow: auto; font: 12px var(--mono); }
+.guide code { font: 12px var(--mono); }
+.guide blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid var(--line); color: var(--dim); }
+.guide summary { cursor: pointer; font-weight: 600; margin: 8px 0; }
+
+/* Working offline (offline.js). */
+.offlinelist { list-style: none; padding: 0; margin: 8px 0 14px; }
+.offlinelist li { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.offlinelist .mark { width: 1.2em; flex-shrink: 0; text-align: center; }
+.offlinelist .ok .mark { color: var(--ok, #6c6); }
+.offlinelist .no .mark { color: var(--warn); }
+.offlinelist .what { flex: 1; }
+.offlinelist .what strong { display: block; }
+#offlineBtn.on { color: var(--warn); border-color: var(--warn); }
 .updbox h2 { margin: 0 0 12px; font-size: 18px; }
 .updbox h3 { margin: 18px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
 .updbox p { margin: 8px 0; }

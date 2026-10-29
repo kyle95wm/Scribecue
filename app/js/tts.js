@@ -577,6 +577,11 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
   if (!words || !voice) { stop(); done(null); return false; }
   if (voice.piper) return speakPiper(text, voice, { id, manual, silent, speed, done });
   if (!tts.available) { done(null); return false; }
+  if (!voice.localService && navigator.onLine === false) {
+    if (manual) hooks.toast(`You’re offline, so the online voice ${voice.name} can’t read. Choose a voice on this computer, or a Piper voice, in the text to speech panel`);
+    done(null);
+    return false;
+  }
   stop();
   const u = new SpeechSynthesisUtterance(words);
   if (voice) { u.voice = voice; u.lang = voice.lang; }
@@ -625,7 +630,9 @@ export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
     const online = label.startsWith('Online');
     if (online && !tts.online) continue;
     const g = document.createElement('optgroup');
-    g.label = label;
+    const away = online && navigator.onLine === false; // they can't be reached
+    g.label = away ? 'Online: unavailable while you’re offline' : label;
+    g.disabled = away;
     if (label.startsWith('Piper') && !list.length) continue; // only when Piper is running
     for (const v of list) {
       const o = document.createElement('option');

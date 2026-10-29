@@ -13,6 +13,15 @@
   <script type="module" src="js/app.js"></script>
 </head>
 <body>
+  <div id="mobileBlock" class="mobileblock" role="alert" hidden>
+    <div class="brand">SCRIBE<span>CUE</span></div>
+    <h1>Scribecue needs a computer</h1>
+    <p>It's an editor for audio description scripts, built for a keyboard and a big screen: you
+      hold keys while the narrator speaks, step through the video frame by frame, and work on a
+      timeline. That isn't possible on a phone or tablet.</p>
+    <p>Open <strong>scribecue.kyleadvoice.ca</strong> on a computer, in Google Chrome or
+      Microsoft Edge.</p>
+  </div>
   <header class="top">
     <div class="brand">SCRIBE<span>CUE</span></div>
     <div class="modesw" id="modeSw" role="radiogroup" aria-label="Mode">
@@ -131,6 +140,7 @@
     </span>
     <a id="ghLink" class="ghlink tip-end" href="https://github.com/kyle95wm/Scribecue" target="_blank" rel="noopener noreferrer"
       aria-label="Scribecue on GitHub" data-tip="Scribecue on GitHub: the source, releases and issues"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg></a>
+    <button id="offlineBtn" class="ver tip-end" hidden></button>
     <button id="installBtn" class="ver tip-end" hidden data-tip="Install Scribecue as an app: its own window and icon, and it works offline">Install app</button>
     <button id="verBtn" class="ver tip-end"></button>
   </footer>
@@ -361,6 +371,7 @@ docker compose up -d --build</code></pre>
       <p class="dim small">Useful: who's who and how to tell them apart, places, the period, and your
         team's style. These go to your AI provider with the frames.</p>
     </section>
+    <p id="aiOffline" class="warnbox" hidden></p>
     <div id="aiLog" class="ailog" aria-live="polite"></div>
     <div class="aicompose">
       <div class="airow">
@@ -491,6 +502,34 @@ docker compose up -d --build</code></pre>
     </div>
   </dialog>
 
+  <dialog id="guideDlg" class="updbox guidebox" aria-labelledby="guideTitle">
+    <div class="guidehead">
+      <button id="guideBack" hidden>← Back</button>
+      <h2 id="guideTitle"></h2>
+      <span class="grow"></span>
+      <a id="guideWeb" class="btnlink" target="_blank" rel="noopener noreferrer">On GitHub</a>
+      <button id="guideClose">Close</button>
+    </div>
+    <nav id="guideTabs" class="guidetabs" aria-label="Guides"></nav>
+    <div id="guideBody" class="guide"></div>
+  </dialog>
+
+  <dialog id="offlineDlg" class="updbox" aria-labelledby="offlineTitle">
+    <h2 id="offlineTitle">Working offline</h2>
+    <p id="offlineNow"></p>
+    <ul id="offlineList" class="offlinelist"></ul>
+    <h3>Needs a connection</h3>
+    <ul class="small">
+      <li>AI help with Claude, OpenAI, Gemini or OpenRouter. Ollama, on this computer, works offline.</li>
+      <li>Online text to speech voices. Your computer's voices and Piper voices work offline.</li>
+      <li id="offlineUpd">New versions of Scribecue. Until you're back online, you keep the one you have.</li>
+      <li>Downloading Piper voices or Whisper, so get them before you go offline.</li>
+    </ul>
+    <div class="updbtns">
+      <button id="offlineClose" class="hl">Close</button>
+    </div>
+  </dialog>
+
   <dialog id="sttDlg" class="updbox" aria-labelledby="sttTitle">
     <h2 id="sttTitle">Speech to text</h2>
     <p>Whisper listens to each block you mark with <kbd>H</kbd> and types what the narrator says,
@@ -583,7 +622,8 @@ docker compose up -d --build</code></pre>
       <h2>Keyboard shortcuts <span class="dim">— Frazier layout. Esc, ? or ⇧O to close</span>
         <button id="helpTour" class="helptour">Take the tour</button>
         <button id="helpLoop" class="helptour">Show the loop</button>
-        <button id="helpKeys" class="helptour">Change shortcuts</button></h2>
+        <button id="helpKeys" class="helptour">Change shortcuts</button>
+        <button id="helpGuides" class="helptour" hidden>Guides</button></h2>
       <div class="cols">
         <section>
           <h3>Timeline · navigation</h3>

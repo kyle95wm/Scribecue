@@ -4,11 +4,13 @@ import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
-import { browserName, supported, noticeItems } from './browser.js';
+import { browserName, supported, noticeItems, isMobile } from './browser.js';
 import { blockFromPlayhead, nudgeFor, NUDGE } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop } from './tour.js';
 import { initWhatsNew } from './whatsnew.js';
 import { initReminder } from './reminder.js';
+import { initOffline } from './offline.js';
+import { initGuides, openGuide, guidesHere } from './guide.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
@@ -21,6 +23,15 @@ import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLen
   usingPiper, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
+
+// Phones and tablets get a notice instead of the editor, which needs a keyboard and a
+// bigger screen. Nothing else starts.
+if (isMobile({ ua: navigator.userAgent, mobile: navigator.userAgentData?.mobile, touchPoints: navigator.maxTouchPoints })) {
+  document.body.classList.add('mobile');
+  $('mobileBlock').hidden = false;
+  throw new Error('Scribecue needs a computer');
+}
+
 const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('list');
 const tl = $('tl'), ruler = $('ruler'), lane = $('lane'), wave = $('wave'), cuesLayer = $('cues');
 const playheadEl = $('playhead'), dragtip = $('dragtip'), overview = $('overview'), ovWin = $('ovWin');
@@ -3053,6 +3064,19 @@ $('helpTour').addEventListener('click', () => { toggleHelp(false); startTour(S.m
 $('helpLoop').addEventListener('click', () => { toggleHelp(false); showLoop(S.mode); });
 initKeys({ mac: IS_MAC, toast, onChange: (m) => { keyLookup = m; } });
 $('helpKeys').addEventListener('click', () => { toggleHelp(false); openKeys(); });
+$('helpGuides').addEventListener('click', () => { toggleHelp(false); openGuide(); });
+// The guides, inside Scribecue when this copy has them; the Guides button shows then.
+initGuides();
+guidesHere().then((ok) => { $('helpGuides').hidden = !ok; });
+// What works offline, a marker while there's no connection, and keeping storage safe.
+initOffline({
+  toast: (m) => toast(m),
+  voices: () => tts.piper.map((v) => v.name),
+  whisper: () => stt.ready,
+  openTts: () => openTts(),
+  openStt: () => openStt(),
+  guides: () => guidesHere(),
+});
 initWelcome({
   getMode: () => S.mode,
   setMode,
