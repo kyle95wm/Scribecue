@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
-  piperVoiceList, readWav, writeWav, mixTrack, onlyNotes } from '../app/js/tts.js';
+  piperVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB } from '../app/js/tts.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -71,18 +71,26 @@ test('WAV files round-trip, and their length is exact', async () => {
   assert.throws(() => readWav(new ArrayBuffer(20)), /not a WAV/);
 });
 
-test('the description track puts each reading at its start and mixes overlaps', () => {
-  const one = new Int16Array(10).fill(1000), two = new Int16Array(10).fill(30000);
-  const out = mixTrack([{ start: 0.5, samples: one }, { start: 0.8, samples: two }], 20, 2);
+const dbfs = (v) => 20 * Math.log10(Math.abs(v) / 32767);
+const peakOf = (a) => a.reduce((m, s) => Math.max(m, Math.abs(s)), 0);
+
+test('the description track puts each reading at its start, at the same level, with headroom', () => {
+  const quiet = new Int16Array(10).fill(1000), full = new Int16Array(10).fill(32767);
+  const out = mixTrack([{ start: 0.5, samples: quiet }, { start: 1.2, samples: full }], 20, 2);
   assert.equal(out.length, 40);
   assert.equal(out[9], 0);
-  assert.equal(out[10], 1000);
-  assert.equal(out[16], 31000);
-  assert.equal(out[19], 31000);
-  assert.equal(out[25], 30000);
-  assert.equal(out[26], 0);
-  const loud = mixTrack([{ start: 0, samples: two }, { start: 0, samples: two }], 20, 1);
-  assert.equal(loud[0], 32767); // clipped rather than wrapping round
+  assert.equal(out[10], out[24]); // a quiet reading and a full-scale one come out the same
+  assert.equal(out[20], 0);
+  assert.ok(Math.abs(dbfs(out[10]) - TRACK_PEAK_DB) < 0.01, `peaks at ${dbfs(out[10])} dBFS`);
+  assert.ok(TRACK_PEAK_DB >= -10 && TRACK_PEAK_DB <= -6);
+});
+
+test('overlapping readings never take the track past the ceiling', () => {
+  const full = new Int16Array(10).fill(32767);
+  const out = mixTrack([{ start: 0, samples: full }, { start: 0.25, samples: full }], 20, 1);
+  assert.ok(Math.abs(dbfs(peakOf(out)) - TRACK_MAX_DB) < 0.01, `peaks at ${dbfs(peakOf(out))} dBFS`);
+  const silent = mixTrack([{ start: 0, samples: new Int16Array(5) }], 20, 1);
+  assert.equal(peakOf(silent), 0);
 });
 
 test('block speed labels and validation', () => {

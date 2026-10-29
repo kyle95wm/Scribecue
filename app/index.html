@@ -401,7 +401,8 @@ docker compose up -d --build</code></pre>
         <button id="ttsFitStop" hidden>Stop</button> <span id="ttsFitStatus" class="dim"></span></p>
       <h3>Export description track</h3>
       <p class="small">Save every block's reading as one WAV file, each starting at its block's start
-        time, ready to mix with the programme.</p>
+        time, ready to mix with the programme. Readings peak at −8 dBFS, leaving headroom for
+        processing and mastering.</p>
       <p class="updstatus"><button id="ttsExport">Export description track</button>
         <progress id="ttsExportBar" class="jobbar" max="1" value="0" hidden aria-label="Exporting the description track"></progress>
         <span id="ttsExportStatus" class="dim"></span></p>

@@ -401,8 +401,10 @@ With a Piper voice:
   between sessions and in the export.
 - **You can export a description track.** **Export description track** in the text to
   speech panel saves every block's reading as one WAV file, each starting at its block's
-  start, as long as the video. It's ready to mix with the programme. Readings that run into
-  the next block overlap in the file, and the panel tells you how many.
+  start, as long as the video. It's ready to mix with the programme. Every reading peaks at
+  −8 dBFS, so blocks are evenly matched and there's headroom for processing and mastering;
+  readings that run into the next block overlap in the file, never taking it past −6 dBFS,
+  and the panel tells you how many there are.
 
 Four English voices are offered: Lessac and Ryan (US), and Alba and Alan (UK).
 

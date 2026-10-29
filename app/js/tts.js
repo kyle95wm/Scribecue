@@ -150,15 +150,26 @@ export function writeWav(samples, rate) {
 
 // Lays readings out on a timeline: items [{ start, samples }], all at one sample rate,
 // summed where they overlap. Returns mono samples covering secs.
-export function mixTrack(items, rate, secs) {
-  const out = new Int16Array(Math.max(1, Math.ceil(secs * rate)));
+// Levels in the exported track, in dBFS. Voices come out of Piper at full scale; the
+// track leaves headroom for mixing and mastering instead. Each reading peaks at
+// TRACK_PEAK_DB, so every block is the same level, and readings that overlap and add up
+// never take the track past TRACK_MAX_DB.
+export const TRACK_PEAK_DB = -8, TRACK_MAX_DB = -6;
+const dbToLevel = (db) => 32767 * 10 ** (db / 20);
+export function mixTrack(items, rate, secs, peakDb = TRACK_PEAK_DB, maxDb = TRACK_MAX_DB) {
+  const mix = new Float32Array(Math.max(1, Math.ceil(secs * rate)));
   for (const { start, samples } of items) {
+    let peak = 0;
+    for (const s of samples) peak = Math.max(peak, Math.abs(s));
+    const g = peak ? dbToLevel(peakDb) / peak : 0;
     const at = Math.round(start * rate);
-    for (let i = 0; i < samples.length && at + i < out.length; i++) {
-      if (at + i < 0) continue;
-      out[at + i] = Math.max(-32768, Math.min(32767, out[at + i] + samples[i]));
-    }
+    for (let i = Math.max(0, -at); i < samples.length && at + i < mix.length; i++) mix[at + i] += samples[i] * g;
   }
+  let top = 0;
+  for (const s of mix) top = Math.max(top, Math.abs(s));
+  const g = top > dbToLevel(maxDb) ? dbToLevel(maxDb) / top : 1;
+  const out = new Int16Array(mix.length);
+  for (let i = 0; i < mix.length; i++) out[i] = Math.max(-32768, Math.min(32767, Math.round(mix[i] * g)));
   return out;
 }
 
