@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.31.2",
+  "date": "2026-10-29",
+  "notes": "## Autosave\n\n- Autosave is now always on wherever it works. The status next to the project name only shows what it's doing; click it when it says **autosave paused** or **autosave failed** to carry on. If you'd turned autosave off, it's back on.\n- Autosave only runs in browsers that can save straight back to a file, which are Chrome and Edge. In Firefox and Safari, the notice when Scribecue opens now says autosave isn't available there."
+ },
+ {
   "version": "0.31.1",
   "date": "2026-10-29",
   "notes": "## Fix\n\n- The autosave status now sits right after the project and video names at the top, where it's easy to find, instead of over by the buttons on the right."
