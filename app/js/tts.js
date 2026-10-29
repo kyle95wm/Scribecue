@@ -216,6 +216,7 @@ let piperAudioEl = null;
 const piperAudio = () => (piperAudioEl ||= new Audio());
 
 export async function loadPiper() {
+  if (HOSTED) return 0; // the web version has no Piper container to ask
   try {
     const r = await fetch('tts/voices', { cache: 'no-store' });
     // Voices in the user's language first, so the default suits them.

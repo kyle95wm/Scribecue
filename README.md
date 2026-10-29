@@ -630,7 +630,8 @@ To release a new version:
    match.
 2. Run `scripts/check.sh`, then commit and push.
 3. Publish a GitHub release with the same number. Its notes are what **What's new** links
-   to. Publishing it also publishes the web version to GitHub Pages.
+   to. The web version on GitHub Pages is published by the "Release X.Y.Z" commit, so name
+   the version commit that way.
 
    ```bash
    gh release create v0.2.0 --generate-notes
