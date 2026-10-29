@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.30.0",
+  "date": "2026-10-29",
+  "notes": "## Speech to text\n\n- **Spelling:** Whisper writes American spelling, and the speech to text panel can now change it to British and Canadian spelling as the text arrives: colour, grey, centre, travelled, catalogue and the like. It starts on whichever suits your browser's language.\n- The panel links to the new [transcribing guide](https://github.com/kyle95wm/Scribecue/blob/main/TRANSCRIBING.md), which covers everything about transcribing, from choosing the description track to fixing what Whisper gets wrong.\n\n## A reminder to save\n\n- Until you save a project, your work is only kept in the browser. After 20 minutes of unsaved work, a note now asks you to save it. **Later** asks again in half an hour."
+ },
+ {
   "version": "0.29.3",
   "date": "2026-10-29",
   "notes": "## Fix\n\n- **Install app** in the bottom right now only shows when your browser can install Scribecue. It used to show everywhere, including when Scribecue was already installed and in the Docker version, where clicking it did nothing."
