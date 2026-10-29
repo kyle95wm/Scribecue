@@ -30,7 +30,8 @@
       Microsoft Edge.</p>
   </div>
   <header class="top">
-    <div class="brand">SCRIBE<span>CUE</span></div>
+    <h1 class="sr-only">Scribecue, audio description editor</h1>
+    <div class="brand" aria-hidden="true">SCRIBE<span>CUE</span></div>
     <div class="modesw" id="modeSw" role="radiogroup" aria-label="Mode">
       <button role="radio" data-mode="transcribe" data-tip="Transcribe existing audio description at its original timing, with hold-to-mark (H)">Transcribe</button>
       <button role="radio" data-mode="write" data-tip="Write new audio description, with text to speech, reading times and block speeds">Write</button>
@@ -380,7 +381,7 @@ docker compose up -d --build</code></pre>
         team's style. These go to your AI provider with the frames.</p>
     </section>
     <p id="aiOffline" class="warnbox" hidden></p>
-    <div id="aiLog" class="ailog" aria-live="polite"></div>
+    <div id="aiLog" class="ailog" aria-live="polite" tabindex="0" aria-label="AI conversation"></div>
     <div class="aicompose">
       <div class="airow">
         <button id="aiDraft" class="hl" data-tip="Write a description for the selected block, from its frames and the script around it">Draft this block</button>
@@ -637,9 +638,9 @@ docker compose up -d --build</code></pre>
     </div>
   </div>
 
-  <div id="help" class="help" hidden>
+  <div id="help" class="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
     <div class="helpbox">
-      <h2>Keyboard shortcuts <span class="dim">— Frazier layout. Esc, ? or ⇧O to close</span>
+      <h2 id="helpTitle">Keyboard shortcuts <span class="dim">— Frazier layout. Esc, ? or ⇧O to close</span>
         <button id="helpTour" class="helptour">Take the tour</button>
         <button id="helpLoop" class="helptour">Show the loop</button>
         <button id="helpKeys" class="helptour">Change shortcuts</button>

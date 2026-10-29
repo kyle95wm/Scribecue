@@ -825,9 +825,8 @@ listSearch.addEventListener('keydown', (e) => {
 });
 
 function fillRow(r, c, i) {
-  const [n, t, tx, x] = r.children;
+  const [n, t, tx] = r.children;
   n.textContent = i + 1;
-  x.setAttribute('aria-label', `Delete block ${i + 1}`);
   t.children[0].textContent = fmtTime(c.start, '.');
   t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '');
   // Red when the reading is longer than the block, with a sign for anyone who can't tell red.
@@ -864,7 +863,8 @@ function renderList() {
     r.setAttribute('role', 'option');
     r.setAttribute('aria-selected', String(c.id === S.sel));
     r.innerHTML = '<span class="n"></span><span class="t"><b></b><i></i></span><span class="tx"></span>' +
-      '<button class="rowdel" tabindex="-1" aria-hidden="true" data-tip="Delete this block (Del). Ctrl/Cmd+Z brings it back">×</button>';
+      // Only for the mouse: from the keyboard, Delete does it, so screen readers skip it.
+      '<span class="rowdel" aria-hidden="true" data-tip="Delete this block (Del). Ctrl/Cmd+Z brings it back">×</span>';
     fillRow(r, c, i);
     if (c.id === S.sel) r.classList.add('sel');
     if (c.id === S.activeId) r.classList.add('active');

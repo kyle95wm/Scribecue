@@ -6,7 +6,7 @@
   --line: #2a313c;
   --text: #e8ebf0;
   --dim: #98a1b0;
-  --faint: #5d6673;
+  --faint: #848d9b; /* the lightest text: at least 4.5:1 on every panel */
   --accent: #ffb627;
   --accent-bg: rgba(255, 182, 39, 0.22);
   --cue: #5aa9ff;
@@ -348,6 +348,9 @@ textarea:disabled { opacity: 0.5; }
 .row:hover { background: var(--panel2); }
 /* delete button at the end of each row: faint until the row is pointed at */
 .rowdel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   align-self: start;
   width: 20px;
   height: 20px;
@@ -376,6 +379,8 @@ textarea:disabled { opacity: 0.5; }
 .row.active { border-left-color: var(--play); }
 .row.sel { background: var(--accent-bg); }
 .row.sel .n { color: var(--accent); font-weight: 700; }
+.row.sel .t i, .row.sel .tx.blank { color: #b4bbc6; } /* the faint grey is too faint on amber */
+#list .row.sel .over { color: #ff9a9a; }
 
 /* ---------- timeline ---------- */
 .timeline {
