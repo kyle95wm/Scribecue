@@ -2015,15 +2015,25 @@ async function openProject(file, handle = null) {
 }
 
 // Ctrl/Cmd+O: a project, or a script saved as SRT or VTT.
+// Open: a project, a script, a video or audio file, or several at once, each opened as
+// what it is. A project opened this way can be saved back to its own file.
 async function openAny() {
   if (!window.showOpenFilePicker) return fileSubs.click();
   try {
-    const [h] = await window.showOpenFilePicker({
-      types: [{ description: 'Scribecue project or script', accept: { 'application/json': [PROJECT_EXT], 'text/plain': ['.srt', '.vtt', '.txt'] } }],
+    const handles = await window.showOpenFilePicker({
+      multiple: true,
+      types: [
+        { description: 'Scribecue project, script, video or audio', accept: {
+          'application/json': [PROJECT_EXT], 'text/plain': ['.srt', '.vtt', '.txt'],
+          'video/*': ['.mp4', '.m4v', '.mov', '.mkv', '.webm'], 'audio/*': ['.wav', '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.opus'],
+        } },
+      ],
     });
-    const file = await h.getFile();
-    if (file.name.toLowerCase().endsWith(PROJECT_EXT)) openProject(file, h);
-    else loadSubsFile(file);
+    for (const h of handles) {
+      const file = await h.getFile();
+      if (file.name.toLowerCase().endsWith(PROJECT_EXT)) openProject(file, h);
+      else openFiles([file]);
+    }
   } catch (e) {
     if (e.name !== 'AbortError') toast(`Couldn’t open the file: ${e.message}`);
   }
@@ -2480,6 +2490,13 @@ const actions = {
   openVideo: () => fileVideo.click(),
   exportSrt: () => exportSubs('srt'),
   exportVtt: () => exportSubs('vtt'),
+  exportTrack: () => {
+    if (!writing()) return modeOnly('The description track', 'write');
+    openTts();
+    ttsExport.scrollIntoView({ block: 'center' });
+    if (!ttsExport.disabled) ttsExport.click();
+  },
+  exportMenu: () => toggleMenu(exportMenu),
   help: () => toggleHelp(),
   setup: () => openWelcome(),
   newProject: () => startAgain(),
@@ -2518,8 +2535,38 @@ document.querySelector('nav').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
   b.blur(); // keep Space/Enter for the editor, not the button
+  if (b.getAttribute('role') === 'menuitem') closeMenus();
   actions[b.dataset.act]?.();
 });
+
+// Header menus, such as Export: open on click, close on a choice, a click elsewhere or Esc.
+const exportMenu = $('exportMenu');
+function toggleMenu(menu, open = menu.hidden) {
+  closeMenus();
+  if (!open) return;
+  menu.hidden = false;
+  menu.previousElementSibling.setAttribute('aria-expanded', 'true');
+  menu.querySelector('[role="menuitem"]:not([hidden])')?.focus();
+}
+function closeMenus() {
+  for (const m of document.querySelectorAll('.navmenu')) {
+    m.hidden = true;
+    m.previousElementSibling.setAttribute('aria-expanded', 'false');
+  }
+}
+document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.navwrap')) closeMenus(); });
+document.addEventListener('keydown', (e) => {
+  const menu = e.target.closest?.('.navmenu');
+  if (!menu) return;
+  e.stopPropagation();
+  const items = [...menu.querySelectorAll('[role="menuitem"]')].filter((b) => b.offsetParent);
+  const k = items.indexOf(e.target);
+  if (e.key === 'Escape') { e.preventDefault(); closeMenus(); menu.previousElementSibling.focus(); }
+  else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    items[(k + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+  } else if (e.key === 'Tab') closeMenus();
+}, true);
 
 // ---------------------------------------------------------------- quick navigation / jump to timecode
 

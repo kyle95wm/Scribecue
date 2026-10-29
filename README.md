@@ -192,7 +192,9 @@ one per programme, and open any of them with `Ctrl/Cmd+O`.
 - A dot after the project name at the top, such as `lights-ad.scribecue •`, means there
   are changes you haven't saved yet.
 - Browsers can't remember where a video is, so after opening a project, open its video
-  with `Ctrl/Cmd+Shift+O`. Scribecue tells you which one, and warns you if you pick a
+  too. **Open** (`Ctrl/Cmd+O`) takes projects, scripts and video or audio files alike, and
+  you can pick the project and its video together; `Ctrl/Cmd+Shift+O` opens only video or
+  audio. Scribecue tells you which video a project belongs to, and warns you if you pick a
   different file.
 - **New**, at the top left, starts again, and offers two ways to do it:
   - **Clear the blocks** removes every block and keeps the video, the project file and your
@@ -208,12 +210,13 @@ Saving in place needs Chrome or Edge. Other browsers download a copy of the proj
 time you save.
 
 **Export** when the script is finished, or to hand it to someone who doesn't use
-Scribecue, such as another writer or a QC reviewer:
+Scribecue, such as another writer or a QC reviewer. The **Export** menu at the top has:
 
-- `Ctrl/Cmd+E` exports SRT.
-- `Ctrl/Cmd+Shift+E` exports WebVTT, which also keeps each block's text to speech speed.
-- With a [Piper voice](#piper-voices), **Export description track** in the text to speech
-  panel saves the readings as a WAV file.
+- **Script as SRT** (`Ctrl/Cmd+E`).
+- **Script as WebVTT** (`Ctrl/Cmd+Shift+E`), which also keeps each block's text to speech
+  speed and sounds-like words.
+- **Description track (WAV)**, in Write mode with a [Piper voice](#piper-voices): the
+  readings as one audio file. It's also in the text to speech panel.
 
 `Ctrl/Cmd+O` also opens SRT and VTT files. Your work in progress is saved in the browser
 as you go too, so reloading the page doesn't lose anything.

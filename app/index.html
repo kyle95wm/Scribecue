@@ -26,11 +26,16 @@
     </div>
     <nav>
       <button data-act="newProject" data-tip="Start again: clear the blocks and keep the video, or start a new project">New</button>
-      <button data-act="openSubs" data-tip="Open a Scribecue project, or a script saved as SRT or VTT ({mod}O)">Open <kbd><span class="mod"></span>O</kbd></button>
-      <button data-act="openVideo" data-tip="Open a video or audio file to time against. It stays on your machine ({mod}⇧O)">Open media <kbd><span class="mod"></span>⇧O</kbd></button>
+      <button data-act="openSubs" data-tip="Open a project, a script (SRT or VTT), or a video or audio file, or several at once ({mod}O). Only video or audio: {mod}⇧O">Open <kbd><span class="mod"></span>O</kbd></button>
       <button data-act="saveProject" data-tip="Save the project: blocks, settings and where you were ({mod}S). Save as a new file with {mod}⇧S">Save <kbd><span class="mod"></span>S</kbd></button>
-      <button data-act="exportSrt" data-tip="Export the script as an SRT file, to hand on or for the final output ({mod}E)">Export SRT <kbd><span class="mod"></span>E</kbd></button>
-      <button data-act="exportVtt" class="tip-end" data-tip="Export the script as a WebVTT file, which also keeps block speeds ({mod}⇧E)">VTT <kbd><span class="mod"></span>⇧E</kbd></button>
+      <span class="navwrap">
+        <button data-act="exportMenu" id="exportBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenu">Export <span class="caret" aria-hidden="true">▾</span></button>
+        <div class="navmenu" id="exportMenu" role="menu" aria-labelledby="exportBtn" hidden>
+          <button role="menuitem" data-act="exportSrt"><span><strong>Script as SRT</strong><span class="dim">to hand on, or for the final output</span></span><kbd><span class="mod"></span>E</kbd></button>
+          <button role="menuitem" data-act="exportVtt"><span><strong>Script as WebVTT</strong><span class="dim">also keeps block speeds and sounds-like words</span></span><kbd><span class="mod"></span>⇧E</kbd></button>
+          <button role="menuitem" data-act="exportTrack" class="write-only"><span><strong>Description track (WAV)</strong><span class="dim">every reading in one audio file, with a Piper voice</span></span></button>
+        </div>
+      </span>
       <button data-act="ai" id="aiBtn" class="tip-end" data-tip="AI help: chat about the scene and draft descriptions (⌥⇧A)">AI</button>
       <button data-act="setup" class="tip-end" data-tip="Run the welcome setup again: your task, its tools and update checks">Setup</button>
       <button data-act="help" class="hl tip-end" data-tip="Show all keyboard shortcuts (? or ⇧O)">Shortcuts <kbd>?</kbd></button>
@@ -568,7 +573,7 @@ docker compose up -d --build</code></pre>
     </div>
   </div>
 
-  <input type="file" id="fileSubs" accept=".scribecue,.srt,.vtt,.txt" hidden>
+  <input type="file" id="fileSubs" accept=".scribecue,.srt,.vtt,.txt,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
   <input type="file" id="fileVideo" accept="video/*,audio/*,.mkv,.mov,.m4a" hidden>
 </body>
 </html>
