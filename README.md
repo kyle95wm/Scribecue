@@ -115,6 +115,11 @@ For new audio description, in **Write** mode with text to speech on (`Alt+Shift+
 
 Then carry on playing to the next gap.
 
+**Reading it yourself instead,** with text to speech off or on: select the block and
+**hold `H`**. It plays from the block's start while you read the line aloud, and when you
+let go, the block ends there, moved back by the reaction offset (`Shift+H` changes it). To
+retake, hold `H` again; `Ctrl/Cmd+Z` goes back a take.
+
 ### The transcribing loop
 
 For existing audio description, in **Transcribe** mode. Open the video with
@@ -220,7 +225,7 @@ asks this too, along with the tools for that mode and whether to check for updat
 | | Transcribe | Write |
 | --- | --- | --- |
 | For | Existing audio description, at its original timing | New audio description |
-| [Hold-to-mark](#hold-to-mark) (`H`, `Shift+H`) | ✓ | |
+| [Hold-to-mark](#hold-to-mark) (`H`, `Shift+H`) | ✓ | Times your own read of the selected block |
 | [Speech to text](#speech-to-text) (`Alt+Shift+T`, `Alt+Shift+H`) | ✓ | |
 | [Text to speech](#text-to-speech) (`V`, `Shift+V`, `[` `]`, reading times, block speeds) | | ✓ |
 | Everything else | ✓ | ✓ |
@@ -551,7 +556,7 @@ this browser.
 
 | Key | Action |
 | --- | --- |
-| Hold `H` | [Hold-to-mark](#hold-to-mark) a block while the narrator speaks |
+| Hold `H` | [Hold-to-mark](#hold-to-mark) a block while the narrator speaks; in Write mode, time [your own read](#the-writing-loop) of the selected block |
 | `Shift+H` | Change the hold-to-mark reaction offset |
 | `L` | [Loop this block](#looping-a-block) until you finish editing it |
 | `N` | New block at the playhead |

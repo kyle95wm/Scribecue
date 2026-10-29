@@ -22,7 +22,7 @@ export function loop(mode, key = keyFor) {
       'Most of the work is one loop, repeated through the programme:',
       `1. Find a gap. ${key('play')} plays and stops; stop where there’s room for a description, and ${key('frameBack')} ${key('frameFwd')} find the exact frame.`,
       `2. Write it. ${key('createEdit')} makes a block at the playhead. Type the line, then Esc.`,
-      `3. Hear it. ${key('read')} reads it with the video. If its time is red, it doesn’t fit: shorten it, or use [ ] to read it faster.`,
+      `3. Hear it. ${key('read')} reads it with the video. If its time is red, it doesn’t fit: shorten it, or use [ ] to read it faster. Reading it yourself instead? Hold ${key('hold')} while you read it; letting go sets its end.`,
       'Then play on to the next gap.',
     ].join('\n')
     : [

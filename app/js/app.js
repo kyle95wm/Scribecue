@@ -1242,7 +1242,7 @@ const IND_TIPS = {
   speed: 'Playback speed. + and - change it; click or press \\ to reset to 1×',
   follow: 'Follow: keep the playhead in view and select each block as it plays (F)',
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
-  offset: 'Hold-to-mark reaction offset: marks made with H move back by this much. ⇧H or click to change',
+  offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H or click to change',
   tts: 'Text to speech: hear blocks read aloud (V). Click to choose the voice and speed, or to turn it on (⌥⇧V)',
   stt: 'Speech to text: Whisper types what the narrator says in each block you mark. Click to set it up or transcribe empty blocks (⌥⇧H)',
 };
@@ -1251,7 +1251,8 @@ function updateInd() {
     ['speed', `${S.rate.toFixed(2)}×`, S.rate !== 1],
     ['follow', 'FOLLOW', S.follow],
     ['loop', 'LOOP', S.loop],
-    ...(writing() ? [] : [['offset', `H −${Math.round(S.offset * 1000)}ms`, false], ['stt', 'STT', stt.on && stt.ready]]),
+    ['offset', `H −${Math.round(S.offset * 1000)}ms`, false],
+    ...(writing() ? [] : [['stt', 'STT', stt.on && stt.ready]]),
     ...(writing() ? [['tts', tts.on && tts.speed !== 1 ? `TTS ${speedLabel(tts.speed)}` : 'TTS', tts.on]] : []),
   ];
   ind.textContent = '';
@@ -1848,7 +1849,7 @@ selSay.addEventListener('click', () => { selSay.hidden = true; openSay(); });
 
 // While playing, read each block as the playhead reaches its start.
 function liveSpeech(prevT, t) {
-  if (!ttsOn() || !tts.live || tts.speaking?.manual) return;
+  if (!ttsOn() || !tts.live || tts.speaking?.manual || hold) return; // not over someone reading
   const a = cueAt(t);
   if (a && prevT <= a.start && t > a.start && t - prevT < 0.5 && tts.speaking?.id !== a.id) speak(said(a), { id: a.id, speed: a.speed });
 }
@@ -1910,7 +1911,7 @@ markEl.hidden = true;
 
 function holdStart() {
   if (hold) return;
-  if (writing()) return modeOnly('Hold-to-mark', 'transcribe');
+  if (writing()) return takeStart();
   const wasPlaying = isPlaying();
   if (!wasPlaying) play();
   hold = { t0: now() - (wasPlaying ? S.offset * S.rate : 0) };
@@ -1926,8 +1927,40 @@ function updateMark() {
   markEl.style.width = Math.max(2, (b - a) * S.pps) + 'px';
 }
 
+// Write mode, reading it yourself: hold H and the selected block plays from its start
+// while you read the line aloud; letting go sets its end there, moved back by the same
+// reaction offset. Holding H again is a retake, and Ctrl/Cmd+Z goes back a take.
+function takeStart() {
+  const c = selCue();
+  if (!c) return toast('Select a block, then hold H while you read it aloud to set its end');
+  stopSpeech();
+  seek(c.start);
+  play();
+  hold = { take: c.id, t0: c.start };
+  cuesLayer.append(markEl);
+  markEl.hidden = false;
+  updateMark();
+}
+
+function takeEnd() {
+  const id = hold.take;
+  hold = null;
+  markEl.hidden = true;
+  pause();
+  const i = idx(id), c = S.cues[i];
+  if (!c) return;
+  const end = Math.min(bounds(i).hi, now() - S.offset * S.rate);
+  if (end < c.start + MIN_DUR) return toast('Hold H for as long as you read the line');
+  pushUndo();
+  c.end = end;
+  resized(c, 'end');
+  changed(c.id);
+  toast(`Block #${i + 1} now ends at ${fmtTime(end, '.')} (${(end - c.start).toFixed(2)} s). Hold H again to retake`);
+}
+
 function holdEnd() {
   if (!hold) return;
+  if (hold.take != null) return takeEnd();
   const tUp = now();
   let a = Math.max(0, hold.t0), b = tUp - S.offset * S.rate;
   hold = null;
@@ -1959,7 +1992,6 @@ function setOffset(v) {
 }
 
 function cycleOffset() {
-  if (writing()) return modeOnly('Hold-to-mark', 'transcribe');
   S.offset = OFFSETS[(OFFSETS.indexOf(S.offset) + 1) % OFFSETS.length];
   try { localStorage.setItem('scribecue.offset', S.offset); } catch { /* ignore */ }
   updateInd();
