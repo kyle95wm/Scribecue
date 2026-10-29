@@ -36,7 +36,7 @@ self.onmessage = async ({ data: job }) => {
     else throw new Unsupported('this file type is not streamed');
     let out;
     try { out = await parse(file, peaks, job); } catch (err) { if (!(clip && err instanceof Enough)) throw err; }
-    if (clip) { postMessage({ type: 'clip', audio: peaks.out }, [peaks.out.buffer]); return; }
+    if (clip) { closeDecoders(); postMessage({ type: 'clip', audio: peaks.out }, [peaks.out.buffer]); return; }
     if (job.cmd === 'probe') { postMessage({ type: 'tracks', tracks: out }); return; }
     peaks.progress = 1;
     peaks.post();
@@ -47,6 +47,7 @@ self.onmessage = async ({ data: job }) => {
     postMessage({ type: err instanceof Unsupported ? 'unsupported' : 'error', message: err.message || String(err) });
   } finally {
     clearInterval(ticker);
+    closeDecoders();
   }
 };
 
@@ -238,6 +239,15 @@ function pcmSink(peaks, { rate, channels, bits, le, float }) {
 
 // ---------------------------------------------------------------- WebCodecs decoding
 
+// Every decoder still open. A clip stops reading part way, and a decoder that isn't
+// closed can keep hold of one of the browser's few audio decoders after the page ends
+// this worker: in Firefox, the video's own sound then stops.
+const decoders = new Set();
+function closeDecoders() {
+  for (const d of decoders) { try { if (d.state !== 'closed') d.close(); } catch { /* closed already */ } }
+  decoders.clear();
+}
+
 async function decoderSink(peaks, config) {
   if (typeof AudioDecoder === 'undefined') throw new Unsupported('this browser has no WebCodecs audio decoder');
   const support = await AudioDecoder.isConfigSupported(config).catch(() => ({ supported: false }));
@@ -251,6 +261,7 @@ async function decoderSink(peaks, config) {
     },
     error: (err) => { failure = err; },
   });
+  decoders.add(dec);
   dec.configure(config);
   const hasDequeue = 'ondequeue' in dec;
   return {
@@ -270,6 +281,7 @@ async function decoderSink(peaks, config) {
       if (failure) throw failure;
       await dec.flush();
       dec.close();
+      decoders.delete(dec);
       if (failure) throw failure;
     },
   };

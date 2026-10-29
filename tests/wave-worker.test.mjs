@@ -104,3 +104,63 @@ test('a clip past the end of the audio is silent there', async () => {
   assert.equal(end.audio.length, 32000);
   assert.ok(level(end.audio, 0, 2) < 0.01);
 });
+
+// A stand-in for WebCodecs' AudioDecoder, which Node doesn't have: each 20 ms Opus frame
+// "decodes" to 20 ms of a tone at 48 kHz. It counts decoders that are never closed.
+const open = new Set();
+class FakeDecoder {
+  static isConfigSupported = async () => ({ supported: true });
+  constructor({ output }) { this.output = output; this.state = 'unconfigured'; this.decodeQueueSize = 0; open.add(this); }
+  configure() { this.state = 'configured'; }
+  decode(chunk) {
+    const n = 960;
+    this.output({
+      timestamp: chunk.timestamp, numberOfFrames: n, numberOfChannels: 1, sampleRate: 48000, format: 'f32-planar',
+      copyTo: (dst) => { for (let i = 0; i < n; i++) dst[i] = 0.5 * Math.sin(i / 5); },
+      close() {},
+    });
+  }
+  async flush() {}
+  close() { this.state = 'closed'; open.delete(this); }
+}
+
+// A Matroska file with one Opus track and `seconds` of 20 ms frames, one cluster a second.
+function mkv(seconds) {
+  const size = (n) => { const b = [0x01, 0, 0, 0, 0, 0, 0, 0]; for (let i = 7; i > 0; i--) { b[i] = n & 255; n = Math.floor(n / 256); } return b; };
+  const el = (id, body) => [...id, ...size(body.length), ...body];
+  const uint = (n, len = 4) => Array.from({ length: len }, (_, i) => (n >> (8 * (len - 1 - i))) & 255);
+  const str = (s) => [...s].map((c) => c.charCodeAt(0));
+  const f64 = (x) => { const dv = new DataView(new ArrayBuffer(8)); dv.setFloat64(0, x); return [...new Uint8Array(dv.buffer)]; };
+  const track = el([0xae], [...el([0xd7], [1]), ...el([0x83], [2]), ...el([0x86], str('A_OPUS')),
+    ...el([0xe1], [...el([0xb5], f64(48000)), ...el([0x9f], [1])])]);
+  const clusters = [];
+  for (let s = 0; s < seconds; s++) {
+    const blocks = [];
+    for (let k = 0; k < 50; k++) blocks.push(...el([0xa3], [0x81, ...uint(k * 20, 2), 0x80, 1, 2, 3]));
+    clusters.push(...el([0x1f, 0x43, 0xb6, 0x75], [...el([0xe7], uint(s * 1000)), ...blocks]));
+  }
+  const segment = el([0x18, 0x53, 0x80, 0x67], [...el([0x16, 0x54, 0xae, 0x6b], track), ...clusters]);
+  const header = el([0x1a, 0x45, 0xdf, 0xa3], el([0x42, 0x82], str('webm')));
+  return new File([new Uint8Array([...header, ...segment])], 'test.mkv');
+}
+
+test('a clip of compressed audio closes every decoder it opens', async () => {
+  globalThis.AudioDecoder = FakeDecoder;
+  globalThis.EncodedAudioChunk = class { constructor(o) { Object.assign(this, o); } };
+  try {
+    for (let i = 0; i < 3; i++) {
+      const { end } = await run({ cmd: 'clip', file: mkv(60), from: 40 + i, to: 42 + i });
+      assert.equal(end.type, 'clip', end.message);
+      assert.equal(end.audio.length, 32000);
+      assert.ok(level(end.audio, 0, 2) > 0.4, 'the clip has the audio in it');
+      assert.equal(open.size, 0, `${open.size} decoder(s) left open after clip ${i + 1}`);
+    }
+    // Building the waveform closes its decoder too.
+    const { end } = await run({ cmd: 'build', file: mkv(3), rate: 200 });
+    assert.equal(end.type, 'done', end.message);
+    assert.equal(open.size, 0);
+  } finally {
+    delete globalThis.AudioDecoder;
+    delete globalThis.EncodedAudioChunk;
+  }
+});
