@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.34.0",
+  "date": "2026-10-29",
+  "notes": "## Screen readers\n\n- Scribecue's messages, such as \"Block #3 marked\", are now read out by screen readers, with key symbols said as words.\n- The block list is a list a screen reader can move through: each block is read with its number, start, length and text, and the selected one is marked.\n- The buttons and indicators under the video say what they do, and whether they're on, and the clock says it copies the timecode.\n- A reading too long for its block now says \"too long\", and gets a ⚠ in the list, not only red.\n- Faint grey text is a little lighter, so it's easier to read.\n\n## Also\n\n- **Transcribe** and **Write** are now a sliding switch at the top left. Click either side, or the side that's on, to switch."
+ },
+ {
   "version": "0.33.0",
   "date": "2026-10-29",
   "notes": "## Remove all data\n\n- The offline window is now **Offline and storage**, opened from the bottom right, in the Docker version too. It ends with **Remove all data**, which clears everything Scribecue keeps in this browser: unsaved blocks, settings and shortcuts, AI keys, downloaded Piper voices and Whisper, and its offline copy.\n- It warns you first, says how many unsaved blocks would be lost, and offers to save the project. Your project files, and anything in Docker, stay as they are. Afterwards Scribecue opens as if for the first time."
