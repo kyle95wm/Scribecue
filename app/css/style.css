@@ -638,6 +638,8 @@ body.blocked > :not(.blocker) { display: none !important; }
 .offlinelist .what { flex: 1; }
 .offlinelist .what strong { display: block; }
 #offlineBtn.on { color: var(--warn); border-color: var(--warn); }
+#offlineDlg [hidden] { display: none; }
+button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600; }
 .updbox h2 { margin: 0 0 12px; font-size: 18px; }
 .updbox h3 { margin: 18px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
 .updbox p { margin: 8px 0; }

@@ -3076,6 +3076,8 @@ initOffline({
   openTts: () => openTts(),
   openStt: () => openStt(),
   guides: () => guidesHere(),
+  unsaved: () => (S.dirty ? S.cues.length : 0),
+  save: () => saveProject(),
 });
 initWelcome({
   getMode: () => S.mode,

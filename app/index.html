@@ -522,7 +522,7 @@ docker compose up -d --build</code></pre>
   </dialog>
 
   <dialog id="offlineDlg" class="updbox" aria-labelledby="offlineTitle">
-    <h2 id="offlineTitle">Working offline</h2>
+    <h2 id="offlineTitle">Offline and storage</h2>
     <p id="offlineNow"></p>
     <ul id="offlineList" class="offlinelist"></ul>
     <h3>Needs a connection</h3>
@@ -532,6 +532,18 @@ docker compose up -d --build</code></pre>
       <li id="offlineUpd">New versions of Scribecue. Until you're back online, you keep the one you have.</li>
       <li>Downloading Piper voices or Whisper, so get them before you go offline.</li>
     </ul>
+    <h3>Remove all data</h3>
+    <p class="small">Removes everything Scribecue keeps in this browser: unsaved blocks, settings and
+      shortcuts, AI keys, downloaded Piper voices and Whisper, and its offline copy. Project and script
+      files on your computer aren't touched, and neither is anything in Docker, such as Piper, Whisper
+      or Ollama models.</p>
+    <p id="wipeAsk"><button id="wipeBtn">Remove all data…</button></p>
+    <div id="wipeConfirm" class="warnbox" hidden>
+      <p id="wipeWarn"></p>
+      <p class="updstatus"><button id="wipeGo" class="danger">Remove everything</button>
+        <button id="wipeSave" hidden>Save the project first</button>
+        <button id="wipeCancel">Cancel</button></p>
+    </div>
     <div class="updbtns">
       <button id="offlineClose" class="hl">Close</button>
     </div>

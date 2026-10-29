@@ -1,5 +1,5 @@
 // Working offline: what this copy of Scribecue has for it, whether the browser will keep
-// it, and a marker while there's no connection.
+// it, and a marker while there's no connection. And removing everything it keeps.
 //
 // The web version keeps itself offline (sw.js), and Piper voices and Whisper once they're
 // downloaded. The Docker version runs from this computer anyway. Either way, a few things
@@ -15,8 +15,7 @@ export const online = () => globalThis.navigator?.onLine !== false;
 // version, whether it's ready to be used offline.
 export function offlineLabel({ hosted, offline, ready }) {
   if (offline) return { text: 'offline', on: true };
-  if (!hosted) return null; // the Docker version works offline anyway
-  return ready ? { text: 'offline ready', on: false } : { text: 'not ready offline', on: false };
+  return ready || !hosted ? { text: 'offline ready', on: false } : { text: 'not ready offline', on: false };
 }
 
 // The checklist's rows: [ok, title, detail, button?] from what's been found.
@@ -51,7 +50,36 @@ export async function keepStorage({ ask = false } = {}) {
   return ask || chromium(navigator.userAgent, navigator.userAgentData?.brands || []) ? s.persist() : false;
 }
 
-let hooks = { toast: () => {}, voices: () => [], whisper: () => false, openTts: () => {}, openStt: () => {}, guides: async () => false };
+let hooks = { toast: () => {}, voices: () => [], whisper: () => false, openTts: () => {}, openStt: () => {}, guides: async () => false,
+  unsaved: () => 0, save: async () => {} };
+
+// The warning before removing everything, from what would be lost.
+export function wipeWarning({ unsaved, offline, hosted }) {
+  return [
+    'This can’t be undone.',
+    unsaved ? `${unsaved} block${unsaved === 1 ? ' isn’t' : 's aren’t'} saved in a project file and will be lost.` : '',
+    offline && hosted ? 'You’re offline, so Scribecue won’t open again until you’re back online.' : '',
+    'Afterwards Scribecue opens as if for the first time.',
+  ].filter(Boolean).join(' ');
+}
+
+// Removes everything Scribecue keeps in this browser. It's all under Scribecue's own
+// address, so nothing of any other site's is touched.
+export async function removeAllData() {
+  try { localStorage.clear(); } catch { /* blocked */ }
+  try { sessionStorage.clear(); } catch { /* blocked */ }
+  try { for (const k of await caches.keys()) await caches.delete(k); } catch { /* none */ }
+  const gone = (name) => new Promise((ok) => { const q = indexedDB.deleteDatabase(name); q.onsuccess = q.onerror = q.onblocked = () => ok(); });
+  try {
+    const dbs = indexedDB.databases ? (await indexedDB.databases()).map((d) => d.name) : ['scribecue'];
+    for (const name of new Set([...dbs, 'scribecue'])) if (name) await gone(name);
+  } catch { /* none */ }
+  try {
+    const root = await navigator.storage.getDirectory();
+    for await (const name of root.keys()) await root.removeEntry(name, { recursive: true });
+  } catch { /* none */ }
+  try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch { /* none */ }
+}
 let ready = false;
 
 async function survey() {
@@ -71,7 +99,7 @@ async function render() {
     b.textContent = label.text;
     b.classList.toggle('on', label.on);
     b.dataset.tip = !online() ? 'You’re offline. Click to see what works without a connection'
-      : ready ? 'Scribecue works without a connection. Click to see what’s ready for offline'
+      : ready ? 'Scribecue works without a connection. Click to see what’s ready for offline, or what it keeps in this browser'
         : 'Scribecue isn’t ready to work offline yet. Click to see why';
   }
   if (!$('offlineDlg').open) return;
@@ -109,9 +137,29 @@ export function openOffline() {
   render();
 }
 
+function askWipe(show) {
+  $('wipeAsk').hidden = show;
+  $('wipeConfirm').hidden = !show;
+  if (!show) return;
+  const unsaved = hooks.unsaved();
+  $('wipeWarn').textContent = wipeWarning({ unsaved, offline: !online(), hosted: HOSTED });
+  $('wipeSave').hidden = !unsaved;
+  $('wipeCancel').focus();
+}
+
 export function initOffline(h) {
   hooks = { ...hooks, ...h };
   const d = $('offlineDlg');
+  $('wipeBtn').addEventListener('click', () => askWipe(true));
+  $('wipeCancel').addEventListener('click', () => askWipe(false));
+  $('wipeSave').addEventListener('click', async () => { await hooks.save(); askWipe(true); });
+  $('wipeGo').addEventListener('click', async () => {
+    $('wipeGo').disabled = true;
+    $('wipeWarn').textContent = 'Removing…';
+    await removeAllData();
+    location.replace(location.pathname); // starts again, with nothing kept
+  });
+  d.addEventListener('close', () => askWipe(false));
   $('offlineBtn').addEventListener('click', (e) => { e.currentTarget.blur(); openOffline(); });
   $('offlineClose').addEventListener('click', () => d.close());
   d.addEventListener('click', (e) => { if (e.target === d) d.close(); });

@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { offlineLabel, checklist } from '../app/js/offline.js';
+import { offlineLabel, checklist, wipeWarning } from '../app/js/offline.js';
 
 test('the bottom bar says when you’re offline, and in the web version whether it’s ready', () => {
   assert.deepEqual(offlineLabel({ hosted: true, offline: true, ready: true }), { text: 'offline', on: true });
   assert.deepEqual(offlineLabel({ hosted: false, offline: true }), { text: 'offline', on: true });
-  assert.equal(offlineLabel({ hosted: false, offline: false }), null, 'Docker works offline anyway');
+  assert.equal(offlineLabel({ hosted: false, offline: false }).text, 'offline ready', 'Docker works offline anyway');
   assert.equal(offlineLabel({ hosted: true, offline: false, ready: true }).text, 'offline ready');
   assert.equal(offlineLabel({ hosted: true, offline: false, ready: false }).text, 'not ready offline');
 });
@@ -24,4 +24,12 @@ test('the checklist says what’s ready and offers what isn’t', () => {
   const docker = checklist({ hosted: false, appKept: false, guides: true, voices: [], whisper: true, persisted: true, usage: 0 });
   assert.equal(docker[0][0], true, 'Docker runs from this computer');
   assert.equal(docker.find((r) => r[1] === 'Piper voices')[3], null, 'nothing to download in Docker');
+});
+
+test('the warning before removing everything says what would be lost', () => {
+  assert.equal(wipeWarning({ unsaved: 0, offline: false, hosted: true }), 'This can’t be undone. Afterwards Scribecue opens as if for the first time.');
+  assert.match(wipeWarning({ unsaved: 12, offline: false, hosted: true }), /12 blocks aren’t saved in a project file and will be lost/);
+  assert.match(wipeWarning({ unsaved: 1, offline: false, hosted: true }), /1 block isn’t saved/);
+  assert.match(wipeWarning({ unsaved: 0, offline: true, hosted: true }), /won’t open again until you’re back online/);
+  assert.doesNotMatch(wipeWarning({ unsaved: 0, offline: true, hosted: false }), /back online/, 'Docker opens from this computer');
 });
