@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.36.0",
+  "date": "2026-10-29",
+  "notes": "## Time your own read with H\n\n- In Write mode, select a block and **hold H**. It plays from the block's start while you read the line aloud; let go when you finish, and the block ends there. Hold H again to retake, and Ctrl/Cmd+Z goes back a take.\n- It works with text to speech off or on, and live reading stays quiet while you hold H.\n- The reaction offset (**H −200ms** under the video) now applies in Write mode too, and **Shift+H** changes it in both modes."
+ },
+ {
   "version": "0.35.0",
   "date": "2026-10-29",
   "notes": "## Sounds Like, from a selection\n\n- Select a word in a block's text and a **Sounds Like** button pops up under it. Click it and Sounds like opens with the word already filled in, so all that's left is typing how it should sound.\n- It shows **Sounds Like ✓** for a word that already has a pronunciation. Alt+Shift+P still works too."
