@@ -276,6 +276,11 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   files, as notes that other programs ignore. SRT files can't store them.
 - **Read blocks aloud while playing:** each block is read as the playhead reaches it,
   with the original audio turned down. You can turn either part off.
+- **Fit speeds to timings:** the opposite of Update all timings, for a script whose
+  timing is already right, such as one opened from a file. Every block keeps its timing,
+  and its reading speeds up or slows down to fill it, within −50% to +100%. Blocks with a
+  speed you picked keep it. It asks first, and `Ctrl/Cmd+Z` undoes it. With a Piper voice
+  the fit is exact. The blocks then keep fitting as you edit their text or resize them.
 - **Resizing changes the speed:** in Write mode, change a block's length by dragging an
   edge, with `A` `S` `Q` `W` `E` `R`, or by typing in IN or OUT, and its reading speeds up or
   slows down to fill the new length. The block's speed then shows as custom, such as

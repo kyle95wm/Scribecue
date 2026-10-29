@@ -3,8 +3,9 @@ import { initUpdates, openUpdates, updateChoice } from './update.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { VERSION } from './update.js';
+import { MIN_SPEED, MAX_SPEED } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
-  isBlockSpeed, speedName, speedToFit,
+  isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf,
   usingPiper, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1265,11 +1266,16 @@ function resized(c, edge) {
 
 // Blocks marked fit read at whatever speed fills them. Uses the reading at the block's
 // current speed when that's been measured, so the speed closes in on an exact fit.
-function fitSpeed(c) {
-  if (!c?.fit || !ttsOn() || !tts.fitSpeed || !spoken(c.text)) return false;
-  const at = c.speed ?? tts.speed;
-  const m = speechLength(c.text, at);
-  const s = speedToFit(m.secs, at, c.end - c.start);
+// force: fit even with the resize setting off, as Fit speeds to timings does.
+function fitSpeed(c, force = false) {
+  if (!c?.fit || !ttsOn() || (!tts.fitSpeed && !force) || !spoken(c.text)) return false;
+  const at = c.speed ?? tts.speed, target = c.end - c.start;
+  const pts = readingsOf(c.text);
+  let s;
+  if (pts.length) s = speedFromReadings(pts, target, at);
+  // With Piper, wait for real readings rather than move the speed on an estimate.
+  else if (usingPiper()) { if (c.id === S.sel) schedulePrefetch(c); return false; }
+  else s = speedToFit(speechLength(c.text, 1).secs, 1, target);
   if (s == null || Math.abs(s - at) < 0.005) return false;
   c.speed = s;
   if (c.id === S.sel) schedulePrefetch(c);
@@ -1292,6 +1298,29 @@ function busy(btn, bar, on) {
   bar.value = 0;
 }
 let measuring = false;
+// Measures every block that hasn't been yet, at its current speed, showing progress in
+// place of a button. Returns false if Stop was pressed. ui: { btn, bar, stop, status }.
+async function measureAll(blocks, ui) {
+  const piper = usingPiper();
+  const todo = blocks.filter((c) => !speechLength(c.text, c.speed).exact);
+  if (!todo.length) return true;
+  pause();
+  measuring = true;
+  busy(ui.btn, ui.bar, true);
+  ui.stop.hidden = false;
+  for (let k = 0; k < todo.length && measuring; k++) {
+    ui.bar.value = k / todo.length;
+    ui.status.textContent = piper ? `Making readings: ${k + 1} of ${todo.length}` : `Reading block ${k + 1} of ${todo.length} silently`;
+    await measure(todo[k].text, todo[k].speed);
+  }
+  ui.bar.value = 1;
+  const done = measuring;
+  measuring = false;
+  busy(ui.btn, ui.bar, false);
+  ui.stop.hidden = true;
+  return done;
+}
+
 async function updateAllTimings() {
   const blocks = S.cues.filter((c) => spoken(c.text));
   if (!blocks.length) return (ttsAllStatus.textContent = 'There are no blocks with text yet.');
@@ -1299,22 +1328,9 @@ async function updateAllTimings() {
   // when asked, since they have to read each block in real time.
   const piper = usingPiper();
   if (piper || $('ttsAllExact').checked) {
-    const todo = blocks.filter((c) => !speechLength(c.text, c.speed).exact);
-    pause();
-    measuring = true;
-    busy(ttsAll, ttsAllBar, true);
-    ttsAllStop.hidden = false;
-    for (let k = 0; k < todo.length && measuring; k++) {
-      ttsAllBar.value = k / todo.length;
-      ttsAllStatus.textContent = piper ? `Making readings: ${k + 1} of ${todo.length}` : `Reading block ${k + 1} of ${todo.length} silently`;
-      await measure(todo[k].text, todo[k].speed);
+    if (!(await measureAll(blocks, { btn: ttsAll, bar: ttsAllBar, stop: ttsAllStop, status: ttsAllStatus }))) {
+      return (ttsAllStatus.textContent = 'Stopped. No timings were changed.');
     }
-    ttsAllBar.value = 1;
-    const stopped = !measuring;
-    measuring = false;
-    busy(ttsAll, ttsAllBar, false);
-    ttsAllStop.hidden = true;
-    if (stopped) return (ttsAllStatus.textContent = 'Stopped. No timings were changed.');
   }
   const n = blocks.length;
   if (!confirm(`Update the end of ${n} block${n > 1 ? 's' : ''} from the reading? This also changes blocks marked with H or opened from a file. You can undo it.`)) {
@@ -1341,6 +1357,51 @@ async function updateAllTimings() {
   toast(msg);
 }
 ttsAll.addEventListener('click', updateAllTimings);
+
+// Fit speeds to timings, the other way round: every block keeps its timing, and its
+// reading speed changes so the reading fills it, as when a block is resized. Speeds
+// picked by hand are left alone. One undo step.
+const ttsFitAll = $('ttsFitAll'), ttsFitStop = $('ttsFitStop'), ttsFitStatus = $('ttsFitStatus'), ttsFitBar = $('ttsFitBar');
+async function fitAllSpeeds() {
+  const blocks = S.cues.filter((c) => spoken(c.text) && !c.pinned);
+  const kept = S.cues.filter((c) => spoken(c.text) && c.pinned).length;
+  if (!blocks.length) {
+    return (ttsFitStatus.textContent = kept ? 'Every block with text has a speed you picked, so there’s nothing to fit.' : 'There are no blocks with text yet.');
+  }
+  const n = blocks.length;
+  if (!confirm(`Change the reading speed of ${n} block${n > 1 ? 's' : ''} so each reading fills its block? Their timings stay as they are${kept ? `, and ${kept === 1 ? '1 block with a speed you picked keeps it' : `${kept} blocks with a speed you picked keep theirs`}` : ''}. You can undo it.`)) return;
+  pushUndo();
+  // Marked fit, the speeds follow each block's length from here on, including as
+  // readings are measured below.
+  for (const c of blocks) { delete c.auto; c.fit = true; }
+  const fits = () => { let any = false; for (const c of blocks) any = fitSpeed(c, true) || any; if (any) changed(); };
+  fits();
+  const piper = usingPiper();
+  let stopped = false;
+  // Piper measures quickly, so it measures, fits and measures again until every reading
+  // is within 0.03 s of its block, or a few rounds have gone by. Browser voices read in
+  // real time, so they measure once, and only when asked to.
+  const close = (c) => { const m = speechLength(c.text, c.speed); return m.exact && Math.abs(m.secs - (c.end - c.start)) <= 0.03; };
+  const atLimit = (c) => (c.speed ?? tts.speed) <= MIN_SPEED || (c.speed ?? tts.speed) >= MAX_SPEED;
+  const rounds = piper ? 6 : $('ttsAllExact').checked ? 1 : 0;
+  for (let p = 0; p < rounds && !stopped; p++) {
+    const todo = blocks.filter((c) => !close(c) && !(atLimit(c) && speechLength(c.text, c.speed).exact));
+    if (!todo.length) break;
+    stopped = !(await measureAll(todo, { btn: ttsFitAll, bar: ttsFitBar, stop: ttsFitStop, status: ttsFitStatus }));
+    fits();
+  }
+  const off = blocks.filter((c) => Math.abs(speechLength(c.text, c.speed).secs - (c.end - c.start)) > 0.05).length;
+  const estimated = blocks.filter((c) => !speechLength(c.text, c.speed).exact).length;
+  changed();
+  const msg = `Fitted the speed of ${n} block${n > 1 ? 's' : ''} to ${n > 1 ? 'their' : 'its'} timing.` +
+    (off ? ` ${off === 1 ? '1 block' : `${off} blocks`} can't fit within −50% to +100%.` : '') +
+    (kept ? ` ${kept} kept the speed you picked.` : '') +
+    (stopped ? ' Stopped early, so some speeds are from estimates.' : estimated && !piper ? ' Speeds are from estimates: tick "Read each block silently first" for exact ones.' : '');
+  ttsFitStatus.textContent = msg;
+  toast(msg);
+}
+ttsFitAll.addEventListener('click', fitAllSpeeds);
+ttsFitStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
 
 // Export description track: every block's Piper reading in one WAV file, each at its
 // block's start, as long as the video (or the last reading, without one).
@@ -1370,7 +1431,7 @@ ttsExport.addEventListener('click', async () => {
   }
 });
 ttsAllStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
-$('ttsDlg').addEventListener('close', () => { measuring = false; ttsAllStatus.textContent = ''; });
+$('ttsDlg').addEventListener('close', () => { measuring = false; ttsAllStatus.textContent = ''; ttsFitStatus.textContent = ''; });
 
 // A block's own speed. Setting it to the overall speed makes the block follow the
 // overall speed again, so changing that later still applies to it.

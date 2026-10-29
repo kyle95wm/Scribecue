@@ -231,6 +231,13 @@ docker compose up -d --build</code></pre>
       <p class="updstatus"><button id="ttsAll">Update all timings</button>
         <progress id="ttsAllBar" class="jobbar" max="1" value="0" hidden aria-label="Updating timings"></progress>
         <button id="ttsAllStop" hidden>Stop</button> <span id="ttsAllStatus" class="dim"></span></p>
+      <h3>Fit speeds to timings</h3>
+      <p class="small">The other way round: every block keeps its timing, and its reading speeds up or slows
+        down to fill it, between −50% and +100%. Useful for a script opened from a file. Blocks with a speed
+        you picked keep it, and <kbd><span class="mod"></span>Z</kbd> undoes it.</p>
+      <p class="updstatus"><button id="ttsFitAll">Fit speeds to timings</button>
+        <progress id="ttsFitBar" class="jobbar" max="1" value="0" hidden aria-label="Fitting speeds"></progress>
+        <button id="ttsFitStop" hidden>Stop</button> <span id="ttsFitStatus" class="dim"></span></p>
       <h3>Export description track</h3>
       <p class="small">Save every block's reading as one WAV file, each starting at its block's start
         time, ready to mix with the programme.</p>

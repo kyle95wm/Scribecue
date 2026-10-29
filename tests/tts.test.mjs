@@ -124,3 +124,15 @@ test('a reading is sped up or slowed down to fill a block, within limits', async
   assert.equal(isBlockSpeed(1.2), true);
   assert.equal(isBlockSpeed(3), false);
 });
+
+test('fitting from two readings allows for reading time not scaling evenly with speed', async () => {
+  const { speedFromReadings } = await import('../app/js/tts.js');
+  // Piper's real lengths for one line: 2.87 s at normal speed, 3.27 s at 0.76.
+  // secs = a + b / speed through those gives about 0.66 for 3.5 s, where an even
+  // scale would have said 0.82.
+  const two = [{ speed: 1, secs: 2.87 }, { speed: 0.76, secs: 3.27 }];
+  const s = speedFromReadings(two, 3.5, 0.76);
+  assert.ok(s > 0.6 && s < 0.7, `got ${s}`);
+  assert.equal(speedFromReadings([{ speed: 1, secs: 3 }], 2.5), 1.2); // one reading: even scale
+  assert.equal(speedFromReadings([], 2), null);
+});

@@ -33,6 +33,24 @@ export function speedToFit(readSecs, at, secs) {
   return Math.min(MAX_SPEED, Math.max(MIN_SPEED, s));
 }
 
+// The same from several readings of one line at different speeds, [{ speed, secs }].
+// Reading time doesn't scale exactly with 1 / speed (pauses and some sounds stretch
+// less), so with two readings it fits secs = a + b / speed through the two nearest the
+// current speed, which lands on the length in a step or two.
+export function speedFromReadings(points, secs, near = 1) {
+  if (!(secs > 0) || !points.length) return null;
+  const pts = [...points].sort((p, q) => Math.abs(p.speed - near) - Math.abs(q.speed - near));
+  if (pts.length > 1 && Math.abs(pts[0].speed - pts[1].speed) > 1e-6) {
+    const [p, q] = pts;
+    const b = (p.secs - q.secs) / (1 / p.speed - 1 / q.speed), a = p.secs - b / p.speed;
+    if (b > 0 && secs > a) {
+      const s = Math.round((b / (secs - a)) * 100) / 100;
+      return Math.min(MAX_SPEED, Math.max(MIN_SPEED, s));
+    }
+  }
+  return speedToFit(pts[0].secs, pts[0].speed, secs);
+}
+
 // Characters per second at normal speed before a voice has been measured.
 export const DEFAULT_CPS = 15;
 
@@ -165,6 +183,18 @@ export const usingPiper = () => !!currentVoice()?.piper;
 export const anyVoices = () => tts.available || tts.piper.length > 0;
 const voiceKey = () => currentVoice()?.voiceURI || '';
 const measureKey = (text, speed) => `${voiceKey()}|${speed}|${spoken(text)}`;
+
+// Every reading of this text with the chosen voice so far, as [{ speed, secs }].
+export function readingsOf(text) {
+  const head = `${voiceKey()}|`, tail = `|${spoken(text)}`, out = [];
+  for (const [k, secs] of measured) {
+    if (k.startsWith(head) && k.endsWith(tail)) {
+      const speed = +k.slice(head.length, k.length - tail.length);
+      if (speed > 0) out.push({ speed, secs });
+    }
+  }
+  return out;
+}
 
 // How long the text takes to say with the chosen voice, in video seconds, at a block's
 // own speed or the overall one. Uses the last real reading of this exact text, or an
