@@ -7,7 +7,7 @@ import { browserName, supported, missingFeatures } from './browser.js';
 import { VERSION } from './update.js';
 import { MIN_SPEED, MAX_SPEED } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
-  isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf,
+  isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
   usingPiper, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1274,7 +1274,7 @@ function fitSpeed(c, force = false) {
   const at = c.speed ?? tts.speed, target = c.end - c.start;
   const pts = readingsOf(c.text);
   let s;
-  if (pts.length) s = speedFromReadings(pts, target, at);
+  if (pts.length) s = speedFromReadings(pts, target, at, fixedShare());
   // With Piper, wait for real readings rather than move the speed on an estimate.
   else if (usingPiper()) { if (c.id === S.sel) schedulePrefetch(c); return false; }
   else s = speedToFit(speechLength(c.text, 1).secs, 1, target);
@@ -1317,10 +1317,24 @@ async function measureAll(blocks, ui) {
   measuring = true;
   busy(ui.btn, ui.bar, true);
   ui.stop.hidden = false;
-  for (let k = 0; k < todo.length && measuring; k++) {
-    ui.bar.value = k / todo.length;
-    ui.status.textContent = piper ? `Making readings: ${k + 1} of ${todo.length}` : `Reading block ${k + 1} of ${todo.length} silently`;
-    await measure(todo[k].text, todo[k].speed);
+  if (piper) {
+    // Several readings at once where the web version can (see LANES).
+    let next = 0, done = 0;
+    ui.status.textContent = `Making readings: 0 of ${todo.length}`;
+    await Promise.all(Array.from({ length: LANES }, async () => {
+      while (measuring && next < todo.length) {
+        const c = todo[next++];
+        await measure(c.text, c.speed);
+        ui.bar.value = ++done / todo.length;
+        ui.status.textContent = `Making readings: ${done} of ${todo.length}`;
+      }
+    }));
+  } else {
+    for (let k = 0; k < todo.length && measuring; k++) {
+      ui.bar.value = k / todo.length;
+      ui.status.textContent = `Reading block ${k + 1} of ${todo.length} silently`;
+      await measure(todo[k].text, todo[k].speed);
+    }
   }
   ui.bar.value = 1;
   const done = measuring;
@@ -1367,6 +1381,49 @@ async function updateAllTimings(ask = true) {
 }
 ttsAll.addEventListener('click', () => updateAllTimings());
 
+// Fits Piper readings to their blocks one block at a time, so the progress runs once from
+// the first block to the last. Each block is read at a speed guessed from its estimate,
+// then at better guesses from the readings so far, until the reading is as close to the
+// block as the speed's 1% steps allow. Returns false if Stop was pressed.
+async function fitEach(blocks, ui) {
+  pause();
+  measuring = true;
+  busy(ui.btn, ui.bar, true);
+  ui.stop.hidden = false;
+  let next = 0, done = 0;
+  ui.status.textContent = `Fitting blocks: 0 of ${blocks.length} done`;
+  // Several blocks at once where the web version can run several readings (see LANES).
+  await Promise.all(Array.from({ length: LANES }, async () => {
+    while (measuring && next < blocks.length) {
+      await fitBlock(blocks[next++]);
+      ui.bar.value = ++done / blocks.length;
+      ui.status.textContent = `Fitting blocks: ${done} of ${blocks.length} done`;
+    }
+  }));
+  ui.bar.value = 1;
+  const finished = measuring;
+  measuring = false;
+  busy(ui.btn, ui.bar, false);
+  ui.stop.hidden = true;
+  return finished;
+}
+async function fitBlock(c) {
+  const target = c.end - c.start;
+  const near = Math.max(0.03, target * 0.005); // half a 1% step, on long blocks
+  const tried = new Set();
+  for (let attempt = 0; attempt < 6 && measuring; attempt++) {
+    const pts = readingsOf(c.text);
+    const s = pts.length ? speedFromReadings(pts, target, c.speed ?? tts.speed, fixedShare())
+      : speedToFit(speechLength(c.text, 1).secs, 1, target);
+    if (s != null) c.speed = s;
+    const at = c.speed ?? tts.speed;
+    if (tried.has(at)) break; // back to a speed already read: it's as close as it gets
+    tried.add(at);
+    const secs = await measure(c.text, at);
+    if (secs == null || Math.abs(secs - target) <= near || at <= MIN_SPEED || at >= MAX_SPEED) break;
+  }
+}
+
 // Fit speeds to timings, the other way round: every block keeps its timing, and its
 // reading speed changes so the reading fills it, as when a block is resized. Speeds
 // picked by hand are left alone. One undo step.
@@ -1386,19 +1443,13 @@ async function fitAllSpeeds(ask = true) {
   const fits = () => { let any = false; for (const c of blocks) any = fitSpeed(c, true) || any; if (any) changed(); };
   fits();
   const piper = usingPiper();
+  const ui = { btn: ttsFitAll, bar: ttsFitBar, stop: ttsFitStop, status: ttsFitStatus };
   let stopped = false;
-  // Piper measures quickly, so it measures, fits and measures again until every reading
-  // is within 0.03 s of its block, or a few rounds have gone by. Browser voices read in
-  // real time, so they measure once, and only when asked to.
-  const close = (c) => { const m = speechLength(c.text, c.speed); return m.exact && Math.abs(m.secs - (c.end - c.start)) <= 0.03; };
-  const atLimit = (c) => (c.speed ?? tts.speed) <= MIN_SPEED || (c.speed ?? tts.speed) >= MAX_SPEED;
-  const rounds = piper ? 6 : $('ttsAllExact').checked ? 1 : 0;
-  for (let p = 0; p < rounds && !stopped; p++) {
-    const todo = blocks.filter((c) => !close(c) && !(atLimit(c) && speechLength(c.text, c.speed).exact));
-    if (!todo.length) break;
-    stopped = !(await measureAll(todo, { btn: ttsFitAll, bar: ttsFitBar, stop: ttsFitStop, status: ttsFitStatus }));
-    fits();
-  }
+  // Piper reads quickly, so each block is read, its speed moved, and read again until the
+  // reading fills it. Browser voices read in real time, so they measure once, and only
+  // when asked to.
+  if (piper) stopped = !(await fitEach(blocks, ui));
+  else if ($('ttsAllExact').checked) { stopped = !(await measureAll(blocks, ui)); fits(); }
   // Stopped before Piper reached some blocks: leave those exactly as they were, rather
   // than marked to change speed later when they're next selected or edited.
   let left = 0;
@@ -1409,6 +1460,7 @@ async function fitAllSpeeds(ask = true) {
   }
   const fitted = n - left;
   // Doesn't fit: a measured reading that misses its block, or a speed stuck at a limit.
+  const atLimit = (c) => (c.speed ?? tts.speed) <= MIN_SPEED || (c.speed ?? tts.speed) >= MAX_SPEED;
   const off = blocks.filter((c) => {
     if (!c.fit) return false;
     const m = speechLength(c.text, c.speed);

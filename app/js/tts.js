@@ -39,8 +39,9 @@ export function speedToFit(readSecs, at, secs) {
 // The same from several readings of one line at different speeds, [{ speed, secs }].
 // Reading time doesn't scale exactly with 1 / speed (pauses and some sounds stretch
 // less), so with two readings it fits secs = a + b / speed through the two nearest the
-// current speed, which lands on the length in a step or two.
-export function speedFromReadings(points, secs, near = 1) {
+// current speed, which lands on the length in a step or two. With one reading, share is
+// the part of a reading at normal speed that doesn't change with speed (see fixedShare).
+export function speedFromReadings(points, secs, near = 1, share = 0) {
   if (!(secs > 0) || !points.length) return null;
   const pts = [...points].sort((p, q) => Math.abs(p.speed - near) - Math.abs(q.speed - near));
   if (pts.length > 1 && Math.abs(pts[0].speed - pts[1].speed) > 1e-6) {
@@ -51,7 +52,34 @@ export function speedFromReadings(points, secs, near = 1) {
       return Math.min(MAX_SPEED, Math.max(MIN_SPEED, s));
     }
   }
-  return speedToFit(pts[0].secs, pts[0].speed, secs);
+  const [p] = pts;
+  if (!(share > 0)) return speedToFit(p.secs, p.speed, secs);
+  // secs = whole * (share + (1 - share) / speed), with whole the length at normal speed
+  const r = secs / (p.secs / (share + (1 - share) / p.speed));
+  if (r <= share) return MAX_SPEED;
+  const s = Math.round(((1 - share) / (r - share)) * 100) / 100;
+  return Math.min(MAX_SPEED, Math.max(MIN_SPEED, s));
+}
+
+// Piper's readings: about a quarter of a reading at normal speed (the pauses, and the
+// ends of sounds) stays the same at any speed. Learned per voice from lines read at two
+// speeds, so the first guess at a speed that fills a block is close.
+const SHARE = 0.23;
+const shares = new Map(); // voice -> [sum, count]
+export function fixedShare() {
+  if (!usingPiper()) return 0;
+  const s = shares.get(voiceKey());
+  return s ? s[0] / s[1] : SHARE;
+}
+function learnShare(voiceURI, points) {
+  if (points.length < 2) return;
+  const lo = points.reduce((a, p) => (p.speed < a.speed ? p : a)), hi = points.reduce((a, p) => (p.speed > a.speed ? p : a));
+  if (hi.speed - lo.speed < 0.05) return;
+  const b = (lo.secs - hi.secs) / (1 / lo.speed - 1 / hi.speed), a = lo.secs - b / lo.speed;
+  if (!(b > 0) || a < 0) return;
+  const s = shares.get(voiceURI) || [SHARE * 4, 4]; // starts as if four lines had given the usual share
+  s[0] += Math.min(0.5, a / (a + b)); s[1]++;
+  shares.set(voiceURI, s);
 }
 
 // Characters per second at normal speed before a voice has been measured.
@@ -218,32 +246,50 @@ const piperAudio = () => (piperAudioEl ||= new Audio());
 
 // ---- Piper in the browser (web version)
 
-let worker = null;
-const asks = new Map();
+// Workers that run Piper. The first also downloads and removes voices. Each reading
+// uses one processor core, so long jobs such as Fit speeds to timings run several
+// readings at once in extra workers, which close again after a short rest.
+export const LANES = HOSTED ? Math.max(1, Math.min(3, Math.floor((navigator.hardwareConcurrency || 2) / 2))) : 1;
+const pool = []; // { w, asks: Map, idle: timer }
 let askId = 0;
 // What the site offers and what's downloaded, once the worker has said.
 export const webPiper = { offered: null, engine: 0, engineReady: false, downloaded: [], downloading: null };
-function ask(op, extra = {}) {
-  if (!worker) {
-    worker = new Worker(new URL('./piper-worker.js', import.meta.url), { type: 'module' });
-    worker.addEventListener('message', ({ data: m }) => {
-      if (m.op === 'progress') { webPiper.downloading = m; if ($('ttsDlg').open) renderWeb(); return; }
-      const a = asks.get(m.id);
-      if (!a) return;
-      asks.delete(m.id);
-      if (m.ok) a.resolve(m.result); else a.reject(new Error(m.error));
-    });
-    // The worker itself failed to start, so nothing it was asked will be answered.
-    worker.addEventListener('error', () => {
-      for (const a of asks.values()) a.reject(new Error('Piper didn’t start'));
-      asks.clear();
-      worker = null;
-    });
+function startWorker() {
+  const p = { w: new Worker(new URL('./piper-worker.js', import.meta.url), { type: 'module' }), asks: new Map(), idle: null };
+  p.w.addEventListener('message', ({ data: m }) => {
+    if (m.op === 'progress') { webPiper.downloading = m; if ($('ttsDlg').open) renderWeb(); return; }
+    const a = p.asks.get(m.id);
+    if (!a) return;
+    p.asks.delete(m.id);
+    if (m.ok) a.resolve(m.result); else a.reject(new Error(m.error));
+    restLater(p);
+  });
+  // The worker itself failed to start, so nothing it was asked will be answered.
+  p.w.addEventListener('error', () => {
+    for (const a of p.asks.values()) a.reject(new Error('Piper didn’t start'));
+    p.asks.clear();
+    pool.splice(pool.indexOf(p), 1);
+  });
+  pool.push(p);
+  return p;
+}
+function restLater(p) {
+  clearTimeout(p.idle);
+  if (p === pool[0] || p.asks.size) return;
+  p.idle = setTimeout(() => { if (!p.asks.size) { p.w.terminate(); pool.splice(pool.indexOf(p), 1); } }, 30000);
+}
+// any: a reading, which can go to whichever worker is least busy.
+function ask(op, extra = {}, any = false) {
+  let p = pool[0] || startWorker();
+  if (any) {
+    p = pool.reduce((a, q) => (q.asks.size < a.asks.size ? q : a));
+    if (p.asks.size && pool.length < LANES) p = startWorker();
   }
+  clearTimeout(p.idle);
   const id = ++askId;
   return new Promise((resolve, reject) => {
-    asks.set(id, { resolve, reject });
-    worker.postMessage({ id, op, ...extra });
+    p.asks.set(id, { resolve, reject });
+    p.w.postMessage({ id, op, ...extra });
   });
 }
 
@@ -268,6 +314,11 @@ async function removeVoice(voice) {
   if (!confirm('Remove this voice from your browser? You can download it again later.')) return;
   stop();
   await ask('remove', { voice }).catch(() => {});
+  // The extra workers still have the voice loaded; let them go.
+  for (const p of pool.splice(1)) {
+    p.w.terminate();
+    for (const a of p.asks.values()) a.reject(new Error('The voice was removed'));
+  }
   if (tts.voice === 'piper:' + voice) { tts.voice = ''; save(); }
   await loadPiper();
 }
@@ -331,7 +382,7 @@ function piperRead(text, speed, voice = currentVoice()) {
   const key = `${voice.voiceURI}|${speed}|${words}`;
   let p = piperCache.get(key);
   if (!p) {
-    const reading = HOSTED ? ask('synthesize', { voice: voice.piper, text: words, speed }) : fetch('tts/synthesize', {
+    const reading = HOSTED ? ask('synthesize', { voice: voice.piper, text: words, speed }, true) : fetch('tts/synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // noise_w_scale 0 turns off Piper's random variation in timing, so the same line
@@ -344,6 +395,7 @@ function piperRead(text, speed, voice = currentVoice()) {
     p = reading.then((buf) => {
       const wav = readWav(buf);
       measured.set(key, wav.secs);
+      if (voice.voiceURI === voiceKey()) learnShare(voice.voiceURI, readingsOf(text));
       if (words.length > 8) { tts.cps[voice.voiceURI] = words.length / (wav.secs * speed); save(); }
       return { ...wav, buf };
     });

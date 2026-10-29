@@ -136,3 +136,17 @@ test('fitting from two readings allows for reading time not scaling evenly with 
   assert.equal(speedFromReadings([{ speed: 1, secs: 3 }], 2.5), 1.2); // one reading: even scale
   assert.equal(speedFromReadings([], 2), null);
 });
+
+test('from one reading, the part that doesn’t change with speed is allowed for', async () => {
+  const { speedFromReadings, MAX_SPEED } = await import('../app/js/tts.js');
+  // A Piper line: 3.077 s at normal speed, of which about a quarter stays the same at any
+  // speed. Fitting it into 1.95 s from that one reading:
+  const one = [{ speed: 1, secs: 3.077 }];
+  assert.equal(speedFromReadings(one, 1.95, 1), 1.58); // even scale would say 1.58 too…
+  const s = speedFromReadings(one, 1.95, 1, 0.25);
+  assert.ok(s > 1.9 && s < 2, `got ${s}`); // …but the real answer is close to 2
+  // Shorter than the fixed part can ever be: as fast as it goes.
+  assert.equal(speedFromReadings(one, 0.5, 1, 0.25), MAX_SPEED);
+  // A reading at another speed works out the same.
+  assert.equal(speedFromReadings([{ speed: 2, secs: 3.077 * (0.25 + 0.75 / 2) }], 3.077, 2, 0.25), 1);
+});

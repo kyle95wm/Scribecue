@@ -18,21 +18,34 @@ export function createEngine(files) {
   if (files.ortWasm) ort.env.wasm.wasmBinary = files.ortWasm;
   const voices = new Map(); // id -> Promise<{ session, config }>
 
-  // espeak-ng's sounds for the text, as the ids this voice was trained on.
+  // espeak-ng's sounds for the text, as the ids this voice was trained on. One copy of
+  // the phonemizer is kept and run again for each line; it's made afresh if it fails.
+  let phonemizer = null;
+  let lines = [];
+  const failed = [];
+  const loadPhonemizer = () => (phonemizer ||= files.createPhonemize({
+    print: (line) => lines.push(line),
+    printErr: (line) => failed.push(line),
+    wasmBinary: files.phonemizeWasm,
+    getPreloadedPackage: () => files.phonemizeData,
+    locateFile: (name) => name,
+    noInitialRun: true,
+  }));
   async function phonemeIds(text, espeakVoice) {
-    let out = null;
-    const failed = [];
-    const mod = await files.createPhonemize({
-      print: (line) => { out ??= line; },
-      printErr: (line) => failed.push(line),
-      wasmBinary: files.phonemizeWasm,
-      getPreloadedPackage: () => files.phonemizeData,
-      locateFile: (name) => name,
-      noInitialRun: true,
-    });
-    mod.callMain(['-l', espeakVoice, '--input', JSON.stringify([{ text }]), '--espeak_data', '/espeak-ng-data']);
-    if (!out) throw new Error('Piper couldn’t read that text' + (failed.length ? `: ${failed.join(' ')}` : ''));
-    return JSON.parse(out).phoneme_ids;
+    const mod = await loadPhonemizer();
+    lines = [];
+    failed.length = 0;
+    try {
+      mod.callMain(['-l', espeakVoice, '--input', JSON.stringify([{ text }]), '--espeak_data', '/espeak-ng-data']);
+    } catch (e) {
+      phonemizer = null;
+      throw e;
+    }
+    if (!lines.length) {
+      phonemizer = null;
+      throw new Error('Piper couldn’t read that text' + (failed.length ? `: ${failed.join(' ')}` : ''));
+    }
+    return JSON.parse(lines[0]).phoneme_ids;
   }
 
   return {
