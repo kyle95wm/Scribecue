@@ -1,6 +1,6 @@
 // Offline support for the web version of Scribecue. It keeps a copy of the app's own
 // files, so once it's been opened it works without a connection. Piper voices people
-// download are kept apart, in the "piper-voices" cache, so new versions don't clear them. Video, audio and
+// download are kept apart, in the "piper-voices" cache, and Whisper in "whisper-model", so new versions don't clear them. Video, audio and
 // scripts never pass through here: they're opened straight from disk.
 // The cache is named after the version, so a new release brings a new copy, and the app
 // asks to reload when it's ready. Keep VERSION in step with app/js/update.js.
@@ -9,7 +9,7 @@ const CACHE = `scribecue-${VERSION}`;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'changelog.json', 'css/style.css',
   'js/ai.js', 'js/aidrawer.js', 'js/app.js', 'js/browser.js', 'js/nav.js', 'js/tour.js', 'js/keymap.js', 'js/keys.js', 'js/whatsnew.js', 'js/config.js', 'js/formats.js', 'js/piper-engine.js', 'js/piper-worker.js',
-  'js/project.js', 'js/tts.js',
+  'js/project.js', 'js/stt.js', 'js/tts.js', 'js/whisper-worker.js',
   'js/update.js', 'js/welcome.js', 'js/wave-worker.js',
   'icons/icon-192.png', 'icons/icon-512.png',
 ];
@@ -30,7 +30,7 @@ self.addEventListener('message', (e) => { if (e.data === 'update') self.skipWait
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.includes('/tts/')) return;
+  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.includes('/tts/') || url.pathname.includes('/stt/')) return;
   e.respondWith((async () => {
     const hit = await caches.match(e.request, { ignoreSearch: true }) ||
       (e.request.mode === 'navigate' ? await caches.match('index.html') : null);

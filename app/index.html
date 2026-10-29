@@ -480,6 +480,39 @@ docker compose up -d --build</code></pre>
     </div>
   </dialog>
 
+  <dialog id="sttDlg" class="updbox" aria-labelledby="sttTitle">
+    <h2 id="sttTitle">Speech to text</h2>
+    <p>Whisper listens to each block you mark with <kbd>H</kbd> and types what the narrator says,
+      ready for you to check. You still time every line yourself. It runs on your computer, so the
+      audio never leaves it.</p>
+    <section id="sttWeb" hidden>
+      <p class="small">Whisper is a one-time download into your browser, and then it works offline
+        too. It's fastest in Chrome or Edge on a computer with a graphics chip they can use.</p>
+      <p class="updstatus"><button id="sttGet">Download Whisper</button>
+        <button id="sttRemove" hidden>Remove</button>
+        <progress id="sttBar" class="jobbar" max="1" value="0" hidden aria-label="Downloading Whisper"></progress>
+        <span id="sttWebStatus" class="dim"></span></p>
+    </section>
+    <section id="sttServer" hidden>
+      <p id="sttServerStatus" class="small"></p>
+    </section>
+    <label class="updopt"><input type="checkbox" id="sttOn"> Fill in blocks as I mark them</label>
+    <p class="dim small">When you let go of <kbd>H</kbd>, the block's text appears after a moment.
+      If you start typing first, Whisper leaves the block to you.</p>
+    <h3>Transcribe empty blocks</h3>
+    <p class="small">Fill in every block that has no text yet, such as blocks drawn on the timeline or
+      marked with this off. <kbd><span class="mod"></span>Z</kbd> undoes it.</p>
+    <p class="updstatus"><button id="sttAll">Transcribe empty blocks</button>
+      <progress id="sttAllBar" class="jobbar" max="1" value="0" hidden aria-label="Transcribing blocks"></progress>
+      <button id="sttAllStop" hidden>Stop</button> <span id="sttAllStatus" class="dim"></span></p>
+    <p class="dim small">Whisper understands English. It hears everything in a block, so dialogue or
+      lyrics under the narration can come out too: if your file has a description track on its own,
+      choose it with <kbd>T</kbd>. Names are often misspelled, so check them.</p>
+    <div class="updbtns">
+      <button id="sttClose">Close</button>
+    </div>
+  </dialog>
+
   <dialog id="updates" class="updbox" aria-labelledby="updTitle">
     <section id="updAsk">
       <h2 id="updTitle">Check for updates?</h2>
@@ -605,6 +638,8 @@ docker compose up -d --build</code></pre>
             <dt data-keys="toStart toEnd"><kbd>G</kbd> / <kbd>⇧</kbd><kbd>G</kbd></dt><dd>Playhead to block start / end</dd>
             <dt data-keys="hold" class="transcribe-only">Hold <kbd>H</kbd></dt><dd class="transcribe-only">Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on</dd>
             <dt data-keys="offset" class="transcribe-only"><kbd>⇧</kbd><kbd>H</kbd></dt><dd class="transcribe-only">Change the hold-to-mark reaction offset</dd>
+            <dt data-keys="transcribeBlock" class="transcribe-only"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>T</kbd></dt><dd class="transcribe-only">Transcribe the selected block with Whisper</dd>
+            <dt data-keys="sttPanel" class="transcribe-only"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>H</kbd></dt><dd class="transcribe-only">Speech to text settings</dd>
             <dt data-keys="loopBlock"><kbd>L</kbd></dt><dd>Loop this block and play. ↵ to type, Esc when done ends the loop</dd>
             <dt data-keys="loopToggle followToggle"><kbd>O</kbd> <kbd>F</kbd></dt><dd>Loop (stays on) · follow playhead</dd>
             <dt data-keys="speedReset"><kbd>\</kbd></dt><dd>Reset speed to 1×</dd>

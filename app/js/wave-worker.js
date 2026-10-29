@@ -4,22 +4,26 @@
 //
 // It can list a file's audio tracks, build the timeline waveform for one of
 // them, and copy that track (without re-encoding) into a small audio-only file
-// the page can play, since most browsers can't switch tracks inside a video.
+// the page can play, since most browsers can't switch tracks inside a video. It can
+// also cut out the audio between two times as 16 kHz mono, for speech to text.
 //
 // in:  { cmd: 'probe', file }                    -> { type: 'tracks', tracks }
 //      { cmd: 'build', file, rate, track, mux }  -> { type: 'peaks', from, data, max } ...
 //                                                   { type: 'progress', done: 0..1 } ...
 //                                                   { type: 'audio', blob, mime, start } or { type: 'audio', reason } (with mux)
 //                                                   { type: 'done' }
-//      either can end with { type: 'unsupported' | 'error', message }
+//      { cmd: 'clip', file, track, from, to }    -> { type: 'clip', audio } (Float32Array, 16 kHz mono)
+//      any can end with { type: 'unsupported' | 'error', message }
 
 const WINDOW = 8 << 20; // bytes read from disk at a time
 const MAX_CHANNELS = 8;
 
 class Unsupported extends Error {}
+class Enough extends Error {} // a clip has all the audio it needs
 
 self.onmessage = async ({ data: job }) => {
-  const peaks = new Peaks(job.rate || 200);
+  const clip = job.cmd === 'clip';
+  const peaks = clip ? new Clip(job.from, job.to) : new Peaks(job.rate || 200);
   const ticker = job.cmd === 'build' ? setInterval(() => peaks.post(), 250) : 0;
   try {
     const { file } = job;
@@ -30,7 +34,9 @@ self.onmessage = async ({ data: job }) => {
     else if (['ftyp', 'moov', 'mdat', 'free', 'skip', 'wide', 'pnot'].includes(tag)) parse = mp4;
     else if (/^(RIFF|RF64)$/.test(ascii(head, 0, 4)) && ascii(head, 8, 12) === 'WAVE') parse = wav;
     else throw new Unsupported('this file type is not streamed');
-    const out = await parse(file, peaks, job);
+    let out;
+    try { out = await parse(file, peaks, job); } catch (err) { if (!(clip && err instanceof Enough)) throw err; }
+    if (clip) { postMessage({ type: 'clip', audio: peaks.out }, [peaks.out.buffer]); return; }
     if (job.cmd === 'probe') { postMessage({ type: 'tracks', tracks: out }); return; }
     peaks.progress = 1;
     peaks.post();
@@ -111,6 +117,51 @@ class Peaks {
     const p = Math.floor(this.progress * 100);
     if (p !== this.sent) { this.sent = p; postMessage({ type: 'progress', done: p / 100 }); }
   }
+}
+
+// ---------------------------------------------------------------- clips
+
+// The audio between two times, mixed to mono at 16 kHz, which is what speech to text
+// takes. It stands in for Peaks, so every container and codec works for it too. The
+// parsers ask skip() before reading audio, so a clip far into a file reads little else.
+const CLIP_RATE = 16000;
+class Clip {
+  constructor(from, to) {
+    this.from = from;
+    this.to = to;
+    this.out = new Float32Array(Math.max(1, Math.ceil((to - from) * CLIP_RATE)));
+    this.cursor = null;
+    this.shift = 0;
+    this.progress = 0;
+  }
+
+  // Whether audio starting at t (before the shift) ends too early to be needed. A second
+  // is kept before the clip, so decoders have settled by the time it starts.
+  skip(t) { return t + this.shift < this.from - 1; }
+
+  // Stops reading once the audio is past the clip.
+  past(t) { if (t + this.shift > this.to + 1) throw new Enough(); }
+
+  add(t, planes, frames, sampleRate) {
+    t += this.shift;
+    if (this.cursor !== null && (t < this.cursor || t - this.cursor < 0.25)) t = this.cursor; // as in Peaks
+    this.cursor = t + frames / sampleRate;
+    const n = this.out.length;
+    const i0 = Math.max(0, Math.ceil((t - this.from) * CLIP_RATE));
+    const i1 = Math.min(n, Math.ceil((this.cursor - this.from) * CLIP_RATE));
+    // Each output sample averages the input around it, which keeps out most aliasing.
+    const half = Math.max(1, Math.round(sampleRate / CLIP_RATE / 2)), ch = planes.length;
+    for (let i = i0; i < i1; i++) {
+      const k = Math.round((this.from + i / CLIP_RATE - t) * sampleRate);
+      const a = Math.max(0, k - half + 1), b = Math.min(frames, k + half);
+      let sum = 0;
+      for (const p of planes) for (let j = a; j < b; j++) sum += p[j];
+      if (b > a) this.out[i] = sum / ((b - a) * ch);
+    }
+    if (t > this.to + 0.5) throw new Enough();
+  }
+
+  post() {}
 }
 
 // ---------------------------------------------------------------- sample conversion
@@ -349,6 +400,7 @@ async function matroska(file, peaks, job) {
   const list = () => audioTracks().map((t) => describe(mkvInfo(t), {
     lang: t.bcp47 || t.lang, name: t.name, default: t.default !== 0, ad: t.vi === 1 || isAD(t.name),
   }));
+  let clusterEnd = -1; // where the current cluster ends, if its size is known
   let pos = 0, track = null, scale = 1e6, cluster = 0, chosen = null, sink = null, mux = null, ahead = WINDOW, shift = 0;
   while (pos < size) {
     if (!r.has(pos, 12)) await r.load(pos, 12, ahead);
@@ -363,6 +415,7 @@ async function matroska(file, peaks, job) {
     const start = pos + id.len + sz.len, len = sz.value;
     if (MKV_ENTER.has(id.value)) {
       if (id.value === MKV.TrackEntry) tracks.push((track = {}));
+      if (id.value === MKV.Cluster) clusterEnd = len >= 0 ? start + len : -1;
       if (id.value === MKV.Cluster && !sink) {
         // all track headers come before the first cluster
         if (job.cmd === 'probe') return list();
@@ -382,7 +435,9 @@ async function matroska(file, peaks, job) {
     if (len < 0) throw new Error('damaged Matroska file');
     if ((id.value === MKV.SimpleBlock || id.value === MKV.Block) && sink) {
       const head = await r.view(start, Math.min(len, 8));
-      if (vint(head, 0, false)?.value === chosen.number) {
+      const tn = vint(head, 0, false);
+      const early = tn && peaks.skip && head.length >= tn.len + 2 && peaks.skip((cluster + (((head[tn.len] << 8) | head[tn.len + 1]) << 16 >> 16)) * scale / 1e9 + 1);
+      if (tn?.value === chosen.number && !early) {
         const blk = await r.view(start, len, 0);
         if (blk.length === len) {
           const { rel, frames } = blockFrames(blk);
@@ -397,7 +452,15 @@ async function matroska(file, peaks, job) {
       const v = await r.view(start, len);
       switch (id.value) {
         case MKV.TimecodeScale: scale = uint(v); break;
-        case MKV.Timecode: cluster = uint(v); break;
+        case MKV.Timecode:
+          cluster = uint(v);
+          // A block's time is within 32.8 s of its cluster's (a 16-bit offset, in ms at
+          // the usual scale), so a clip can jump over clusters that end before it.
+          if (peaks.skip && clusterEnd > start && peaks.skip((cluster * scale) / 1e9 + (32768 * scale) / 1e9 + 1)) {
+            pos = clusterEnd;
+            continue;
+          }
+          break;
         case MKV.TrackNumber: if (track) track.number = uint(v); break;
         case MKV.TrackType: if (track) track.type = uint(v); break;
         case MKV.CodecID: if (track) track.codec = ascii(v, 0, v.length).replace(/\0+$/, ''); break;
@@ -656,6 +719,8 @@ async function mp4(file, peaks, job) {
     const perChunk = moov.getUint32(stsc.start + 12 + run * 12);
     const n = Math.min(perChunk, count - sample);
     const off = chunkAt(c);
+    // a clip skips chunks well before it without reading them (chunks are short)
+    if (peaks.skip?.(dts / timescale + 2)) { advance(n); sample += n; continue; }
     if (pcm) {
       const data = await r.view(off, n * bytesPerFrame, 0);
       await sink.decode(data, dts / timescale);
@@ -715,6 +780,7 @@ async function wav(file, peaks, job) {
       const mux = job.mux ? makeMux(file, info) : null;
       const step = Math.floor(WINDOW / fmt.align) * fmt.align;
       for (let p = start; p < end; p += step) {
+        if (peaks.skip?.((p + step - start) / fmt.align / fmt.rate)) continue;
         const data = await r.view(p, Math.min(step, end - p));
         const t = (p - start) / fmt.align / fmt.rate;
         await sink.decode(data, t);
@@ -746,6 +812,15 @@ function describe(info, meta) {
 }
 
 async function openSink(info, peaks) {
+  const sink = await codecSink(info, peaks);
+  if (!(peaks instanceof Clip)) return sink;
+  return {
+    async decode(data, t) { peaks.past(t); if (!peaks.skip(t)) await sink.decode(data, t); },
+    finish: () => sink.finish(),
+  };
+}
+
+async function codecSink(info, peaks) {
   if (info.kind === 'pcm') return pcmSink(peaks, { rate: info.rate, channels: info.channels, ...info.pcm });
   const codec = { aac: info.desc && aacCodec(info.desc), opus: 'opus', vorbis: 'vorbis', flac: 'flac', mp3: 'mp3', ac3: 'ac-3', eac3: 'ec-3' }[info.kind];
   if (!codec) throw new Unsupported(`${label(info)} audio`);

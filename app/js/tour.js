@@ -78,6 +78,12 @@ export const STEPS = [
     text: () => 'Hear your blocks read aloud, to check each one fits before the next line of dialogue. Readings can set a block’s end, or a block’s speed can stretch to fill it. With a Piper voice, lengths are exact and you can export a description track.',
   },
   {
+    target: '#ind [data-key="stt"]',
+    only: 'transcribe',
+    title: 'Speech to text',
+    text: () => `Whisper can type each line for you: when you let go of ${keyFor('hold')}, it listens to the block and fills in what the narrator said, ready to check. It runs on your computer. Click STT to set it up, or to fill in every empty block at once.`,
+  },
+  {
     target: '#aiBtn',
     title: 'AI help, if you want it',
     text: () => 'Connect your own AI provider, or Ollama on your own computer, to ask about a scene or draft a block from its frames. Drafts only go in when you choose. It’s off until you connect one.',

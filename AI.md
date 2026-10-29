@@ -45,6 +45,10 @@ Click **AI** at the top, or press `Alt+Shift+A`, and a drawer slides out beside 
   are some.
 - **New chat** starts the conversation again.
 
+For transcribing existing audio description, there's also
+[speech to text](README.md#speech-to-text): Whisper, running on your own computer, types
+each line you mark with `H`. It needs no provider and no account.
+
 ## Choosing where it runs
 
 | | Online (Claude, OpenAI, Gemini, OpenRouter) | Ollama, on your computer |

@@ -41,6 +41,30 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
+  # Optional speech to text that runs on this computer: Whisper fills in the text of the
+  # blocks you mark. Turn it on by adding whisper to COMPOSE_PROFILES in .env (see INSTALL.md).
+  whisper:
+    build:
+      context: ./whisper
+      args:
+        # Which model, by faster-whisper name. Set WHISPER_MODEL in .env to change it, then
+        # rebuild. small.en is a good balance of accuracy and speed for English.
+        WHISPER_MODEL: ${WHISPER_MODEL:-small.en}
+    image: scribecue-whisper:latest
+    container_name: scribecue-whisper
+    profiles: [whisper]
+    # Like Piper: only on the internal network, with no internet and no port on this
+    # computer. Scribecue's server is the only thing that can reach it.
+    networks: [voices]
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
   # Optional AI models that run on this computer, for AI help (see INSTALL.md). Turn it on
   # by adding ollama to COMPOSE_PROFILES in .env, then download a model that can see
   # images: docker compose exec ollama ollama pull gemma3:4b

@@ -3,7 +3,8 @@
 **A keyboard-first editor for audio description scripts.**
 
 - **Transcribe** existing audio description at its original timing: hold a key while the
-  narrator speaks and a block appears.
+  narrator speaks and a block appears. Whisper, running on your computer, can type the
+  line for you.
 - **Write** new audio description, with text to speech to hear each line and check it fits
   before the next piece of dialogue.
 - Runs on your own computer in Docker. Your files are never uploaded.
@@ -29,8 +30,9 @@ Your video, audio and scripts are opened straight from your computer and never u
 only the app itself is downloaded, the first time and when it updates. It updates itself,
 usually without you noticing: a new version is used as you open Scribecue, and one that
 arrives while you're working waits until you click **update ready** on the version number,
-or open Scribecue again. [Piper voices](#piper-voices) work in the web version too:
-download one from the text to speech panel.
+or open Scribecue again. [Piper voices](#piper-voices) and
+[speech to text](#speech-to-text) work in the web version too: each is a one-time download
+into your browser.
 
 The web version used to be at `kyle95wm.github.io/Scribecue`, which now forwards here.
 Work that was only kept in the browser there, such as unsaved blocks, settings and Piper
@@ -41,8 +43,8 @@ open it, but some features may not be available, and Scribecue tells you which.
 
 ### Or run it yourself
 
-To keep everything, the app included, on your own computer, or to run Piper voices or
-Ollama in containers next to it, run Scribecue with Docker. [INSTALL.md](INSTALL.md) walks
+To keep everything, the app included, on your own computer, or to run Piper voices,
+Whisper or Ollama in containers next to it, run Scribecue with Docker. [INSTALL.md](INSTALL.md) walks
 you through it, and covers updating and troubleshooting.
 
 ## Contents
@@ -57,6 +59,7 @@ you through it, and covers updating and troubleshooting.
 - [Modes: Transcribe and Write](#modes-transcribe-and-write)
 - [Transcribing audio description](#transcribing-audio-description)
   - [Hold-to-mark](#hold-to-mark)
+  - [Speech to text](#speech-to-text)
   - [Looping a block](#looping-a-block)
   - [Text to speech](#text-to-speech)
   - [Piper voices](#piper-voices)
@@ -114,6 +117,9 @@ switch tracks. Then repeat:
    - `Enter` or `Esc` closes the block, and playback carries on.
 
 To hear a block again while you type, press `L`. It loops until you close the block.
+
+With [speech to text](#speech-to-text) on, step 3 is checking: the line is typed for you a
+moment after you let go of `H`.
 
 ### Saving
 
@@ -192,6 +198,7 @@ asks this too, along with the tools for that mode and whether to check for updat
 | --- | --- | --- |
 | For | Existing audio description, at its original timing | New audio description |
 | [Hold-to-mark](#hold-to-mark) (`H`, `Shift+H`) | ✓ | |
+| [Speech to text](#speech-to-text) (`Alt+Shift+T`, `Alt+Shift+H`) | ✓ | |
 | [Text to speech](#text-to-speech) (`V`, `Shift+V`, `[` `]`, reading times, block speeds) | | ✓ |
 | Everything else | ✓ | ✓ |
 
@@ -220,6 +227,31 @@ Scribecue tidies up the timing for you:
 | **No overlaps** | A new block is trimmed to fit the gap it starts in. | |
 
 Your offset choice is remembered.
+
+### Speech to text
+
+Whisper, an open-source speech recognition model, can type each line for you. You still
+time every block with `H`; when you let go, Whisper listens to the block's audio and fills
+in what the narrator said, ready to check. If you start typing first, it leaves the block
+to you. It runs on your own computer, so the audio is never uploaded.
+
+Click **STT** under the video, or press `Alt+Shift+H`, to set it up:
+
+- **In the web version**, download Whisper into your browser: 166 MB, once, and then it
+  works offline. A line takes about a second or two in Chrome or Edge on a computer with a
+  graphics chip they can use, and longer without one.
+- **With Docker**, add the Whisper container, which uses a larger, more accurate model.
+  See [INSTALL.md](INSTALL.md#speech-to-text-whisper).
+
+Then tick **Fill in blocks as I mark them**. The same panel can **transcribe empty
+blocks**: every block with no text yet, such as blocks drawn on the timeline, in one go.
+`Ctrl/Cmd+Z` undoes it. `Alt+Shift+T` transcribes the selected block again, replacing its
+text, for example after you change its timing.
+
+Whisper only understands English here, and it hears everything in a block, so dialogue or
+lyrics under the narration can come out too. If your file has a
+[description track](#files-with-several-audio-tracks) on its own, choose it with `T`. Check
+names especially, since Whisper often spells them the way they sound.
 
 ### Looping a block
 
@@ -519,6 +551,8 @@ this browser.
 | `C` | Select the block under the playhead |
 | `Shift+Space` | Play just the selected block |
 | `T` / `Shift+T` | Next / previous audio track |
+| `Alt+Shift+T` | [Transcribe](#speech-to-text) the selected block, replacing its text |
+| `Alt+Shift+H` | Speech to text settings |
 | `/` | Search the block list |
 | `O` | Loop on / off |
 | `F` | Follow the playhead on / off |
@@ -580,6 +614,9 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
   message or ask for a draft, frames and nearby blocks go to the provider you chose, or
   stay on your computer with Ollama. The security policy allows those providers' addresses
   and nothing else.
+- [Speech to text](#speech-to-text) runs Whisper in your browser, downloaded from
+  Scribecue's own site, or in its own container with no internet access, which the page
+  reaches through Scribecue's server. The audio never leaves your computer.
 - [Piper](#piper-voices), if you add it, runs in its own container with no internet access
   and no port of its own. The page reaches it through Scribecue's server. In the web
   version, Piper voices you download come from Scribecue's own site and run in your

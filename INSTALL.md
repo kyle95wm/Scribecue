@@ -5,7 +5,8 @@ works in Chrome or Edge with nothing to install. See the [README](README.md) for
 use Scribecue.
 
 Run it yourself with Docker if you want everything, the app included, on your own
-computer, or to run Piper voices or Ollama in containers next to it.
+computer, or to run Piper voices, Whisper speech to text or Ollama in containers next to
+it.
 
 ## Contents
 
@@ -13,6 +14,7 @@ computer, or to run Piper voices or Ollama in containers next to it.
 - [Install](#install)
 - [Starting and stopping](#starting-and-stopping)
 - [Natural-sounding voices (Piper)](#natural-sounding-voices-piper)
+- [Speech to text (Whisper)](#speech-to-text-whisper)
 - [Ollama in Docker](#ollama-in-docker)
 - [Updating](#updating)
 - [If something goes wrong](#if-something-goes-wrong)
@@ -119,6 +121,38 @@ PIPER_VOICES=en_US-lessac-medium en_GB-jenny_dioco-medium
 To stop using Piper, remove the `COMPOSE_PROFILES` line from `.env` and run
 `docker compose down`, then `docker compose up -d`.
 
+## Speech to text (Whisper)
+
+[Speech to text](README.md#speech-to-text) types each line you mark with `H`, using
+[Whisper](https://github.com/SYSTRAN/faster-whisper) in a container next to the editor. Like
+Piper, it has no internet access once it's built, and only Scribecue's own server can reach
+it. Add `whisper` to the profiles in `.env`, for example:
+
+```
+COMPOSE_PROFILES=piper,whisper
+```
+
+Then build and start it:
+
+```bash
+docker compose up -d --build
+```
+
+The first build downloads Whisper and its model, about 1.6 GB in all. Reload Scribecue,
+switch to Transcribe mode, click **STT** under the video, and tick **Fill in blocks as I
+mark them**. A line takes about a second on a recent computer.
+
+It uses the `small.en` model, which is accurate for English and quick on a processor. To
+use another, add a line like this to `.env`, then build again:
+
+```
+WHISPER_MODEL=medium.en
+```
+
+`tiny.en` and `base.en` are faster and less accurate; `medium.en` is more accurate and
+several times slower. Models without `.en`, such as `small` or `large-v3`, understand other
+languages too.
+
 ## Ollama in Docker
 
 [AI help](AI.md) can use Ollama, which runs AI models on your own computer.
@@ -203,6 +237,8 @@ and port as before.
   reload.
 - **"Piper isn't answering":** the Piper container isn't running. Check that `.env` has
   `COMPOSE_PROFILES=piper`, then run `docker compose up -d --build`.
+- **"The Whisper container isn't running":** check that `COMPOSE_PROFILES` in `.env`
+  includes `whisper`, then run `docker compose up -d --build`.
 
 ## Development
 

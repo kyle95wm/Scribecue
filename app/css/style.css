@@ -824,7 +824,7 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 #aiNotes { width: 100%; margin: 6px 0 2px; font: 13px/1.45 var(--sans); }
 #aiNotesBtn.on { color: var(--accent); border-color: var(--accent); }
 #verBtn.on { color: var(--accent); border-color: var(--accent); }
-#newDlg [hidden] { display: none; }
+#newDlg [hidden], #sttDlg [hidden] { display: none; }
 
 /* guided tour: the page dimmed except for the part being explained */
 .tour { position: fixed; inset: 0; z-index: 90; }

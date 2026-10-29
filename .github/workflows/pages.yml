@@ -42,6 +42,8 @@ jobs:
           grep -q '^export const HOSTED = true;' _site/js/config.js
       - name: Piper voices for the browser
         run: scripts/web-piper.sh _site
+      - name: Whisper speech to text for the browser
+        run: scripts/web-whisper.sh _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -12,6 +12,7 @@ import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
 import { MIN_SPEED, MAX_SPEED } from './tts.js';
+import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
@@ -1209,13 +1210,14 @@ const IND_TIPS = {
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
   offset: 'Hold-to-mark reaction offset: marks made with H move back by this much. ⇧H or click to change',
   tts: 'Text to speech: hear blocks read aloud (V). Click to choose the voice and speed, or to turn it on (⌥⇧V)',
+  stt: 'Speech to text: Whisper types what the narrator says in each block you mark. Click to set it up or transcribe empty blocks (⌥⇧H)',
 };
 function updateInd() {
   const items = [
     ['speed', `${S.rate.toFixed(2)}×`, S.rate !== 1],
     ['follow', 'FOLLOW', S.follow],
     ['loop', 'LOOP', S.loop],
-    ...(writing() ? [] : [['offset', `H −${Math.round(S.offset * 1000)}ms`, false]]),
+    ...(writing() ? [] : [['offset', `H −${Math.round(S.offset * 1000)}ms`, false], ['stt', 'STT', stt.on && stt.ready]]),
     ...(writing() ? [['tts', tts.on && tts.speed !== 1 ? `TTS ${speedLabel(tts.speed)}` : 'TTS', tts.on]] : []),
   ];
   ind.textContent = '';
@@ -1270,6 +1272,7 @@ ind.addEventListener('click', (e) => {
   if (k === 'speed') setRate(1);
   else if (k === 'offset') cycleOffset();
   else if (k === 'tts') openTts();
+  else if (k === 'stt') openStt();
   else if (k) toggleFlag(k);
 });
 
@@ -1787,7 +1790,7 @@ function setMode(m, quiet = false) {
     b.classList.toggle('on', on);
     b.setAttribute('aria-checked', on);
   }
-  if (m === 'write') { holdEnd(); fitAllAuto(); } else stopSpeech();
+  if (m === 'write') { holdEnd(); fitAllAuto(); } else { stopSpeech(); if (stt.on) warmStt(); }
   renderList();
   updateEditor();
   updateInd();
@@ -1855,7 +1858,8 @@ function holdEnd() {
   select(c.id, { seek: false });
   S.resumeAfterEdit = true;
   editText();
-  toast(`Block #${idx(c.id) + 1} marked — type it, then ↵ or Esc to carry on`);
+  if (stt.on && stt.ready) liveTranscribe(c);
+  else toast(`Block #${idx(c.id) + 1} marked — type it, then ↵ or Esc to carry on`);
 }
 
 function setOffset(v) {
@@ -1872,6 +1876,109 @@ function cycleOffset() {
   updateInd();
   toast(`Hold-to-mark reaction offset ${Math.round(S.offset * 1000)} ms`);
 }
+
+// ---------------------------------------------------------------- speech to text
+
+// The audio between two times on the chosen track, as 16 kHz mono for Whisper.
+function clipAudio(from, to) {
+  const file = S.videoFile;
+  if (!file) return Promise.reject(new Error('open the video or audio first'));
+  return new Promise((resolve, reject) => {
+    let w;
+    try { w = new Worker('js/wave-worker.js'); } catch { return reject(new Error('workers are unavailable')); }
+    w.onmessage = ({ data: m }) => {
+      if (m.type === 'peaks' || m.type === 'progress') return;
+      w.terminate();
+      if (m.type === 'clip') resolve(m.audio);
+      else if (m.type === 'unsupported' && file.size <= LEGACY_LIMIT && !S.track) wholeFileClip(file, from, to).then(resolve, reject);
+      else reject(new Error(m.message || 'the audio couldn’t be read'));
+    };
+    w.onerror = (e) => { e.preventDefault(); w.terminate(); reject(new Error('the audio reader crashed')); };
+    w.postMessage({ cmd: 'clip', file, track: S.track, from, to });
+  });
+}
+
+// Files the worker can't read, such as MP3s, are decoded whole, once.
+let decoded = null; // { file, audio }
+async function wholeFileClip(file, from, to) {
+  if (decoded?.file !== file) {
+    decoded = null;
+    const buf = await new OfflineAudioContext(1, 1, STT_RATE).decodeAudioData(await file.arrayBuffer());
+    const mono = new Float32Array(buf.length);
+    for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < d.length; i++) mono[i] += d[i] / buf.numberOfChannels;
+    }
+    decoded = { file, audio: mono };
+  }
+  return decoded.audio.slice(Math.round(from * STT_RATE), Math.round(to * STT_RATE));
+}
+
+// A block's audio, with a little either side (Whisper misses words cut off at the edges),
+// but not into the blocks next to it.
+const CLIP_PAD = 0.2;
+function blockAudio(c) {
+  const i = idx(c.id), prev = S.cues[i - 1], next = S.cues[i + 1];
+  const from = Math.max(0, c.start - CLIP_PAD, prev ? Math.min(c.start, prev.end) : 0);
+  const to = Math.min(c.end + CLIP_PAD, next ? Math.max(c.end, next.start) : Infinity);
+  return clipAudio(from, to);
+}
+
+// Transcribes a block and fills in its text. Unless `replace`, a block that has been given
+// text meanwhile is left alone. `undo`: make it an undo step of its own.
+async function transcribeBlock(c, { replace = false, undo = true } = {}) {
+  const text = await transcribe(await blockAudio(c));
+  const cur = S.cues[idx(c.id)];
+  if (!text || !cur || (!replace && plain(cur.text).trim())) return false;
+  if (edit?.id === cur.id && document.activeElement === edText) {
+    // In the editor, as if typed, so its own undo works and typing carries on from it.
+    edText.select();
+    if (!document.execCommand('insertText', false, text)) { edText.value = text; edText.dispatchEvent(new Event('input')); }
+  } else {
+    if (undo) pushUndo();
+    cur.text = text;
+    changed(cur.id);
+  }
+  return true;
+}
+
+// After a block is marked with H: its text arrives while the editor is open for it.
+let transcribing = 0;
+const editorHint = edText.placeholder;
+function liveTranscribe(c) {
+  const n = idx(c.id) + 1;
+  transcribing++;
+  edText.placeholder = 'Transcribing… or type it yourself';
+  toast(`Block #${n} marked — transcribing it`);
+  transcribeBlock(c).then(
+    (ok) => toast(ok ? `Block #${n} transcribed — check it, then ↵ or Esc to carry on` : `Block #${n}: Whisper didn’t hear any words`),
+    (e) => toast(`Couldn’t transcribe block #${n}: ${e.message}`),
+  ).finally(() => { if (!--transcribing) edText.placeholder = editorHint; });
+}
+
+// Alt+Shift+T: transcribe the selected block again, such as after changing its timing.
+async function transcribeSelected() {
+  if (writing()) return modeOnly('Speech to text', 'transcribe');
+  const c = needSel(); if (!c) return;
+  if (!stt.ready) { openStt(); return toast('Set up speech to text first'); }
+  const n = selIdx() + 1;
+  toast(`Transcribing block #${n}…`);
+  try {
+    toast(await transcribeBlock(c, { replace: true }) ? `Block #${n} transcribed` : `Block #${n}: Whisper didn’t hear any words`);
+  } catch (e) { toast(`Couldn’t transcribe block #${n}: ${e.message}`); }
+}
+
+initStt({
+  toast: (m) => toast(m),
+  cues: () => S.cues,
+  changed: () => updateInd(),
+  transcribing: () => !writing(),
+  beforeBatch: () => pushUndo(),
+  fill: (c) => {
+    if (!S.videoFile) throw new Error('open the video or audio first');
+    return transcribeBlock(c, { undo: false });
+  },
+});
 
 let holdKey = 'KeyH';
 document.addEventListener('keyup', (e) => {
@@ -2750,6 +2857,8 @@ const RUN = {
   offset: () => cycleOffset(),
   trackNext: () => stepTrack(1),
   trackPrev: () => stepTrack(-1),
+  transcribeBlock: () => transcribeSelected(),
+  sttPanel: () => { if (writing()) modeOnly('Speech to text', 'transcribe'); else openStt(); },
   read: () => speakBlock(false),
   fitToReading: () => speakBlock(true),
   ttsPanel: () => { if (writing()) openTts(); else modeOnly('Text to speech', 'write'); },

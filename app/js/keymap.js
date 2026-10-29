@@ -64,6 +64,8 @@ export const GROUPS = [
     ['offset', 'Change the hold-to-mark reaction offset', ['Shift+KeyH']],
     ['trackNext', 'Next audio track', ['KeyT']],
     ['trackPrev', 'Previous audio track', ['Shift+KeyT']],
+    ['transcribeBlock', 'Transcribe the selected block with Whisper', ['Alt+Shift+KeyT']],
+    ['sttPanel', 'Speech to text settings', ['Alt+Shift+KeyH']],
   ]],
   ['Writing', [
     ['read', 'Read the selected block aloud', ['KeyV']],

@@ -37,7 +37,7 @@ function run(job) {
         peaks.set(m.data, m.from);
         max = Math.max(max, m.max);
       }
-      if (['done', 'tracks', 'error', 'unsupported'].includes(m.type)) resolve({ end: m, msgs, peaks, max });
+      if (['done', 'tracks', 'clip', 'error', 'unsupported'].includes(m.type)) resolve({ end: m, msgs, peaks, max });
     };
     self.onmessage({ data: job });
   });
@@ -77,4 +77,30 @@ test('copies the track out as playable WAV when asked', async () => {
 test('reports files it cannot stream instead of failing', async () => {
   const { end } = await run({ cmd: 'build', file: new File([new Uint8Array(64).fill(7)], 'x.bin'), rate: 200 });
   assert.equal(end.type, 'unsupported');
+});
+
+// The loudness of a clip over a stretch of it, in seconds.
+const level = (a, from, to) => {
+  let m = 0;
+  for (let i = Math.round(from * 16000); i < Math.round(to * 16000); i++) m = Math.max(m, Math.abs(a[i]));
+  return m;
+};
+
+test('cuts out a clip at 16 kHz mono for speech to text', async () => {
+  for (const [rate, channels] of [[8000, 1], [48000, 2], [44100, 1]]) {
+    const { end } = await run({ cmd: 'clip', file: wav({ rate, channels }), from: 0.5, to: 2.5 });
+    assert.equal(end.type, 'clip', `${rate} Hz: ${end.message}`);
+    assert.equal(end.audio.length, 32000);
+    // The tone runs from 1 s to 2 s of the file: 0.5 s to 1.5 s of the clip.
+    assert.ok(level(end.audio, 0, 0.45) < 0.01, `${rate} Hz: silence before the tone`);
+    assert.ok(level(end.audio, 0.55, 1.45) > 0.4, `${rate} Hz: the tone, at ${level(end.audio, 0.55, 1.45)}`);
+    assert.ok(level(end.audio, 1.55, 2) < 0.01, `${rate} Hz: silence after the tone`);
+  }
+});
+
+test('a clip past the end of the audio is silent there', async () => {
+  const { end } = await run({ cmd: 'clip', file: wav(), from: 2, to: 4 });
+  assert.equal(end.type, 'clip');
+  assert.equal(end.audio.length, 32000);
+  assert.ok(level(end.audio, 0, 2) < 0.01);
 });
