@@ -1300,6 +1300,13 @@ function busy(btn, bar, on) {
 let measuring = false;
 // Measures every block that hasn't been yet, at its current speed, showing progress in
 // place of a button. Returns false if Stop was pressed. ui: { btn, bar, stop, status }.
+// Shows a job's result in the panel and on screen, so it's seen even if the panel was
+// closed while the job ran.
+function report(el, msg) {
+  el.textContent = msg;
+  toast(msg);
+}
+
 async function measureAll(blocks, ui) {
   const piper = usingPiper();
   const todo = blocks.filter((c) => !speechLength(c.text, c.speed).exact);
@@ -1330,7 +1337,7 @@ async function updateAllTimings(ask = true) {
   const piper = usingPiper();
   if (piper || $('ttsAllExact').checked) {
     if (!(await measureAll(blocks, { btn: ttsAll, bar: ttsAllBar, stop: ttsAllStop, status: ttsAllStatus }))) {
-      return (ttsAllStatus.textContent = 'Stopped. No timings were changed.');
+      return report(ttsAllStatus, 'Update all timings stopped. No timings were changed.');
     }
   }
   const n = blocks.length;
@@ -1354,8 +1361,7 @@ async function updateAllTimings(ask = true) {
   const msg = `Updated ${moved} of ${n} block${n > 1 ? 's' : ''}.` +
     (short ? ` ${short === 1 ? "1 block doesn't" : `${short} blocks don't`} fit before the next one (red in the list).` : '') +
     (estimated && !piper ? ` ${estimated === n ? 'All' : estimated} used estimated lengths: tick the box above for exact ones.` : '');
-  ttsAllStatus.textContent = msg;
-  toast(msg);
+  report(ttsAllStatus, msg);
 }
 ttsAll.addEventListener('click', () => updateAllTimings());
 
@@ -1391,15 +1397,30 @@ async function fitAllSpeeds(ask = true) {
     stopped = !(await measureAll(todo, { btn: ttsFitAll, bar: ttsFitBar, stop: ttsFitStop, status: ttsFitStatus }));
     fits();
   }
-  const off = blocks.filter((c) => Math.abs(speechLength(c.text, c.speed).secs - (c.end - c.start)) > 0.05).length;
+  // Stopped before Piper reached some blocks: leave those exactly as they were, rather
+  // than marked to change speed later when they're next selected or edited.
+  let left = 0;
+  if (stopped && piper) {
+    for (const c of blocks) {
+      if (!readingsOf(c.text).length) { delete c.fit; left++; }
+    }
+  }
+  const fitted = n - left;
+  // Doesn't fit: a measured reading that misses its block, or a speed stuck at a limit.
+  const off = blocks.filter((c) => {
+    if (!c.fit) return false;
+    const m = speechLength(c.text, c.speed);
+    return (m.exact || atLimit(c)) && Math.abs(m.secs - (c.end - c.start)) > 0.05;
+  }).length;
   const estimated = blocks.filter((c) => !speechLength(c.text, c.speed).exact).length;
   changed();
-  const msg = `Fitted the speed of ${n} block${n > 1 ? 's' : ''} to ${n > 1 ? 'their' : 'its'} timing.` +
+  const msg = (stopped
+    ? `Fit speeds to timings stopped. Fitted ${fitted} of ${n} block${n > 1 ? 's' : ''}${left ? `; ${left === 1 ? '1 was' : `${left} were`} left as ${left === 1 ? 'it was' : 'they were'}` : ''}.`
+    : `Fitted the speed of ${n} block${n > 1 ? 's' : ''} to ${n > 1 ? 'their' : 'its'} timing.`) +
     (off ? ` ${off === 1 ? '1 block' : `${off} blocks`} can't fit within −50% to +100%.` : '') +
     (kept ? ` ${kept} kept the speed you picked.` : '') +
-    (stopped ? ' Stopped early, so some speeds are from estimates.' : estimated && !piper ? ' Speeds are from estimates: tick "Read each block silently first" for exact ones.' : '');
-  ttsFitStatus.textContent = msg;
-  toast(msg);
+    (stopped && !piper ? ' Some speeds are from estimates.' : !stopped && estimated && !piper ? ' Speeds are from estimates: tick "Read each block silently first" for exact ones.' : '');
+  report(ttsFitStatus, msg);
 }
 ttsFitAll.addEventListener('click', () => fitAllSpeeds());
 
@@ -1451,11 +1472,11 @@ ttsExport.addEventListener('click', async () => {
     a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-    ttsExportStatus.textContent = `Saved ${name}.` + (overlaps
+    report(ttsExportStatus, `Saved ${name}.` + (overlaps
       ? ` ${overlaps === 1 ? '1 reading runs' : `${overlaps} readings run`} into the next block, so they overlap in the file.`
-      : '');
+      : ''));
   } catch (e) {
-    ttsExportStatus.textContent = `Couldn’t export: ${e.message}`;
+    report(ttsExportStatus, `Couldn’t export the description track: ${e.message}`);
   } finally {
     busy(ttsExport, ttsExportBar, false);
     ttsExport.disabled = !usingPiper();
