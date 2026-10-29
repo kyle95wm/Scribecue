@@ -194,8 +194,15 @@ one per programme, and open any of them with `Ctrl/Cmd+O`.
 - Browsers can't remember where a video is, so after opening a project, open its video
   with `Ctrl/Cmd+Shift+O`. Scribecue tells you which one, and warns you if you pick a
   different file.
-- **New**, at the top left, starts a fresh project: it closes the video and clears every
-  block. It asks first. `Ctrl/Cmd+Z` brings the blocks back, but you'd open the video again.
+- **New**, at the top left, starts again, and offers two ways to do it:
+  - **Clear the blocks** removes every block and keeps the video, the project file and your
+    notes, ready to write from scratch on the same video. To swap in a different script
+    instead, you don't need this: opening a script (`Ctrl/Cmd+O`) replaces the blocks
+    and keeps the video.
+  - **New project** also closes the video and clears your notes, for different work.
+
+  `Ctrl/Cmd+Z` brings the blocks back either way, though after a new project you'd open the
+  video again.
 
 Saving in place needs Chrome or Edge. Other browsers download a copy of the project each
 time you save.

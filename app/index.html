@@ -25,7 +25,7 @@
       <span id="videoName" class="dim" title="Media file">no media</span>
     </div>
     <nav>
-      <button data-act="newProject" data-tip="Start a new project: closes the video and clears every block (asks first)">New</button>
+      <button data-act="newProject" data-tip="Start again: clear the blocks and keep the video, or start a new project">New</button>
       <button data-act="openSubs" data-tip="Open a Scribecue project, or a script saved as SRT or VTT ({mod}O)">Open <kbd><span class="mod"></span>O</kbd></button>
       <button data-act="openVideo" data-tip="Open a video or audio file to time against. It stays on your machine ({mod}⇧O)">Open media <kbd><span class="mod"></span>⇧O</kbd></button>
       <button data-act="saveProject" data-tip="Save the project: blocks, settings and where you were ({mod}S). Save as a new file with {mod}⇧S">Save <kbd><span class="mod"></span>S</kbd></button>
@@ -156,6 +156,18 @@ docker compose up -d --build</code></pre>
       <button id="updAlertLater" class="hl">Later</button>
     </div>
   </div>
+
+  <dialog id="newDlg" class="updbox wizard" aria-labelledby="newTitle">
+    <h2 id="newTitle">Start again</h2>
+    <p id="newWhat"></p>
+    <button class="wzcard wzchoice" data-choice="blocks"><span><strong>Clear the blocks</strong>
+      <span class="dim" id="newBlocksNote">Removes every block and keeps everything else: the video, the project file and
+        your notes. Ready to write from scratch, or to open a script.</span></span></button>
+    <button class="wzcard wzchoice" data-choice="project"><span><strong>New project</strong>
+      <span class="dim" id="newProjectNote">Clears the blocks and notes, and closes the video, for different work.</span></span></button>
+    <p class="dim small">Either way, <kbd><span class="mod"></span>Z</kbd> brings the blocks back.</p>
+    <div class="updbtns"><button id="newCancel">Cancel</button></div>
+  </dialog>
 
   <dialog id="importDlg" class="updbox wizard" aria-labelledby="impTitle">
     <h2 id="impTitle">What should happen to this script's timings?</h2>

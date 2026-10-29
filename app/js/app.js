@@ -2030,9 +2030,42 @@ async function openAny() {
 }
 
 // New: closes the video and clears the blocks, after asking.
-function newProject() {
+// New: a choice between clearing only the blocks and starting a whole new project.
+const newDlg = $('newDlg');
+function startAgain() {
   const blocks = S.cues.length, media = S.videoFile?.name;
-  if (blocks || media) {
+  if (!blocks && !media) return newProject(false);
+  const n = blocks === 1 ? '1 block' : `${blocks} blocks`;
+  $('newWhat').textContent = blocks ? `This project has ${n}${media ? `, with ${media} open` : ''}.` : `${media} is open, with no blocks yet.`;
+  newDlg.querySelector('[data-choice="blocks"]').hidden = !blocks;
+  newDlg.showModal();
+  newDlg.querySelector(`[data-choice="${blocks ? 'blocks' : 'project'}"]`).focus();
+}
+for (const b of newDlg.querySelectorAll('.wzchoice')) {
+  b.addEventListener('click', () => {
+    newDlg.close();
+    if (b.dataset.choice === 'blocks') clearBlocks(); else newProject(false);
+  });
+}
+$('newCancel').addEventListener('click', () => newDlg.close());
+newDlg.addEventListener('click', (e) => { if (e.target === newDlg) newDlg.close(); });
+document.addEventListener('keydown', (e) => { if (newDlg.open) e.stopPropagation(); }, true);
+
+// Removes every block, keeping the video, the project file and the notes.
+function clearBlocks() {
+  const n = S.cues.length;
+  if (!n) return;
+  pushUndo();
+  S.cues = [];
+  changed();
+  select(null);
+  toast(`Cleared ${n === 1 ? 'the 1 block' : `all ${n} blocks`} — ${IS_MAC ? '⌘' : 'Ctrl+'}Z brings them back`);
+}
+
+// ask: false when the choice was already made in the Start again dialog.
+function newProject(ask = true) {
+  const blocks = S.cues.length, media = S.videoFile?.name;
+  if (ask && (blocks || media)) {
     const what = [blocks && `removes ${blocks === 1 ? 'the 1 block' : `all ${blocks} blocks`}`, media && `closes ${media}`].filter(Boolean).join(' and ');
     const unsaved = blocks && S.dirty ? ' Your changes aren’t saved in a project file.' : '';
     const undo = blocks ? ` Undo (${IS_MAC ? '⌘Z' : 'Ctrl+Z'}) brings the blocks back${media ? `, but you’d need to open ${media} again` : ''}.` : '';
@@ -2449,7 +2482,7 @@ const actions = {
   exportVtt: () => exportSubs('vtt'),
   help: () => toggleHelp(),
   setup: () => openWelcome(),
-  newProject: () => newProject(),
+  newProject: () => startAgain(),
   ai: () => toggleAi(),
 };
 
