@@ -34,3 +34,13 @@ test('the warning before removing everything says what would be lost', () => {
   assert.match(wipeWarning({ unsaved: 0, offline: true, hosted: true }), /won’t open again until you’re back online/);
   assert.doesNotMatch(wipeWarning({ unsaved: 0, offline: true, hosted: false }), /back online/, 'Docker opens from this computer');
 });
+
+test('when the browser won’t keep storage, the row says what keeps work safe anyway', () => {
+  const row = (o) => checklist({ hosted: false, persisted: false, usage: 0, ...o }).find((r) => r[1] === 'Kept safe');
+  assert.match(row({})[2], /saving your work as a project keeps it safe/);
+  const no = row({ refused: true });
+  assert.match(no[2], /The browser said no/);
+  assert.match(no[2], /autosaves/);
+  assert.equal(no[3], 'persist', 'it can ask again');
+  assert.doesNotMatch(no[2], /Installing/);
+});

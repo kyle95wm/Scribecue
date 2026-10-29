@@ -20,13 +20,18 @@ export function offlineLabel({ hosted, offline, ready }) {
 }
 
 // The checklist's rows: [ok, title, detail, button?] from what's been found.
-export function checklist({ hosted, appKept, guides, voices, whisper, persisted, usage }) {
+// refused: the browser has just said no when asked. It decides by itself, mostly by how
+// much the site is used, and nothing can make it agree, so the row says what keeps work
+// safe anyway.
+export function checklist({ hosted, appKept, guides, voices, whisper, persisted, usage, refused = false }) {
   const rows = [];
   if (hosted) rows.push(...offlineRows({ appKept, guides, voices, whisper }));
   if (persisted !== null) {
     rows.push(persisted
       ? [true, 'Kept safe', 'The browser won’t clear Scribecue’s storage to free up space.']
-      : [false, 'Kept safe', 'The browser may clear Scribecue’s storage if space runs low, including unsaved work. Installing Scribecue as an app makes it likelier to keep it.', 'persist']);
+      : refused
+        ? [false, 'Kept safe', 'The browser said no. It decides by itself, mostly by how much you use Scribecue, and may agree later. Either way, saving your work as a project keeps it safe: the file is on your computer, and in Chrome or Edge it autosaves.', 'persist']
+        : [false, 'Kept safe', 'The browser may clear Scribecue’s storage if space runs low, including unsaved work. You can ask it to keep it; saving your work as a project keeps it safe either way.', 'persist']);
   }
   if (usage) rows.push([null, 'Space used', `${usage < 1e6 ? 'Less than 1' : Math.round(usage / 1e6)} MB in this browser.`]);
   return rows;
@@ -84,13 +89,13 @@ export async function removeAllData() {
   } catch { /* none */ }
   try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch { /* none */ }
 }
-let ready = false;
+let ready = false, refused = false;
 
 async function survey() {
   const appKept = HOSTED && !!navigator.serviceWorker?.controller && (await caches.has(`scribecue-${VERSION}`).catch(() => false));
   const persisted = navigator.storage?.persisted ? await navigator.storage.persisted() : null;
   const usage = (await navigator.storage?.estimate?.().catch(() => null))?.usage || 0;
-  return { hosted: HOSTED, appKept, guides: await hooks.guides(), voices: hooks.voices(), whisper: hooks.whisper(), persisted, usage };
+  return { hosted: HOSTED, appKept, guides: await hooks.guides(), voices: hooks.voices(), whisper: hooks.whisper(), persisted, usage, refused };
 }
 
 async function render() {
@@ -112,7 +117,7 @@ async function render() {
     ? (!online() ? 'You’re offline. Everything below with a ✓ works now.'
       : 'What this browser has for working without a connection. Get what you need before you go offline.')
     : `${!online() ? 'You’re offline, but that’s fine: ' : ''}Scribecue runs from this computer, in Docker, so it works without a connection. Until you save a project, your blocks and settings are kept in this browser.`;
-  const btn = { voices: 'Choose a voice', whisper: 'Set up', persist: 'Keep it safe' };
+  const btn = { voices: 'Choose a voice', whisper: 'Set up', persist: refused ? 'Ask again' : 'Keep it safe' };
   $('offlineList').replaceChildren(...checklist(s).map(([ok, title, detail, act]) => {
     const li = document.createElement('li');
     li.className = ok === null ? 'info' : ok ? 'ok' : 'no';
@@ -130,11 +135,10 @@ async function render() {
   }));
 }
 
+// The answer shows in the window's own row: a message under the window would be hidden.
 async function persist() {
-  const ok = await keepStorage({ ask: true });
-  hooks.toast(ok ? 'The browser will keep Scribecue’s storage'
-    : 'The browser didn’t agree to keep it. Installing Scribecue as an app, or using it more, can change its mind');
-  render();
+  refused = !(await keepStorage({ ask: true }));
+  await render();
 }
 
 export function openOffline() {
