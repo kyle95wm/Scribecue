@@ -1,7 +1,35 @@
 // A short guided tour: it dims the page, lights up one part of it at a time, and says
-// what it's for. Offered at the end of setup, and from the shortcuts overlay. Skippable
-// at any step with Esc or Skip tour.
+// what it's for, then shows the loop to work in. It opens on a first visit, before the
+// setup, and from the shortcuts overlay. Skippable at any step with Esc or Skip tour.
 import { HOSTED } from './config.js';
+import { bindings, comboText } from './keymap.js';
+import { keyChanges } from './keys.js';
+
+// The key that does an action now, as the person has set it up, such as "⇧V".
+const MAC = typeof navigator === 'undefined' || /Mac|iPhone|iPad/.test(navigator.platform);
+export const keyFor = (id, changes = keyChanges()) => {
+  const c = bindings(changes)[id]?.[0];
+  return c ? comboText(c, MAC) : '(no key)';
+};
+
+// The loop to repeat through a programme, for each mode.
+export function loop(mode, key = keyFor) {
+  return mode === 'write'
+    ? [
+      'Most of the work is one loop, repeated through the programme:',
+      `1. Find a gap. ${key('play')} plays and stops; stop where there’s room for a description, and ${key('frameBack')} ${key('frameFwd')} find the exact frame.`,
+      `2. Write it. ${key('createEdit')} makes a block at the playhead. Type the line, then Esc.`,
+      `3. Hear it. ${key('read')} reads it with the video. If its time is red, it doesn’t fit: shorten it, or use [ ] to read it faster.`,
+      'Then play on to the next gap.',
+    ].join('\n')
+    : [
+      'Most of the work is one loop, repeated through the programme:',
+      `1. Play to the next line with ${key('play')}.`,
+      `2. Mark it. Hold ${key('hold')} while the narrator speaks, and let go when they stop. Playback pauses and the block opens.`,
+      '3. Type the line, then Enter or Esc, and playback carries on.',
+      `To hear a line again while you type, ${key('loopBlock')} loops its block.`,
+    ].join('\n');
+}
 
 // Each step: what to light up (a selector, or none for a card in the middle), and what to
 // say. text can depend on the mode. only: shown in that mode only.
@@ -52,9 +80,13 @@ export const STEPS = [
     text: () => 'Connect your own AI provider, or Ollama on your own computer, to ask about a scene or draft a block from its frames. Drafts only go in when you choose. It’s off until you connect one.',
   },
   {
+    title: (mode) => (mode === 'write' ? 'The writing loop' : 'The transcribing loop'),
+    text: (mode) => loop(mode),
+  },
+  {
     target: 'nav',
     title: 'Projects and exports',
-    text: () => 'Save keeps everything as a Scribecue project, so you can pick up where you left off. Export gives you the script as SRT or WebVTT to hand on, or the description track as a WAV file. New starts again.',
+    text: () => 'Save keeps everything as a Scribecue project, so you can pick up where you left off. Export gives you the script as SRT or WebVTT to hand off, or the description track as a WAV file. New starts again.',
   },
   {
     title: 'Your work stays yours',
@@ -79,7 +111,7 @@ function place() {
   const { steps, k, mode } = state;
   const s = steps[k];
   const hole = $('tourHole'), card = $('tourCard');
-  $('tourTitle').textContent = s.title;
+  $('tourTitle').textContent = typeof s.title === 'function' ? s.title(mode) : s.title;
   $('tourText').textContent = s.text(mode);
   $('tourStep').textContent = `${k + 1} of ${steps.length}`;
   $('tourBack').hidden = k === 0;

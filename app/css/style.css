@@ -872,3 +872,4 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 .keychip:hover { border-color: var(--bad); }
 .keyadd { font-size: 12px; padding: 2px 8px; }
 .keyadd.on { border-color: var(--accent); color: var(--accent); }
+#tourText { white-space: pre-line; }

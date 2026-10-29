@@ -448,7 +448,8 @@ afterwards is instant. Safari switches tracks itself.
 - **Mouse:** drag a block to move it, drag an edge to resize it, or drag across empty
   space to draw a new block. Scroll to pan, and `Ctrl/Cmd`+scroll or pinch to zoom.
 - **Guided tour:** lights up each part of the editor in turn and explains it, from the two
-  modes to text to speech, AI help and privacy. It opens on your first visit, before the
+  modes to text to speech, AI help and privacy, then shows the loop to work in for your
+  mode (see [Basic workflows](#basic-workflows)). It opens on your first visit, before the
   setup, and **Take the tour** in the shortcuts overlay (`?`) shows it again. `→` and `←` step through it, and
   `Esc` ends it.
 - **Scribecue on GitHub:** the small GitHub mark in the bottom right opens the project's

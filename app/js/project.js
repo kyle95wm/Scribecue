@@ -1,6 +1,6 @@
 // Scribecue project files (.scribecue): a whole piece of work in one JSON file, so you
 // can keep several projects and pick up where you left off. SRT and VTT exports are for
-// handing scripts on; a project also keeps block speeds, "sounds like" words and auto ends, the mode and its
+// handing scripts off; a project also keeps block speeds, "sounds like" words and auto ends, the mode and its
 // settings, where you were, and which video it belongs to.
 
 export const PROJECT_EXT = '.scribecue';
