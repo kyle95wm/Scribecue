@@ -276,6 +276,14 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   files, as notes that other programs ignore. SRT files can't store them.
 - **Read blocks aloud while playing:** each block is read as the playhead reaches it,
   with the original audio turned down. You can turn either part off.
+- **Resizing changes the speed:** in Write mode, change a block's length by dragging an
+  edge, with `A` `S` `Q` `W` `E` `R`, or by typing in IN or OUT, and its reading speeds up or
+  slows down to fill the new length. The block's speed then shows as custom, such as
+  `custom (−12%)`, and keeps fitting as you edit the text. It stays between −50% and
+  +100%. Picking a speed for the block yourself, from its menu or with `[` `]`, keeps that
+  speed when you resize; setting it back to default lets resizing fit it again. Turn this
+  off with **Change a block's reading speed when you resize it** in the text to speech
+  panel.
 - **Notes in [square brackets]:** if your team writes notes in the script inside square
   brackets, such as `[Wide shot, hold for the door]`, tick **Don't read notes in [square
   brackets]** in the text to speech panel. They're then left out of every reading, reading

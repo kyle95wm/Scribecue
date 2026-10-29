@@ -17,10 +17,12 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     media: media && media.name ? { name: media.name, size: media.size ?? null, duration: num(media.duration) ? media.duration : null } : null,
     settings,
     view,
-    blocks: blocks.map(({ start, end, text, speed, auto }) => ({
+    blocks: blocks.map(({ start, end, text, speed, auto, fit, pinned }) => ({
       start, end, text,
       ...(speed ? { speed } : {}),
       ...(auto ? { auto: true } : {}),
+      ...(fit ? { fit: true } : {}),
+      ...(pinned ? { pinned: true } : {}),
     })),
   };
 }
@@ -42,6 +44,8 @@ export function fromProject(json) {
       text: typeof b.text === 'string' ? b.text : '',
       ...(num(b.speed) ? { speed: b.speed } : {}),
       ...(b.auto === true ? { auto: true } : {}),
+      ...(b.fit === true ? { fit: true } : {}),
+      ...(b.pinned === true ? { pinned: true } : {}),
     });
   }
   blocks.sort((a, z) => a.start - z.start);

@@ -109,3 +109,18 @@ test('notes in [square brackets] are left out of readings only when the setting 
   }
   assert.equal(onlyNotes('[Music cue]'), false);
 });
+
+test('a reading is sped up or slowed down to fill a block, within limits', async () => {
+  const { speedToFit, speedName, isBlockSpeed, MIN_SPEED, MAX_SPEED } = await import('../app/js/tts.js');
+  assert.equal(speedToFit(3, 1, 2.5), 1.2); // 3 s at normal speed into 2.5 s: 20% faster
+  assert.equal(speedToFit(3, 1, 4), 0.75);
+  assert.equal(speedToFit(2.4, 1.2, 2.5), 1.15); // from a reading already measured at 1.2
+  assert.equal(speedToFit(3, 1, 0.5), MAX_SPEED);
+  assert.equal(speedToFit(3, 1, 60), MIN_SPEED);
+  assert.equal(speedToFit(0, 1, 2), null);
+  assert.equal(speedName(1.15), 'fast (+15%)');
+  assert.equal(speedName(1.2), 'custom (+20%)');
+  assert.equal(speedName(0.88), 'custom (−12%)');
+  assert.equal(isBlockSpeed(1.2), true);
+  assert.equal(isBlockSpeed(3), false);
+});

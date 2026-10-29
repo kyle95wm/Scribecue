@@ -4,6 +4,7 @@ import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { VERSION } from './update.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
+  isBlockSpeed, speedName, speedToFit,
   usingPiper, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -88,7 +89,11 @@ const S = {
 
 let nextId = 1;
 // speed: the block's own text to speech speed, if it has one.
-const mk = (start, end, text = '', speed) => ({ id: nextId++, start, end, text, ...(isSpeed(speed) ? { speed } : {}) });
+const mk = (start, end, text = '', speed) => ({ id: nextId++, start, end, text, ...(isBlockSpeed(speed) ? { speed } : {}) });
+// A saved block back as a block: auto (end follows the reading), fit (speed follows the
+// length) and pinned (speed picked by hand, so resizing leaves it alone).
+const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
+  b.auto ? { auto: true } : {}, b.fit ? { fit: true } : {}, b.pinned ? { pinned: true } : {});
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const idx = (id) => S.cues.findIndex((c) => c.id === id);
 const selIdx = () => (S.sel == null ? -1 : idx(S.sel));
@@ -259,7 +264,7 @@ function save() {
       subName: S.subName,
       dirty: S.dirty,
       projectMedia: S.projectMedia,
-      cues: S.cues.map(({ start, end, text, speed, auto }) => ({ start, end, text, speed, auto })),
+      cues: S.cues.map(({ start, end, text, speed, auto, fit, pinned }) => ({ start, end, text, speed, auto, fit, pinned })),
     }));
   } catch { /* storage full or blocked */ }
 }
@@ -267,7 +272,7 @@ function loadSaved() {
   try {
     const o = JSON.parse(localStorage.getItem(STORE_KEY));
     if (o?.cues?.length) {
-      S.cues = o.cues.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.auto ? { auto: true } : {}));
+      S.cues = o.cues.map(revive);
       S.subName = o.subName || S.subName;
       S.savedDirty = o.dirty !== false;
       S.projectMedia = o.projectMedia || null;
@@ -334,8 +339,8 @@ function nudge(what, d) {
   const c = needSel(); if (!c) return;
   const { lo, hi } = bounds(selIdx());
   pushUndo(undefined, 'nudge-' + what + c.id);
-  if (what === 'start') { c.start = clamp(c.start + d, lo, c.end - MIN_DUR); fitAuto(c); }
-  else if (what === 'end') { c.end = clamp(c.end + d, c.start + MIN_DUR, hi); delete c.auto; }
+  if (what === 'start') { c.start = clamp(c.start + d, lo, c.end - MIN_DUR); resized(c, 'start'); }
+  else if (what === 'end') { c.end = clamp(c.end + d, c.start + MIN_DUR, hi); resized(c, 'end'); }
   else {
     d = clamp(d, lo - c.start, hi - c.end);
     c.start += d; c.end += d;
@@ -351,12 +356,12 @@ function setEdge(which) {
     if (t > c.end - MIN_DUR) return toast('Playhead is after this cue’s end');
     pushUndo();
     c.start = Math.max(lo, t);
-    fitAuto(c);
+    resized(c, 'start');
   } else {
     if (t < c.start + MIN_DUR) return toast('Playhead is before this cue’s start');
     pushUndo();
     c.end = Math.min(hi, t);
-    delete c.auto;
+    resized(c, 'end');
   }
   changed(c.id);
 }
@@ -406,7 +411,7 @@ function split() {
   const [a, b] = splitText(c.text);
   const c2 = mk(t, c.end, b, c.speed);
   c.end = t; c.text = a;
-  delete c.auto;
+  delete c.auto; delete c.fit;
   S.cues.push(c2);
   changed();
   select(c2.id, { seek: false });
@@ -420,7 +425,7 @@ function merge() {
   pushUndo();
   c.end = Math.max(c.end, n.end);
   c.text = [c.text, n.text].filter(Boolean).join('\n');
-  delete c.auto;
+  delete c.auto; delete c.fit;
   S.cues.splice(i + 1, 1);
   changed();
   select(c.id, { seek: false });
@@ -475,7 +480,10 @@ function updateEditor() {
   edDur.textContent = `${(c.end - c.start).toFixed(3)} s`;
   edSpeedWrap.hidden = !ttsOn();
   edSpeed.options[0].textContent = `default (${speedLabel(tts.speed)})`;
-  if (document.activeElement !== edSpeed) edSpeed.value = c.speed ? String(c.speed) : '';
+  const custom = c.speed && !isSpeed(c.speed);
+  edSpeedCustom.hidden = !custom;
+  edSpeedCustom.textContent = custom ? speedName(c.speed) + (c.fit ? ', fits the block' : '') : 'custom';
+  if (document.activeElement !== edSpeed) edSpeed.value = custom ? 'custom' : c.speed ? String(c.speed) : '';
   if (!edit || edit.id !== c.id) edText.value = c.text;
   edStats.textContent = '';
   if (ttsOn() && spoken(c.text)) {
@@ -605,7 +613,7 @@ edText.addEventListener('input', () => {
   if (!c) return;
   if (!edit.pushed) { pushUndo(); edit.pushed = true; }
   c.text = edText.value;
-  fitAuto(c);
+  fitAuto(c) || fitSpeed(c);
   changed(c.id);
 });
 edText.addEventListener('blur', () => {
@@ -644,8 +652,9 @@ function bindTimeInput(input, which) {
     if (Number.isNaN(t)) { toast('Invalid time — use hh:mm:ss.mmm'); }
     else if (Math.abs(t - cur) > 0.0005) {
       pushUndo();
-      if (which === 'start') { c.start = clamp(t, 0, c.end - MIN_DUR); fitAuto(c); }
-      else { c.end = Math.max(t, c.start + MIN_DUR); delete c.auto; }
+      if (which === 'start') c.start = clamp(t, 0, c.end - MIN_DUR);
+      else c.end = Math.max(t, c.start + MIN_DUR);
+      resized(c, which);
       changed();
       select(c.id, { seek: false });
     }
@@ -755,7 +764,7 @@ function fillRow(r, c, i) {
   const [n, t, tx] = r.children;
   n.textContent = i + 1;
   t.children[0].textContent = fmtTime(c.start, '.');
-  t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${speedLabel(c.speed)}` : '');
+  t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '');
   // Red when the reading is longer than the block.
   t.children[1].classList.toggle('over', ttsOn() && !!spoken(c.text) && speechLength(c.text, c.speed).secs > c.end - c.start + 0.05);
   fillText(tx, c);
@@ -990,10 +999,10 @@ lane.addEventListener('pointermove', (e) => {
     c.start = ns; c.end = ns + len;
   } else if (drag.mode === 'start') {
     c.start = clamp(drag.s0 + dt, lo, c.end - MIN_DUR);
-    fitAuto(c);
+    resized(c, 'start');
   } else if (drag.mode === 'end') {
     c.end = clamp(drag.e0 + dt, c.start + MIN_DUR, hi);
-    delete c.auto;
+    resized(c, 'end');
   } else if (drag.mode === 'create') {
     const b = xToT(e.clientX);
     c.start = clamp(Math.min(drag.t0, b), lo, hi);
@@ -1219,6 +1228,7 @@ function fitToSpeech(c, secs) {
   const end = clamp(c.start + secs, c.start + MIN_DUR, hi);
   pushUndo();
   c.end = end;
+  delete c.fit; // the end now follows the reading, not the other way round
   select(c.id, { seek: false });
   changed(c.id);
   toast(c.start + secs > hi + 0.001
@@ -1238,9 +1248,37 @@ function fitAuto(c) {
   c.end = end;
   return true;
 }
+// A block's length changed by hand: its start or end edge. With text to speech on and
+// "change a block's reading speed when you resize it", the reading's speed follows the
+// new length from now on. Otherwise a new end is simply kept, and an auto block whose
+// start moved keeps the length of its reading.
+function resized(c, edge) {
+  if (ttsOn() && tts.fitSpeed && spoken(c.text) && !c.pinned) {
+    delete c.auto;
+    c.fit = true;
+    fitSpeed(c);
+    return;
+  }
+  if (edge === 'end') delete c.auto;
+  else fitAuto(c);
+}
+
+// Blocks marked fit read at whatever speed fills them. Uses the reading at the block's
+// current speed when that's been measured, so the speed closes in on an exact fit.
+function fitSpeed(c) {
+  if (!c?.fit || !ttsOn() || !tts.fitSpeed || !spoken(c.text)) return false;
+  const at = c.speed ?? tts.speed;
+  const m = speechLength(c.text, at);
+  const s = speedToFit(m.secs, at, c.end - c.start);
+  if (s == null || Math.abs(s - at) < 0.005) return false;
+  c.speed = s;
+  if (c.id === S.sel) schedulePrefetch(c);
+  return true;
+}
+
 function fitAllAuto() {
   let any = false;
-  for (const c of S.cues) any = fitAuto(c) || any;
+  for (const c of S.cues) any = (fitAuto(c) || fitSpeed(c)) || any;
   if (any) changed();
 }
 
@@ -1292,6 +1330,7 @@ async function updateAllTimings() {
     const end = clamp(c.start + secs, c.start + MIN_DUR, hi);
     if (c.start + secs > hi + 0.0005) short++;
     if (!exact) estimated++;
+    delete c.fit;
     if (Math.abs(end - c.end) > 0.0005) { c.end = end; moved++; }
   }
   changed();
@@ -1337,12 +1376,16 @@ $('ttsDlg').addEventListener('close', () => { measuring = false; ttsAllStatus.te
 // overall speed again, so changing that later still applies to it.
 function setBlockSpeed(c, v) {
   pushUndo(undefined, 'speed-' + c.id);
-  if (!isSpeed(v) || v === tts.speed) delete c.speed;
+  if (!isBlockSpeed(v) || v === tts.speed) delete c.speed;
   else c.speed = v;
+  // A speed picked by hand stays put when the block is resized. Back to default, and
+  // resizing fits the speed again.
+  delete c.fit;
+  if (c.speed) c.pinned = true; else delete c.pinned;
   fitAuto(c);
   changed(c.id);
   tlDirty = true;
-  toast(c.speed ? `Block #${idx(c.id) + 1} reads at ${SPEEDS.find(([s]) => s === c.speed)[1]}`
+  toast(c.speed ? `Block #${idx(c.id) + 1} reads at ${speedName(c.speed)}`
     : `Block #${idx(c.id) + 1} follows the overall speed (${speedLabel(tts.speed)})`);
 }
 // [ and ]: one speed step slower or faster for the selected block.
@@ -1350,16 +1393,19 @@ function stepBlockSpeed(d) {
   if (!writing()) return modeOnly('Text to speech', 'write');
   if (!tts.on) return toast('Turn on text to speech first (⌥⇧V)');
   const c = needSel(); if (!c) return;
-  const list = SPEEDS.map(([s]) => s);
-  const i = list.indexOf(c.speed ?? tts.speed);
-  const j = clamp(i + d, 0, list.length - 1);
-  if (j === i) return toast(`Already at the ${d < 0 ? 'slowest' : 'fastest'} speed`);
-  setBlockSpeed(c, list[j]);
+  // From a custom speed, step to the next set speed in that direction.
+  const list = SPEEDS.map(([s]) => s), cur = c.speed ?? tts.speed;
+  const next = d > 0 ? list.find((s) => s > cur + 1e-9) : [...list].reverse().find((s) => s < cur - 1e-9);
+  if (next == null) return toast(`Already at the ${d < 0 ? 'slowest' : 'fastest'} speed`);
+  setBlockSpeed(c, next);
 }
 for (const [v, label] of SPEEDS) edSpeed.add(new Option(label, String(v)));
+// Shown for a custom speed, such as one set by resizing the block.
+const edSpeedCustom = new Option('custom', 'custom');
+edSpeed.add(edSpeedCustom);
 edSpeed.addEventListener('change', () => {
   const c = selCue();
-  if (c) setBlockSpeed(c, edSpeed.value ? +edSpeed.value : null);
+  if (c && edSpeed.value !== 'custom') setBlockSpeed(c, edSpeed.value ? +edSpeed.value : null);
   edSpeed.blur();
 });
 
@@ -1603,7 +1649,7 @@ async function openProject(file, handle = null) {
   catch (e) { return toast(`Couldn’t open ${file.name}: ${e instanceof SyntaxError ? 'the file is damaged' : e.message}`); }
   if (!okToReplace(`Open ${file.name}`)) return;
   pushUndo();
-  S.cues = p.blocks.map((b) => Object.assign(mk(b.start, b.end, b.text, b.speed), b.auto ? { auto: true } : {}));
+  S.cues = p.blocks.map(revive);
   S.handle = handle;
   handleStore.set(handle);
   S.projectMedia = p.media;

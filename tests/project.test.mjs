@@ -5,8 +5,9 @@ import { toProject, fromProject, sameMedia, PROJECT_FORMAT } from '../app/js/pro
 const state = {
   app: '0.10.0',
   blocks: [
-    { id: 7, start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15 },
+    { id: 7, start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, pinned: true },
     { id: 8, start: 11.5, end: 14, text: 'The colours fold.', auto: true },
+    { id: 9, start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true },
   ],
   media: { name: 'lights.mkv', size: 2376368, duration: 60.02 },
   settings: { mode: 'write', offset: 0.2, ttsSpeed: 1, ttsVoice: 'piper:en_US-lessac-medium' },
@@ -20,8 +21,9 @@ test('a project keeps blocks, their speeds and auto ends, settings, view and med
   assert.ok(!('id' in saved.blocks[0]), 'block ids are internal and not saved');
   const p = fromProject(saved);
   assert.deepEqual(p.blocks, [
-    { start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15 },
+    { start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, pinned: true },
     { start: 11.5, end: 14, text: 'The colours fold.', auto: true },
+    { start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true },
   ]);
   assert.deepEqual(p.settings, state.settings);
   assert.deepEqual(p.view, state.view);

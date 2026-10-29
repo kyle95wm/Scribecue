@@ -17,8 +17,21 @@ export const SPEEDS = [
   [2, 'experimental (+100%)'],
 ];
 export const isSpeed = (v) => SPEEDS.some(([s]) => s === v);
+// A block's own speed can also be a custom one, set by resizing the block to fit.
+export const MIN_SPEED = 0.5, MAX_SPEED = 2;
+export const isBlockSpeed = (v) => typeof v === 'number' && v >= MIN_SPEED && v <= MAX_SPEED;
 // Short form for markers: "+15%", "−30%", "normal".
 export const speedLabel = (s) => (s === 1 ? 'normal' : `${s > 1 ? '+' : '−'}${Math.round(Math.abs(s - 1) * 100)}%`);
+// Menu name: "fast (+15%)" for the set speeds, "custom (+12%)" for others.
+export const speedName = (s) => SPEEDS.find(([v]) => v === s)?.[1] || `custom (${speedLabel(s)})`;
+
+// The speed at which a reading fills secs exactly. Given how long the reading takes at
+// speed `at`, which is the closest it can be measured; reading time scales with 1 / speed.
+export function speedToFit(readSecs, at, secs) {
+  if (!(readSecs > 0) || !(secs > 0)) return null;
+  const s = Math.round((at * readSecs / secs) * 100) / 100;
+  return Math.min(MAX_SPEED, Math.max(MIN_SPEED, s));
+}
 
 // Characters per second at normal speed before a voice has been measured.
 export const DEFAULT_CPS = 15;
@@ -117,7 +130,7 @@ export function spoken(text, skipNotes = tts.skipNotes) {
 export const onlyNotes = (text) => !spoken(text) && !!spoken(text, false);
 
 const KEY = 'scribecue.tts';
-const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, skipNotes: false, online: false, cps: {} };
+const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, online: false, cps: {} };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -131,8 +144,8 @@ tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
 if (!isSpeed(tts.speed)) tts.speed = 1;
 
 const save = () => {
-  const { on, voice, speed, live, duck, autoEnd, skipNotes, online, cps } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, autoEnd, skipNotes, online, cps })); } catch { /* ignore */ }
+  const { on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, online, cps } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, online, cps })); } catch { /* ignore */ }
 };
 
 let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1 };
@@ -400,6 +413,7 @@ function render() {
   $('ttsDuck').checked = tts.duck;
   $('ttsAuto').checked = tts.autoEnd;
   $('ttsNotes').checked = tts.skipNotes;
+  $('ttsFit').checked = tts.fitSpeed;
   $('ttsOnline').checked = tts.online;
   fillVoices();
 }
@@ -437,6 +451,7 @@ export function initTts(h) {
   $('ttsDuck').addEventListener('change', (e) => set('duck', e.target.checked));
   $('ttsAuto').addEventListener('change', (e) => set('autoEnd', e.target.checked));
   $('ttsNotes').addEventListener('change', (e) => set('skipNotes', e.target.checked));
+  $('ttsFit').addEventListener('change', (e) => set('fitSpeed', e.target.checked));
   $('ttsOnline').addEventListener('change', (e) => {
     // Turning online voices off also drops an online voice that was chosen.
     if (!e.target.checked && currentVoice() && !currentVoice().localService) { stop(); tts.voice = ''; }
