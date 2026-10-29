@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.29.2",
+  "date": "2026-10-29",
+  "notes": "## Firefox\n\n- In Firefox, the notice when Scribecue opens now also says what doesn't work well there: a file's description track can stutter or cut out, and speech to text can interrupt the video's sound. If you turned the notice off, it shows once more with the new list.\n- The speech to text panel says so too. Both work best in Chrome or Edge."
+ },
+ {
   "version": "0.29.1",
   "date": "2026-10-29",
   "notes": "## Fixes\n\n- With speech to text on, marking a few blocks could stop the video's sound altogether in Firefox. Each block's audio is now read without holding on to the browser's audio decoders.\n- A file's description track, when it plays alongside the video, no longer stutters or cuts out briefly in Firefox. It stays in step with fewer, gentler adjustments.\n- The Whisper container leaves half your processor for the browser, so playback stays smooth while a block is transcribed. It's just as fast."
