@@ -51,7 +51,8 @@ right opens a checklist of what this browser has for working offline, with butto
 anything missing, and asks the browser to keep it all safe. The same window has **Remove
 all data**, which clears everything Scribecue keeps in this browser (unsaved blocks,
 settings, AI keys, voices, Whisper and its offline copy) after a warning. Your project
-files, and anything in Docker, stay as they are. While you're offline it says
+files, and anything in Docker, stay as they are. The Docker version runs from your computer anyway, so
+there the button says **storage**, and its window is just about what's kept in the browser. While you're offline it says
 **offline**, and online AI providers and online voices say they're unavailable rather than
 failing. The guides, such as this one, open inside Scribecue, so they work offline too.
 

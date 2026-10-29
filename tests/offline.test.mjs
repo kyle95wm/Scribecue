@@ -5,7 +5,7 @@ import { offlineLabel, checklist, wipeWarning } from '../app/js/offline.js';
 test('the bottom bar says when you’re offline, and in the web version whether it’s ready', () => {
   assert.deepEqual(offlineLabel({ hosted: true, offline: true, ready: true }), { text: 'offline', on: true });
   assert.deepEqual(offlineLabel({ hosted: false, offline: true }), { text: 'offline', on: true });
-  assert.equal(offlineLabel({ hosted: false, offline: false }).text, 'offline ready', 'Docker works offline anyway');
+  assert.equal(offlineLabel({ hosted: false, offline: false }).text, 'storage', 'Docker works offline anyway, so it’s about storage');
   assert.equal(offlineLabel({ hosted: true, offline: false, ready: true }).text, 'offline ready');
   assert.equal(offlineLabel({ hosted: true, offline: false, ready: false }).text, 'not ready offline');
 });
@@ -21,9 +21,10 @@ test('the checklist says what’s ready and offers what isn’t', () => {
   const first = checklist({ hosted: true, appKept: false, guides: false, voices: [], whisper: false, persisted: null, usage: 0 });
   assert.match(first[0][2], /reload once while online/);
   assert.ok(!first.some((r) => r[1] === 'Kept safe'), 'no row when the browser can’t say');
-  const docker = checklist({ hosted: false, appKept: false, guides: true, voices: [], whisper: true, persisted: true, usage: 0 });
-  assert.equal(docker[0][0], true, 'Docker runs from this computer');
-  assert.equal(docker.find((r) => r[1] === 'Piper voices')[3], null, 'nothing to download in Docker');
+  // Docker runs from this computer: there's nothing to get ready, only storage.
+  const docker = checklist({ hosted: false, appKept: false, guides: true, voices: [], whisper: true, persisted: false, usage: 5e6 });
+  assert.deepEqual(docker.map((r) => r[1]), ['Kept safe', 'Space used']);
+  assert.match(checklist({ hosted: false, persisted: true, usage: 300e3 }).at(-1)[2], /Less than 1 MB/);
 });
 
 test('the warning before removing everything says what would be lost', () => {

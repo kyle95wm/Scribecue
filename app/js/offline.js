@@ -15,29 +15,33 @@ export const online = () => globalThis.navigator?.onLine !== false;
 // version, whether it's ready to be used offline.
 export function offlineLabel({ hosted, offline, ready }) {
   if (offline) return { text: 'offline', on: true };
-  return ready || !hosted ? { text: 'offline ready', on: false } : { text: 'not ready offline', on: false };
+  if (!hosted) return { text: 'storage', on: false }; // it all runs on this computer anyway
+  return ready ? { text: 'offline ready', on: false } : { text: 'not ready offline', on: false };
 }
 
 // The checklist's rows: [ok, title, detail, button?] from what's been found.
 export function checklist({ hosted, appKept, guides, voices, whisper, persisted, usage }) {
   const rows = [];
-  rows.push(hosted
-    ? [appKept, 'Scribecue itself', appKept ? 'Kept in this browser, so it opens without a connection.' : 'Not kept yet. It’s kept the first time Scribecue opens with a connection: reload once while online.']
-    : [true, 'Scribecue itself', 'Runs from this computer, in Docker, so it works without a connection.']);
-  rows.push([guides, 'The guides', guides ? 'They open inside Scribecue.' : 'Not kept yet: they open on GitHub, which needs a connection.']);
-  rows.push(voices.length
-    ? [true, 'Piper voices', `${voices.join(', ')}.`]
-    : [false, 'Piper voices', hosted ? 'None downloaded. Offline, text to speech uses your computer’s own voices.' : 'Piper isn’t running. Offline, text to speech uses your computer’s own voices.', hosted ? 'voices' : null]);
-  rows.push(whisper
-    ? [true, 'Whisper, for speech to text', hosted ? 'Downloaded.' : 'The Whisper container is running.']
-    : [false, 'Whisper, for speech to text', hosted ? 'Not downloaded.' : 'The Whisper container isn’t running.', hosted ? 'whisper' : null]);
+  if (hosted) rows.push(...offlineRows({ appKept, guides, voices, whisper }));
   if (persisted !== null) {
     rows.push(persisted
       ? [true, 'Kept safe', 'The browser won’t clear Scribecue’s storage to free up space.']
       : [false, 'Kept safe', 'The browser may clear Scribecue’s storage if space runs low, including unsaved work. Installing Scribecue as an app makes it likelier to keep it.', 'persist']);
   }
-  if (usage) rows.push([null, 'Space used', `${Math.round(usage / 1e6)} MB in this browser.`]);
+  if (usage) rows.push([null, 'Space used', `${usage < 1e6 ? 'Less than 1' : Math.round(usage / 1e6)} MB in this browser.`]);
   return rows;
+}
+
+// The web version's rows: what it has for working without a connection. The Docker
+// version runs from this computer, so it has nothing to get ready.
+function offlineRows({ appKept, guides, voices, whisper }) {
+  return [
+    [appKept, 'Scribecue itself', appKept ? 'Kept in this browser, so it opens without a connection.' : 'Not kept yet. It’s kept the first time Scribecue opens with a connection: reload once while online.'],
+    [guides, 'The guides', guides ? 'They open inside Scribecue.' : 'Not kept yet: they open on GitHub, which needs a connection.'],
+    voices.length ? [true, 'Piper voices', `${voices.join(', ')}.`]
+      : [false, 'Piper voices', 'None downloaded. Offline, text to speech uses your computer’s own voices.', 'voices'],
+    whisper ? [true, 'Whisper, for speech to text', 'Downloaded.'] : [false, 'Whisper, for speech to text', 'Not downloaded.', 'whisper'],
+  ];
 }
 
 // Asks the browser to keep Scribecue's storage. Chrome, Edge and the others on their
@@ -99,13 +103,15 @@ async function render() {
     b.textContent = label.text;
     b.classList.toggle('on', label.on);
     b.dataset.tip = !online() ? 'You’re offline. Click to see what works without a connection'
-      : ready ? 'Scribecue works without a connection. Click to see what’s ready for offline, or what it keeps in this browser'
-        : 'Scribecue isn’t ready to work offline yet. Click to see why';
+      : !HOSTED ? 'What Scribecue keeps in this browser, such as unsaved blocks and settings, and removing it'
+        : ready ? 'Scribecue works without a connection. Click to see what’s ready for offline, or what it keeps in this browser'
+          : 'Scribecue isn’t ready to work offline yet. Click to see why';
   }
   if (!$('offlineDlg').open) return;
-  $('offlineNow').textContent = !online() ? 'You’re offline. Everything below with a ✓ works now.'
-    : HOSTED ? 'What this browser has for working without a connection. Get what you need before you go offline.'
-      : 'This copy of Scribecue runs on your computer, so it works offline. Here’s what it has.';
+  $('offlineNow').textContent = HOSTED
+    ? (!online() ? 'You’re offline. Everything below with a ✓ works now.'
+      : 'What this browser has for working without a connection. Get what you need before you go offline.')
+    : `${!online() ? 'You’re offline, but that’s fine: ' : ''}Scribecue runs from this computer, in Docker, so it works without a connection. Until you save a project, your blocks and settings are kept in this browser.`;
   const btn = { voices: 'Choose a voice', whisper: 'Set up', persist: 'Keep it safe' };
   $('offlineList').replaceChildren(...checklist(s).map(([ok, title, detail, act]) => {
     const li = document.createElement('li');
@@ -150,6 +156,10 @@ function askWipe(show) {
 export function initOffline(h) {
   hooks = { ...hooks, ...h };
   const d = $('offlineDlg');
+  // The Docker version runs from this computer, so its window is only about storage.
+  $('offlineTitle').textContent = HOSTED ? 'Offline and storage' : 'Storage';
+  for (const el of d.querySelectorAll('.hosted-only')) el.hidden = !HOSTED;
+  for (const el of d.querySelectorAll('.docker-only')) el.hidden = HOSTED;
   $('wipeBtn').addEventListener('click', () => askWipe(true));
   $('wipeCancel').addEventListener('click', () => askWipe(false));
   $('wipeSave').addEventListener('click', async () => { await hooks.save(); askWipe(true); });

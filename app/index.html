@@ -531,14 +531,19 @@ docker compose up -d --build</code></pre>
     <ul class="small">
       <li>AI help with Claude, OpenAI, Gemini or OpenRouter. Ollama, on this computer, works offline.</li>
       <li>Online text to speech voices. Your computer's voices and Piper voices work offline.</li>
-      <li id="offlineUpd">New versions of Scribecue. Until you're back online, you keep the one you have.</li>
-      <li>Downloading Piper voices or Whisper, so get them before you go offline.</li>
+      <li class="hosted-only">New versions of Scribecue. Until you're back online, you keep the one you have.</li>
+      <li class="hosted-only">Downloading Piper voices or Whisper, so get them before you go offline.</li>
+      <li class="docker-only">Checking for updates, if you've turned that on.</li>
     </ul>
     <h3>Remove all data</h3>
-    <p class="small">Removes everything Scribecue keeps in this browser: unsaved blocks, settings and
+    <p class="small hosted-only">Removes everything Scribecue keeps in this browser: unsaved blocks, settings and
       shortcuts, AI keys, downloaded Piper voices and Whisper, and its offline copy. Project and script
       files on your computer aren't touched, and neither is anything in Docker, such as Piper, Whisper
       or Ollama models.</p>
+    <p class="small docker-only">Removes everything Scribecue keeps in this browser: unsaved blocks,
+      settings and shortcuts, and AI keys. Project and script files on your computer aren't touched,
+      and neither are the containers or anything in them, such as Piper voices, Whisper or Ollama
+      models.</p>
     <p id="wipeAsk"><button id="wipeBtn">Remove all data…</button></p>
     <div id="wipeConfirm" class="warnbox" hidden>
       <p id="wipeWarn"></p>
