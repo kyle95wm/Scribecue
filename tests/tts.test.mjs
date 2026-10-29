@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
-  piperVoiceList, readWav, writeWav, mixTrack } from '../app/js/tts.js';
+  piperVoiceList, readWav, writeWav, mixTrack, onlyNotes } from '../app/js/tts.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -90,4 +90,22 @@ test('block speed labels and validation', () => {
   assert.equal(isSpeed(1.15), true);
   assert.equal(isSpeed(1.2), false);
   assert.equal(isSpeed(undefined), false);
+});
+
+test('notes in [square brackets] are left out of readings only when the setting is on', () => {
+  const line = '[Wide shot, pause here] She opens the door. [Check name]';
+  assert.equal(spoken(line), '[Wide shot, pause here] She opens the door. [Check name]');
+  assert.equal(spoken(line, true), 'She opens the door.');
+  assert.equal(spoken('A [note\nacross lines] B', true), 'A B');
+  assert.equal(spoken('Unclosed [bracket is read', true), 'Unclosed [bracket is read');
+  tts.skipNotes = true;
+  try {
+    assert.equal(estimate(line), estimate('She opens the door.'));
+    assert.equal(onlyNotes('[Music cue]'), true);
+    assert.equal(onlyNotes('She waves.'), false);
+    assert.equal(onlyNotes(''), false);
+  } finally {
+    tts.skipNotes = false;
+  }
+  assert.equal(onlyNotes('[Music cue]'), false);
 });

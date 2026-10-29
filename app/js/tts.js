@@ -106,11 +106,18 @@ export function estimate(text, cps = DEFAULT_CPS, speed = 1) {
   return n ? n / (cps * speed) : 0;
 }
 
-// What the voice actually reads: no tags, no line breaks.
-export const spoken = (text) => String(text).replace(/<[^>]*>|\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim();
+// What the voice actually reads: no tags, no line breaks, and with the setting on, no
+// notes in [square brackets]. An unclosed bracket is read as it is.
+export function spoken(text, skipNotes = tts.skipNotes) {
+  let t = String(text).replace(/<[^>]*>|\{[^}]*\}/g, '');
+  if (skipNotes) t = t.replace(/\[[^\]]*\]/g, ' ');
+  return t.replace(/\s+/g, ' ').trim();
+}
+// True when a block has text, but all of it is notes that aren't read.
+export const onlyNotes = (text) => !spoken(text) && !!spoken(text, false);
 
 const KEY = 'scribecue.tts';
-const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, online: false, cps: {} };
+const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, skipNotes: false, online: false, cps: {} };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -124,8 +131,8 @@ tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
 if (!isSpeed(tts.speed)) tts.speed = 1;
 
 const save = () => {
-  const { on, voice, speed, live, duck, autoEnd, online, cps } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, autoEnd, online, cps })); } catch { /* ignore */ }
+  const { on, voice, speed, live, duck, autoEnd, skipNotes, online, cps } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, autoEnd, skipNotes, online, cps })); } catch { /* ignore */ }
 };
 
 let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1 };
@@ -392,6 +399,7 @@ function render() {
   $('ttsLive').checked = tts.live;
   $('ttsDuck').checked = tts.duck;
   $('ttsAuto').checked = tts.autoEnd;
+  $('ttsNotes').checked = tts.skipNotes;
   $('ttsOnline').checked = tts.online;
   fillVoices();
 }
@@ -428,6 +436,7 @@ export function initTts(h) {
   $('ttsLive').addEventListener('change', (e) => set('live', e.target.checked));
   $('ttsDuck').addEventListener('change', (e) => set('duck', e.target.checked));
   $('ttsAuto').addEventListener('change', (e) => set('autoEnd', e.target.checked));
+  $('ttsNotes').addEventListener('change', (e) => set('skipNotes', e.target.checked));
   $('ttsOnline').addEventListener('change', (e) => {
     // Turning online voices off also drops an online voice that was chosen.
     if (!e.target.checked && currentVoice() && !currentVoice().localService) { stop(); tts.voice = ''; }

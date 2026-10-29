@@ -276,6 +276,11 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   files, as notes that other programs ignore. SRT files can't store them.
 - **Read blocks aloud while playing:** each block is read as the playhead reaches it,
   with the original audio turned down. You can turn either part off.
+- **Notes in [square brackets]:** if your team writes notes in the script inside square
+  brackets, such as `[Wide shot, hold for the door]`, tick **Don't read notes in [square
+  brackets]** in the text to speech panel. They're then left out of every reading, reading
+  time and auto end, and out of the exported description track, but stay in the script and
+  in SRT and VTT exports.
 - **Ends set from the reading:** while text to speech is on, a new block made with `Enter` or
   `N` takes its end from how long the reading takes, and keeps following it as you type
   or change the speed. An `auto` tag next to OUT shows this. It never runs into the next

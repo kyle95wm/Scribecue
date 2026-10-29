@@ -4,7 +4,7 @@ import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { VERSION } from './update.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
-  usingPiper, measure, prefetch, renderTrack, chosenVoice, setTtsOption } from './tts.js';
+  usingPiper, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
 const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('list');
@@ -486,6 +486,11 @@ function updateEditor() {
     s.className = 'tts ' + (secs > c.end - c.start + 0.05 ? 'bad' : '');
     edStats.append(s);
     if (!exact) schedulePrefetch(c);
+  } else if (ttsOn() && onlyNotes(c.text)) {
+    const s = document.createElement('span');
+    s.textContent = 'TTS: notes only';
+    s.className = 'dim';
+    edStats.append(s);
   }
 }
 
@@ -1184,7 +1189,7 @@ function speakBlock(fit) {
   if (!tts.on) { openTts(); return toast('Turn on text to speech to hear blocks read aloud'); }
   const c = cueAt(now()) || selCue();
   if (!c) return toast('No text block here — move the playhead into one or select one');
-  if (!spoken(c.text)) return toast('This block has no text to read yet');
+  if (!spoken(c.text)) return toast(onlyNotes(c.text) ? 'This block only has notes in [brackets], which aren’t read' : 'This block has no text to read yet');
   select(c.id, { seek: false });
   if (S.loop) { S.loop = S.loopOnce = false; updateInd(); }
   S.playUntil = null;
