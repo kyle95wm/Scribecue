@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.37.0",
+  "date": "2026-10-29",
+  "notes": "## Punch in when you time your own read\n\n- Holding **H** in Write mode now works like punching in on a recording: it plays from wherever the playhead is in the selected block.\n- **Need a breath?** Let go at a comfortable point, then hold H again to carry on from there. The pause doesn't count, so the block is as long as your reading.\n- **Fluffed a word?** Step back with ← → to just before it and hold H to redo the rest.\n- **To start over,** press **G** to go to the block's start, then hold H. Ctrl/Cmd+Z undoes one part at a time."
+ },
+ {
   "version": "0.36.1",
   "date": "2026-10-29",
   "notes": "## Storage, in the Docker version\n\n- The Docker version runs from your computer, so it has nothing to get ready for working offline. Its button in the bottom right now says **storage**, and opens a **Storage** window about what's kept in this browser: whether it's kept safe, the space used, what needs a connection, and **Remove all data**.\n- The web version's **Offline and storage** window is unchanged."
