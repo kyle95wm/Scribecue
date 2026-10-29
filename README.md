@@ -14,7 +14,28 @@
 
 ## Quick start
 
-You'll need three free things. Install any you don't have yet:
+### The easy way: use it in your browser
+
+1. Open **<https://kyle95wm.github.io/Scribecue/>** in Google Chrome or Microsoft Edge.
+2. Optional: click **Install app** in the bottom right, or the install icon in the address
+   bar. Scribecue then gets its own window and icon, like any other app, and works
+   offline.
+
+That's all. A short setup asks what you're working on and turns on the tools for it.
+
+The web version updates itself. When a new version is ready, it asks you to reload. Your
+video, audio and scripts are opened straight from your computer and never uploaded:
+only the app itself is downloaded, from GitHub, the first time and when it updates. The
+web version doesn't include [Piper voices](#piper-voices) yet; for those, run it yourself
+as below.
+
+Scribecue is built for Chrome and Edge. Other browsers, such as Safari and Firefox, can
+open it, but some features may not be available, and Scribecue tells you which.
+
+### Run it yourself with Docker
+
+This keeps everything, the app included, on your computer, and adds the option of Piper
+voices. You'll need three free things. Install any you don't have yet:
 
 - **[Docker Desktop](https://www.docker.com/products/docker-desktop/)**, which runs
   Scribecue. On Linux, Docker Engine with the Compose plugin works too. Start it once
@@ -537,6 +558,9 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
 ## Privacy
 
 - Video, audio and script files are opened straight from your disk and never uploaded.
+- The [web version](#the-easy-way-use-it-in-your-browser) downloads the app itself from
+  GitHub Pages, the first time and when it updates, so GitHub sees those requests. After
+  that it works offline. Run it yourself with Docker to keep even that on your computer.
 - The server only hands out the app's own files, and only to your own computer
   (`127.0.0.1`).
 - A strict security policy stops the page from contacting any other site. The one exception
@@ -547,6 +571,9 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
   and no port of its own. The page reaches it through Scribecue's server.
 
 ## Updating
+
+**The web version** updates itself: when a new version is ready, it asks you to reload.
+The rest of this section is for running Scribecue yourself with Docker.
 
 The first time you open Scribecue, its setup asks whether it may check GitHub for updates.
 
@@ -598,9 +625,12 @@ Docker part. The same checks run on GitHub for every push and pull request.
 
 To release a new version:
 
-1. Change `VERSION` in [app/js/update.js](app/js/update.js), for example to `0.2.0`.
+1. Change `VERSION` in [app/js/update.js](app/js/update.js) and in
+   [app/sw.js](app/sw.js) to the new number, for example `0.2.0`. The tests check they
+   match.
 2. Run `scripts/check.sh`, then commit and push.
-3. Publish a GitHub release with the same number. Its notes are what **What's new** links to.
+3. Publish a GitHub release with the same number. Its notes are what **What's new** links
+   to. Publishing it also publishes the web version to GitHub Pages.
 
    ```bash
    gh release create v0.2.0 --generate-notes

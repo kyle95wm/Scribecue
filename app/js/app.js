@@ -2,6 +2,7 @@ import { parseSubs, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
 import { initUpdates, openUpdates, updateChoice } from './update.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
+import { browserName, supported, missingFeatures } from './browser.js';
 import { VERSION } from './update.js';
 import { MIN_SPEED, MAX_SPEED } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
@@ -2511,6 +2512,26 @@ initWelcome({
   // Skipped before answering about updates: ask the usual way instead.
   if (!finished && updateChoice() === null) setTimeout(openUpdates, 300);
 });
+// Outside Chrome and Edge, say that some features may not be available, and which.
+// Shown each time Scribecue opens, until "Don't show again".
+(() => {
+  const name = browserName(navigator.userAgent, navigator.userAgentData?.brands || []);
+  let never = false;
+  try { never = localStorage.getItem('scribecue.browserNotice') === name; } catch { /* ignore */ }
+  if (supported(name) || never) return;
+  const missing = missingFeatures(window);
+  $('browserAlertTitle').textContent = `You're using ${name}`;
+  $('browserMissing').textContent = missing.length ? ', including:' : '.';
+  $('browserList').replaceChildren(...missing.map((m) => Object.assign(document.createElement('li'), { textContent: m })));
+  $('browserList').hidden = !missing.length;
+  const box = $('browserAlert');
+  box.hidden = false;
+  $('browserOk').addEventListener('click', () => { box.hidden = true; });
+  $('browserNever').addEventListener('click', () => {
+    box.hidden = true;
+    try { localStorage.setItem('scribecue.browserNotice', name); } catch { /* ignore */ }
+  });
+})();
 if (FIRST_RUN) setTimeout(openWelcome, 400);
 else if (!welcomed()) {
   // Someone who used Scribecue before the wizard existed: mention it once.

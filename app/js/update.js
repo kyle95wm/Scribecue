@@ -4,6 +4,7 @@
 // carries no cookies, no referrer and nothing about the user's work.
 
 export const VERSION = '0.14.1';
+import { HOSTED } from './config.js';
 
 const REPO = 'kyle95wm/Scribecue';
 const API = `https://api.github.com/repos/${REPO}/releases/latest`;
@@ -123,9 +124,44 @@ function choose(on) {
   if (on) check();
 }
 
+// The web version updates itself: a service worker keeps the app's files for offline use,
+// and when a newer copy has been fetched, an alert offers to reload into it.
+function initWebApp() {
+  const btn = $('verBtn');
+  btn.textContent = `v${VERSION}`;
+  btn.dataset.tip = 'The web version of Scribecue updates itself. You\'ll be asked to reload when a new version is ready';
+  btn.addEventListener('click', (e) => { e.currentTarget.blur(); toast(`Scribecue ${VERSION}, the web version. It updates itself, and asks you to reload when a new version is ready`); });
+  // Install button, when the browser offers it.
+  let offer = null;
+  const install = $('installBtn');
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); offer = e; install.hidden = false; });
+  window.addEventListener('appinstalled', () => { install.hidden = true; offer = null; toast('Scribecue is installed. Open it from your apps, like any other'); });
+  install.addEventListener('click', async () => { install.blur(); if (!offer) return; offer.prompt(); await offer.userChoice; offer = null; install.hidden = true; });
+  if (!('serviceWorker' in navigator)) return;
+  const alert = $('webAlert');
+  let waiting = null;
+  const ready = (w) => { waiting = w; alert.hidden = false; };
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    if (reg.waiting && navigator.serviceWorker.controller) ready(reg.waiting);
+    reg.addEventListener('updatefound', () => {
+      const w = reg.installing;
+      w?.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) ready(w); });
+    });
+    // Look for a new version when Scribecue is opened, then every hour it stays open.
+    setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+  }).catch(() => {});
+  // Reload only when asked to. The first visit also changes controller, as the offline
+  // copy takes over, and reloading then would lose the first-run setup.
+  let wantReload = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (wantReload) { wantReload = false; location.reload(); } });
+  $('webAlertReload').addEventListener('click', () => { wantReload = true; waiting?.postMessage('update'); });
+  $('webAlertLater').addEventListener('click', () => { alert.hidden = true; });
+}
+
 // ask: false leaves the first-run question to the welcome wizard.
 export function initUpdates(opts = {}) {
   toast = opts.toast || toast;
+  if (HOSTED) return initWebApp();
   const d = dlg();
   $('verBtn').addEventListener('click', (e) => { e.currentTarget.blur(); openUpdates(); });
   $('updAlertLater').addEventListener('click', () => { later = true; render(); });

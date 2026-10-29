@@ -4,7 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Scribecue</title>
-  <link rel="icon" href="data:,">
+  <!-- The same policy nginx sends, here too for the web version, which has no nginx. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#11141a">
   <link rel="stylesheet" href="css/style.css">
   <script type="module" src="js/app.js"></script>
 </head>
@@ -111,8 +115,35 @@
       <kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>⌥⇧←</kbd><kbd>⌥⇧→</kbd> block
       <kbd>↵</kbd> create/edit <kbd>⇧F</kbd> find <kbd>⇧O</kbd> all keys
     </span>
+    <button id="installBtn" class="ver tip-end" hidden data-tip="Install Scribecue as an app: its own window and icon, and it works offline">Install app</button>
     <button id="verBtn" class="ver tip-end"></button>
   </footer>
+
+  <div id="browserAlert" class="updalert" role="alertdialog" aria-labelledby="browserAlertTitle" hidden>
+    <h2 id="browserAlertTitle"></h2>
+    <p>Scribecue is built for Google Chrome and Microsoft Edge. It works here, but some features may not
+      be available<span id="browserMissing"></span></p>
+    <ul id="browserList"></ul>
+    <p class="dim small">For everything to work, open Scribecue in Chrome or Edge. Your work in one browser
+      doesn't carry over to another, so save it as a project first if you switch.</p>
+    <div class="updbtns">
+      <button id="browserNever">Don't show again</button>
+      <span class="grow"></span>
+      <button id="browserOk" class="hl">OK</button>
+    </div>
+  </div>
+
+  <div id="webAlert" class="updalert" role="alertdialog" aria-labelledby="webAlertTitle" hidden>
+    <h2 id="webAlertTitle">A new version of Scribecue is ready</h2>
+    <p>Reload to start using it. Your text blocks and settings are kept. If you have unsaved changes in a
+      project, save them first.</p>
+    <div class="updbtns">
+      <a class="btnlink" href="https://github.com/kyle95wm/Scribecue/releases/latest" target="_blank" rel="noopener noreferrer">What's new</a>
+      <span class="grow"></span>
+      <button id="webAlertLater">Later</button>
+      <button id="webAlertReload" class="hl">Reload now</button>
+    </div>
+  </div>
 
   <div id="updAlert" class="updalert" role="alertdialog" aria-labelledby="updAlertTitle" hidden>
     <h2 id="updAlertTitle"></h2>

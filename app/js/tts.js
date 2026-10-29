@@ -7,6 +7,8 @@
 //   are offered; online voices send the text to their provider, so they need a
 //   separate opt-in.
 
+import { HOSTED } from './config.js';
+
 export const SPEEDS = [
   [0.7, 'very slow (−30%)'],
   [0.85, 'slow (−15%)'],
@@ -434,7 +436,8 @@ function render() {
     ? (piper ? 'Piper voice: lengths are exact as soon as a block has text, and you can export a description track.'
       : `${tts.piper.length} Piper voice${tts.piper.length > 1 ? 's' : ''} available at the top of the list: they sound more natural and give exact lengths.`)
     : ''; // the Did you know box below explains Piper
-  $('ttsTip').hidden = tts.piper.length > 0;
+  // The tip is about adding Piper to the Docker setup, which the web version doesn't have.
+  $('ttsTip').hidden = tts.piper.length > 0 || HOSTED;
   $('ttsAllExactRow').hidden = piper;
   $('ttsExport').disabled = !piper;
   $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper voice: the browser\'s own voices can\'t be recorded.';

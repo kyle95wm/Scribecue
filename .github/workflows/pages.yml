@@ -1,0 +1,45 @@
+name: Publish web app
+
+# Publishes the web version of Scribecue to GitHub Pages whenever a release is
+# published, so people using it get releases rather than every change on main.
+# It can also be run by hand from the Actions tab.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax and unit tests
+        run: scripts/check.sh --no-docker
+      - name: Build the web version
+        run: |
+          mkdir _site
+          cp -R app/. _site/
+          sed -i 's/^export const HOSTED = false;/export const HOSTED = true;/' _site/js/config.js
+          grep -q '^export const HOSTED = true;' _site/js/config.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

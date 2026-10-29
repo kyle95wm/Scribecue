@@ -5,6 +5,7 @@
 
 import { tts, SPEEDS, fillVoiceSelect, chosenVoice, setTtsOption, loadPiper } from './tts.js';
 import { updateChoice, setUpdateChoice } from './update.js';
+import { HOSTED } from './config.js';
 
 const $ = (id) => document.getElementById(id);
 const KEY = 'scribecue.welcome';
@@ -14,7 +15,8 @@ let finished = false;
 
 const mode = () => document.querySelector('input[name=wzMode]:checked')?.value || 'transcribe';
 // The steps for the chosen task: the third one depends on it.
-const steps = () => ['welcome', 'task', mode(), 'updates', 'done'];
+// The web version updates itself, so it skips the question about update checks.
+const steps = () => ['welcome', 'task', mode(), ...(HOSTED ? [] : ['updates']), 'done'];
 
 function show() {
   const list = steps();
@@ -39,7 +41,7 @@ function summarise() {
     } else lines.push('Text to speech off');
   }
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
-  lines.push(u === '1' ? 'Checks for updates once a day' : u === '0' ? 'Doesn’t check for updates' : 'Update checks: not chosen yet');
+  if (!HOSTED) lines.push(u === '1' ? 'Checks for updates once a day' : u === '0' ? 'Doesn’t check for updates' : 'Update checks: not chosen yet');
   $('wzSummary').replaceChildren(...lines.map((t) => Object.assign(document.createElement('li'), { textContent: t })));
   $('wzModeKey').innerHTML = m === 'write' ? '<kbd>V</kbd>' : 'Hold <kbd>H</kbd>';
   $('wzModeDesc').textContent = m === 'write' ? 'Read the selected block aloud' : 'Mark a block while the narrator speaks';

@@ -489,6 +489,7 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 }
 .updalert[hidden] { display: none; }
 .updalert h2 { margin: 0 0 4px; font-size: 17px; }
+.updalert ul { margin: 6px 0; padding-left: 20px; }
 .updalert p { margin: 8px 0; }
 .updalert .small { font-size: 12px; }
 .updalert pre { margin: 8px 0; padding: 10px 12px; font: 12px var(--mono); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; user-select: all; }
