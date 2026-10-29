@@ -6,6 +6,7 @@
 // need the internet, and the checklist says which.
 import { HOSTED } from './config.js';
 import { VERSION } from './update.js';
+import { chromium } from './browser.js';
 
 const $ = (id) => document.getElementById(id);
 export const online = () => globalThis.navigator?.onLine !== false;
@@ -40,13 +41,14 @@ export function checklist({ hosted, appKept, guides, voices, whisper, persisted,
   return rows;
 }
 
-// Asks the browser to keep Scribecue's storage. Chrome and Edge decide by themselves,
-// without asking; Firefox asks the person, so that waits for them to press the button.
+// Asks the browser to keep Scribecue's storage. Chrome, Edge and the others on their
+// engine decide by themselves, without asking; Firefox asks the person, so that waits for
+// them to press the button.
 export async function keepStorage({ ask = false } = {}) {
   const s = globalThis.navigator?.storage;
   if (!s?.persist) return null;
   if (await s.persisted()) return true;
-  return ask || /Chrome|Edg\//.test(navigator.userAgent) ? s.persist() : false;
+  return ask || chromium(navigator.userAgent, navigator.userAgentData?.brands || []) ? s.persist() : false;
 }
 
 let hooks = { toast: () => {}, voices: () => [], whisper: () => false, openTts: () => {}, openStt: () => {}, guides: async () => false };

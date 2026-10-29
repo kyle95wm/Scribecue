@@ -1,5 +1,7 @@
-// Scribecue is built for Chrome and Edge. In other browsers it still opens, but some
-// features depend on things only Chromium browsers have, so people are told which.
+// Scribecue is built for Chrome and Edge. Other browsers on the same engine, such as Brave,
+// Opera, Vivaldi or Arc, usually work just as well, so what decides the notice is what a
+// browser can do, not its name: people are told only when something is missing or known
+// not to work well.
 
 // The browser's name, from its brands (Chromium browsers) or its user agent string.
 export function browserName(ua = '', brands = []) {
@@ -16,7 +18,16 @@ export function browserName(ua = '', brands = []) {
   return 'this browser';
 }
 
-export const supported = (name) => name === 'Chrome' || name === 'Edge';
+// Whether it runs on Chromium, Chrome's engine, as most browsers outside Firefox and
+// Safari do.
+export function chromium(ua = '', brands = []) {
+  const b = brands.map((x) => x.brand || x);
+  return b.includes('Chromium') || b.includes('Google Chrome') || b.includes('Microsoft Edge') ||
+    (/\b(Chrome|Chromium|HeadlessChrome)\//.test(ua) && !/Firefox\//.test(ua));
+}
+
+// Whether to show the notice: only with something to say.
+export const needsNotice = (items) => items.length > 0;
 
 // Phones and tablets, which Scribecue doesn't work on: it needs a keyboard, to hold keys
 // while the narrator speaks and step frame by frame, and a screen big enough for the

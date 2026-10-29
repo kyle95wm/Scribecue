@@ -1,14 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { browserName, supported, missingFeatures, knownIssues, noticeItems, isMobile } from '../app/js/browser.js';
+import { browserName, chromium, needsNotice, missingFeatures, knownIssues, noticeItems, isMobile } from '../app/js/browser.js';
 
 const brands = (...b) => b.map((brand) => ({ brand, version: '1' }));
 
-test('Chrome and Edge are recognised and need no notice', () => {
+test('Chrome and Edge are recognised', () => {
   assert.equal(browserName('Mozilla/5.0 Chrome/140.0 Safari/537.36', brands('Google Chrome', 'Chromium', 'Not=A?Brand')), 'Chrome');
   assert.equal(browserName('Mozilla/5.0 Chrome/140.0 Safari/537.36 Edg/140.0', brands('Microsoft Edge', 'Chromium')), 'Edge');
   assert.equal(browserName('Mozilla/5.0 HeadlessChrome/140.0 Safari/537.36', brands('Chromium')), 'Chrome');
-  assert.ok(supported('Chrome') && supported('Edge'));
 });
 
 test('other browsers are named, so the notice can say which', () => {
@@ -17,7 +16,6 @@ test('other browsers are named, so the notice can say which', () => {
   assert.equal(browserName('Mozilla/5.0 Chrome/140.0 Safari/537.36', brands('Brave', 'Chromium')), 'Brave');
   assert.equal(browserName('Mozilla/5.0 Chrome/140.0 Safari/537.36 OPR/115.0', brands('Opera', 'Chromium')), 'Opera');
   assert.equal(browserName('Mozilla/5.0 Chrome/140.0', brands('Chromium', 'Not_A Brand')), 'this browser');
-  assert.ok(!supported('Safari') && !supported('Firefox') && !supported('Brave'));
 });
 
 test('the notice lists only the features this browser lacks', () => {
@@ -61,4 +59,27 @@ test('browsers too old for Scribecue are told so, instead of seeing a blank page
   // It has to parse in old browsers: no arrows, let/const, classes or template strings.
   const code = readFileSync(new URL('../app/js/old.js', import.meta.url), 'utf8').replace(/\/\/.*$/gm, '');
   assert.doesNotMatch(code, /=>|\blet\b|\bconst\b|\bclass\b|`|\?\.|\?\?/);
+});
+
+test('browsers on Chrome’s engine are recognised, whatever they’re called', () => {
+  assert.ok(chromium('Mozilla/5.0 Chrome/140.0 Safari/537.36', brands('Brave', 'Chromium')));
+  assert.ok(chromium('Mozilla/5.0 Chrome/140.0 Safari/537.36 OPR/115.0', brands('Opera', 'Chromium')));
+  assert.ok(chromium('Mozilla/5.0 Chrome/140.0 Safari/537.36 Vivaldi/7.0'), 'by its user agent alone');
+  assert.ok(chromium('Mozilla/5.0 HeadlessChrome/140.0 Safari/537.36'));
+  assert.ok(!chromium('Mozilla/5.0 (Macintosh) Gecko/20100101 Firefox/131.0'));
+  assert.ok(!chromium('Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15'));
+});
+
+test('the notice shows only when there’s something to say, whatever the browser’s name', () => {
+  const everything = { AudioDecoder: 1, showSaveFilePicker: () => {}, onbeforeinstallprompt: null, speechSynthesis: {} };
+  for (const name of ['Chrome', 'Edge', 'Brave', 'Opera', 'Vivaldi', 'Arc']) {
+    assert.ok(!needsNotice(noticeItems(name, everything)), `${name} with everything needs no notice`);
+  }
+  // Brave turns off saving to files by default: the notice says just that.
+  const brave = noticeItems('Brave', { ...everything, showSaveFilePicker: undefined });
+  assert.ok(needsNotice(brave));
+  assert.equal(brave.length, 1);
+  assert.match(brave[0], /autosave/);
+  // Firefox has the features but known problems, so it's still told.
+  assert.ok(needsNotice(noticeItems('Firefox', everything)));
 });

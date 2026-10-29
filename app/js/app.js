@@ -4,7 +4,7 @@ import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
-import { browserName, supported, noticeItems, isMobile } from './browser.js';
+import { browserName, noticeItems, needsNotice, isMobile } from './browser.js';
 import { blockFromPlayhead, nudgeFor, NUDGE } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop } from './tour.js';
 import { initWhatsNew } from './whatsnew.js';
@@ -3097,7 +3097,8 @@ function whenClear(fn, tries = 120) {
   if (!busy) return fn();
   if (tries > 0) setTimeout(() => whenClear(fn, tries - 1), 500);
 }
-// Outside Chrome and Edge, say that some features may not be available, and which.
+// When this browser lacks something Scribecue uses, or is known not to do it well, say
+// which. Chrome and Edge, and browsers like them, have nothing to say.
 // Shown each time Scribecue opens, until "Don't show again", which lasts until the list
 // changes, such as when a new problem is found.
 (() => {
@@ -3106,7 +3107,7 @@ function whenClear(fn, tries = 120) {
   const seen = [name, ...missing].join('|');
   let never = false;
   try { never = localStorage.getItem('scribecue.browserNotice') === seen; } catch { /* ignore */ }
-  if (supported(name) || never) return;
+  if (!needsNotice(missing) || never) return;
   $('browserAlertTitle').textContent = `You're using ${name}`;
   $('browserMissing').textContent = missing.length ? ', including:' : '.';
   $('browserList').replaceChildren(...missing.map((m) => Object.assign(document.createElement('li'), { textContent: m })));

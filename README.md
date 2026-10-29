@@ -38,9 +38,10 @@ The web version used to be at `kyle95wm.github.io/Scribecue`, which now forwards
 Work that was only kept in the browser there, such as unsaved blocks, settings and Piper
 voices, doesn't come across, but project files you saved open here as usual.
 
-Scribecue is built for Chrome and Edge. Other browsers, such as Safari and Firefox, can
-open it, but some features may not be available or work well, and Scribecue tells you
-which. In Firefox, for example, a file's description track can stutter, and speech to text
+Scribecue is built for Chrome and Edge. Browsers on the same engine, such as Brave, Opera,
+Vivaldi or Arc, usually work just as well. Others, such as Safari and Firefox, can open it,
+but some features may not be available or work well. Scribecue checks what your browser
+can do, and tells you if anything is missing. In Firefox, for example, a file's description track can stutter, and speech to text
 can interrupt the video's sound. Phones and tablets get a notice instead: Scribecue needs a
 keyboard and a bigger screen. So do browsers from before 2022, which are too old to run it.
 
