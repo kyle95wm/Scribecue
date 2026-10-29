@@ -133,6 +133,13 @@ one per programme, and open any of them with `Ctrl/Cmd+O`.
 
 - The first save asks where to put the file. After that, `Ctrl/Cmd+S` saves straight back
   to it, even after a reload. `Ctrl/Cmd+Shift+S` saves a copy under a new name.
+- **Autosave:** once a project has a file, Scribecue saves your changes to it a couple of
+  seconds after you stop, and **autosaved** shows next to the project name. After a reload,
+  or when you open a project, the browser asks before Scribecue may save to the file again;
+  until you allow it, the status says **autosave paused**, and clicking it (or `Ctrl/Cmd+S`)
+  carries on. Click **autosaved** to turn autosave off, and **autosave off** to turn it back
+  on. The file always holds your latest changes, so keep a copy with `Ctrl/Cmd+Shift+S`
+  before a big change if you might want the old version.
 - A dot after the project name at the top, such as `lights-ad.scribecue •`, means there
   are changes you haven't saved yet. After 20 minutes of unsaved work, a note reminds you
   to save, since until then the work is only kept in the browser. **Later** asks again in
@@ -152,8 +159,8 @@ one per programme, and open any of them with `Ctrl/Cmd+O`.
   `Ctrl/Cmd+Z` brings the blocks back either way, though after a new project you'd open the
   video again.
 
-Saving in place needs Chrome or Edge. Other browsers download a copy of the project each
-time you save.
+Saving in place and autosave need Chrome or Edge. Other browsers download a copy of the
+project each time you save.
 
 **Export** when the script is finished, or to hand it to someone who doesn't use
 Scribecue, such as another writer or a QC reviewer. The **Export** menu at the top has:

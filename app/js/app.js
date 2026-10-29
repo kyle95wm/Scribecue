@@ -9,6 +9,7 @@ import { blockFromPlayhead, nudgeFor, NUDGE } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop } from './tour.js';
 import { initWhatsNew } from './whatsnew.js';
 import { initReminder } from './reminder.js';
+import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave } from './autosave.js';
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
@@ -251,6 +252,7 @@ function doRedo() {
 let saveTimer = 0;
 function changed(id = null) {
   S.lastChange = Date.now();
+  S.changeGen = (S.changeGen || 0) + 1;
   S.maxEnd = S.cues.reduce((m, c) => Math.max(m, c.end), 0);
   if (!S.dirty) { S.dirty = true; showDocName(); }
   if (id != null) {
@@ -273,6 +275,7 @@ function changed(id = null) {
   tlDirty = true;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(save, 400);
+  if (S.dirty) scheduleAutosave();
 }
 
 function save() {
@@ -2084,17 +2087,97 @@ async function saveProject(as = false) {
     if (h && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted' &&
       (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') h = null;
     if (!h) h = await window.showSaveFilePicker({ suggestedName: name, types: PROJECT_TYPES });
-    const w = await h.createWritable();
-    await w.write(text);
-    await w.close();
+    await writeFile(h, text);
     S.handle = h;
     handleStore.set(h);
+    Object.assign(AUTO, { permission: 'granted', error: '' });
     projectSaved(h.name);
     toast(`Saved ${h.name}`);
   } catch (e) {
     if (e.name !== 'AbortError') toast(`Couldn’t save the project: ${e.message}`);
   }
 }
+
+async function writeFile(h, text) {
+  const w = await h.createWritable();
+  await w.write(text);
+  await w.close();
+}
+
+// ---- autosave (see autosave.js)
+
+const AUTO = { on: true, permission: 'prompt', saving: false, error: '', timer: 0, first: 0 };
+try { AUTO.on = localStorage.getItem('scribecue.autosave') !== '0'; } catch { /* ignore */ }
+
+function showAutosave() {
+  const st = autosaveState({
+    can: !!window.showSaveFilePicker, on: AUTO.on, file: !!S.handle, permission: AUTO.permission,
+    saving: AUTO.saving, dirty: S.dirty && S.cues.length > 0, error: AUTO.error,
+  });
+  const b = $('autosaveBtn');
+  b.hidden = !st;
+  if (!st) return;
+  b.textContent = AUTOSAVE_LABEL[st];
+  b.dataset.state = st;
+  b.dataset.tip = pcKeys(AUTOSAVE_TIP[st].replace('{mod}', '⌘').replace('{error}', AUTO.error));
+}
+
+// Whether Scribecue may write to the project file now, which the browser asks again
+// after a reload.
+async function checkWrite() {
+  AUTO.permission = S.handle ? await S.handle.queryPermission({ mode: 'readwrite' }).catch(() => 'prompt') : 'prompt';
+  showAutosave();
+  if (AUTO.permission === 'granted' && S.dirty) scheduleAutosave();
+}
+
+function scheduleAutosave() {
+  clearTimeout(AUTO.timer);
+  if (!AUTO.on || !S.handle || AUTO.permission !== 'granted' || AUTO.error) return showAutosave();
+  const t = Date.now();
+  AUTO.first ||= t;
+  AUTO.timer = setTimeout(autosave, nextSave(t, S.lastChange || t, AUTO.first));
+  showAutosave();
+}
+
+async function autosave() {
+  const h = S.handle;
+  if (AUTO.saving) return; // the save running now looks again when it's done
+  AUTO.first = 0;
+  if (!AUTO.on || !h || !S.dirty || !S.cues.length) return showAutosave();
+  const gen = S.changeGen;
+  AUTO.saving = true;
+  showAutosave();
+  try {
+    if ((await h.queryPermission({ mode: 'readwrite' })) !== 'granted') { AUTO.permission = 'prompt'; return; }
+    await writeFile(h, JSON.stringify(projectData(), null, 1));
+    AUTO.error = '';
+    // Only if nothing changed while it was written; otherwise it goes round again.
+    if (h === S.handle && gen === S.changeGen) projectSaved(h.name);
+  } catch (e) {
+    AUTO.error = e.name === 'NotFoundError' ? 'the file has been moved or deleted' : e.message || String(e);
+    toast(`Couldn’t autosave ${h.name}: ${AUTO.error}. Save with ${IS_MAC ? '⌘S' : 'Ctrl+S'}`);
+  } finally {
+    AUTO.saving = false;
+    if (S.dirty) scheduleAutosave(); else showAutosave();
+  }
+}
+
+// The status next to the project name: resumes a paused autosave, or turns it on or off.
+$('autosaveBtn').addEventListener('click', async (e) => {
+  const st = e.currentTarget.dataset.state;
+  e.currentTarget.blur();
+  if (st === 'paused' || st === 'error') {
+    AUTO.error = '';
+    try { AUTO.permission = await S.handle.requestPermission({ mode: 'readwrite' }); } catch { AUTO.permission = 'denied'; }
+    if (AUTO.permission === 'granted') { toast(`Autosaving to ${S.handle.name}`); autosave(); }
+    else { toast(`Scribecue can’t save to ${S.handle.name} without your permission. ⌘S saves it`); showAutosave(); }
+    return;
+  }
+  AUTO.on = !AUTO.on;
+  try { localStorage.setItem('scribecue.autosave', AUTO.on ? '1' : '0'); } catch { /* ignore */ }
+  toast(AUTO.on ? 'Autosave on: changes are saved to the project file as you work' : 'Autosave off: save with ⌘S');
+  if (AUTO.on) checkWrite(); else { clearTimeout(AUTO.timer); showAutosave(); }
+});
 
 // Asks before replacing work that isn't saved in a project. It can still be undone.
 function okToReplace(what) {
@@ -2111,6 +2194,11 @@ async function openProject(file, handle = null) {
   S.cues = p.blocks.map(revive);
   S.handle = handle;
   handleStore.set(handle);
+  AUTO.error = '';
+  // Opening it is the moment to ask whether autosave may write to it; if the browser won't
+  // ask now, autosave waits, paused, for a click.
+  if (handle && AUTO.on) handle.requestPermission({ mode: 'readwrite' }).catch(() => 'prompt').then(checkWrite);
+  else showAutosave();
   S.projectMedia = p.media;
   S.notes = p.notes;
   aiNotesChanged();
@@ -2201,6 +2289,7 @@ function newProject(ask = true) {
   S.cues = [];
   S.handle = null;
   handleStore.set(null);
+  showAutosave();
   S.projectMedia = null;
   S.pendingPlayhead = null;
   S.notes = '';
@@ -2243,6 +2332,7 @@ async function loadSubsFile(file) {
   S.subName = file.name;
   S.handle = null; // saving makes a project next to it, rather than overwriting the script
   handleStore.set(null);
+  showAutosave();
   S.projectMedia = null;
   changed();
   S.dirty = true;
@@ -2935,7 +3025,7 @@ changed();
 S.dirty = restored ? S.savedDirty : false;
 showDocName();
 // Keep saving in place to the project that was open before the reload.
-handleStore.get().then((h) => { if (h && h.name === S.subName) S.handle = h; });
+handleStore.get().then((h) => { if (h && h.name === S.subName) { S.handle = h; checkWrite(); } });
 updateInd();
 setMode(S.mode, true);
 durEl.textContent = S.hasVideo ? fmtTime(duration(), '.') : '--:--:--.---';

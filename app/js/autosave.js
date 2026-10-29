@@ -1,0 +1,41 @@
+// Autosave: once a project has a file, changes are written to it a moment after you stop.
+// Browsers only allow it where a page can write to a file you chose (Chrome and Edge),
+// and after a reload they ask again before it may, which needs a click: until then it's
+// paused, and says so next to the project name.
+
+export const DELAY = 2000; // ms after the last change
+export const MAX_WAIT = 30e3; // but no longer than this while changes keep coming
+
+// What the status next to the project name shows, or '' for nothing.
+// can: the browser can write to files. on: the setting. file: the project has one.
+// permission: 'granted', 'prompt' or 'denied'. error: why the last write failed.
+export function autosaveState({ can, on, file, permission, saving, dirty, error }) {
+  if (!can || !file) return '';
+  if (!on) return 'off';
+  if (error) return 'error';
+  if (permission !== 'granted') return 'paused';
+  if (saving || dirty) return 'saving';
+  return 'saved';
+}
+
+export const AUTOSAVE_LABEL = {
+  off: 'autosave off',
+  error: 'autosave failed',
+  paused: 'autosave paused',
+  saving: 'saving…',
+  saved: 'autosaved',
+};
+
+export const AUTOSAVE_TIP = {
+  off: 'Autosave is off: save with {mod}S. Click to turn it on',
+  error: 'The last autosave didn’t work: {error}. Click to try again, or save with {mod}S',
+  paused: 'Autosave is paused until you let Scribecue save to the project file again, which the browser asks after a reload. Click to resume',
+  saving: 'Saving changes to the project file',
+  saved: 'Changes are saved to the project file as you work. Click to turn autosave off',
+};
+
+// When the next autosave should run, in ms from now: DELAY after the last change, but
+// never more than MAX_WAIT after the first unsaved one.
+export function nextSave(now, lastChange, firstPending) {
+  return Math.max(0, Math.min(lastChange + DELAY, firstPending + MAX_WAIT) - now);
+}

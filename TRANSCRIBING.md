@@ -249,9 +249,11 @@ Once the whole programme is marked:
 
 - **`Ctrl/Cmd+S`** saves a project (`.scribecue`): the blocks, the mode and its settings,
   where you were, and which video it belongs to. The first save asks where; after that it
-  saves straight back to the same file. Your work is also kept in the browser as you go,
-  so reloading the page loses nothing. After 20 minutes of unsaved work, a note reminds you
-  to save; **Later** asks again in half an hour.
+  saves straight back to the same file, and in Chrome and Edge, autosave saves your changes
+  to it as you work (**autosaved** next to the project name; after a reload, click
+  **autosave paused** to let it carry on). Your work is also kept in the browser as you
+  go, so reloading the page loses nothing. After 20 minutes of unsaved work, a note
+  reminds you to save; **Later** asks again in half an hour.
 - **Next time,** open the project with `Ctrl/Cmd+O`, then its video. Browsers can't
   remember where a video is, but Scribecue tells you which one the project belongs to, and
   warns you if you pick a different file.

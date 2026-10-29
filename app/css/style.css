@@ -67,6 +67,8 @@ kbd + kbd { margin-left: 2px; }
 .mode-write .transcribe-only, .mode-transcribe .write-only { display: none; }
 .files { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 13px var(--mono); }
 .files .sep { color: var(--faint); margin: 0 6px; }
+.autosave { flex-shrink: 0; padding: 1px 8px; font: 11px var(--mono); color: var(--dim); background: none; }
+.autosave[data-state="paused"], .autosave[data-state="error"] { color: var(--warn); border-color: var(--warn); }
 nav { display: flex; gap: 6px; }
 /* menus that drop down from a header button, such as Export */
 .navwrap { position: relative; display: inline-flex; }
