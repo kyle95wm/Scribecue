@@ -1817,12 +1817,14 @@ function setMode(m, quiet = false) {
       : 'Transcribe mode: hold H while the narrator speaks to mark each line');
   }
 }
+// Like a switch: clicking the other side picks it, and clicking the side that's on, or
+// the track around it, flips to the other.
 document.getElementById('modeSw').addEventListener('click', (e) => {
   const b = e.target.closest('button');
-  if (!b) return;
-  b.blur();
-  setMode(b.dataset.mode);
-  maybeShowLoop(b.dataset.mode); // the first time in a mode, how to work in it
+  b?.blur();
+  const m = b && !b.classList.contains('on') ? b.dataset.mode : (S.mode === 'write' ? 'transcribe' : 'write');
+  setMode(m);
+  maybeShowLoop(m); // the first time in a mode, how to work in it
 });
 
 // ---------------------------------------------------------------- hold-to-mark

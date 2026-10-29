@@ -60,10 +60,15 @@ kbd + kbd { margin-left: 2px; }
 }
 .brand { font: 700 15px var(--mono); letter-spacing: 0.08em; }
 .brand span { color: var(--accent); }
-.modesw { display: inline-flex; flex-shrink: 0; padding: 2px; gap: 2px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
-.modesw button { padding: 2px 10px; border: 0; border-radius: 5px; background: none; color: var(--dim); font: 12px var(--sans); }
-.modesw button:hover { background: var(--raise); color: var(--text); }
-.modesw button.on { background: var(--accent); color: var(--bg); font-weight: 600; }
+/* The mode switch: a track with a thumb that slides to the mode in use. The two halves are
+   the same width, so the thumb fits either. */
+.modesw { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; flex-shrink: 0; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); cursor: pointer; }
+.modesw::before { content: ''; position: absolute; top: 2px; bottom: 2px; left: 2px; width: calc(50% - 2px); border-radius: 999px; background: var(--accent); transition: transform 0.18s ease; }
+.mode-write .modesw::before { transform: translateX(100%); }
+.modesw button { position: relative; justify-content: center; padding: 2px 12px; border: 0; border-radius: 999px; background: none; color: var(--dim); font: 12px var(--sans); transition: color 0.18s ease; }
+.modesw button:hover { background: none; color: var(--text); }
+.modesw button.on { color: var(--bg); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .modesw::before, .modesw button { transition: none; } }
 .mode-write .transcribe-only, .mode-transcribe .write-only { display: none; }
 .files { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 13px var(--mono); }
 .files .sep { color: var(--faint); margin: 0 6px; }
