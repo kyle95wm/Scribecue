@@ -27,3 +27,16 @@ export function missingFeatures(w = globalThis) {
   if (!('speechSynthesis' in w)) out.push('text to speech with your computer’s voices');
   return out;
 }
+
+// What a browser has but doesn't do well enough, found by using it, in words for the
+// notice. Feature checks can't see these.
+const ISSUES = {
+  Firefox: [
+    'smooth sound for a file’s description track, when the file has several audio tracks (it can stutter or cut out)',
+    'speech to text, which can interrupt the video’s sound while blocks are transcribed',
+  ],
+};
+export const knownIssues = (name) => ISSUES[name] || [];
+
+// What the notice lists: what's missing, then what doesn't work well.
+export const noticeItems = (name, w = globalThis) => [...missingFeatures(w), ...knownIssues(name)];

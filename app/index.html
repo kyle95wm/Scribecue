@@ -137,7 +137,7 @@
   <div id="browserAlert" class="updalert" role="alertdialog" aria-labelledby="browserAlertTitle" hidden>
     <h2 id="browserAlertTitle"></h2>
     <p>Scribecue is built for Google Chrome and Microsoft Edge. It works here, but some features may not
-      be available<span id="browserMissing"></span></p>
+      be available or work well<span id="browserMissing"></span></p>
     <ul id="browserList"></ul>
     <p class="dim small">For everything to work, open Scribecue in Chrome or Edge. Your work in one browser
       doesn't carry over to another, so save it as a project first if you switch.</p>
@@ -485,6 +485,7 @@ docker compose up -d --build</code></pre>
     <p>Whisper listens to each block you mark with <kbd>H</kbd> and types what the narrator says,
       ready for you to check. You still time every line yourself. It runs on your computer, so the
       audio never leaves it.</p>
+    <p id="sttBrowser" class="warnbox" hidden></p>
     <section id="sttWeb" hidden>
       <p class="small">Whisper is a one-time download into your browser, and then it works offline
         too. It's fastest in Chrome or Edge on a computer with a graphics chip they can use.</p>

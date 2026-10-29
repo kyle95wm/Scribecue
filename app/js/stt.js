@@ -5,6 +5,7 @@
 // (whisper-worker.js), and the Docker version uses the optional Whisper container, under
 // /stt/ on Scribecue's own server. Nothing is sent anywhere else.
 import { HOSTED } from './config.js';
+import { browserName, knownIssues } from './browser.js';
 
 const $ = (id) => document.getElementById(id);
 const KEY = 'scribecue.stt';
@@ -172,6 +173,9 @@ function render() {
   const usable = !!stt.engine;
   $('sttOn').checked = stt.on;
   $('sttOn').disabled = !stt.ready;
+  const name = browserName(navigator.userAgent, navigator.userAgentData?.brands || []);
+  $('sttBrowser').hidden = !knownIssues(name).some((t) => t.startsWith('speech to text'));
+  $('sttBrowser').textContent = `In ${name}, the video’s sound can stutter or stop while blocks are transcribed. Speech to text works best in Chrome or Edge.`;
   $('sttWeb').hidden = !HOSTED;
   $('sttServer').hidden = HOSTED;
   if (HOSTED) {

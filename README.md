@@ -39,7 +39,9 @@ Work that was only kept in the browser there, such as unsaved blocks, settings a
 voices, doesn't come across, but project files you saved open here as usual.
 
 Scribecue is built for Chrome and Edge. Other browsers, such as Safari and Firefox, can
-open it, but some features may not be available, and Scribecue tells you which.
+open it, but some features may not be available or work well, and Scribecue tells you
+which. In Firefox, for example, a file's description track can stutter, and speech to text
+can interrupt the video's sound.
 
 ### Or run it yourself
 
@@ -252,6 +254,9 @@ Whisper only understands English here, and it hears everything in a block, so di
 lyrics under the narration can come out too. If your file has a
 [description track](#files-with-several-audio-tracks) on its own, choose it with `T`. Check
 names especially, since Whisper often spells them the way they sound.
+
+Speech to text works best in Chrome or Edge. In Firefox, the video's sound can stutter or
+stop while blocks are transcribed.
 
 ### Looping a block
 

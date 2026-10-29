@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { browserName, supported, missingFeatures } from '../app/js/browser.js';
+import { browserName, supported, missingFeatures, knownIssues, noticeItems } from '../app/js/browser.js';
 
 const brands = (...b) => b.map((brand) => ({ brand, version: '1' }));
 
@@ -27,4 +27,13 @@ test('the notice lists only the features this browser lacks', () => {
   assert.match(firefox[0], /saving a project/);
   assert.match(firefox[1], /Install app/);
   assert.equal(missingFeatures({}).length, 4);
+});
+
+test('Firefox’s known problems are listed after what it lacks', () => {
+  const items = noticeItems('Firefox', { AudioDecoder: 1, speechSynthesis: {} });
+  assert.equal(items.length, 4);
+  assert.match(items[2], /description track/);
+  assert.match(items[3], /speech to text/);
+  assert.deepEqual(knownIssues('Chrome'), []);
+  assert.deepEqual(knownIssues('Safari'), []);
 });
