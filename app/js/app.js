@@ -9,6 +9,7 @@ import { blockFromPlayhead, nudgeFor, NUDGE } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop } from './tour.js';
 import { initWhatsNew } from './whatsnew.js';
 import { initReminder } from './reminder.js';
+import { announce, speakable, blockLabel } from './a11y.js';
 import { initOffline } from './offline.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
@@ -318,10 +319,16 @@ function loadSaved() {
 // ---------------------------------------------------------------- selection
 
 function select(id, { seek: doSeek = true, reveal = true } = {}) {
-  if (S.sel !== id) rowMap.get(S.sel)?.classList.remove('sel');
+  if (S.sel !== id) {
+    rowMap.get(S.sel)?.classList.remove('sel');
+    rowMap.get(S.sel)?.setAttribute('aria-selected', 'false');
+  }
   S.sel = id;
   const r = rowMap.get(id);
   r?.classList.add('sel');
+  r?.setAttribute('aria-selected', 'true');
+  // The list says which block is selected, so a screen reader in it reads each as you move.
+  if (r) list.setAttribute('aria-activedescendant', r.id); else list.removeAttribute('aria-activedescendant');
   r?.scrollIntoView({ block: 'nearest' });
   const c = selCue();
   if (c && doSeek) { S.playUntil = null; seek(c.start); }
@@ -545,8 +552,9 @@ function updateEditor() {
     // How long the voice takes to read it: "~" until it has actually been read.
     const { secs, exact } = speechLength(said(c), c.speed);
     const s = document.createElement('span');
-    s.textContent = `TTS ${exact ? '' : '~'}${secs.toFixed(1)} s`;
-    s.className = 'tts ' + (secs > c.end - c.start + 0.05 ? 'bad' : '');
+    const tooLong = secs > c.end - c.start + 0.05;
+    s.textContent = `TTS ${exact ? '' : '~'}${secs.toFixed(1)} s${tooLong ? ' · too long' : ''}`;
+    s.className = 'tts ' + (tooLong ? 'bad' : '');
     edStats.append(s);
     if (!exact) schedulePrefetch(c);
   } else if (ttsOn() && onlyNotes(c.text)) {
@@ -822,8 +830,11 @@ function fillRow(r, c, i) {
   x.setAttribute('aria-label', `Delete block ${i + 1}`);
   t.children[0].textContent = fmtTime(c.start, '.');
   t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '');
-  // Red when the reading is longer than the block.
-  t.children[1].classList.toggle('over', ttsOn() && !!spoken(c.text) && speechLength(said(c), c.speed).secs > c.end - c.start + 0.05);
+  // Red when the reading is longer than the block, with a sign for anyone who can't tell red.
+  const over = ttsOn() && !!spoken(c.text) && speechLength(said(c), c.speed).secs > c.end - c.start + 0.05;
+  t.children[1].classList.toggle('over', over);
+  if (over) t.children[1].textContent += ' ⚠';
+  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: fmtTime(c.start, '.'), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over }));
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
   r.hidden = !matches(c, i);
@@ -832,6 +843,9 @@ function fillRow(r, c, i) {
 function renderList() {
   rowMap.clear();
   list.textContent = '';
+  list.removeAttribute('aria-activedescendant');
+  // A list for screen readers only when there are blocks in it.
+  if (S.cues.length) list.setAttribute('role', 'listbox'); else list.removeAttribute('role');
   if (!S.cues.length) {
     const h = document.createElement('div');
     h.className = 'emptyhint';
@@ -846,8 +860,11 @@ function renderList() {
     const r = document.createElement('div');
     r.className = 'row';
     r.dataset.id = c.id;
+    r.id = `blk-${c.id}`;
+    r.setAttribute('role', 'option');
+    r.setAttribute('aria-selected', String(c.id === S.sel));
     r.innerHTML = '<span class="n"></span><span class="t"><b></b><i></i></span><span class="tx"></span>' +
-      '<button class="rowdel" tabindex="-1" data-tip="Delete this block (Del). Ctrl/Cmd+Z brings it back">×</button>';
+      '<button class="rowdel" tabindex="-1" aria-hidden="true" data-tip="Delete this block (Del). Ctrl/Cmd+Z brings it back">×</button>';
     fillRow(r, c, i);
     if (c.id === S.sel) r.classList.add('sel');
     if (c.id === S.activeId) r.classList.add('active');
@@ -855,6 +872,7 @@ function renderList() {
     frag.append(r);
   });
   list.append(frag);
+  if (rowMap.has(S.sel)) list.setAttribute('aria-activedescendant', `blk-${S.sel}`);
   applyFilter();
 }
 
@@ -1238,10 +1256,12 @@ function updateInd() {
   ];
   ind.textContent = '';
   for (const [key, label, on] of items) {
-    const s = document.createElement('span');
+    const s = document.createElement('button');
     s.textContent = label;
     s.dataset.key = key;
     s.dataset.tip = pcKeys(IND_TIPS[key]);
+    s.setAttribute('aria-label', speakable(IND_TIPS[key], IS_MAC));
+    if (['follow', 'loop', 'tts', 'stt'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
     s.className = (on ? 'on ' : '') + (key === 'speed' || key === 'follow' ? '' : 'tip-end');
     ind.append(s);
   }
@@ -1267,7 +1287,8 @@ const CTL = {
 // Don't take focus, so Space and the other keys keep working on the timeline.
 ctrls.addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
 ctrls.addEventListener('click', (e) => CTL[e.target.closest('button')?.dataset.ctl]?.());
-clockEl.addEventListener('click', async () => {
+clockEl.addEventListener('click', async (e) => {
+  e.currentTarget.blur(); // so Space still plays
   const tc = fmtTime(now(), '.');
   let ok = false;
   try { await navigator.clipboard.writeText(tc); ok = true; } catch { /* fall back below */ }
@@ -1284,6 +1305,7 @@ clockEl.addEventListener('click', async () => {
   toast(ok ? `Copied ${tc}` : 'Couldn’t copy: the browser blocked clipboard access');
 });
 ind.addEventListener('click', (e) => {
+  e.target.blur?.(); // so Space still plays
   const k = e.target.dataset.key;
   if (k === 'speed') setRate(1);
   else if (k === 'offset') cycleOffset();
@@ -2007,6 +2029,7 @@ window.addEventListener('blur', () => holdEnd());
 let toastTimer = 0;
 function toast(msg) {
   toastEl.textContent = pcKeys(msg);
+  announce(msg, IS_MAC);
   toastEl.classList.remove('fade');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.add('fade'), 3500);

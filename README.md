@@ -473,6 +473,13 @@ afterwards is instant. Safari switches tracks itself.
 - **Guides:** **Guides** in the shortcuts overlay (`?`) opens this README, the
   [transcribing guide](TRANSCRIBING.md), the [AI guide](AI.md) and [INSTALL.md](INSTALL.md)
   inside Scribecue, and links to them anywhere in Scribecue open there too.
+- **Screen readers:** Scribecue's messages are read out as they appear, with key symbols
+  said as words. The block list is a list a screen reader can move through, reading each
+  block's number, start, length and text, and which one is selected. The buttons and
+  indicators under the video say what they do, and whether they're on. Lines too long to
+  read in time say so in words, not only in red. The timeline itself is hidden from screen
+  readers, since the block list has the same blocks. Work on screen readers is still going:
+  with NVDA or JAWS on Windows, single-letter keys such as `H` may need focus mode.
 - **Scribecue on GitHub:** the small GitHub mark in the bottom right opens the project's
   page, with the source, releases and a place to report problems.
 

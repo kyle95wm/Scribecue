@@ -74,7 +74,7 @@
           <span class="grow"></span>
           <span id="edStats"></span>
         </div>
-        <textarea id="edText" rows="3" spellcheck="true"
+        <textarea id="edText" rows="3" spellcheck="true" aria-label="Block text"
           placeholder="Press ↵ on the timeline to create or edit a block. ⇧↵ new line · ⇥ next field · Esc back to timeline"></textarea>
       </div>
       <div class="search">
@@ -85,12 +85,12 @@
       <div class="listhead">
         <span>#</span><span>Start / Dur</span><span>Text</span><span></span>
       </div>
-      <div class="list" id="list"></div>
+      <div class="list" id="list" tabindex="0" aria-label="Text blocks"></div>
     </aside>
 
     <section class="right">
       <div class="stage" id="stage">
-        <video id="video" preload="auto" playsinline></video>
+        <video id="video" preload="auto" playsinline aria-label="Video"></video>
         <div class="empty" id="stageEmpty">
           <div>Drop a video or audio file here</div>
           <div class="dim">or press <kbd><span class="mod"></span>⇧O</kbd> — files never leave your machine</div>
@@ -104,7 +104,7 @@
         <div class="scrubtime" id="scrubTime" hidden></div>
       </div>
       <div class="transport">
-        <span class="clock copy" id="clock" data-tip="Click to copy this timecode">00:00:00.000</span>
+        <button class="clock copy" id="clock" aria-label="Copy the current timecode" data-tip="Click to copy this timecode">00:00:00.000</button>
         <span class="dim">/</span>
         <span class="clock dim" id="durEl">00:00:00.000</span>
         <span class="ctrls" id="ctrls" role="toolbar" aria-label="Player controls">
@@ -128,7 +128,7 @@
     </section>
   </main>
 
-  <section class="timeline" id="tl">
+  <section class="timeline" id="tl" aria-hidden="true">
     <canvas id="ruler"></canvas>
     <div class="lane" id="lane">
       <canvas id="wave"></canvas>
@@ -140,7 +140,8 @@
   </section>
 
   <footer class="status">
-    <span id="toast"></span>
+    <span id="toast" aria-hidden="true"></span>
+    <span id="announce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></span>
     <span class="hint">
       <kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>⌥⇧←</kbd><kbd>⌥⇧→</kbd> block
       <kbd>↵</kbd> create/edit <kbd>⇧F</kbd> find <kbd>⇧O</kbd> all keys
