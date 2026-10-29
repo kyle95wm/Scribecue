@@ -96,7 +96,8 @@ export function openWelcome() {
 function piperNote() {
   $('wzPiper').textContent = tts.piper.length
     ? `Piper voices are available: they sound natural, give exact lengths and can be exported as a description track.`
-    : 'Tip: for natural-sounding voices that run on your computer, add Piper later (see the README).';
+    : HOSTED ? 'Tip: for natural-sounding voices, download a Piper voice later in the text to speech panel.'
+      : 'Tip: for natural-sounding voices that run on your computer, add Piper later (see INSTALL.md).';
 }
 
 // onClose(finished) runs whenever the wizard closes, finished or skipped.

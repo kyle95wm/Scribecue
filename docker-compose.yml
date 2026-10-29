@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
 
   # Optional natural-sounding text to speech voices that run on this computer.
-  # Turn it on with COMPOSE_PROFILES=piper in a .env file next to this one (see README).
+  # Turn it on with COMPOSE_PROFILES=piper in a .env file next to this one (see INSTALL.md).
   piper:
     build:
       context: ./piper
@@ -41,7 +41,7 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
-  # Optional AI models that run on this computer, for AI help (see README). Turn it on
+  # Optional AI models that run on this computer, for AI help (see INSTALL.md). Turn it on
   # by adding ollama to COMPOSE_PROFILES in .env, then download a model that can see
   # images: docker compose exec ollama ollama pull gemma3:4b
   ollama:

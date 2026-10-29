@@ -553,7 +553,7 @@ function speakPiper(text, voice, { id, manual, silent, speed, done }) {
   }, () => {
     if (current?.piper !== token) return;
     hooks.toast(HOSTED ? 'The Piper voice couldn’t read that block. Try reloading the page'
-      : 'Piper isn’t answering. Is its container running? See the README');
+      : 'Piper isn’t answering. Is its container running? See INSTALL.md');
     finish(null);
   });
   return true;

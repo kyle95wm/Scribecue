@@ -24,14 +24,12 @@
 That's all. A short setup asks what you're working on and turns on the tools for it, then
 offers a one-minute guided tour of the main parts. You can skip either.
 
-The web version updates itself, usually without you noticing: a new version is used as you
-open Scribecue. If one arrives while you're working, it waits, and the version number in
-the bottom right says **update ready**; click it to update then, or it's used the next time
-you open Scribecue. Your
-video, audio and scripts are opened straight from your computer and never uploaded:
-only the app itself is downloaded, from GitHub, the first time and when it updates.
-[Piper voices](#piper-voices) work in the web version too: download one from the text to
-speech panel.
+Your video, audio and scripts are opened straight from your computer and never uploaded:
+only the app itself is downloaded, the first time and when it updates. It updates itself,
+usually without you noticing: a new version is used as you open Scribecue, and one that
+arrives while you're working waits until you click **update ready** on the version number,
+or open Scribecue again. [Piper voices](#piper-voices) work in the web version too:
+download one from the text to speech panel.
 
 The web version used to be at `kyle95wm.github.io/Scribecue`, which now forwards here.
 Anything kept in the browser at the old address, such as unsaved work, settings and Piper
@@ -41,77 +39,11 @@ project file (`Ctrl/Cmd+S`) before switching, then open it here.
 Scribecue is built for Chrome and Edge. Other browsers, such as Safari and Firefox, can
 open it, but some features may not be available, and Scribecue tells you which.
 
-### Run it yourself with Docker
+### Or run it yourself
 
-This keeps everything, the app included, on your computer, and adds the option of Piper
-voices. You'll need three free things. Install any you don't have yet:
-
-- **[Docker Desktop](https://www.docker.com/products/docker-desktop/)**, which runs
-  Scribecue. On Linux, Docker Engine with the Compose plugin works too. Start it once
-  after installing, and leave it running.
-- **[Git](https://git-scm.com/downloads)**, to download Scribecue and its updates. It's
-  already on most Macs and Linux computers.
-- **A recent Chrome or Edge**, to use Scribecue in.
-
-Then open a terminal: **Terminal** on a Mac or Linux, or **PowerShell** on Windows. Run
-these one at a time.
-
-1. Download Scribecue:
-
-   ```bash
-   git clone https://github.com/kyle95wm/Scribecue.git
-   ```
-
-2. Go into its folder:
-
-   ```bash
-   cd Scribecue
-   ```
-
-3. Build and start it. The first time takes a minute or two:
-
-   ```bash
-   docker compose up -d --build
-   ```
-
-4. Open <http://localhost:8484> in Chrome or Edge.
-
-A short setup opens and asks what you're working on, then turns on the tools for it. You
-can run it again any time with **Setup** at the top.
-
-Scribecue keeps running in the background, and starts again whenever Docker does, until
-you stop it. To stop it, run `docker compose down` in the `Scribecue` folder. To start it
-again, run `docker compose up -d` there.
-
-### Optional: natural-sounding voices
-
-For text to speech voices that sound natural and run on your computer, add
-[Piper](#piper-voices) before step 3 by creating a file called `.env` in the `Scribecue`
-folder. On a Mac or Linux:
-
-```bash
-echo "COMPOSE_PROFILES=piper" > .env
-```
-
-On Windows, in PowerShell:
-
-```powershell
-Set-Content .env "COMPOSE_PROFILES=piper"
-```
-
-Then carry on with step 3. Piper adds about 1 GB to the download. If Scribecue is already
-running, run step 3 again to add it.
-
-### If something goes wrong
-
-- **"Cannot connect to the Docker daemon"** or a similar error: Docker Desktop isn't
-  running. Start it, wait until it says it's running, and try again.
-- **"port is already allocated":** something else is using port 8484. Add a line such as
-  `SCRIBECUE_PORT=9000` to the `.env` file (create it if it isn't there), run step 3
-  again, and open <http://localhost:9000> instead.
-- **The page doesn't load straight away:** wait a few seconds after step 3, then reload.
-
-To get a newer version later, see [Updating](#updating).
+To keep everything, the app included, on your own computer, or to run Piper voices or
+Ollama in containers next to it, run Scribecue with Docker. [INSTALL.md](INSTALL.md) walks
+you through it, and covers updating and troubleshooting.
 
 ## Contents
 
@@ -136,6 +68,7 @@ To get a newer version later, see [Updating](#updating).
 - [Supported files](#supported-files)
 - [Privacy](#privacy)
 - [Updating](#updating)
+- [Running it yourself](INSTALL.md)
 - [Development](#development)
 - [Credits](#credits)
 - [License](#license)
@@ -436,35 +369,9 @@ the same length to the hundredth of a second.
 
 #### With Docker
 
-Until you add it, the text to speech panel ends with a short note about it:
-
-![The Did you know? box about Piper at the bottom of the text to speech panel](docs/screenshots/piper-tip.png)
-
-To add it, create a file called `.env` in the Scribecue folder containing:
-
-```
-COMPOSE_PROFILES=piper
-```
-
-Then build and start both containers:
-
-```bash
-docker compose up -d --build
-```
-
-The first build downloads Piper and its voices, about 1 GB in all. After that, Piper has no
-internet access, and only Scribecue's own server can reach it. Reload Scribecue, switch to
-Write mode, and pick a voice from the **Piper** group at the top of the voice menu.
-
-To choose other voices, add a line like this to `.env`, with names from the
-[Piper voice list](https://huggingface.co/rhasspy/piper-voices), then build again:
-
-```
-PIPER_VOICES=en_US-lessac-medium en_GB-jenny_dioco-medium
-```
-
-To stop using Piper, remove the `COMPOSE_PROFILES` line from `.env` and run
-`docker compose down`, then `docker compose up -d`.
+Running Scribecue yourself, Piper can run in a container next to it instead, with four
+English voices built in and others you choose. See
+[Natural-sounding voices](INSTALL.md#natural-sounding-voices-piper) in INSTALL.md.
 
 ### AI help
 
@@ -498,7 +405,7 @@ Connect a provider in the drawer's **Settings**:
 | --- | --- |
 | **Claude** (Anthropic), **OpenAI**, **Gemini** (Google) | Paste an API key from the provider's site. Usage is billed by the provider, separately from any ChatGPT, Claude or Gemini subscription. |
 | **OpenRouter** | Click **Sign in with OpenRouter**: one account for models from OpenAI, Anthropic, Google and more, paid with OpenRouter credit. Or paste an OpenRouter key. |
-| **Ollama** | Runs the model on your own computer, so nothing leaves it. Install [Ollama](https://ollama.com) and pull a model that can see images, such as `gemma3` or `llava`. For the web version, start Ollama with `OLLAMA_ORIGINS=https://scribecue.kyleadvoice.ca` so the page can reach it; with Docker, nothing extra is needed. Or run it [in Docker, next to Scribecue](#ollama-in-docker). |
+| **Ollama** | Runs the model on your own computer, so nothing leaves it. Install [Ollama](https://ollama.com) and pull a model that can see images, such as `gemma3` or `llava`. For the web version, start Ollama with `OLLAMA_ORIGINS=https://scribecue.kyleadvoice.ca` so the page can reach it; with Docker, nothing extra is needed. Or run it [in Docker, next to Scribecue](INSTALL.md#ollama-in-docker). |
 
 Then pick a model (**Load models** lists the provider's), and how many frames a draft
 sends. Keys stay in your browser, either remembered on this computer or kept for this tab
@@ -507,45 +414,6 @@ only, and are only ever sent to their own provider.
 When you send a message or ask for a draft, the frames and the nearby blocks go to the
 provider you chose, under its terms. Don't use an online provider for programmes you
 mustn't share; Ollama keeps everything on your computer.
-
-#### Ollama in Docker
-
-If you run Scribecue with Docker, Ollama can run in a container next to it, with nothing
-installed outside Docker. Add `ollama` to the profiles in `.env`, for example:
-
-```
-COMPOSE_PROFILES=piper,ollama
-```
-
-Then start it and download a model that can see images (about 3 GB for this one):
-
-```bash
-docker compose up -d
-```
-
-```bash
-docker compose exec ollama ollama pull gemma3:4b
-```
-
-In AI help's **Settings**, choose **Ollama** and click **Load models**. The models are kept
-in a Docker volume, so they survive rebuilds. The container uses port 11434 on your own
-computer, the same as the Ollama app, so quit the app if you have it: only one can run.
-
-How fast it is depends on your computer:
-
-- **Mac:** Docker can't use the Mac's graphics chip, so replies take much longer than with
-  the Ollama app (about 25 seconds for a draft on an M-series Mac, against a few seconds).
-  On a Mac, the app is the better choice.
-- **Windows or Linux with an NVIDIA graphics card:** fast. Let the container use the card
-  by adding `COMPOSE_FILE=docker-compose.yml:ollama-gpu.yml` to `.env` (on Windows, use
-  `;` instead of `:`). On Linux this needs the
-  [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html);
-  Docker Desktop on Windows has it built in.
-- **Other computers:** it works on the processor alone, but slowly. Use a small model.
-
-To remove the models later, run `docker compose down`, then
-`docker volume rm sub-editor_ollama-models` (the name starts with your Scribecue folder's
-name; `docker volume ls` lists it).
 
 ## Files with several audio tracks
 
@@ -724,73 +592,13 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
 **The web version** updates itself as you open it. An update that arrives while you're
 working waits until you click **update ready** on the version number, or open Scribecue
 again.
-The rest of this section is for running Scribecue yourself with Docker.
 
-The first time you open Scribecue, its setup asks whether it may check GitHub for updates.
-
-- **Check once a day:** GitHub sees the request and your IP address, like any website
-  visit. Nothing about your files or text blocks is sent.
-- **Don't check:** Scribecue never contacts anything outside your computer.
-
-When a new version is out, an alert drops down at the top of the window with the update
-steps and a link to what's new. **Later** hides it until you next open Scribecue, and
-**Skip this version** hides it until a newer one comes out. The version number in the
-bottom right also turns into **Update available**. Click it at any time to see the steps,
-check now, or change your choice.
-
-To update, run these in the `Scribecue` folder, then reload the page:
-
-```bash
-git pull
-```
-
-```bash
-docker compose up -d --build
-```
-
-If you downloaded a zip instead, download the
-[latest release](https://github.com/kyle95wm/Scribecue/releases/latest), replace the old
-folder with it, and run `docker compose up -d --build` inside it.
-
-Your text blocks and settings are kept, as long as you open Scribecue at the same address
-and port as before.
+**Running it yourself with Docker:** see [Updating](INSTALL.md#updating) in INSTALL.md.
 
 ## Development
 
-The app is plain HTML, CSS and JavaScript with no build step. To run it without Docker:
-
-```bash
-python3 -m http.server -d app 8484
-```
-
-Run the checks before committing, pushing or opening a pull request:
-
-```bash
-scripts/check.sh
-```
-
-This checks the JavaScript syntax, runs the unit tests in `tests/` (SRT and VTT parsing, the
-version check and the waveform reader), then builds the Docker image and checks that it
-serves the app with its security headers. Use `scripts/check.sh --no-docker` to skip the
-Docker part. The same checks run on GitHub for every push and pull request.
-
-To release a new version:
-
-1. Change `VERSION` in [app/js/update.js](app/js/update.js) and in
-   [app/sw.js](app/sw.js) to the new number, for example `0.2.0`. The tests check they
-   match.
-2. Run `scripts/check.sh`, then commit and push.
-3. Publish a GitHub release with the same number. Its notes are what **What's new** links
-   to. The web version on GitHub Pages is published by the "Release X.Y.Z" commit, so name
-   the version commit that way.
-
-   ```bash
-   gh release create v0.2.0 --generate-notes
-   ```
-
-To retake the README screenshots after a visible change, run `scripts/screenshots.sh`. It
-needs ffmpeg, Node, Python 3 and Google Chrome (set `CHROME` to its path if it isn't in
-the usual Mac location), and uses a generated test video, not real programme material.
+The app is plain HTML, CSS and JavaScript with no build step. How to run it, the checks
+to run before committing, and how releases work are in [INSTALL.md](INSTALL.md#development).
 
 ## Credits
 

@@ -2,7 +2,7 @@ name: Publish web app
 
 # Publishes the web version of Scribecue to GitHub Pages with each release, so people
 # using it get releases rather than every change on main. A release starts with a
-# "Release X.Y.Z" commit on main (see the README), which is what triggers this. It runs
+# "Release X.Y.Z" commit on main (see INSTALL.md), which is what triggers this. It runs
 # from main rather than from the release's tag, because the github-pages environment
 # only allows main. It can also be run by hand from the Actions tab.
 on:
