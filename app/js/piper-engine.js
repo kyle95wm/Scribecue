@@ -9,6 +9,9 @@
 // This file doesn't fetch anything itself: it's handed the files' contents, which keeps
 // it testable outside a browser.
 
+// Lines one phonemizer copy reads before a fresh one takes over (see phonemeIds).
+export const PHONEMIZER_RUNS = 40;
+
 // files: { ort, createPhonemize, phonemizeWasm, phonemizeData, ortWasm }
 //   ort: the onnxruntime-web module; createPhonemize: piper_phonemize's factory;
 //   the rest are ArrayBuffers.
@@ -18,20 +21,30 @@ export function createEngine(files) {
   if (files.ortWasm) ort.env.wasm.wasmBinary = files.ortWasm;
   const voices = new Map(); // id -> Promise<{ session, config }>
 
-  // espeak-ng's sounds for the text, as the ids this voice was trained on. One copy of
-  // the phonemizer is kept and run again for each line; it's made afresh if it fails.
-  let phonemizer = null;
+  // espeak-ng's sounds for the text, as the ids this voice was trained on. A copy of the
+  // phonemizer is run again for each line, which saves starting one each time, but it
+  // loses a little of its fixed memory on every run and aborts after about 80. So a
+  // fresh copy takes over every PHONEMIZER_RUNS lines, and after any failure.
+  let phonemizer = null, runs = 0;
   let lines = [];
   const failed = [];
-  const loadPhonemizer = () => (phonemizer ||= files.createPhonemize({
-    print: (line) => lines.push(line),
-    printErr: (line) => failed.push(line),
-    wasmBinary: files.phonemizeWasm,
-    getPreloadedPackage: () => files.phonemizeData,
-    locateFile: (name) => name,
-    noInitialRun: true,
-  }));
-  async function phonemeIds(text, espeakVoice) {
+  const loadPhonemizer = () => {
+    if (runs >= PHONEMIZER_RUNS) phonemizer = null;
+    if (!phonemizer) {
+      runs = 0;
+      phonemizer = files.createPhonemize({
+        print: (line) => lines.push(line),
+        printErr: (line) => failed.push(line),
+        wasmBinary: files.phonemizeWasm,
+        getPreloadedPackage: () => files.phonemizeData,
+        locateFile: (name) => name,
+        noInitialRun: true,
+      });
+    }
+    runs++;
+    return phonemizer;
+  };
+  async function phonemizeOnce(text, espeakVoice) {
     const mod = await loadPhonemizer();
     lines = [];
     failed.length = 0;
@@ -47,6 +60,8 @@ export function createEngine(files) {
     }
     return JSON.parse(lines[0]).phoneme_ids;
   }
+  // A failure is tried once more with a fresh copy, so a worn-out one never stops a job.
+  const phonemeIds = (text, espeakVoice) => phonemizeOnce(text, espeakVoice).catch(() => phonemizeOnce(text, espeakVoice));
 
   return {
     // model: ArrayBuffer of the .onnx file; config: its parsed .onnx.json.
