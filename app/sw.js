@@ -3,7 +3,7 @@
 // scripts never pass through here: they're opened straight from disk.
 // The cache is named after the version, so a new release brings a new copy, and the app
 // asks to reload when it's ready. Keep VERSION in step with app/js/update.js.
-const VERSION = '0.14.1';
+const VERSION = '0.15.0';
 const CACHE = `scribecue-${VERSION}`;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
