@@ -536,7 +536,7 @@ keys are named on each system.
 | `E` `R` | End −/+ 100 ms (with `Shift`: 10 ms) |
 | `,` `.` | Move the block −/+ 100 ms (with `Shift`: 10 ms) |
 | `X` / `M` | Split at the playhead / merge with the next block |
-| `Del` | Delete the block straight away (undo with `Ctrl/Cmd+Z`) |
+| `Del` | Delete the block straight away (undo with `Ctrl/Cmd+Z`). The × at the end of each row in the list does the same for that block |
 | `↑` `↓` or `K` `J` | Previous / next block |
 | `PgUp` `PgDn` | Jump 10 blocks |
 | `G` / `Shift+G` | Playhead to the block's start / end |

@@ -443,15 +443,20 @@ function merge() {
   toast('Merged');
 }
 
-function del() {
-  const c = needSel(); if (!c) return;
-  const i = selIdx();
+// Deletes the selected block, or the one given (the list's × buttons).
+function del(c = needSel()) {
+  if (!c) return;
+  const i = idx(c.id);
+  if (i < 0) return;
+  const wasSel = c.id === S.sel;
   pushUndo();
   S.cues.splice(i, 1);
   changed();
-  const n = S.cues[Math.min(i, S.cues.length - 1)];
-  select(n ? n.id : null, { seek: false });
-  toast(`Deleted cue — ${IS_MAC ? '⌘' : 'Ctrl+'}Z to undo`);
+  if (wasSel) {
+    const n = S.cues[Math.min(i, S.cues.length - 1)];
+    select(n ? n.id : null, { seek: false });
+  }
+  toast(`Deleted block #${i + 1} — ${IS_MAC ? '⌘' : 'Ctrl+'}Z to undo`);
 }
 
 function selectAtPlayhead() {
@@ -777,8 +782,9 @@ listSearch.addEventListener('keydown', (e) => {
 });
 
 function fillRow(r, c, i) {
-  const [n, t, tx] = r.children;
+  const [n, t, tx, x] = r.children;
   n.textContent = i + 1;
+  x.setAttribute('aria-label', `Delete block ${i + 1}`);
   t.children[0].textContent = fmtTime(c.start, '.');
   t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '');
   // Red when the reading is longer than the block.
@@ -805,7 +811,8 @@ function renderList() {
     const r = document.createElement('div');
     r.className = 'row';
     r.dataset.id = c.id;
-    r.innerHTML = '<span class="n"></span><span class="t"><b></b><i></i></span><span class="tx"></span>';
+    r.innerHTML = '<span class="n"></span><span class="t"><b></b><i></i></span><span class="tx"></span>' +
+      '<button class="rowdel" tabindex="-1" data-tip="Delete this block (Del). Ctrl/Cmd+Z brings it back">×</button>';
     fillRow(r, c, i);
     if (c.id === S.sel) r.classList.add('sel');
     if (c.id === S.activeId) r.classList.add('active');
@@ -818,9 +825,12 @@ function renderList() {
 
 list.addEventListener('click', (e) => {
   const r = e.target.closest('.row');
-  if (r) select(+r.dataset.id);
+  if (!r) return;
+  if (e.target.closest('.rowdel')) { e.target.blur(); del(S.cues[idx(+r.dataset.id)]); return; }
+  select(+r.dataset.id);
 });
 list.addEventListener('dblclick', (e) => {
+  if (e.target.closest('.rowdel')) return;
   const r = e.target.closest('.row');
   if (r) { select(+r.dataset.id, { seek: false }); editText(); }
 });

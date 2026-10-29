@@ -288,9 +288,9 @@ textarea:disabled { opacity: 0.5; }
 }
 .listhead, .row {
   display: grid;
-  grid-template-columns: 46px 112px minmax(0, 1fr);
+  grid-template-columns: 46px 112px minmax(0, 1fr) 20px;
   gap: 8px;
-  padding: 0 10px;
+  padding: 0 6px 0 10px;
 }
 .listhead {
   font: 11px var(--mono);
@@ -310,6 +310,22 @@ textarea:disabled { opacity: 0.5; }
   cursor: pointer;
 }
 .row:hover { background: var(--panel2); }
+/* delete button at the end of each row: faint until the row is pointed at */
+.rowdel {
+  align-self: start;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font: 15px/1 var(--sans);
+  color: var(--faint);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.35;
+}
+.row:hover .rowdel, .row.sel .rowdel { opacity: 1; }
+.rowdel:hover { color: var(--bad); border-color: var(--bad); background: rgba(255, 107, 107, 0.12); }
 .row .n { font: 12px var(--mono); color: var(--faint); padding-top: 2px; }
 .row .t { font: 12px var(--mono); display: flex; flex-direction: column; }
 .row .t i { font-style: normal; color: var(--faint); }
