@@ -250,17 +250,18 @@ const piperAudio = () => (piperAudioEl ||= new Audio());
 // uses one processor core, so long jobs such as Fit speeds to timings run several
 // readings at once in extra workers, which close again after a short rest.
 export const LANES = HOSTED ? Math.max(1, Math.min(3, Math.floor((navigator.hardwareConcurrency || 2) / 2))) : 1;
-const pool = []; // { w, asks: Map, idle: timer }
+const pool = []; // { w, asks: Map, queue: [], sent: id, idle: timer }
 let askId = 0;
 // What the site offers and what's downloaded, once the worker has said.
 export const webPiper = { offered: null, engine: 0, engineReady: false, downloaded: [], downloading: null };
 function startWorker() {
-  const p = { w: new Worker(new URL('./piper-worker.js', import.meta.url), { type: 'module' }), asks: new Map(), idle: null };
+  const p = { w: new Worker(new URL('./piper-worker.js', import.meta.url), { type: 'module' }), asks: new Map(), queue: [], sent: 0, idle: null };
   p.w.addEventListener('message', ({ data: m }) => {
     if (m.op === 'progress') { webPiper.downloading = m; if ($('ttsDlg').open) renderWeb(); return; }
     const a = p.asks.get(m.id);
     if (!a) return;
     p.asks.delete(m.id);
+    if (m.id === p.sent) { p.sent = 0; sendNext(p); }
     if (m.ok) a.resolve(m.result); else a.reject(new Error(m.error));
     restLater(p);
   });
@@ -278,7 +279,9 @@ function restLater(p) {
   if (p === pool[0] || p.asks.size) return;
   p.idle = setTimeout(() => { if (!p.asks.size) { p.w.terminate(); pool.splice(pool.indexOf(p), 1); } }, 30000);
 }
-// any: a reading, which can go to whichever worker is least busy.
+// any: a reading for a long job, which can go to whichever worker is least busy. Other
+// readings go to the first worker, which has the voice loaded already (see warmUp).
+// Returns the promise, with .hurry() to move the request to the front of its queue.
 function ask(op, extra = {}, any = false) {
   let p = pool[0] || startWorker();
   if (any) {
@@ -287,10 +290,36 @@ function ask(op, extra = {}, any = false) {
   }
   clearTimeout(p.idle);
   const id = ++askId;
-  return new Promise((resolve, reject) => {
+  const { urgent, ...rest } = extra;
+  const msg = { id, op, ...rest };
+  const promise = new Promise((resolve, reject) => {
     p.asks.set(id, { resolve, reject });
-    p.w.postMessage({ id, op, ...extra });
+    // Checking what's downloaded is answered straight away, alongside any job.
+    if (op === 'status') p.w.postMessage(msg);
+    else { if (urgent) p.queue.unshift(msg); else p.queue.push(msg); sendNext(p); }
   });
+  promise.hurry = () => {
+    const k = p.queue.indexOf(msg);
+    if (k > 0) p.queue.unshift(...p.queue.splice(k, 1));
+  };
+  return promise;
+}
+// The worker gets one job at a time, so whatever is most urgent always goes next.
+function sendNext(p) {
+  if (p.sent || !p.queue.length) return;
+  const msg = p.queue.shift();
+  p.sent = msg.id;
+  p.w.postMessage(msg);
+}
+
+// Loads the chosen Piper voice in the first worker while nothing is waiting on it, so the
+// first block read aloud doesn't wait for the engine and voice to load.
+let warmVoice = '';
+function warmUp() {
+  const v = currentVoice();
+  if (!HOSTED || !tts.on || !v?.piper || warmVoice === v.piper) return;
+  warmVoice = v.piper;
+  ask('warm', { voice: v.piper }).catch(() => { warmVoice = ''; });
 }
 
 async function downloadVoice(voice) {
@@ -364,6 +393,7 @@ export async function loadPiper() {
     voices = allowed();
     hooks.changed();
     if ($('ttsDlg').open) render();
+    warmUp();
     return tts.piper.length;
   }
   try {
@@ -377,12 +407,21 @@ export async function loadPiper() {
   return tts.piper.length;
 }
 
-function piperRead(text, speed, voice = currentVoice()) {
+// how: 'now' for a reading someone is waiting to hear, 'bulk' for one of many in a long
+// job, or 'background' to have it ready.
+const pending = new Map(); // key -> the worker request, while it's queued or running
+function piperRead(text, speed, voice = currentVoice(), how = 'background') {
   const words = spoken(text);
   const key = `${voice.voiceURI}|${speed}|${words}`;
   let p = piperCache.get(key);
+  if (p && how === 'now') pending.get(key)?.hurry();
   if (!p) {
-    const reading = HOSTED ? ask('synthesize', { voice: voice.piper, text: words, speed }, true) : fetch('tts/synthesize', {
+    let reading;
+    if (HOSTED) {
+      reading = ask('synthesize', { voice: voice.piper, text: words, speed, urgent: how === 'now' }, how === 'bulk');
+      pending.set(key, reading);
+      reading.finally(() => pending.delete(key)).catch(() => {});
+    } else reading = fetch('tts/synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // noise_w_scale 0 turns off Piper's random variation in timing, so the same line
@@ -408,9 +447,10 @@ function piperRead(text, speed, voice = currentVoice()) {
 
 // Measure without playing: returns the length in video seconds, or null. With Piper this
 // only makes the reading; with a browser voice it reads silently in real time.
-export function measure(text, speed = tts.speed) {
+// bulk: one of many readings in a long job, which can run several at once.
+export function measure(text, speed = tts.speed, { bulk = false } = {}) {
   if (!spoken(text)) return Promise.resolve(null);
-  if (usingPiper()) return piperRead(text, speed).then((w) => { hooks.changed(); return w.secs; }, () => null);
+  if (usingPiper()) return piperRead(text, speed, currentVoice(), bulk ? 'bulk' : 'background').then((w) => { hooks.changed(); return w.secs; }, () => null);
   return new Promise((done) => speak(text, { silent: true, speed, done }));
 }
 
@@ -430,7 +470,7 @@ export async function renderTrack(blocks, secs, progress = () => {}) {
   for (let k = 0; k < blocks.length; k++) {
     progress(k, blocks.length);
     const b = blocks[k];
-    const w = await piperRead(b.text, b.speed ?? tts.speed, voice);
+    const w = await piperRead(b.text, b.speed ?? tts.speed, voice, 'bulk');
     rate ||= w.rate;
     items.push({ start: b.start, samples: w.samples, secs: w.secs });
   }
@@ -472,7 +512,7 @@ function speakPiper(text, voice, { id, manual, silent, speed, done }) {
     hooks.changed();
     done(secs);
   };
-  piperRead(text, speed, voice).then((w) => {
+  piperRead(text, speed, voice, 'now').then((w) => {
     if (current?.piper !== token) return;
     if (silent) return finish(w.secs);
     const a = piperAudio();
@@ -612,6 +652,7 @@ function render() {
 export function setTtsOption(k, v) {
   tts[k] = v;
   save();
+  warmUp();
   if ($('ttsDlg').open) render();
   hooks.changed();
 }
@@ -633,7 +674,7 @@ export function initTts(h) {
     sp.append(o);
   }
   const d = $('ttsDlg');
-  const set = (k, v) => { tts[k] = v; save(); render(); hooks.changed(); };
+  const set = (k, v) => { tts[k] = v; save(); render(); hooks.changed(); warmUp(); };
   $('ttsOn').addEventListener('change', (e) => { if (!e.target.checked) stop(); set('on', e.target.checked); });
   $('ttsVoice').addEventListener('change', (e) => set('voice', e.target.value));
   sp.addEventListener('change', (e) => set('speed', +e.target.value));

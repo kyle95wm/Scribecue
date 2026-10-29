@@ -1324,7 +1324,7 @@ async function measureAll(blocks, ui) {
     await Promise.all(Array.from({ length: LANES }, async () => {
       while (measuring && next < todo.length) {
         const c = todo[next++];
-        await measure(c.text, c.speed);
+        await measure(c.text, c.speed, { bulk: true });
         ui.bar.value = ++done / todo.length;
         ui.status.textContent = `Making readings: ${done} of ${todo.length}`;
       }
@@ -1419,7 +1419,7 @@ async function fitBlock(c) {
     const at = c.speed ?? tts.speed;
     if (tried.has(at)) break; // back to a speed already read: it's as close as it gets
     tried.add(at);
-    const secs = await measure(c.text, at);
+    const secs = await measure(c.text, at, { bulk: true });
     if (secs == null || Math.abs(secs - target) <= near || at <= MIN_SPEED || at >= MAX_SPEED) break;
   }
 }

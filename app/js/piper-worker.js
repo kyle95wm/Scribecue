@@ -102,20 +102,41 @@ async function synthesize({ voice, text, speed }) {
   return e.synthesize(voice, text, speed);
 }
 
-// One download or reading at a time: the engine has a single thread.
-let queue = Promise.resolve();
+// Loads the engine and a voice ahead of the first reading, which would otherwise wait for it.
+async function warm({ voice }) {
+  await synthesize({ voice, text: '.', speed: 1 }).catch(() => {});
+}
+
+// One download or reading at a time: the engine has a single thread. The page sends one
+// job at a time and keeps the rest in order itself, since a reading holds this thread
+// and requests sent meanwhile would only be seen once it's done.
+const jobs = [];
+let running = false;
+async function pump() {
+  if (running) return;
+  running = true;
+  while (jobs.length) {
+    const { m, run } = jobs.shift();
+    await run().then(
+      (result) => self.postMessage({ id: m.id, ok: true, result }, result instanceof ArrayBuffer ? [result] : []),
+      (err) => self.postMessage({ id: m.id, ok: false, error: String(err?.message || err) }),
+    );
+  }
+  running = false;
+}
 self.addEventListener('message', ({ data: m }) => {
   const run = {
     status: () => status(),
     download: () => download(m.voice, (loaded, total) => self.postMessage({ op: 'progress', voice: m.voice, loaded, total })),
     remove: () => remove(m.voice),
     synthesize: () => synthesize(m),
-  }[m.op];
+    warm: () => warm(m),
+  }[m.op] || (() => Promise.reject(new Error(`unknown request ${m.op}`)));
   // Checking what's downloaded doesn't wait for a download or reading to finish.
-  const job = m.op === 'status' ? run() : queue.then(() => run ? run() : Promise.reject(new Error(`unknown request ${m.op}`)));
-  if (m.op !== 'status') queue = job.catch(() => {});
-  job.then(
-    (result) => self.postMessage({ id: m.id, ok: true, result }, result instanceof ArrayBuffer ? [result] : []),
-    (err) => self.postMessage({ id: m.id, ok: false, error: String(err?.message || err) }),
-  );
+  if (m.op === 'status') {
+    status().then((result) => self.postMessage({ id: m.id, ok: true, result }), (err) => self.postMessage({ id: m.id, ok: false, error: String(err?.message || err) }));
+    return;
+  }
+  jobs.push({ m, run });
+  pump();
 });
