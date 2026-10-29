@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.28.2",
+  "date": "2026-10-29",
+  "notes": "## Only models that work, in AI help\n\n- **Load models** in AI help's settings now only lists models that can look at your frames and write a description. Ones that couldn't help, such as models that only handle text, make pictures, speak, or work in slow batches, are left out, for every provider.\n- For Ollama, models you've downloaded that can't see images aren't listed. If none can, the settings say which one to download."
+ },
+ {
   "version": "0.28.1",
   "date": "2026-10-29",
   "notes": "## The loop, when you need it\n\n- The loop to work in now shows after setup, for the mode you picked, instead of inside the guided tour. The first time you switch to the other mode, its loop shows too.\n- **Show the loop** in the shortcuts overlay (press ?) brings it back any time.\n\n## Also\n\n- Setup's text to speech step now has **Don't read notes in [square brackets]**.\n- AI help has a new guide, [AI.md](https://github.com/kyle95wm/Scribecue/blob/main/AI.md): connecting each provider, which models to use, including Ollama models for each size of computer, and getting the best descriptions. AI help's settings link to it.\n- Drafts with Ollama keep more room for frames and the script around the block, so long requests aren't cut short."
