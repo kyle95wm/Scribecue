@@ -173,3 +173,18 @@ test('sounds like changes only the reading, as whole words in any case', async (
   assert.ok(!hasWord('Niamhs', 'Niamh'));
   assert.ok(!hasWord('anything', '  '));
 });
+
+test('the web version offers its Piper voices in the user’s language first, with their sizes', async () => {
+  const { webPiper, webVoiceChoices, megabytes } = await import('../app/js/tts.js');
+  webPiper.offered = null;
+  assert.deepEqual(webVoiceChoices(), []);
+  webPiper.offered = { 'en_GB-alba-medium': 63201294, 'en_US-lessac-medium': 63201294 };
+  const list = webVoiceChoices();
+  assert.deepEqual(list.map((v) => v.id).sort(), ['en_GB-alba-medium', 'en_US-lessac-medium']);
+  assert.ok(list.every((v) => v.bytes === 63201294 && v.name && v.lang));
+  const lang = (globalThis.navigator?.language || 'en').toLowerCase();
+  if (lang === 'en-us') assert.equal(list[0].id, 'en_US-lessac-medium');
+  if (lang === 'en-gb') assert.equal(list[0].id, 'en_GB-alba-medium');
+  assert.equal(megabytes(63201294), '63 MB');
+  webPiper.offered = null;
+});

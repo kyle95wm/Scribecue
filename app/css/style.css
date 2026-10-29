@@ -873,3 +873,7 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 .keyadd { font-size: 12px; padding: 2px 8px; }
 .keyadd.on { border-color: var(--accent); color: var(--accent); }
 #tourText { white-space: pre-line; }
+#wzWebPiper[hidden] { display: none; }
+#wzWebPiper .dimmed { opacity: 0.5; }
+/* a small "Recommended" label, such as on Piper voices */
+.rec { display: inline-block; margin-left: 6px; padding: 0 6px; font: 600 10px/16px var(--sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--bg); background: var(--ok); border-radius: 8px; vertical-align: middle; }

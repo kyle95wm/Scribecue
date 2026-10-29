@@ -336,8 +336,8 @@ audio file, use a [Piper voice](#piper-voices).
 ### Piper voices
 
 [Piper](https://github.com/OHF-Voice/piper1-gpl) is an open-source speech engine with
-natural-sounding voices. The voices run on your computer, so your script never leaves it,
-and they work offline. In the [web version](#in-the-web-version) Piper runs in your
+natural-sounding voices, and it's the one we recommend for audio description work. The
+voices run on your computer, so your script never leaves it, and they work offline. In the [web version](#in-the-web-version) Piper runs in your
 browser; [with Docker](#with-docker) it runs in a second container, next to the editor.
 
 With a Piper voice:
@@ -358,9 +358,12 @@ Four English voices are offered: Lessac and Ryan (US), and Alba and Alan (UK).
 
 #### In the web version
 
-In Write mode, open the text to speech panel (`Alt+Shift+V`, or `TTS` under the video),
-turn text to speech on, and under **Natural voices** pick a voice and click **Download**. Each voice is about 63 MB.
-The first one also brings the speech engine, about 33 MB, which all the voices share.
+Setup offers one: in its text to speech step, tick **Download a natural-sounding Piper
+voice** and pick a voice, and it downloads in the background when you finish. Or, any
+time in Write mode, open the text to speech panel (`Alt+Shift+V`, or `TTS` under the
+video), turn text to speech on, and under **Natural voices** pick a voice and click
+**Download**. Each voice is about 63 MB. The first one also brings the speech engine,
+about 33 MB, which all the voices share.
 Once it's downloaded, the voice is chosen for you and works offline. The files come from
 Scribecue's own site and stay in your browser; to free the space, pick the voice and click
 **Remove**.

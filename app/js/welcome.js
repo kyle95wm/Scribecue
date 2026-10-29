@@ -3,7 +3,7 @@
 // used, and the Setup button at the top runs it again. Choices take effect only when
 // Finish is pressed, so skipping changes nothing.
 
-import { tts, SPEEDS, fillVoiceSelect, chosenVoice, setTtsOption, loadPiper } from './tts.js';
+import { tts, SPEEDS, fillVoiceSelect, chosenVoice, setTtsOption, loadPiper, webPiper, webVoiceChoices, downloadVoice, megabytes } from './tts.js';
 import { updateChoice, setUpdateChoice } from './update.js';
 import { HOSTED } from './config.js';
 
@@ -38,6 +38,9 @@ function summarise() {
     if ($('wzTts').checked) {
       const v = $('wzVoice').selectedOptions[0]?.textContent || 'the default voice';
       lines.push(`Text to speech on, with ${v} at ${$('wzSpeed').selectedOptions[0].textContent} speed`);
+      if (!$('wzWebPiper').hidden && $('wzPiperGet').checked) {
+        lines.push(`Downloads the ${$('wzPiperVoice').selectedOptions[0].textContent} Piper voice when you finish, and uses it once it’s ready`);
+      }
     } else lines.push('Text to speech off');
   }
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
@@ -62,8 +65,14 @@ function finish() {
   }
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
   if (u === '1' || u === '0') setUpdateChoice(u === '1');
+  const piper = $('wzTts').checked && !$('wzWebPiper').hidden && $('wzPiperGet').checked ? $('wzPiperVoice').value : '';
   finished = true;
   $('welcome').close();
+  if (m === 'write' && piper) {
+    downloadVoice(piper); // chosen once it's downloaded; its progress is in the text to speech panel
+    hooks.toast(`All set for writing. Downloading the Piper voice; it’s chosen once it’s ready, and you can carry on meanwhile`);
+    return;
+  }
   hooks.toast(m === 'write'
     ? `All set for writing.${$('wzTts').checked ? ' Press V to hear a block.' : ''} Setup at the top runs this again`
     : 'All set for transcribing. Hold H while the narrator speaks. Setup at the top runs this again');
@@ -80,6 +89,7 @@ export function openWelcome() {
   $('wzSpeed').value = String(tts.speed);
   $('wzLive').checked = tts.live;
   $('wzAuto').checked = tts.autoEnd;
+  $('wzPiperGet').checked = false; // a large download: only when asked for
 
   const u = updateChoice();
   for (const r of document.querySelectorAll('input[name=wzUpd]')) r.checked = r.value === u;
@@ -90,11 +100,28 @@ export function openWelcome() {
   show();
 }
 
+// The web version can download a Piper voice into the browser, so setup offers one,
+// unless there's one already. It's a large download, so it waits to be asked for.
+function webPiperOffer() {
+  const choices = HOSTED && !tts.piper.length && !webPiper.downloading ? webVoiceChoices() : [];
+  $('wzWebPiper').hidden = !choices.length;
+  if (!choices.length) return;
+  const sel = $('wzPiperVoice'), keep = sel.value;
+  if (!sel.options.length) for (const v of choices) sel.add(new Option(`${v.name} (${v.lang})`, v.id));
+  if (keep) sel.value = keep;
+  const v = choices.find((c) => c.id === sel.value) || choices[0];
+  $('wzPiperSize').textContent = `${megabytes(v.bytes)} to download${webPiper.engineReady ? '' : `, plus ${megabytes(webPiper.engine)} for the speech engine the first time`}. It downloads when you finish, and you can carry on meanwhile; then it works offline. Lengths are exact with it, and you can export a description track.`;
+  $('wzPiperVoice').disabled = !$('wzPiperGet').checked;
+  for (const el of [$('wzPiperVoice').parentElement, $('wzPiperSize')]) el.classList.toggle('dimmed', !$('wzPiperGet').checked);
+}
+
 function piperNote() {
+  webPiperOffer();
+  $('wzPiper').hidden = !$('wzWebPiper').hidden; // the offer says it instead
   $('wzPiper').textContent = tts.piper.length
-    ? `Piper voices are available: they sound natural, give exact lengths and can be exported as a description track.`
+    ? `Piper voices are available, and recommended: they sound natural, give exact lengths and can be exported as a description track.`
     : HOSTED ? 'Tip: for natural-sounding voices, download a Piper voice later in the text to speech panel.'
-      : 'Tip: for natural-sounding voices that run on your computer, add Piper later (see INSTALL.md).';
+      : 'Recommended: for natural-sounding voices that run on your computer, with exact lengths, add Piper (see INSTALL.md).';
 }
 
 // onClose(finished) runs whenever the wizard closes, finished or skipped.
@@ -107,6 +134,8 @@ export function initWelcome(h, onClose = () => {}) {
   $('wzBack').addEventListener('click', () => { step--; show(); });
   $('wzSkip').addEventListener('click', () => d.close());
   $('wzTts').addEventListener('change', show);
+  $('wzPiperGet').addEventListener('change', webPiperOffer);
+  $('wzPiperVoice').addEventListener('change', webPiperOffer);
   for (const r of document.querySelectorAll('input[name=wzMode]')) r.addEventListener('change', show);
   d.addEventListener('close', () => {
     try { localStorage.setItem(KEY, '1'); } catch { /* ignore */ }

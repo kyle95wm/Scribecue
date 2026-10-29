@@ -348,7 +348,16 @@ function warmUp() {
   ask('warm', { voice: v.piper }).catch(() => { warmVoice = ''; });
 }
 
-async function downloadVoice(voice) {
+// The Piper voices the web version offers, the user's language first:
+// [{ id, name, lang, bytes }], or [] before the list has loaded.
+export function webVoiceChoices() {
+  if (!webPiper.offered) return [];
+  return pickVoices(piperVoiceList(webPiper.offered), { lang: navigator.language || 'en' })
+    .map((v) => ({ id: v.piper, name: v.name, lang: v.lang, bytes: webPiper.offered[v.piper] }));
+}
+export const megabytes = (bytes) => `${Math.round(bytes / 1e6)} MB`;
+
+export async function downloadVoice(voice) {
   webPiper.downloading = { voice, loaded: 0, total: 0 };
   renderWeb();
   // Ask the browser to keep the voices when space runs low, rather than clearing them.

@@ -245,6 +245,11 @@ docker compose up -d --build</code></pre>
           <label for="wzSpeed">Speed</label><select id="wzSpeed"></select>
         </div>
         <p id="wzPiper" class="dim small"></p>
+        <div id="wzWebPiper" hidden>
+          <label class="updopt"><input type="checkbox" id="wzPiperGet"> Download a natural-sounding Piper voice <span class="rec">Recommended</span></label>
+          <div class="ttsgrid"><label for="wzPiperVoice">Piper voice</label><select id="wzPiperVoice"></select></div>
+          <p id="wzPiperSize" class="dim small"></p>
+        </div>
         <label class="updopt"><input type="checkbox" id="wzLive"> Read blocks aloud while playing</label>
         <label class="updopt"><input type="checkbox" id="wzAuto"> Set the end of new blocks from the reading as you type</label>
       </div>
@@ -380,7 +385,7 @@ docker compose up -d --build</code></pre>
       <p id="ttsNoVoices" class="warnbox" hidden></p>
       <p id="ttsPiperNote" class="dim small"></p>
       <section id="ttsWeb" hidden>
-        <h3>Natural voices</h3>
+        <h3>Natural voices <span class="rec">Recommended</span></h3>
         <p class="small">Piper voices sound more natural, give exact lengths straight away, and let you export
           a description track. They run in your browser, so your script stays on your computer. Each voice is
           a one-time download, and then it works offline too.</p>
@@ -448,7 +453,7 @@ docker compose up -d --build</code></pre>
         <kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd> this panel</p>
     </div>
     <aside id="ttsTip" class="tipbox" hidden>
-      <strong>Did you know?</strong>
+      <strong>Did you know?</strong> <span class="rec">Recommended</span>
       <p>Scribecue can use <strong>Piper</strong>, a free, open-source speech engine that runs next to it in Docker.
         Its voices sound much more natural, stay on your computer, and work offline. With a Piper voice, reading
         lengths are exact straight away, and you can export a description track as a WAV file.</p>
