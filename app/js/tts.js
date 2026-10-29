@@ -596,10 +596,9 @@ export function initTts(h) {
     if (!e.target.checked && currentVoice() && !currentVoice().localService) { stop(); tts.voice = ''; }
     set('online', e.target.checked);
   });
-  $('ttsTry').addEventListener('click', () => {
-    const text = hooks.sample?.() || 'A pale blue streak cuts diagonally through the darkness.';
-    speak(text);
-  });
+  const SAMPLE = 'A pale blue streak cuts diagonally through the darkness.';
+  $('ttsTest').addEventListener('click', () => speak(SAMPLE));
+  $('ttsTry').addEventListener('click', () => speak(hooks.sample?.() || SAMPLE));
   $('ttsWebVoice').addEventListener('change', renderWeb);
   $('ttsWebGet').addEventListener('click', () => {
     const v = $('ttsWebVoice').value;
