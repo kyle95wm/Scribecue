@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.29.3",
+  "date": "2026-10-29",
+  "notes": "## Fix\n\n- **Install app** in the bottom right now only shows when your browser can install Scribecue. It used to show everywhere, including when Scribecue was already installed and in the Docker version, where clicking it did nothing."
+ },
+ {
   "version": "0.29.2",
   "date": "2026-10-29",
   "notes": "## Firefox\n\n- In Firefox, the notice when Scribecue opens now also says what doesn't work well there: a file's description track can stutter or cut out, and speech to text can interrupt the video's sound. If you turned the notice off, it shows once more with the new list.\n- The speech to text panel says so too. Both work best in Chrome or Edge."
