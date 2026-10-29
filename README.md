@@ -277,6 +277,12 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   files, as notes that other programs ignore. SRT files can't store them.
 - **Read blocks aloud while playing:** each block is read as the playhead reaches it,
   with the original audio turned down. You can turn either part off.
+- **Opening a script:** when you open an SRT or VTT script in Write mode with text to
+  speech on, Scribecue asks what to do with its timings: keep them and fit the reading
+  speeds, change the ends to match the readings, or leave everything as it is. Tick
+  **Always do this** to stop it asking, and change your choice later under **When you open
+  a script** in the text to speech panel. Either change can be undone. Opening a Scribecue
+  project doesn't ask.
 - **Fit speeds to timings:** the opposite of Update all timings, for a script whose
   timing is already right, such as one opened from a file. Every block keeps its timing,
   and its reading speeds up or slows down to fill it, within −50% to +100%. Blocks with a

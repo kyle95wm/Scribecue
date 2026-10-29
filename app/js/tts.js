@@ -148,7 +148,7 @@ export function spoken(text, skipNotes = tts.skipNotes) {
 export const onlyNotes = (text) => !spoken(text) && !!spoken(text, false);
 
 const KEY = 'scribecue.tts';
-const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, online: false, cps: {} };
+const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', online: false, cps: {} };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -162,8 +162,8 @@ tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
 if (!isSpeed(tts.speed)) tts.speed = 1;
 
 const save = () => {
-  const { on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, online, cps } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, online, cps })); } catch { /* ignore */ }
+  const { on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, onImport, online, cps } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, onImport, online, cps })); } catch { /* ignore */ }
 };
 
 let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1 };
@@ -444,6 +444,7 @@ function render() {
   $('ttsAuto').checked = tts.autoEnd;
   $('ttsNotes').checked = tts.skipNotes;
   $('ttsFit').checked = tts.fitSpeed;
+  $('ttsImport').value = tts.onImport;
   $('ttsOnline').checked = tts.online;
   fillVoices();
 }
@@ -482,6 +483,7 @@ export function initTts(h) {
   $('ttsAuto').addEventListener('change', (e) => set('autoEnd', e.target.checked));
   $('ttsNotes').addEventListener('change', (e) => set('skipNotes', e.target.checked));
   $('ttsFit').addEventListener('change', (e) => set('fitSpeed', e.target.checked));
+  $('ttsImport').addEventListener('change', (e) => set('onImport', e.target.value));
   $('ttsOnline').addEventListener('change', (e) => {
     // Turning online voices off also drops an online voice that was chosen.
     if (!e.target.checked && currentVoice() && !currentVoice().localService) { stop(); tts.voice = ''; }

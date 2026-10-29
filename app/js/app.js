@@ -1321,7 +1321,8 @@ async function measureAll(blocks, ui) {
   return done;
 }
 
-async function updateAllTimings() {
+// ask: false when the choice was already made, as when opening a script.
+async function updateAllTimings(ask = true) {
   const blocks = S.cues.filter((c) => spoken(c.text));
   if (!blocks.length) return (ttsAllStatus.textContent = 'There are no blocks with text yet.');
   // Piper makes exact lengths quickly, so it always measures. Browser voices only do
@@ -1333,7 +1334,7 @@ async function updateAllTimings() {
     }
   }
   const n = blocks.length;
-  if (!confirm(`Update the end of ${n} block${n > 1 ? 's' : ''} from the reading? This also changes blocks marked with H or opened from a file. You can undo it.`)) {
+  if (ask && !confirm(`Update the end of ${n} block${n > 1 ? 's' : ''} from the reading? This also changes blocks marked with H or opened from a file. You can undo it.`)) {
     return (ttsAllStatus.textContent = '');
   }
   pushUndo();
@@ -1356,20 +1357,20 @@ async function updateAllTimings() {
   ttsAllStatus.textContent = msg;
   toast(msg);
 }
-ttsAll.addEventListener('click', updateAllTimings);
+ttsAll.addEventListener('click', () => updateAllTimings());
 
 // Fit speeds to timings, the other way round: every block keeps its timing, and its
 // reading speed changes so the reading fills it, as when a block is resized. Speeds
 // picked by hand are left alone. One undo step.
 const ttsFitAll = $('ttsFitAll'), ttsFitStop = $('ttsFitStop'), ttsFitStatus = $('ttsFitStatus'), ttsFitBar = $('ttsFitBar');
-async function fitAllSpeeds() {
+async function fitAllSpeeds(ask = true) {
   const blocks = S.cues.filter((c) => spoken(c.text) && !c.pinned);
   const kept = S.cues.filter((c) => spoken(c.text) && c.pinned).length;
   if (!blocks.length) {
     return (ttsFitStatus.textContent = kept ? 'Every block with text has a speed you picked, so there’s nothing to fit.' : 'There are no blocks with text yet.');
   }
   const n = blocks.length;
-  if (!confirm(`Change the reading speed of ${n} block${n > 1 ? 's' : ''} so each reading fills its block? Their timings stay as they are${kept ? `, and ${kept === 1 ? '1 block with a speed you picked keeps it' : `${kept} blocks with a speed you picked keep theirs`}` : ''}. You can undo it.`)) return;
+  if (ask && !confirm(`Change the reading speed of ${n} block${n > 1 ? 's' : ''} so each reading fills its block? Their timings stay as they are${kept ? `, and ${kept === 1 ? '1 block with a speed you picked keeps it' : `${kept} blocks with a speed you picked keep theirs`}` : ''}. You can undo it.`)) return;
   pushUndo();
   // Marked fit, the speeds follow each block's length from here on, including as
   // readings are measured below.
@@ -1400,7 +1401,37 @@ async function fitAllSpeeds() {
   ttsFitStatus.textContent = msg;
   toast(msg);
 }
-ttsFitAll.addEventListener('click', fitAllSpeeds);
+ttsFitAll.addEventListener('click', () => fitAllSpeeds());
+
+// Opening a script in Write mode with text to speech on: ask what to do with its
+// timings, or do what was chosen before. The panel opens so the progress shows.
+const importDlg = $('importDlg');
+function runImportChoice(choice) {
+  if (choice !== 'fit' && choice !== 'ends') return;
+  openTts();
+  const go = choice === 'fit' ? ttsFitAll : ttsAll;
+  go.scrollIntoView({ block: 'center' });
+  choice === 'fit' ? fitAllSpeeds(false) : updateAllTimings(false);
+}
+function afterImport(name) {
+  if (!ttsOn() || !S.cues.some((c) => spoken(c.text))) return;
+  if (tts.onImport !== 'ask') return runImportChoice(tts.onImport);
+  const n = S.cues.length;
+  $('impWhat').textContent = `${name} has ${n} block${n > 1 ? 's' : ''} with timings of ${n > 1 ? 'their' : 'its'} own.`;
+  $('impAlways').checked = false;
+  importDlg.showModal();
+  importDlg.querySelector('.wzchoice').focus();
+}
+for (const b of importDlg.querySelectorAll('.wzchoice')) {
+  b.addEventListener('click', () => {
+    const choice = b.dataset.choice;
+    if ($('impAlways').checked) setTtsOption('onImport', choice);
+    importDlg.close();
+    runImportChoice(choice);
+  });
+}
+importDlg.addEventListener('click', (e) => { if (e.target === importDlg) importDlg.close(); });
+document.addEventListener('keydown', (e) => { if (importDlg.open) e.stopPropagation(); }, true);
 ttsFitStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
 
 // Export description track: every block's Piper reading in one WAV file, each at its
@@ -1804,6 +1835,7 @@ async function loadSubsFile(file) {
   showDocName();
   select(S.cues[0].id);
   toast(`Loaded ${parsed.length} cues from ${file.name}${undoStack.length > 1 ? ' — undo restores previous' : ''}`);
+  afterImport(file.name);
 }
 
 let videoURL = null;

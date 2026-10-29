@@ -130,6 +130,20 @@ docker compose up -d --build</code></pre>
     </div>
   </div>
 
+  <dialog id="importDlg" class="updbox wizard" aria-labelledby="impTitle">
+    <h2 id="impTitle">What should happen to this script's timings?</h2>
+    <p id="impWhat"></p>
+    <button class="wzcard wzchoice" data-choice="fit"><span><strong>Keep the timings, and fit the reading speeds</strong>
+      <span class="dim">Each line speeds up or slows down to fill its block. Best when the timing is already right.</span></span></button>
+    <button class="wzcard wzchoice" data-choice="ends"><span><strong>Change the ends to match the readings</strong>
+      <span class="dim">Each block ends where its reading finishes, at your chosen speed, never running into the next block.</span></span></button>
+    <button class="wzcard wzchoice" data-choice="leave"><span><strong>Leave everything as it is</strong>
+      <span class="dim">Lines that don't fit show their duration in red, so you can deal with them one by one.</span></span></button>
+    <label class="updopt"><input type="checkbox" id="impAlways"> Always do this when I open a script</label>
+    <p class="dim small">You can undo either change with <kbd><span class="mod"></span>Z</kbd>, and change this in the
+      text to speech panel.</p>
+  </dialog>
+
   <dialog id="welcome" class="updbox wizard" aria-labelledby="wzTitle">
     <div class="wzhead"><span id="wzStep" class="dim small"></span><button id="wzSkip" class="link">Skip setup</button></div>
     <section data-step="welcome">
@@ -222,6 +236,15 @@ docker compose up -d --build</code></pre>
       <label class="updopt"><input type="checkbox" id="ttsFit"> Change a block's reading speed when you resize it</label>
       <p class="dim small">Drag an edge, or use A, S, Q, W, E or R, and the reading speeds up or slows down to fill the
         block, shown as a custom speed. Picking a speed for the block yourself stops this.</p>
+      <div class="ttsgrid">
+        <label for="ttsImport">When you open a script</label>
+        <select id="ttsImport">
+          <option value="ask">Ask what to do with its timings</option>
+          <option value="fit">Keep its timings and fit the reading speeds</option>
+          <option value="ends">Change its ends to match the readings</option>
+          <option value="leave">Leave it as it is</option>
+        </select>
+      </div>
       <h3>Update all timings</h3>
       <p class="small">Set the end of every block from how long its reading takes, with each block's own
         speed. This includes blocks marked with H and blocks opened from a file. Ends never run into the
