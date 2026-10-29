@@ -126,11 +126,26 @@ function choose(on) {
 
 // The web version updates itself: a service worker keeps the app's files for offline use,
 // and when a newer copy has been fetched, an alert offers to reload into it.
-function initWebApp() {
+// How soon after opening an update may be used without asking.
+const STARTUP_MS = 20000;
+
+function initWebApp(opts = {}) {
   const btn = $('verBtn');
   btn.textContent = `v${VERSION}`;
-  btn.dataset.tip = 'The web version of Scribecue updates itself. You\'ll be asked to reload when a new version is ready';
-  btn.addEventListener('click', (e) => { e.currentTarget.blur(); toast(`Scribecue ${VERSION}, the web version. It updates itself, and asks you to reload when a new version is ready`); });
+  const idle = opts.idle || (() => false);
+  const plain = () => {
+    btn.textContent = `v${VERSION}`;
+    btn.classList.remove('on');
+    btn.dataset.tip = 'The web version of Scribecue updates itself';
+  };
+  plain();
+  let waiting = null, wantReload = false;
+  const apply = () => { if (!waiting) return; wantReload = true; waiting.postMessage('update'); };
+  btn.addEventListener('click', (e) => {
+    e.currentTarget.blur();
+    if (!waiting) return toast(`Scribecue ${VERSION}, the web version. It updates itself`);
+    if (idle() || confirm('Update Scribecue now? The page reloads. Your blocks, notes and settings are kept, but you’ll need to open the video again.')) apply();
+  });
   // Install button, when the browser offers it.
   let offer = null;
   const install = $('installBtn');
@@ -138,9 +153,18 @@ function initWebApp() {
   window.addEventListener('appinstalled', () => { install.hidden = true; offer = null; toast('Scribecue is installed. Open it from your apps, like any other'); });
   install.addEventListener('click', async () => { install.blur(); if (!offer) return; offer.prompt(); await offer.userChoice; offer = null; install.hidden = true; });
   if (!('serviceWorker' in navigator)) return;
-  const alert = $('webAlert');
-  let waiting = null;
-  const ready = (w) => { waiting = w; alert.hidden = false; };
+  // A new version that's found as Scribecue opens, before anything's been started, is
+  // used straight away: the reload is over before there's anything to lose. Otherwise it
+  // waits without interrupting, and the version number says so, until it's clicked or
+  // Scribecue is next opened.
+  const opened = Date.now();
+  const ready = (w) => {
+    waiting = w;
+    if (Date.now() - opened < STARTUP_MS && idle()) return apply();
+    btn.textContent = `v${VERSION} · update ready`;
+    btn.classList.add('on');
+    btn.dataset.tip = 'A new version is ready. Click to update now, or it’s used the next time you open Scribecue';
+  };
   navigator.serviceWorker.register('sw.js').then((reg) => {
     if (reg.waiting && navigator.serviceWorker.controller) ready(reg.waiting);
     reg.addEventListener('updatefound', () => {
@@ -152,16 +176,13 @@ function initWebApp() {
   }).catch(() => {});
   // Reload only when asked to. The first visit also changes controller, as the offline
   // copy takes over, and reloading then would lose the first-run setup.
-  let wantReload = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (wantReload) { wantReload = false; location.reload(); } });
-  $('webAlertReload').addEventListener('click', () => { wantReload = true; waiting?.postMessage('update'); });
-  $('webAlertLater').addEventListener('click', () => { alert.hidden = true; });
 }
 
 // ask: false leaves the first-run question to the welcome wizard.
 export function initUpdates(opts = {}) {
   toast = opts.toast || toast;
-  if (HOSTED) return initWebApp();
+  if (HOSTED) return initWebApp(opts);
   const d = dlg();
   $('verBtn').addEventListener('click', (e) => { e.currentTarget.blur(); openUpdates(); });
   $('updAlertLater').addEventListener('click', () => { later = true; render(); });

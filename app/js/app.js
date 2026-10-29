@@ -2761,7 +2761,15 @@ if (restored) {
   toast('Ready. Press ? for keyboard shortcuts.');
 }
 // A new user's first-run questions, update checks included, are in the welcome wizard.
-initUpdates({ toast, ask: !FIRST_RUN });
+initUpdates({
+  toast,
+  ask: !FIRST_RUN,
+  // Nothing would be lost by reloading for an update: the autosave brings the blocks back,
+  // so it's enough that no video is open (it would have to be opened again), no job is
+  // running, and nobody is typing or in a dialog.
+  idle: () => !S.hasVideo && !measuring && !document.querySelector('dialog[open]')
+    && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName),
+});
 initTts({
   toast,
   rate: () => S.rate,

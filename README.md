@@ -23,7 +23,10 @@
 
 That's all. A short setup asks what you're working on and turns on the tools for it.
 
-The web version updates itself. When a new version is ready, it asks you to reload. Your
+The web version updates itself, usually without you noticing: a new version is used as you
+open Scribecue. If one arrives while you're working, it waits, and the version number in
+the bottom right says **update ready**; click it to update then, or it's used the next time
+you open Scribecue. Your
 video, audio and scripts are opened straight from your computer and never uploaded:
 only the app itself is downloaded, from GitHub, the first time and when it updates.
 [Piper voices](#piper-voices) work in the web version too: download one from the text to
@@ -701,7 +704,9 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
 
 ## Updating
 
-**The web version** updates itself: when a new version is ready, it asks you to reload.
+**The web version** updates itself as you open it. An update that arrives while you're
+working waits until you click **update ready** on the version number, or open Scribecue
+again.
 The rest of this section is for running Scribecue yourself with Docker.
 
 The first time you open Scribecue, its setup asks whether it may check GitHub for updates.
