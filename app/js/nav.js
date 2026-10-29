@@ -1,0 +1,16 @@
+// Previous and next block from the playhead, like a media player's buttons: going back
+// first returns to the start of the block being played, and only goes to the block
+// before it when the playhead is already at that start. While playing, "at the start"
+// allows a second, so pressing twice quickly still steps back a block.
+
+export const BACK_GRACE = 1; // seconds into a block, while playing
+const AT = 0.05; // paused: this close to a start counts as at it
+
+// cues: sorted by start. Returns the index to go to, or -1 when there's nothing that way.
+export function blockFromPlayhead(cues, t, d, playing = false) {
+  if (!cues.length) return -1;
+  if (d > 0) return cues.findIndex((c) => c.start > t + AT);
+  const cur = cues.findLastIndex((c) => c.start <= t + AT);
+  if (cur < 0) return -1;
+  return t - cues[cur].start > (playing ? BACK_GRACE : AT) ? cur : cur - 1;
+}

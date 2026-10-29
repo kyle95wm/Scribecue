@@ -215,7 +215,8 @@ as you go too, so reloading the page doesn't lose anything.
 | Play or pause | `Space` |
 | Move one frame back or forward | `←` `→` |
 | Move 3 seconds back or forward | `Shift+←` `Shift+→` |
-| Go to the previous or next block | `Alt+Shift+←` `Alt+Shift+→`, or `↑` `↓` |
+| Go back to the start of the block you're in, or on to the next one | `Alt+Shift+←` `Alt+Shift+→`. At a block's start, `Alt+Shift+←` goes to the previous block; while playing, pressing it twice quickly does the same |
+| Step through the list | `↑` `↓`, from the selected block |
 | Go to the start or end of the selected block | `G` / `Shift+G` |
 | Go to the beginning or end of the video | `Home` / `End` (`Fn+←` / `Fn+→` on Mac laptops) |
 | Go to a time | `Alt+Shift+J`, then type it, such as `1:23.5` |
@@ -579,7 +580,7 @@ keys are named on each system.
 | `Space` | Play / pause |
 | `←` `→` | One frame back / forward |
 | `Shift+←` `Shift+→` | Three seconds back / forward |
-| `Alt+Shift+←` `Alt+Shift+→` | Previous / next block |
+| `Alt+Shift+←` `Alt+Shift+→` | Start of the block you're in, then the previous block / the next block, from the playhead |
 | `Home` `End` | Beginning / end of the video (`Fn+←` `Fn+→` on Mac laptops) |
 | `Alt+Shift+J` | Jump to a timecode (`hh:mm:ss.mmm`, `hh:mm:ss:ff`, `mm:ss` or seconds) |
 | `Shift+F` | Quick navigation: find a block by text or number |

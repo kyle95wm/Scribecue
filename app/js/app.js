@@ -5,6 +5,7 @@ import { initAi, toggleAi, aiNotesChanged } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, supported, missingFeatures } from './browser.js';
+import { blockFromPlayhead } from './nav.js';
 import { VERSION } from './update.js';
 import { MIN_SPEED, MAX_SPEED } from './tts.js';
 import { soundsLike, hasWord } from './tts.js';
@@ -319,6 +320,15 @@ function selectRel(d) {
   }
   select(S.cues[i].id);
 }
+// ⌥⇧← ⌥⇧→ and the buttons under the video: previous / next block from the playhead
+// (see nav.js). ↑ ↓ step through the list from the selected block instead.
+function playheadBlock(d) {
+  if (!S.cues.length) return toast('No text blocks yet — press Enter to create one');
+  const i = blockFromPlayhead(S.cues, now(), d, isPlaying());
+  if (i < 0) return toast(d < 0 ? 'No text block before the playhead' : 'No text block after the playhead');
+  select(S.cues[i].id);
+}
+
 function cueAt(t) {
   // last cue starting at or before t that still covers t
   let lo = 0, hi = S.cues.length - 1, found = -1;
@@ -1222,13 +1232,13 @@ function updateInd() {
 // Player controls under the video: each button does what its key does.
 const ctrls = $('ctrls');
 const CTL = {
-  prevBlock: () => selectRel(-1),
+  prevBlock: () => playheadBlock(-1),
   back3: () => seekBy(-3),
   backFrame: () => seekBy(-FRAME),
   play: () => togglePlay(),
   fwdFrame: () => seekBy(FRAME),
   fwd3: () => seekBy(3),
-  nextBlock: () => selectRel(1),
+  nextBlock: () => playheadBlock(1),
   playBlock: () => playCue(),
   loop: () => loopBlock(),
 };
@@ -2591,8 +2601,8 @@ document.addEventListener('keydown', (e) => {
     stepBlockSpeed(e.key === '[' ? -1 : 1);
   } else if (alt && sh) {
     switch (e.code) {
-      case 'ArrowLeft': selectRel(-1); break;
-      case 'ArrowRight': selectRel(1); break;
+      case 'ArrowLeft': playheadBlock(-1); break;
+      case 'ArrowRight': playheadBlock(1); break;
       case 'KeyJ': openPalette('time'); break;
       case 'KeyD': confirmDelete(); break;
       case 'KeyP': openSay(); break;

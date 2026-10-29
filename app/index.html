@@ -86,13 +86,13 @@
         <span class="dim">/</span>
         <span class="clock dim" id="durEl">00:00:00.000</span>
         <span class="ctrls" id="ctrls" role="toolbar" aria-label="Player controls">
-          <button data-ctl="prevBlock" aria-label="Previous block (⌥⇧←)" data-tip="Previous block (⌥⇧←)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h2v10H3zM13 3v10L6 8z"/></svg></button>
+          <button data-ctl="prevBlock" aria-label="Start of this block, or the previous one (⌥⇧←)" data-tip="Back to the start of the block you're in; at its start, the previous block (⌥⇧←)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h2v10H3zM13 3v10L6 8z"/></svg></button>
           <button data-ctl="back3" aria-label="Back 3 seconds (⇧←)" data-tip="Back 3 seconds (⇧←)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10L1 8zM15 3v10L8 8z"/></svg></button>
           <button data-ctl="backFrame" aria-label="Back one frame (←)" data-tip="Back one frame (←)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 3v10L4 8zM2 3h2v10H2z" opacity=".55"/><path d="M11 3v10L4 8z"/></svg></button>
           <button data-ctl="play" class="big" aria-label="Play / pause (Space)" data-tip="Play / pause (Space)"><svg viewBox="0 0 16 16" aria-hidden="true"><path class="i-play" d="M4 2.5v11L13.5 8z"/><path class="i-pause" d="M3.5 2.5h3.2v11H3.5zM9.3 2.5h3.2v11H9.3z"/></svg></button>
           <button data-ctl="fwdFrame" aria-label="Forward one frame (→)" data-tip="Forward one frame (→)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3v10l7-5z"/><path d="M12 3h2v10h-2z" opacity=".55"/></svg></button>
           <button data-ctl="fwd3" aria-label="Forward 3 seconds (⇧→)" data-tip="Forward 3 seconds (⇧→)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 3v10l7-5zM8 3v10l7-5z"/></svg></button>
-          <button data-ctl="nextBlock" aria-label="Next block (⌥⇧→)" data-tip="Next block (⌥⇧→)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3v10l7-5zM11 3h2v10h-2z"/></svg></button>
+          <button data-ctl="nextBlock" aria-label="Next block (⌥⇧→)" data-tip="Next block after the playhead (⌥⇧→)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3v10l7-5zM11 3h2v10h-2z"/></svg></button>
           <span class="ctrlsep"></span>
           <button data-ctl="playBlock" aria-label="Play the selected block (⇧Space)" data-tip="Play just the selected block (⇧Space)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 2h1.6v12H1.5zM12.9 2h1.6v12h-1.6zM5.5 4.5v7L11 8z"/></svg></button>
           <button data-ctl="loop" aria-label="Loop this block (L)" data-tip="Loop the block under the playhead (L). Click again to stop, or it stops when you finish editing"><svg class="stroke" viewBox="0 0 16 16" aria-hidden="true" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 9V7.5A2.5 2.5 0 0 1 5 5h8"/><path d="M11 3l2 2-2 2"/><path d="M13.5 7v1.5A2.5 2.5 0 0 1 11 11H3"/><path d="M5 13l-2-2 2-2"/></svg></button>
@@ -480,7 +480,7 @@ docker compose up -d --build</code></pre>
             <dt><kbd>Space</kbd></dt><dd>Start / stop video</dd>
             <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>One frame back / forward</dd>
             <dt><kbd>⇧</kbd><kbd>←</kbd> <kbd>⇧</kbd><kbd>→</kbd></dt><dd>Three seconds back / forward</dd>
-            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>←</kbd> <kbd>→</kbd></dt><dd>Previous / next text block</dd>
+            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>←</kbd> <kbd>→</kbd></dt><dd>Start of this block, then the previous / next block</dd>
             <dt data-pc="&lt;kbd&gt;Home&lt;/kbd&gt; &lt;kbd&gt;End&lt;/kbd&gt;"><kbd>Fn</kbd><kbd>←</kbd> <kbd>Fn</kbd><kbd>→</kbd></dt><dd data-pc="Beginning / end of video">Beginning / end of video (Home / End)</dd>
             <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>J</kbd></dt><dd>Jump to a timecode</dd>
             <dt><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Quick navigation (search blocks)</dd>
