@@ -21,7 +21,8 @@
    bar. Scribecue then gets its own window and icon, like any other app, and works
    offline.
 
-That's all. A short setup asks what you're working on and turns on the tools for it.
+That's all. A short setup asks what you're working on and turns on the tools for it, then
+offers a one-minute guided tour of the main parts. You can skip either.
 
 The web version updates itself, usually without you noticing: a new version is used as you
 open Scribecue. If one arrives while you're working, it waits, and the version number in
@@ -577,6 +578,12 @@ afterwards is instant. Safari switches tracks itself.
   the playhead, press `A` or `S`.
 - **Mouse:** drag a block to move it, drag an edge to resize it, or drag across empty
   space to draw a new block. Scroll to pan, and `Ctrl/Cmd`+scroll or pinch to zoom.
+- **Guided tour:** lights up each part of the editor in turn and explains it, from the two
+  modes to text to speech, AI help and privacy. Setup offers it at the end, and **Take the
+  tour** in the shortcuts overlay (`?`) shows it again. `→` and `←` step through it, and
+  `Esc` ends it.
+- **Scribecue on GitHub:** the small GitHub mark in the bottom right opens the project's
+  page, with the source, releases and a place to report problems.
 
 ## Keyboard shortcuts
 

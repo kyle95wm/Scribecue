@@ -6,6 +6,7 @@ import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, supported, missingFeatures } from './browser.js';
 import { blockFromPlayhead } from './nav.js';
+import { initTour, startTour } from './tour.js';
 import { VERSION } from './update.js';
 import { MIN_SPEED, MAX_SPEED } from './tts.js';
 import { soundsLike, hasWord } from './tts.js';
@@ -2857,7 +2858,10 @@ initTts({
   sample: () => spoken(selCue() ? said(selCue()) : ''),
   changed: () => { fitAllAuto(); renderList(); updateEditor(); updateInd(); tlDirty = true; },
 });
+initTour();
+$('helpTour').addEventListener('click', () => { toggleHelp(false); startTour(S.mode); });
 initWelcome({
+  tour: (mode) => setTimeout(() => startTour(mode), 250),
   getMode: () => S.mode,
   setMode,
   getOffset: () => S.offset,

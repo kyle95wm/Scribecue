@@ -825,3 +825,35 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 #aiNotesBtn.on { color: var(--accent); border-color: var(--accent); }
 #verBtn.on { color: var(--accent); border-color: var(--accent); }
 #newDlg [hidden] { display: none; }
+
+/* guided tour: the page dimmed except for the part being explained */
+.tour { position: fixed; inset: 0; z-index: 90; }
+.tour[hidden] { display: none; }
+.tour.dim { background: rgba(0, 0, 0, 0.6); }
+.tourhole {
+  position: fixed;
+  border-radius: 8px;
+  outline: 2px solid var(--accent);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  transition: left 0.2s, top 0.2s, width 0.2s, height 0.2s;
+}
+.tourhole[hidden] { display: none; }
+.tourcard {
+  position: fixed;
+  width: min(380px, calc(100vw - 16px));
+  padding: 14px 16px 12px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+.tourcard h2 { margin: 6px 0 6px; font-size: 17px; }
+.tourcard p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; }
+.tourhead { display: flex; justify-content: space-between; align-items: center; }
+#tourBack[hidden] { display: none; }
+.helptour { margin-left: 12px; font-size: 12px; vertical-align: middle; }
+/* the GitHub link in the status bar: there when wanted, easy to ignore */
+.ghlink { display: inline-flex; align-items: center; padding: 2px 4px; color: var(--faint); border-radius: 4px; }
+.ghlink:hover, .ghlink:focus-visible { color: var(--text); }
+.ghlink svg { width: 14px; height: 14px; fill: currentColor; }
