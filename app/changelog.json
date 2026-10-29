@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.37.2",
+  "date": "2026-10-29",
+  "notes": "## Fix\n\n- **Keep it safe**, in the storage window, now shows the browser's answer right there. Before, it seemed to do nothing, because the answer appeared behind the window.\n- Chrome and Edge decide for themselves whether to keep Scribecue's storage, so they may say no. If they do, the window says so and offers **Ask again**. Saving your work as a project keeps it safe either way."
+ },
+ {
   "version": "0.37.1",
   "date": "2026-10-29",
   "notes": "## Install the Docker version as an app\n\n- **Install app** in the bottom right now shows in the Docker version too, whenever Chrome or Edge can install Scribecue. It gets its own window and icon, like the web version. It still opens from Docker, so Docker needs to be running."
