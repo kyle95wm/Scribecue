@@ -3,7 +3,7 @@
 // it asks GitHub's API for the latest release at most once a day; the request
 // carries no cookies, no referrer and nothing about the user's work.
 
-export const VERSION = '0.14.0';
+export const VERSION = '0.14.1';
 
 const REPO = 'kyle95wm/Scribecue';
 const API = `https://api.github.com/repos/${REPO}/releases/latest`;
