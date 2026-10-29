@@ -164,6 +164,24 @@ docker compose up -d --build</code></pre>
     </div>
   </div>
 
+  <dialog id="keysDlg" class="updbox keysbox" aria-labelledby="keysTitle">
+    <h2 id="keysTitle">Change shortcuts</h2>
+    <p class="small">Click <strong>Add</strong> next to an action, then press the keys for it. Click a key to
+      take it off. Keys with Ctrl/Cmd, keys in text boxes, and <kbd>?</kbd> <kbd>/</kbd> <kbd>[</kbd>
+      <kbd>]</kbd> <kbd>+</kbd> <kbd>−</kbd> <kbd>Esc</kbd> stay as they are.</p>
+    <input id="keysFind" type="search" placeholder="Find an action" spellcheck="false" autocomplete="off" aria-label="Find an action">
+    <div id="keysList" class="keyslist"></div>
+    <p id="keysStatus" class="dim small" aria-live="polite"></p>
+    <div class="updbtns">
+      <button id="keysImport">Import…</button>
+      <button id="keysExport">Export</button>
+      <button id="keysResetAll">Reset all</button>
+      <span class="grow"></span>
+      <button id="keysDone" class="hl">Done</button>
+    </div>
+    <input type="file" id="keysFile" accept=".json,application/json" hidden>
+  </dialog>
+
   <dialog id="newDlg" class="updbox wizard" aria-labelledby="newTitle">
     <h2 id="newTitle">Start again</h2>
     <p id="newWhat"></p>
@@ -492,22 +510,23 @@ docker compose up -d --build</code></pre>
   <div id="help" class="help" hidden>
     <div class="helpbox">
       <h2>Keyboard shortcuts <span class="dim">— Frazier layout. Esc, ? or ⇧O to close</span>
-        <button id="helpTour" class="helptour">Take the tour</button></h2>
+        <button id="helpTour" class="helptour">Take the tour</button>
+        <button id="helpKeys" class="helptour">Change shortcuts</button></h2>
       <div class="cols">
         <section>
           <h3>Timeline · navigation</h3>
           <dl>
-            <dt><kbd>Space</kbd></dt><dd>Start / stop video</dd>
-            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>One frame back / forward</dd>
-            <dt><kbd>⇧</kbd><kbd>←</kbd> <kbd>⇧</kbd><kbd>→</kbd></dt><dd>Three seconds back / forward</dd>
-            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>←</kbd> <kbd>→</kbd></dt><dd>Start of this block, then the previous / next block</dd>
-            <dt data-pc="&lt;kbd&gt;Home&lt;/kbd&gt; &lt;kbd&gt;End&lt;/kbd&gt;"><kbd>Fn</kbd><kbd>←</kbd> <kbd>Fn</kbd><kbd>→</kbd></dt><dd data-pc="Beginning / end of video">Beginning / end of video (Home / End)</dd>
-            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>J</kbd></dt><dd>Jump to a timecode</dd>
-            <dt><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Quick navigation (search blocks)</dd>
-            <dt><kbd>⇧</kbd><kbd>O</kbd></dt><dd>Options / this overlay</dd>
+            <dt data-keys="play"><kbd>Space</kbd></dt><dd>Start / stop video</dd>
+            <dt data-keys="frameBack frameFwd"><kbd>←</kbd> <kbd>→</kbd></dt><dd>One frame back / forward</dd>
+            <dt data-keys="back3 fwd3"><kbd>⇧</kbd><kbd>←</kbd> <kbd>⇧</kbd><kbd>→</kbd></dt><dd>Three seconds back / forward</dd>
+            <dt data-keys="blockBack blockNext"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>←</kbd> <kbd>→</kbd></dt><dd>Start of this block, then the previous / next block</dd>
+            <dt data-keys="videoStart videoEnd" data-pc="&lt;kbd&gt;Home&lt;/kbd&gt; &lt;kbd&gt;End&lt;/kbd&gt;"><kbd>Fn</kbd><kbd>←</kbd> <kbd>Fn</kbd><kbd>→</kbd></dt><dd data-pc="Beginning / end of video">Beginning / end of video (Home / End)</dd>
+            <dt data-keys="jumpTime"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>J</kbd></dt><dd>Jump to a timecode</dd>
+            <dt data-keys="quickNav"><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Quick navigation (search blocks)</dd>
+            <dt data-keys="help"><kbd>⇧</kbd><kbd>O</kbd></dt><dd>Options / this overlay</dd>
             <dt><kbd>+</kbd> <kbd>-</kbd></dt><dd>Increase / reduce speed</dd>
-            <dt><kbd>↵</kbd></dt><dd>Create or edit text block</dd>
-            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>D</kbd></dt><dd>Delete text block (after confirmation)</dd>
+            <dt data-keys="createEdit"><kbd>↵</kbd></dt><dd>Create or edit text block</dd>
+            <dt data-keys="deleteAsk"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>D</kbd></dt><dd>Delete text block (after confirmation)</dd>
           </dl>
           <h3>Mouse</h3>
           <dl>
@@ -541,37 +560,37 @@ docker compose up -d --build</code></pre>
           </dl>
           <h3 class="write-only">Text to speech</h3>
           <dl class="write-only">
-            <dt><kbd>V</kbd></dt><dd>Read the selected block from its start</dd>
-            <dt><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Set the block's end to where the reading finishes</dd>
+            <dt data-keys="read"><kbd>V</kbd></dt><dd>Read the selected block from its start</dd>
+            <dt data-keys="fitToReading"><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Set the block's end to where the reading finishes</dd>
             <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>This block's reading slower / faster</dd>
-            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd></dt><dd>Sounds like: how words in this block are said</dd>
-            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>A</kbd></dt><dd>AI help: chat and draft descriptions</dd>
-            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Settings: voice, speed, online voices, update all timings</dd>
+            <dt data-keys="soundsLike"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd></dt><dd>Sounds like: how words in this block are said</dd>
+            <dt data-keys="aiHelp"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>A</kbd></dt><dd>AI help: chat and draft descriptions</dd>
+            <dt data-keys="ttsPanel"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Settings: voice, speed, online voices, update all timings</dd>
           </dl>
         </section>
         <section>
           <h3>Extras</h3>
           <dl>
-            <dt><kbd>↑</kbd> <kbd>↓</kbd> / <kbd>K</kbd> <kbd>J</kbd></dt><dd>Previous / next block</dd>
-            <dt><kbd>PgUp</kbd> <kbd>PgDn</kbd></dt><dd>Jump 10 blocks</dd>
-            <dt><kbd>⇧</kbd><kbd>Space</kbd></dt><dd>Play selected block only</dd>
-            <dt><kbd>N</kbd></dt><dd>New block at playhead</dd>
-            <dt><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Set start / end to playhead</dd>
-            <dt><kbd>Q</kbd> <kbd>W</kbd></dt><dd>Start −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
-            <dt><kbd>E</kbd> <kbd>R</kbd></dt><dd>End −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
-            <dt><kbd>,</kbd> <kbd>.</kbd></dt><dd>Move block −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
-            <dt><kbd>X</kbd> / <kbd>M</kbd></dt><dd>Split at playhead / merge with next</dd>
-            <dt><kbd>Del</kbd></dt><dd>Delete block now (undoable)</dd>
-            <dt><kbd>C</kbd></dt><dd>Select block under playhead</dd>
-            <dt><kbd>T</kbd> / <kbd>⇧</kbd><kbd>T</kbd></dt><dd>Next / previous audio track</dd>
+            <dt data-keys="prevBlock nextBlock"><kbd>↑</kbd> <kbd>↓</kbd> / <kbd>K</kbd> <kbd>J</kbd></dt><dd>Previous / next block</dd>
+            <dt data-keys="back10Blocks fwd10Blocks"><kbd>PgUp</kbd> <kbd>PgDn</kbd></dt><dd>Jump 10 blocks</dd>
+            <dt data-keys="playBlock"><kbd>⇧</kbd><kbd>Space</kbd></dt><dd>Play selected block only</dd>
+            <dt data-keys="newBlock"><kbd>N</kbd></dt><dd>New block at playhead</dd>
+            <dt data-keys="setStart setEnd"><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Set start / end to playhead</dd>
+            <dt data-keys="startBack startFwd"><kbd>Q</kbd> <kbd>W</kbd></dt><dd>Start −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
+            <dt data-keys="endBack endFwd"><kbd>E</kbd> <kbd>R</kbd></dt><dd>End −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
+            <dt data-keys="moveBack moveFwd"><kbd>,</kbd> <kbd>.</kbd></dt><dd>Move block −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
+            <dt data-keys="split merge"><kbd>X</kbd> / <kbd>M</kbd></dt><dd>Split at playhead / merge with next</dd>
+            <dt data-keys="deleteNow"><kbd>Del</kbd></dt><dd>Delete block now (undoable)</dd>
+            <dt data-keys="selectAtPlayhead"><kbd>C</kbd></dt><dd>Select block under playhead</dd>
+            <dt data-keys="trackNext trackPrev"><kbd>T</kbd> / <kbd>⇧</kbd><kbd>T</kbd></dt><dd>Next / previous audio track</dd>
             <dt><kbd>/</kbd></dt><dd>Search the block list (↑ ↓ step through matches, ↵ back to timeline, Esc clears)</dd>
-            <dt><kbd>G</kbd> / <kbd>⇧</kbd><kbd>G</kbd></dt><dd>Playhead to block start / end</dd>
-            <dt class="transcribe-only">Hold <kbd>H</kbd></dt><dd class="transcribe-only">Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on</dd>
-            <dt class="transcribe-only"><kbd>⇧</kbd><kbd>H</kbd></dt><dd class="transcribe-only">Change the hold-to-mark reaction offset</dd>
-            <dt><kbd>L</kbd></dt><dd>Loop this block and play. ↵ to type, Esc when done ends the loop</dd>
-            <dt><kbd>O</kbd> <kbd>F</kbd></dt><dd>Loop (stays on) · follow playhead</dd>
-            <dt><kbd>\</kbd></dt><dd>Reset speed to 1×</dd>
-            <dt><kbd>⌥</kbd><kbd>=</kbd> <kbd>⌥</kbd><kbd>-</kbd> <kbd>⌥</kbd><kbd>0</kbd></dt><dd>Zoom timeline in / out / fit</dd>
+            <dt data-keys="toStart toEnd"><kbd>G</kbd> / <kbd>⇧</kbd><kbd>G</kbd></dt><dd>Playhead to block start / end</dd>
+            <dt data-keys="hold" class="transcribe-only">Hold <kbd>H</kbd></dt><dd class="transcribe-only">Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on</dd>
+            <dt data-keys="offset" class="transcribe-only"><kbd>⇧</kbd><kbd>H</kbd></dt><dd class="transcribe-only">Change the hold-to-mark reaction offset</dd>
+            <dt data-keys="loopBlock"><kbd>L</kbd></dt><dd>Loop this block and play. ↵ to type, Esc when done ends the loop</dd>
+            <dt data-keys="loopToggle followToggle"><kbd>O</kbd> <kbd>F</kbd></dt><dd>Loop (stays on) · follow playhead</dd>
+            <dt data-keys="speedReset"><kbd>\</kbd></dt><dd>Reset speed to 1×</dd>
+            <dt data-keys="zoomIn zoomOut zoomFit"><kbd>⌥</kbd><kbd>=</kbd> <kbd>⌥</kbd><kbd>-</kbd> <kbd>⌥</kbd><kbd>0</kbd></dt><dd>Zoom timeline in / out / fit</dd>
           </dl>
         </section>
       </div>

@@ -64,6 +64,7 @@ you through it, and covers updating and troubleshooting.
 - [Files with several audio tracks](#files-with-several-audio-tracks)
 - [Other handy features](#other-handy-features)
 - [Keyboard shortcuts](#keyboard-shortcuts)
+  - [Changing shortcuts](#changing-shortcuts)
   - [Keys on Mac, Windows and Linux](#keys-on-mac-windows-and-linux)
 - [Supported files](#supported-files)
 - [Privacy](#privacy)
@@ -460,7 +461,23 @@ afterwards is instant. Safari switches tracks itself.
 The layout follows the
 [Frazier cheat sheet](https://www.videotovoice.com/docs/en/cheatsheet/mac.html).
 See [Keys on Mac, Windows and Linux](#keys-on-mac-windows-and-linux) for how the modifier
-keys are named on each system.
+keys are named on each system. The tables below are the usual keys.
+
+### Changing shortcuts
+
+Press `?` and click **Change shortcuts** to give any action the keys you like:
+
+- Click **Add** next to an action, then press the keys. If they already belong to another
+  action, Scribecue says which and asks before moving them. Click a key to take it off,
+  and **Reset** puts an action back to its usual keys. **Find** narrows the list.
+- **Export** saves your shortcuts as `scribecue-shortcuts.json`, and **Import** loads one,
+  so a team can share a layout. **Reset all** goes back to the usual keys.
+- The shortcuts overlay and the player buttons' tooltips show your keys.
+
+Most actions can be changed. Keys with `Ctrl/Cmd` (undo, open, save, export), keys used
+while typing in a box, and `?` `/` `[` `]` `+` `−` `Esc` stay as they are, because they go
+by the character on the key and so suit every keyboard layout. Your shortcuts are kept in
+this browser.
 
 <details open>
 <summary><strong>Timeline</strong></summary>

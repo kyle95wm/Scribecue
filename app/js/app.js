@@ -7,6 +7,8 @@ import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, supported, missingFeatures } from './browser.js';
 import { blockFromPlayhead } from './nav.js';
 import { initTour, startTour } from './tour.js';
+import { comboOf, lookup } from './keymap.js';
+import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
 import { MIN_SPEED, MAX_SPEED } from './tts.js';
 import { soundsLike, hasWord } from './tts.js';
@@ -1869,8 +1871,9 @@ function cycleOffset() {
   toast(`Hold-to-mark reaction offset ${Math.round(S.offset * 1000)} ms`);
 }
 
+let holdKey = 'KeyH';
 document.addEventListener('keyup', (e) => {
-  if (e.code === 'KeyH') holdEnd();
+  if (e.code === holdKey) holdEnd();
 });
 window.addEventListener('blur', () => holdEnd());
 
@@ -2652,6 +2655,8 @@ pal.addEventListener('mousedown', (e) => { if (e.target === pal) { e.preventDefa
 
 const isHelpKey = (e) => e.key === '?' || ((e.code === 'Slash' || e.key === '/') && e.shiftKey);
 // match the printed character so + and - work on any layout (e.g. the German "+" key)
+// The shortcuts in use: the defaults, with the person's changes on top.
+let keyLookup = lookup(keyChanges());
 const isPlus = (e) => e.key === '+' || e.code === 'NumpadAdd' || (e.key === '=' && !e.shiftKey);
 const isMinus = (e) => e.key === '-' || e.code === 'NumpadSubtract';
 const FRAZIER_ONLY = {
@@ -2674,101 +2679,85 @@ document.addEventListener('keydown', (e) => {
   if (isHelpKey(e)) { e.preventDefault(); toggleHelp(); return; }
   if (e.key === '/' && !e.altKey) { e.preventDefault(); listSearch.focus(); listSearch.select(); return; }
 
-  const sh = e.shiftKey, alt = e.altKey;
-  let handled = true;
-
   // [ ] by the character typed, since some layouts need ⌥ or AltGr for them.
-  if (e.key === '[' || e.key === ']') {
-    stepBlockSpeed(e.key === '[' ? -1 : 1);
-  } else if (alt && sh) {
-    switch (e.code) {
-      case 'ArrowLeft': playheadBlock(-1); break;
-      case 'ArrowRight': playheadBlock(1); break;
-      case 'KeyJ': openPalette('time'); break;
-      case 'KeyD': confirmDelete(); break;
-      case 'KeyP': openSay(); break;
-      case 'KeyA': toggleAi(); break;
-      case 'KeyV': if (writing()) openTts(); else modeOnly('Text to speech', 'write'); break;
-      case 'KeyM': case 'KeyC': toast(`${e.code === 'KeyM' ? 'Markers' : 'Comments'} are not part of this editor`); break;
-      default: handled = false;
-    }
-  } else if (!alt && isPlus(e)) {
-    setRate(S.rate + 0.25);
-  } else if (!alt && isMinus(e)) {
-    setRate(S.rate - 0.25);
-  } else if (alt) {
-    switch (e.code) {
-      case 'Equal': case 'NumpadAdd': zoom(1.5); break;
-      case 'Minus': case 'NumpadSubtract': zoom(1 / 1.5); break;
-      case 'Digit0': case 'Numpad0': fitAll(); break;
-      default: handled = false;
-    }
-  } else if (sh) {
-    switch (e.code) {
-      case 'ArrowLeft': seekBy(-3); break;
-      case 'ArrowRight': seekBy(3); break;
-      case 'KeyF': openPalette('nav'); break;
-      case 'KeyO': toggleHelp(); break;
-      case 'Space': playCue(); break;
-      case 'KeyG': gotoSel(true); break;
-      case 'KeyT': stepTrack(-1); break;
-      case 'KeyH': cycleOffset(); break;
-      case 'KeyV': speakBlock(true); break;
-      case 'KeyQ': nudge('start', -0.01); break;
-      case 'KeyW': nudge('start', 0.01); break;
-      case 'KeyE': nudge('end', -0.01); break;
-      case 'KeyR': nudge('end', 0.01); break;
-      case 'Comma': nudge('move', -0.01); break;
-      case 'Period': nudge('move', 0.01); break;
-      default:
-        if (FRAZIER_ONLY[e.code]) toast(`${FRAZIER_ONLY[e.code]} are not part of this editor`);
-        else handled = false;
-    }
-  } else {
-    switch (e.code) {
-      // Frazier
-      case 'Space': togglePlay(); break;
-      case 'ArrowLeft': seekBy(-FRAME); break;
-      case 'ArrowRight': seekBy(FRAME); break;
-      case 'Home': S.playUntil = null; seek(0); break;
-      case 'End': S.playUntil = null; seek(duration()); break;
-      case 'Enter': case 'NumpadEnter': createOrEdit(); break;
-      case 'Escape':
-        S.playUntil = null;
-        document.activeElement?.blur();
-        if (S.loopOnce) stopLoop(); else updateInd();
-        break;
-      // extras
-      case 'ArrowUp': case 'KeyK': selectRel(-1); break;
-      case 'ArrowDown': case 'KeyJ': selectRel(1); break;
-      case 'PageUp': selectRel(-10); break;
-      case 'PageDown': selectRel(10); break;
-      case 'KeyN': newCue(); break;
-      case 'KeyA': setEdge('start'); break;
-      case 'KeyS': setEdge('end'); break;
-      case 'KeyQ': nudge('start', -0.1); break;
-      case 'KeyW': nudge('start', 0.1); break;
-      case 'KeyE': nudge('end', -0.1); break;
-      case 'KeyR': nudge('end', 0.1); break;
-      case 'Comma': nudge('move', -0.1); break;
-      case 'Period': nudge('move', 0.1); break;
-      case 'KeyX': split(); break;
-      case 'KeyM': merge(); break;
-      case 'Delete': case 'Backspace': del(); break;
-      case 'KeyC': selectAtPlayhead(); break;
-      case 'KeyG': gotoSel(false); break;
-      case 'KeyT': stepTrack(1); break;
-      case 'KeyL': loopBlock(); break;
-      case 'KeyH': if (!e.repeat) holdStart(); break;
-      case 'KeyO': toggleFlag('loop'); break;
-      case 'KeyF': toggleFlag('follow'); break;
-      case 'KeyV': speakBlock(false); break;
-      case 'Backslash': setRate(1); break;
-      default: handled = false;
-    }
+  if (e.key === '[' || e.key === ']') { e.preventDefault(); stepBlockSpeed(e.key === '[' ? -1 : 1); return; }
+  if (e.code === 'Escape' && !e.altKey && !e.shiftKey) {
+    e.preventDefault();
+    S.playUntil = null;
+    document.activeElement?.blur();
+    if (S.loopOnce) stopLoop(); else updateInd();
+    return;
   }
-  if (handled) e.preventDefault();
+  // Everything else is in the keymap, which people can change (see keymap.js).
+  const id = keyLookup.get(comboOf(e));
+  if (id) { e.preventDefault(); RUN[id](e); return; }
+  if (!e.altKey && isPlus(e)) { e.preventDefault(); setRate(S.rate + 0.25); return; }
+  if (!e.altKey && isMinus(e)) { e.preventDefault(); setRate(S.rate - 0.25); return; }
+  // Frazier keys for features this editor doesn't have, unless they've been given a job.
+  const frazier = e.altKey && e.shiftKey ? { KeyM: 'Markers', KeyC: 'Comments' }[e.code] : e.shiftKey && !e.altKey ? FRAZIER_ONLY[e.code] : null;
+  if (frazier) { e.preventDefault(); toast(`${frazier} are not part of this editor`); }
 });
+
+// What each keymap action does.
+const RUN = {
+  play: () => togglePlay(),
+  playBlock: () => playCue(),
+  loopBlock: () => loopBlock(),
+  loopToggle: () => toggleFlag('loop'),
+  followToggle: () => toggleFlag('follow'),
+  speedReset: () => setRate(1),
+  frameBack: () => seekBy(-FRAME),
+  frameFwd: () => seekBy(FRAME),
+  back3: () => seekBy(-3),
+  fwd3: () => seekBy(3),
+  blockBack: () => playheadBlock(-1),
+  blockNext: () => playheadBlock(1),
+  videoStart: () => { S.playUntil = null; seek(0); },
+  videoEnd: () => { S.playUntil = null; seek(duration()); },
+  toStart: () => gotoSel(false),
+  toEnd: () => gotoSel(true),
+  jumpTime: () => openPalette('time'),
+  quickNav: () => openPalette('nav'),
+  createEdit: () => createOrEdit(),
+  newBlock: () => newCue(),
+  prevBlock: () => selectRel(-1),
+  nextBlock: () => selectRel(1),
+  back10Blocks: () => selectRel(-10),
+  fwd10Blocks: () => selectRel(10),
+  selectAtPlayhead: () => selectAtPlayhead(),
+  split: () => split(),
+  merge: () => merge(),
+  deleteNow: () => del(),
+  deleteAsk: () => confirmDelete(),
+  setStart: () => setEdge('start'),
+  setEnd: () => setEdge('end'),
+  startBack: () => nudge('start', -0.1),
+  startFwd: () => nudge('start', 0.1),
+  endBack: () => nudge('end', -0.1),
+  endFwd: () => nudge('end', 0.1),
+  moveBack: () => nudge('move', -0.1),
+  moveFwd: () => nudge('move', 0.1),
+  startBack10: () => nudge('start', -0.01),
+  startFwd10: () => nudge('start', 0.01),
+  endBack10: () => nudge('end', -0.01),
+  endFwd10: () => nudge('end', 0.01),
+  moveBack10: () => nudge('move', -0.01),
+  moveFwd10: () => nudge('move', 0.01),
+  // The key that starts a hold ends it when it's let go, whichever key that is.
+  hold: (e) => { if (!e.repeat) { holdKey = e.code; holdStart(); } },
+  offset: () => cycleOffset(),
+  trackNext: () => stepTrack(1),
+  trackPrev: () => stepTrack(-1),
+  read: () => speakBlock(false),
+  fitToReading: () => speakBlock(true),
+  ttsPanel: () => { if (writing()) openTts(); else modeOnly('Text to speech', 'write'); },
+  soundsLike: () => openSay(),
+  aiHelp: () => toggleAi(),
+  help: () => toggleHelp(),
+  zoomIn: () => zoom(1.5),
+  zoomOut: () => zoom(1 / 1.5),
+  zoomFit: () => fitAll(),
+};
 
 // ---------------------------------------------------------------- main loop
 
@@ -2860,6 +2849,8 @@ initTts({
 });
 initTour();
 $('helpTour').addEventListener('click', () => { toggleHelp(false); startTour(S.mode); });
+initKeys({ mac: IS_MAC, toast, onChange: (m) => { keyLookup = m; } });
+$('helpKeys').addEventListener('click', () => { toggleHelp(false); openKeys(); });
 initWelcome({
   tour: (mode) => setTimeout(() => startTour(mode), 250),
   getMode: () => S.mode,

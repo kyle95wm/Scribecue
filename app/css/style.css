@@ -857,3 +857,18 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 .ghlink { display: inline-flex; align-items: center; padding: 2px 4px; color: var(--faint); border-radius: 4px; }
 .ghlink:hover, .ghlink:focus-visible { color: var(--text); }
 .ghlink svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* Change shortcuts */
+.keysbox { width: min(640px, calc(100vw - 24px)); }
+#keysFind { width: 100%; margin: 4px 0 8px; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+.keyslist { max-height: min(56vh, 520px); overflow-y: auto; padding-right: 4px; }
+.keyslist h3 { margin: 12px 0 4px; }
+.keysrow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; }
+.keysrow:hover { background: var(--raise); }
+.keysrow.changed .keysname::after { content: " · changed"; color: var(--accent); font-size: 11px; }
+.keysname { font-size: 13px; }
+.keyskeys { display: inline-flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.keychip { padding: 1px 4px; gap: 1px; background: none; }
+.keychip:hover { border-color: var(--bad); }
+.keyadd { font-size: 12px; padding: 2px 8px; }
+.keyadd.on { border-color: var(--accent); color: var(--accent); }
