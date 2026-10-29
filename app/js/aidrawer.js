@@ -1,7 +1,7 @@
 // The AI help drawer: settings for the person's AI provider, a chat about the scene, and
 // "Draft this block". The requests themselves are built in ai.js.
 import {
-  PROVIDERS, buildRequest, readReply, failure, listModels, fitBudget, draftPrompt, chatContext,
+  PROVIDERS, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, draftPrompt, chatContext,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from './ai.js';
 import { tts, chosenVoice, DEFAULT_CPS } from './tts.js';
@@ -107,7 +107,7 @@ async function send(msg, shown, frames, draft = null) {
   bubble('user', shown, frames);
   const turn = { role: 'user', text: msg, images: frames.map(({ data, at }) => ({ data, at })) };
   const provider = ai.provider, model = ai.models[provider];
-  const req = buildRequest(provider, { key: keys()[provider], model, base: ai.base, messages: [...chat, turn] });
+  const req = buildRequest(provider, { key: keys()[provider], model, base: ai.base, messages: recentFrames([...chat, turn]) });
   const out = bubble(`assistant${draft ? ' draft' : ''}`);
   const tag = document.createElement('span');
   tag.className = 'tag';
@@ -227,7 +227,7 @@ async function loadModels(p) {
     if (!ai.models[p] || !list.includes(ai.models[p])) ai.models[p] = list.includes(PROVIDERS[p].defaultModel) ? PROVIDERS[p].defaultModel : (ai.models[p] || list[0]);
     save();
     renderSetup();
-    $('aiSetupStatus').textContent = list.length ? `${list.length} models` : 'No models found';
+    $('aiSetupStatus').textContent = list.length ? `${list.length} model${list.length > 1 ? 's' : ''}` : 'No models found';
     return true;
   } catch (e) {
     $('aiSetupStatus').textContent = e instanceof TypeError ? `Couldn't reach ${PROVIDERS[p].name}.` : e.message;

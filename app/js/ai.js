@@ -79,6 +79,16 @@ export function chatContext(cues, i, playhead) {
 
 // ---- requests
 
+// Earlier messages keep their words but not their frames, beyond the last few: frames
+// are most of what's sent, and older ones are rarely needed again.
+export function recentFrames(messages, keep = 2) {
+  let seen = 0;
+  return messages.slice().reverse().map((m) => {
+    if (m.role !== 'user' || !m.images?.length) return m;
+    return ++seen <= keep ? m : { ...m, images: [] };
+  }).reverse();
+}
+
 // messages: [{ role: 'user' | 'assistant', text, images: [{ data (base64 JPEG), at }], raw }]
 // raw is Claude's own content for an assistant turn, sent back unchanged.
 export function buildRequest(provider, { key, model, base, system = SYSTEM, messages }) {

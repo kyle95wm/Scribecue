@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PROVIDERS, buildRequest, readReply, failure, listModels, fitBudget, nearbyScript, draftPrompt,
+  PROVIDERS, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, nearbyScript, draftPrompt,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from '../app/js/ai.js';
 
@@ -126,4 +126,17 @@ test('OpenRouter sign-in uses PKCE and swaps the code for a key', async () => {
   assert.equal(key, 'sk-or-1');
   assert.deepEqual(sent, { url: 'https://openrouter.ai/api/v1/auth/keys', body: { code: 'c0de', code_verifier: verifier, code_challenge_method: 'S256' } });
   assert.ok(PROVIDERS.openrouter.signIn);
+});
+
+test('only the latest messages keep their frames', () => {
+  const im = [{ data: 'x', at: 1 }];
+  const msgs = [
+    { role: 'user', text: 'one', images: im }, { role: 'assistant', text: 'a' },
+    { role: 'user', text: 'two', images: im }, { role: 'assistant', text: 'b' },
+    { role: 'user', text: 'three', images: im },
+  ];
+  const out = recentFrames(msgs);
+  assert.deepEqual(out.map((m) => m.images?.length ?? null), [0, null, 1, null, 1]);
+  assert.equal(out[0].text, 'one'); // the words stay
+  assert.equal(msgs[0].images.length, 1); // and the conversation itself is unchanged
 });
