@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.36.1",
+  "date": "2026-10-29",
+  "notes": "## Storage, in the Docker version\n\n- The Docker version runs from your computer, so it has nothing to get ready for working offline. Its button in the bottom right now says **storage**, and opens a **Storage** window about what's kept in this browser: whether it's kept safe, the space used, what needs a connection, and **Remove all data**.\n- The web version's **Offline and storage** window is unchanged."
+ },
+ {
   "version": "0.36.0",
   "date": "2026-10-29",
   "notes": "## Time your own read with H\n\n- In Write mode, select a block and **hold H**. It plays from the block's start while you read the line aloud; let go when you finish, and the block ends there. Hold H again to retake, and Ctrl/Cmd+Z goes back a take.\n- It works with text to speech off or on, and live reading stays quiet while you hold H.\n- The reaction offset (**H −200ms** under the video) now applies in Write mode too, and **Shift+H** changes it in both modes."
