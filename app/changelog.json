@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.31.1",
+  "date": "2026-10-29",
+  "notes": "## Fix\n\n- The autosave status now sits right after the project and video names at the top, where it's easy to find, instead of over by the buttons on the right."
+ },
+ {
   "version": "0.31.0",
   "date": "2026-10-29",
   "notes": "## Autosave\n\n- Once a project has a file, Scribecue now saves your changes to it as you work, a couple of seconds after you stop. **autosaved** next to the project name says it's done.\n- After a reload, the browser asks before Scribecue may save to the file again, so the status says **autosave paused**. Click it, or press Ctrl/Cmd+S, and it carries on. Opening a project asks straight away.\n- Click **autosaved** to turn autosave off, and **autosave off** to turn it back on. The file always has your latest changes, so save a copy with Ctrl/Cmd+Shift+S before a big change if you might want the old version.\n- Autosave needs Chrome or Edge. In other browsers, the reminder to save still helps."
