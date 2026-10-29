@@ -39,7 +39,7 @@ const cues = [
   [30.2, 32.5, 'The violet glow fades.', 1.15],
   [38.0, 41.6, 'Deep green spreads in from the left edge.'],
 ].map(([start, end, text, speed]) => ({ start, end, text, speed }));
-await js(`localStorage.clear(); localStorage.setItem('scribecue.updates', '0'); localStorage.setItem('scribecue.welcome', '1'); localStorage.setItem('scribecue.tts', JSON.stringify({ on: true })); localStorage.setItem('scribecue.mode', 'write'); localStorage.setItem('scribecue.v1', JSON.stringify({subName:'lights-ad.scribecue', dirty:false, cues:${JSON.stringify(cues)}})); location.reload(); 1`);
+await js(`localStorage.clear(); localStorage.setItem('scribecue.updates', '0'); localStorage.setItem('scribecue.welcome', '1'); localStorage.setItem('scribecue.loops', JSON.stringify({ write: true, transcribe: true })); localStorage.setItem('scribecue.seenVersion', '999.0.0'); localStorage.setItem('scribecue.tts', JSON.stringify({ on: true })); localStorage.setItem('scribecue.mode', 'write'); localStorage.setItem('scribecue.v1', JSON.stringify({subName:'lights-ad.scribecue', dirty:false, cues:${JSON.stringify(cues)}})); location.reload(); 1`);
 await sleep(1500);
 await js(`(async()=>{const b=await fetch('/demo.mkv').then(r=>r.blob()); const f=new File([b],'lights.mkv',{type:'video/x-matroska'}); const dt=new DataTransfer(); dt.items.add(f); window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true})); return 1})()`);
 for (let i = 0; i < 60; i++) {
