@@ -14,8 +14,14 @@ const js = async (expr) => {
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const fs = await import('node:fs');
-const shot = async (name) => {
-  const r = await send('Page.captureScreenshot', { format: 'png' });
+// clip: a CSS selector to crop to, with a margin around it, or the whole window.
+const shot = async (name, clip = null, pad = 16) => {
+  let params = { format: 'png' };
+  if (clip) {
+    const b = await js(`(() => { const r = document.querySelector(${JSON.stringify(clip)}).getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
+    params = { ...params, clip: { x: Math.max(0, b[0] - pad), y: Math.max(0, b[1] - pad), width: b[2] + pad * 2, height: b[3] + pad * 2, scale: 1 } };
+  }
+  const r = await send('Page.captureScreenshot', params);
   fs.writeFileSync(`${outDir}/${name}.png`, Buffer.from(r.result.data, 'base64'));
   console.log('saved', name);
 };
@@ -81,4 +87,26 @@ await sleep(300);
 console.log('voices', await js('speechSynthesis.getVoices().length'));
 await key('KeyV', 'V', { altKey: true, shiftKey: true }); await sleep(500);
 await shot('text-to-speech');
+
+// the Did you know? box, which only shows without Piper: hide Piper from this page.
+// (A made-up Esc key doesn't close a dialog, so close them directly.)
+const closeDialogs = () => js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`);
+await closeDialogs(); await sleep(300);
+await js(`(() => { const f = window.fetch; window.fetch = (u, o) => String(u).includes('tts/') ? Promise.resolve(new Response('', { status: 502 })) : f(u, o); return 1; })()`);
+await key('KeyV', 'V', { altKey: true, shiftKey: true }); await sleep(800);
+await js(`document.getElementById('ttsTip').scrollIntoView({ block: 'center' }); 1`); await sleep(300);
+await shot('piper-tip', '#ttsTip');
+
+// the question when a script is opened in Write mode
+await closeDialogs(); await sleep(300);
+await js(`(async () => {
+  window.confirm = () => true;
+  const srt = '1\\n00:00:03,000 --> 00:00:06,200\\nBands of teal and violet light drift across a dark sky.\\n\\n2\\n00:00:11,500 --> 00:00:14,000\\nThe colours slowly fold into one another.\\n';
+  const dt = new DataTransfer(); dt.items.add(new File([srt], 'lights-ad.srt', { type: 'text/plain' }));
+  window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+  await new Promise((r) => setTimeout(r, 800));
+  return document.getElementById('importDlg').open;
+})()`);
+await sleep(300);
+await shot('import-timings', '#importDlg', 0);
 ws.close();

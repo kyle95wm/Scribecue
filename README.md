@@ -283,6 +283,8 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   **Always do this** to stop it asking, and change your choice later under **When you open
   a script** in the text to speech panel. Either change can be undone. Opening a Scribecue
   project doesn't ask.
+
+  ![The question when a script is opened: fit the reading speeds, change the ends, or leave it](docs/screenshots/import-timings.png)
 - **Fit speeds to timings:** the opposite of Update all timings, for a script whose
   timing is already right, such as one opened from a file. Every block keeps its timing,
   and its reading speeds up or slows down to fill it, within −50% to +100%. Blocks with a
@@ -347,6 +349,9 @@ audio file, use a [Piper voice](#piper-voices).
 [Piper](https://github.com/OHF-Voice/piper1-gpl) is an open-source speech engine with
 natural-sounding voices. Scribecue can run it in a second container, next to the editor.
 The voices run on your computer, so your script never leaves it, and they work offline.
+Until you add it, the text to speech panel ends with a short note about it:
+
+![The Did you know? box about Piper at the bottom of the text to speech panel](docs/screenshots/piper-tip.png)
 
 With a Piper voice:
 
