@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.35.0",
+  "date": "2026-10-29",
+  "notes": "## Sounds Like, from a selection\n\n- Select a word in a block's text and a **Sounds Like** button pops up under it. Click it and Sounds like opens with the word already filled in, so all that's left is typing how it should sound.\n- It shows **Sounds Like ✓** for a word that already has a pronunciation. Alt+Shift+P still works too."
+ },
+ {
   "version": "0.34.0",
   "date": "2026-10-29",
   "notes": "## Screen readers\n\n- Scribecue's messages, such as \"Block #3 marked\", are now read out by screen readers, with key symbols said as words.\n- The block list is a list a screen reader can move through: each block is read with its number, start, length and text, and the selected one is marked.\n- The buttons and indicators under the video say what they do, and whether they're on, and the clock says it copies the timecode.\n- A reading too long for its block now says \"too long\", and gets a ⚠ in the list, not only red.\n- Faint grey text is a little lighter, so it's easier to read.\n\n## Also\n\n- **Transcribe** and **Write** are now a sliding switch at the top left. Click either side, or the side that's on, to switch."
