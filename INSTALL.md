@@ -123,10 +123,10 @@ To stop using Piper, remove the `COMPOSE_PROFILES` line from `.env` and run
 
 ## Speech to text (Whisper)
 
-[Speech to text](README.md#speech-to-text) types each line you mark with `H`, using
-[Whisper](https://github.com/SYSTRAN/faster-whisper) in a container next to the editor. Like
-Piper, it has no internet access once it's built, and only Scribecue's own server can reach
-it. Add `whisper` to the profiles in `.env`, for example:
+[Speech to text](TRANSCRIBING.md#speech-to-text-with-whisper) types each line you mark
+with `H`, using [Whisper](https://github.com/SYSTRAN/faster-whisper) in a container next to
+the editor. Like Piper, it has no internet access once it's built, and only Scribecue's
+own server can reach it. Add `whisper` to the profiles in `.env`, for example:
 
 ```
 COMPOSE_PROFILES=piper,whisper

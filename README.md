@@ -59,7 +59,7 @@ you through it, and covers updating and troubleshooting.
   - [Getting around](#getting-around)
   - [Adjusting timing](#adjusting-timing)
 - [Modes: Transcribe and Write](#modes-transcribe-and-write)
-- [Transcribing audio description](#transcribing-audio-description)
+- [Transcribing audio description](#transcribing-audio-description) (full guide: [TRANSCRIBING.md](TRANSCRIBING.md))
   - [Hold-to-mark](#hold-to-mark)
   - [Speech to text](#speech-to-text)
   - [Looping a block](#looping-a-block)
@@ -121,7 +121,8 @@ switch tracks. Then repeat:
 To hear a block again while you type, press `L`. It loops until you close the block.
 
 With [speech to text](#speech-to-text) on, step 3 is checking: the line is typed for you a
-moment after you let go of `H`.
+moment after you let go of `H`. [TRANSCRIBING.md](TRANSCRIBING.md) covers transcribing in
+full.
 
 ### Saving
 
@@ -209,54 +210,33 @@ back. Pressing a key from the other mode tells you which mode it's in.
 
 ## Transcribing audio description
 
+**[TRANSCRIBING.md](TRANSCRIBING.md) is the full guide:** choosing the description track,
+marking lines and getting their timing right, speech to text with Whisper, checking and
+fixing, and what to do when something goes wrong. In short:
+
 ### Hold-to-mark
 
 ![Hold-to-mark: a dashed block grows on the timeline while H is held](docs/screenshots/hold-to-mark.png)
 
-In Transcribe mode:
+In Transcribe mode, **hold `H`** while the narrator speaks a line, and **let go** when they
+stop. Playback pauses and the new block opens for typing; `Enter` or `Esc` carries on.
 
-1. Play the file with the description track selected.
-2. **Hold `H`** while the narrator speaks a line. A dashed block grows on the timeline.
-3. **Let go** when they stop. Playback pauses and the new block opens for typing.
-4. Type the line and press `Enter` or `Esc`. Playback carries on.
-
-Scribecue tidies up the timing for you:
-
-| | What happens | Change it with |
-| --- | --- | --- |
-| **Reaction offset** | Both edges move back 200 ms, because your key press comes a moment after you hear the voice. | `Shift+H`, or click `H −200ms` under the video (0–300 ms) |
-| **Starting from pause** | If you pause first and then hold `H`, the block starts exactly where you paused, with no offset. | |
-| **No overlaps** | A new block is trimmed to fit the gap it starts in. | |
-
-Your offset choice is remembered.
+Both edges move back by a reaction offset, 200 ms to begin with, because your key press
+comes a moment after you hear the voice: `Shift+H`, or `H −200ms` under the video, changes
+it. Pausing first and then holding `H` starts the block exactly where you paused. New
+blocks never overlap the ones next to them. See
+[Marking lines with H](TRANSCRIBING.md#marking-lines-with-h).
 
 ### Speech to text
 
-Whisper, an open-source speech recognition model, can type each line for you. You still
-time every block with `H`; when you let go, Whisper listens to the block's audio and fills
-in what the narrator said, ready to check. If you start typing first, it leaves the block
-to you. It runs on your own computer, so the audio is never uploaded.
-
-Click **STT** under the video, or press `Alt+Shift+H`, to set it up:
-
-- **In the web version**, download Whisper into your browser: 166 MB, once, and then it
-  works offline. A line takes about a second or two in Chrome or Edge on a computer with a
-  graphics chip they can use, and longer without one.
-- **With Docker**, add the Whisper container, which uses a larger, more accurate model.
-  See [INSTALL.md](INSTALL.md#speech-to-text-whisper).
-
-Then tick **Fill in blocks as I mark them**. The same panel can **transcribe empty
-blocks**: every block with no text yet, such as blocks drawn on the timeline, in one go.
-`Ctrl/Cmd+Z` undoes it. `Alt+Shift+T` transcribes the selected block again, replacing its
-text, for example after you change its timing.
-
-Whisper only understands English here, and it hears everything in a block, so dialogue or
-lyrics under the narration can come out too. If your file has a
-[description track](#files-with-several-audio-tracks) on its own, choose it with `T`. Check
-names especially, since Whisper often spells them the way they sound.
-
-Speech to text works best in Chrome or Edge. In Firefox, the video's sound can stutter or
-stop while blocks are transcribed.
+Whisper, running on your own computer, can type each line you mark. When you let go of
+`H`, it fills in what the narrator said, ready to check. Click **STT** under the video, or
+press `Alt+Shift+H`, to set it up: a one-time 166 MB download in the web version, or the
+[Whisper container](INSTALL.md#speech-to-text-whisper) with Docker. `Alt+Shift+T`
+transcribes the selected block again, and **Transcribe empty blocks** in the panel fills in
+every block without text. It works best in Chrome or Edge. See
+[Speech to text with Whisper](TRANSCRIBING.md#speech-to-text-with-whisper), including what
+it gets wrong.
 
 ### Looping a block
 

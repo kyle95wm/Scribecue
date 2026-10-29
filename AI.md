@@ -46,8 +46,9 @@ Click **AI** at the top, or press `Alt+Shift+A`, and a drawer slides out beside 
 - **New chat** starts the conversation again.
 
 For transcribing existing audio description, there's also
-[speech to text](README.md#speech-to-text): Whisper, running on your own computer, types
-each line you mark with `H`. It needs no provider and no account.
+[speech to text](TRANSCRIBING.md#speech-to-text-with-whisper): Whisper, running on your own
+computer, types each line you mark with `H`. It needs no provider and no account. See the
+[transcribing guide](TRANSCRIBING.md).
 
 ## Choosing where it runs
 
