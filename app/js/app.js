@@ -5,7 +5,7 @@ import { initAi, toggleAi, aiNotesChanged } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, noticeItems, needsNotice, isMobile } from './browser.js';
-import { blockFromPlayhead, nudgeFor, NUDGE } from './nav.js';
+import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop } from './tour.js';
 import { initWhatsNew } from './whatsnew.js';
 import { initReminder } from './reminder.js';
@@ -1927,35 +1927,42 @@ function updateMark() {
   markEl.style.width = Math.max(2, (b - a) * S.pps) + 'px';
 }
 
-// Write mode, reading it yourself: hold H and the selected block plays from its start
-// while you read the line aloud; letting go sets its end there, moved back by the same
-// reaction offset. Holding H again is a retake, and Ctrl/Cmd+Z goes back a take.
+// Write mode, reading it yourself, like punching in on a recording: hold H and the
+// selected block plays from the playhead while you read; letting go sets its end there,
+// moved back by the same reaction offset, and leaves the playhead at that end. So after a
+// breath, holding H again carries on from where you stopped; stepping back first redoes
+// the rest from there; and from the block's start (G), or outside it, it starts over.
+// Ctrl/Cmd+Z undoes one part at a time. Where it starts: takeFrom, in nav.js.
+
 function takeStart() {
   const c = selCue();
   if (!c) return toast('Select a block, then hold H while you read it aloud to set its end');
   stopSpeech();
-  seek(c.start);
+  const from = takeFrom(now(), c.start, c.end);
+  if (from > c.start) toast(`Carrying on from ${(from - c.start).toFixed(2)} s into block #${selIdx() + 1}`);
+  seek(from);
   play();
-  hold = { take: c.id, t0: c.start };
+  hold = { take: c.id, t0: c.start, from };
   cuesLayer.append(markEl);
   markEl.hidden = false;
   updateMark();
 }
 
 function takeEnd() {
-  const id = hold.take;
+  const { take: id, from } = hold;
   hold = null;
   markEl.hidden = true;
   pause();
   const i = idx(id), c = S.cues[i];
   if (!c) return;
   const end = Math.min(bounds(i).hi, now() - S.offset * S.rate);
-  if (end < c.start + MIN_DUR) return toast('Hold H for as long as you read the line');
+  if (end < c.start + MIN_DUR || end <= from) { seek(from); return toast('Hold H for as long as you read the line'); }
   pushUndo();
   c.end = end;
   resized(c, 'end');
   changed(c.id);
-  toast(`Block #${i + 1} now ends at ${fmtTime(end, '.')} (${(end - c.start).toFixed(2)} s). Hold H again to retake`);
+  seek(end); // where the next part carries on from
+  toast(`Block #${i + 1} now ends at ${fmtTime(end, '.')} (${(end - c.start).toFixed(2)} s). Hold H to carry on, or G then H to start again`);
 }
 
 function holdEnd() {

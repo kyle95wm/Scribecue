@@ -118,8 +118,16 @@ Then carry on playing to the next gap.
 
 **Reading it yourself instead,** with text to speech off or on: select the block and
 **hold `H`**. It plays from the block's start while you read the line aloud, and when you
-let go, the block ends there, moved back by the reaction offset (`Shift+H` changes it). To
-retake, hold `H` again; `Ctrl/Cmd+Z` goes back a take.
+let go, the block ends there, moved back by the reaction offset (`Shift+H` changes it).
+It works like punching in on a recording, from wherever the playhead is in the block:
+
+- **Need a breath?** Let go at a comfortable point, then hold `H` again to carry on from
+  there. The pause doesn't count, so the block is as long as your reading.
+- **Fluffed a word?** Step back with `←` `→` to just before it and hold `H` to redo the
+  rest from there.
+- **To start over,** press `G` to go to the block's start, then hold `H`.
+
+`Ctrl/Cmd+Z` undoes one part at a time.
 
 ### The transcribing loop
 

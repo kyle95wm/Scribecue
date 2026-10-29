@@ -30,3 +30,8 @@ export function nudgeFor(drift, nudging) {
   // Stop once close, or once it has overshot to the other side.
   return Math.abs(drift) < NUDGE_STOP || Math.sign(drift) === nudging ? 0 : nudging;
 }
+
+// Where a take of your own read starts, holding H in Write mode, like punching in on a
+// recording: from the playhead when it's inside the block (after a breath, or stepped
+// back to redo the rest), and from the block's start otherwise.
+export const takeFrom = (t, start, end) => (t > start + 0.01 && t <= end + 0.01 ? t : start);

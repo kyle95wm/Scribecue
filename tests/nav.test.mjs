@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockFromPlayhead, BACK_GRACE, nudgeFor, NUDGE_START } from '../app/js/nav.js';
+import { blockFromPlayhead, BACK_GRACE, nudgeFor, NUDGE_START, takeFrom } from '../app/js/nav.js';
 
 const cues = [{ start: 2, end: 5 }, { start: 10, end: 14 }, { start: 20, end: 22 }];
 
@@ -43,4 +43,15 @@ test('a copied track is nudged rarely, in fixed steps, to stay in step', () => {
   }
   assert.equal(changes, 2);
   assert.ok(Math.abs(drift) < NUDGE_START);
+});
+
+test('a take of your own read starts from the playhead inside the block, like punching in', () => {
+  // Block 5–8 s. After a breath the playhead rests at the end so far: carry on from there.
+  assert.equal(takeFrom(6.4, 5, 6.4), 6.4);
+  // Stepped back to redo the rest from just before a flub.
+  assert.equal(takeFrom(5.9, 5, 6.4), 5.9);
+  // At the block's start (G), before it or past its end: start over.
+  assert.equal(takeFrom(5, 5, 8), 5);
+  assert.equal(takeFrom(3, 5, 8), 5);
+  assert.equal(takeFrom(9, 5, 8), 5);
 });
