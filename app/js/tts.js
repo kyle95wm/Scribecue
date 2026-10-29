@@ -704,7 +704,9 @@ export function initTts(h) {
     if (!e.target.checked && currentVoice() && !currentVoice().localService) { stop(); tts.voice = ''; }
     set('online', e.target.checked);
   });
-  const SAMPLE = 'A pale blue streak cuts diagonally through the darkness.';
+  // Sounds like a real audio description, so voices can be judged on what they'll read.
+  const SAMPLE = 'Rain streaks the windows of an empty diner. A woman in a soaked coat slides into a booth '
+    + 'and pushes a folded note across the table. The man opposite reads it, then slowly looks up.';
   $('ttsTest').addEventListener('click', () => speak(SAMPLE));
   $('ttsTry').addEventListener('click', () => speak(hooks.sample?.() || SAMPLE));
   $('ttsWebVoice').addEventListener('change', renderWeb);

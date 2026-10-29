@@ -287,7 +287,7 @@ For a loop that stays on until you turn it off, use `O` instead.
 Hear your lines read aloud, to check where each one sits and whether it fits before the
 next piece of dialogue. It's part of Write mode, and off until you turn it on: press
 `Alt+Shift+V`, or click `TTS` under the video, then tick **Turn on text to speech**.
-**Test**, next to the voice, reads a short sample line so you can hear each voice.
+**Test**, next to the voice, reads a short sample description so you can hear each voice.
 
 ![The text to speech panel, with voice, speed and Update all timings](docs/screenshots/text-to-speech.png)
 
