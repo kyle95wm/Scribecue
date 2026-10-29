@@ -64,3 +64,11 @@ test('damaged sounds like words are dropped', () => {
   assert.deepEqual(p.blocks[0].say, [['A', 'ay'], ['D', 'dee']]);
   assert.equal(p.blocks[1].say, undefined);
 });
+
+test('project notes for AI help are kept, and left out when empty', () => {
+  const p = fromProject(JSON.parse(JSON.stringify(toProject({ ...state, notes: 'Mara: red coat.' }))));
+  assert.equal(p.notes, 'Mara: red coat.');
+  assert.ok(!('notes' in toProject({ ...state, notes: '  ' })));
+  assert.equal(fromProject({ scribecue: 1, blocks: [] }).notes, '');
+  assert.equal(fromProject({ scribecue: 1, blocks: [], notes: 42 }).notes, '');
+});

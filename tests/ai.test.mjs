@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PROVIDERS, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, nearbyScript, draftPrompt,
+  PROVIDERS, SYSTEM, systemWith, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, nearbyScript, draftPrompt,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from '../app/js/ai.js';
 
@@ -139,4 +139,17 @@ test('only the latest messages keep their frames', () => {
   assert.deepEqual(out.map((m) => m.images?.length ?? null), [0, null, 1, null, 1]);
   assert.equal(out[0].text, 'one'); // the words stay
   assert.equal(msgs[0].images.length, 1); // and the conversation itself is unchanged
+});
+
+test('project notes go with the instructions, and nothing extra goes without them', () => {
+  assert.equal(systemWith(''), SYSTEM);
+  assert.equal(systemWith('  \n '), SYSTEM);
+  const s = systemWith('Mara: red coat.\nSet in Leeds.');
+  assert.ok(s.startsWith(SYSTEM));
+  assert.match(s, /notes about this programme.*\nMara: red coat\.\nSet in Leeds\.$/s);
+  // and they reach every provider
+  for (const p of ['anthropic', 'openai', 'gemini', 'ollama']) {
+    const r = JSON.stringify(buildRequest(p, { key: 'k', model: 'm', system: s, messages: [{ role: 'user', text: 'hi' }] }).body);
+    assert.match(r, /Mara: red coat/, p);
+  }
 });

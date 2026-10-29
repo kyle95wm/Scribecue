@@ -12,12 +12,14 @@ export const cleanSay = (say) => (Array.isArray(say) ? say : [])
   .filter((p) => Array.isArray(p) && typeof p[0] === 'string' && typeof p[1] === 'string' && p[0].trim() && p[1].trim())
   .map(([w, s]) => [w.trim(), s.trim()]);
 
-// state: { blocks, media, settings, view, app }. Returns the object to save as JSON.
-export function toProject({ blocks, media = null, settings = {}, view = {}, app = '' }) {
+// state: { blocks, media, settings, view, app, notes }. Returns the object to save as JSON.
+// notes: what the writer tells AI help about the programme (characters, setting, style).
+export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '' }) {
   return {
     scribecue: PROJECT_FORMAT,
     app,
     saved: new Date().toISOString(),
+    ...(notes.trim() ? { notes } : {}),
     media: media && media.name ? { name: media.name, size: media.size ?? null, duration: num(media.duration) ? media.duration : null } : null,
     settings,
     view,
@@ -60,6 +62,7 @@ export function fromProject(json) {
   const v = json.view && typeof json.view === 'object' ? json.view : {};
   return {
     blocks,
+    notes: typeof json.notes === 'string' ? json.notes : '',
     media: m && typeof m.name === 'string' ? { name: m.name, size: num(m.size) ? m.size : null, duration: num(m.duration) ? m.duration : null } : null,
     settings: {
       ...(s.mode === 'write' || s.mode === 'transcribe' ? { mode: s.mode } : {}),

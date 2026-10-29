@@ -1,7 +1,7 @@
 // The AI help drawer: settings for the person's AI provider, a chat about the scene, and
 // "Draft this block". The requests themselves are built in ai.js.
 import {
-  PROVIDERS, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, draftPrompt, chatContext,
+  PROVIDERS, buildRequest, recentFrames, systemWith, readReply, failure, listModels, fitBudget, draftPrompt, chatContext,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from './ai.js';
 import { tts, chosenVoice, DEFAULT_CPS } from './tts.js';
@@ -30,7 +30,10 @@ const save = () => { const { provider, models, lists, base, frames, remember } =
 
 const ready = () => !!ai.provider && !!ai.models[ai.provider] && (PROVIDERS[ai.provider]?.local || !!keys()[ai.provider]);
 
-let hooks = { cues: () => [], selIndex: () => -1, playhead: () => 0, video: () => null, apply: () => {}, toast: () => {}, writing: () => true };
+let hooks = {
+  cues: () => [], selIndex: () => -1, playhead: () => 0, video: () => null, apply: () => {}, toast: () => {}, writing: () => true,
+  notes: () => '', setNotes: () => {},
+};
 let chat = []; // the conversation, as ai.js messages
 let running = null; // AbortController of the request under way
 
@@ -107,7 +110,7 @@ async function send(msg, shown, frames, draft = null) {
   bubble('user', shown, frames);
   const turn = { role: 'user', text: msg, images: frames.map(({ data, at }) => ({ data, at })) };
   const provider = ai.provider, model = ai.models[provider];
-  const req = buildRequest(provider, { key: keys()[provider], model, base: ai.base, messages: recentFrames([...chat, turn]) });
+  const req = buildRequest(provider, { key: keys()[provider], model, base: ai.base, system: systemWith(hooks.notes()), messages: recentFrames([...chat, turn]) });
   const out = bubble(`assistant${draft ? ' draft' : ''}`);
   const tag = document.createElement('span');
   tag.className = 'tag';
@@ -283,6 +286,24 @@ async function finishSignIn() {
   return true;
 }
 
+// ---- project notes
+
+// The notes button says when there are notes, so it's clear they're being sent.
+function showNotesState() {
+  const n = hooks.notes().trim();
+  $('aiNotesBtn').textContent = n ? 'Notes ✓' : 'Notes';
+  $('aiNotesBtn').classList.toggle('on', !!n);
+}
+// Called when a project is opened or a new one started.
+export function aiNotesChanged() {
+  if (document.activeElement !== $('aiNotes')) $('aiNotes').value = hooks.notes();
+  showNotesState();
+}
+function toggleNotes(show = $('aiNotesBox').hidden) {
+  $('aiNotesBox').hidden = !show;
+  if (show) { $('aiSetup').hidden = true; $('aiNotes').value = hooks.notes(); $('aiNotes').focus(); }
+}
+
 // ---- drawer
 
 export function toggleAi(open = $('aiDrawer').hidden) {
@@ -304,7 +325,9 @@ export function initAi(h) {
     sel.append(o);
   }
   sel.addEventListener('change', renderSetup);
-  $('aiSettings').addEventListener('click', () => openSettings($('aiSetup').hidden));
+  $('aiSettings').addEventListener('click', () => { $('aiNotesBox').hidden = true; openSettings($('aiSetup').hidden); });
+  $('aiNotesBtn').addEventListener('click', () => toggleNotes());
+  $('aiNotes').addEventListener('input', () => { hooks.setNotes($('aiNotes').value); showNotesState(); });
   $('aiClose').addEventListener('click', () => toggleAi(false));
   $('aiConnect').addEventListener('click', connect);
   $('aiRefresh').addEventListener('click', () => loadModels($('aiProvider').value));
@@ -338,5 +361,6 @@ export function initAi(h) {
     loadModels('openrouter').then((ok) => ok && note(`Signed in to OpenRouter. Using ${ai.models.openrouter}; change it in Settings.`));
   });
   renderWho();
+  aiNotesChanged();
   return finishSignIn();
 }

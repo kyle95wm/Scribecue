@@ -462,7 +462,18 @@ the top, or press `Alt+Shift+A`, and a drawer slides out beside the video:
   the playhead** ticked, it sees the frame you're on, along with the selected block and the
   script around it.
 
+- **Project notes:** click **Notes** in the drawer to tell the AI what the frames can't
+  show: who the characters are and how to tell them apart, where and when it's set, and
+  your team's style, such as "Name characters once they've been introduced". Every draft
+  and message includes them, and they're saved with the project. **Notes ✓** means there
+  are some.
+
 ![The AI help drawer beside the video, with a draft for a block](docs/screenshots/ai-help.png)
+
+Drafts are only as good as the model. Small models that run on a laptop, such as
+`gemma3:4b`, often misread a scene; a bigger one, such as `gemma3:12b`, or an online model
+does much better. Project notes, more frames per draft, and correcting a draft in the chat
+before **Try again** all help too.
 
 Connect a provider in the drawer's **Settings**:
 

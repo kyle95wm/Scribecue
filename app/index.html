@@ -256,6 +256,7 @@ docker compose up -d --build</code></pre>
       <strong>AI help</strong>
       <span id="aiWho" class="dim small"></span>
       <button id="aiNew" data-tip="Start a new conversation">New chat</button>
+      <button id="aiNotesBtn" data-tip="Notes about the programme for the AI: characters, setting, style">Notes</button>
       <button id="aiSettings" data-tip="Choose and connect an AI provider">Settings</button>
       <button id="aiClose" aria-label="Close AI help (Esc)">×</button>
     </header>
@@ -297,6 +298,14 @@ docker compose up -d --build</code></pre>
       <p id="aiPrivacy" class="warnbox small"></p>
       <p class="updstatus"><button id="aiConnect" class="hl">Save and connect</button>
         <button id="aiForget">Forget this provider</button> <span id="aiSetupStatus" class="dim"></span></p>
+    </section>
+    <section id="aiNotesBox" class="aisetup" hidden>
+      <label for="aiNotes" class="small"><strong>Project notes</strong>: what the AI can't see in the frames.
+        It reads them with every draft and message, and they're saved with the project.</label>
+      <textarea id="aiNotes" rows="6" spellcheck="true"
+        placeholder="Mara: woman in her 40s, short grey hair, red coat. Her son Theo, about 10.&#10;Set in a hospital in Leeds, winter.&#10;Name characters once they've been introduced. British spelling."></textarea>
+      <p class="dim small">Useful: who's who and how to tell them apart, places, the period, and your
+        team's style. These go to your AI provider with the frames.</p>
     </section>
     <div id="aiLog" class="ailog" aria-live="polite"></div>
     <div class="aicompose">

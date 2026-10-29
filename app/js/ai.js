@@ -33,6 +33,13 @@ Keep the names and style the script already uses, and don't name someone the scr
 
 Video frames you're given are stills from the programme, each labelled with its timecode.`;
 
+// The instructions with the writer's notes about this programme, which can say what the
+// frames can't: who the characters are, where it's set, how the team writes.
+export function systemWith(notes = '') {
+  const n = notes.trim();
+  return n ? `${SYSTEM}\n\nThe writer's notes about this programme. Follow them, and use the names they give:\n${n}` : SYSTEM;
+}
+
 // How much fits in a block: the voice's characters per second times the block's length,
 // at the block's reading speed. About six characters make a word, with its space.
 export function fitBudget(secs, cps = 15, speed = 1) {

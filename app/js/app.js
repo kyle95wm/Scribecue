@@ -1,7 +1,7 @@
 import { parseSubs, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
 import { initUpdates, openUpdates, updateChoice } from './update.js';
 import { HOSTED } from './config.js';
-import { initAi, toggleAi } from './aidrawer.js';
+import { initAi, toggleAi, aiNotesChanged } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, supported, missingFeatures } from './browser.js';
@@ -90,6 +90,7 @@ const S = {
   handle: null, // where the project saves to, when the browser allows saving in place
   projectMedia: null, // { name, size } of the video the open project belongs to
   pendingPlayhead: null, // where to put the playhead once that video is open
+  notes: '', // the writer's notes about the programme, for AI help
 };
 
 let nextId = 1;
@@ -272,7 +273,8 @@ function save() {
       subName: S.subName,
       dirty: S.dirty,
       projectMedia: S.projectMedia,
-      cues: S.cues.map(({ start, end, text, speed, auto, fit, pinned }) => ({ start, end, text, speed, auto, fit, pinned })),
+      notes: S.notes,
+      cues: S.cues.map(({ start, end, text, speed, auto, fit, pinned, say }) => ({ start, end, text, speed, auto, fit, pinned, say })),
     }));
   } catch { /* storage full or blocked */ }
 }
@@ -284,6 +286,7 @@ function loadSaved() {
       S.subName = o.subName || S.subName;
       S.savedDirty = o.dirty !== false;
       S.projectMedia = o.projectMedia || null;
+      S.notes = typeof o.notes === 'string' ? o.notes : '';
       return S.cues.length;
     }
   } catch { /* ignore */ }
@@ -1922,6 +1925,7 @@ function projectData() {
   return toProject({
     app: VERSION,
     blocks: S.cues,
+    notes: S.notes,
     media: m,
     settings: { mode: S.mode, offset: S.offset, ttsSpeed: tts.speed, ttsVoice: chosenVoice() },
     view: { playhead: now(), ...(selIdx() >= 0 ? { selected: selIdx() } : {}) },
@@ -1983,6 +1987,8 @@ async function openProject(file, handle = null) {
   S.handle = handle;
   handleStore.set(handle);
   S.projectMedia = p.media;
+  S.notes = p.notes;
+  aiNotesChanged();
   const { mode, offset, ttsSpeed, ttsVoice } = p.settings;
   if (mode) setMode(mode, true);
   if (offset != null) setOffset(offset);
@@ -2029,6 +2035,8 @@ function newProject() {
   handleStore.set(null);
   S.projectMedia = null;
   S.pendingPlayhead = null;
+  S.notes = '';
+  aiNotesChanged();
   changed();
   select(null);
   projectSaved('untitled.srt');
@@ -2443,6 +2451,15 @@ initAi({
   video: () => (S.hasVideo ? video : null),
   writing: () => writing(),
   toast,
+  notes: () => S.notes,
+  setNotes(text) {
+    if (text === S.notes) return;
+    S.notes = text;
+    S.dirty = true;
+    showDocName();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 400);
+  },
   apply(id, text) {
     const c = S.cues[idx(id)];
     if (!c) { toast('That block isn’t there any more'); return false; }
@@ -2715,6 +2732,7 @@ if (!IS_MAC) {
   edText.placeholder = pcKeys(edText.placeholder);
 }
 const restored = loadSaved();
+aiNotesChanged();
 S.dirty = false;
 showDocName();
 S.pps = Math.max(20, tl.clientWidth / 20);
