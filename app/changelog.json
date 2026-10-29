@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.31.0",
+  "date": "2026-10-29",
+  "notes": "## Autosave\n\n- Once a project has a file, Scribecue now saves your changes to it as you work, a couple of seconds after you stop. **autosaved** next to the project name says it's done.\n- After a reload, the browser asks before Scribecue may save to the file again, so the status says **autosave paused**. Click it, or press Ctrl/Cmd+S, and it carries on. Opening a project asks straight away.\n- Click **autosaved** to turn autosave off, and **autosave off** to turn it back on. The file always has your latest changes, so save a copy with Ctrl/Cmd+Shift+S before a big change if you might want the old version.\n- Autosave needs Chrome or Edge. In other browsers, the reminder to save still helps."
+ },
+ {
   "version": "0.30.0",
   "date": "2026-10-29",
   "notes": "## Speech to text\n\n- **Spelling:** Whisper writes American spelling, and the speech to text panel can now change it to British and Canadian spelling as the text arrives: colour, grey, centre, travelled, catalogue and the like. It starts on whichever suits your browser's language.\n- The panel links to the new [transcribing guide](https://github.com/kyle95wm/Scribecue/blob/main/TRANSCRIBING.md), which covers everything about transcribing, from choosing the description track to fixing what Whisper gets wrong.\n\n## A reminder to save\n\n- Until you save a project, your work is only kept in the browser. After 20 minutes of unsaved work, a note now asks you to save it. **Later** asks again in half an hour."
