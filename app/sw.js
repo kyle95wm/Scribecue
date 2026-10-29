@@ -8,7 +8,7 @@ const VERSION = '0.20.0';
 const CACHE = `scribecue-${VERSION}`;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
-  'js/app.js', 'js/browser.js', 'js/config.js', 'js/formats.js', 'js/piper-engine.js', 'js/piper-worker.js',
+  'js/ai.js', 'js/aidrawer.js', 'js/app.js', 'js/browser.js', 'js/config.js', 'js/formats.js', 'js/piper-engine.js', 'js/piper-worker.js',
   'js/project.js', 'js/tts.js',
   'js/update.js', 'js/welcome.js', 'js/wave-worker.js',
   'icons/icon-192.png', 'icons/icon-512.png',

@@ -119,6 +119,7 @@ To get a newer version later, see [Updating](#updating).
   - [Looping a block](#looping-a-block)
   - [Text to speech](#text-to-speech)
   - [Piper voices](#piper-voices)
+  - [AI help](#ai-help)
 - [Files with several audio tracks](#files-with-several-audio-tracks)
 - [Other handy features](#other-handy-features)
 - [Keyboard shortcuts](#keyboard-shortcuts)
@@ -443,6 +444,37 @@ PIPER_VOICES=en_US-lessac-medium en_GB-jenny_dioco-medium
 To stop using Piper, remove the `COMPOSE_PROFILES` line from `.env` and run
 `docker compose down`, then `docker compose up -d`.
 
+### AI help
+
+Scribecue can use your own AI provider to help describe what's on screen. Click **AI** at
+the top, or press `Alt+Shift+A`, and a drawer slides out beside the video:
+
+- **Draft this block:** select a block and click it. Scribecue sends stills from the block,
+  the script around it and how many words fit, worked out from the block's length and the
+  voice's speed. The draft appears in the drawer: click **Use for block #n** to put it in the
+  block (`Ctrl/Cmd+Z` undoes it), or **Try again**. Nothing changes until you choose.
+- **Chat:** ask about the scene, such as "who's in the background?". With **Send the frame at
+  the playhead** ticked, it sees the frame you're on, along with the selected block and the
+  script around it.
+
+![The AI help drawer beside the video, with a draft for a block](docs/screenshots/ai-help.png)
+
+Connect a provider in the drawer's **Settings**:
+
+| Provider | How to connect |
+| --- | --- |
+| **Claude** (Anthropic), **OpenAI**, **Gemini** (Google) | Paste an API key from the provider's site. Usage is billed by the provider, separately from any ChatGPT, Claude or Gemini subscription. |
+| **OpenRouter** | Click **Sign in with OpenRouter**: one account for models from OpenAI, Anthropic, Google and more, paid with OpenRouter credit. Or paste an OpenRouter key. |
+| **Ollama** | Runs the model on your own computer, so nothing leaves it. Install [Ollama](https://ollama.com) and pull a model that can see images, such as `gemma3` or `llava`. For the web version, start Ollama with `OLLAMA_ORIGINS=https://kyle95wm.github.io` so the page can reach it; with Docker, nothing extra is needed. |
+
+Then pick a model (**Load models** lists the provider's), and how many frames a draft
+sends. Keys stay in your browser, either remembered on this computer or kept for this tab
+only, and are only ever sent to their own provider.
+
+When you send a message or ask for a draft, the frames and the nearby blocks go to the
+provider you chose, under its terms. Don't use an online provider for programmes you
+mustn't share; Ollama keeps everything on your computer.
+
 ## Files with several audio tracks
 
 When a file has more than one audio track, such as the original mix and an audio
@@ -550,6 +582,7 @@ keys are named on each system.
 | `[` `]` | Make the block's reading slower / faster |
 | `Alt+Shift+V` | Text to speech settings |
 | `Alt+Shift+P` | [Sounds like](#text-to-speech) for the selected block |
+| `Alt+Shift+A` | Open or close [AI help](#ai-help) |
 | `Alt+=` `Alt+-` `Alt+0` | Zoom the timeline in / out / to fit |
 | `\` | Reset speed to 1× |
 
@@ -594,10 +627,15 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
   that it works offline. Run it yourself with Docker to keep even that on your computer.
 - The server only hands out the app's own files, and only to your own computer
   (`127.0.0.1`).
-- A strict security policy stops the page from contacting any other site. The one exception
-  is the [update check](#updating), which only runs if you agree to it.
+- A strict security policy stops the page from contacting any other site. The exceptions
+  are the [update check](#updating), which only runs if you agree to it, and the AI
+  providers below, which are only contacted once you connect one.
 - [Text to speech](#text-to-speech) uses the voices on your computer. Online voices, which
   send the text to their provider, are only offered if you turn them on.
+- [AI help](#ai-help) is off until you connect a provider. Then, only when you send a
+  message or ask for a draft, frames and nearby blocks go to the provider you chose, or
+  stay on your computer with Ollama. The security policy allows those providers' addresses
+  and nothing else.
 - [Piper](#piper-voices), if you add it, runs in its own container with no internet access
   and no port of its own. The page reaches it through Scribecue's server. In the web
   version, Piper voices you download come from Scribecue's own site and run in your

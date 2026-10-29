@@ -103,6 +103,41 @@ await js(`(async () => {
 await sleep(400);
 await shot('sounds-like', '#sayDlg', 0);
 
+// AI help: a draft for block 2, from a stand-in for Ollama so no AI is needed
+await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
+await js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`); await sleep(300);
+await js(`(async () => {
+  const f = window.fetch;
+  window.fetch = (u, o) => {
+    u = String(u);
+    if (u.endsWith('/api/tags')) return Promise.resolve(new Response(JSON.stringify({ models: [{ name: 'gemma3:12b' }] })));
+    if (u.endsWith('/api/chat')) {
+      const words = 'Violet ribbons ripple and fold together, then drift apart.'.split(/(?<= )/);
+      const body = new ReadableStream({ async start(c) {
+        for (const w of words) { c.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: w } }) + '\\n')); await new Promise((r) => setTimeout(r, 20)); }
+        c.enqueue(new TextEncoder().encode(JSON.stringify({ message: { content: '' }, done: true }) + '\\n')); c.close();
+      } });
+      return Promise.resolve(new Response(body));
+    }
+    return f(u, o);
+  };
+  document.querySelectorAll('#list .row')[1].click();
+  await new Promise((r) => setTimeout(r, 300));
+  document.getElementById('aiBtn').click();
+  await new Promise((r) => setTimeout(r, 300));
+  const p = document.getElementById('aiProvider'); p.value = 'ollama'; p.dispatchEvent(new Event('change'));
+  document.getElementById('aiConnect').click();
+  await new Promise((r) => setTimeout(r, 600));
+  document.getElementById('aiDraft').click();
+  for (let i = 0; i < 40 && !document.querySelector('#aiLog .draft .acts'); i++) await new Promise((r) => setTimeout(r, 150));
+  document.activeElement?.blur();
+  document.getElementById('toast').classList.add('fade');
+  return !!document.querySelector('#aiLog .draft .acts');
+})()`);
+await sleep(700);
+await shot('ai-help');
+await js(`document.getElementById('aiClose').click(); 1`); await sleep(300);
+
 // the Did you know? box, which only shows without Piper: hide Piper from this page.
 // (A made-up Esc key doesn't close a dialog, so close them directly.)
 const closeDialogs = () => js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`);

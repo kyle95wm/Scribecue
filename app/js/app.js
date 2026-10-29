@@ -1,6 +1,7 @@
 import { parseSubs, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
 import { initUpdates, openUpdates, updateChoice } from './update.js';
 import { HOSTED } from './config.js';
+import { initAi, toggleAi } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, supported, missingFeatures } from './browser.js';
@@ -2431,7 +2432,28 @@ const actions = {
   help: () => toggleHelp(),
   setup: () => openWelcome(),
   newProject: () => newProject(),
+  ai: () => toggleAi(),
 };
+
+// AI help: the drawer asks the editor for the script and puts drafts into blocks.
+initAi({
+  cues: () => S.cues,
+  selIndex: () => selIdx(),
+  playhead: () => now(),
+  video: () => (S.hasVideo ? video : null),
+  writing: () => writing(),
+  toast,
+  apply(id, text) {
+    const c = S.cues[idx(id)];
+    if (!c) { toast('That block isn’t there any more'); return false; }
+    pushUndo();
+    c.text = text;
+    changed();
+    select(c.id, { seek: false });
+    toast(`Draft used for block #${idx(id) + 1} — ${IS_MAC ? '⌘' : 'Ctrl+'}Z to undo`);
+    return true;
+  },
+});
 document.querySelector('nav').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -2557,6 +2579,7 @@ document.addEventListener('keydown', (e) => {
       case 'KeyJ': openPalette('time'); break;
       case 'KeyD': confirmDelete(); break;
       case 'KeyP': openSay(); break;
+      case 'KeyA': toggleAi(); break;
       case 'KeyV': if (writing()) openTts(); else modeOnly('Text to speech', 'write'); break;
       case 'KeyM': case 'KeyC': toast(`${e.code === 'KeyM' ? 'Markers' : 'Comments'} are not part of this editor`); break;
       default: handled = false;

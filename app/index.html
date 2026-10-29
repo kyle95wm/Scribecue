@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Scribecue</title>
   <!-- The same policy nginx sends, here too for the web version, which has no nginx. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://openrouter.ai http://localhost:11434 http://127.0.0.1:11434; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#11141a">
@@ -31,6 +31,7 @@
       <button data-act="saveProject" data-tip="Save the project: blocks, settings and where you were ({mod}S). Save as a new file with {mod}⇧S">Save <kbd><span class="mod"></span>S</kbd></button>
       <button data-act="exportSrt" data-tip="Export the script as an SRT file, to hand on or for the final output ({mod}E)">Export SRT <kbd><span class="mod"></span>E</kbd></button>
       <button data-act="exportVtt" class="tip-end" data-tip="Export the script as a WebVTT file, which also keeps block speeds ({mod}⇧E)">VTT <kbd><span class="mod"></span>⇧E</kbd></button>
+      <button data-act="ai" id="aiBtn" class="tip-end" data-tip="AI help: chat about the scene and draft descriptions (⌥⇧A)">AI</button>
       <button data-act="setup" class="tip-end" data-tip="Run the welcome setup again: your task, its tools and update checks">Setup</button>
       <button data-act="help" class="hl tip-end" data-tip="Show all keyboard shortcuts (? or ⇧O)">Shortcuts <kbd>?</kbd></button>
     </nav>
@@ -250,6 +251,69 @@ docker compose up -d --build</code></pre>
     <div class="updbtns"><button id="wzBack">Back</button><span class="grow"></span><button id="wzNext" class="hl">Next</button></div>
   </dialog>
 
+  <aside id="aiDrawer" class="aidrawer" hidden aria-label="AI help">
+    <header class="aihead">
+      <strong>AI help</strong>
+      <span id="aiWho" class="dim small"></span>
+      <button id="aiNew" data-tip="Start a new conversation">New chat</button>
+      <button id="aiSettings" data-tip="Choose and connect an AI provider">Settings</button>
+      <button id="aiClose" aria-label="Close AI help (Esc)">×</button>
+    </header>
+    <section id="aiSetup" class="aisetup" hidden>
+      <p class="small">Connect your own AI provider. Scribecue sends it nothing until you send a message or
+        ask for a draft.</p>
+      <div class="ttsgrid">
+        <label for="aiProvider">Provider</label>
+        <select id="aiProvider"></select>
+      </div>
+      <div id="aiKeyRow">
+        <div class="ttsgrid">
+          <label for="aiKey">API key</label>
+          <input id="aiKey" type="password" autocomplete="off" spellcheck="false">
+        </div>
+        <p class="dim small"><a id="aiKeyLink" href="#" target="_blank" rel="noopener noreferrer">Get a key</a>.
+          Usage is billed by the provider, separately from any ChatGPT, Claude or Gemini subscription.</p>
+        <p id="aiSignInRow" hidden><button id="aiSignIn" class="hl">Sign in with OpenRouter</button>
+          <span class="dim small">one account for models from OpenAI, Anthropic, Google and more</span></p>
+      </div>
+      <div id="aiBaseRow" class="ttsgrid" hidden>
+        <label for="aiBase">Address</label>
+        <input id="aiBase" spellcheck="false" autocomplete="off">
+      </div>
+      <p id="aiOllamaNote" class="dim small" hidden>Ollama runs AI models on your computer, so nothing leaves it.
+        Install it from <a href="https://ollama.com" target="_blank" rel="noopener noreferrer">ollama.com</a> and
+        pull a model that can see images, such as <code>gemma3</code> or <code>llava</code>.
+        <span id="aiOllamaWeb">For this web version, start Ollama with
+        <code>OLLAMA_ORIGINS=https://kyle95wm.github.io</code> so the page may reach it.</span></p>
+      <div class="ttsgrid">
+        <label for="aiModel">Model</label>
+        <span class="aimodel"><select id="aiModel"></select><button id="aiRefresh" data-tip="Ask the provider which models it has">Load models</button></span>
+        <label for="aiFrames">Frames per draft</label>
+        <select id="aiFrames">
+          <option value="0">none</option><option value="1">1</option><option value="3">3</option><option value="5">5</option>
+        </select>
+      </div>
+      <label class="updopt"><input type="checkbox" id="aiRemember"> Remember the key on this computer</label>
+      <p id="aiPrivacy" class="warnbox small"></p>
+      <p class="updstatus"><button id="aiConnect" class="hl">Save and connect</button>
+        <button id="aiForget">Forget this provider</button> <span id="aiSetupStatus" class="dim"></span></p>
+    </section>
+    <div id="aiLog" class="ailog" aria-live="polite"></div>
+    <div class="aicompose">
+      <div class="airow">
+        <button id="aiDraft" class="hl" data-tip="Write a description for the selected block, from its frames and the script around it">Draft this block</button>
+        <label class="small dim"><input type="checkbox" id="aiFrame" checked> Send the frame at the playhead</label>
+      </div>
+      <textarea id="aiInput" rows="3" placeholder="Ask about this scene… (↵ sends, ⇧↵ new line)"></textarea>
+      <div class="airow">
+        <span id="aiStatus" class="dim small"></span>
+        <span class="grow"></span>
+        <button id="aiStop" hidden>Stop</button>
+        <button id="aiSend">Send</button>
+      </div>
+    </div>
+  </aside>
+
   <dialog id="sayDlg" class="updbox" aria-labelledby="sayTitle">
     <h2 id="sayTitle">Sounds like</h2>
     <p>Tell text to speech how to say words in <span id="sayBlock">this block</span>. Only the reading
@@ -452,6 +516,7 @@ docker compose up -d --build</code></pre>
             <dt><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Set the block's end to where the reading finishes</dd>
             <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>This block's reading slower / faster</dd>
             <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd></dt><dd>Sounds like: how words in this block are said</dd>
+            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>A</kbd></dt><dd>AI help: chat and draft descriptions</dd>
             <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Settings: voice, speed, online voices, update all timings</dd>
           </dl>
         </section>
