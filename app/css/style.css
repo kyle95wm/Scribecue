@@ -103,6 +103,7 @@ button {
   align-items: center;
   gap: 6px;
 }
+button[hidden] { display: none; } /* inline-flex above would otherwise show it */
 button:hover { background: var(--raise); border-color: var(--faint); }
 button.hl { border-color: var(--accent); }
 button kbd { font-size: 10px; }

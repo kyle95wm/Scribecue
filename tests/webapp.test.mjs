@@ -32,3 +32,9 @@ test('the app installs: its manifest names it and has the icons browsers need', 
 test('the copy in the repository is the Docker one; the web build switches it', () => {
   assert.match(read('js/config.js'), /export const HOSTED = false;/);
 });
+
+test('hidden buttons stay hidden, such as Install app until the browser offers it', () => {
+  // Buttons are inline-flex, which beats the hidden attribute unless CSS says otherwise.
+  assert.match(read('css/style.css'), /^button\[hidden\] \{ display: none; \}/m);
+  assert.match(read('index.html'), /<button id="installBtn"[^>]* hidden/);
+});
