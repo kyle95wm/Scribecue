@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.29.0",
+  "date": "2026-10-29",
+  "notes": "## Speech to text, for transcribing\n\n- In Transcribe mode, **Whisper** can type each line for you. You still time every block by holding H; when you let go, Whisper listens to the block's audio and fills in what the narrator said, ready to check. If you start typing first, it leaves the block to you.\n- Click **STT** under the video, or press Alt+Shift+H, to set it up. In the web version, Whisper is a one-time 166 MB download into your browser, and then it works offline. With Docker, add the new Whisper container, which is more accurate (see [INSTALL.md](https://github.com/kyle95wm/Scribecue/blob/main/INSTALL.md#speech-to-text-whisper)).\n- **Transcribe empty blocks** fills in every block with no text yet, in one go. Ctrl/Cmd+Z undoes it.\n- Alt+Shift+T transcribes the selected block again, such as after you change its timing.\n- It all runs on your computer: the audio is never uploaded. Whisper understands English, and it hears everything in a block, so choose the description track with T if your file has one."
+ },
+ {
   "version": "0.28.2",
   "date": "2026-10-29",
   "notes": "## Only models that work, in AI help\n\n- **Load models** in AI help's settings now only lists models that can look at your frames and write a description. Ones that couldn't help, such as models that only handle text, make pictures, speak, or work in slow batches, are left out, for every provider.\n- For Ollama, models you've downloaded that can't see images aren't listed. If none can, the settings say which one to download."
