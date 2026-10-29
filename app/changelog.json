@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.32.1",
+  "date": "2026-10-29",
+  "notes": "## Fix\n\n- Browsers built on the same engine as Chrome, such as Brave, Opera, Vivaldi and Arc, no longer get the notice about features that may not work, unless something really is missing. Scribecue now checks what your browser can do, rather than going by its name, and only lists what it lacks."
+ },
+ {
   "version": "0.32.0",
   "date": "2026-10-29",
   "notes": "## Working offline\n\n- **offline ready** in the bottom right opens a checklist of what this browser has for working without a connection: Scribecue itself, the guides, your Piper voices and Whisper, and whether the browser will keep them. Anything missing has a button to get it.\n- While you're offline, the bottom right says **offline**. AI help says when an online provider can't be reached, and points to Ollama, which works offline. Online voices are greyed out.\n- Scribecue now asks the browser to keep its storage, so it's less likely to be cleared when space runs low.\n\n## Guides inside Scribecue\n\n- The README and the transcribing, AI and install guides now open inside Scribecue, with their screenshots, and work offline. **Guides** in the shortcuts overlay (press ?) opens them, and links to them anywhere in Scribecue open there too.\n\n## Phones, tablets and old browsers\n\n- On a phone or tablet, Scribecue now says it needs a computer, rather than opening an editor that can't be used there.\n- Browsers from before 2022, too old to run Scribecue, now say so instead of showing a blank page."
