@@ -604,10 +604,11 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 .updbox::backdrop { background: rgba(0, 0, 0, 0.7); }
 
 /* Phones and tablets: only the notice shows. */
-.mobileblock[hidden] { display: none; }
-body.mobile > :not(#mobileBlock) { display: none !important; }
-.mobileblock { max-width: 34rem; margin: 0 auto; padding: 40px 24px; line-height: 1.5; font-size: 17px; }
-.mobileblock h1 { font-size: 24px; margin: 24px 0 12px; }
+/* Phones and tablets, and browsers too old for Scribecue: only the notice shows. */
+.blocker[hidden] { display: none; }
+body.blocked > :not(.blocker) { display: none !important; }
+.blocker { max-width: 34rem; margin: 0 auto; padding: 40px 24px; line-height: 1.5; font-size: 17px; }
+.blocker h1 { font-size: 24px; margin: 24px 0 12px; }
 
 /* The guides, inside Scribecue (guide.js). */
 .guidebox { width: min(900px, 94vw); height: 88vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; }

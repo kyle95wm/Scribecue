@@ -10,10 +10,17 @@
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#11141a">
   <link rel="stylesheet" href="css/style.css">
+  <script src="js/old.js" defer></script>
   <script type="module" src="js/app.js"></script>
 </head>
 <body>
-  <div id="mobileBlock" class="mobileblock" role="alert" hidden>
+  <div id="oldBlock" class="blocker" role="alert" hidden>
+    <div class="brand">SCRIBE<span>CUE</span></div>
+    <h1>This browser is too old for Scribecue</h1>
+    <p>Scribecue needs a browser from 2022 or later. Update this one, or open Scribecue in a
+      current version of Google Chrome or Microsoft Edge, which it's built for.</p>
+  </div>
+  <div id="mobileBlock" class="blocker" role="alert" hidden>
     <div class="brand">SCRIBE<span>CUE</span></div>
     <h1>Scribecue needs a computer</h1>
     <p>It's an editor for audio description scripts, built for a keyboard and a big screen: you

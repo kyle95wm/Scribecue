@@ -47,3 +47,18 @@ test('phones and tablets are recognised, so they get the notice', () => {
   assert.ok(!isMobile({ ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/140.0 Safari/537.36', touchPoints: 0 }));
   assert.ok(!isMobile({ ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/140.0 Safari/537.36 Edg/140.0', touchPoints: 10 }), 'a Windows touch laptop');
 });
+
+test('browsers too old for Scribecue are told so, instead of seeing a blank page', async () => {
+  const { readFileSync } = await import('node:fs');
+  const vm = await import('node:vm');
+  const ctx = {};
+  vm.runInNewContext(readFileSync(new URL('../app/js/old.js', import.meta.url), 'utf8'), ctx);
+  const now = { Array: { prototype: { findLast() {} } }, HTMLDialogElement: function () {}, structuredClone() {} };
+  assert.equal(ctx.scribecueTooOld(now), false);
+  assert.equal(ctx.scribecueTooOld({ ...now, Array: { prototype: {} } }), true, 'no findLast: before 2022');
+  assert.equal(ctx.scribecueTooOld({ ...now, HTMLDialogElement: undefined }), true);
+  assert.equal(ctx.scribecueTooOld({}), true);
+  // It has to parse in old browsers: no arrows, let/const, classes or template strings.
+  const code = readFileSync(new URL('../app/js/old.js', import.meta.url), 'utf8').replace(/\/\/.*$/gm, '');
+  assert.doesNotMatch(code, /=>|\blet\b|\bconst\b|\bclass\b|`|\?\.|\?\?/);
+});

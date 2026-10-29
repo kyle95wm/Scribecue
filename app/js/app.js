@@ -27,7 +27,7 @@ const $ = (id) => document.getElementById(id);
 // Phones and tablets get a notice instead of the editor, which needs a keyboard and a
 // bigger screen. Nothing else starts.
 if (isMobile({ ua: navigator.userAgent, mobile: navigator.userAgentData?.mobile, touchPoints: navigator.maxTouchPoints })) {
-  document.body.classList.add('mobile');
+  document.body.classList.add('blocked');
   $('mobileBlock').hidden = false;
   throw new Error('Scribecue needs a computer');
 }

@@ -42,7 +42,7 @@ Scribecue is built for Chrome and Edge. Other browsers, such as Safari and Firef
 open it, but some features may not be available or work well, and Scribecue tells you
 which. In Firefox, for example, a file's description track can stutter, and speech to text
 can interrupt the video's sound. Phones and tablets get a notice instead: Scribecue needs a
-keyboard and a bigger screen.
+keyboard and a bigger screen. So do browsers from before 2022, which are too old to run it.
 
 **Working offline:** once you've opened the web version, it works without a connection,
 and so do Piper voices and Whisper once they're downloaded. **offline ready** in the bottom
