@@ -156,6 +156,9 @@ export function buildRequest(provider, { key, model, base, system = SYSTEM, mess
       headers: json,
       body: {
         model, stream: true,
+        // Room for several frames and the script around a block. Ollama's default can be
+        // smaller, and it quietly drops the start of anything that doesn't fit.
+        options: { num_ctx: 8192 },
         messages: [{ role: 'system', content: system }, ...messages.map((m) => ({
           role: m.role, content: m.text, ...(m.images?.length ? { images: m.images.map((im) => im.data) } : {}),
         }))],

@@ -121,7 +121,7 @@ To stop using Piper, remove the `COMPOSE_PROFILES` line from `.env` and run
 
 ## Ollama in Docker
 
-[AI help](README.md#ai-help) can use Ollama, which runs AI models on your own computer.
+[AI help](AI.md) can use Ollama, which runs AI models on your own computer.
 Usually you'd install the [Ollama app](https://ollama.com), but it can also run in a
 container next to Scribecue, with nothing installed outside Docker. Add `ollama` to the
 profiles in `.env`, for example:
@@ -130,7 +130,8 @@ profiles in `.env`, for example:
 COMPOSE_PROFILES=piper,ollama
 ```
 
-Then start it and download a model that can see images (about 3 GB for this one):
+Then start it and download a model that can see images. This one is about 3 GB;
+[AI.md](AI.md#ollama-models-by-computer) suggests bigger ones for more powerful computers:
 
 ```bash
 docker compose up -d

@@ -380,45 +380,17 @@ English voices built in and others you choose. See
 
 ### AI help
 
-Scribecue can use your own AI provider to help describe what's on screen. Click **AI** at
-the top, or press `Alt+Shift+A`, and a drawer slides out beside the video:
-
-- **Draft this block:** select a block and click it. Scribecue sends stills from the block,
-  the script around it and how many words fit, worked out from the block's length and the
-  voice's speed. The draft appears in the drawer: click **Use for block #n** to put it in the
-  block (`Ctrl/Cmd+Z` undoes it), or **Try again**. Nothing changes until you choose.
-- **Chat:** ask about the scene, such as "who's in the background?". With **Send the frame at
-  the playhead** ticked, it sees the frame you're on, along with the selected block and the
-  script around it.
-
-- **Project notes:** click **Notes** in the drawer to tell the AI what the frames can't
-  show: who the characters are and how to tell them apart, where and when it's set, and
-  your team's style, such as "Name characters once they've been introduced". Every draft
-  and message includes them, and they're saved with the project. **Notes ✓** means there
-  are some.
+Scribecue can use an AI model to help describe what's on screen. Click **AI** at the top,
+or press `Alt+Shift+A`, and a drawer beside the video can **draft the selected block** from
+stills of it and the script around it, or **answer questions** about the scene. Nothing
+changes until you choose to use a draft, and nothing is sent anywhere until you connect a
+provider: Claude, OpenAI, Gemini or OpenRouter online, or Ollama on your own computer.
 
 ![The AI help drawer beside the video, with a draft for a block](docs/screenshots/ai-help.png)
 
-Drafts are only as good as the model. Small models that run on a laptop, such as
-`gemma3:4b`, often misread a scene; a bigger one, such as `gemma3:12b`, or an online model
-does much better. Project notes, more frames per draft, and correcting a draft in the chat
-before **Try again** all help too.
-
-Connect a provider in the drawer's **Settings**:
-
-| Provider | How to connect |
-| --- | --- |
-| **Claude** (Anthropic), **OpenAI**, **Gemini** (Google) | Paste an API key from the provider's site. Usage is billed by the provider, separately from any ChatGPT, Claude or Gemini subscription. |
-| **OpenRouter** | Click **Sign in with OpenRouter**: one account for models from OpenAI, Anthropic, Google and more, paid with OpenRouter credit. Or paste an OpenRouter key. |
-| **Ollama** | Runs the model on your own computer, so nothing leaves it. Install [Ollama](https://ollama.com) and pull a model that can see images, such as `gemma3` or `llava`. For the web version, start Ollama with `OLLAMA_ORIGINS=https://scribecue.kyleadvoice.ca` so the page can reach it; with Docker, nothing extra is needed. Or run it [in Docker, next to Scribecue](INSTALL.md#ollama-in-docker). |
-
-Then pick a model (**Load models** lists the provider's), and how many frames a draft
-sends. Keys stay in your browser, either remembered on this computer or kept for this tab
-only, and are only ever sent to their own provider.
-
-When you send a message or ask for a draft, the frames and the nearby blocks go to the
-provider you chose, under its terms. Don't use an online provider for programmes you
-mustn't share; Ollama keeps everything on your computer.
+**[AI.md](AI.md) is the full guide:** connecting each provider, which models to use (with
+Ollama models for each size of computer), getting the best descriptions out of them,
+privacy and costs.
 
 ## Files with several audio tracks
 

@@ -40,6 +40,7 @@ test('each provider gets the frames and words in its own format', () => {
   const l = buildRequest('ollama', { model: 'llava', base: 'http://localhost:11434/', messages: turn });
   assert.equal(l.url, 'http://localhost:11434/api/chat');
   assert.deepEqual(l.body.messages[1].images, ['QUJD']);
+  assert.ok(l.body.options.num_ctx >= 8192, 'room for frames and the script');
 });
 
 test('Claude’s own reply goes back unchanged on the next turn', () => {
