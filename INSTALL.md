@@ -69,8 +69,9 @@ one at a time.
 
 5. Open <http://localhost:8484> in Chrome or Edge.
 
-A short setup opens and asks what you're working on, turns on the tools for it, and
-offers a guided tour. You can run it again any time with **Setup** at the top.
+A one-minute guided tour shows you around, then a short setup asks what you're working on
+and turns on the tools for it. You can run the setup again any time with **Setup** at the
+top, and the tour from the shortcuts overlay.
 
 ## Starting and stopping
 

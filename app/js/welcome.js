@@ -63,9 +63,7 @@ function finish() {
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
   if (u === '1' || u === '0') setUpdateChoice(u === '1');
   finished = true;
-  const tour = $('wzTour').checked;
   $('welcome').close();
-  if (tour) { hooks.tour?.(m); return; }
   hooks.toast(m === 'write'
     ? `All set for writing.${$('wzTts').checked ? ' Press V to hear a block.' : ''} Setup at the top runs this again`
     : 'All set for transcribing. Hold H while the narrator speaks. Setup at the top runs this again');
@@ -82,7 +80,6 @@ export function openWelcome() {
   $('wzSpeed').value = String(tts.speed);
   $('wzLive').checked = tts.live;
   $('wzAuto').checked = tts.autoEnd;
-  $('wzTour').checked = !welcomed(); // new users are offered the tour; it's there to tick later
 
   const u = updateChoice();
   for (const r of document.querySelectorAll('input[name=wzUpd]')) r.checked = r.value === u;

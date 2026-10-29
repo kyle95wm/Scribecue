@@ -8,7 +8,7 @@ import { HOSTED } from './config.js';
 export const STEPS = [
   {
     title: 'Welcome to Scribecue',
-    text: () => 'Scribecue is for writing and transcribing audio description: the narration that tells blind and partially sighted viewers what’s on screen, in the gaps between dialogue. This tour takes about a minute. Use → or Next to go on, and Esc to stop.',
+    text: () => 'Scribecue is for writing and transcribing audio description: the narration that tells blind and partially sighted viewers what’s on screen, in the gaps between dialogue. This tour takes about a minute. Use → or Next to go on, and Esc to skip it.',
   },
   {
     target: '.modesw',
@@ -63,7 +63,7 @@ export const STEPS = [
   {
     target: 'nav [data-act="help"]',
     title: 'That’s the tour',
-    text: () => 'Press ? any time for every keyboard shortcut. Setup at the top changes your choices, and the shortcuts overlay can show you this tour again.',
+    text: () => 'Press ? any time for every keyboard shortcut, and to change them. Setup at the top changes your choices, and the shortcuts overlay can show you this tour again.',
   },
 ];
 
@@ -73,7 +73,7 @@ export function stepsFor(mode, visible = () => true) {
 }
 
 const $ = (id) => document.getElementById(id);
-let state = null; // { steps, k, mode }
+let state = null; // { steps, k, mode, then, finish }
 
 function place() {
   const { steps, k, mode } = state;
@@ -83,7 +83,7 @@ function place() {
   $('tourText').textContent = s.text(mode);
   $('tourStep').textContent = `${k + 1} of ${steps.length}`;
   $('tourBack').hidden = k === 0;
-  $('tourNext').textContent = k === steps.length - 1 ? 'Finish' : 'Next';
+  $('tourNext').textContent = k === steps.length - 1 ? state.finish : 'Next';
   const el = s.target && document.querySelector(s.target);
   const pad = 6, gap = 12, vw = innerWidth, vh = innerHeight;
   if (!el) {
@@ -120,16 +120,19 @@ function go(d) {
 
 export function endTour() {
   if (!state) return;
+  const { then } = state;
   state = null;
   $('tour').hidden = true;
   removeEventListener('resize', place);
+  then?.();
 }
 
-// mode: 'write' or 'transcribe'.
-export function startTour(mode) {
+// mode: 'write' or 'transcribe'. then: what follows when the tour ends, finished or not;
+// finish: the last button's words.
+export function startTour(mode, { then = null, finish = 'Finish' } = {}) {
   document.querySelectorAll('dialog[open]').forEach((d) => d.close());
   const visible = (sel) => { const el = document.querySelector(sel); return !!el && el.getClientRects().length > 0; };
-  state = { steps: stepsFor(mode, visible), k: 0, mode };
+  state = { steps: stepsFor(mode, visible), k: 0, mode, then, finish };
   $('tour').hidden = false;
   addEventListener('resize', place);
   place();

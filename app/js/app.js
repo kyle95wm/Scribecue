@@ -2852,7 +2852,6 @@ $('helpTour').addEventListener('click', () => { toggleHelp(false); startTour(S.m
 initKeys({ mac: IS_MAC, toast, onChange: (m) => { keyLookup = m; } });
 $('helpKeys').addEventListener('click', () => { toggleHelp(false); openKeys(); });
 initWelcome({
-  tour: (mode) => setTimeout(() => startTour(mode), 250),
   getMode: () => S.mode,
   setMode,
   getOffset: () => S.offset,
@@ -2884,7 +2883,8 @@ initWelcome({
     try { localStorage.setItem('scribecue.browserNotice', name); } catch { /* ignore */ }
   });
 })();
-if (FIRST_RUN) setTimeout(openWelcome, 400);
+// A first visit starts with the tour, then the setup, whether the tour is finished or skipped.
+if (FIRST_RUN) setTimeout(() => startTour(S.mode, { then: openWelcome, finish: 'Set up Scribecue' }), 400);
 else if (!welcomed()) {
   // Someone who used Scribecue before the wizard existed: mention it once.
   markWelcomed();
