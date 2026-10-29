@@ -16,7 +16,7 @@
 
 ### The easy way: use it in your browser
 
-1. Open **<https://kyle95wm.github.io/Scribecue/>** in Google Chrome or Microsoft Edge.
+1. Open **<https://scribecue.kyleadvoice.ca/>** in Google Chrome or Microsoft Edge.
 2. Optional: click **Install app** in the bottom right, or the install icon in the address
    bar. Scribecue then gets its own window and icon, like any other app, and works
    offline.
@@ -28,6 +28,11 @@ video, audio and scripts are opened straight from your computer and never upload
 only the app itself is downloaded, from GitHub, the first time and when it updates.
 [Piper voices](#piper-voices) work in the web version too: download one from the text to
 speech panel.
+
+The web version used to be at `kyle95wm.github.io/Scribecue`, which now forwards here.
+Anything kept in the browser at the old address, such as unsaved work, settings and Piper
+voices, stays with that address. If you installed or used it there, save your work as a
+project file (`Ctrl/Cmd+S`) before switching, then open it here.
 
 Scribecue is built for Chrome and Edge. Other browsers, such as Safari and Firefox, can
 open it, but some features may not be available, and Scribecue tells you which.
@@ -465,7 +470,7 @@ Connect a provider in the drawer's **Settings**:
 | --- | --- |
 | **Claude** (Anthropic), **OpenAI**, **Gemini** (Google) | Paste an API key from the provider's site. Usage is billed by the provider, separately from any ChatGPT, Claude or Gemini subscription. |
 | **OpenRouter** | Click **Sign in with OpenRouter**: one account for models from OpenAI, Anthropic, Google and more, paid with OpenRouter credit. Or paste an OpenRouter key. |
-| **Ollama** | Runs the model on your own computer, so nothing leaves it. Install [Ollama](https://ollama.com) and pull a model that can see images, such as `gemma3` or `llava`. For the web version, start Ollama with `OLLAMA_ORIGINS=https://kyle95wm.github.io` so the page can reach it; with Docker, nothing extra is needed. |
+| **Ollama** | Runs the model on your own computer, so nothing leaves it. Install [Ollama](https://ollama.com) and pull a model that can see images, such as `gemma3` or `llava`. For the web version, start Ollama with `OLLAMA_ORIGINS=https://scribecue.kyleadvoice.ca` so the page can reach it; with Docker, nothing extra is needed. Or run it [in Docker, next to Scribecue](#ollama-in-docker). |
 
 Then pick a model (**Load models** lists the provider's), and how many frames a draft
 sends. Keys stay in your browser, either remembered on this computer or kept for this tab
@@ -474,6 +479,45 @@ only, and are only ever sent to their own provider.
 When you send a message or ask for a draft, the frames and the nearby blocks go to the
 provider you chose, under its terms. Don't use an online provider for programmes you
 mustn't share; Ollama keeps everything on your computer.
+
+#### Ollama in Docker
+
+If you run Scribecue with Docker, Ollama can run in a container next to it, with nothing
+installed outside Docker. Add `ollama` to the profiles in `.env`, for example:
+
+```
+COMPOSE_PROFILES=piper,ollama
+```
+
+Then start it and download a model that can see images (about 3 GB for this one):
+
+```bash
+docker compose up -d
+```
+
+```bash
+docker compose exec ollama ollama pull gemma3:4b
+```
+
+In AI help's **Settings**, choose **Ollama** and click **Load models**. The models are kept
+in a Docker volume, so they survive rebuilds. The container uses port 11434 on your own
+computer, the same as the Ollama app, so quit the app if you have it: only one can run.
+
+How fast it is depends on your computer:
+
+- **Mac:** Docker can't use the Mac's graphics chip, so replies take much longer than with
+  the Ollama app (about 25 seconds for a draft on an M-series Mac, against a few seconds).
+  On a Mac, the app is the better choice.
+- **Windows or Linux with an NVIDIA graphics card:** fast. Let the container use the card
+  by adding `COMPOSE_FILE=docker-compose.yml:ollama-gpu.yml` to `.env` (on Windows, use
+  `;` instead of `:`). On Linux this needs the
+  [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html);
+  Docker Desktop on Windows has it built in.
+- **Other computers:** it works on the processor alone, but slowly. Use a small model.
+
+To remove the models later, run `docker compose down`, then
+`docker volume rm sub-editor_ollama-models` (the name starts with your Scribecue folder's
+name; `docker volume ls` lists it).
 
 ## Files with several audio tracks
 

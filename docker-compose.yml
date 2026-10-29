@@ -41,6 +41,36 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
+  # Optional AI models that run on this computer, for AI help (see README). Turn it on
+  # by adding ollama to COMPOSE_PROFILES in .env, then download a model that can see
+  # images: docker compose exec ollama ollama pull gemma3:4b
+  ollama:
+    image: ollama/ollama:0.40.3
+    container_name: scribecue-ollama
+    profiles: [ollama]
+    # Bound to 127.0.0.1: the editor in your browser talks to it, nothing else can. The
+    # port is the one the editor's security policy allows, so it can't move; quit the
+    # Ollama app if you have it, as only one can use the port.
+    ports:
+      - "127.0.0.1:11434:11434"
+    environment:
+      # Pages allowed to use it besides this computer's own, such as the web version.
+      OLLAMA_ORIGINS: ${OLLAMA_ORIGINS:-https://scribecue.kyleadvoice.ca}
+    volumes:
+      - ollama-models:/root/.ollama
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
 networks:
   voices:
     internal: true
+
+volumes:
+  # Downloaded models, kept when the container is rebuilt.
+  ollama-models:

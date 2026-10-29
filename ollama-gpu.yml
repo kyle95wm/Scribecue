@@ -1,0 +1,14 @@
+# Lets the Ollama container use an NVIDIA graphics card, which makes replies much faster.
+# Needs the NVIDIA Container Toolkit (built into Docker Desktop on Windows). Use it by
+# adding this line to .env:
+#   COMPOSE_FILE=docker-compose.yml:ollama-gpu.yml
+# (on Windows, separate them with ; instead of :)
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
