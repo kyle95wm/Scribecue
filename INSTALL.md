@@ -12,7 +12,7 @@ it.
 
 - [What you need](#what-you-need)
 - [Install](#install)
-- [Starting and stopping](#starting-and-stopping)
+- [Starting and stopping](#starting-and-stopping), and [installing it as an app](#installing-it-as-an-app)
 - [Natural-sounding voices (Piper)](#natural-sounding-voices-piper)
 - [Speech to text (Whisper)](#speech-to-text-whisper)
 - [Ollama in Docker](#ollama-in-docker)
@@ -82,6 +82,14 @@ you stop it. In the `Scribecue` folder:
 
 - To stop it: `docker compose down`
 - To start it again: `docker compose up -d`
+
+### Installing it as an app
+
+In Chrome or Edge, click **Install app** in the bottom right of Scribecue to give it its own
+window and icon, opened from your apps like any other. It still opens from Docker, so
+Docker needs to be running, and it's tied to the address: if you change `SCRIBECUE_PORT`,
+install it again. The app and a browser tab at the same address share the same blocks and
+settings.
 
 ## Natural-sounding voices (Piper)
 

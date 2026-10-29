@@ -147,12 +147,6 @@ function initWebApp(opts = {}) {
     if (!waiting) return openWhatsNew(VERSION);
     if (idle() || confirm('Update Scribecue now? The page reloads. Your blocks, notes and settings are kept, but you’ll need to open the video again.')) apply();
   });
-  // Install button, when the browser offers it.
-  let offer = null;
-  const install = $('installBtn');
-  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); offer = e; install.hidden = false; });
-  window.addEventListener('appinstalled', () => { install.hidden = true; offer = null; toast('Scribecue is installed. Open it from your apps, like any other'); });
-  install.addEventListener('click', async () => { install.blur(); if (!offer) return; offer.prompt(); await offer.userChoice; offer = null; install.hidden = true; });
   if (!('serviceWorker' in navigator)) return;
   // A new version that's found as Scribecue opens, before anything's been started, is
   // used straight away: the reload is over before there's anything to lose. Otherwise it
@@ -180,9 +174,22 @@ function initWebApp(opts = {}) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (wantReload) { wantReload = false; location.reload(); } });
 }
 
+// The Install app button, in either version, shown only while the browser offers to
+// install Scribecue: not once it's installed, or where browsers can't install it. The
+// Docker version opens from this computer's Docker, so it says that instead of offline.
+function initInstall() {
+  let offer = null;
+  const install = $('installBtn');
+  if (!HOSTED) install.dataset.tip = 'Install Scribecue as an app: its own window and icon. It opens from Docker, so Docker needs to be running';
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); offer = e; install.hidden = false; });
+  window.addEventListener('appinstalled', () => { install.hidden = true; offer = null; toast('Scribecue is installed. Open it from your apps, like any other'); });
+  install.addEventListener('click', async () => { install.blur(); if (!offer) return; offer.prompt(); await offer.userChoice; offer = null; install.hidden = true; });
+}
+
 // ask: false leaves the first-run question to the welcome wizard.
 export function initUpdates(opts = {}) {
   toast = opts.toast || toast;
+  initInstall();
   if (HOSTED) return initWebApp(opts);
   const d = dlg();
   $('verBtn').addEventListener('click', (e) => { e.currentTarget.blur(); openUpdates(); });
