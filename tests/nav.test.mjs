@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockFromPlayhead, BACK_GRACE } from '../app/js/nav.js';
+import { blockFromPlayhead, BACK_GRACE, nudgeFor, NUDGE_START } from '../app/js/nav.js';
 
 const cues = [{ start: 2, end: 5 }, { start: 10, end: 14 }, { start: 20, end: 22 }];
 
@@ -20,4 +20,27 @@ test('next goes to the next block after the playhead', () => {
   assert.equal(blockFromPlayhead(cues, 10, 1), 2); // at block 2's start: the one after
   assert.equal(blockFromPlayhead(cues, 21, 1), -1);
   assert.equal(blockFromPlayhead([], 0, 1), -1);
+});
+
+test('a copied track is nudged rarely, in fixed steps, to stay in step', () => {
+  // Small jitter, as currentTime readings have, changes nothing.
+  for (const d of [0, 0.02, -0.03, 0.039]) assert.equal(nudgeFor(d, 0), 0);
+  // Ahead: slow down; behind: speed up.
+  assert.equal(nudgeFor(0.06, 0), -1);
+  assert.equal(nudgeFor(-0.06, 0), 1);
+  // Keeps going until close, then stops.
+  assert.equal(nudgeFor(0.03, -1), -1);
+  assert.equal(nudgeFor(0.005, -1), 0);
+  // Overshooting to the other side stops it too, rather than swinging back and forth.
+  assert.equal(nudgeFor(-0.02, -1), 0);
+  // A gap closing at 4% per tick of 0.1 s changes the speed twice: on and off.
+  let drift = 0.12, n = 0, changes = 0;
+  for (let i = 0; i < 100; i++) {
+    const next = nudgeFor(drift + (i % 2 ? 0.008 : -0.008), n); // with jitter
+    if (next !== n) changes++;
+    n = next;
+    drift += 0.1 * 0.04 * n;
+  }
+  assert.equal(changes, 2);
+  assert.ok(Math.abs(drift) < NUDGE_START);
 });

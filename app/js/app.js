@@ -5,7 +5,7 @@ import { initAi, toggleAi, aiNotesChanged } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, supported, missingFeatures } from './browser.js';
-import { blockFromPlayhead } from './nav.js';
+import { blockFromPlayhead, nudgeFor, NUDGE } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop } from './tour.js';
 import { initWhatsNew } from './whatsnew.js';
 import { comboOf, lookup } from './keymap.js';
@@ -2414,6 +2414,7 @@ function useNativeAudio() {
   video.muted = false;
 }
 // The video is the clock; the copied track follows it.
+let nudging = 0; // see nudgeFor
 function syncAlt(force) {
   if (!alt) return;
   const target = video.currentTime - alt.start;
@@ -2422,13 +2423,14 @@ function syncAlt(force) {
   if (force || Math.abs(drift) > 0.3) {
     altAudio.currentTime = target;
     altAudio.playbackRate = video.playbackRate;
+    nudging = 0;
     return;
   }
   // Jumping again would land late again (seeking has latency) and is audible,
   // so close small gaps by playing a little faster or slower for a moment.
-  // The nudge shrinks as the gap closes, so it settles instead of overshooting.
-  const k = Math.abs(drift) < 0.005 ? 1 : 1 - clamp(drift * 1.5, -0.08, 0.08);
-  altAudio.playbackRate = video.playbackRate * k;
+  nudging = nudgeFor(drift, nudging);
+  const rate = video.playbackRate * (1 + NUDGE * nudging);
+  if (altAudio.playbackRate !== rate) altAudio.playbackRate = rate;
 }
 video.addEventListener('play', () => { if (alt) { syncAlt(true); altAudio.play().catch(() => {}); } });
 video.addEventListener('playing', () => { if (alt) { syncAlt(true); altAudio.play().catch(() => {}); } });

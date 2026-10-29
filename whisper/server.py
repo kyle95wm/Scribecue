@@ -13,8 +13,11 @@ import numpy as np
 from faster_whisper import WhisperModel
 
 NAME = os.environ.get("WHISPER_MODEL", "small.en")
-model = WhisperModel(f"/models/{NAME}", device="cpu", compute_type="int8")
-busy = threading.Lock()  # one transcription at a time; the model uses every core
+# Half the cores, so the browser playing the video always has some to itself: with
+# all of them, its sound can stutter while a block is transcribed.
+THREADS = max(1, (os.cpu_count() or 2) // 2)
+model = WhisperModel(f"/models/{NAME}", device="cpu", compute_type="int8", cpu_threads=THREADS)
+busy = threading.Lock()  # one transcription at a time
 MAX_BYTES = 32 << 20  # about 17 minutes of audio
 
 
