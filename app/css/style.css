@@ -70,6 +70,7 @@ kbd + kbd { margin-left: 2px; }
 /* Right after the file names, where people look for it; nav keeps to the right. */
 .autosave { flex-shrink: 0; margin-left: -6px; padding: 1px 8px; font: 11px var(--mono); color: var(--dim); background: none; }
 .autosave[data-state="paused"], .autosave[data-state="error"] { color: var(--warn); border-color: var(--warn); }
+.autosave[data-state="saved"], .autosave[data-state="saving"] { cursor: default; } /* only a status */
 nav { display: flex; gap: 6px; margin-left: auto; }
 /* menus that drop down from a header button, such as Export */
 .navwrap { position: relative; display: inline-flex; }

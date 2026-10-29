@@ -137,9 +137,8 @@ one per programme, and open any of them with `Ctrl/Cmd+O`.
   seconds after you stop, and **autosaved** shows next to the project name. After a reload,
   or when you open a project, the browser asks before Scribecue may save to the file again;
   until you allow it, the status says **autosave paused**, and clicking it (or `Ctrl/Cmd+S`)
-  carries on. Click **autosaved** to turn autosave off, and **autosave off** to turn it back
-  on. The file always holds your latest changes, so keep a copy with `Ctrl/Cmd+Shift+S`
-  before a big change if you might want the old version.
+  carries on. Autosave is always on. The file always holds your latest changes, so keep a
+  copy with `Ctrl/Cmd+Shift+S` before a big change if you might want the old version.
 - A dot after the project name at the top, such as `lights-ad.scribecue •`, means there
   are changes you haven't saved yet. After 20 minutes of unsaved work, a note reminds you
   to save, since until then the work is only kept in the browser. **Later** asks again in

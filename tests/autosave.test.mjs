@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { autosaveState, nextSave, DELAY, MAX_WAIT, AUTOSAVE_LABEL, AUTOSAVE_TIP } from '../app/js/autosave.js';
 
-const base = { can: true, on: true, file: true, permission: 'granted', saving: false, dirty: false, error: '' };
+const base = { can: true, file: true, permission: 'granted', saving: false, dirty: false, error: '' };
 
 test('the status next to the project name says what autosave is doing', () => {
   assert.equal(autosaveState(base), 'saved');
@@ -10,8 +10,7 @@ test('the status next to the project name says what autosave is doing', () => {
   assert.equal(autosaveState({ ...base, saving: true }), 'saving');
   assert.equal(autosaveState({ ...base, permission: 'prompt' }), 'paused');
   assert.equal(autosaveState({ ...base, error: 'the file has been moved' }), 'error');
-  assert.equal(autosaveState({ ...base, on: false }), 'off');
-  for (const s of ['saved', 'saving', 'paused', 'error', 'off']) assert.ok(AUTOSAVE_LABEL[s] && AUTOSAVE_TIP[s], s);
+  for (const s of ['saved', 'saving', 'paused', 'error']) assert.ok(AUTOSAVE_LABEL[s] && AUTOSAVE_TIP[s], s);
 });
 
 test('there’s no status without a project file, or where browsers can’t write files', () => {

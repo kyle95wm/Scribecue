@@ -6,12 +6,10 @@
 export const DELAY = 2000; // ms after the last change
 export const MAX_WAIT = 30e3; // but no longer than this while changes keep coming
 
-// What the status next to the project name shows, or '' for nothing.
-// can: the browser can write to files. on: the setting. file: the project has one.
-// permission: 'granted', 'prompt' or 'denied'. error: why the last write failed.
-export function autosaveState({ can, on, file, permission, saving, dirty, error }) {
+// What the status next to the project name shows, or '' for nothing. Autosave is always
+// on. can: the browser can write to files. file: the project has one. permission: 'granted', 'prompt' or 'denied'. error: why the last write failed.
+export function autosaveState({ can, file, permission, saving, dirty, error }) {
   if (!can || !file) return '';
-  if (!on) return 'off';
   if (error) return 'error';
   if (permission !== 'granted') return 'paused';
   if (saving || dirty) return 'saving';
@@ -19,7 +17,6 @@ export function autosaveState({ can, on, file, permission, saving, dirty, error 
 }
 
 export const AUTOSAVE_LABEL = {
-  off: 'autosave off',
   error: 'autosave failed',
   paused: 'autosave paused',
   saving: 'saving…',
@@ -27,11 +24,10 @@ export const AUTOSAVE_LABEL = {
 };
 
 export const AUTOSAVE_TIP = {
-  off: 'Autosave is off: save with {mod}S. Click to turn it on',
   error: 'The last autosave didn’t work: {error}. Click to try again, or save with {mod}S',
   paused: 'Autosave is paused until you let Scribecue save to the project file again, which the browser asks after a reload. Click to resume',
   saving: 'Saving changes to the project file',
-  saved: 'Changes are saved to the project file as you work. Click to turn autosave off',
+  saved: 'Changes are saved to the project file as you work',
 };
 
 // When the next autosave should run, in ms from now: DELAY after the last change, but

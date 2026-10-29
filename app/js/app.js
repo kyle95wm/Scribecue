@@ -2106,12 +2106,11 @@ async function writeFile(h, text) {
 
 // ---- autosave (see autosave.js)
 
-const AUTO = { on: true, permission: 'prompt', saving: false, error: '', timer: 0, first: 0 };
-try { AUTO.on = localStorage.getItem('scribecue.autosave') !== '0'; } catch { /* ignore */ }
+const AUTO = { permission: 'prompt', saving: false, error: '', timer: 0, first: 0 };
 
 function showAutosave() {
   const st = autosaveState({
-    can: !!window.showSaveFilePicker, on: AUTO.on, file: !!S.handle, permission: AUTO.permission,
+    can: !!window.showSaveFilePicker, file: !!S.handle, permission: AUTO.permission,
     saving: AUTO.saving, dirty: S.dirty && S.cues.length > 0, error: AUTO.error,
   });
   const b = $('autosaveBtn');
@@ -2132,7 +2131,7 @@ async function checkWrite() {
 
 function scheduleAutosave() {
   clearTimeout(AUTO.timer);
-  if (!AUTO.on || !S.handle || AUTO.permission !== 'granted' || AUTO.error) return showAutosave();
+  if (!S.handle || AUTO.permission !== 'granted' || AUTO.error) return showAutosave();
   const t = Date.now();
   AUTO.first ||= t;
   AUTO.timer = setTimeout(autosave, nextSave(t, S.lastChange || t, AUTO.first));
@@ -2143,7 +2142,7 @@ async function autosave() {
   const h = S.handle;
   if (AUTO.saving) return; // the save running now looks again when it's done
   AUTO.first = 0;
-  if (!AUTO.on || !h || !S.dirty || !S.cues.length) return showAutosave();
+  if (!h || !S.dirty || !S.cues.length) return showAutosave();
   const gen = S.changeGen;
   AUTO.saving = true;
   showAutosave();
@@ -2162,21 +2161,17 @@ async function autosave() {
   }
 }
 
-// The status next to the project name: resumes a paused autosave, or turns it on or off.
+// The status next to the project name: clicking it resumes a paused or failed autosave.
+// Autosave is always on, so there's nothing to do otherwise.
+try { localStorage.removeItem('scribecue.autosave'); } catch { /* ignore */ } // its old off switch
 $('autosaveBtn').addEventListener('click', async (e) => {
   const st = e.currentTarget.dataset.state;
   e.currentTarget.blur();
-  if (st === 'paused' || st === 'error') {
-    AUTO.error = '';
-    try { AUTO.permission = await S.handle.requestPermission({ mode: 'readwrite' }); } catch { AUTO.permission = 'denied'; }
-    if (AUTO.permission === 'granted') { toast(`Autosaving to ${S.handle.name}`); autosave(); }
-    else { toast(`Scribecue can’t save to ${S.handle.name} without your permission. ⌘S saves it`); showAutosave(); }
-    return;
-  }
-  AUTO.on = !AUTO.on;
-  try { localStorage.setItem('scribecue.autosave', AUTO.on ? '1' : '0'); } catch { /* ignore */ }
-  toast(AUTO.on ? 'Autosave on: changes are saved to the project file as you work' : 'Autosave off: save with ⌘S');
-  if (AUTO.on) checkWrite(); else { clearTimeout(AUTO.timer); showAutosave(); }
+  if (st !== 'paused' && st !== 'error') return;
+  AUTO.error = '';
+  try { AUTO.permission = await S.handle.requestPermission({ mode: 'readwrite' }); } catch { AUTO.permission = 'denied'; }
+  if (AUTO.permission === 'granted') { toast(`Autosaving to ${S.handle.name}`); autosave(); }
+  else { toast(`Scribecue can’t save to ${S.handle.name} without your permission. ⌘S saves it`); showAutosave(); }
 });
 
 // Asks before replacing work that isn't saved in a project. It can still be undone.
@@ -2197,7 +2192,7 @@ async function openProject(file, handle = null) {
   AUTO.error = '';
   // Opening it is the moment to ask whether autosave may write to it; if the browser won't
   // ask now, autosave waits, paused, for a click.
-  if (handle && AUTO.on) handle.requestPermission({ mode: 'readwrite' }).catch(() => 'prompt').then(checkWrite);
+  if (handle) handle.requestPermission({ mode: 'readwrite' }).catch(() => 'prompt').then(checkWrite);
   else showAutosave();
   S.projectMedia = p.media;
   S.notes = p.notes;
