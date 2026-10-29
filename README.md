@@ -316,13 +316,13 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   off with **Change a block's reading speed when you resize it** in the text to speech
   panel.
 - **Sounds like:** when a voice says a name or word wrong, tell it how to say it, without
-  changing the text. Select the word in the text box and press `Alt+Shift+P` (or click
-  **sounds like** next to the block's speed), then spell it how it sounds, such as
-  *shiv-AWN* for Siobhan, and click **Hear the block** to check. Each block keeps its own
-  list. Words are matched whole and in any case, so the reading, its length and the
-  exported description track all use the new sound, while the list, SRT exports and the
-  timeline show the words as written. Projects and VTT exports keep the list, as notes
-  other programs ignore. `Ctrl/Cmd+Z` undoes a change.
+  changing the text. Select the word in the text box and click the **Sounds Like** button
+  that pops up under it, or press `Alt+Shift+P`. The word is filled in for you, so spell
+  it how it sounds, such as *shiv-AWN* for Siobhan, and click **Hear the block** to check.
+  Each block keeps its own list. Words are matched whole and in any case, so the reading,
+  its length and the exported description track all use the new sound, while the list, SRT
+  exports and the timeline show the words as written. Projects and VTT exports keep the
+  list, as notes other programs ignore. `Ctrl/Cmd+Z` undoes a change.
 
   ![The Sounds like dialog, with diagonally to be said as dye-AG-nuh-lee](docs/screenshots/sounds-like.png)
 - **Notes in [square brackets]:** if your team writes notes in the script inside square

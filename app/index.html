@@ -404,8 +404,8 @@ docker compose up -d --build</code></pre>
     <div id="sayRows" class="sayrows"></div>
     <p><button id="sayAdd">Add a word</button></p>
     <p class="dim small">Spell it how it sounds, such as <em>shiv-AWN</em> for Siobhan. Each word or phrase
-      is matched as a whole word, in any case. Tip: select a word in the text box before pressing
-      <kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd> to add it.</p>
+      is matched as a whole word, in any case. Tip: select a word in the text box and click
+      <strong>Sounds Like</strong> under it, or press <kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd>, and it's filled in for you.</p>
     <div class="updbtns">
       <button id="sayTry">Hear the block</button>
       <button id="sayDone" class="hl">Done</button>
@@ -743,5 +743,7 @@ docker compose up -d --build</code></pre>
 
   <input type="file" id="fileSubs" accept=".scribecue,.srt,.vtt,.txt,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
   <input type="file" id="fileVideo" accept="video/*,audio/*,.mkv,.mov,.m4a" hidden>
+  <!-- pops up under a selection in the block text; at the top level so it's placed by the window -->
+  <button id="selSay" class="selsay" tabindex="-1" hidden>Sounds Like</button>
 </body>
 </html>

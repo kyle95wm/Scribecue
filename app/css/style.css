@@ -693,6 +693,9 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .edspeed { display: inline-flex; align-items: center; gap: 4px; }
 .edsay { padding: 1px 6px; font: 11px var(--mono); color: var(--dim); background: none; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
 .edsay:hover { color: var(--text); border-color: var(--faint); }
+/* Pops up under a selection in the block text, to set how it sounds. */
+#selSay { position: fixed; z-index: 40; padding: 2px 8px; font: 12px var(--mono); color: var(--accent); background: var(--panel2); border: 1px solid var(--accent); border-radius: 5px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45); }
+#selSay:hover { background: var(--raise); }
 .edsay.on { color: var(--cue); border-color: var(--cue); }
 .edsay[hidden] { display: none; }
 .sayrows { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 6px 8px; align-items: center; margin: 12px 0 4px; }

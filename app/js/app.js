@@ -1797,6 +1797,55 @@ sayDlg.addEventListener('click', (e) => { if (e.target === sayDlg) sayDlg.close(
 document.addEventListener('keydown', (e) => { if (sayDlg.open) e.stopPropagation(); }, true);
 edSay.addEventListener('click', () => { edSay.blur(); openSay(); });
 
+// Select a word in the block text and a "sounds like" button pops up under it: one click
+// opens Sounds like with the word filled in, so only how it sounds is left to type.
+const selSay = $('selSay');
+// What's selected, if it's something Sounds like can take: one line, and not too long.
+const sayable = () => {
+  if (!ttsOn() || document.activeElement !== edText) return '';
+  const t = edText.value.slice(edText.selectionStart, edText.selectionEnd);
+  return t.trim() && !t.includes('\n') && t.trim().length <= 60 ? t.trim() : '';
+};
+// Where a place in the text box is on screen, from a copy of it laid out the same way.
+function caretXY(pos) {
+  const st = getComputedStyle(edText), m = document.createElement('div');
+  for (const p of ['font', 'letterSpacing', 'lineHeight', 'padding', 'border', 'boxSizing', 'whiteSpace', 'wordWrap', 'overflowWrap', 'tabSize']) m.style[p] = st[p];
+  Object.assign(m.style, { position: 'fixed', visibility: 'hidden', top: '0', left: '0', width: `${edText.clientWidth}px`, whiteSpace: 'pre-wrap' });
+  m.textContent = edText.value.slice(0, pos);
+  const mark = document.createElement('span');
+  mark.textContent = '\u200b';
+  m.append(mark);
+  document.body.append(m);
+  const r = edText.getBoundingClientRect();
+  const x = r.left + mark.offsetLeft - edText.scrollLeft, y = r.top + mark.offsetTop + mark.offsetHeight - edText.scrollTop;
+  m.remove();
+  return [x, y];
+}
+function showSelSay(x, y) {
+  const word = sayable();
+  if (!word) { selSay.hidden = true; return; }
+  const said = selCue()?.say?.some(([w]) => w.toLocaleLowerCase() === word.toLocaleLowerCase());
+  selSay.textContent = said ? 'Sounds Like ✓' : 'Sounds Like';
+  selSay.dataset.tip = pcKeys(`How text to speech says “${word}”, without changing the text (⌥⇧P)`);
+  selSay.setAttribute('aria-label', speakable(selSay.dataset.tip, IS_MAC));
+  selSay.hidden = false;
+  const w = selSay.offsetWidth;
+  selSay.style.left = `${Math.max(4, Math.min(innerWidth - w - 4, x - w / 2))}px`;
+  selSay.style.top = `${Math.min(innerHeight - selSay.offsetHeight - 4, y + 6)}px`;
+}
+// Under the pointer for a mouse selection; under the selection's end for a keyboard one.
+edText.addEventListener('mouseup', (e) => setTimeout(() => showSelSay(e.clientX, e.clientY + 12)));
+edText.addEventListener('keyup', (e) => {
+  if (e.key === 'Escape') { selSay.hidden = true; return; }
+  if (!e.shiftKey && !['Shift', 'Meta', 'Control', 'Alt'].includes(e.key) && edText.selectionStart === edText.selectionEnd) { selSay.hidden = true; return; }
+  const [x, y] = caretXY(edText.selectionEnd);
+  showSelSay(x, y);
+});
+for (const ev of ['input', 'scroll', 'blur']) edText.addEventListener(ev, () => { selSay.hidden = true; });
+// Keep the text box's focus and selection, so Sounds like picks the word up.
+selSay.addEventListener('mousedown', (e) => e.preventDefault());
+selSay.addEventListener('click', () => { selSay.hidden = true; openSay(); });
+
 // While playing, read each block as the playhead reaches its start.
 function liveSpeech(prevT, t) {
   if (!ttsOn() || !tts.live || tts.speaking?.manual) return;
