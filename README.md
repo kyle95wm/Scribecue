@@ -25,9 +25,9 @@ That's all. A short setup asks what you're working on and turns on the tools for
 
 The web version updates itself. When a new version is ready, it asks you to reload. Your
 video, audio and scripts are opened straight from your computer and never uploaded:
-only the app itself is downloaded, from GitHub, the first time and when it updates. The
-web version doesn't include [Piper voices](#piper-voices) yet; for those, run it yourself
-as below.
+only the app itself is downloaded, from GitHub, the first time and when it updates.
+[Piper voices](#piper-voices) work in the web version too: download one from the text to
+speech panel.
 
 Scribecue is built for Chrome and Edge. Other browsers, such as Safari and Firefox, can
 open it, but some features may not be available, and Scribecue tells you which.
@@ -342,7 +342,7 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   block has been read, and the estimates get more accurate for a voice as you use it.
 
 Scribecue uses the voices built into your computer, so the text stays on it. For much more
-natural voices that also stay on your computer, [add Piper](#piper-voices). Mac and
+natural voices that also stay on your computer, [use Piper](#piper-voices). Mac and
 Windows come with several built-in voices. On Linux, browsers read through speech-dispatcher, so you may
 need to install it with a voice such as espeak-ng from your distribution's packages.
 
@@ -368,11 +368,9 @@ audio file, use a [Piper voice](#piper-voices).
 ### Piper voices
 
 [Piper](https://github.com/OHF-Voice/piper1-gpl) is an open-source speech engine with
-natural-sounding voices. Scribecue can run it in a second container, next to the editor.
-The voices run on your computer, so your script never leaves it, and they work offline.
-Until you add it, the text to speech panel ends with a short note about it:
-
-![The Did you know? box about Piper at the bottom of the text to speech panel](docs/screenshots/piper-tip.png)
+natural-sounding voices. The voices run on your computer, so your script never leaves it,
+and they work offline. In the [web version](#in-the-web-version) Piper runs in your
+browser; [with Docker](#with-docker) it runs in a second container, next to the editor.
 
 With a Piper voice:
 
@@ -385,6 +383,26 @@ With a Piper voice:
   speech panel saves every block's reading as one WAV file, each starting at its block's
   start, as long as the video. It's ready to mix with the programme. Readings that run into
   the next block overlap in the file, and the panel tells you how many.
+
+Four English voices are offered: Lessac and Ryan (US), and Alba and Alan (UK).
+
+#### In the web version
+
+In Write mode, open the text to speech panel (`Alt+Shift+V`, or `TTS` under the video),
+turn text to speech on, and under **Natural voices** pick a voice and click **Download**. Each voice is about 63 MB.
+The first one also brings the speech engine, about 33 MB, which all the voices share.
+Once it's downloaded, the voice is chosen for you and works offline. The files come from
+Scribecue's own site and stay in your browser; to free the space, pick the voice and click
+**Remove**.
+
+Readings take a moment longer than with Docker, as they run in the browser, but they're
+the same length to the hundredth of a second.
+
+#### With Docker
+
+Until you add it, the text to speech panel ends with a short note about it:
+
+![The Did you know? box about Piper at the bottom of the text to speech panel](docs/screenshots/piper-tip.png)
 
 To add it, create a file called `.env` in the Scribecue folder containing:
 
@@ -402,8 +420,7 @@ The first build downloads Piper and its voices, about 1 GB in all. After that, P
 internet access, and only Scribecue's own server can reach it. Reload Scribecue, switch to
 Write mode, and pick a voice from the **Piper** group at the top of the voice menu.
 
-Four English voices are included: Lessac and Ryan (US), and Alba and Alan (UK). To choose
-others, add a line like this to `.env`, with names from the
+To choose other voices, add a line like this to `.env`, with names from the
 [Piper voice list](https://huggingface.co/rhasspy/piper-voices), then build again:
 
 ```
@@ -568,7 +585,9 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
 - [Text to speech](#text-to-speech) uses the voices on your computer. Online voices, which
   send the text to their provider, are only offered if you turn them on.
 - [Piper](#piper-voices), if you add it, runs in its own container with no internet access
-  and no port of its own. The page reaches it through Scribecue's server.
+  and no port of its own. The page reaches it through Scribecue's server. In the web
+  version, Piper voices you download come from Scribecue's own site and run in your
+  browser.
 
 ## Updating
 
@@ -650,7 +669,11 @@ shortcut cheat sheet.
 
 The optional [Piper voices](#piper-voices) use [Piper](https://github.com/OHF-Voice/piper1-gpl)
 by the Open Home Foundation, which is licensed under the GPL and downloaded when you build
-its container. Each voice has its own licence, listed on its
+its container. The web version runs Piper's voices with
+[ONNX Runtime Web](https://github.com/microsoft/onnxruntime) by Microsoft (MIT) and
+[piper-wasm](https://github.com/diffusion-studio/piper-wasm), the
+[espeak-ng](https://github.com/espeak-ng/espeak-ng) build used by Piper (GPL), downloaded
+only when you choose a voice. Each voice has its own licence, listed on its
 [voice page](https://huggingface.co/rhasspy/piper-voices).
 
 Scribecue is an independent project. It is not affiliated with, endorsed by or connected

@@ -258,6 +258,17 @@ docker compose up -d --build</code></pre>
       </div>
       <p id="ttsNoVoices" class="warnbox" hidden></p>
       <p id="ttsPiperNote" class="dim small"></p>
+      <section id="ttsWeb" hidden>
+        <h3>Natural voices</h3>
+        <p class="small">Piper voices sound more natural, give exact lengths straight away, and let you export
+          a description track. They run in your browser, so your script stays on your computer. Each voice is
+          a one-time download, and then it works offline too.</p>
+        <p class="updstatus"><select id="ttsWebVoice" aria-label="Piper voice"></select>
+          <button id="ttsWebGet">Download</button>
+          <progress id="ttsWebBar" class="jobbar" max="1" value="0" hidden aria-label="Downloading the voice"></progress>
+          <span id="ttsWebStatus" class="dim"></span></p>
+        <p id="ttsWebNote" class="dim small"></p>
+      </section>
       <label class="updopt"><input type="checkbox" id="ttsLive"> Read blocks aloud while playing</label>
       <label class="updopt"><input type="checkbox" id="ttsDuck"> Lower the original audio while a block is read</label>
       <label class="updopt"><input type="checkbox" id="ttsNotes"> Don't read notes in [square brackets]</label>

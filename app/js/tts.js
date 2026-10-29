@@ -1,8 +1,9 @@
 // Text to speech for audio description work, off until the user turns it on.
 // Voices come from two places:
-// - Piper, an optional container next to Scribecue (see docker-compose.yml). Its voices
-//   run on this computer and return audio, so lengths are exact straight away and a
-//   whole description track can be exported.
+// - Piper, an optional container next to Scribecue (see docker-compose.yml), or in the
+//   web version, Piper running in the browser (piper-worker.js) with voices the user
+//   downloads. Its voices run on this computer and return audio, so lengths are exact
+//   straight away and a whole description track can be exported.
 // - The browser's speech synthesis. By default only voices that run on this computer
 //   are offered; online voices send the text to their provider, so they need a
 //   separate opt-in.
@@ -215,8 +216,105 @@ const PIPER_CACHE_MAX = 400;
 let piperAudioEl = null;
 const piperAudio = () => (piperAudioEl ||= new Audio());
 
+// ---- Piper in the browser (web version)
+
+let worker = null;
+const asks = new Map();
+let askId = 0;
+// What the site offers and what's downloaded, once the worker has said.
+export const webPiper = { offered: null, engine: 0, engineReady: false, downloaded: [], downloading: null };
+function ask(op, extra = {}) {
+  if (!worker) {
+    worker = new Worker(new URL('./piper-worker.js', import.meta.url), { type: 'module' });
+    worker.addEventListener('message', ({ data: m }) => {
+      if (m.op === 'progress') { webPiper.downloading = m; if ($('ttsDlg').open) renderWeb(); return; }
+      const a = asks.get(m.id);
+      if (!a) return;
+      asks.delete(m.id);
+      if (m.ok) a.resolve(m.result); else a.reject(new Error(m.error));
+    });
+    // The worker itself failed to start, so nothing it was asked will be answered.
+    worker.addEventListener('error', () => {
+      for (const a of asks.values()) a.reject(new Error('Piper didn’t start'));
+      asks.clear();
+      worker = null;
+    });
+  }
+  const id = ++askId;
+  return new Promise((resolve, reject) => {
+    asks.set(id, { resolve, reject });
+    worker.postMessage({ id, op, ...extra });
+  });
+}
+
+async function downloadVoice(voice) {
+  webPiper.downloading = { voice, loaded: 0, total: 0 };
+  renderWeb();
+  // Ask the browser to keep the voices when space runs low, rather than clearing them.
+  navigator.storage?.persist?.().catch(() => {});
+  try {
+    await ask('download', { voice });
+    tts.voice = 'piper:' + voice;
+    save();
+    hooks.toast('Voice downloaded. It’s now chosen, and works offline');
+  } catch (e) {
+    hooks.toast(`The voice didn’t download: ${e.message}`);
+  }
+  webPiper.downloading = null;
+  await loadPiper();
+}
+
+async function removeVoice(voice) {
+  if (!confirm('Remove this voice from your browser? You can download it again later.')) return;
+  stop();
+  await ask('remove', { voice }).catch(() => {});
+  if (tts.voice === 'piper:' + voice) { tts.voice = ''; save(); }
+  await loadPiper();
+}
+
+const mb = (bytes) => `${Math.round(bytes / 1e6)} MB`;
+function renderWeb() {
+  $('ttsWeb').hidden = !HOSTED || !webPiper.offered;
+  if (!HOSTED || !webPiper.offered) return;
+  const sel = $('ttsWebVoice');
+  // Voices in the user's language first, as with the container.
+  const offered = pickVoices(piperVoiceList(webPiper.offered), { lang: navigator.language || 'en' });
+  const keep = sel.value || tts.voice.replace(/^piper:/, '') || offered[0]?.piper;
+  sel.textContent = '';
+  for (const v of offered) {
+    const o = document.createElement('option');
+    o.value = v.piper;
+    const got = webPiper.downloaded.includes(v.piper);
+    o.textContent = `${v.name} (${v.lang}) · ${got ? 'downloaded' : mb(webPiper.offered[v.piper])}`;
+    sel.append(o);
+  }
+  if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
+  const d = webPiper.downloading;
+  const got = webPiper.downloaded.includes(sel.value);
+  $('ttsWebGet').textContent = got ? 'Remove' : 'Download';
+  $('ttsWebGet').hidden = !!d;
+  sel.disabled = !!d;
+  $('ttsWebBar').hidden = !d;
+  if (d) {
+    $('ttsWebBar').max = d.total || 1;
+    $('ttsWebBar').value = d.loaded;
+    $('ttsWebStatus').textContent = d.total ? `${mb(d.loaded)} of ${mb(d.total)}` : 'Starting…';
+  } else $('ttsWebStatus').textContent = '';
+  $('ttsWebNote').textContent = webPiper.engineReady ? ''
+    : `The first voice also downloads the speech engine, ${mb(webPiper.engine)}, which all the voices share.`;
+}
+
 export async function loadPiper() {
-  if (HOSTED) return 0; // the web version has no Piper container to ask
+  if (HOSTED) {
+    try {
+      Object.assign(webPiper, await ask('status'));
+      tts.piper = pickVoices(piperVoiceList(Object.fromEntries(webPiper.downloaded.map((v) => [v, 1]))), { lang: navigator.language || 'en' });
+    } catch { tts.piper = []; }
+    voices = allowed();
+    hooks.changed();
+    if ($('ttsDlg').open) render();
+    return tts.piper.length;
+  }
   try {
     const r = await fetch('tts/voices', { cache: 'no-store' });
     // Voices in the user's language first, so the default suits them.
@@ -233,15 +331,17 @@ function piperRead(text, speed, voice = currentVoice()) {
   const key = `${voice.voiceURI}|${speed}|${words}`;
   let p = piperCache.get(key);
   if (!p) {
-    p = fetch('tts/synthesize', {
+    const reading = HOSTED ? ask('synthesize', { voice: voice.piper, text: words, speed }) : fetch('tts/synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // noise_w_scale 0 turns off Piper's random variation in timing, so the same line
       // always takes the same time: lengths stay exact across sessions and in the export.
       body: JSON.stringify({ text: words, voice: voice.piper, length_scale: 1 / speed, noise_w_scale: 0 }),
-    }).then(async (r) => {
+    }).then((r) => {
       if (!r.ok) throw new Error(`Piper answered ${r.status}`);
-      const buf = await r.arrayBuffer();
+      return r.arrayBuffer();
+    });
+    p = reading.then((buf) => {
       const wav = readWav(buf);
       measured.set(key, wav.secs);
       if (words.length > 8) { tts.cps[voice.voiceURI] = words.length / (wav.secs * speed); save(); }
@@ -334,7 +434,8 @@ function speakPiper(text, voice, { id, manual, silent, speed, done }) {
     a.play().catch(() => finish(null));
   }, () => {
     if (current?.piper !== token) return;
-    hooks.toast('Piper isn’t answering. Is its container running? See the README');
+    hooks.toast(HOSTED ? 'The Piper voice couldn’t read that block. Try reloading the page'
+      : 'Piper isn’t answering. Is its container running? See the README');
     finish(null);
   });
   return true;
@@ -452,6 +553,7 @@ function render() {
   $('ttsImport').value = tts.onImport;
   $('ttsOnline').checked = tts.online;
   fillVoices();
+  renderWeb();
 }
 
 // Change a setting from outside the panel, such as the welcome wizard.
@@ -497,6 +599,11 @@ export function initTts(h) {
   $('ttsTry').addEventListener('click', () => {
     const text = hooks.sample?.() || 'A pale blue streak cuts diagonally through the darkness.';
     speak(text);
+  });
+  $('ttsWebVoice').addEventListener('change', renderWeb);
+  $('ttsWebGet').addEventListener('click', () => {
+    const v = $('ttsWebVoice').value;
+    if (v) (webPiper.downloaded.includes(v) ? removeVoice : downloadVoice)(v);
   });
   $('ttsClose').addEventListener('click', () => d.close());
   d.addEventListener('click', (e) => { if (e.target === d) d.close(); });

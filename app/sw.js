@@ -1,5 +1,6 @@
 // Offline support for the web version of Scribecue. It keeps a copy of the app's own
-// files, so once it's been opened it works without a connection. Video, audio and
+// files, so once it's been opened it works without a connection. Piper voices people
+// download are kept apart, in the "piper-voices" cache, so new versions don't clear them. Video, audio and
 // scripts never pass through here: they're opened straight from disk.
 // The cache is named after the version, so a new release brings a new copy, and the app
 // asks to reload when it's ready. Keep VERSION in step with app/js/update.js.
@@ -7,7 +8,8 @@ const VERSION = '0.15.0';
 const CACHE = `scribecue-${VERSION}`;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
-  'js/app.js', 'js/browser.js', 'js/config.js', 'js/formats.js', 'js/project.js', 'js/tts.js',
+  'js/app.js', 'js/browser.js', 'js/config.js', 'js/formats.js', 'js/piper-engine.js', 'js/piper-worker.js',
+  'js/project.js', 'js/tts.js',
   'js/update.js', 'js/welcome.js', 'js/wave-worker.js',
   'icons/icon-192.png', 'icons/icon-512.png',
 ];

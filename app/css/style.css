@@ -531,7 +531,7 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 .autotag { padding: 0 5px; border: 1px solid var(--cue); border-radius: 4px; color: var(--cue); font: 11px var(--mono); }
 .autotag[hidden] { display: none; }
 #list .over { color: var(--bad); }
-#ttsAllStop[hidden], #ttsAllExactRow[hidden], #ttsAll[hidden], #ttsExport[hidden], #ttsFitAll[hidden], #ttsFitStop[hidden], .jobbar[hidden] { display: none; }
+#ttsWeb[hidden], #ttsWebGet[hidden], #ttsAllStop[hidden], #ttsAllExactRow[hidden], #ttsAll[hidden], #ttsExport[hidden], #ttsFitAll[hidden], #ttsFitStop[hidden], .jobbar[hidden] { display: none; }
 .jobbar { width: 220px; height: 10px; vertical-align: middle; accent-color: var(--accent); }
 #ttsPiperNote:empty, #ttsExportNote:empty { display: none; }
 .edspeed { display: inline-flex; align-items: center; gap: 4px; }

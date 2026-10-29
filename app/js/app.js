@@ -1,5 +1,6 @@
 import { parseSubs, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
 import { initUpdates, openUpdates, updateChoice } from './update.js';
+import { HOSTED } from './config.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, supported, missingFeatures } from './browser.js';
@@ -2509,8 +2510,9 @@ initWelcome({
   offsets: OFFSETS,
   toast,
 }, (finished) => {
-  // Skipped before answering about updates: ask the usual way instead.
-  if (!finished && updateChoice() === null) setTimeout(openUpdates, 300);
+  // Skipped before answering about updates: ask the usual way instead. The web version
+  // updates itself, so there's nothing to ask.
+  if (!finished && !HOSTED && updateChoice() === null) setTimeout(openUpdates, 300);
 });
 // Outside Chrome and Edge, say that some features may not be available, and which.
 // Shown each time Scribecue opens, until "Don't show again".

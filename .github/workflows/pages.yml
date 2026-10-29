@@ -23,7 +23,7 @@ jobs:
   publish:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Release ')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -40,6 +40,8 @@ jobs:
           cp -R app/. _site/
           sed -i 's/^export const HOSTED = false;/export const HOSTED = true;/' _site/js/config.js
           grep -q '^export const HOSTED = true;' _site/js/config.js
+      - name: Piper voices for the browser
+        run: scripts/web-piper.sh _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

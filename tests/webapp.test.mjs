@@ -15,7 +15,7 @@ test('every file the offline copy keeps exists', () => {
   const files = JSON.parse(list.replace(/'/g, '"').replace(/,\s*\]/, ']'));
   for (const f of files) if (f !== './') assert.ok(existsSync(new URL(`../app/${f}`, import.meta.url)), `${f} is missing`);
   // and every script the app loads is in it, so it works offline
-  for (const js of ['app', 'browser', 'config', 'formats', 'project', 'tts', 'update', 'welcome', 'wave-worker']) {
+  for (const js of ['app', 'browser', 'config', 'formats', 'project', 'tts', 'update', 'welcome', 'wave-worker', 'piper-engine', 'piper-worker']) {
     assert.ok(files.includes(`js/${js}.js`), `js/${js}.js isn't kept offline`);
   }
 });
