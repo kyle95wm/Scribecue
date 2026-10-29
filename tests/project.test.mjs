@@ -6,7 +6,7 @@ const state = {
   app: '0.10.0',
   blocks: [
     { id: 7, start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, pinned: true },
-    { id: 8, start: 11.5, end: 14, text: 'The colours fold.', auto: true },
+    { id: 8, start: 11.5, end: 14, text: 'The colours fold.', auto: true, say: [['colours', 'kul-ers']] },
     { id: 9, start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true },
   ],
   media: { name: 'lights.mkv', size: 2376368, duration: 60.02 },
@@ -22,7 +22,7 @@ test('a project keeps blocks, their speeds and auto ends, settings, view and med
   const p = fromProject(saved);
   assert.deepEqual(p.blocks, [
     { start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, pinned: true },
-    { start: 11.5, end: 14, text: 'The colours fold.', auto: true },
+    { start: 11.5, end: 14, text: 'The colours fold.', auto: true, say: [['colours', 'kul-ers']] },
     { start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true },
   ]);
   assert.deepEqual(p.settings, state.settings);
@@ -57,4 +57,10 @@ test('the saved video is recognised by name and size', () => {
   assert.equal(sameMedia(saved, { name: 'lights.mkv', size: 99 }), false);
   assert.equal(sameMedia(saved, { name: 'other.mkv', size: 100 }), false);
   assert.equal(sameMedia(null, { name: 'anything.mp4', size: 1 }), true);
+});
+
+test('damaged sounds like words are dropped', () => {
+  const p = fromProject({ scribecue: 1, blocks: [{ start: 1, end: 2, text: 'A', say: [['A', 'ay'], ['', 'x'], ['B'], 'C', [' D ', ' dee ']] }, { start: 3, end: 4, say: 'nope' }] });
+  assert.deepEqual(p.blocks[0].say, [['A', 'ay'], ['D', 'dee']]);
+  assert.equal(p.blocks[1].say, undefined);
 });

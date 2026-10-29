@@ -6,6 +6,7 @@ import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, supported, missingFeatures } from './browser.js';
 import { VERSION } from './update.js';
 import { MIN_SPEED, MAX_SPEED } from './tts.js';
+import { soundsLike, hasWord } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
   usingPiper, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes } from './tts.js';
@@ -96,7 +97,10 @@ const mk = (start, end, text = '', speed) => ({ id: nextId++, start, end, text, 
 // A saved block back as a block: auto (end follows the reading), fit (speed follows the
 // length) and pinned (speed picked by hand, so resizing leaves it alone).
 const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
-  b.auto ? { auto: true } : {}, b.fit ? { fit: true } : {}, b.pinned ? { pinned: true } : {});
+  b.auto ? { auto: true } : {}, b.fit ? { fit: true } : {}, b.pinned ? { pinned: true } : {},
+  b.say?.length ? { say: b.say } : {});
+// What text to speech reads for a block: its text, with its "sounds like" words.
+const said = (c) => soundsLike(c.text, c.say);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const idx = (id) => S.cues.findIndex((c) => c.id === id);
 const selIdx = () => (S.sel == null ? -1 : idx(S.sel));
@@ -413,6 +417,7 @@ function split() {
   pushUndo();
   const [a, b] = splitText(c.text);
   const c2 = mk(t, c.end, b, c.speed);
+  if (c.say) c2.say = c.say.map((x) => [...x]); // each half keeps the words; unused ones do nothing
   c.end = t; c.text = a;
   delete c.auto; delete c.fit;
   S.cues.push(c2);
@@ -428,6 +433,9 @@ function merge() {
   pushUndo();
   c.end = Math.max(c.end, n.end);
   c.text = [c.text, n.text].filter(Boolean).join('\n');
+  const words = new Set((c.say || []).map(([w]) => w.toLocaleLowerCase()));
+  const more = (n.say || []).filter(([w]) => !words.has(w.toLocaleLowerCase()));
+  if (more.length) c.say = [...(c.say || []), ...more];
   delete c.auto; delete c.fit;
   S.cues.splice(i + 1, 1);
   changed();
@@ -466,6 +474,7 @@ function updateEditor() {
   const c = selCue();
   if (!c) {
     edSpeedWrap.hidden = true;
+    edSay.hidden = true;
     edAuto.hidden = true;
     edIdx.textContent = '#–';
     if (document.activeElement !== edStart) edStart.value = '';
@@ -482,6 +491,9 @@ function updateEditor() {
   edAuto.hidden = !(c.auto && ttsOn() && tts.autoEnd);
   edDur.textContent = `${(c.end - c.start).toFixed(3)} s`;
   edSpeedWrap.hidden = !ttsOn();
+  edSay.hidden = !ttsOn();
+  edSay.textContent = c.say?.length ? `sounds like · ${c.say.length}` : 'sounds like';
+  edSay.classList.toggle('on', !!c.say?.length);
   edSpeed.options[0].textContent = `default (${speedLabel(tts.speed)})`;
   const custom = c.speed && !isSpeed(c.speed);
   edSpeedCustom.hidden = !custom;
@@ -491,7 +503,7 @@ function updateEditor() {
   edStats.textContent = '';
   if (ttsOn() && spoken(c.text)) {
     // How long the voice takes to read it: "~" until it has actually been read.
-    const { secs, exact } = speechLength(c.text, c.speed);
+    const { secs, exact } = speechLength(said(c), c.speed);
     const s = document.createElement('span');
     s.textContent = `TTS ${exact ? '' : '~'}${secs.toFixed(1)} s`;
     s.className = 'tts ' + (secs > c.end - c.start + 0.05 ? 'bad' : '');
@@ -510,7 +522,7 @@ function updateEditor() {
 let prefetchTimer = 0;
 function schedulePrefetch(c) {
   clearTimeout(prefetchTimer);
-  const { text, speed } = c;
+  const text = said(c), { speed } = c;
   prefetchTimer = setTimeout(() => prefetch(text, speed), 500);
 }
 
@@ -626,6 +638,7 @@ edText.addEventListener('blur', () => {
 });
 edText.addEventListener('keydown', (e) => {
   e.stopPropagation();
+  if (e.altKey && e.shiftKey && !e.metaKey && !e.ctrlKey && e.code === 'KeyP') { e.preventDefault(); openSay(); return; }
   if (editorKeys(e, edText)) return;
   const mod = e.metaKey || e.ctrlKey;
   if (e.key === 'Enter' && !e.shiftKey && !e.altKey) { e.preventDefault(); closeEditor(); return; }
@@ -769,7 +782,7 @@ function fillRow(r, c, i) {
   t.children[0].textContent = fmtTime(c.start, '.');
   t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '');
   // Red when the reading is longer than the block.
-  t.children[1].classList.toggle('over', ttsOn() && !!spoken(c.text) && speechLength(c.text, c.speed).secs > c.end - c.start + 0.05);
+  t.children[1].classList.toggle('over', ttsOn() && !!spoken(c.text) && speechLength(said(c), c.speed).secs > c.end - c.start + 0.05);
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
   r.hidden = !matches(c, i);
@@ -1273,7 +1286,7 @@ function speakBlock(fit) {
   S.playUntil = null;
   setTime(c.start);
   const id = c.id;
-  speak(c.text, {
+  speak(said(c), {
     id, manual: true, speed: c.speed,
     done: (secs) => {
       const cur = S.cues[idx(id)];
@@ -1312,7 +1325,7 @@ function fitAuto(c) {
   const i = idx(c.id);
   if (i < 0) return false;
   const { hi } = bounds(i);
-  const end = clamp(c.start + speechLength(c.text, c.speed).secs, c.start + MIN_DUR, Math.max(hi, c.start + MIN_DUR));
+  const end = clamp(c.start + speechLength(said(c), c.speed).secs, c.start + MIN_DUR, Math.max(hi, c.start + MIN_DUR));
   if (Math.abs(end - c.end) < 0.0005) return false;
   c.end = end;
   return true;
@@ -1338,12 +1351,12 @@ function resized(c, edge) {
 function fitSpeed(c, force = false) {
   if (!c?.fit || !ttsOn() || (!tts.fitSpeed && !force) || !spoken(c.text)) return false;
   const at = c.speed ?? tts.speed, target = c.end - c.start;
-  const pts = readingsOf(c.text);
+  const pts = readingsOf(said(c));
   let s;
   if (pts.length) s = speedFromReadings(pts, target, at, fixedShare());
   // With Piper, wait for real readings rather than move the speed on an estimate.
   else if (usingPiper()) { if (c.id === S.sel) schedulePrefetch(c); return false; }
-  else s = speedToFit(speechLength(c.text, 1).secs, 1, target);
+  else s = speedToFit(speechLength(said(c), 1).secs, 1, target);
   if (s == null || Math.abs(s - at) < 0.005) return false;
   c.speed = s;
   if (c.id === S.sel) schedulePrefetch(c);
@@ -1377,7 +1390,7 @@ function report(el, msg) {
 
 async function measureAll(blocks, ui) {
   const piper = usingPiper();
-  const todo = blocks.filter((c) => !speechLength(c.text, c.speed).exact);
+  const todo = blocks.filter((c) => !speechLength(said(c), c.speed).exact);
   if (!todo.length) return true;
   pause();
   measuring = true;
@@ -1390,7 +1403,7 @@ async function measureAll(blocks, ui) {
     await Promise.all(Array.from({ length: LANES }, async () => {
       while (measuring && next < todo.length) {
         const c = todo[next++];
-        await measure(c.text, c.speed, { bulk: true });
+        await measure(said(c), c.speed, { bulk: true });
         ui.bar.value = ++done / todo.length;
         ui.status.textContent = `Making readings: ${done} of ${todo.length}`;
       }
@@ -1399,7 +1412,7 @@ async function measureAll(blocks, ui) {
     for (let k = 0; k < todo.length && measuring; k++) {
       ui.bar.value = k / todo.length;
       ui.status.textContent = `Reading block ${k + 1} of ${todo.length} silently`;
-      await measure(todo[k].text, todo[k].speed);
+      await measure(said(todo[k]), todo[k].speed);
     }
   }
   ui.bar.value = 1;
@@ -1431,7 +1444,7 @@ async function updateAllTimings(ask = true) {
   for (let i = 0; i < S.cues.length; i++) {
     const c = S.cues[i], next = S.cues[i + 1];
     if (!spoken(c.text)) continue;
-    const { secs, exact } = speechLength(c.text, c.speed);
+    const { secs, exact } = speechLength(said(c), c.speed);
     const hi = next ? Math.max(next.start, c.start + MIN_DUR) : Math.max(duration(), c.start + secs);
     const end = clamp(c.start + secs, c.start + MIN_DUR, hi);
     if (c.start + secs > hi + 0.0005) short++;
@@ -1478,14 +1491,14 @@ async function fitBlock(c) {
   const near = Math.max(0.03, target * 0.005); // half a 1% step, on long blocks
   const tried = new Set();
   for (let attempt = 0; attempt < 6 && measuring; attempt++) {
-    const pts = readingsOf(c.text);
+    const pts = readingsOf(said(c));
     const s = pts.length ? speedFromReadings(pts, target, c.speed ?? tts.speed, fixedShare())
-      : speedToFit(speechLength(c.text, 1).secs, 1, target);
+      : speedToFit(speechLength(said(c), 1).secs, 1, target);
     if (s != null) c.speed = s;
     const at = c.speed ?? tts.speed;
     if (tried.has(at)) break; // back to a speed already read: it's as close as it gets
     tried.add(at);
-    const secs = await measure(c.text, at, { bulk: true });
+    const secs = await measure(said(c), at, { bulk: true });
     if (secs == null || Math.abs(secs - target) <= near || at <= MIN_SPEED || at >= MAX_SPEED) break;
   }
 }
@@ -1521,7 +1534,7 @@ async function fitAllSpeeds(ask = true) {
   let left = 0;
   if (stopped && piper) {
     for (const c of blocks) {
-      if (!readingsOf(c.text).length) { delete c.fit; left++; }
+      if (!readingsOf(said(c)).length) { delete c.fit; left++; }
     }
   }
   const fitted = n - left;
@@ -1529,10 +1542,10 @@ async function fitAllSpeeds(ask = true) {
   const atLimit = (c) => (c.speed ?? tts.speed) <= MIN_SPEED || (c.speed ?? tts.speed) >= MAX_SPEED;
   const off = blocks.filter((c) => {
     if (!c.fit) return false;
-    const m = speechLength(c.text, c.speed);
+    const m = speechLength(said(c), c.speed);
     return (m.exact || atLimit(c)) && Math.abs(m.secs - (c.end - c.start)) > 0.05;
   }).length;
-  const estimated = blocks.filter((c) => !speechLength(c.text, c.speed).exact).length;
+  const estimated = blocks.filter((c) => !speechLength(said(c), c.speed).exact).length;
   changed();
   const msg = (stopped
     ? `Fit speeds to timings stopped. Fitted ${fitted} of ${n} block${n > 1 ? 's' : ''}${left ? `; ${left === 1 ? '1 was' : `${left} were`} left as ${left === 1 ? 'it was' : 'they were'}` : ''}.`
@@ -1579,7 +1592,7 @@ ttsFitStop.addEventListener('click', () => { measuring = false; stopSpeech(); })
 // block's start, as long as the video (or the last reading, without one).
 const ttsExport = $('ttsExport'), ttsExportStatus = $('ttsExportStatus'), ttsExportBar = $('ttsExportBar');
 ttsExport.addEventListener('click', async () => {
-  const blocks = S.cues.filter((c) => spoken(c.text)).map(({ start, text, speed }) => ({ start, text, speed }));
+  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed }));
   if (!blocks.length) return (ttsExportStatus.textContent = 'There are no blocks with text yet.');
   pause();
   busy(ttsExport, ttsExportBar, true);
@@ -1642,11 +1655,84 @@ edSpeed.addEventListener('change', () => {
   edSpeed.blur();
 });
 
+// ---------------------------------------------------------------- sounds like
+
+// Each block can say how text to speech should pronounce words in it, as pairs of
+// [written, said] in c.say. The text itself never changes (see said()).
+const sayDlg = $('sayDlg'), sayRows = $('sayRows'), edSay = $('edSay');
+let sayFor = null, rows = [];
+function addSayRow(word = '', as = '') {
+  const w = document.createElement('input'), s = document.createElement('input');
+  const arrow = document.createElement('span'), del = document.createElement('button'), miss = document.createElement('div');
+  w.value = word; w.placeholder = 'As written'; w.spellcheck = false; w.setAttribute('aria-label', 'Word or phrase, as written');
+  s.value = as; s.placeholder = 'Say it like'; s.spellcheck = false; s.setAttribute('aria-label', 'How to say it');
+  arrow.className = 'arrow'; arrow.textContent = '→';
+  del.textContent = '×'; del.setAttribute('aria-label', 'Remove this word');
+  miss.className = 'missing'; miss.textContent = 'This isn’t in the block’s text, so it won’t change anything.';
+  const row = { w, s, els: [w, arrow, s, del, miss] };
+  const check = () => { miss.hidden = !w.value.trim() || hasWord(sayFor?.text || '', w.value); };
+  w.addEventListener('input', check);
+  check();
+  w.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); s.focus(); } });
+  s.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sayDlg.close(); } });
+  del.addEventListener('click', () => {
+    row.els.forEach((el) => el.remove());
+    rows = rows.filter((r) => r !== row);
+    if (!rows.length) addSayRow().w.focus();
+  });
+  sayRows.append(...row.els);
+  rows.push(row);
+  return row;
+}
+const sayPairs = () => rows.map((r) => [r.w.value.trim(), r.s.value.trim()]).filter(([w, s]) => w && s);
+
+function openSay() {
+  if (!writing()) return modeOnly('Sounds like', 'write');
+  if (!ttsOn()) { openTts(); return toast('Turn on text to speech to set how words sound'); }
+  const c = needSel(); if (!c) return;
+  // A word selected in the text box is the one to add.
+  const picked = document.activeElement === edText || edit?.id === c.id
+    ? edText.value.slice(edText.selectionStart, edText.selectionEnd).trim() : '';
+  sayFor = c;
+  rows = [];
+  sayRows.textContent = '';
+  $('sayBlock').textContent = `block #${selIdx() + 1}`;
+  for (const [w, as] of c.say || []) addSayRow(w, as);
+  let focus = null;
+  if (picked && !picked.includes('\n') && picked.length <= 60) {
+    focus = rows.find((r) => r.w.value.toLocaleLowerCase() === picked.toLocaleLowerCase())?.s || addSayRow(picked).s;
+  } else if (!rows.length) focus = addSayRow().w;
+  sayDlg.showModal();
+  (focus || rows[0].s).focus();
+}
+
+// Closing keeps what's there, however the dialog is closed; Ctrl/Cmd+Z undoes it.
+sayDlg.addEventListener('close', () => {
+  stopSpeech();
+  const c = sayFor;
+  sayFor = null;
+  if (!c || !S.cues.includes(c)) return;
+  const pairs = sayPairs();
+  if (JSON.stringify(pairs) === JSON.stringify(c.say || [])) return;
+  pushUndo();
+  if (pairs.length) c.say = pairs; else delete c.say;
+  changed();
+  toast(pairs.length ? `${pairs.length === 1 ? '1 word sounds' : `${pairs.length} words sound`} different in this block when read aloud` : 'This block is read as written again');
+});
+$('sayAdd').addEventListener('click', () => addSayRow().w.focus());
+$('sayTry').addEventListener('click', () => {
+  if (sayFor) speak(soundsLike(sayFor.text, sayPairs()), { speed: sayFor.speed });
+});
+$('sayDone').addEventListener('click', () => sayDlg.close());
+sayDlg.addEventListener('click', (e) => { if (e.target === sayDlg) sayDlg.close(); });
+document.addEventListener('keydown', (e) => { if (sayDlg.open) e.stopPropagation(); }, true);
+edSay.addEventListener('click', () => { edSay.blur(); openSay(); });
+
 // While playing, read each block as the playhead reaches its start.
 function liveSpeech(prevT, t) {
   if (!ttsOn() || !tts.live || tts.speaking?.manual) return;
   const a = cueAt(t);
-  if (a && prevT <= a.start && t > a.start && t - prevT < 0.5 && tts.speaking?.id !== a.id) speak(a.text, { id: a.id, speed: a.speed });
+  if (a && prevT <= a.start && t > a.start && t - prevT < 0.5 && tts.speaking?.id !== a.id) speak(said(a), { id: a.id, speed: a.speed });
 }
 
 // Lower the original audio while a block is read.
@@ -1966,7 +2052,7 @@ async function loadSubsFile(file) {
   if (!parsed.length) return toast(`No cues found in ${file.name}`);
   if (!okToReplace(`Open ${file.name}`)) return;
   pushUndo();
-  S.cues = parsed.map((c) => mk(c.start, c.end, c.text, c.speed));
+  S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.say ? { say: c.say } : {}));
   S.subName = file.name;
   S.handle = null; // saving makes a project next to it, rather than overwriting the script
   handleStore.set(null);
@@ -2460,6 +2546,7 @@ document.addEventListener('keydown', (e) => {
       case 'ArrowRight': selectRel(1); break;
       case 'KeyJ': openPalette('time'); break;
       case 'KeyD': confirmDelete(); break;
+      case 'KeyP': openSay(); break;
       case 'KeyV': if (writing()) openTts(); else modeOnly('Text to speech', 'write'); break;
       case 'KeyM': case 'KeyC': toast(`${e.code === 'KeyM' ? 'Markers' : 'Comments'} are not part of this editor`); break;
       default: handled = false;
@@ -2618,7 +2705,7 @@ initTts({
   toast,
   rate: () => S.rate,
   duck: duckAudio,
-  sample: () => spoken(selCue()?.text || ''),
+  sample: () => spoken(selCue() ? said(selCue()) : ''),
   changed: () => { fitAllAuto(); renderList(); updateEditor(); updateInd(); tlDirty = true; },
 });
 initWelcome({

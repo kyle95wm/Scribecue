@@ -73,3 +73,17 @@ test('a speed note only applies to the block right after it', () => {
   const vtt = 'WEBVTT\n\nNOTE Scribecue text to speech speed: 1.3\n\n00:01.000 --> 00:02.000\nA\n\n00:03.000 --> 00:04.000\nB\n';
   assert.deepEqual(parseSubs(vtt).map((c) => c.speed), [1.3, undefined]);
 });
+
+test('sounds like words are kept in VTT as notes, alongside a speed, and read back', () => {
+  const cues = [
+    { start: 1, end: 2, text: 'Siobhan waves.', speed: 1.15, say: [['Siobhan', 'shiv-awn'], ['A = B', 'x = y']] },
+    { start: 3, end: 4, text: 'Plain.' },
+  ];
+  const vtt = toVTT(cues);
+  assert.match(vtt, /NOTE Scribecue sounds like:\nSiobhan = shiv-awn\nA = B = x = y\n\n1\n/);
+  const back = parseSubs(vtt);
+  assert.equal(back[0].speed, 1.15);
+  assert.deepEqual(back[0].say[0], ['Siobhan', 'shiv-awn']);
+  assert.equal(back[1].say, undefined);
+  assert.doesNotMatch(toSRT(cues), /NOTE|shiv/);
+});

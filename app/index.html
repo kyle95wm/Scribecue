@@ -47,6 +47,7 @@
           <span id="edDur" class="dim"></span>
           <label id="edSpeedWrap" class="edspeed" hidden data-tip="Text to speech speed for this block. [ and ] change it">TTS
             <select id="edSpeed"><option value="">default</option></select></label>
+          <button id="edSay" class="edsay" hidden data-tip="How text to speech says words in this block, without changing the text (⌥⇧P)">sounds like</button>
           <span class="grow"></span>
           <span id="edStats"></span>
         </div>
@@ -249,6 +250,21 @@ docker compose up -d --build</code></pre>
     <div class="updbtns"><button id="wzBack">Back</button><span class="grow"></span><button id="wzNext" class="hl">Next</button></div>
   </dialog>
 
+  <dialog id="sayDlg" class="updbox" aria-labelledby="sayTitle">
+    <h2 id="sayTitle">Sounds like</h2>
+    <p>Tell text to speech how to say words in <span id="sayBlock">this block</span>. Only the reading
+      changes: the block's text stays as written, in the list and in exports.</p>
+    <div id="sayRows" class="sayrows"></div>
+    <p><button id="sayAdd">Add a word</button></p>
+    <p class="dim small">Spell it how it sounds, such as <em>shiv-AWN</em> for Siobhan. Each word or phrase
+      is matched as a whole word, in any case. Tip: select a word in the text box before pressing
+      <kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd> to add it.</p>
+    <div class="updbtns">
+      <button id="sayTry">Hear the block</button>
+      <button id="sayDone" class="hl">Done</button>
+    </div>
+  </dialog>
+
   <dialog id="ttsDlg" class="updbox" aria-labelledby="ttsTitle">
     <h2 id="ttsTitle">Text to speech</h2>
     <p>Hear blocks read aloud, to check where each line sits and whether it fits before the
@@ -329,6 +345,7 @@ docker compose up -d --build</code></pre>
       <p class="small"><kbd>V</kbd> read the selected block from its start ·
         <kbd>⇧</kbd><kbd>V</kbd> set the block's end to where the reading finishes ·
         <kbd>[</kbd> <kbd>]</kbd> this block slower / faster ·
+        <kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd> how words in this block sound ·
         <kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd> this panel</p>
     </div>
     <aside id="ttsTip" class="tipbox" hidden>
@@ -433,6 +450,7 @@ docker compose up -d --build</code></pre>
             <dt><kbd>V</kbd></dt><dd>Read the selected block from its start</dd>
             <dt><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Set the block's end to where the reading finishes</dd>
             <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>This block's reading slower / faster</dd>
+            <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd></dt><dd>Sounds like: how words in this block are said</dd>
             <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Settings: voice, speed, online voices, update all timings</dd>
           </dl>
         </section>

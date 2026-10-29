@@ -88,6 +88,21 @@ console.log('voices', await js('speechSynthesis.getVoices().length'));
 await key('KeyV', 'V', { altKey: true, shiftKey: true }); await sleep(500);
 await shot('text-to-speech');
 
+// sounds like: a word selected in block 3, then Alt+Shift+P
+await js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`); await sleep(300);
+await js(`(async () => {
+  document.querySelectorAll('#list .row')[2].click();
+  await new Promise((r) => setTimeout(r, 300));
+  const t = document.getElementById('edText'), w = 'diagonally', i = t.value.indexOf(w);
+  t.focus(); t.setSelectionRange(i, i + w.length);
+  t.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP', key: 'P', altKey: true, shiftKey: true, bubbles: true, cancelable: true }));
+  await new Promise((r) => setTimeout(r, 300));
+  const say = document.activeElement; say.value = 'dye-AG-nuh-lee'; say.dispatchEvent(new Event('input'));
+  return document.getElementById('sayDlg').open;
+})()`);
+await sleep(400);
+await shot('sounds-like', '#sayDlg', 0);
+
 // the Did you know? box, which only shows without Piper: hide Piper from this page.
 // (A made-up Esc key doesn't close a dialog, so close them directly.)
 const closeDialogs = () => js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`);

@@ -150,3 +150,18 @@ test('from one reading, the part that doesn’t change with speed is allowed for
   // A reading at another speed works out the same.
   assert.equal(speedFromReadings([{ speed: 2, secs: 3.077 * (0.25 + 0.75 / 2) }], 3.077, 2, 0.25), 1);
 });
+
+test('sounds like changes only the reading, as whole words in any case', async () => {
+  const { soundsLike, hasWord } = await import('../app/js/tts.js');
+  const say = [['Siobhan', 'shiv-awn'], ['York', 'yawk'], ['New York', 'noo yawk']];
+  assert.equal(soundsLike('SIOBHAN met siobhan in New York, not York.', say), 'shiv-awn met shiv-awn in noo yawk, not yawk.');
+  assert.equal(soundsLike('Siobhans and Yorkshire', say), 'Siobhans and Yorkshire'); // part of a word: left alone
+  assert.equal(soundsLike('Siobhan’s coat', say), 'shiv-awn’s coat');
+  assert.equal(soundsLike('Café crème', [['café', 'ka-fay']]), 'ka-fay crème'); // accented letters count as letters
+  assert.equal(soundsLike('a (b) c', [['(b)', 'bee']]), 'a bee c'); // punctuation in a phrase is matched as written
+  assert.equal(soundsLike('Same text', []), 'Same text');
+  assert.equal(soundsLike('Same text', [['text', ' '], [' ', 'x']]), 'Same text'); // empty halves ignored
+  assert.ok(hasWord('Wave to Niamh.', 'niamh'));
+  assert.ok(!hasWord('Niamhs', 'Niamh'));
+  assert.ok(!hasWord('anything', '  '));
+});

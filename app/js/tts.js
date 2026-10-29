@@ -178,6 +178,21 @@ export function spoken(text, skipNotes = tts.skipNotes) {
 // True when a block has text, but all of it is notes that aren't read.
 export const onlyNotes = (text) => !spoken(text) && !!spoken(text, false);
 
+// A block's "sounds like" words, [[written, said], …]: each written word or phrase is
+// read aloud as the other, as a whole word and whatever its case. Only the reading
+// changes; the block's text stays as it is, in exports too.
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const sayPattern = (words) => new RegExp(`(?<![\\p{L}\\p{N}])(?:${words.map(reEsc).join('|')})(?![\\p{L}\\p{N}])`, 'giu');
+export function soundsLike(text, say) {
+  const pairs = (say || []).filter(([w, s]) => w?.trim() && s?.trim()).map(([w, s]) => [w.trim(), s.trim()])
+    .sort((a, b) => b[0].length - a[0].length); // "New York" before "York"
+  if (!pairs.length) return text;
+  const said = new Map(pairs.map(([w, s]) => [w.toLocaleLowerCase(), s]));
+  return text.replace(sayPattern(pairs.map(([w]) => w)), (m) => said.get(m.toLocaleLowerCase()) ?? m);
+}
+// Whether the text has this word or phrase in it, as soundsLike would find it.
+export const hasWord = (text, word) => !!word.trim() && sayPattern([word.trim()]).test(text);
+
 const KEY = 'scribecue.tts';
 const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', online: false, cps: {} };
 const $ = (id) => document.getElementById(id);

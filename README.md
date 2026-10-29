@@ -290,6 +290,7 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
 | `Shift+V` | Read the block, then set its end to where the reading finishes |
 | `[` `]` | Make the selected block's reading slower / faster |
 | `Alt+Shift+V` | Choose the voice and speed |
+| `Alt+Shift+P` | Sounds like: how words in this block are said |
 
 - **Speed:** very slow (−30%), slow (−15%), normal, fast (+15%), very fast (+30%), and
   experimental +50% and +100%. The voice also follows the playback speed.
@@ -321,6 +322,16 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   speed when you resize; setting it back to default lets resizing fit it again. Turn this
   off with **Change a block's reading speed when you resize it** in the text to speech
   panel.
+- **Sounds like:** when a voice says a name or word wrong, tell it how to say it, without
+  changing the text. Select the word in the text box and press `Alt+Shift+P` (or click
+  **sounds like** next to the block's speed), then spell it how it sounds, such as
+  *shiv-AWN* for Siobhan, and click **Hear the block** to check. Each block keeps its own
+  list. Words are matched whole and in any case, so the reading, its length and the
+  exported description track all use the new sound, while the list, SRT exports and the
+  timeline show the words as written. Projects and VTT exports keep the list, as notes
+  other programs ignore. `Ctrl/Cmd+Z` undoes a change.
+
+  ![The Sounds like dialog, with diagonally to be said as dye-AG-nuh-lee](docs/screenshots/sounds-like.png)
 - **Notes in [square brackets]:** if your team writes notes in the script inside square
   brackets, such as `[Wide shot, hold for the door]`, tick **Don't read notes in [square
   brackets]** in the text to speech panel. They're then left out of every reading, reading
@@ -538,6 +549,7 @@ keys are named on each system.
 | `V` / `Shift+V` | [Read the block aloud](#text-to-speech) / fit the block to the reading |
 | `[` `]` | Make the block's reading slower / faster |
 | `Alt+Shift+V` | Text to speech settings |
+| `Alt+Shift+P` | [Sounds like](#text-to-speech) for the selected block |
 | `Alt+=` `Alt+-` `Alt+0` | Zoom the timeline in / out / to fit |
 | `\` | Reset speed to 1× |
 

@@ -594,6 +594,16 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 .jobbar { width: 220px; height: 10px; vertical-align: middle; accent-color: var(--accent); }
 #ttsPiperNote:empty, #ttsExportNote:empty { display: none; }
 .edspeed { display: inline-flex; align-items: center; gap: 4px; }
+.edsay { padding: 1px 6px; font: 11px var(--mono); color: var(--dim); background: none; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+.edsay:hover { color: var(--text); border-color: var(--faint); }
+.edsay.on { color: var(--cue); border-color: var(--cue); }
+.edsay[hidden] { display: none; }
+.sayrows { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 6px 8px; align-items: center; margin: 12px 0 4px; }
+.sayrows:empty { display: none; }
+.sayrows input { min-width: 0; font: 14px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+.sayrows .arrow { color: var(--faint); }
+.sayrows .missing { grid-column: 1 / -1; margin: -2px 0 2px; font-size: 12px; color: var(--warn); }
+.sayrows .missing[hidden] { display: none; }
 .edspeed[hidden] { display: none; }
 .edspeed select {
   max-width: 150px;
