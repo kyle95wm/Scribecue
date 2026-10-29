@@ -33,9 +33,8 @@ or open Scribecue again. [Piper voices](#piper-voices) work in the web version t
 download one from the text to speech panel.
 
 The web version used to be at `kyle95wm.github.io/Scribecue`, which now forwards here.
-Anything kept in the browser at the old address, such as unsaved work, settings and Piper
-voices, stays with that address. If you installed or used it there, save your work as a
-project file (`Ctrl/Cmd+S`) before switching, then open it here.
+Work that was only kept in the browser there, such as unsaved blocks, settings and Piper
+voices, doesn't come across, but project files you saved open here as usual.
 
 Scribecue is built for Chrome and Edge. Other browsers, such as Safari and Firefox, can
 open it, but some features may not be available, and Scribecue tells you which.
