@@ -73,6 +73,12 @@
         </div>
         <div class="overlay" id="overlay"></div>
       </div>
+      <div class="scrub" id="scrub" role="slider" aria-label="Video position" aria-valuemin="0" aria-valuenow="0">
+        <canvas id="scrubMarks"></canvas>
+        <div class="scrubfill" id="scrubFill"></div>
+        <div class="scrubknob" id="scrubKnob"></div>
+        <div class="scrubtime" id="scrubTime" hidden></div>
+      </div>
       <div class="transport">
         <span class="clock copy" id="clock" data-tip="Click to copy this timecode">00:00:00.000</span>
         <span class="dim">/</span>

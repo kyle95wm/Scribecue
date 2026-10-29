@@ -940,6 +940,72 @@ function drawOverview() {
   ovWin.style.width = Math.min(W, (visSec() / d) * W) + 'px';
 }
 
+// ---------------------------------------------------------------- scrubber
+
+// A bar under the video for the whole programme: click or drag to move the playhead.
+// Blocks show as marks along it, the selected one in the accent colour. It takes no
+// keyboard focus, so the editor's keys keep working; ←/→ and the rest still move.
+const scrubEl = $('scrub'), scrubMarks = $('scrubMarks'), scrubTime = $('scrubTime');
+let scrubW = 0, scrubSec = -1;
+function placeScrub(t) {
+  const d = duration();
+  scrubEl.style.setProperty('--at-f', d > 0 ? clamp(t / d, 0, 1) : 0);
+  const sec = Math.floor(t);
+  if (sec !== scrubSec) {
+    scrubSec = sec;
+    scrubEl.setAttribute('aria-valuemax', String(Math.round(d)));
+    scrubEl.setAttribute('aria-valuenow', String(sec));
+    scrubEl.setAttribute('aria-valuetext', fmtTime(t, '.').slice(0, 8));
+  }
+}
+function drawScrub(force = false) {
+  const w = scrubMarks.clientWidth, dpr = devicePixelRatio || 1;
+  if (!w || (!force && w === scrubW)) return;
+  scrubW = w;
+  scrubMarks.width = Math.round(w * dpr);
+  scrubMarks.height = Math.round(6 * dpr);
+  const g = scrubMarks.getContext('2d'), d = duration(), k = scrubMarks.width / d;
+  g.clearRect(0, 0, scrubMarks.width, scrubMarks.height);
+  const css = getComputedStyle(document.documentElement);
+  const mark = (c, color) => {
+    g.fillStyle = color;
+    g.fillRect(c.start * k, 0, Math.max(dpr, (c.end - c.start) * k), scrubMarks.height);
+  };
+  for (const c of S.cues) mark(c, css.getPropertyValue('--cue'));
+  const s = selCue();
+  if (s) mark(s, css.getPropertyValue('--accent'));
+}
+const scrubAt = (e) => {
+  const r = scrubMarks.getBoundingClientRect();
+  return clamp((e.clientX - r.left) / r.width, 0, 1) * duration();
+};
+function showScrubTime(e) {
+  const r = scrubEl.getBoundingClientRect(), mr = scrubMarks.getBoundingClientRect();
+  scrubTime.hidden = false;
+  scrubTime.textContent = fmtTime(scrubAt(e), '.');
+  scrubTime.style.left = `${clamp(e.clientX, mr.left, mr.right) - r.left}px`;
+}
+scrubEl.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  scrubEl.setPointerCapture(e.pointerId);
+  scrubEl.classList.add('on');
+  S.playUntil = null;
+  seek(scrubAt(e));
+  showScrubTime(e);
+});
+scrubEl.addEventListener('pointermove', (e) => {
+  showScrubTime(e);
+  if (scrubEl.hasPointerCapture(e.pointerId)) seek(scrubAt(e));
+});
+const scrubDone = (e) => {
+  scrubEl.classList.remove('on');
+  if (e.type !== 'pointerup' || !scrubEl.matches(':hover')) scrubTime.hidden = true;
+};
+scrubEl.addEventListener('pointerup', scrubDone);
+scrubEl.addEventListener('pointercancel', scrubDone);
+scrubEl.addEventListener('pointerleave', () => { if (!scrubEl.classList.contains('on')) scrubTime.hidden = true; });
+
 function placePlayhead(t) {
   const x = (t - S.view) * S.pps;
   playheadEl.style.display = x < -2 || x > tl.clientWidth + 2 ? 'none' : '';
@@ -2507,9 +2573,10 @@ function tick(ts) {
     updateActive(t);
     clockEl.textContent = fmtTime(t, '.');
   }
-  if (tlDirty) drawTimeline();
+  if (tlDirty) { drawTimeline(); drawScrub(true); } else drawScrub();
   updateMark();
   placePlayhead(t);
+  placeScrub(t);
   requestAnimationFrame(tick);
 }
 
