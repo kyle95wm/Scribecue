@@ -261,7 +261,25 @@ export async function failure(provider, response) {
 // ---- models
 
 // The models this provider offers, best first where we know, otherwise by name.
-// Asking also checks the key, where the provider needs one.
+// Only models that can look at the frames and write a description are offered; ones
+// that can't, such as speech, image-making or text-only models, would only fail or
+// mislead. Asking also checks the key, where the provider needs one.
+
+// OpenAI's and Gemini's lists don't say what a model can do, so these are left out by
+// name: speech and audio, image and video making, embeddings and search, code and agent
+// models, and older models that can't see images.
+const OPENAI_SKIP = /audio|realtime|transcribe|tts|speech|image|dall-e|sora|search|embedding|moderation|codex|computer-use|instruct|oss|^gpt-3\.5|^gpt-4(-\d|-turbo-preview|$)|^o1-mini|^o3-mini|^o1-preview/;
+const GEMINI_SKIP = /embedding|aqa|imagen|veo|image|tts|audio|live|robotics|learnlm|-exp-\d{4}|gemini-1\.0|gemini-pro$/;
+export const usefulOpenAI = (id) => /^(gpt|o\d|chatgpt)/.test(id) && !OPENAI_SKIP.test(id);
+export const usefulGemini = (m) => (m.supportedGenerationMethods || []).includes('generateContent')
+  && /gemini/.test(m.name) && !GEMINI_SKIP.test(m.name.replace(/^models\//, ''));
+// On OpenRouter, ":batch" versions are for slow bulk work, not a draft you're waiting for.
+export const usefulOpenRouter = (m) => {
+  const a = m.architecture || {};
+  return !/:batch$/.test(m.id) && (a.input_modalities || []).includes('image') && !(a.output_modalities || []).includes('image')
+    && (a.output_modalities || ['text']).includes('text');
+};
+
 export async function listModels(provider, { key, base }, fetcher = fetch) {
   const get = async (url, headers = {}, opts = {}) => {
     const r = await fetcher(url, { headers, ...opts });
@@ -278,23 +296,29 @@ export async function listModels(provider, { key, base }, fetcher = fetch) {
   }
   if (provider === 'openai') {
     const j = await get('https://api.openai.com/v1/models', { Authorization: `Bearer ${key}` });
-    // Leave out models that can't chat: speech, images, embeddings and the like.
-    return (j.data || []).map((m) => m.id)
-      .filter((id) => /^(gpt|o\d|chatgpt)/.test(id) && !/audio|realtime|transcribe|tts|image|search|embedding/.test(id)).sort();
+    return (j.data || []).map((m) => m.id).filter(usefulOpenAI).sort();
   }
   if (provider === 'gemini') {
     const j = await get('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { 'x-goog-api-key': key });
-    return (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent') && /gemini/.test(m.name))
-      .map((m) => m.name.replace(/^models\//, '')).sort().reverse();
+    return (j.models || []).filter(usefulGemini).map((m) => m.name.replace(/^models\//, '')).sort().reverse();
   }
   if (provider === 'openrouter') {
     if (key) await get('https://openrouter.ai/api/v1/key', { Authorization: `Bearer ${key}` }); // the list itself is public
     const j = await get('https://openrouter.ai/api/v1/models');
-    // Only models that can look at the frames.
-    return (j.data || []).filter((m) => (m.architecture?.input_modalities || []).includes('image')).map((m) => m.id).sort();
+    return (j.data || []).filter(usefulOpenRouter).map((m) => m.id).sort();
   }
-  const j = await get(`${(base || PROVIDERS.ollama.base).replace(/\/+$/, '')}/api/tags`);
-  return (j.models || []).map((m) => m.name).sort();
+  // Ollama says what each downloaded model can do. One without "vision" can't see the
+  // frames; a model Ollama is too old to describe is kept, rather than hidden by mistake.
+  const root = (base || PROVIDERS.ollama.base).replace(/\/+$/, '');
+  const j = await get(`${root}/api/tags`);
+  const names = (j.models || []).map((m) => m.name).sort();
+  const seeing = await Promise.all(names.map(async (name) => {
+    try {
+      const info = await get(`${root}/api/show`, { 'Content-Type': 'application/json' }, { method: 'POST', body: JSON.stringify({ model: name }) });
+      return !Array.isArray(info.capabilities) || info.capabilities.includes('vision');
+    } catch { return true; }
+  }));
+  return names.filter((_, k) => seeing[k]);
 }
 
 // ---- OpenRouter sign-in (OAuth with PKCE: no secret is needed in the page)

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PROVIDERS, SYSTEM, systemWith, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, nearbyScript, draftPrompt,
+  PROVIDERS, SYSTEM, systemWith, usefulOpenAI, usefulGemini, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, nearbyScript, draftPrompt,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from '../app/js/ai.js';
 
@@ -88,13 +88,25 @@ test('failures say what to do', async () => {
 test('model lists keep chat models that can see frames', async () => {
   const fake = (json) => async () => new Response(JSON.stringify(json));
   assert.deepEqual(await listModels('openai', { key: 'k' }, fake({ data: [{ id: 'gpt-x' }, { id: 'text-embedding-3' }, { id: 'gpt-x-audio' }, { id: 'o9' }] })), ['gpt-x', 'o9']);
+  // Ollama: only models that say they can see
+  const ollama = async (url, o) => {
+    if (url.endsWith('/api/tags')) return new Response(JSON.stringify({ models: [{ name: 'gemma3:12b' }, { name: 'llama3.1:8b' }, { name: 'old:1b' }] }));
+    const name = JSON.parse(o.body).model;
+    return new Response(JSON.stringify(name === 'old:1b' ? {} : { capabilities: name === 'gemma3:12b' ? ['completion', 'vision'] : ['completion', 'tools'] }));
+  };
+  assert.deepEqual(await listModels('ollama', {}, ollama), ['gemma3:12b', 'old:1b']); // a model too old to say is kept
   let asked;
   const claude = await listModels('anthropic', { key: 'k' }, async (url, o) => { asked = { url, o }; return new Response('{"input_tokens":8}'); });
   assert.equal(claude[0], 'claude-opus-5-5');
   assert.equal(asked.url, 'https://api.anthropic.com/v1/messages/count_tokens');
   assert.equal(asked.o.method, 'POST');
   assert.equal(asked.o.headers['x-api-key'], 'k');
-  assert.deepEqual(await listModels('openrouter', {}, fake({ data: [{ id: 'a', architecture: { input_modalities: ['text'] } }, { id: 'b', architecture: { input_modalities: ['text', 'image'] } }] })), ['b']);
+  assert.deepEqual(await listModels('openrouter', {}, fake({ data: [
+    { id: 'a', architecture: { input_modalities: ['text'], output_modalities: ['text'] } },
+    { id: 'b', architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] } },
+    { id: 'makes-pictures', architecture: { input_modalities: ['text', 'image'], output_modalities: ['image', 'text'] } },
+    { id: 'b:batch', architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] } },
+  ] })), ['b']);
   assert.deepEqual(await listModels('gemini', { key: 'k' }, fake({ models: [{ name: 'models/gemini-a', supportedGenerationMethods: ['generateContent'] }, { name: 'models/embedding', supportedGenerationMethods: ['embedContent'] }] })), ['gemini-a']);
   assert.deepEqual(await listModels('ollama', {}, fake({ models: [{ name: 'llava' }, { name: 'gemma3' }] })), ['gemma3', 'llava']);
 });
@@ -153,4 +165,17 @@ test('project notes go with the instructions, and nothing extra goes without the
     const r = JSON.stringify(buildRequest(p, { key: 'k', model: 'm', system: s, messages: [{ role: 'user', text: 'hi' }] }).body);
     assert.match(r, /Mara: red coat/, p);
   }
+});
+
+test('models that can’t see the frames or write a description aren’t offered', () => {
+  const keep = ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-nano', 'gpt-5', 'gpt-5-mini', 'gpt-5.4', 'o1', 'o3', 'o4-mini', 'gpt-4-turbo', 'gpt-4-turbo-2024-04-09', 'chatgpt-4o-latest'];
+  const skip = ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-0613', 'gpt-4-0125-preview', 'gpt-4-turbo-preview', 'o1-mini', 'o3-mini', 'gpt-image-1', 'dall-e-3', 'gpt-4o-audio-preview',
+    'gpt-4o-realtime-preview', 'gpt-4o-search-preview', 'gpt-4o-transcribe', 'gpt-4o-mini-tts', 'text-embedding-3-large', 'omni-moderation-latest', 'gpt-5-codex', 'codex-mini-latest',
+    'computer-use-preview', 'gpt-oss-120b', 'gpt-3.5-turbo-instruct', 'sora-2', 'tts-1', 'whisper-1'];
+  for (const id of keep) assert.ok(usefulOpenAI(id), `${id} should be offered`);
+  for (const id of skip) assert.ok(!usefulOpenAI(id), `${id} shouldn’t be offered`);
+  const g = (name, methods = ['generateContent']) => usefulGemini({ name: `models/${name}`, supportedGenerationMethods: methods });
+  for (const n of ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.8-flash', 'gemini-3.1-flash-lite']) assert.ok(g(n), n);
+  for (const n of ['gemini-2.5-flash-image', 'gemini-2.5-flash-preview-tts', 'gemini-2.0-flash-live-001', 'gemini-embedding-001', 'gemini-pro', 'gemini-2.5-flash-native-audio-dialog']) assert.ok(!g(n), n);
+  assert.ok(!g('gemini-2.5-flash', ['embedContent']));
 });

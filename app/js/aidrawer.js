@@ -230,7 +230,10 @@ async function loadModels(p) {
     if (!ai.models[p] || !list.includes(ai.models[p])) ai.models[p] = list.includes(PROVIDERS[p].defaultModel) ? PROVIDERS[p].defaultModel : (ai.models[p] || list[0]);
     save();
     renderSetup();
-    $('aiSetupStatus').textContent = list.length ? `${list.length} model${list.length > 1 ? 's' : ''}` : 'No models found';
+    // Only models that can see the frames are listed, so say why the list might be empty.
+    $('aiSetupStatus').textContent = list.length ? `${list.length} model${list.length > 1 ? 's' : ''} that can see the frames`
+      : PROVIDERS[p].local ? 'None of your Ollama models can see images. Download one, such as gemma4:12b (the AI guide suggests others), then Load models again.'
+        : 'This provider has no models that can see images for your key.';
     return true;
   } catch (e) {
     $('aiSetupStatus').textContent = e instanceof TypeError ? `Couldn't reach ${PROVIDERS[p].name}.` : e.message;

@@ -63,6 +63,10 @@ you're sure your contract allows sending frames to an AI provider.
 Open **AI**, then **Settings**. Pick the provider, connect it, click **Load models**, pick a
 model, choose **Frames per draft**, and click **Save and connect**.
 
+**Load models** only lists models that can look at the frames and write a description.
+Ones that couldn't help, such as models that only handle text, make pictures, speak, or
+work in slow batches, are left out, so anything in the list will work.
+
 Keys stay in your browser: tick **Remember the key on this computer**, or leave it unticked
 to keep it for this tab only. A key is only ever sent to its own provider.
 
@@ -84,8 +88,6 @@ Google and others, paid with OpenRouter credit. Click **Sign in with OpenRouter*
 opens, you sign in and approve, and Scribecue receives a key of its own. You can also paste
 an OpenRouter key instead.
 
-Its model list only shows models that can see images. Avoid ones with `image` in the name,
-such as `gemini-3-pro-image`: those draw pictures rather than describe them.
 
 ### Ollama, on your own computer
 
@@ -126,7 +128,8 @@ such as `gemini-3-pro-image`: those draw pictures rather than describe them.
    If Chrome asks whether the site may access devices on your local network, allow it: that's
    Ollama on your own computer.
 4. **Connect:** in AI **Settings**, choose **Ollama (on this computer)**, keep the address,
-   click **Load models**, and pick yours.
+   click **Load models**, and pick yours. Models you've downloaded that can't see images
+   aren't listed.
 
 Running Scribecue with Docker, Ollama can also run in a container next to it; see
 [Ollama in Docker](INSTALL.md#ollama-in-docker). On a Mac the Ollama app is much faster,
@@ -144,8 +147,8 @@ concisely, and keeps to the word count; a weak one guesses.
 - **Claude Sonnet 5.5** (`claude-sonnet-5-5`): nearly as good, at about half the price. A
   sensible everyday choice.
 - **Claude Haiku 5.5** (`claude-haiku-5-5`): very cheap and fast, for rough first drafts.
-- **Gemini** and **OpenAI**: pick their newest model that accepts images from the list
-  **Load models** shows. Gemini's Flash models are fast and inexpensive.
+- **Gemini** and **OpenAI**: pick their newest model from the list **Load models** shows.
+  Gemini's Flash models are fast and inexpensive.
 - **Through OpenRouter**, the same models have names like `anthropic/claude-sonnet-5.5` and
   `google/gemini-3.8-flash`. With a direct Claude key, Scribecue also sets the model's effort
   and turns on Anthropic's automatic fallback to another Claude model if a request is
