@@ -887,3 +887,4 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 .wnrelease li { margin: 3px 0; font-size: 13px; line-height: 1.5; }
 .wnrelease li.more { list-style: none; }
 .wnrelease p { margin: 4px 0; font-size: 13px; line-height: 1.5; }
+#tourSkip[hidden], #tourStep:empty { display: none; }

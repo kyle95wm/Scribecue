@@ -61,6 +61,7 @@ function finish() {
       setTtsOption('speed', +$('wzSpeed').value);
       setTtsOption('live', $('wzLive').checked);
       setTtsOption('autoEnd', $('wzAuto').checked);
+      setTtsOption('skipNotes', $('wzNotes').checked);
     }
   }
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
@@ -89,6 +90,7 @@ export function openWelcome() {
   $('wzSpeed').value = String(tts.speed);
   $('wzLive').checked = tts.live;
   $('wzAuto').checked = tts.autoEnd;
+  $('wzNotes').checked = tts.skipNotes;
   $('wzPiperGet').checked = false; // a large download: only when asked for
 
   const u = updateChoice();

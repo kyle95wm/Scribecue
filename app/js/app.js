@@ -6,7 +6,7 @@ import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, supported, missingFeatures } from './browser.js';
 import { blockFromPlayhead } from './nav.js';
-import { initTour, startTour } from './tour.js';
+import { initTour, startTour, showLoop, maybeShowLoop } from './tour.js';
 import { initWhatsNew } from './whatsnew.js';
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
@@ -1803,6 +1803,7 @@ document.getElementById('modeSw').addEventListener('click', (e) => {
   if (!b) return;
   b.blur();
   setMode(b.dataset.mode);
+  maybeShowLoop(b.dataset.mode); // the first time in a mode, how to work in it
 });
 
 // ---------------------------------------------------------------- hold-to-mark
@@ -2850,6 +2851,7 @@ initTts({
 });
 initTour();
 $('helpTour').addEventListener('click', () => { toggleHelp(false); startTour(S.mode); });
+$('helpLoop').addEventListener('click', () => { toggleHelp(false); showLoop(S.mode); });
 initKeys({ mac: IS_MAC, toast, onChange: (m) => { keyLookup = m; } });
 $('helpKeys').addEventListener('click', () => { toggleHelp(false); openKeys(); });
 initWelcome({
@@ -2863,7 +2865,15 @@ initWelcome({
   // Skipped before answering about updates: ask the usual way instead. The web version
   // updates itself, so there's nothing to ask.
   if (!finished && !HOSTED && updateChoice() === null) setTimeout(openUpdates, 300);
+  // Then the loop for the mode picked, once nothing else is on screen.
+  whenClear(() => maybeShowLoop(S.mode));
 });
+// Runs fn once no dialog, notice or tour is showing, checking for up to a minute.
+function whenClear(fn, tries = 120) {
+  const busy = document.querySelector('dialog[open]') || !$('tour').hidden || !$('browserAlert').hidden;
+  if (!busy) return fn();
+  if (tries > 0) setTimeout(() => whenClear(fn, tries - 1), 500);
+}
 // Outside Chrome and Edge, say that some features may not be available, and which.
 // Shown each time Scribecue opens, until "Don't show again".
 (() => {

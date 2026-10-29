@@ -1,6 +1,9 @@
 // A short guided tour: it dims the page, lights up one part of it at a time, and says
-// what it's for, then shows the loop to work in. It opens on a first visit, before the
-// setup, and from the shortcuts overlay. Skippable at any step with Esc or Skip tour.
+// what it's for. It opens on a first visit, before the setup, and from the shortcuts
+// overlay. Skippable at any step with Esc or Skip tour.
+//
+// The loop to work in has a card of its own (showLoop), shown once for each mode: after
+// setup for the mode picked there, and the first time someone switches to the other.
 import { HOSTED } from './config.js';
 import { bindings, comboText } from './keymap.js';
 import { keyChanges } from './keys.js';
@@ -80,10 +83,6 @@ export const STEPS = [
     text: () => 'Connect your own AI provider, or Ollama on your own computer, to ask about a scene or draft a block from its frames. Drafts only go in when you choose. It’s off until you connect one.',
   },
   {
-    title: (mode) => (mode === 'write' ? 'The writing loop' : 'The transcribing loop'),
-    text: (mode) => loop(mode),
-  },
-  {
     target: 'nav',
     title: 'Projects and exports',
     text: () => 'Save keeps everything as a Scribecue project, so you can pick up where you left off. Export gives you the script as SRT or WebVTT to hand off, or the description track as a WAV file. New starts again.',
@@ -95,7 +94,7 @@ export const STEPS = [
   {
     target: 'nav [data-act="help"]',
     title: 'That’s the tour',
-    text: () => 'Press ? any time for every keyboard shortcut, and to change them. Setup at the top changes your choices, and the shortcuts overlay can show you this tour again.',
+    text: () => 'Press ? any time for every keyboard shortcut, and to change them. Next comes a short setup; once you’ve picked a mode, you’ll see the loop to work in. Setup at the top changes your choices later, and the shortcuts overlay can show you this tour again.',
   },
 ];
 
@@ -104,8 +103,13 @@ export function stepsFor(mode, visible = () => true) {
   return STEPS.filter((s) => (!s.only || s.only === mode) && (!s.target || visible(s.target)));
 }
 
+export const LOOP_STEP = {
+  title: (mode) => (mode === 'write' ? 'The writing loop' : 'The transcribing loop'),
+  text: (mode) => loop(mode),
+};
+
 const $ = (id) => document.getElementById(id);
-let state = null; // { steps, k, mode, then, finish }
+let state = null; // { steps, k, mode, then, finish, single }
 
 function place() {
   const { steps, k, mode } = state;
@@ -113,7 +117,8 @@ function place() {
   const hole = $('tourHole'), card = $('tourCard');
   $('tourTitle').textContent = typeof s.title === 'function' ? s.title(mode) : s.title;
   $('tourText').textContent = s.text(mode);
-  $('tourStep').textContent = `${k + 1} of ${steps.length}`;
+  $('tourStep').textContent = state.single ? '' : `${k + 1} of ${steps.length}`;
+  $('tourSkip').hidden = !!state.single;
   $('tourBack').hidden = k === 0;
   $('tourNext').textContent = k === steps.length - 1 ? state.finish : 'Next';
   const el = s.target && document.querySelector(s.target);
@@ -169,6 +174,28 @@ export function startTour(mode, { then = null, finish = 'Finish' } = {}) {
   addEventListener('resize', place);
   place();
   $('tourNext').focus();
+}
+
+// The loop for a mode, as a card on its own.
+export function showLoop(mode) {
+  document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+  state = { steps: [LOOP_STEP], k: 0, mode, then: null, finish: 'Got it', single: true };
+  $('tour').hidden = false;
+  addEventListener('resize', place);
+  place();
+  $('tourNext').focus();
+}
+
+// Shows a mode's loop the first time it's needed, once for each mode.
+const SEEN = 'scribecue.loops';
+export function loopSeen(mode) {
+  try { return !!(JSON.parse(localStorage.getItem(SEEN)) || {})[mode]; } catch { return true; }
+}
+export function maybeShowLoop(mode) {
+  if (loopSeen(mode) || state) return false;
+  try { localStorage.setItem(SEEN, JSON.stringify({ ...(JSON.parse(localStorage.getItem(SEEN)) || {}), [mode]: true })); } catch { return false; }
+  showLoop(mode);
+  return true;
 }
 
 export function initTour() {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STEPS, stepsFor, loop } from '../app/js/tour.js';
+import { STEPS, stepsFor, loop, LOOP_STEP } from '../app/js/tour.js';
 
 test('the tour covers both modes, privacy and how to find it again', () => {
   for (const s of STEPS) {
@@ -25,8 +25,9 @@ test('steps only show what is there to see', () => {
   assert.equal(without[0].title, 'Welcome to Scribecue');
 });
 
-test('the tour ends with the loop for the mode, in the keys the person uses', () => {
-  const step = STEPS.find((s) => typeof s.title === 'function');
+test('the loop for each mode, in the keys the person uses, has a card of its own', () => {
+  assert.ok(!STEPS.some((s) => typeof s.title === 'function'), 'the loop is no longer a tour step');
+  const step = LOOP_STEP;
   assert.equal(step.title('write'), 'The writing loop');
   assert.equal(step.title('transcribe'), 'The transcribing loop');
   const keys = { play: 'Space', frameBack: '←', frameFwd: '→', createEdit: '↵', read: 'V', hold: 'H', loopBlock: 'L' };
