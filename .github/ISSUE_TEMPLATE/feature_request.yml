@@ -1,0 +1,58 @@
+name: Feature request
+description: An idea for something new in Scribecue, or a way to make something better.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Describing the problem you're solving, not just the feature, helps most: there may be more than one way to solve it.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you're trying to do
+      description: The task, and what gets in the way now.
+      placeholder: When I'm transcribing a long programme, I lose track of which blocks I've already checked…
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you'd like
+      description: How you picture it working. Keys, buttons, a sketch or a screenshot of another app are all welcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - Transcribe
+        - Write
+        - Both
+    validations:
+      required: true
+  - type: dropdown
+    id: who
+    attributes:
+      label: How you use Scribecue
+      description: Helps weigh up who it's for.
+      options:
+        - I write audio description
+        - I transcribe or check existing audio description
+        - I narrate or produce it
+        - I'm a blind or partially sighted viewer or reviewer
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead now
+      description: A workaround, or how another tool such as Frazier or CADET handles it.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before sending
+      options:
+        - label: I've checked the [open issues](https://github.com/kyle95wm/Scribecue/issues) and this hasn't been asked for already.
+          required: true

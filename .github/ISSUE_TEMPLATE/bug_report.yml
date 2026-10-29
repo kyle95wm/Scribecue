@@ -1,0 +1,106 @@
+name: Bug report
+description: Something in Scribecue doesn't work, or works wrongly.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. The details below help track it down quickly.
+
+        **Please don't attach programme material** (video, audio or scripts you don't have the rights to share). A screenshot or a short description is enough. Remove API keys from anything you paste.
+  - type: input
+    id: version
+    attributes:
+      label: Scribecue version
+      description: The version number in the bottom right of Scribecue, such as v0.35.0.
+      placeholder: v0.35.0
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Which Scribecue
+      options:
+        - The web version (scribecue.kyleadvoice.ca)
+        - The web version, installed as an app
+        - Running it myself with Docker
+        - Running it myself without Docker (for development)
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and operating system
+      description: With their versions if you know them.
+      placeholder: Chrome 140 on macOS 15, Edge 139 on Windows 11
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - Transcribe
+        - Write
+        - Both, or it doesn't matter
+    validations:
+      required: true
+  - type: checkboxes
+    id: area
+    attributes:
+      label: What it involves
+      description: Tick any that apply.
+      options:
+        - label: Video or audio (opening a file, playback, audio tracks, waveform)
+        - label: Hold-to-mark or block timing
+        - label: Speech to text (Whisper)
+        - label: Text to speech or Piper voices
+        - label: AI help
+        - label: Saving, autosave, projects, opening or exporting scripts
+        - label: Working offline, updates or installing
+        - label: Keyboard shortcuts
+        - label: A screen reader or other assistive technology
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What went wrong, including any message Scribecue showed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen
+      description: As exactly as you can, from opening Scribecue. Say if it happens every time or only sometimes.
+      placeholder: |
+        1. Open an MP4 with two audio tracks
+        2. Switch to Transcribe mode and turn on speech to text
+        3. Mark three lines with H
+        4. …
+    validations:
+      required: true
+  - type: textarea
+    id: media
+    attributes:
+      label: About the file, if it involves one
+      description: Its container and audio, such as "MKV, two AAC tracks, 45 minutes". Not the file itself.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or anything else
+      description: Screenshots help a lot. If you can, open the browser's console (F12, or Cmd+Option+J on a Mac) and copy any red errors here.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before sending
+      options:
+        - label: I've checked the [open issues](https://github.com/kyle95wm/Scribecue/issues) and this isn't one of them.
+          required: true
+        - label: I'm on the latest version, or have said above which one I'm on.
+          required: true

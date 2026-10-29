@@ -1,0 +1,61 @@
+name: Accessibility problem
+description: Something gets in the way with a screen reader, the keyboard, magnification, contrast or other assistive technology.
+labels: [accessibility]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for telling us. Scribecue is for audio description, so it should work well for blind and partially sighted describers, and for anyone else. Reports like this are some of the most useful there are.
+  - type: input
+    id: version
+    attributes:
+      label: Scribecue version
+      description: The version number in the bottom right, such as v0.35.0. With a screen reader, it's a button near the end of the page.
+      placeholder: v0.35.0
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Which Scribecue
+      options:
+        - The web version (scribecue.kyleadvoice.ca)
+        - The web version, installed as an app
+        - Running it myself with Docker
+    validations:
+      required: true
+  - type: input
+    id: technology
+    attributes:
+      label: Assistive technology
+      description: What you use, with its version, and its mode if it matters (such as NVDA browse or focus mode).
+      placeholder: NVDA 2025.3 in focus mode, VoiceOver on macOS 15, ZoomText, Windows high contrast
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and operating system
+      placeholder: Chrome 140 on Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What gets in the way
+      description: What you were trying to do, what happened, and what you heard or saw.
+    validations:
+      required: true
+  - type: textarea
+    id: better
+    attributes:
+      label: What would work better
+      description: How you'd expect it to behave, or how another app you use does it.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to get there
+      placeholder: |
+        1. Open Scribecue and press Tab until the block list
+        2. Press Down arrow
+        3. …
