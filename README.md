@@ -455,6 +455,9 @@ afterwards is instant. Safari switches tracks itself.
   mode (see [Basic workflows](#basic-workflows)). It opens on your first visit, before the
   setup, and **Take the tour** in the shortcuts overlay (`?`) shows it again. `→` and `←` step through it, and
   `Esc` ends it.
+- **What's new:** after Scribecue updates, a window lists everything that changed since the
+  version you were on. In the web version, click the version number in the bottom right to
+  see the current release's notes again.
 - **Scribecue on GitHub:** the small GitHub mark in the bottom right opens the project's
   page, with the source, releases and a place to report problems.
 

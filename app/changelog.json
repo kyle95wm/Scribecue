@@ -1,0 +1,202 @@
+[
+ {
+  "version": "0.28.0",
+  "date": "2026-10-29",
+  "notes": "## What's new, after every update\n\n- When Scribecue updates, a window like this one now lists everything that changed since the version you were on, newest first.\n- Click the version number in the bottom right to see this release's notes again.\n\n## Piper voices in setup\n\n- In the web version, setup now offers to download a natural-sounding Piper voice, with the voices in your language first and the download size. It downloads in the background when you finish, and it's chosen once it's ready.\n- Piper is now marked as recommended, in setup and the text to speech panel: its voices sound natural, give exact reading lengths, and can be exported as a description track."
+ },
+ {
+  "version": "0.27.1",
+  "date": "2026-10-29",
+  "notes": "## The tour comes first, and shows you the loop\n\n- On a first visit, the guided tour now comes first, and the setup follows when it ends, whether you finish it or skip it with Esc. Setup at the top still runs just the setup, and the tour is in the shortcuts overlay (press ?).\n- The tour now ends with the loop to work in for your mode: finding a gap, writing and hearing a description in Write mode, or playing, marking and typing each line in Transcribe mode. It uses your own keys if you've changed them.\n- Exports are now described as \"to hand off\"."
+ },
+ {
+  "version": "0.27.0",
+  "date": "2026-10-29",
+  "notes": "## Change your keyboard shortcuts\n\n- Press **?** and click **Change shortcuts** to give any editor action the keys you like. Click **Add** and press the keys; if they already belong to another action, Scribecue asks before moving them. Click a key to take it off, and **Reset** puts an action back.\n- **Export** saves your shortcuts as a file and **Import** loads one, so a team can share a layout.\n- The shortcuts overlay and the player buttons' tooltips show the keys you're using.\n- Keys with Ctrl/Cmd, keys used while typing, and ? / [ ] + − Esc stay as they are."
+ },
+ {
+  "version": "0.26.0",
+  "date": "2026-10-29",
+  "notes": "## A guided tour\n\n- A one-minute tour now lights up each part of Scribecue in turn and explains it: the two modes, the video and timeline, the block editor and list, text to speech, AI help, projects and exports, privacy, and where the shortcuts are.\n- Setup offers it at the end, and **Take the tour** in the shortcuts overlay (press ?) shows it again. Use → and ← to step through, and Esc to stop.\n\n## Also new\n\n- A small GitHub mark in the bottom right opens Scribecue's page on GitHub: the source, releases and a place to report problems.\n- Setting Scribecue up yourself with Docker now has its own guide, [INSTALL.md](https://github.com/kyle95wm/Scribecue/blob/main/INSTALL.md), so the README is just about using it."
+ },
+ {
+  "version": "0.25.0",
+  "date": "2026-10-29",
+  "notes": "## A tidier header\n\n- **Open** is now one button for everything: a project, a script (SRT or VTT), or a video or audio file, and you can pick several at once, such as a project and its video. Each opens as the right thing. Ctrl/Cmd+Shift+O still opens only video or audio.\n- **Export** is now a small menu: the script as SRT (Ctrl/Cmd+E), the script as WebVTT (Ctrl/Cmd+Shift+E), and in Write mode the description track (WAV).\n- Every keyboard shortcut is unchanged."
+ },
+ {
+  "version": "0.24.0",
+  "date": "2026-10-29",
+  "notes": "## Clear the blocks, keep the video\n\n- **New** now asks how you want to start again. **Clear the blocks** removes every block and keeps the video, the project file and your notes, ready to write from scratch on the same video. **New project** clears everything and closes the video, as before.\n- Either way, Ctrl/Cmd+Z brings the blocks back.\n\nTip: to swap in a different script, just open it with Ctrl/Cmd+O. That replaces the blocks and keeps the video."
+ },
+ {
+  "version": "0.23.0",
+  "date": "2026-10-29",
+  "notes": "## The web version updates without asking\n\n- No more \"reload\" prompt for every release. A new version is used as you open Scribecue, before you've started anything.\n- If one arrives while you're working, nothing interrupts you: the version number in the bottom right shows **update ready**. Click it to update then, or it's used the next time you open Scribecue.\n- Your blocks, notes and settings are kept either way.\n\nThis release itself still arrives with one last reload prompt, because the previous version is the one that spots it. From now on, updates happen on their own."
+ },
+ {
+  "version": "0.22.4",
+  "date": "2026-10-29",
+  "notes": "## Headroom in the exported description track\n\n- The exported description track is no longer at full scale. Every reading now peaks at −8 dBFS, so blocks are evenly matched and there's headroom for processing and mastering.\n- Readings that run into the next block overlap in the file, but never take it past −6 dBFS."
+ },
+ {
+  "version": "0.22.3",
+  "date": "2026-10-29",
+  "notes": "## Fix: exporting a long description track in the web version\n\n- In the web version, exporting a description track, or other long jobs such as Fit speeds to timings, with a Piper voice could stop with \"Couldn't export the description track: Aborted().\" This came in with 0.22.0 and happened after about 80 blocks. Long exports now finish.\n\nThe Docker version wasn't affected. Running it? Update as usual: `git pull`, then `docker compose up -d --build`."
+ },
+ {
+  "version": "0.22.2",
+  "date": "2026-10-29",
+  "notes": "## A more realistic voice test\n\n- **Test** in the text to speech panel now reads a short passage of the kind of audio description you'd hear in a drama, instead of one short line, so you can judge a voice's pace, pauses and tone on what it will actually read. **Try it** reads the same passage when no block is selected."
+ },
+ {
+  "version": "0.22.1",
+  "date": "2026-10-29",
+  "notes": "## Previous block works from the playhead\n\n- **Alt+Shift+←** now goes back to the start of the block you're in, like a media player's back button. At a block's start it goes to the previous block; while playing, press it twice quickly to do that.\n- **Alt+Shift+→** goes to the next block after the playhead.\n- The previous and next buttons under the video do the same. ↑ ↓ and K J still step through the list from the selected block."
+ },
+ {
+  "version": "0.22.0",
+  "date": "2026-10-29",
+  "notes": "## Project notes for AI help\n\n- Click **Notes** in AI help to tell the AI what the frames can't show: who the characters are and how to tell them apart, where and when it's set, and your team's style. Every draft and message includes them, and they're saved with the project. **Notes ✓** shows when there are some.\n\n## Fixes and improvements\n\n- \"Sounds like\" words now survive a page reload. The autosave used to leave them out; project files always kept them.\n- Long AI help conversations no longer slow down: only the latest messages resend their video frames, which also keeps costs down with online providers.\n- Ollama can now run in Docker next to Scribecue, as an optional service (see the README). On a Mac, the Ollama app is faster.\n\n## New address\n\nThe web version now lives at **https://scribecue.kyleadvoice.ca**. The old address forwards there. Anything kept in the browser at the old address, such as unsaved work, settings and Piper voices, stays with it: save your work as a project file first, then open it at the new address."
+ },
+ {
+  "version": "0.21.0",
+  "date": "2026-10-29",
+  "notes": "## AI help\n\nA new drawer beside the video helps you describe what's on screen, using your own AI provider. Click **AI** at the top, or press **Alt+Shift+A**.\n\n- **Draft this block:** sends stills from the selected block, the script around it and how many words fit at your voice's speed. The draft appears in the drawer; click **Use for block** to put it in (Ctrl/Cmd+Z undoes it), or **Try again**. Nothing changes until you choose.\n- **Chat:** ask about the scene, with the frame at the playhead if you like.\n- **Providers:** Claude, OpenAI or Gemini with your own API key; OpenRouter by signing in or with a key; or Ollama, which runs the model on your own computer so nothing leaves it.\n- Keys stay in your browser. Nothing is sent anywhere until you connect a provider and send a message or ask for a draft. Don't use an online provider for programmes you mustn't share.\n\nUsage is billed by your AI provider, separately from any ChatGPT, Claude or Gemini subscription. See the README for setup."
+ },
+ {
+  "version": "0.20.0",
+  "date": "2026-10-29",
+  "notes": "## Delete blocks from the list\n\n- Each row in the block list now ends in a small ×. It stays faint until you point at the row, then deletes that block with one click, just like the Del key.\n- Ctrl/Cmd+Z brings the block back.\n- Deleting a block that isn't selected leaves your selection where it is."
+ },
+ {
+  "version": "0.19.0",
+  "date": "2026-10-29",
+  "notes": "## Sounds like: fix how words are said\n\nWhen a voice says a name or word wrong, you can now tell it how to say it, without changing your text.\n\n- In Write mode with text to speech on, select the word in the text box and press **Alt+Shift+P**, or click **sounds like** next to the block's speed.\n- Spell it how it sounds, such as *shiv-AWN* for Siobhan, and click **Hear the block** to check.\n- Each block keeps its own list. Words are matched whole and in any case, and longer phrases first.\n- The reading, its length, Fit speeds to timings, Update all timings and the exported description track all use the new sound. The list, the timeline and SRT exports keep the words as written.\n- Projects and VTT exports keep the list, and Ctrl/Cmd+Z undoes a change."
+ },
+ {
+  "version": "0.18.1",
+  "date": "2026-10-29",
+  "notes": "## A quieter scrubber\n\n- The scrubber under the video now stays a thin line, with a slim tick at the playhead, until you point at it.\n- Hover over it or drag it and it grows to full size, with the round knob and the time under the pointer.\n- The strip keeps its height, so the video and controls never shift."
+ },
+ {
+  "version": "0.18.0",
+  "date": "2026-10-29",
+  "notes": "## Scrubber bar under the video\n\n- A new bar between the video and its controls covers the whole programme. Click anywhere on it to jump there, or drag it to scrub through the video.\n- Your blocks show as marks along it, with the selected block highlighted, and hovering shows the time under the pointer.\n- It doesn't take keyboard focus, so Space, the arrow keys and every other shortcut keep working as before."
+ },
+ {
+  "version": "0.17.1",
+  "date": "2026-10-29",
+  "notes": "## Piper voices start faster in the web version\n\n- Your chosen Piper voice now loads in the background as soon as text to speech is on, so the first block you hear doesn't wait for it.\n- A block you ask to hear now goes ahead of readings being prepared in the background, so it starts sooner.\n- Hearing a block during a long job such as **Fit speeds to timings** no longer waits for a fresh copy of the voice to load."
+ },
+ {
+  "version": "0.17.0",
+  "date": "2026-10-29",
+  "notes": "## Faster, steadier Fit speeds to timings\n\n- **Fit speeds to timings** now goes through your script once, block by block, so the progress counts up from the first block to the last instead of starting over with fewer blocks left.\n- It needs fewer readings per block, and stops as soon as a block can't get any closer.\n- In the web version, Piper voices make up to three readings at once, so fitting and **Update all timings** are about 2.5 times faster on long scripts.\n\n## Test a voice\n\n- A **Test** button next to the voice menu in the text to speech panel reads a short sample line, so you can compare voices without selecting a block."
+ },
+ {
+  "version": "0.16.0",
+  "date": "2026-10-29",
+  "notes": "## Natural voices in the web version\n\nPiper voices now work in the web version at https://kyle95wm.github.io/Scribecue/. In Write mode, open the text to speech panel (Alt+Shift+V), turn text to speech on, and under **Natural voices** pick a voice and click **Download**.\n\n- Four English voices: Lessac and Ryan (US), Alba and Alan (UK). Each is about 63 MB, plus a 33 MB speech engine the first time.\n- Voices run in your browser, so your script stays on your computer, and they work offline once downloaded.\n- Reading lengths are exact straight away, and you can export a description track, just like Piper with Docker.\n- **Remove** frees the space again.\n\n## Fixes\n\n- The web version no longer asks about update checks when you close the welcome setup early. It updates itself.\n- The web version no longer looks for a Piper container it doesn't have."
+ },
+ {
+  "version": "0.15.0",
+  "date": "2026-10-29",
+  "notes": "## New: use Scribecue straight from your browser\n\nScribecue now has a web version, with nothing to install: **https://kyle95wm.github.io/Scribecue/**\n\n- Open it in **Google Chrome** or **Microsoft Edge** and start working.\n- Click **Install app** (bottom right), or the install icon in the address bar, to give Scribecue its own window and icon, like any other app. It then works offline.\n- It updates itself. When a new version is ready, it asks you to reload, and nothing reloads until you choose to.\n- Your video, audio and scripts are still opened straight from your computer and never uploaded. Only the app itself is downloaded, from GitHub, the first time and when it updates.\n\nThe web version doesn't include Piper voices yet. For those, or to keep even the app itself on your computer, run Scribecue yourself with Docker, as before.\n\n## New: a notice in other browsers\n\nScribecue is built for Chrome and Edge. In other browsers, such as Safari and Firefox, it now tells you that some features may not be available, and lists the ones that browser lacks, until you choose **Don't show again**.\n\n## Also\n\n- Scribecue has an app icon.\n\n## How to update\n\n- **Web version:** nothing to do.\n- **Docker:** in the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.14.1",
+  "date": "2026-10-29",
+  "notes": "## Fixed\n\n- **Closing the text to speech panel during a job** now stops it cleanly and always shows the result on screen, even though the panel has closed. That covers **Fit speeds to timings** and **Update all timings**. **Export description track** keeps running, and shows when it's saved.\n- If **Fit speeds to timings** stops before a Piper voice has reached some blocks, those blocks are now left exactly as they were. Before, they could change speed later, the next time you selected or edited them. The message says how many blocks were fitted and how many were left.\n- The count of blocks that **can't fit** now only includes blocks whose reading really misses, or whose speed is at its limit.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.14.0",
+  "date": "2026-10-29",
+  "notes": "## New: choose what happens to an opened script's timings\n\nWhen you open an SRT or VTT script in Write mode with text to speech on, Scribecue now asks what to do with its timings:\n\n1. **Keep the timings, and fit the reading speeds:** each line speeds up or slows down to fill its block. Best when the timing is already right.\n2. **Change the ends to match the readings:** each block ends where its reading finishes, never running into the next block.\n3. **Leave everything as it is:** lines that don't fit show their duration in red.\n\nThe first two open the text to speech panel so you can watch the progress, and one Ctrl/Cmd+Z undoes the change. Tick **Always do this** to stop being asked, and change your choice later under **When you open a script** in the text to speech panel. Opening a Scribecue project doesn't ask, and neither does Transcribe mode.\n\n## New: a tip about Piper\n\nIf you haven't added Piper, the text to speech panel now ends with a short **Did you know?** box. It explains what Piper's natural-sounding voices add and how to turn them on.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.13.0",
+  "date": "2026-10-29",
+  "notes": "## New: Fit speeds to timings\n\nA new button in the text to speech panel does the opposite of **Update all timings**. Every block keeps its timing, and its reading speeds up or slows down to fill it, between −50% and +100%. It's made for scripts whose timing is already right, such as one opened from an SRT or VTT file.\n\n- Blocks with a speed you picked yourself keep it.\n- It asks first, shows its progress with a Stop button, and one Ctrl/Cmd+Z undoes it. Afterwards it tells you how many blocks couldn't fit within the limits.\n- With a Piper voice the fit is exact, and blocks keep fitting as you edit their text or resize them.\n\n## Changed\n\n- **New** is now the first button at the top. As well as clearing every block, it closes the video. It always asks first, naming what will be cleared.\n\n## Fixed\n\n- Fitting a block's speed to its length, after resizing it, now lands exactly with Piper voices. Before, it fell slightly short and could keep shifting when you selected the block, because a reading's length doesn't change evenly with speed.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.12.0",
+  "date": "2026-10-29",
+  "notes": "## New: resizing a block changes its reading speed\n\nIn Write mode with text to speech on, change a block's length and its reading now speeds up or slows down to fill the new length exactly. This works whether you drag an edge, use A, S, Q, W, E or R, or type a time in IN or OUT.\n\n- The block's speed shows as **custom**, such as **custom (−12%)**, in its speed menu, in the list and on the timeline.\n- It keeps fitting as you edit the text, and stays between −50% and +100%. If a line can't fit even at +100%, the timing check stays red.\n- A speed you pick yourself, from the block's menu or with **[** and **]**, is kept when you resize the block. Set it back to default and resizing fits it again.\n- Turn this off with **Change a block's reading speed when you resize it** in the text to speech panel.\n\n## New: notes in [square brackets]\n\nIf your team writes notes in the script inside square brackets, such as `[Wide shot, hold for the door]`, tick **Don't read notes in [square brackets]** in the text to speech panel. The notes are then left out of every reading, reading time and auto end, and out of the exported description track, but stay in the script and in SRT and VTT exports. It's off by default.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.11.0",
+  "date": "2026-10-28",
+  "notes": "## New: project files\n\nKeep each piece of work as a **Scribecue project** (`.scribecue`), and switch between projects whenever you like. A project keeps everything: the blocks, each block's text to speech speed and whether its end follows the reading, the mode and its settings, where you were, and which video it belongs to.\n\n- **Ctrl/Cmd+S** saves the project. The first time, Scribecue asks where. After that it saves straight back to the same file, even after a reload. **Ctrl/Cmd+Shift+S** saves a copy under a new name. Saving in place needs Chrome or Edge; other browsers download a copy each time.\n- **Ctrl/Cmd+O** opens a project, or an SRT or VTT script. You can also drop it on the window.\n- After opening a project, Scribecue tells you which video to open, warns you if you pick a different one, and puts the playhead back where you left it.\n- A dot after the project name at the top means there are unsaved changes. Opening something over unsaved work asks first.\n- **New** replaces Clear: it starts a fresh project, asks first, and can be undone.\n\n### Changed keys\n\nExporting has moved, since **Ctrl/Cmd+S** now saves the project:\n\n- **Ctrl/Cmd+E** exports SRT, and **Ctrl/Cmd+Shift+E** exports WebVTT.\n\nExports are for the finished script, or for handing it to someone who doesn't use Scribecue, such as another writer or a QC reviewer.\n\n## New: update alert\n\nIf you check for updates, a new version now brings down an alert at the top of the window, with the steps to update and a link to what's new. **Later** hides it until you next open Scribecue; **Skip this version** hides it until a newer one comes out.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.10.0",
+  "date": "2026-10-28",
+  "notes": "## New: welcome setup\n\nA short setup now helps new users get going. It opens the first time you use Scribecue, and the new **Setup** button at the top runs it again at any time.\n\n1. **Welcome:** what Scribecue is, and that your files stay on your computer.\n2. **Your task:** transcribing existing audio description, or writing new audio description.\n3. **The tools for it:** the hold-to-mark reaction offset for transcribing, or text to speech for writing, with its voice (Piper voices included, if you've added Piper), speed, reading while playing and block ends set from the reading.\n4. **Update checks:** once a day, or never.\n5. **Done:** a summary of your choices and the keys to start with.\n\nNothing changes until you press **Finish**, so skipping leaves everything as it was. When you run it again, it starts from your current settings.\n\nIf you already use Scribecue, the setup won't open by itself: Setup at the top is there whenever you want it.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.9.1",
+  "date": "2026-10-28",
+  "notes": "## Changed\n\n- **Update all timings** now shows a progress bar in place of its button while it runs, with the count and a Stop button beside it. **Export description track** shows one too, with the count. The buttons come back when the job finishes.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.9.0",
+  "date": "2026-10-28",
+  "notes": "## New: Piper voices, exact timings and description track export\n\nScribecue can now use [Piper](https://github.com/OHF-Voice/piper1-gpl), an open-source speech engine with natural-sounding voices, running in a second container next to the editor. Its voices run on your computer and work offline, so your script never leaves it. Piper is optional: Scribecue works as before without it.\n\nWith a Piper voice, in Write mode:\n\n- **Lengths are exact straight away.** A block's reading time is exact as soon as it has text, and **Update all timings** uses the real readings in a second or two, with no silent read-through.\n- **Each line always takes the same time,** so the timing you see is the timing you get, between sessions and in the export.\n- **Export description track** saves every block's reading as one WAV file, each starting at its block's start time and as long as the video, ready to mix with the programme. It tells you if any readings overlap.\n\nFour English voices are included: Lessac and Ryan (US), and Alba and Alan (UK). You can choose others from the Piper voice list.\n\n### Setting it up\n\nCreate a file called `.env` in the Scribecue folder containing `COMPOSE_PROFILES=piper`, then run `docker compose up -d --build`. The first build downloads Piper and its voices, about 1 GB. After that the Piper container has no internet access, and only Scribecue's own server can reach it. See the README for details.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept. To add Piper at the same time, create the `.env` file first."
+ },
+ {
+  "version": "0.8.0",
+  "date": "2026-10-28",
+  "notes": "Scribecue is now focused on audio description, so this release removes features that only made sense for subtitles, or that weren't being used.\n\n## Removed\n\n- **Reading speed (CPS):** the list column, the figure in the block editor, the I key and the CPS button under the video. In Write mode, the text to speech reading time shows whether a line fits.\n- **Line length and line count warnings**, which are on-screen subtitle conventions.\n- **Snapping:** dragging no longer sticks block edges to the playhead or neighbouring blocks, and hold-to-mark no longer moves edges to the waveform. The B key and the SNAP button are gone. Hold-to-mark still applies its reaction offset.\n\nYour saved settings for these are cleared automatically.\n\n## Changed\n\n- **Open subs** is now **Open script**. Scripts still open and save as SRT or WebVTT files.\n- The block list has more room for text now that the CPS column is gone.\n- The README leads with transcribing and writing audio description, and has new screenshots.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.7.0",
+  "date": "2026-10-28",
+  "notes": "## New: Transcribe and Write modes\n\nA switch next to the Scribecue name lets you pick what you're doing, and shows only the features for it.\n\n- **Transcribe**, for existing audio description at its original timing: hold-to-mark (H) and its reaction offset (Shift+H).\n- **Write**, for new audio description: text to speech, reading times, block speeds, block ends set from the reading, and Update all timings.\n- Looping, snapping, audio tracks, reading speed (CPS) and the player controls are in both.\n\nSwitching only hides features: block speeds and settings are kept for when you switch back. Pressing a key from the other mode tells you which mode it's in, and the shortcuts overlay (?) lists only the keys for the current mode. Scribecue remembers your choice. If you'd already turned text to speech on, it starts in Write.\n\n## Also\n\n- The README now names keys the same way for every system, such as Ctrl/Cmd+S and Alt+Shift+V, and explains how to add voices on Mac, Windows and Linux.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.6.1",
+  "date": "2026-10-28",
+  "notes": "## Fixed\n\n- The **keyboard shortcuts overlay** (? or ⇧O) no longer cuts off its last section. Text to speech keys now have their own section, and the mouse controls moved to the first column, so everything fits on screen again.\n\n## Also\n\n- The README has new screenshots showing text to speech, including the text to speech panel.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.6.0",
+  "date": "2026-10-28",
+  "notes": "## New: Update all timings\n\nA new button in the text to speech panel (⌥⇧V) sets the end of every block from how long its reading takes, using each block's own speed.\n\n- It asks first, because it also changes blocks marked with H or opened from a file. One ⌘Z undoes it.\n- Ends never run into the next block. Afterwards it tells you how many blocks changed and how many don't fit.\n- Tick **Read each block silently first** for exact lengths instead of estimates. This takes about as long as reading them all aloud, shows its progress, and can be stopped without changing anything.\n\n## Changed\n\n- The block list shows a block's duration in **red** when its reading is longer than the block, so lines that don't fit are easy to spot.\n- **⌘Z / Ctrl+Z** and **⌘Y / Ctrl+Y** follow the letter on the key, so undo and redo work as expected on layouts such as French AZERTY.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.5.0",
+  "date": "2026-10-28",
+  "notes": "## New: block ends set from the reading\n\nWith text to speech on, a new block you create with **↵** or **N** now takes its end from how long the voice takes to read it, at the voice and speed you've chosen.\n\n- The end follows the reading as you type, and when you change the block's speed, the overall speed or the voice. Once the block has been read aloud, the exact length replaces the estimate.\n- An **auto** tag next to OUT shows which blocks do this.\n- The end never runs into the next block. If the line doesn't fit, it stops there and the timing check turns red.\n- Set the end yourself, by dragging it, pressing S, E or R, or typing in OUT, and the block keeps it from then on.\n- Blocks marked with H, drawn on the timeline or opened from a file keep their timing.\n- You can turn this off in the text to speech panel (⌥⇧V).\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.4.0",
+  "date": "2026-10-28",
+  "notes": "## New: text to speech speed per block\n\n- Give any block its own reading speed, from very slow (−30%) to experimental (+100%), with the **TTS** menu in the block editor or **[** and **]** on the timeline. Other blocks keep following the overall speed.\n- Reading a block, reading while playing, fitting a block to the reading and the timing check all use the block's own speed.\n- Blocks with their own speed show it in the list and on the timeline, such as **+15%**. Speed changes can be undone.\n- Block speeds are saved with your work and in exported **VTT** files, as notes that other programs ignore, and are read back when you open the file. SRT files can't store them, and exporting SRT tells you so.\n\n## Changed\n\n- If you allow online voices in a browser that doesn't have any, such as Safari or Firefox, the text to speech panel now suggests Microsoft Edge or Google Chrome.\n- **[** and **]** work on keyboard layouts that need Option or AltGr to type them.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.3.1",
+  "date": "2026-10-28",
+  "notes": "## Changed\n\n- The text to speech **voice menu** is now split into **On this computer** and **Online** voices, so it's clear at a glance which voices keep your script on your computer. The online group only appears once you've allowed online voices, and says so if the browser has none.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.3.0",
+  "date": "2026-10-28",
+  "notes": "## New: text to speech\n\nHear your audio description lines read aloud, to check where each one sits and whether it fits before the next piece of dialogue. It's off until you turn it on: press **⌥⇧V** (Alt+Shift+V on Windows and Linux), or click **TTS** under the video.\n\n- **V** reads the block from its start with the video playing. Playback stops at the block's end, or where the reading ends if it runs over, and tells you whether the line fits.\n- **⇧V** reads the block, then sets its end to where the reading finishes.\n- **Read blocks aloud while playing**, with the original audio turned down while each block is read.\n- **Speeds** from very slow (−30%) to experimental (+100%). The voice also follows the playback speed.\n- **Timing check:** the editor shows how long the reading takes, in red if it's longer than the block.\n\nScribecue uses the voices built into your computer, so your script stays on it. **Online voices** are a separate opt-in: they often sound more natural, but each block's text is sent to the company that runs the voice, such as Google or Microsoft.\n\nText to speech is for checking timing. It doesn't create an audio file.\n\n## Also\n\n- Automatic checks now run on every change, covering subtitle import and export, the waveform reader and the Docker build.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.2.1",
+  "date": "2026-10-28",
+  "notes": "## Windows and Linux\n\n- Shortcuts now show as **Ctrl**, **Alt** and **Shift** on Windows and Linux, in the shortcuts overlay, tooltips, buttons and messages. **Fn+←/→** shows as **Home / End**. Nothing changes on the Mac.\n- **Ctrl+Space** plays and pauses while you type, because Windows keeps Alt+Space for the window menu.\n- Hold **Ctrl** as well as **Alt** to turn snapping off for one drag or hold-to-mark, because some Linux desktops move the window when you drag with Alt held.\n- Letting go of Alt on its own no longer jumps to the browser menu, which used to swallow the next key you pressed.\n- The README has a new Windows and Linux section with the key mapping.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.2.0",
+  "date": "2026-10-28",
+  "notes": "## New\n\n- **Player controls under the video.** Buttons to step to the previous or next block, jump 3 seconds or one frame, play or pause, play just the selected block, and loop the block under the playhead. Hover over a button to see its shortcut. Clicking one doesn't take the keyboard focus, so your shortcuts keep working.\n\n## Changed\n\n- The PAUSED / PLAYING label is gone. The play button now shows whether the video is playing.\n- In narrow windows, the indicators under the video move to a second line instead of running off the edge.\n- The README has been rewritten with a table of contents and new screenshots.\n\n## How to update\n\nIn the Scribecue folder, run `git pull` and then `docker compose up -d --build`, and reload the page. Your text blocks and settings are kept."
+ },
+ {
+  "version": "0.1.0",
+  "date": "2026-10-28",
+  "notes": "First release of Scribecue, a keyboard-first subtitle and audio description editor that runs locally in Docker.\n\n- Frazier-style keyboard layout, waveform timeline streamed from disk, audio track picker\n- Hold-to-mark (H) with reaction offset and waveform snapping, block looping (L)\n- SRT and VTT import and export, autosave in the browser\n- Opt-in daily update check against GitHub releases\n\nSee the README for setup and update steps."
+ }
+]

@@ -7,6 +7,7 @@ import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, supported, missingFeatures } from './browser.js';
 import { blockFromPlayhead } from './nav.js';
 import { initTour, startTour } from './tour.js';
+import { initWhatsNew } from './whatsnew.js';
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
@@ -2883,6 +2884,12 @@ initWelcome({
     try { localStorage.setItem('scribecue.browserNotice', name); } catch { /* ignore */ }
   });
 })();
+// After an update, what's new since the version last used.
+initWhatsNew({
+  version: VERSION,
+  firstRun: FIRST_RUN,
+  busy: () => !!document.querySelector('dialog[open]') || !$('tour').hidden || !$('browserAlert').hidden || !$('updAlert')?.hidden,
+});
 // A first visit starts with the tour, then the setup, whether the tour is finished or skipped.
 if (FIRST_RUN) setTimeout(() => startTour(S.mode, { then: openWelcome, finish: 'Set up Scribecue' }), 400);
 else if (!welcomed()) {

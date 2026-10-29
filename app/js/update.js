@@ -5,6 +5,7 @@
 
 export const VERSION = '0.27.1';
 import { HOSTED } from './config.js';
+import { openWhatsNew } from './whatsnew.js';
 
 const REPO = 'kyle95wm/Scribecue';
 const API = `https://api.github.com/repos/${REPO}/releases/latest`;
@@ -136,14 +137,14 @@ function initWebApp(opts = {}) {
   const plain = () => {
     btn.textContent = `v${VERSION}`;
     btn.classList.remove('on');
-    btn.dataset.tip = 'The web version of Scribecue updates itself';
+    btn.dataset.tip = 'The web version of Scribecue updates itself. Click to see what’s new in this version';
   };
   plain();
   let waiting = null, wantReload = false;
   const apply = () => { if (!waiting) return; wantReload = true; waiting.postMessage('update'); };
   btn.addEventListener('click', (e) => {
     e.currentTarget.blur();
-    if (!waiting) return toast(`Scribecue ${VERSION}, the web version. It updates itself`);
+    if (!waiting) return openWhatsNew(VERSION);
     if (idle() || confirm('Update Scribecue now? The page reloads. Your blocks, notes and settings are kept, but you’ll need to open the video again.')) apply();
   });
   // Install button, when the browser offers it.

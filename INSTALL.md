@@ -224,16 +224,18 @@ every push and pull request.
 
 To release a new version:
 
-1. Change `VERSION` in [app/js/update.js](app/js/update.js) and in
+1. Write the release's notes at the top of [app/changelog.json](app/changelog.json). The
+   app shows them in its **What's new** window after an update, so write them for the
+   people using it. The tests check the current version has some.
+2. Change `VERSION` in [app/js/update.js](app/js/update.js) and in
    [app/sw.js](app/sw.js) to the new number, for example `0.2.0`. The tests check they
    match.
-2. Run `scripts/check.sh`, then commit and push.
-3. Publish a GitHub release with the same number. Its notes are what **What's new** links
-   to. The web version is published by the "Release X.Y.Z" commit, so name the version
-   commit that way.
+3. Run `scripts/check.sh`, then commit as "Release 0.2.0" and push. That commit message is
+   what publishes the web version.
+4. Publish a GitHub release with the same notes:
 
    ```bash
-   gh release create v0.2.0 --generate-notes
+   gh release create v0.2.0 --target main --title "Scribecue 0.2.0" --notes-file <(node scripts/release-notes.mjs 0.2.0)
    ```
 
 To retake the README screenshots after a visible change, run `scripts/screenshots.sh`. It
