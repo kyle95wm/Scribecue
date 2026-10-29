@@ -6,6 +6,7 @@
 // /stt/ on Scribecue's own server. Nothing is sent anywhere else.
 import { HOSTED } from './config.js';
 import { browserName, knownIssues } from './browser.js';
+import { britishSpelling, defaultSpelling } from './spelling.js';
 
 const $ = (id) => document.getElementById(id);
 const KEY = 'scribecue.stt';
@@ -19,9 +20,16 @@ export const stt = {
   model: '', // server: the container's model
   downloading: null, // web: { loaded, total }
   batch: null, // { done, total, stop } while transcribing every empty block
+  spelling: defaultSpelling(globalThis.navigator?.language), // 'us', or 'uk' for British and Canadian
 };
-try { stt.on = !!JSON.parse(localStorage.getItem(KEY))?.on; } catch { /* ignore */ }
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ on: stt.on })); } catch { /* ignore */ } };
+try {
+  const o = JSON.parse(localStorage.getItem(KEY)) || {};
+  stt.on = !!o.on;
+  if (o.spelling === 'us' || o.spelling === 'uk') stt.spelling = o.spelling;
+} catch { /* ignore */ }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ on: stt.on, spelling: stt.spelling })); } catch { /* ignore */ } };
+// Whisper writes American spelling; this is what goes in the block.
+const spelled = (text) => (stt.spelling === 'uk' ? britishSpelling(text) : text);
 
 // Whisper's own notes for what isn't speech, such as [BLANK_AUDIO] or (music), which are
 // no use in a description.
@@ -104,10 +112,10 @@ export function silent(samples) {
 // The text Whisper hears in some audio (16 kHz mono).
 export async function transcribe(samples) {
   if (silent(samples)) return '';
-  if (stt.engine === 'web') return cleanText(await ask('transcribe', { audio: samples }, [samples.buffer]));
+  if (stt.engine === 'web') return spelled(cleanText(await ask('transcribe', { audio: samples }, [samples.buffer])));
   const r = await fetch('stt/transcribe', { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: toWav(samples) });
   if (!r.ok) throw new Error(r.status === 502 || r.status === 504 ? 'the Whisper container isn’t answering' : `Whisper answered ${r.status}`);
-  return cleanText((await r.json()).text);
+  return spelled(cleanText((await r.json()).text));
 }
 
 // Loads the model ahead of the first block, which would otherwise wait for it.
@@ -172,6 +180,7 @@ function render() {
   if (!$('sttDlg')?.open) return;
   const usable = !!stt.engine;
   $('sttOn').checked = stt.on;
+  $('sttSpelling').value = stt.spelling;
   $('sttOn').disabled = !stt.ready;
   const name = browserName(navigator.userAgent, navigator.userAgentData?.brands || []);
   $('sttBrowser').hidden = !knownIssues(name).some((t) => t.startsWith('speech to text'));
@@ -216,6 +225,7 @@ export function initStt(h) {
   d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
   document.addEventListener('keydown', (e) => { if (d.open) e.stopPropagation(); }, true); // keep the editor's keys from firing behind it
   $('sttOn').addEventListener('change', () => { stt.on = $('sttOn').checked; save(); hooks.changed(); if (stt.on) warmStt(); });
+  $('sttSpelling').addEventListener('change', (e) => { stt.spelling = e.target.value; save(); });
   $('sttGet').addEventListener('click', download);
   $('sttRemove').addEventListener('click', remove);
   $('sttAll').addEventListener('click', transcribeAll);

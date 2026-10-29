@@ -134,7 +134,9 @@ one per programme, and open any of them with `Ctrl/Cmd+O`.
 - The first save asks where to put the file. After that, `Ctrl/Cmd+S` saves straight back
   to it, even after a reload. `Ctrl/Cmd+Shift+S` saves a copy under a new name.
 - A dot after the project name at the top, such as `lights-ad.scribecue •`, means there
-  are changes you haven't saved yet.
+  are changes you haven't saved yet. After 20 minutes of unsaved work, a note reminds you
+  to save, since until then the work is only kept in the browser. **Later** asks again in
+  half an hour.
 - Browsers can't remember where a video is, so after opening a project, open its video
   too. **Open** (`Ctrl/Cmd+O`) takes projects, scripts and video or audio files alike, and
   you can pick the project and its video together; `Ctrl/Cmd+Shift+O` opens only video or
@@ -234,7 +236,8 @@ Whisper, running on your own computer, can type each line you mark. When you let
 press `Alt+Shift+H`, to set it up: a one-time 166 MB download in the web version, or the
 [Whisper container](INSTALL.md#speech-to-text-whisper) with Docker. `Alt+Shift+T`
 transcribes the selected block again, and **Transcribe empty blocks** in the panel fills in
-every block without text. It works best in Chrome or Edge. See
+every block without text. It can use British and Canadian spelling (colour, grey, centre)
+instead of American. It works best in Chrome or Edge. See
 [Speech to text with Whisper](TRANSCRIBING.md#speech-to-text-with-whisper), including what
 it gets wrong.
 

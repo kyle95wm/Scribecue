@@ -8,6 +8,7 @@ import { browserName, supported, noticeItems } from './browser.js';
 import { blockFromPlayhead, nudgeFor, NUDGE } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop } from './tour.js';
 import { initWhatsNew } from './whatsnew.js';
+import { initReminder } from './reminder.js';
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
@@ -249,6 +250,7 @@ function doRedo() {
 
 let saveTimer = 0;
 function changed(id = null) {
+  S.lastChange = Date.now();
   S.maxEnd = S.cues.reduce((m, c) => Math.max(m, c.end), 0);
   if (!S.dirty) { S.dirty = true; showDocName(); }
   if (id != null) {
@@ -3007,6 +3009,16 @@ function whenClear(fn, tries = 120) {
     try { localStorage.setItem('scribecue.browserNotice', seen); } catch { /* ignore */ }
   });
 })();
+// After a while of unsaved work, a note asks to save it as a project.
+initReminder({
+  state: () => ({
+    blocks: S.cues.length, dirty: S.dirty && S.cues.length > 0, lastChange: S.lastChange || 0,
+    hasFile: !!S.handle || S.subName.endsWith(PROJECT_EXT), name: S.subName,
+  }),
+  busy: () => !!edit || !!hold || !!document.querySelector('dialog[open]') || !$('tour').hidden ||
+    [...document.querySelectorAll('.updalert')].some((el) => !el.hidden),
+  save: () => saveProject(),
+});
 // After an update, what's new since the version last used.
 initWhatsNew({
   version: VERSION,

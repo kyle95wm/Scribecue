@@ -141,6 +141,8 @@ Click **STT** under the video, or press `Alt+Shift+H`, to open the speech to tex
   `.env`, then run `docker compose up -d --build`. The panel says when it's running.
 
 Then tick **Fill in blocks as I mark them**. **STT** under the video lights up while it's on.
+Choose the **Spelling** you want too: American, or British and Canadian (see
+[What Whisper gets wrong](#what-whisper-gets-wrong)).
 
 ### Using it
 
@@ -180,7 +182,11 @@ Whisper is good with clear narration, but check every line. Most often:
   character speaking under the narration, or right after it, can end up in the text, and
   so can song lyrics or a TV in the scene. Delete the extra words, or tighten the block and
   press `Alt+Shift+T`. A narration-only track avoids this.
-- **Spelling.** It uses US spelling, such as "gray" and "harbor".
+- **Spelling.** Whisper writes American spelling. **Spelling** in the speech to text panel
+  can change it to British and Canadian spelling as the text arrives: colour, grey, centre,
+  travelled, catalogue and the like. It starts on whichever suits your browser's language.
+  It leaves words whose spelling depends on the meaning, such as meter or tire, and keeps
+  -ize, which Canada and many British publishers use.
 - **Short words that run together**, especially in the web version, such as "slide to" for
   "slides a".
 - **Languages.** It only understands English, unless you choose a different model for the
@@ -244,7 +250,8 @@ Once the whole programme is marked:
 - **`Ctrl/Cmd+S`** saves a project (`.scribecue`): the blocks, the mode and its settings,
   where you were, and which video it belongs to. The first save asks where; after that it
   saves straight back to the same file. Your work is also kept in the browser as you go,
-  so reloading the page loses nothing.
+  so reloading the page loses nothing. After 20 minutes of unsaved work, a note reminds you
+  to save; **Later** asks again in half an hour.
 - **Next time,** open the project with `Ctrl/Cmd+O`, then its video. Browsers can't
   remember where a video is, but Scribecue tells you which one the project belongs to, and
   warns you if you pick a different file.

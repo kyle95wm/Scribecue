@@ -148,6 +148,16 @@
     </div>
   </div>
 
+  <div id="saveAlert" class="updalert" role="alertdialog" aria-labelledby="saveAlertTitle" hidden>
+    <h2 id="saveAlertTitle"></h2>
+    <p id="saveAlertText"></p>
+    <div class="updbtns">
+      <span class="grow"></span>
+      <button id="saveAlertLater">Later</button>
+      <button id="saveAlertSave" class="hl">Save project</button>
+    </div>
+  </div>
+
   <div id="updAlert" class="updalert" role="alertdialog" aria-labelledby="updAlertTitle" hidden>
     <h2 id="updAlertTitle"></h2>
     <p id="updAlertHave" class="dim"></p>
@@ -500,6 +510,13 @@ docker compose up -d --build</code></pre>
     <label class="updopt"><input type="checkbox" id="sttOn"> Fill in blocks as I mark them</label>
     <p class="dim small">When you let go of <kbd>H</kbd>, the block's text appears after a moment.
       If you start typing first, Whisper leaves the block to you.</p>
+    <div class="ttsgrid">
+      <label for="sttSpelling">Spelling</label>
+      <select id="sttSpelling">
+        <option value="us">American (color, gray, center)</option>
+        <option value="uk">British and Canadian (colour, grey, centre)</option>
+      </select>
+    </div>
     <h3>Transcribe empty blocks</h3>
     <p class="small">Fill in every block that has no text yet, such as blocks drawn on the timeline or
       marked with this off. <kbd><span class="mod"></span>Z</kbd> undoes it.</p>
