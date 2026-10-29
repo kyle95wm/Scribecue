@@ -1744,8 +1744,16 @@ async function openAny() {
   }
 }
 
+// New: closes the video and clears the blocks, after asking.
 function newProject() {
-  if (S.cues.length && !confirm(`Start a new project? This removes every block${S.dirty ? ', and your changes aren’t saved in a project file' : ''}. You can undo it with ${IS_MAC ? '⌘Z' : 'Ctrl+Z'}.`)) return;
+  const blocks = S.cues.length, media = S.videoFile?.name;
+  if (blocks || media) {
+    const what = [blocks && `removes ${blocks === 1 ? 'the 1 block' : `all ${blocks} blocks`}`, media && `closes ${media}`].filter(Boolean).join(' and ');
+    const unsaved = blocks && S.dirty ? ' Your changes aren’t saved in a project file.' : '';
+    const undo = blocks ? ` Undo (${IS_MAC ? '⌘Z' : 'Ctrl+Z'}) brings the blocks back${media ? `, but you’d need to open ${media} again` : ''}.` : '';
+    if (!confirm(`Start a new project? This ${what}.${unsaved}${undo}`)) return;
+  }
+  closeVideo();
   pushUndo();
   S.cues = [];
   S.handle = null;
@@ -1837,6 +1845,27 @@ function trackLabel(i) {
   try { if (lang && langNames) lang = langNames.of(lang); } catch { /* unknown code */ }
   const ch = { 1: 'mono', 2: 'stereo', 6: '5.1', 8: '7.1' }[t.channels] || `${t.channels} ch`;
   return [`${i + 1}`, lang, `${t.codec} ${ch}`, t.name && `“${t.name}”`, t.ad && 'AD'].filter(Boolean).join(' · ');
+}
+
+// Closes the video or audio file: playback, its tracks and its waveform.
+function closeVideo() {
+  if (!S.videoFile) return;
+  pause();
+  resetTracks();
+  resetWaveform();
+  S.videoFile = null;
+  S.hasVideo = false;
+  S.vt = 0;
+  video.removeAttribute('src');
+  video.load();
+  if (videoURL) { URL.revokeObjectURL(videoURL); videoURL = null; }
+  document.body.classList.remove('has-video');
+  const v = $('videoName');
+  v.textContent = 'no media';
+  v.classList.add('dim');
+  durEl.textContent = '--:--:--.---';
+  renderOverlay(null);
+  tlDirty = true;
 }
 
 function resetTracks() {

@@ -164,7 +164,8 @@ one per programme, and open any of them with `Ctrl/Cmd+O`.
 - Browsers can't remember where a video is, so after opening a project, open its video
   with `Ctrl/Cmd+Shift+O`. Scribecue tells you which one, and warns you if you pick a
   different file.
-- **New** at the top starts a fresh project. It asks first, and `Ctrl/Cmd+Z` undoes it.
+- **New**, at the top left, starts a fresh project: it closes the video and clears every
+  block. It asks first. `Ctrl/Cmd+Z` brings the blocks back, but you'd open the video again.
 
 Saving in place needs Chrome or Edge. Other browsers download a copy of the project each
 time you save.
