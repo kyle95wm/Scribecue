@@ -214,7 +214,7 @@ as you go too, so reloading the page doesn't lose anything.
 | Go to the beginning or end of the video | `Home` / `End` (`Fn+←` / `Fn+→` on Mac laptops) |
 | Go to a time | `Alt+Shift+J`, then type it, such as `1:23.5` |
 | Go anywhere | Click the timeline, or drag along the time ruler above it |
-| Jump around the whole video | Click or drag the scrubber bar under the video. Blocks show as marks along it, the selected one highlighted, and hovering shows the time |
+| Jump around the whole video | Click or drag the scrubber bar under the video. It stays a thin line until you point at it. Blocks show as marks along it, the selected one highlighted, and hovering shows the time |
 
 ### Adjusting timing
 

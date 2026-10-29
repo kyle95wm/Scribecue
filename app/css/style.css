@@ -134,7 +134,9 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
   box-decoration-break: clone;
 }
 
-/* scrubber: the whole video at a glance, between the video and its controls */
+/* scrubber: the whole video at a glance, between the video and its controls. A thin
+   line until the pointer is over it, then full size with a knob. The strip itself keeps
+   its height, so nothing moves and there's room to aim. */
 .scrub {
   position: relative;
   height: 16px;
@@ -148,9 +150,10 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
   position: absolute;
   left: 12px;
   right: 12px;
-  top: 6px;
-  height: 4px;
-  border-radius: 2px;
+  top: 7px;
+  height: 2px;
+  border-radius: 1px;
+  transition: top 0.12s, height 0.12s;
 }
 /* the track, then the played part, then the block marks on top */
 .scrub::before { background: var(--raise); }
@@ -159,16 +162,19 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
 .scrub:hover::before, .scrub.on::before, .scrub:hover canvas, .scrub.on canvas, .scrub:hover .scrubfill, .scrub.on .scrubfill { top: 5px; height: 6px; border-radius: 3px; }
 .scrubknob {
   position: absolute;
-  top: 3px;
+  top: 4px;
   left: calc(12px + (100% - 24px) * var(--at-f, 0));
-  width: 10px;
-  height: 10px;
-  margin-left: -5px;
-  border-radius: 50%;
+  width: 2px;
+  height: 8px;
+  margin-left: -1px;
+  border-radius: 1px;
   background: var(--play);
   pointer-events: none;
   z-index: 2;
+  transition: top 0.12s, width 0.12s, height 0.12s, margin-left 0.12s, border-radius 0.12s;
 }
+/* a slim tick at the playhead until the pointer is over the bar, then a round knob */
+.scrub:hover .scrubknob, .scrub.on .scrubknob { top: 3px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; }
 .scrubtime {
   position: absolute;
   bottom: 18px;
