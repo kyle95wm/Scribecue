@@ -433,7 +433,8 @@ function render() {
   $('ttsPiperNote').textContent = tts.piper.length
     ? (piper ? 'Piper voice: lengths are exact as soon as a block has text, and you can export a description track.'
       : `${tts.piper.length} Piper voice${tts.piper.length > 1 ? 's' : ''} available at the top of the list: they sound more natural and give exact lengths.`)
-    : 'For more natural voices that run on this computer, add Piper (see the README).';
+    : ''; // the Did you know box below explains Piper
+  $('ttsTip').hidden = tts.piper.length > 0;
   $('ttsAllExactRow').hidden = piper;
   $('ttsExport').disabled = !piper;
   $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper voice: the browser\'s own voices can\'t be recorded.';

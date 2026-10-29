@@ -282,6 +282,15 @@ docker compose up -d --build</code></pre>
         <kbd>[</kbd> <kbd>]</kbd> this block slower / faster ·
         <kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd> this panel</p>
     </div>
+    <aside id="ttsTip" class="tipbox" hidden>
+      <strong>Did you know?</strong>
+      <p>Scribecue can use <strong>Piper</strong>, a free, open-source speech engine that runs next to it in Docker.
+        Its voices sound much more natural, stay on your computer, and work offline. With a Piper voice, reading
+        lengths are exact straight away, and you can export a description track as a WAV file.</p>
+      <p>To add it, put <code>COMPOSE_PROFILES=piper</code> in a file called <code>.env</code> in the Scribecue folder, then
+        run <code>docker compose up -d --build</code> and reload this page.
+        <a href="https://github.com/kyle95wm/Scribecue#piper-voices" target="_blank" rel="noopener noreferrer">More about Piper</a></p>
+    </aside>
     <div class="updbtns">
       <button id="ttsTry" class="hl">Try it</button>
       <button id="ttsClose">Close</button>
