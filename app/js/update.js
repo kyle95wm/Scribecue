@@ -3,7 +3,7 @@
 // it asks GitHub's API for the latest release at most once a day; the request
 // carries no cookies, no referrer and nothing about the user's work.
 
-export const VERSION = '0.16.0';
+export const VERSION = '0.17.0';
 import { HOSTED } from './config.js';
 
 const REPO = 'kyle95wm/Scribecue';
