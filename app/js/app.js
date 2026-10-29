@@ -9,7 +9,7 @@ import { blockFromPlayhead, nudgeFor, NUDGE } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop } from './tour.js';
 import { initWhatsNew } from './whatsnew.js';
 import { initReminder } from './reminder.js';
-import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave } from './autosave.js';
+import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
@@ -2106,11 +2106,11 @@ async function writeFile(h, text) {
 
 // ---- autosave (see autosave.js)
 
-const AUTO = { permission: 'prompt', saving: false, error: '', timer: 0, first: 0 };
+const AUTO = { can: canAutosave(window), permission: 'prompt', saving: false, error: '', timer: 0, first: 0 };
 
 function showAutosave() {
   const st = autosaveState({
-    can: !!window.showSaveFilePicker, file: !!S.handle, permission: AUTO.permission,
+    can: AUTO.can, file: !!S.handle, permission: AUTO.permission,
     saving: AUTO.saving, dirty: S.dirty && S.cues.length > 0, error: AUTO.error,
   });
   const b = $('autosaveBtn');
@@ -2124,6 +2124,7 @@ function showAutosave() {
 // Whether Scribecue may write to the project file now, which the browser asks again
 // after a reload.
 async function checkWrite() {
+  if (!AUTO.can) return showAutosave();
   AUTO.permission = S.handle ? await S.handle.queryPermission({ mode: 'readwrite' }).catch(() => 'prompt') : 'prompt';
   showAutosave();
   if (AUTO.permission === 'granted' && S.dirty) scheduleAutosave();
@@ -2131,7 +2132,7 @@ async function checkWrite() {
 
 function scheduleAutosave() {
   clearTimeout(AUTO.timer);
-  if (!S.handle || AUTO.permission !== 'granted' || AUTO.error) return showAutosave();
+  if (!AUTO.can || !S.handle || AUTO.permission !== 'granted' || AUTO.error) return showAutosave();
   const t = Date.now();
   AUTO.first ||= t;
   AUTO.timer = setTimeout(autosave, nextSave(t, S.lastChange || t, AUTO.first));
@@ -2142,7 +2143,7 @@ async function autosave() {
   const h = S.handle;
   if (AUTO.saving) return; // the save running now looks again when it's done
   AUTO.first = 0;
-  if (!h || !S.dirty || !S.cues.length) return showAutosave();
+  if (!AUTO.can || !h || !S.dirty || !S.cues.length) return showAutosave();
   const gen = S.changeGen;
   AUTO.saving = true;
   showAutosave();
@@ -2192,7 +2193,7 @@ async function openProject(file, handle = null) {
   AUTO.error = '';
   // Opening it is the moment to ask whether autosave may write to it; if the browser won't
   // ask now, autosave waits, paused, for a click.
-  if (handle) handle.requestPermission({ mode: 'readwrite' }).catch(() => 'prompt').then(checkWrite);
+  if (handle && AUTO.can) handle.requestPermission({ mode: 'readwrite' }).catch(() => 'prompt').then(checkWrite);
   else showAutosave();
   S.projectMedia = p.media;
   S.notes = p.notes;

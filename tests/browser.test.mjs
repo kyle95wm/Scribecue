@@ -24,7 +24,7 @@ test('the notice lists only the features this browser lacks', () => {
   assert.deepEqual(missingFeatures({ AudioDecoder: 1, showSaveFilePicker: () => {}, onbeforeinstallprompt: null, speechSynthesis: {} }), []);
   const firefox = missingFeatures({ AudioDecoder: 1, speechSynthesis: {} });
   assert.equal(firefox.length, 2);
-  assert.match(firefox[0], /saving a project/);
+  assert.match(firefox[0], /autosave, and saving a project/);
   assert.match(firefox[1], /Install app/);
   assert.equal(missingFeatures({}).length, 4);
 });

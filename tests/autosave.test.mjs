@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { autosaveState, nextSave, DELAY, MAX_WAIT, AUTOSAVE_LABEL, AUTOSAVE_TIP } from '../app/js/autosave.js';
+import { autosaveState, nextSave, canAutosave, DELAY, MAX_WAIT, AUTOSAVE_LABEL, AUTOSAVE_TIP } from '../app/js/autosave.js';
 
 const base = { can: true, file: true, permission: 'granted', saving: false, dirty: false, error: '' };
 
@@ -25,4 +25,14 @@ test('saves a moment after the last change, but not later than MAX_WAIT', () => 
   // Changes keep coming: it still saves MAX_WAIT after the first one.
   assert.equal(nextSave(t + MAX_WAIT - 100, t + MAX_WAIT - 100, t), 100);
   assert.equal(nextSave(t + MAX_WAIT + 5, t + MAX_WAIT + 5, t), 0);
+});
+
+test('autosave is only offered where the browser can write to a file again later', () => {
+  class Handle { createWritable() {} queryPermission() {} }
+  assert.ok(canAutosave({ showSaveFilePicker: () => {}, FileSystemFileHandle: Handle }));
+  // Firefox and Safari: no save picker, so a save downloads a copy.
+  assert.ok(!canAutosave({ FileSystemFileHandle: Handle }));
+  assert.ok(!canAutosave({}));
+  // A picker but handles that can't be written to.
+  assert.ok(!canAutosave({ showSaveFilePicker: () => {}, FileSystemFileHandle: class {} }));
 });

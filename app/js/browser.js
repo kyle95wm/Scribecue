@@ -22,7 +22,7 @@ export const supported = (name) => name === 'Chrome' || name === 'Edge';
 export function missingFeatures(w = globalThis) {
   const out = [];
   if (!('AudioDecoder' in w)) out.push('waveforms for most video files');
-  if (!w.showSaveFilePicker) out.push('saving a project straight back to its file (you get a download instead)');
+  if (!w.showSaveFilePicker) out.push('autosave, and saving a project straight back to its file (you get a download each time you save instead)');
   if (!('onbeforeinstallprompt' in w)) out.push('the Install app button');
   if (!('speechSynthesis' in w)) out.push('text to speech with your computer’s voices');
   return out;

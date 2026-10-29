@@ -3,6 +3,14 @@
 // and after a reload they ask again before it may, which needs a click: until then it's
 // paused, and says so next to the project name.
 
+// Whether this browser can autosave at all: it needs to keep hold of a file you chose and
+// write to it again later. Firefox and Safari can't, so they download a copy each save.
+export function canAutosave(w = globalThis) {
+  return typeof w.showSaveFilePicker === 'function' &&
+    typeof w.FileSystemFileHandle?.prototype?.createWritable === 'function' &&
+    typeof w.FileSystemFileHandle?.prototype?.queryPermission === 'function';
+}
+
 export const DELAY = 2000; // ms after the last change
 export const MAX_WAIT = 30e3; // but no longer than this while changes keep coming
 
