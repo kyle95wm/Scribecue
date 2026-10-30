@@ -503,7 +503,9 @@ removes the key and its voices.
 Each reading is kept in your browser, so a line is only sent to Google once, unless you
 change its text, speed or voice. Reopening a project, playing it again or exporting the
 description track uses the kept readings, which costs nothing, and lines already read play
-offline. Up to 250 MB are kept, dropping the ones used longest ago first. **Settings**,
+offline. While you type in a block, its length is estimated and nothing is sent: it's read
+when you finish editing it, with `Enter` or `Esc` or by moving to another block. Up to
+250 MB are kept, dropping the ones used longest ago first. **Settings**,
 under **Storage**, shows how many there are and can clear them.
 
 Google bills your Google Cloud account for the readings. Standard voices have a free

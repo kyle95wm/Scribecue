@@ -576,10 +576,12 @@ function updateEditor() {
 }
 
 // With a Piper or Google voice, make the selected block's reading once typing pauses, so its
-// length is exact rather than estimated.
+// length is exact rather than estimated. Google counts every reading, so with a Google voice
+// a block being typed in is only read when the editing ends (see the blur handler).
 let prefetchTimer = 0;
 function schedulePrefetch(c) {
   clearTimeout(prefetchTimer);
+  if (edit?.id === c.id && usingGoogle()) return;
   const text = said(c), { speed } = c;
   prefetchTimer = setTimeout(() => prefetch(text, speed), 500);
 }
@@ -704,9 +706,13 @@ edText.addEventListener('input', () => {
   changed(c.id);
 });
 edText.addEventListener('blur', () => {
+  const was = edit && S.cues.find((c) => c.id === edit.id);
   edit = null;
   document.body.classList.remove('editing');
   updateEditor();
+  // The block just edited, even when another one is now selected: with a Google voice,
+  // this is when it's read.
+  if (was && ttsOn() && spoken(was.text)) prefetch(said(was), was.speed);
 });
 edText.addEventListener('keydown', (e) => {
   e.stopPropagation();

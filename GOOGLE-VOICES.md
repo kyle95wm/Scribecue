@@ -70,8 +70,9 @@ Scribecue keeps every reading in your browser, so a line is only sent to Google,
 counted, once. It's sent again only when its text, speed or voice changes. What still adds
 up:
 
-- **Writing:** Scribecue reads a block each time you pause typing, to keep its length
-  exact, so a line you rewrite several times is read several times.
+- **Writing:** while you type, the length shown is an estimate, and nothing is sent. The
+  block is read when you finish editing it, with `Enter` or `Esc` or by moving to another
+  block, so each round of edits to a line is one reading.
 - **Speeds:** each speed a block is read at is a reading of its own. **Fit speeds to
   timings** tries two to four speeds for each block it changes.
 - **Changing the voice or base speed:** every line is read again the first time it's
