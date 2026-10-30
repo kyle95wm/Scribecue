@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.52.0",
+  "date": "2026-10-30",
+  "notes": "## Try voices before switching\n\n- Picking a voice in the text to speech settings, from the list or your favourites, now only tries it out. **Test** reads with it, and nothing else changes, so you can go through voices without being asked about the timings each time.\n- When you’ve found the one you want, click **Apply**, next to Test. Every block then reads with it, and you’re asked about the timings once. Close Settings without Apply and the voice stays as it was.\n\n## Your own test line\n\n- A new **Test text** box under the voice holds what Test reads. It starts with the sample description; type any line to hear it in each voice. It’s remembered for next time."
+ },
+ {
   "version": "0.51.3",
   "date": "2026-10-30",
   "notes": "## Fixes\n\n- Every block now fits its reading as you edit it. Blocks marked with H, drawn on the timeline or opened from a file keep their length, and their reading speeds up or slows down to fill it. A block with a speed you picked keeps that speed, and its end moves to where the reading finishes. Before, these blocks kept both their length and their speed, so a longer line ran past the end of its block."
