@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.48.1",
+  "date": "2026-10-30",
+  "notes": "## Kokoro voices\n\n- The web version's text to speech settings now mention Kokoro voices, under Natural voices. They sound even more like a person reading and are free, but need Scribecue running on your computer with Docker, since they're too big and slow to run well in a browser. A link shows how to add them."
+ },
+ {
   "version": "0.48.0",
   "date": "2026-10-30",
   "notes": "## Kokoro voices\n\n- Running Scribecue with Docker, you can now add Kokoro, a free, open-source voice model whose voices sound closer to a person reading than Piper's. It runs in its own container, so your script stays on your computer and it works offline.\n- It has 41 voices in US and UK English, Spanish, French, Hindi, Italian and Brazilian Portuguese, in their own Kokoro group in the voice menu.\n- As with Piper, lengths are exact and you can export a description track. Each reading takes a second or two.\n- To add it, put `kokoro` in `COMPOSE_PROFILES` in your `.env` file, such as `COMPOSE_PROFILES=piper,kokoro`, then run `docker compose up -d --build`. INSTALL.md has the details.\n- Kokoro isn't in the web version yet."
