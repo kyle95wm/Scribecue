@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.54.0",
+  "date": "2026-10-30",
+  "notes": "## Swap sides\n\n- A new **⇄** button at the start of the top bar puts the video on the left and the editor and block list on the right. Click it again to put them back. Scribecue remembers which you chose."
+ },
+ {
   "version": "0.53.0",
   "date": "2026-10-30",
   "notes": "## Blocks end where their reading ends\n\n- In Write mode with text to speech on, every block now ends where its reading ends, as in Frazier. To make a block longer or shorter, change its speed, from its menu or with **[** and **]**.\n- A block’s edges can no longer be dragged, and OUT shows where the reading ends. Dragging a block, or changing its IN, moves the whole block. Splitting and merging keep each end at its reading.\n- Blocks opened from a file keep their timing until you edit them.\n- The settings **Set the end of new blocks from the reading** and **Change a block’s reading speed when you resize it** are gone, since this always happens now.\n- In Transcribe mode, and with text to speech off, edges drag as before.\n\n## Natural speeds\n\n- **Fit speeds to timings** never slows a reading below −15%, so a short line in a long block still sounds natural, with silence after it."
