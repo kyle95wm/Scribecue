@@ -1116,6 +1116,8 @@ function render(googleError = '') {
   $('ttsAllExactRow').hidden = piper;
   showGoogleCost();
   $('ttsExport').disabled = !piper;
+  $('ttsMakeAll').disabled = !piper;
+  $('ttsMakeNote').textContent = piper ? '' : 'Needs a Piper, Kokoro or Google voice: the browser\'s own voices can\'t be kept.';
   $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper, Kokoro or Google voice: the browser\'s own voices can\'t be recorded.';
   $('ttsBody').classList.toggle('off', !tts.on);
   $('ttsBase').value = String(Math.round(tts.base * 100));

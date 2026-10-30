@@ -394,6 +394,10 @@ click it to take it out.
   block. Once you set the end yourself, by dragging, `S`, `E` / `R` or typing in OUT,
   the block keeps it. Blocks marked with `H`, drawn on the timeline or opened from a file
   are never changed. You can turn this off in the text to speech settings.
+- **Make all readings:** with a Piper, Kokoro or Google voice, a button in the text to
+  speech settings reads every block now, at its own speed, without changing any timings.
+  Each block then plays straight away and its length is exact, and the readings are kept in
+  your browser for next time. While playing, Scribecue also reads the next two blocks ahead.
 - **Update all timings:** a button in the text to speech settings sets the end of every block
   with text from its reading, using each block's own speed. It asks first, because it also
   changes blocks marked with `H` or opened from a file, and `Ctrl/Cmd+Z` undoes it. Ends never run

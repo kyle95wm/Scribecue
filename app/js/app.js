@@ -1659,6 +1659,23 @@ async function updateAllTimings(ask = true) {
 }
 ttsAll.addEventListener('click', () => asJob(() => updateAllTimings()));
 
+// Make all readings: every block's reading, made now and kept, so each plays straight away.
+const ttsMakeAll = $('ttsMakeAll'), ttsMakeStatus = $('ttsMakeStatus');
+async function makeAllReadings() {
+  const blocks = S.cues.filter((c) => spoken(c.text));
+  if (!blocks.length) return (ttsMakeStatus.textContent = 'There are no blocks with text yet.');
+  const todo = blocks.filter((c) => !speechLength(said(c), c.speed).exact).length;
+  if (!todo) return report(ttsMakeStatus, `All ${blocks.length} readings are made already.`);
+  if (!(await measureAll(blocks, { btn: ttsMakeAll, bar: $('ttsMakeBar'), stop: $('ttsMakeStop'), status: ttsMakeStatus, job: 'Making readings' }))) {
+    return report(ttsMakeStatus, 'Make all readings stopped. The readings made so far are kept.');
+  }
+  const failed = blocks.filter((c) => !speechLength(said(c), c.speed).exact).length;
+  report(ttsMakeStatus, failed ? `Made ${todo - failed} of ${todo} readings. ${failed} couldn’t be made: try again in a moment.`
+    : `Made ${todo} reading${todo > 1 ? 's' : ''}. All ${blocks.length} are ready.`);
+}
+ttsMakeAll.addEventListener('click', () => asJob(() => makeAllReadings()));
+$('ttsMakeStop').addEventListener('click', () => { measuring = false; stopSpeech(); });
+
 // Fits Piper or Google readings to their blocks one block at a time, so the progress runs once from
 // the first block to the last. Each block is read at a speed guessed from its estimate,
 // then at better guesses from the readings so far, until the reading is as close to the
@@ -1845,7 +1862,7 @@ ttsExport.addEventListener('click', async () => {
 });
 ttsAllStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
 // A job carries on when the settings close: it shows in the bottom bar.
-$('ttsDlg').addEventListener('close', () => { if (!jobActive) { ttsAllStatus.textContent = ''; ttsFitStatus.textContent = ''; } });
+$('ttsDlg').addEventListener('close', () => { if (!jobActive) { ttsAllStatus.textContent = ''; ttsFitStatus.textContent = ''; ttsMakeStatus.textContent = ''; } });
 
 // A block's own speed. Setting it to normal leaves the block without one.
 function setBlockSpeed(c, v) {

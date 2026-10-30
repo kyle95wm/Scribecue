@@ -538,7 +538,15 @@ docker compose up -d --build</code></pre>
           <option value="leave">Leave the timings as they are</option>
         </select>
       </div>
-      <p class="warnbox googlecost" hidden>You're using a Google Cloud voice, so updating all timings or fitting speeds to timings reads every block with Google again, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
+      <p class="warnbox googlecost" hidden>You're using a Google Cloud voice, so making all readings, updating all timings or fitting speeds to timings reads every block with Google, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
+      <h3>Make all readings</h3>
+      <p class="small">Read every block now, at its own speed, so each one plays straight away and its
+        length is exact. Timings aren't changed. The readings are kept in this browser, so they're still
+        ready next time, and work offline.</p>
+      <p class="updstatus"><button id="ttsMakeAll">Make all readings</button>
+        <progress id="ttsMakeBar" class="jobbar" max="1" value="0" hidden aria-label="Making readings"></progress>
+        <button id="ttsMakeStop" hidden>Stop</button> <span id="ttsMakeStatus" class="dim"></span></p>
+      <p id="ttsMakeNote" class="dim small"></p>
       <h3>Update all timings</h3>
       <p class="small">Set the end of every block from how long its reading takes, with each block's own
         speed. This includes blocks marked with H and blocks opened from a file. Ends never run into the
