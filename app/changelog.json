@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.51.2",
+  "date": "2026-10-30",
+  "notes": "## Fixes\n\n- After **Shift+V** or **Update all timings** set a block’s end from its reading, the end now keeps following the reading as you edit the text, as a new block’s does. Before, it stayed where it was, so a longer line, or a Google reading that came out longer than its estimate, left the block too short, marked ⚠, with its reading running past the end. This also applies when you open a script and choose to change the ends to match the readings."
+ },
+ {
   "version": "0.51.1",
   "date": "2026-10-30",
   "notes": "## Fixes\n\n- Resizing a block now settles on a reading speed that fills it in a reading or two. Before, with Kokoro voices especially, the speed could wander for a few seconds, through speeds whose readings ran past the block’s end, and stop somewhere slightly off.\n- Resizing a block whose speed you picked by hand now says that it keeps that speed, and how to have the reading fill the block instead."
