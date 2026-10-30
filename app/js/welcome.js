@@ -65,7 +65,6 @@ function finish() {
       if ($('wzVoice').value) setTtsOption('voice', $('wzVoice').value);
       setTtsOption('base', toBase(+$('wzSpeed').value));
       setTtsOption('live', $('wzLive').checked);
-      setTtsOption('autoEnd', $('wzAuto').checked);
       setTtsOption('skipNotes', $('wzNotes').checked);
     }
   }
@@ -97,7 +96,6 @@ export function openWelcome() {
   if (![...ws.options].some((o) => +o.value === tts.base)) ws.add(new Option(`${Math.round(tts.base * 100)}%`, String(tts.base)));
   ws.value = String(tts.base);
   $('wzLive').checked = tts.live;
-  $('wzAuto').checked = tts.autoEnd;
   $('wzNotes').checked = tts.skipNotes;
   $('wzPiperGet').checked = false; // a large download: only when asked for
 

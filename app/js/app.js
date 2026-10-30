@@ -443,7 +443,7 @@ function newCue() {
   pushUndo();
   const c = mk(t, end);
   // A block written with text to speech on takes its end from the reading.
-  if (ttsOn() && tts.autoEnd) c.auto = true;
+  if (ttsOn()) c.auto = true;
   S.cues.push(c);
   changed();
   select(c.id, { seek: false });
@@ -559,7 +559,7 @@ function updateEditor() {
   // The end comes from the reading with text to speech on.
   edEnd.readOnly = following(c);
   if (edEnd.readOnly) edEnd.dataset.tip = 'Where the reading ends. Change the block’s speed to move it'; else delete edEnd.dataset.tip;
-  edAuto.hidden = !(c.auto && ttsOn() && tts.autoEnd);
+  edAuto.hidden = !(c.auto && ttsOn());
   edDur.textContent = `${(c.end - c.start).toFixed(3)} s`;
   edSpeedWrap.hidden = !ttsOn();
   edVoiceWrap.hidden = !ttsOn();
@@ -1489,7 +1489,7 @@ function speakBlock(fit) {
       const room = cur.end - cur.start;
       if (now() >= cur.end) pause(); else S.playUntil = cur.end;
       // An auto block has just been refitted to this reading.
-      if (cur.auto && tts.autoEnd && room + 0.0005 >= secs) return toast(`Reading takes ${secs.toFixed(1)} s. The block now ends where the reading finishes`);
+      if (cur.auto && room + 0.0005 >= secs) return toast(`Reading takes ${secs.toFixed(1)} s. The block now ends where the reading finishes`);
       toast(secs > room + 0.05
         ? `Reading takes ${secs.toFixed(1)} s, ${(secs - room).toFixed(1)} s longer than the block. ⇧V fits the block to it`
         : `Reading takes ${secs.toFixed(1)} s and fits, with ${(room - secs).toFixed(1)} s to spare`);
@@ -1506,7 +1506,7 @@ function fitToSpeech(c, secs) {
   c.end = end;
   // The end now follows the reading, not the other way round, including as the text changes.
   delete c.fit;
-  if (tts.autoEnd) c.auto = true;
+  c.auto = true;
   select(c.id, { seek: false });
   changed(c.id);
   toast(c.start + secs > hi + 0.001
@@ -1517,7 +1517,7 @@ function fitToSpeech(c, secs) {
 // Blocks marked auto take their end from how long the reading takes, until the end is
 // set by hand. It never runs into the next block.
 function fitAuto(c) {
-  if (!c?.auto || !ttsOn() || !tts.autoEnd || !spoken(c.text)) return false;
+  if (!c?.auto || !ttsOn() || !spoken(c.text)) return false;
   const i = idx(c.id);
   if (i < 0) return false;
   const { hi } = bounds(i);
@@ -1527,9 +1527,8 @@ function fitAuto(c) {
   return true;
 }
 // With text to speech on, a block with text ends where its reading does, as in Frazier:
-// its length changes with its text and speed, not by hand. With "Set the end of each
-// block from its reading" off, blocks are timed by hand instead.
-const following = (c) => ttsOn() && tts.autoEnd && !!spoken(c.text);
+// its length changes with its text and speed, not by hand.
+const following = (c) => ttsOn() && !!spoken(c.text);
 function adapt(c) {
   if (!following(c)) return;
   delete c.fit;
@@ -1695,7 +1694,7 @@ async function updateAllTimings(ask = true) {
     if (!exact) estimated++;
     // From now on the end follows the reading, as the text changes, as in a new block.
     delete c.fit;
-    if (tts.autoEnd) c.auto = true;
+    c.auto = true;
     if (Math.abs(end - c.end) > 0.0005) { c.end = end; moved++; }
   }
   changed();
@@ -1926,14 +1925,14 @@ function setBlockSpeed(c, v) {
   delete c.fit;
   if (c.speed) c.pinned = true; else delete c.pinned;
   // The speed was picked, so the end follows the reading instead.
-  if (tts.autoEnd) c.auto = true;
+  c.auto = true;
   fitAuto(c);
   changed(c.id);
   tlDirty = true;
   toast(c.speed ? `Block #${idx(c.id) + 1} reads at ${speedName(c.speed)}`
     : `Block #${idx(c.id) + 1} reads at normal speed`);
 }
-// A block's own voice, such as a second voice for subtitles. Without one, a block reads
+// A block's own voice, such as a second voice for translated dialogue. Without one, a block reads
 // with the voice chosen in Settings, and follows it when that changes.
 const edVoice = $('edVoice'), edVoiceWrap = $('edVoiceWrap');
 const blockVoiceName = (uri) => { const n = voiceName(uri); return n === 'the voice before' ? voiceLabel(uri) : n; };

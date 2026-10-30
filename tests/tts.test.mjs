@@ -16,10 +16,6 @@ test('text to speech is off until turned on', () => {
   assert.equal(tts.online, false);
 });
 
-test('once turned on, new blocks take their end from the reading unless that is turned off', () => {
-  assert.equal(tts.autoEnd, true);
-});
-
 test('only voices on this computer are offered unless online voices are allowed', () => {
   assert.deepEqual(pickVoices(voices, { lang: 'en-US' }).map((x) => x.name), ['Anna', 'Zed', 'Alex', 'Amélie']);
   assert.ok(pickVoices(voices, { online: true, lang: 'en-US' }).some((x) => x.name === 'Google UK'));

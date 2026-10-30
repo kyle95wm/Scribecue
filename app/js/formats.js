@@ -113,7 +113,7 @@ export function parseAdc(text) {
     const speed = ADC_SPEEDS[c.speed] ?? 1;
     if (speed !== 1) cue.speed = speed;
     // Frazier names a Google voice for every block; one other than the document's is the
-    // block's own, such as a second voice for subtitles.
+    // block's own, such as a second voice for translated dialogue.
     if (typeof c.voice === 'string' && /^[a-z]{2,3}-[A-Z]{2}-\w+-\w+$/.test(c.voice) && c.voice !== doc.voice) cue.voice = 'google:' + c.voice;
     if (say.length) cue.say = say;
     return cue;

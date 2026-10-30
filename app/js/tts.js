@@ -361,7 +361,7 @@ export function mergeSay(say = [], add = []) {
 export const hasWord = (text, word) => !!word.trim() && sayPattern([word.trim()]).test(text);
 
 const KEY = 'scribecue.tts';
-const DEFAULTS = { on: false, voice: '', base: 1, live: true, duck: true, autoEnd: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [], sample: null };
+const DEFAULTS = { on: false, voice: '', base: 1, live: true, duck: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [], sample: null };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -391,8 +391,8 @@ if (!['ask', 'ends', 'leave'].includes(tts.onChange)) tts.onChange = 'ask';
 const rate = (speed) => atBase(speed, tts.base);
 
 const save = () => {
-  const { on, voice, base, live, duck, autoEnd, skipNotes, onImport, onChange, online, cps, mix, favourites, sample } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, base, live, duck, autoEnd, skipNotes, onImport, onChange, online, cps, mix, favourites, sample })); } catch { /* ignore */ }
+  const { on, voice, base, live, duck, skipNotes, onImport, onChange, online, cps, mix, favourites, sample } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, base, live, duck, skipNotes, onImport, onChange, online, cps, mix, favourites, sample })); } catch { /* ignore */ }
 };
 
 // The mix between the video's sound and the readings, from −1 (only the video) to 1
@@ -1194,7 +1194,7 @@ function render(googleError = '') {
   showGoogleCost();
   $('ttsExport').disabled = !piper;
   $('ttsMakeAll').disabled = !piper;
-  // Blocks with their own voice, such as subtitles read by a second voice.
+  // Blocks with their own voice, such as translated dialogue read by a second voice.
   const own = hooks.blockVoices();
   $('ttsBlockVoices').hidden = !own.length;
   const names = [...new Set(own)].map((uri) => voices.find((v) => v.voiceURI === uri)?.name || voiceLabel(uri));
@@ -1206,7 +1206,6 @@ function render(googleError = '') {
   $('ttsBaseOut').textContent = `${Math.round(tts.base * 100)}%`;
   $('ttsLive').checked = tts.live;
   $('ttsDuck').checked = tts.duck;
-  $('ttsAuto').checked = tts.autoEnd;
   $('ttsNotes').checked = tts.skipNotes;
   $('ttsImport').value = tts.onImport;
   $('ttsOnChange').value = tts.onChange;
@@ -1263,7 +1262,6 @@ export function initTts(h) {
   base.addEventListener('dblclick', () => changeReading('base', 1));
   $('ttsLive').addEventListener('change', (e) => set('live', e.target.checked));
   $('ttsDuck').addEventListener('change', (e) => set('duck', e.target.checked));
-  $('ttsAuto').addEventListener('change', (e) => set('autoEnd', e.target.checked));
   $('ttsNotes').addEventListener('change', (e) => set('skipNotes', e.target.checked));
   $('ttsImport').addEventListener('change', (e) => set('onImport', e.target.value));
   $('ttsOnChange').addEventListener('change', (e) => set('onChange', e.target.value));

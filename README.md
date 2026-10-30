@@ -342,7 +342,7 @@ click it to take it out.
   on the timeline, such as `+15%`. Block speeds are saved with your work and in exported VTT
   files, as notes that other programs ignore. SRT files can't store them.
 - **Voice per block:** a block can have a voice of its own, such as a second voice for
-  subtitles. Pick it from the **Voice** menu in the block editor; **Same as Settings**
+  translated dialogue. Pick it from the **Voice** menu in the block editor; **Same as Settings**
   reads it with the voice chosen in the text to speech settings, and follows it when that
   changes. Blocks with their own voice show its name in the list. They're saved with your
   work and in exported VTT files, and Frazier's `.adc` scripts bring theirs. The text to
@@ -381,9 +381,7 @@ click it to take it out.
   longer or shorter, change its speed, from its menu or with `[` `]`. Its edges can't be
   dragged, and OUT shows where the reading ends; moving a block, or changing its IN, moves
   the whole block. Blocks opened from a file keep their timing until you edit them. A
-  reading only runs over its block, shown in red, when the next block is in the way. Turn
-  this off with **End each block where its reading ends** in the text to speech settings,
-  to time blocks yourself by dragging their edges.
+  reading only runs over its block, shown in red, when the next block is in the way.
 - **Sounds like:** when a voice says a name or word wrong, tell it how to say it, without
   changing the text. Select the word in the text box and click the **Sounds Like** button
   that pops up under it, or press `Alt+Shift+P`. The word is filled in for you, so spell
@@ -607,8 +605,8 @@ afterwards is instant. Safari switches tracks itself.
   the playhead, press `A` or `S`.
 - **Time remaining:** click the total length, next to the clock, to show the time left
   instead. Click it again to go back. Scribecue remembers which you chose.
-- **Mouse:** drag a block to move it, drag an edge to resize it (with text to speech
-  off; with it on, a block's length comes from its reading), or drag across empty
+- **Mouse:** drag a block to move it, drag an edge to resize it (in Write mode with text
+  to speech on, a block's length comes from its reading instead), or drag across empty
   space to draw a new block. Scroll to pan, and `Ctrl/Cmd`+scroll or pinch to zoom.
 - **Guided tour:** lights up each part of the editor in turn and explains it, from the two
   modes to text to speech, AI help and privacy. It opens on your first visit, before the

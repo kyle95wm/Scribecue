@@ -71,7 +71,7 @@
           <span id="edDur" class="dim"></span>
           <label id="edSpeedWrap" class="edspeed" hidden data-tip="Text to speech speed for this block. [ and ] change it">TTS
             <select id="edSpeed"></select></label>
-          <label id="edVoiceWrap" class="edspeed" hidden data-tip="Text to speech voice for this block, such as a second voice for subtitles. Same as Settings follows the voice chosen there">Voice
+          <label id="edVoiceWrap" class="edspeed" hidden data-tip="Text to speech voice for this block, such as a second voice for translated dialogue. Same as Settings follows the voice chosen there">Voice
             <select id="edVoice"></select></label>
           <button id="edSay" class="edsay" hidden data-tip="How text to speech says words in this block, without changing the text (⌥⇧P)">sounds like</button>
           <span class="grow"></span>
@@ -325,7 +325,6 @@ docker compose up -d --build</code></pre>
         </div>
         <label class="updopt"><input type="checkbox" id="wzNotes"> Don't read notes in [square brackets]</label>
         <label class="updopt"><input type="checkbox" id="wzLive"> Read blocks aloud while playing</label>
-        <label class="updopt"><input type="checkbox" id="wzAuto"> End each block where its reading ends</label>
       </div>
       <h3>Editing</h3>
       <label class="updopt"><input type="checkbox" id="wzReplayWrite"> Go back to a block's start after I edit it, to hear it again</label>
@@ -524,10 +523,8 @@ docker compose up -d --build</code></pre>
       <label class="updopt"><input type="checkbox" id="ttsLive"> Read blocks aloud while playing</label>
       <label class="updopt"><input type="checkbox" id="ttsDuck"> Lower the original audio while a block is read</label>
       <label class="updopt"><input type="checkbox" id="ttsNotes"> Don't read notes in [square brackets]</label>
-      <label class="updopt"><input type="checkbox" id="ttsAuto"> End each block where its reading ends</label>
-      <p class="dim small">As you write, a block's end follows its reading. To make a block longer or shorter, change
-        its speed. Blocks opened from a file keep their timing until you edit them. Turn this off to time blocks
-        yourself, by dragging their edges.</p>
+      <p class="dim small">Each block ends where its reading ends. To make a block longer or shorter, change its speed.
+        Blocks opened from a file keep their timing until you edit them.</p>
       <div class="ttsgrid">
         <label for="ttsImport">When you open a script</label>
         <select id="ttsImport">
@@ -826,7 +823,7 @@ docker compose up -d --build</code></pre>
           </dl>
           <h3>Mouse</h3>
           <dl>
-            <dt>Drag block</dt><dd>Move · drag an edge to resize, with text to speech off</dd>
+            <dt>Drag block</dt><dd>Move · drag an edge to resize, except with text to speech on</dd>
             <dt>Drag empty lane</dt><dd>Draw a new block</dd>
             <dt>× in the list</dt><dd>Delete that block (undoable)</dd>
             <dt>Buttons under video</dt><dd>Block, 3 s and frame steps, play, play block, loop block</dd>
