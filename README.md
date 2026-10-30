@@ -486,7 +486,8 @@ Portuguese. They run on your computer and work offline, and everything above abo
 voices applies to them too: exact lengths, the same time for each line, and the
 description track. Readings take a second or two each, a little longer than Piper's.
 To add it, see [More lifelike voices](INSTALL.md#more-lifelike-voices-kokoro) in INSTALL.md.
-Kokoro isn't in the web version yet.
+Kokoro needs Docker: its voices are too big and slow to run well in a browser, so the web
+version's text to speech settings point you here instead.
 
 ### Google Cloud voices
 
