@@ -74,6 +74,10 @@ up:
   exact, so a line you rewrite several times is read several times.
 - **Speeds:** each speed a block is read at is a reading of its own. **Fit speeds to
   timings** tries two to four speeds for each block it changes.
+- **Changing the voice or base speed:** every line is read again the first time it's
+  needed. Changing the ends to match, opening a script and fitting its speeds or ends, and
+  **Update all timings** read every block straight away. Scribecue warns about this when
+  it asks.
 - **Clearing them:** clearing the kept readings, in **Settings** under **Storage**, or
   removing all data, means lines are read and counted again.
 - **Another browser or computer** has its own readings.

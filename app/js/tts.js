@@ -358,6 +358,12 @@ function currentVoice() {
 }
 // A voice that makes its readings as audio, with exact lengths: Piper or Google.
 export const usingAudioVoice = () => makesAudio(currentVoice());
+// A Google voice: every new reading is sent to Google, and counts against the user's allowance.
+export const usingGoogle = () => !!currentVoice()?.google;
+// Shows the warnings that a job reading every block may cost money, with a Google voice.
+export function showGoogleCost() {
+  for (const el of document.querySelectorAll('.googlecost')) el.hidden = !usingGoogle();
+}
 export const anyVoices = () => tts.available || tts.piper.length > 0 || tts.google.length > 0;
 const voiceKey = () => currentVoice()?.voiceURI || '';
 const measureKey = (text, speed) => `${voiceKey()}|${rate(speed)}|${spoken(text)}`;
@@ -992,6 +998,7 @@ function render(googleError = '') {
   // The tip is about adding Piper to the Docker setup, which the web version doesn't have.
   $('ttsTip').hidden = tts.piper.length > 0 || HOSTED;
   $('ttsAllExactRow').hidden = piper;
+  showGoogleCost();
   $('ttsExport').disabled = !piper;
   $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper or Google voice: the browser\'s own voices can\'t be recorded.';
   $('ttsBody').classList.toggle('off', !tts.on);

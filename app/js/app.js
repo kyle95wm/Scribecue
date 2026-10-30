@@ -23,7 +23,7 @@ import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
-  usingAudioVoice, measure, prefetch, renderTrack, chosenVoice, chosenVoiceName, setTtsOption, onlyNotes, mixLevels, setMix,
+  usingAudioVoice, measure, prefetch, renderTrack, chosenVoice, chosenVoiceName, showGoogleCost, setTtsOption, onlyNotes, mixLevels, setMix,
   savedReadings, clearSavedReadings } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1756,6 +1756,7 @@ function afterImport(name) {
   const n = S.cues.length;
   $('impWhat').textContent = `${name} has ${n} block${n > 1 ? 's' : ''} with timings of ${n > 1 ? 'their' : 'its'} own.`;
   $('impAlways').checked = false;
+  showGoogleCost();
   importDlg.showModal();
   importDlg.querySelector('.wzchoice').focus();
 }
@@ -1781,6 +1782,7 @@ function readingChanged(what) {
     base: () => `The base speed is now ${Math.round(tts.base * 100)}%` }[what]();
   $('chgWhat').textContent = `${now}, so the readings of ${n === 1 ? 'the 1 block' : `all ${n} blocks`} take a different time.`;
   $('chgAlways').checked = false;
+  showGoogleCost();
   changeDlg.showModal();
   changeDlg.querySelector('.wzchoice').focus();
 }

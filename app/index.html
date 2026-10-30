@@ -253,6 +253,7 @@ docker compose up -d --build</code></pre>
       <span class="dim">Each block ends where its reading now finishes, never running into the next block.</span></span></button>
     <button class="wzcard wzchoice" data-choice="leave"><span><strong>Leave the timings as they are</strong>
       <span class="dim">Lines that no longer fit show their duration in red.</span></span></button>
+    <p class="warnbox googlecost" hidden>You're using a Google Cloud voice, so this reads every block with Google again, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
     <label class="updopt"><input type="checkbox" id="chgAlways"> Always do this when the voice or base speed changes</label>
     <p class="dim small">You can undo the change with <kbd><span class="mod"></span>Z</kbd>, and change this in
       Settings, under Text to speech.</p>
@@ -267,6 +268,7 @@ docker compose up -d --build</code></pre>
       <span class="dim">Each block ends where its reading finishes, at its speed, never running into the next block.</span></span></button>
     <button class="wzcard wzchoice" data-choice="leave"><span><strong>Leave everything as it is</strong>
       <span class="dim">Lines that don't fit show their duration in red, so you can deal with them one by one.</span></span></button>
+    <p class="warnbox googlecost" hidden>You're using a Google Cloud voice, so keeping the timings and fitting the speeds, or changing the ends, reads every block with Google again, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
     <label class="updopt"><input type="checkbox" id="impAlways"> Always do this when I open a script</label>
     <p class="dim small">You can undo either change with <kbd><span class="mod"></span>Z</kbd>, and change this in
       Settings, under Text to speech.</p>
@@ -529,6 +531,7 @@ docker compose up -d --build</code></pre>
           <option value="leave">Leave the timings as they are</option>
         </select>
       </div>
+      <p class="warnbox googlecost" hidden>You're using a Google Cloud voice, so updating all timings or fitting speeds to timings reads every block with Google again, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
       <h3>Update all timings</h3>
       <p class="small">Set the end of every block from how long its reading takes, with each block's own
         speed. This includes blocks marked with H and blocks opened from a file. Ends never run into the
