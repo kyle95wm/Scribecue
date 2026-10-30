@@ -201,9 +201,9 @@ Scribecue, such as another writer or a QC reviewer. The **Export** menu at the t
   readings as one audio file. It's also in the text to speech settings.
 
 `Ctrl/Cmd+O` also opens SRT and VTT files, and Frazier's `.adc` scripts, with their
-timings, their speed, and the pronunciations marked in them, which become sounds-like
-words. Your work in progress is saved in the browser
-as you go too, so reloading the page doesn't lose anything.
+timings, block speeds and base speed, and the pronunciations marked in them, which become
+sounds-like words. Your work in progress is saved in the browser as you go too, so
+reloading the page doesn't lose anything.
 
 ### Getting around
 
@@ -333,6 +333,15 @@ click it to take it out.
   as `+15%`. The rest follow the overall speed. Setting a block back to the overall speed
   makes it follow that again. Block speeds are saved with your work and in exported VTT
   files, as notes that other programs ignore. SRT files can't store them.
+- **Base speed:** a slider from 50% to 150%, as in Frazier. Every reading is made this
+  much faster or slower, on top of its own speed, so a whole project can be nudged without
+  changing any block's speed. 100% is normal, and double-clicking the slider puts it back.
+  It's saved with each project, and a Frazier `.adc` script's base speed comes with it.
+- **When the voice or speed changes:** every reading takes a different time, so Scribecue
+  asks whether to change the blocks' ends to match the new readings, never running into the
+  next block, or leave the timings as they are. Tick **Always do this** to stop it asking,
+  and change your choice later under **When the voice or speed changes**. Changing the ends
+  can be undone.
 - **Read blocks aloud while playing:** each block is read as the playhead reaches it,
   with the original audio turned down. You can turn either part off.
 - **Mix:** the **Video / TTS** slider under the video sets how loud the readings are

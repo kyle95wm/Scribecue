@@ -10,7 +10,7 @@ const state = {
     { id: 9, start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true },
   ],
   media: { name: 'lights.mkv', size: 2376368, duration: 60.02 },
-  settings: { mode: 'write', offset: 0.2, ttsSpeed: 1, ttsVoice: 'piper:en_US-lessac-medium' },
+  settings: { mode: 'write', offset: 0.2, ttsSpeed: 1, ttsBase: 1.05, ttsVoice: 'piper:en_US-lessac-medium' },
   view: { playhead: 21.6, selected: 1 },
 };
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPEEDS, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
+import { SPEEDS, toBase, atBase, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
   piperVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleFailure, makesAudio, overCap,
   toggleFavourite, favouriteVoices } from '../app/js/tts.js';
@@ -291,4 +291,14 @@ test('favourites that are not available right now are kept, without a voice', ()
 
 test('favourites start empty', () => {
   assert.deepEqual(tts.favourites, []);
+});
+
+test('the base speed is 50% to 150%, and readings are made at it times their speed', () => {
+  assert.equal(toBase(1.05), 1.05);
+  assert.equal(toBase(1.054), 1.05);
+  for (const odd of [0.49, 1.51, NaN, '1', undefined]) assert.equal(toBase(odd), 1);
+  assert.equal(atBase(1.15, 1), 1.15, 'at 100% speeds are unchanged, so earlier readings still match');
+  assert.equal(atBase(1.15, 1.05), 1.2075);
+  assert.equal(atBase(0.7, 0.5), 0.35);
+  assert.equal(tts.base, 1);
 });

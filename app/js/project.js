@@ -68,6 +68,7 @@ export function fromProject(json) {
       ...(s.mode === 'write' || s.mode === 'transcribe' ? { mode: s.mode } : {}),
       ...(num(s.offset) ? { offset: s.offset } : {}),
       ...(num(s.ttsSpeed) ? { ttsSpeed: s.ttsSpeed } : {}),
+      ...(num(s.ttsBase) ? { ttsBase: s.ttsBase } : {}),
       ...(typeof s.ttsVoice === 'string' && s.ttsVoice ? { ttsVoice: s.ttsVoice } : {}),
     },
     view: {

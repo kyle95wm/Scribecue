@@ -246,6 +246,18 @@ docker compose up -d --build</code></pre>
     <div class="updbtns"><button id="newCancel">Cancel</button></div>
   </dialog>
 
+  <dialog id="changeDlg" class="updbox wizard" aria-labelledby="chgTitle">
+    <h2 id="chgTitle">Update the timings?</h2>
+    <p id="chgWhat"></p>
+    <button class="wzcard wzchoice" data-choice="ends"><span><strong>Change the ends to match the new readings</strong>
+      <span class="dim">Each block ends where its reading now finishes, never running into the next block.</span></span></button>
+    <button class="wzcard wzchoice" data-choice="leave"><span><strong>Leave the timings as they are</strong>
+      <span class="dim">Lines that no longer fit show their duration in red.</span></span></button>
+    <label class="updopt"><input type="checkbox" id="chgAlways"> Always do this when the voice or speed changes</label>
+    <p class="dim small">You can undo the change with <kbd><span class="mod"></span>Z</kbd>, and change this in
+      Settings, under Text to speech.</p>
+  </dialog>
+
   <dialog id="importDlg" class="updbox wizard" aria-labelledby="impTitle">
     <h2 id="impTitle">What should happen to this script's timings?</h2>
     <p id="impWhat"></p>
@@ -477,6 +489,10 @@ docker compose up -d --build</code></pre>
           <span id="ttsFavsNone" class="dim small">Click ☆ beside a voice to keep it here, and switch to it in one click.</span></div>
         <label for="ttsSpeed">Speed</label>
         <select id="ttsSpeed"></select>
+        <label for="ttsBase">Base speed</label>
+        <div class="basespeed"><input type="range" id="ttsBase" min="50" max="150" step="1" value="100"
+            aria-describedby="ttsBaseNote" data-tip="Double-click for 100%"><output id="ttsBaseOut" for="ttsBase">100%</output>
+          <span id="ttsBaseNote" class="dim small">Every reading, at whatever speed, is made this much faster or slower. 100% is normal.</span></div>
       </div>
       <p id="ttsNoVoices" class="warnbox" hidden></p>
       <p id="ttsPiperNote" class="dim small"></p>
@@ -507,6 +523,12 @@ docker compose up -d --build</code></pre>
           <option value="fit">Keep its timings and fit the reading speeds</option>
           <option value="ends">Change its ends to match the readings</option>
           <option value="leave">Leave it as it is</option>
+        </select>
+        <label for="ttsOnChange">When the voice or speed changes</label>
+        <select id="ttsOnChange">
+          <option value="ask">Ask what to do with the timings</option>
+          <option value="ends">Change the ends to match the new readings</option>
+          <option value="leave">Leave the timings as they are</option>
         </select>
       </div>
       <h3>Update all timings</h3>

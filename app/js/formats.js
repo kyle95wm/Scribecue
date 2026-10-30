@@ -71,9 +71,9 @@ export function toVTT(cues) {
 
 // Frazier's .adc scripts: JSON, with each block in cue_points as { start, end } in
 // milliseconds and its text as HTML. A word marked <abbr class="speech" title="…"> is
-// said as its title, which becomes one of the block's "sounds like" words. The project's
-// base_speed is a percentage (100 is normal), and a block's speed is a code for one of
-// Frazier's speeds, the same as Scribecue's, applied on top of it.
+// said as its title, which becomes one of the block's "sounds like" words. A block's speed
+// is a code for one of Frazier's speeds, the same as Scribecue's, and the project's
+// base_speed is a percentage (100 is normal): { cues, base }, with base as a fraction.
 const ADC_SPEEDS = { 0: 1, 1: 1.15, 2: 1.3, 3: 1.5, 4: 2, 99: 0.85, 98: 0.7 };
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 const decode = (s) => s.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (m, e) => {
@@ -98,16 +98,17 @@ export function adcText(html) {
 
 export function parseAdc(text) {
   let doc;
-  try { doc = JSON.parse(text.replace(/^﻿/, '')); } catch { return []; }
-  if (!Array.isArray(doc?.cue_points)) return [];
-  const base = doc.base_speed > 0 ? doc.base_speed / 100 : 1;
-  return doc.cue_points.filter((c) => Number.isFinite(c?.start) && Number.isFinite(c?.end)).map((c) => {
+  try { doc = JSON.parse(text.replace(/^﻿/, '')); } catch { return { cues: [], base: 1 }; }
+  if (!Array.isArray(doc?.cue_points)) return { cues: [], base: 1 };
+  const base = doc.base_speed >= 50 && doc.base_speed <= 150 ? Math.round(doc.base_speed) / 100 : 1;
+  const cues = doc.cue_points.filter((c) => Number.isFinite(c?.start) && Number.isFinite(c?.end)).map((c) => {
     const { text: t, say } = adcText(c.text);
     const start = Math.max(0, c.start) / 1000;
     const cue = { start, end: Math.max(c.end / 1000, start), text: t };
-    const speed = Math.round(base * (ADC_SPEEDS[c.speed] ?? 1) * 100) / 100;
+    const speed = ADC_SPEEDS[c.speed] ?? 1;
     if (speed !== 1) cue.speed = speed;
     if (say.length) cue.say = say;
     return cue;
   }).sort((x, y) => x.start - y.start);
+  return { cues, base };
 }

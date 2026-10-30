@@ -4,7 +4,7 @@ import {
   PROVIDERS, buildRequest, recentFrames, systemWith, readReply, failure, listModels, fitBudget, draftPrompt, chatContext,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from './ai.js';
-import { tts, chosenVoice, DEFAULT_CPS } from './tts.js';
+import { tts, chosenVoice, DEFAULT_CPS, atBase } from './tts.js';
 import { HOSTED } from './config.js';
 import { lookup as lookUpCast, KEY_PAGE as TMDB_KEY_PAGE } from './tmdb.js';
 import { openSettings as showSettings } from './settings.js';
@@ -179,7 +179,7 @@ async function draftBlock(id = null, extra = '') {
   if (i < 0) return note('Select the block to draft first: click it in the list or on the timeline.');
   const c = cues[i];
   // What a block can hold depends on the voice and the block's speed.
-  const budget = fitBudget(c.end - c.start, tts.cps[chosenVoice()] || DEFAULT_CPS, c.speed ?? tts.speed);
+  const budget = fitBudget(c.end - c.start, tts.cps[chosenVoice()] || DEFAULT_CPS, atBase(c.speed ?? tts.speed, tts.base));
   let frames = [];
   try { frames = await grabFrames(framesFor(c.start, c.end, ai.frames)); } catch (e) { note(`No frames: ${e.message}.`); }
   const prompt = draftPrompt(cues, i, budget, frames.map((f) => f.at)) + (extra ? `\n${extra}` : '');

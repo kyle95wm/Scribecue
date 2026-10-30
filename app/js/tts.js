@@ -31,6 +31,13 @@ export const speedLabel = (s) => (s === 1 ? 'normal' : `${s > 1 ? '+' : '−'}${
 // Menu name: "fast (+15%)" for the set speeds, "custom (+12%)" for others.
 export const speedName = (s) => SPEEDS.find(([v]) => v === s)?.[1] || `custom (${speedLabel(s)})`;
 
+// The base speed, as in Frazier: every reading is made at it times its own speed, so
+// a whole project can be made a little faster or slower and its speeds keep their names.
+export const MIN_BASE = 0.5, MAX_BASE = 1.5;
+export const toBase = (v) => (typeof v === 'number' && v >= MIN_BASE && v <= MAX_BASE ? Math.round(v * 100) / 100 : 1);
+// The rate a reading is made at: a speed, times the base speed.
+export const atBase = (speed, base) => (base === 1 ? speed : Math.round(speed * base * 1e4) / 1e4);
+
 // The speed at which a reading fills secs exactly. Given how long the reading takes at
 // speed `at`, which is the closest it can be measured; reading time scales with 1 / speed.
 export function speedToFit(readSecs, at, secs) {
@@ -287,7 +294,7 @@ export function mergeSay(say = [], add = []) {
 export const hasWord = (text, word) => !!word.trim() && sayPattern([word.trim()]).test(text);
 
 const KEY = 'scribecue.tts';
-const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', online: false, cps: {}, mix: 0, favourites: [] };
+const DEFAULTS = { on: false, voice: '', speed: 1, base: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [] };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -310,10 +317,13 @@ tts.google = googleKey() ? googleVoiceList({ voices: googleStore().voices }, lan
 tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
 tts.favourites = Array.isArray(tts.favourites) ? tts.favourites.filter((f) => typeof f === 'string') : [];
 if (!isSpeed(tts.speed)) tts.speed = 1;
+tts.base = toBase(tts.base);
+if (!['ask', 'ends', 'leave'].includes(tts.onChange)) tts.onChange = 'ask';
+const rate = (speed) => atBase(speed, tts.base);
 
 const save = () => {
-  const { on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, onImport, online, cps, mix, favourites } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, onImport, online, cps, mix, favourites })); } catch { /* ignore */ }
+  const { on, voice, speed, base, live, duck, autoEnd, fitSpeed, skipNotes, onImport, onChange, online, cps, mix, favourites } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, base, live, duck, autoEnd, fitSpeed, skipNotes, onImport, onChange, online, cps, mix, favourites })); } catch { /* ignore */ }
 };
 
 // The mix between the video's sound and the readings, from −1 (only the video) to 1
@@ -329,7 +339,7 @@ export function setMix(mix, keep = true) {
   if (readingEl) readingEl.volume = mixLevels(tts.mix).reading; // a reading under way follows
 }
 
-let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1 };
+let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1, readingChanged: () => {} };
 let voices = [];
 const measured = new Map(); // voice|speed|text -> seconds of video time
 
@@ -346,15 +356,16 @@ function currentVoice() {
 export const usingAudioVoice = () => makesAudio(currentVoice());
 export const anyVoices = () => tts.available || tts.piper.length > 0 || tts.google.length > 0;
 const voiceKey = () => currentVoice()?.voiceURI || '';
-const measureKey = (text, speed) => `${voiceKey()}|${speed}|${spoken(text)}`;
+const measureKey = (text, speed) => `${voiceKey()}|${rate(speed)}|${spoken(text)}`;
 
-// Every reading of this text with the chosen voice so far, as [{ speed, secs }].
-export function readingsOf(text) {
+// Every reading of this text with the chosen voice so far, as [{ speed, secs }], with
+// speeds before the base speed, unless asMade.
+export function readingsOf(text, asMade = false) {
   const head = `${voiceKey()}|`, tail = `|${spoken(text)}`, out = [];
   for (const [k, secs] of measured) {
     if (k.startsWith(head) && k.endsWith(tail)) {
       const speed = +k.slice(head.length, k.length - tail.length);
-      if (speed > 0) out.push({ speed, secs });
+      if (speed > 0) out.push({ speed: asMade ? speed : speed / tts.base, secs });
     }
   }
   return out;
@@ -366,7 +377,7 @@ export function readingsOf(text) {
 export function duration(text, speed = tts.speed) {
   const m = measured.get(measureKey(text, speed));
   if (m != null) return { secs: m, exact: true };
-  return { secs: estimate(text, tts.cps[voiceKey()] || DEFAULT_CPS, speed), exact: false };
+  return { secs: estimate(text, tts.cps[voiceKey()] || DEFAULT_CPS, rate(speed)), exact: false };
 }
 
 // ---- Voices that make audio: Piper and Google
@@ -682,8 +693,8 @@ async function googleRead(words, voice, speed, urgent) {
 // how: 'now' for a reading someone is waiting to hear, 'bulk' for one of many in a long
 // job, or 'background' to have it ready.
 const pending = new Map(); // key -> the worker request, while it's queued or running
-function readAudio(text, speed, voice = currentVoice(), how = 'background') {
-  const words = spoken(text);
+function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background') {
+  const words = spoken(text), speed = rate(blockSpeed);
   const key = `${voice.voiceURI}|${speed}|${words}`;
   let p = audioCache.get(key);
   if (p && how === 'now') pending.get(key)?.hurry();
@@ -707,7 +718,7 @@ function readAudio(text, speed, voice = currentVoice(), how = 'background') {
     p = reading.then((buf) => {
       const wav = readWav(buf);
       measured.set(key, wav.secs);
-      if (voice.voiceURI === voiceKey()) learnShare(voice.voiceURI, readingsOf(text));
+      if (voice.voiceURI === voiceKey()) learnShare(voice.voiceURI, readingsOf(text, true));
       if (words.length > 8) { tts.cps[voice.voiceURI] = words.length / (wav.secs * speed); save(); }
       return { ...wav, buf };
     });
@@ -826,7 +837,7 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
   const u = new SpeechSynthesisUtterance(words);
   if (voice) { u.voice = voice; u.lang = voice.lang; }
   const playRate = hooks.rate();
-  u.rate = Math.min(10, Math.max(0.1, speed * playRate));
+  u.rate = Math.min(10, Math.max(0.1, rate(speed) * playRate));
   u.volume = silent ? 0 : mixLevels(tts.mix).reading;
   const key = measureKey(text, speed);
   let t0 = 0;
@@ -841,7 +852,7 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
     const secs = ((performance.now() - t0) / 1000) * playRate;
     measured.set(key, secs);
     if (words.length > 8) {
-      tts.cps[voiceKey()] = words.length / (secs * speed);
+      tts.cps[voiceKey()] = words.length / (secs * rate(speed));
       save();
     }
     hooks.changed();
@@ -908,6 +919,7 @@ export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
   sel.disabled = !voices.length;
 }
 export const chosenVoice = () => currentVoice()?.voiceURI || '';
+export const chosenVoiceName = () => currentVoice()?.name || 'none';
 
 // The favourites row: a button for each favourite, to switch to it in one click, and the
 // star beside the voice list, to pin or unpin the chosen voice.
@@ -932,7 +944,7 @@ function renderFavourites() {
       b.textContent = `${v.name} (${v.lang})`;
       b.setAttribute('aria-pressed', String(uri === cur));
       b.dataset.tip = 'Switch to this voice';
-      b.addEventListener('click', () => setTtsOption('voice', uri));
+      b.addEventListener('click', () => changeReading('voice', uri));
       return b;
     }
     // Not available now: it stays, for when it is again, and can be taken out.
@@ -980,18 +992,29 @@ function render(googleError = '') {
   $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper or Google voice: the browser\'s own voices can\'t be recorded.';
   $('ttsBody').classList.toggle('off', !tts.on);
   $('ttsSpeed').value = String(tts.speed);
+  $('ttsBase').value = String(Math.round(tts.base * 100));
+  $('ttsBaseOut').textContent = `${Math.round(tts.base * 100)}%`;
   $('ttsLive').checked = tts.live;
   $('ttsDuck').checked = tts.duck;
   $('ttsAuto').checked = tts.autoEnd;
   $('ttsNotes').checked = tts.skipNotes;
   $('ttsFit').checked = tts.fitSpeed;
   $('ttsImport').value = tts.onImport;
+  $('ttsOnChange').value = tts.onChange;
   $('ttsOnline').checked = tts.online;
   fillVoices();
   renderWeb();
 }
 
 // Change a setting from outside the panel, such as the welcome wizard.
+// The voice, speed or base speed, changed by hand in Settings: every reading's length
+// changes, so the blocks' ends may need to follow (see When the voice or speed changes).
+function changeReading(k, v) {
+  const was = currentVoice()?.voiceURI, before = tts[k];
+  setTtsOption(k, v);
+  if (k === 'voice' ? currentVoice()?.voiceURI !== was : tts[k] !== before) hooks.readingChanged(k);
+}
+
 export function setTtsOption(k, v) {
   tts[k] = v;
   save();
@@ -1020,18 +1043,24 @@ export function initTts(h) {
   const d = $('ttsDlg');
   const set = (k, v) => { tts[k] = v; save(); render(); hooks.changed(); warmUp(); };
   $('ttsOn').addEventListener('change', (e) => { if (!e.target.checked) stop(); set('on', e.target.checked); });
-  $('ttsVoice').addEventListener('change', (e) => set('voice', e.target.value));
+  $('ttsVoice').addEventListener('change', (e) => changeReading('voice', e.target.value));
   $('ttsFav').addEventListener('click', () => {
     const cur = currentVoice()?.voiceURI;
     if (cur) set('favourites', toggleFavourite(tts.favourites, cur));
   });
-  sp.addEventListener('change', (e) => set('speed', +e.target.value));
+  sp.addEventListener('change', (e) => changeReading('speed', +e.target.value));
+  // The number follows the slider as it moves, and the speed changes when it's let go.
+  const base = $('ttsBase');
+  base.addEventListener('input', () => { $('ttsBaseOut').textContent = `${base.value}%`; });
+  base.addEventListener('change', () => changeReading('base', toBase(+base.value / 100)));
+  base.addEventListener('dblclick', () => changeReading('base', 1));
   $('ttsLive').addEventListener('change', (e) => set('live', e.target.checked));
   $('ttsDuck').addEventListener('change', (e) => set('duck', e.target.checked));
   $('ttsAuto').addEventListener('change', (e) => set('autoEnd', e.target.checked));
   $('ttsNotes').addEventListener('change', (e) => set('skipNotes', e.target.checked));
   $('ttsFit').addEventListener('change', (e) => set('fitSpeed', e.target.checked));
   $('ttsImport').addEventListener('change', (e) => set('onImport', e.target.value));
+  $('ttsOnChange').addEventListener('change', (e) => set('onChange', e.target.value));
   $('ttsOnline').addEventListener('change', (e) => {
     // Turning online voices off also drops an online voice that was chosen.
     if (!e.target.checked && currentVoice() && !currentVoice().localService && !currentVoice().google) { stop(); tts.voice = ''; }

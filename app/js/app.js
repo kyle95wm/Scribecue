@@ -21,9 +21,9 @@ import { VERSION } from './update.js';
 import { MIN_SPEED, MAX_SPEED } from './tts.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
-import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
+import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
-  usingAudioVoice, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes, mixLevels, setMix,
+  usingAudioVoice, measure, prefetch, renderTrack, chosenVoice, chosenVoiceName, setTtsOption, onlyNotes, mixLevels, setMix,
   savedReadings, clearSavedReadings } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1770,6 +1770,31 @@ for (const b of importDlg.querySelectorAll('.wzchoice')) {
 }
 importDlg.addEventListener('click', (e) => { if (e.target === importDlg) importDlg.close(); });
 document.addEventListener('keydown', (e) => { if (importDlg.open) e.stopPropagation(); }, true);
+
+// The voice, speed or base speed changed in Settings: every reading takes a different
+// time now, so ask whether the ends should follow, or do what was chosen before.
+const changeDlg = $('changeDlg');
+function readingChanged(what) {
+  const n = S.cues.filter((c) => spoken(c.text)).length;
+  if (!writing() || !ttsOn() || !n || tts.onChange === 'leave') return;
+  if (tts.onChange === 'ends') return asJob(() => updateAllTimings(false));
+  const now = { voice: () => `The voice is now ${chosenVoiceName()}`, speed: () => `The speed is now ${speedName(tts.speed)}`,
+    base: () => `The base speed is now ${Math.round(tts.base * 100)}%` }[what]();
+  $('chgWhat').textContent = `${now}, so the readings of ${n === 1 ? 'the 1 block' : `all ${n} blocks`} take a different time.`;
+  $('chgAlways').checked = false;
+  changeDlg.showModal();
+  changeDlg.querySelector('.wzchoice').focus();
+}
+for (const b of changeDlg.querySelectorAll('.wzchoice')) {
+  b.addEventListener('click', () => {
+    const choice = b.dataset.choice;
+    if ($('chgAlways').checked) setTtsOption('onChange', choice);
+    changeDlg.close();
+    if (choice === 'ends') asJob(() => updateAllTimings(false));
+  });
+}
+changeDlg.addEventListener('click', (e) => { if (e.target === changeDlg) changeDlg.close(); });
+document.addEventListener('keydown', (e) => { if (changeDlg.open) e.stopPropagation(); }, true);
 ttsFitStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
 
 // Export description track: every block's Piper or Google reading in one WAV file, each at its
@@ -2392,7 +2417,7 @@ function projectData() {
     blocks: S.cues,
     notes: S.notes,
     media: m,
-    settings: { mode: S.mode, offset: S.offset, ttsSpeed: tts.speed, ttsVoice: chosenVoice() },
+    settings: { mode: S.mode, offset: S.offset, ttsSpeed: tts.speed, ttsBase: tts.base, ttsVoice: chosenVoice() },
     view: { playhead: now(), ...(selIdx() >= 0 ? { selected: selIdx() } : {}) },
   });
 }
@@ -2536,10 +2561,12 @@ async function openProject(file, handle = null) {
   S.projectMedia = p.media;
   S.notes = p.notes;
   aiNotesChanged();
-  const { mode, offset, ttsSpeed, ttsVoice } = p.settings;
+  const { mode, offset, ttsSpeed, ttsBase, ttsVoice } = p.settings;
   if (mode) setMode(mode, true);
   if (offset != null) setOffset(offset);
   if (isSpeed(ttsSpeed)) setTtsOption('speed', ttsSpeed);
+  // Projects saved before there was a base speed were read at 100%.
+  if (toBase(ttsBase) !== tts.base) setTtsOption('base', toBase(ttsBase));
   if (ttsVoice) setTtsOption('voice', ttsVoice);
   changed();
   select(S.cues[p.view.selected]?.id ?? S.cues[0]?.id ?? null, { seek: false });
@@ -2669,7 +2696,8 @@ function exportSubs(fmt) {
 const SCRIPT = /\.(srt|vtt|txt|adc)$/i;
 async function loadSubsFile(file) {
   const text = await file.text();
-  const parsed = /\.adc$/i.test(file.name) ? parseAdc(text) : parseSubs(text);
+  const adc = /\.adc$/i.test(file.name) ? parseAdc(text) : null;
+  const parsed = adc ? adc.cues : parseSubs(text);
   if (!parsed.length) return toast(`No cues found in ${file.name}`);
   if (!okToReplace(`Open ${file.name}`)) return;
   await stopJob();
@@ -2684,7 +2712,10 @@ async function loadSubsFile(file) {
   S.dirty = true;
   showDocName();
   select(S.cues[0].id);
-  toast(`Loaded ${parsed.length} cues from ${file.name}${undoStack.length > 1 ? ' — undo restores previous' : ''}`);
+  // A Frazier script's base speed comes with it.
+  const base = adc && adc.base !== tts.base ? adc.base : null;
+  if (base) setTtsOption('base', base);
+  toast(`Loaded ${parsed.length} cues from ${file.name}${base ? `, at a base speed of ${Math.round(base * 100)}%` : ''}${undoStack.length > 1 ? ' — undo restores previous' : ''}`);
   afterImport(file.name);
 }
 
@@ -3410,6 +3441,7 @@ initTts({
   duck: duckAudio,
   sample: () => spoken(selCue() ? said(selCue()) : ''),
   changed: () => { fitAllAuto(); renderList(); updateEditor(); updateInd(); tlDirty = true; },
+  readingChanged,
 });
 initTour();
 $('helpTour').addEventListener('click', () => { toggleHelp(false); startTour(S.mode); });

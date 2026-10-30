@@ -100,11 +100,14 @@ test('adcText turns HTML into plain text, and speech marks into sounds-like word
   assert.deepEqual(adcText(null), { text: '', say: [] });
 });
 
-test('parseAdc reads Frazier speed codes, on top of the base speed', () => {
+test('parseAdc reads Frazier speed codes and the base speed', () => {
   const adc = (base, speeds) => JSON.stringify({ base_speed: base, cue_points: speeds.map((speed, i) => ({ start: i * 1000, end: i * 1000 + 500, text: 'x', speed })) });
-  assert.deepEqual(parseAdc(adc(100, [0, 1, 2, 99, 98, 3, 4, 7])).map((c) => c.speed), [undefined, 1.15, 1.3, 0.85, 0.7, 1.5, 2, undefined]);
-  assert.deepEqual(parseAdc(adc(105, [0, 1])).map((c) => c.speed), [1.05, 1.21]);
-  assert.deepEqual(parseAdc(adc(undefined, [0])).map((c) => c.speed), [undefined]);
+  const { cues, base } = parseAdc(adc(100, [0, 1, 2, 99, 98, 3, 4, 7]));
+  assert.deepEqual(cues.map((c) => c.speed), [undefined, 1.15, 1.3, 0.85, 0.7, 1.5, 2, undefined]);
+  assert.equal(base, 1);
+  assert.equal(parseAdc(adc(105, [1])).base, 1.05);
+  assert.equal(parseAdc(adc(105, [1])).cues[0].speed, 1.15);
+  for (const odd of [undefined, 0, 49, 151, 'x']) assert.equal(parseAdc(adc(odd, [0])).base, 1);
 });
 
 test('parseAdc reads Frazier cue points in milliseconds, sorted, skipping broken ones', () => {
@@ -114,11 +117,11 @@ test('parseAdc reads Frazier cue points in milliseconds, sorted, skipping broken
     { start: 'x', end: 1, text: '<p>Broken</p>' },
     { start: 9000, end: 8000, text: '<p>Backwards</p>' },
   ] });
-  assert.deepEqual(parseAdc('﻿' + adc), [
+  assert.deepEqual(parseAdc('﻿' + adc).cues, [
     { start: 6.804, end: 8.718, text: 'First.' },
     { start: 9, end: 9, text: 'Backwards' },
     { start: 56.855, end: 59.239, text: 'Second Mathieu', say: [['Mathieu', 'matthew']] },
   ]);
-  assert.deepEqual(parseAdc('not json'), []);
-  assert.deepEqual(parseAdc('{"cue_points": null}'), []);
+  assert.deepEqual(parseAdc('not json'), { cues: [], base: 1 });
+  assert.deepEqual(parseAdc('{"cue_points": null}'), { cues: [], base: 1 });
 });

@@ -513,6 +513,10 @@ textarea:disabled { opacity: 0.5; }
 /* The mix between the video's sound and the readings, under the video. */
 .mixbox { display: inline-flex; align-items: center; gap: 6px; font: 11px var(--mono); color: var(--dim); white-space: nowrap; }
 .mixbox[hidden] { display: none; }
+.basespeed { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.basespeed input { flex: 1; min-width: 160px; accent-color: var(--accent); }
+.basespeed output { font: 13px var(--mono); min-width: 4.5ch; text-align: right; }
+.basespeed .small { flex-basis: 100%; }
 .mixbox input { width: 90px; accent-color: var(--accent); }
 /* Read by screen readers, not shown. */
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
