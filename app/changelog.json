@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.43.0",
+  "date": "2026-10-30",
+  "notes": "## Google Cloud voices\n\n- Text to speech can now use Google Cloud's **Standard** voices, with your own Google Cloud key. Add it in **Settings**, under **Text to speech**, and the voices in your languages appear in the voice list. Like Piper voices, they give exact lengths straight away and can be exported as a description track. Each reading sends the block's text to Google.\n- The key stays in your browser and is only sent to Google, along with Scribecue's address and nothing else, so you can restrict the key to Scribecue's website.\n- A new guide, **Google voices**, covers setting up the key and making sure you're never billed. It's in **Guides**, in the shortcuts overlay."
+ },
+ {
   "version": "0.42.0",
   "date": "2026-10-29",
   "notes": "## Opening a script\n\n- When you open a script, its timings are worked out in the background, whether you chose what to do or Scribecue used your usual choice. A progress bar with **Stop** shows at the bottom while it runs, and you can carry on working with the script meanwhile.\n\n## Mix\n\n- A new slider under the video, between **Video** and **TTS**, sets how loud the readings are against the video's sound. Double-click it to put it back in the middle. Scribecue remembers where you left it.\n\n## Block list\n\n- The selected block, or the one playing, moves to the top of the list, so you can see the blocks coming up below it. A block you click stays where it is."
