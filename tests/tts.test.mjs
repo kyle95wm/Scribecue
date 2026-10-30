@@ -245,6 +245,9 @@ test('a Google reading sends the text, voice and speed, with the key in a header
   assert.ok(!url.includes('AIza'));
   assert.equal(init.method, 'POST');
   assert.equal(init.headers['x-goog-api-key'], 'AIzaTEST');
+  // Only Scribecue's address goes with it, for keys restricted to its website, and no cookies.
+  assert.equal(init.referrerPolicy, 'strict-origin');
+  assert.equal(init.credentials, 'omit');
   assert.deepEqual(JSON.parse(init.body), {
     input: { text: 'A door opens.' },
     voice: { languageCode: 'en-GB', name: 'en-GB-Standard-A' },
@@ -256,6 +259,7 @@ test('Google errors are explained', async () => {
   const res = (status, message) => ({ status, json: async () => ({ error: { message } }) });
   assert.match(await googleFailure(res(400, 'API key not valid. Please pass a valid API key.')), /didn’t accept the key/);
   assert.match(await googleFailure(res(403, 'Cloud Text-to-Speech API has not been used in project 1')), /^Google refused: Cloud Text-to-Speech/);
+  assert.match(await googleFailure(res(403, 'Requests from referer https://example.com/ are blocked.')), /restricted to other websites/);
   assert.match(await googleFailure(res(429, 'Quota exceeded')), /too many readings/);
   assert.equal(await googleFailure({ status: 500, json: async () => { throw new Error('x'); } }), 'Google answered 500');
 });

@@ -131,11 +131,16 @@ export function googleVoiceList(json, langs = ['en']) {
   return mine.length ? mine : all;
 }
 
+// How every request to Google goes: no cookies, and only Scribecue's address as the
+// referrer (never the page's path), so a key restricted to Scribecue's website works.
+export const GOOGLE_FETCH = { credentials: 'omit', referrerPolicy: 'strict-origin' };
+
 // The request for one reading. LINEAR16 comes back as a WAV file, base64 encoded.
 export function googleRequest(text, voice, speed, key) {
   return {
     url: `${GOOGLE}/text:synthesize`,
     init: {
+      ...GOOGLE_FETCH,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify({
@@ -152,6 +157,7 @@ export async function googleFailure(r) {
   let msg = '';
   try { msg = (await r.json())?.error?.message || ''; } catch { /* not JSON */ }
   if (r.status === 400 && /api key/i.test(msg)) return 'Google didn’t accept the key. Check it in Settings, under Text to speech';
+  if (r.status === 403 && /referer|referrer/i.test(msg)) return `Google refused: the key is restricted to other websites. Add ${globalThis.location?.origin || 'Scribecue’s address'}/* to its website restrictions`;
   if (r.status === 403) return `Google refused: ${msg || 'the key may not be allowed to use Text-to-Speech'}`;
   if (r.status === 429) return 'Google says too many readings were asked for at once, or the key’s quota is used up';
   return `Google answered ${r.status}${msg ? `: ${msg}` : ''}`;
@@ -532,7 +538,7 @@ export async function loadGoogle() {
   if (!key) tts.google = [];
   else if (navigator.onLine !== false) {
     try {
-      const r = await fetch(`${GOOGLE}/voices`, { headers: { 'x-goog-api-key': key }, credentials: 'omit', referrerPolicy: 'no-referrer' });
+      const r = await fetch(`${GOOGLE}/voices`, { ...GOOGLE_FETCH, headers: { 'x-goog-api-key': key } });
       if (!r.ok) throw new Error(await googleFailure(r));
       const list = ((await r.json()).voices || []).filter((v) => /-Standard-/.test(v.name || ''))
         .map(({ name, languageCodes, ssmlGender }) => ({ name, languageCodes, ssmlGender }));
@@ -564,7 +570,7 @@ async function googleRead(words, voice, speed, urgent) {
   googleBusy++;
   try {
     const { url, init } = googleRequest(words, voice, speed, googleKey());
-    const r = await fetch(url, { ...init, credentials: 'omit', referrerPolicy: 'no-referrer' });
+    const r = await fetch(url, init);
     if (!r.ok) throw new Error(await googleFailure(r));
     const b64 = (await r.json()).audioContent || '';
     return Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)).buffer;

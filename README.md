@@ -463,10 +463,15 @@ recordings, so lengths are exact straight away and you can export a description 
 Unlike Piper, each reading sends the block's text to Google, and they need the internet.
 
 1. In the [Google Cloud console](https://console.cloud.google.com/apis/library/texttospeech.googleapis.com),
-   turn on the **Cloud Text-to-Speech API** for a project, then make an API key under
-   **APIs & Services**, **Credentials**. Restricting the key to the Text-to-Speech API is
-   a good idea.
-2. In Scribecue, open **Settings**, choose **Text to speech**, and paste the key under
+   turn on the **Cloud Text-to-Speech API** for a project.
+2. Under **APIs & Services**, **Credentials**, create an API key. Restrict it, so it's no
+   use to anyone else who gets hold of it:
+   - **API restrictions:** only the **Cloud Text-to-Speech API**.
+   - **Application restrictions:** **Websites**, with the addresses you open Scribecue
+     at: `https://scribecue.kyleadvoice.ca/*` for the web version, and
+     `http://localhost:8484/*` for Docker (or your own port). Scribecue sends Google only
+     its address, never anything else about the page.
+3. In Scribecue, open **Settings**, choose **Text to speech**, and paste the key under
    **Google Cloud voices**.
 
 The Standard voices in your languages then appear in the voice list, under
