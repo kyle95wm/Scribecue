@@ -95,6 +95,8 @@ const S = {
   offset: (() => { try { const v = parseFloat(localStorage.getItem('scribecue.offset')); return OFFSETS.includes(v) ? v : 0.2; } catch { return 0.2; } })(),
   // After editing a block, go back to its start, to hear it again. On unless turned off.
   replay: (() => { try { return localStorage.getItem('scribecue.replay') !== '0'; } catch { return true; } })(),
+  // The total length shows the time remaining instead.
+  remaining: (() => { try { return localStorage.getItem('scribecue.remaining') === '1'; } catch { return false; } })(),
   resumeAfterEdit: false, // hold-to-mark paused playback; closing the editor resumes it
   rate: 1,
   hasVideo: false,
@@ -1356,6 +1358,21 @@ const CTL = {
 // Don't take focus, so Space and the other keys keep working on the timeline.
 ctrls.addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
 ctrls.addEventListener('click', (e) => CTL[e.target.closest('button')?.dataset.ctl]?.());
+// After the clock: the total length, or, clicked, the time remaining. Remembered.
+function showDur(t = now()) {
+  const d = S.hasVideo ? duration() : NaN, remaining = S.remaining && d > 0;
+  durEl.textContent = !(d > 0) ? '--:--:--.---'
+    : remaining ? `−${fmtTime(Math.max(0, d - t), '.')}` : fmtTime(d, '.');
+  durEl.dataset.tip = remaining ? 'Time remaining. Click to show the total length instead'
+    : 'Total length. Click to show the time remaining instead';
+  durEl.setAttribute('aria-label', remaining ? 'Time remaining. Show the total length instead' : 'Total length. Show the time remaining instead');
+}
+durEl.addEventListener('mousedown', (e) => e.preventDefault()); // keys stay on the timeline
+durEl.addEventListener('click', () => {
+  S.remaining = !S.remaining;
+  try { localStorage.setItem('scribecue.remaining', S.remaining ? '1' : '0'); } catch { /* ignore */ }
+  showDur();
+});
 clockEl.addEventListener('click', async (e) => {
   e.currentTarget.blur(); // so Space still plays
   const tc = fmtTime(now(), '.');
@@ -2671,7 +2688,7 @@ function closeVideo() {
   const v = $('videoName');
   v.textContent = 'no media';
   v.classList.add('dim');
-  durEl.textContent = '--:--:--.---';
+  showDur();
   renderOverlay(null);
   tlDirty = true;
 }
@@ -2931,7 +2948,7 @@ async function legacyWaveform(file, reason) {
 }
 
 video.addEventListener('loadedmetadata', () => {
-  durEl.textContent = fmtTime(duration(), '.');
+  showDur();
   if (S.pps * duration() < tl.clientWidth) fitAll();
   tlDirty = true;
   const f = S.videoFile;
@@ -3275,6 +3292,7 @@ function tick(ts) {
     lastT = t;
     updateActive(t);
     clockEl.textContent = fmtTime(t, '.');
+    if (S.remaining) showDur(t);
   }
   if (tlDirty) { drawTimeline(); drawScrub(true); } else drawScrub();
   updateMark();
@@ -3309,7 +3327,7 @@ showDocName();
 handleStore.get().then((h) => { if (h && h.name === S.subName) { S.handle = h; checkWrite(); } });
 updateInd();
 setMode(S.mode, true);
-durEl.textContent = S.hasVideo ? fmtTime(duration(), '.') : '--:--:--.---';
+showDur();
 if (restored) {
   select(S.cues[0].id, { seek: false });
   toast(`Restored ${restored} cues from autosave`);

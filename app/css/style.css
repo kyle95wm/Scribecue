@@ -238,6 +238,8 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
 button.clock { padding: 0; border: 0; background: none; color: inherit; }
 .clock.copy { cursor: copy; border-radius: 4px; }
 .clock.copy:hover { color: var(--accent); }
+.durbtn { cursor: pointer; border-radius: 4px; }
+.durbtn:hover { color: var(--text); }
 .pill {
   font: 600 11px var(--mono);
   padding: 1px 8px;

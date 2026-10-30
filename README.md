@@ -495,6 +495,8 @@ afterwards is instant. Safari switches tracks itself.
   block under the playhead. Hover over one to see its key.
 - **Copy a timecode:** click the clock under the video. To set a block's start or end to
   the playhead, press `A` or `S`.
+- **Time remaining:** click the total length, next to the clock, to show the time left
+  instead. Click it again to go back. Scribecue remembers which you chose.
 - **Mouse:** drag a block to move it, drag an edge to resize it, or drag across empty
   space to draw a new block. Scroll to pan, and `Ctrl/Cmd`+scroll or pinch to zoom.
 - **Guided tour:** lights up each part of the editor in turn and explains it, from the two
