@@ -72,21 +72,21 @@ export const STEPS = [
     text: () => 'The scrubber covers the whole video, with your blocks marked along it. The buttons step by frame, by three seconds or by block, play just the selected block, or loop it. Each one has a key, too.',
   },
   {
-    target: 'nav [data-act="settings"]',
-    only: 'write',
-    title: 'Text to speech',
-    text: () => 'Hear your blocks read aloud, to check each one fits before the next line of dialogue. Readings can set a block’s end, or a block’s speed can stretch to fill it. With a Piper voice, lengths are exact and you can export a description track. Choose the voice in Settings, under Text to speech.',
-  },
-  {
-    target: 'nav [data-act="settings"]',
-    only: 'transcribe',
-    title: 'Speech to text',
-    text: () => `Whisper can type each line for you: when you let go of ${keyFor('hold')}, it listens to the block and fills in what the narrator said, ready to check. It runs on your computer. Set it up in Settings, under Transcribing, where it can also fill in every empty block at once.`,
+    target: '#ind',
+    title: 'What’s on',
+    text: () => `Under the video: the playback speed, FOLLOW and LOOP, and the reaction offset for ${keyFor('hold')}. Settings show here while they’re on, such as REPLAY, which takes the playhead back to a block’s start when you finish editing it, so you hear it again. Click one to change it.`,
   },
   {
     target: '#aiBtn',
     title: 'AI help, if you want it',
-    text: () => 'Connect your own AI provider, or Ollama on your own computer, to ask about a scene or draft a block from its frames. Drafts only go in when you choose. It’s off until you connect one.',
+    text: () => 'Connect your own AI provider in Settings, or Ollama on your own computer, to ask about a scene or draft a block from its frames. Drafts only go in when you choose. It’s off until you connect one.',
+  },
+  {
+    target: 'nav [data-act="settings"]',
+    title: 'Settings',
+    text: (mode) => `Everything you set up is in Settings (${keyFor('settings')}). ${mode === 'write'
+      ? 'Start with Text to speech: turn it on to hear your blocks read aloud, and check each one fits before the next line of dialogue. With a Piper voice, lengths are exact and you can export a description track.'
+      : `Start with Transcribing: Whisper can type each line for you. When you let go of ${keyFor('hold')}, it listens to the block and fills in what the narrator said, ready to check. It runs on your computer.`} AI help, your shortcuts and storage are there too, and so are setup and this tour.`,
   },
   {
     target: 'nav',
@@ -100,7 +100,7 @@ export const STEPS = [
   {
     target: 'nav [data-act="help"]',
     title: 'That’s the tour',
-    text: () => 'Press ? any time for every keyboard shortcut, and to change them. Next comes a short setup; once you’ve picked a mode, you’ll see the loop to work in. Settings, at the top, changes your choices later, and the shortcuts overlay can show you this tour again.',
+    text: () => 'Press ? any time for every keyboard shortcut, and to change them. Next comes a short setup; once you’ve picked a mode, you’ll see the loop to work in. Settings changes your choices later, and Settings and the shortcuts overlay can show you this tour again.',
   },
 ];
 

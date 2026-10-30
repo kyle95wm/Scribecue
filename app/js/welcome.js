@@ -45,6 +45,7 @@ function summarise() {
         lines.push(`Downloads the ${$('wzPiperVoice').selectedOptions[0].textContent} Piper voice when you finish, and uses it once it’s ready`);
       }
     } else lines.push('Text to speech off');
+    if ($('wzReplayWrite').checked) lines.push('Goes back to each block’s start after you edit it');
   }
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
   if (!HOSTED) lines.push(u === '1' ? 'Checks for updates once a day' : u === '0' ? 'Doesn’t check for updates' : 'Update checks: not chosen yet');
@@ -58,6 +59,7 @@ function finish() {
   hooks.setMode(m, true);
   if (m === 'transcribe') { hooks.setOffset(+$('wzOffset').value); hooks.setReplay($('wzReplay').checked); }
   if (m === 'write') {
+    hooks.setReplay($('wzReplayWrite').checked);
     setTtsOption('on', $('wzTts').checked);
     if ($('wzTts').checked) {
       if ($('wzVoice').value) setTtsOption('voice', $('wzVoice').value);
@@ -87,7 +89,7 @@ export function openWelcome() {
   step = 0;
   for (const r of document.querySelectorAll('input[name=wzMode]')) r.checked = r.value === hooks.getMode();
   $('wzOffset').value = String(hooks.getOffset());
-  $('wzReplay').checked = hooks.getReplay();
+  $('wzReplay').checked = $('wzReplayWrite').checked = hooks.getReplay();
   // New users who pick Write most likely want text to speech, so it starts ticked for them.
   $('wzTts').checked = tts.on || !welcomed();
   fillVoiceSelect($('wzVoice'), chosenVoice());
