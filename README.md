@@ -377,9 +377,14 @@ click it to take it out.
   slows down to fill the new length. The block's speed then shows as custom, such as
   `custom (−12%)`, and keeps fitting as you edit the text. It stays between −50% and
   +100%. Picking a speed for the block yourself, from its menu or with `[` `]`, keeps that
-  speed when you resize; setting it back to default lets resizing fit it again. Turn this
-  off with **Change a block's reading speed when you resize it** in the text to speech
-  settings.
+  speed when you resize, and the block's end follows the reading instead; resizing it after
+  setting it back to normal fits the speed again. Turn this off with **Change a block's
+  reading speed when you resize it** in the text to speech settings.
+- **Every block fits its reading:** as you edit a block, either its end follows the
+  reading, as in a new block, or its reading speed fills its length, as in a resized one.
+  Blocks marked with `H`, drawn on the timeline or opened from a file keep their length
+  and fit the speed. A reading only runs over its block, shown in red, when even +100% is
+  too slow or the next block is in the way.
 - **Sounds like:** when a voice says a name or word wrong, tell it how to say it, without
   changing the text. Select the word in the text box and click the **Sounds Like** button
   that pops up under it, or press `Alt+Shift+P`. The word is filled in for you, so spell

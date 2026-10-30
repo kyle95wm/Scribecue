@@ -707,6 +707,7 @@ edText.addEventListener('input', () => {
   if (!c) return;
   if (!edit.pushed) { pushUndo(); edit.pushed = true; }
   c.text = edText.value;
+  if (ttsOn()) adapt(c);
   fitAuto(c) || fitSpeed(c);
   changed(c.id);
 });
@@ -1519,6 +1520,15 @@ function fitAuto(c) {
   c.end = end;
   return true;
 }
+// Every block being written fits its reading one way or the other: its end follows the
+// reading (new blocks, and blocks with a speed picked by hand), or its speed fills its
+// length (the rest, such as blocks marked with H, drawn on the timeline or opened from a
+// file), so a reading only runs over when nothing makes room for it.
+function adapt(c) {
+  if (c.auto || c.fit) return;
+  if (!c.pinned && tts.fitSpeed) c.fit = true;
+  else if (tts.autoEnd) c.auto = true;
+}
 // A block's length changed by hand: its start or end edge. With text to speech on and
 // "change a block's reading speed when you resize it", the reading's speed follows the
 // new length from now on. Otherwise a new end is simply kept, and an auto block whose
@@ -1895,6 +1905,8 @@ function setBlockSpeed(c, v) {
   // resizing fits the speed again.
   delete c.fit;
   if (c.speed) c.pinned = true; else delete c.pinned;
+  // The speed was picked, so the end follows the reading instead.
+  if (tts.autoEnd) c.auto = true;
   fitAuto(c);
   changed(c.id);
   tlDirty = true;
