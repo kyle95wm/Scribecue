@@ -76,20 +76,26 @@ export function speedFromReadings(points, secs, near = 1, share = 0) {
 
 // The next speed to try when fitting a reading to secs, given the guess from
 // speedFromReadings. Readings don't always change smoothly with speed (Kokoro's go in
-// steps), so once the guess has been read already, it tries halfway between the closest
-// reading that fits and the closest that's too long, in the speeds' 1% steps. With
-// nothing left between them, it settles on the best (see bestFit). near: how far over
-// a reading can run and still fit.
+// steps), so a guess is only tried when it's new and lies between the closest reading
+// that fits and the closest that's too long. Otherwise it tries halfway between those
+// two, in the speeds' 1% steps. Once a reading is within near of secs, or nothing is
+// left between them, it settles on the best (see bestFit). near: how far over a
+// reading can run and still fit.
 const readAt = (points, s) => points.some((p) => Math.abs(p.speed - s) < 0.005);
 export function nextFitSpeed(points, secs, guess, near = 0) {
-  if (guess != null && !readAt(points, guess)) return guess;
+  const best = bestFit(points, secs, near);
+  if (best != null && points.some((p) => Math.abs(p.speed - best) < 0.005 && Math.abs(p.secs - secs) <= near)) return best;
   const fits = points.filter((p) => p.secs <= secs + near), long = points.filter((p) => p.secs > secs + near);
-  if (fits.length && long.length) {
-    const under = fits.reduce((a, p) => (p.secs > a.secs ? p : a)), over = long.reduce((a, p) => (p.secs < a.secs ? p : a));
+  const under = fits.length ? fits.reduce((a, p) => (p.secs > a.secs ? p : a)) : null;
+  const over = long.length ? long.reduce((a, p) => (p.secs < a.secs ? p : a)) : null;
+  // Faster than a reading that fits only gets shorter; slower than one that's too long, longer.
+  const between = (s) => (!under || s < under.speed - 0.005) && (!over || s > over.speed + 0.005);
+  if (guess != null && !readAt(points, guess) && between(guess)) return guess;
+  if (under && over) {
     const mid = Math.round(((under.speed + over.speed) / 2) * 100) / 100;
     if (Math.abs(under.speed - over.speed) > 0.015 && !readAt(points, mid)) return mid;
   }
-  return bestFit(points, secs, near);
+  return best;
 }
 // Of the speeds read, the one whose reading fills secs best without running over by more
 // than near, or the one with the shortest reading if none fits.

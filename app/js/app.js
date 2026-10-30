@@ -1257,6 +1257,12 @@ function endDrag() {
   if (d.moved && d.id != null && d.mode !== 'none') {
     pushUndo(d.snap);
     changed();
+    // A speed picked by hand stays when the block is resized, so say why the reading
+    // doesn't follow the new length.
+    const c = S.cues[idx(d.id)];
+    if ((d.mode === 'start' || d.mode === 'end') && c?.pinned && ttsOn() && tts.fitSpeed && spoken(c.text)) {
+      toast(`Block #${idx(c.id) + 1} keeps the speed you picked, ${speedName(c.speed)}. Set its speed to normal to have the reading fill the block`);
+    }
     if (d.mode === 'create') { select(d.id, { seek: false, reveal: false }); editText(); }
   }
 }

@@ -373,6 +373,18 @@ test('fitting tries a new guess, then halfway between the closest readings eithe
   assert.equal(nextFitSpeed(readHeart(1, 0.85, 0.94, 0.95), 5.3, 0.94, 0.03), 0.95);
 });
 
+test('fitting stops once a reading is close enough, and never guesses outside what’s known', () => {
+  // 0.95 reads 5.25, within 0.06 of 5.3: no more tries, whatever the guess.
+  assert.equal(nextFitSpeed(readHeart(1, 0.85, 0.95), 5.3, 0.97, 0.06), 0.95);
+  // A block shrunk to 2.5 s, read by Kokoro near its fastest, where readings barely change:
+  // a guess slower than a reading that's already too long (1.48) is not tried.
+  const fast = [{ speed: 1, secs: 4.16 }, { speed: 1.95, secs: 2.517 }, { speed: 1.97, secs: 2.496 }, { speed: 2, secs: 2.453 }];
+  assert.equal(nextFitSpeed(fast, 2.5, 1.48, 0.01), 1.97);
+  assert.equal(nextFitSpeed(fast.slice(0, 1).concat(fast.slice(3)), 2.5, 1.48, 0.01), 1.48);
+  // Nor one faster than a reading that already fits.
+  assert.equal(nextFitSpeed(readHeart(1, 0.85), 5.3, 1.1, 0.03), 0.93);
+});
+
 test('fitting settles on the reading that fills the block best without running over', () => {
   assert.equal(bestFit(readHeart(1, 0.9, 0.95), 5.3, 0.03), 0.95); // 5.25 fits; 5.44 runs over
   assert.equal(bestFit(readHeart(1, 0.9, 0.95), 5.45, 0.03), 0.9); // 5.44 fits now
