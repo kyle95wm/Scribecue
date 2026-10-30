@@ -401,8 +401,12 @@ click it to take it out.
   takes about as long as reading them all, shows its progress, and can be stopped.
 - **Timing check:** the editor shows how long the reading takes, such as `TTS 2.9 s`, in red
   if it's longer than the block, and the list shows that block's duration in red. `~`
-  means it's an estimate. It becomes exact once the
-  block has been read, and the estimates get more accurate for a voice as you use it.
+  means it's an estimate. It becomes exact once the block has been read, and the estimates
+  get more accurate for a voice as you use it.
+- **Readings made:** a dot (●) after a block's duration in the list means its reading has
+  been made with the chosen voice, at its speed and the base speed, so its length is exact.
+  With a Google voice, it means the reading is kept in your browser: it plays straight away
+  and isn't sent to Google again.
 
 Scribecue uses the voices built into your computer, so the text stays on it. For much more
 natural voices that also stay on your computer, [use Piper](#piper-voices). Mac and
@@ -581,7 +585,7 @@ afterwards is instant. Safari switches tracks itself.
   said as words. The block list is a list a screen reader can move through, reading each
   block's number, start, length and text, and which one is selected. The buttons and
   indicators under the video say what they do, and whether they're on. Lines too long to
-  read in time say so in words, not only in red. The timeline itself is hidden from screen
+  read in time say so in words, not only in red, and so do blocks whose reading is made. The timeline itself is hidden from screen
   readers, since the block list has the same blocks. Work on screen readers is still going:
   with NVDA or JAWS on Windows, single-letter keys such as `H` may need focus mode.
 - **Scribecue on GitHub:** the small GitHub mark in the bottom right opens the project's

@@ -17,9 +17,9 @@ export function speakable(text, mac = true) {
 }
 
 // What a screen reader says for a block in the list.
-export function blockLabel({ n, start, secs, text, tooLong = false }) {
+export function blockLabel({ n, start, secs, text, tooLong = false, ready = false }) {
   const words = String(text || '').replace(/<[^>]*>|\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim();
-  return `Block ${n}, at ${start}, ${secs} seconds${tooLong ? ', too long to read in time' : ''}: ${words || 'empty'}`;
+  return `Block ${n}, at ${start}, ${secs} seconds${tooLong ? ', too long to read in time' : ''}${ready ? ', reading ready' : ''}: ${words || 'empty'}`;
 }
 
 let region = null, timer = 0;

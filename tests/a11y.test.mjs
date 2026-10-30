@@ -17,3 +17,8 @@ test('a block in the list is read with its number, time, length and text', () =>
   assert.equal(blockLabel({ n: 6, start: '00:00:47.000', secs: '2.50', text: '' }), 'Block 6, at 00:00:47.000, 2.50 seconds: empty');
   assert.match(blockLabel({ n: 1, start: '00:00:01.000', secs: '1.00', text: 'Long line', tooLong: true }), /too long to read in time/);
 });
+
+test('a block whose reading is ready says so', () => {
+  assert.equal(blockLabel({ n: 2, start: '00:00:11.500', secs: '2.50', text: 'The colours fold.', ready: true }),
+    'Block 2, at 00:00:11.500, 2.50 seconds, reading ready: The colours fold.');
+});
