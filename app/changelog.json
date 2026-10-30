@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.40.2",
+  "date": "2026-10-29",
+  "notes": "## Reading it yourself\n\n- In Write mode, while you hold **H** to time your own read, the block's text stays on the video until you let go, even once the playhead passes its old end."
+ },
+ {
   "version": "0.40.1",
   "date": "2026-10-29",
   "notes": "## Tour and setup\n\n- The tour has caught up with Settings: one step shows you Settings and what to set up first for your mode, and a new step covers what's on under the video, such as REPLAY.\n- Setup's text to speech step now asks about Replay too, as the transcribing step does.\n\n## Fixes\n\n- **Alt+Shift+V** and **Alt+Shift+H** open their settings in either mode, as Settings does.\n- Messages that pointed to the old text to speech panel, to TTS under the video or to the version number now point to Settings.\n- The tour only says setup comes next when it does."
