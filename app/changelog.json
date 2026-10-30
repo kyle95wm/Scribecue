@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.56.0",
+  "date": "2026-10-30",
+  "notes": "## Edit blocks in the list\n\n- As in Frazier, the selected block now opens right where it is in the list, instead of in a box above it. Every other block shows its start and end, with its text underneath.\n- Next to the selected block’s times, three buttons move it back one frame, to start at the playhead, or forward one frame.\n- With text to speech on, the block’s speed, voice and reading time sit under its text.\n- The **sounds like** button is gone. Select a word in the text and click the **Sounds Like** button that pops up, or press **Alt+Shift+P**."
+ },
+ {
   "version": "0.55.0",
   "date": "2026-10-30",
   "notes": "## SMPTE timecode\n\n- Times now show as hours, minutes, seconds and frames (**00:00:00:00**), at the video’s own frame rate. Scribecue reads the frame rate from the video file, or works it out as the video plays.\n- 29.97 and 59.94 fps videos use drop-frame timecode, shown with a **;** before the frames, so the timecode keeps pace with the clock.\n- **Frame** steps move exactly one frame of the video.\n- You can type a time as **hh:mm:ss:ff**, as before with **hh:mm:ss.mmm**, or in seconds.\n- SRT and WebVTT exports still use real time, so they stay in sync with the video at any frame rate."
