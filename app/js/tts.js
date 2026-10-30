@@ -74,14 +74,40 @@ export function speedFromReadings(points, secs, near = 1, share = 0) {
   return Math.min(MAX_SPEED, Math.max(MIN_SPEED, s));
 }
 
+// The next speed to try when fitting a reading to secs, given the guess from
+// speedFromReadings. Readings don't always change smoothly with speed (Kokoro's go in
+// steps), so once the guess has been read already, it tries halfway between the closest
+// reading that fits and the closest that's too long, in the speeds' 1% steps. With
+// nothing left between them, it settles on the best (see bestFit). near: how far over
+// a reading can run and still fit.
+const readAt = (points, s) => points.some((p) => Math.abs(p.speed - s) < 0.005);
+export function nextFitSpeed(points, secs, guess, near = 0) {
+  if (guess != null && !readAt(points, guess)) return guess;
+  const fits = points.filter((p) => p.secs <= secs + near), long = points.filter((p) => p.secs > secs + near);
+  if (fits.length && long.length) {
+    const under = fits.reduce((a, p) => (p.secs > a.secs ? p : a)), over = long.reduce((a, p) => (p.secs < a.secs ? p : a));
+    const mid = Math.round(((under.speed + over.speed) / 2) * 100) / 100;
+    if (Math.abs(under.speed - over.speed) > 0.015 && !readAt(points, mid)) return mid;
+  }
+  return bestFit(points, secs, near);
+}
+// Of the speeds read, the one whose reading fills secs best without running over by more
+// than near, or the one with the shortest reading if none fits.
+export function bestFit(points, secs, near = 0) {
+  if (!points.length) return null;
+  const fits = points.filter((p) => p.secs <= secs + near);
+  const p = fits.length ? fits.reduce((a, q) => (q.secs > a.secs ? q : a)) : points.reduce((a, q) => (q.secs < a.secs ? q : a));
+  return Math.round(p.speed * 100) / 100;
+}
+
 // Piper's readings: about a quarter of a reading at normal speed (the pauses, and the
 // ends of sounds) stays the same at any speed. Learned per voice from lines read at two
 // speeds, so the first guess at a speed that fills a block is close.
 const SHARE = 0.23;
 const shares = new Map(); // voice -> [sum, count]
-export function fixedShare() {
-  if (!usingAudioVoice()) return 0;
-  const s = shares.get(voiceKey());
+export function fixedShare(uri) {
+  if (!usingAudioVoice(uri)) return 0;
+  const s = shares.get(voiceKey(uri));
   return s ? s[0] / s[1] : SHARE;
 }
 function learnShare(voiceURI, points) {
@@ -251,6 +277,18 @@ export function writeWav(samples, rate) {
   return new Blob([h.buffer, samples.buffer], { type: 'audio/wav' });
 }
 
+// Mono samples at another rate, by straight lines between them: for putting readings by
+// voices with different rates in one file.
+export function resample(samples, from, to) {
+  if (from === to || !samples.length) return samples;
+  const n = Math.round(samples.length * to / from), out = new Int16Array(n), step = from / to;
+  for (let i = 0; i < n; i++) {
+    const x = i * step, j = Math.floor(x), f = x - j;
+    out[i] = Math.round(samples[j] * (1 - f) + (samples[Math.min(j + 1, samples.length - 1)] ?? 0) * f);
+  }
+  return out;
+}
+
 // Lays readings out on a timeline: items [{ start, samples }], all at one sample rate,
 // summed where they overlap. Returns mono samples covering secs.
 // Levels in the exported track, in dBFS. Voices come out of Piper at full scale; the
@@ -361,7 +399,7 @@ export function setMix(mix, keep = true) {
   if (readingEl) readingEl.volume = mixLevels(tts.mix).reading; // a reading under way follows
 }
 
-let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1, readingChanged: () => {} };
+let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1, readingChanged: () => {}, blockVoices: () => [] };
 let voices = [];
 const measured = new Map(); // voice|speed|text -> seconds of video time
 
@@ -374,8 +412,13 @@ function currentVoice() {
   return voices.find((v) => v.voiceURI === tts.voice) || voices.find((v) => v.piper || v.kokoro) ||
     voices.find((v) => v.default) || voices[0] || null;
 }
+// A block's own voice (uri), when it has one and it's here; otherwise the chosen voice.
+function voiceOf(uri) {
+  return (uri && voices.find((v) => v.voiceURI === uri)) || currentVoice();
+}
 // A voice that makes its readings as audio, with exact lengths: Piper, Kokoro or Google.
-export const usingAudioVoice = () => makesAudio(currentVoice());
+// uri: a block's own voice, if it has one, as with the functions below.
+export const usingAudioVoice = (uri) => makesAudio(voiceOf(uri));
 
 // A voice's name from its id alone, for a voice that isn't available to ask: Google's
 // "google:en-US-Standard-C" is "Google Standard C (en-US)", Piper's "piper:en_US-lessac-medium"
@@ -438,19 +481,20 @@ function checkVoice() {
   hooks.toast(`${voiceLabel(uri)} isn’t available here${currentVoice() ? `, so ${currentVoice().name} is reading` : ''}. See Settings, under Text to speech`);
 }
 // A Google voice: every new reading is sent to Google, and counts against the user's allowance.
-export const usingGoogle = () => !!currentVoice()?.google;
+export const usingGoogle = (uri) => !!voiceOf(uri)?.google;
 // Shows the warnings that a job reading every block may cost money, with a Google voice.
 export function showGoogleCost() {
-  for (const el of document.querySelectorAll('.googlecost')) el.hidden = !usingGoogle();
+  const google = usingGoogle() || hooks.blockVoices().some((uri) => usingGoogle(uri));
+  for (const el of document.querySelectorAll('.googlecost')) el.hidden = !google;
 }
 export const anyVoices = () => tts.available || tts.piper.length > 0 || tts.kokoro.length > 0 || tts.google.length > 0;
-const voiceKey = () => currentVoice()?.voiceURI || '';
-const measureKey = (text, speed) => `${voiceKey()}|${rate(speed)}|${spoken(text)}`;
+const voiceKey = (uri) => voiceOf(uri)?.voiceURI || '';
+const measureKey = (text, speed, uri) => `${voiceKey(uri)}|${rate(speed)}|${spoken(text)}`;
 
-// Every reading of this text with the chosen voice so far, as [{ speed, secs }], with
-// speeds before the base speed, unless asMade.
-export function readingsOf(text, asMade = false) {
-  const head = `${voiceKey()}|`, tail = `|${spoken(text)}`, out = [];
+// Every reading of this text with the voice so far, as [{ speed, secs }], with speeds
+// before the base speed, unless asMade.
+export function readingsOf(text, asMade = false, uri) {
+  const head = `${voiceKey(uri)}|`, tail = `|${spoken(text)}`, out = [];
   for (const [k, secs] of measured) {
     if (k.startsWith(head) && k.endsWith(tail)) {
       const speed = +k.slice(head.length, k.length - tail.length);
@@ -460,13 +504,12 @@ export function readingsOf(text, asMade = false) {
   return out;
 }
 
-// How long the text takes to say with the chosen voice, in video seconds, at a block's
-// own speed or normal speed. Uses the last real reading of this exact text, or an
-// estimate.
-export function duration(text, speed = 1) {
-  const m = measured.get(measureKey(text, speed));
+// How long the text takes to say with the voice, in video seconds, at a block's own speed
+// or normal speed. Uses the last real reading of this exact text, or an estimate.
+export function duration(text, speed = 1, uri) {
+  const m = measured.get(measureKey(text, speed, uri));
   if (m != null) return { secs: m, exact: true };
-  return { secs: estimate(text, tts.cps[voiceKey()] || DEFAULT_CPS, rate(speed)), exact: false };
+  return { secs: estimate(text, tts.cps[voiceKey(uri)] || DEFAULT_CPS, rate(speed)), exact: false };
 }
 
 // ---- Voices that make audio: Piper and Google
@@ -824,7 +867,7 @@ function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background')
     p = keptOr(key, make).then((buf) => {
       const wav = readWav(buf);
       measured.set(key, wav.secs);
-      if (voice.voiceURI === voiceKey()) learnShare(voice.voiceURI, readingsOf(text, true));
+      learnShare(voice.voiceURI, readingsOf(text, true, voice.voiceURI));
       if (words.length > 8) { tts.cps[voice.voiceURI] = words.length / (wav.secs * speed); save(); }
       return { ...wav, buf };
     });
@@ -838,41 +881,41 @@ function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background')
 // Measure without playing: returns the length in video seconds, or null. With Piper or
 // Google this only makes the reading; with a browser voice it reads silently in real time.
 // bulk: one of many readings in a long job, which can run several at once.
-export function measure(text, speed = 1, { bulk = false } = {}) {
+export function measure(text, speed = 1, { bulk = false, voice } = {}) {
   if (!spoken(text)) return Promise.resolve(null);
-  if (usingAudioVoice()) return readAudio(text, speed, currentVoice(), bulk ? 'bulk' : 'background').then((w) => { hooks.changed(); return w.secs; }, () => null);
-  return new Promise((done) => speak(text, { silent: true, speed, done }));
+  if (usingAudioVoice(voice)) return readAudio(text, speed, voiceOf(voice), bulk ? 'bulk' : 'background').then((w) => { hooks.changed(); return w.secs; }, () => null);
+  return new Promise((done) => speak(text, { silent: true, speed, voice, done }));
 }
 
 // With Piper or Google, make the reading in the background so the length shown becomes exact.
-export function prefetch(text, speed = 1) {
-  if (usingAudioVoice() && spoken(text) && !duration(text, speed).exact) readAudio(text, speed).then(() => hooks.changed(), () => {});
+export function prefetch(text, speed = 1, uri) {
+  if (usingAudioVoice(uri) && spoken(text) && !duration(text, speed, uri).exact) readAudio(text, speed, voiceOf(uri)).then(() => hooks.changed(), () => {});
 }
 
 // Has a reading in memory, ready to play straight away: made, or loaded from the browser's
 // store. For the blocks just ahead of the playhead, so their readings don't start late.
-export function readAhead(text, speed = 1) {
-  if (!usingAudioVoice() || !spoken(text)) return;
-  const exact = duration(text, speed).exact;
-  readAudio(text, speed).then(() => { if (!exact) hooks.changed(); }, () => {});
+export function readAhead(text, speed = 1, uri) {
+  if (!usingAudioVoice(uri) || !spoken(text)) return;
+  const exact = duration(text, speed, uri).exact;
+  readAudio(text, speed, voiceOf(uri)).then(() => { if (!exact) hooks.changed(); }, () => {});
 }
 
 // The whole script as one audio file: each block's reading starts at the block's start.
-// blocks [{ start, text, speed }], secs: total length. progress(done, total) as it goes.
-// Returns { blob, overlaps }, where overlaps counts readings that run into the next one.
+// blocks [{ start, text, speed, voice }], secs: total length. progress(done, total) as it
+// goes. Returns { blob, overlaps }, where overlaps counts readings that run into the next one.
 export async function renderTrack(blocks, secs, progress = () => {}) {
-  const voice = currentVoice();
-  if (!makesAudio(voice)) throw new Error('Exporting needs a Piper, Kokoro or Google voice');
-  const items = [];
-  let rate = 0;
+  const missing = blocks.find((b) => !usingAudioVoice(b.voice));
+  if (missing) throw new Error(`Exporting needs a Piper, Kokoro or Google voice for every block, and ${voiceOf(missing.voice)?.name || 'a block’s voice'} isn’t one`);
+  const made = [];
   for (let k = 0; k < blocks.length; k++) {
     progress(k, blocks.length);
     const b = blocks[k];
-    const w = await readAudio(b.text, b.speed ?? 1, voice, 'bulk');
-    rate ||= w.rate;
-    items.push({ start: b.start, samples: w.samples, secs: w.secs });
+    made.push({ start: b.start, w: await readAudio(b.text, b.speed ?? 1, voiceOf(b.voice), 'bulk') });
   }
   progress(blocks.length, blocks.length);
+  // Voices make audio at different rates, so all of it goes at the highest.
+  const rate = Math.max(0, ...made.map((m) => m.w.rate));
+  const items = made.map(({ start, w }) => ({ start, samples: resample(w.samples, w.rate, rate), secs: w.secs }));
   let overlaps = 0;
   for (let k = 0; k + 1 < items.length; k++) if (items[k].start + items[k].secs > items[k + 1].start + 0.0005) overlaps++;
   const end = Math.max(secs, ...items.map((i) => i.start + i.secs));
@@ -937,8 +980,8 @@ function speakAudio(text, voice, { id, manual, silent, speed, done }) {
 // Read text aloud. done(secs) runs with the spoken length in video seconds when it
 // finishes on its own, or with null if it was stopped or failed.
 // silent: read at zero volume, just to measure it.
-export function speak(text, { id = null, manual = false, silent = false, speed = 1, done = () => {} } = {}) {
-  const voice = currentVoice();
+export function speak(text, { id = null, manual = false, silent = false, speed = 1, voice: uri, done = () => {} } = {}) {
+  const voice = voiceOf(uri);
   const words = spoken(text);
   if (!words || !voice) { stop(); done(null); return false; }
   if (makesAudio(voice)) return speakAudio(text, voice, { id, manual, silent, speed, done });
@@ -954,7 +997,7 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
   const playRate = hooks.rate();
   u.rate = Math.min(10, Math.max(0.1, rate(speed) * playRate));
   u.volume = silent ? 0 : mixLevels(tts.mix).reading;
-  const key = measureKey(text, speed);
+  const key = measureKey(text, speed, voice.voiceURI);
   let t0 = 0;
   u.onstart = () => { t0 = performance.now(); };
   const finish = (ok) => {
@@ -967,7 +1010,7 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
     const secs = ((performance.now() - t0) / 1000) * playRate;
     measured.set(key, secs);
     if (words.length > 8) {
-      tts.cps[voiceKey()] = words.length / (secs * rate(speed));
+      tts.cps[voice.voiceURI] = words.length / (secs * rate(speed));
       save();
     }
     hooks.changed();
@@ -1117,6 +1160,11 @@ function render(googleError = '') {
   showGoogleCost();
   $('ttsExport').disabled = !piper;
   $('ttsMakeAll').disabled = !piper;
+  // Blocks with their own voice, such as subtitles read by a second voice.
+  const own = hooks.blockVoices();
+  $('ttsBlockVoices').hidden = !own.length;
+  const names = [...new Set(own)].map((uri) => voices.find((v) => v.voiceURI === uri)?.name || voiceLabel(uri));
+  $('ttsBlockVoicesText').textContent = `${own.length === 1 ? '1 block has' : `${own.length} blocks have`} a voice of ${own.length === 1 ? 'its' : 'their'} own: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''}.`;
   $('ttsMakeNote').textContent = piper ? '' : 'Needs a Piper, Kokoro or Google voice: the browser\'s own voices can\'t be kept.';
   $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper, Kokoro or Google voice: the browser\'s own voices can\'t be recorded.';
   $('ttsBody').classList.toggle('off', !tts.on);

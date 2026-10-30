@@ -22,8 +22,8 @@ import { MIN_SPEED, MAX_SPEED } from './tts.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
-  isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
-  usingAudioVoice, measure, prefetch, readAhead, renderTrack, chosenVoice, chosenVoiceName, voiceName, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix,
+  isBlockSpeed, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
+  usingAudioVoice, measure, prefetch, readAhead, renderTrack, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix,
   savedReadings, clearSavedReadings } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -123,9 +123,11 @@ const S = {
 let nextId = 1;
 // speed: the block's own text to speech speed, if it has one.
 const mk = (start, end, text = '', speed) => ({ id: nextId++, start, end, text, ...(isBlockSpeed(speed) ? { speed } : {}) });
-// A saved block back as a block: auto (end follows the reading), fit (speed follows the
-// length) and pinned (speed picked by hand, so resizing leaves it alone).
+// A saved block back as a block: voice (its own text to speech voice), auto (end follows
+// the reading), fit (speed follows the length) and pinned (speed picked by hand, so
+// resizing leaves it alone).
 const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
+  typeof b.voice === 'string' && b.voice ? { voice: b.voice } : {},
   b.auto ? { auto: true } : {}, b.fit ? { fit: true } : {}, b.pinned ? { pinned: true } : {},
   b.say?.length ? { say: b.say } : {});
 // What text to speech reads for a block: its text, with its "sounds like" words.
@@ -305,7 +307,7 @@ function save() {
       // The open video, so it can be reopened after a reload, or else the project's.
       projectMedia: S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size } : S.projectMedia,
       notes: S.notes,
-      cues: S.cues.map(({ start, end, text, speed, auto, fit, pinned, say }) => ({ start, end, text, speed, auto, fit, pinned, say })),
+      cues: S.cues.map(({ start, end, text, speed, voice, auto, fit, pinned, say }) => ({ start, end, text, speed, voice, auto, fit, pinned, say })),
     }));
   } catch { /* storage full or blocked */ }
 }
@@ -532,6 +534,7 @@ function updateEditor() {
   const c = selCue();
   if (!c) {
     edSpeedWrap.hidden = true;
+    edVoiceWrap.hidden = true;
     edSay.hidden = true;
     edAuto.hidden = true;
     edIdx.textContent = '#–';
@@ -549,6 +552,8 @@ function updateEditor() {
   edAuto.hidden = !(c.auto && ttsOn() && tts.autoEnd);
   edDur.textContent = `${(c.end - c.start).toFixed(3)} s`;
   edSpeedWrap.hidden = !ttsOn();
+  edVoiceWrap.hidden = !ttsOn();
+  if (ttsOn() && document.activeElement !== edVoice) fillEdVoice(c);
   edSay.hidden = !ttsOn();
   edSay.textContent = c.say?.length ? `sounds like · ${c.say.length}` : 'sounds like';
   edSay.classList.toggle('on', !!c.say?.length);
@@ -560,7 +565,7 @@ function updateEditor() {
   edStats.textContent = '';
   if (ttsOn() && spoken(c.text)) {
     // How long the voice takes to read it: "~" until it has actually been read.
-    const { secs, exact } = speechLength(said(c), c.speed);
+    const { secs, exact } = speechLength(said(c), c.speed, c.voice);
     const s = document.createElement('span');
     const tooLong = secs > c.end - c.start + 0.05;
     s.textContent = `TTS ${exact ? '' : '~'}${secs.toFixed(1)} s${tooLong ? ' · too long' : ''}`;
@@ -581,9 +586,9 @@ function updateEditor() {
 let prefetchTimer = 0;
 function schedulePrefetch(c) {
   clearTimeout(prefetchTimer);
-  if (edit?.id === c.id && usingGoogle()) return;
-  const text = said(c), { speed } = c;
-  prefetchTimer = setTimeout(() => prefetch(text, speed), 500);
+  if (edit?.id === c.id && usingGoogle(c.voice)) return;
+  const text = said(c), { speed, voice } = c;
+  prefetchTimer = setTimeout(() => prefetch(text, speed, voice), 500);
 }
 
 // Frazier "Enter": edit the block under the playhead, or create one there.
@@ -712,7 +717,7 @@ edText.addEventListener('blur', () => {
   updateEditor();
   // The block just edited, even when another one is now selected: with a Google voice,
   // this is when it's read.
-  if (was && ttsOn() && spoken(was.text)) prefetch(said(was), was.speed);
+  if (was && ttsOn() && spoken(was.text)) prefetch(said(was), was.speed, was.voice);
 });
 edText.addEventListener('keydown', (e) => {
   e.stopPropagation();
@@ -858,9 +863,10 @@ function fillRow(r, c, i) {
   const [n, t, tx] = r.children;
   n.textContent = i + 1;
   t.children[0].textContent = fmtTime(c.start, '.');
-  t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '');
+  t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '')
+    + (ttsOn() && c.voice ? ` · ${blockVoiceName(c.voice)}` : '');
   // Red when the reading is longer than the block, with a sign for anyone who can't tell red.
-  const reading = ttsOn() && !!spoken(c.text) ? speechLength(said(c), c.speed) : null;
+  const reading = ttsOn() && !!spoken(c.text) ? speechLength(said(c), c.speed, c.voice) : null;
   const over = !!reading && reading.secs > c.end - c.start + 0.05;
   t.children[1].classList.toggle('over', over);
   if (over) t.children[1].textContent += ' ⚠';
@@ -868,8 +874,8 @@ function fillRow(r, c, i) {
   // readings are kept in the browser, so they play straight away, even after a reload.
   if (reading?.exact) {
     t.children[1].append(Object.assign(document.createElement('span'), { className: 'ready', textContent: ' ●',
-      title: usingGoogle() ? 'Reading kept: plays straight away, and isn\'t sent to Google again'
-        : usingAudioVoice() ? 'Reading kept: its length is exact, and it plays straight away' : 'Reading made: its length is exact' }));
+      title: usingGoogle(c.voice) ? 'Reading kept: plays straight away, and isn\'t sent to Google again'
+        : usingAudioVoice(c.voice) ? 'Reading kept: its length is exact, and it plays straight away' : 'Reading made: its length is exact' }));
   }
   r.setAttribute('aria-label', blockLabel({ n: i + 1, start: fmtTime(c.start, '.'), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, ready: !!reading?.exact }));
   fillText(tx, c);
@@ -1462,7 +1468,7 @@ function speakBlock(fit) {
   setTime(c.start);
   const id = c.id;
   speak(said(c), {
-    id, manual: true, speed: c.speed,
+    id, manual: true, speed: c.speed, voice: c.voice,
     done: (secs) => {
       const cur = S.cues[idx(id)];
       if (secs == null || !cur) return;
@@ -1500,7 +1506,7 @@ function fitAuto(c) {
   const i = idx(c.id);
   if (i < 0) return false;
   const { hi } = bounds(i);
-  const end = clamp(c.start + speechLength(said(c), c.speed).secs, c.start + MIN_DUR, Math.max(hi, c.start + MIN_DUR));
+  const end = clamp(c.start + speechLength(said(c), c.speed, c.voice).secs, c.start + MIN_DUR, Math.max(hi, c.start + MIN_DUR));
   if (Math.abs(end - c.end) < 0.0005) return false;
   c.end = end;
   return true;
@@ -1520,18 +1526,21 @@ function resized(c, edge) {
   else fitAuto(c);
 }
 
+// How far over its block a reading can run and still count as fitting: half a 1% step,
+// on long blocks.
+const fitNear = (secs) => Math.max(0.03, secs * 0.005);
 // Blocks marked fit read at whatever speed fills them. Uses the reading at the block's
 // current speed when that's been measured, so the speed closes in on an exact fit.
 // force: fit even with the resize setting off, as Fit speeds to timings does.
 function fitSpeed(c, force = false) {
   if (!c?.fit || !ttsOn() || (!tts.fitSpeed && !force) || !spoken(c.text)) return false;
   const at = c.speed ?? 1, target = c.end - c.start;
-  const pts = readingsOf(said(c));
+  const pts = readingsOf(said(c), false, c.voice);
   let s;
-  if (pts.length) s = speedFromReadings(pts, target, at, fixedShare());
+  if (pts.length) s = nextFitSpeed(pts, target, speedFromReadings(pts, target, at, fixedShare(c.voice)), fitNear(target));
   // With Piper or Google, wait for real readings rather than move the speed on an estimate.
-  else if (usingAudioVoice()) { if (c.id === S.sel) schedulePrefetch(c); return false; }
-  else s = speedToFit(speechLength(said(c), 1).secs, 1, target);
+  else if (usingAudioVoice(c.voice)) { if (c.id === S.sel) schedulePrefetch(c); return false; }
+  else s = speedToFit(speechLength(said(c), 1, c.voice).secs, 1, target);
   if (s == null || Math.abs(s - at) < 0.005) return false;
   c.speed = s;
   if (c.id === S.sel) schedulePrefetch(c);
@@ -1589,9 +1598,9 @@ function report(el, msg) {
 }
 
 async function measureAll(blocks, ui) {
-  const audio = usingAudioVoice();
-  const todo = blocks.filter((c) => !speechLength(said(c), c.speed).exact);
+  const todo = blocks.filter((c) => !speechLength(said(c), c.speed, c.voice).exact);
   if (!todo.length) return true;
+  const audio = todo.every((c) => usingAudioVoice(c.voice));
   pause();
   measuring = true;
   busy(ui.btn, ui.bar, true);
@@ -1603,7 +1612,7 @@ async function measureAll(blocks, ui) {
     await Promise.all(Array.from({ length: LANES }, async () => {
       while (measuring && next < todo.length) {
         const c = todo[next++];
-        await measure(said(c), c.speed, { bulk: true });
+        await measure(said(c), c.speed, { bulk: true, voice: c.voice });
         ++done;
         progress(ui, done / todo.length, `Making readings: ${done} of ${todo.length}`);
       }
@@ -1611,7 +1620,7 @@ async function measureAll(blocks, ui) {
   } else {
     for (let k = 0; k < todo.length && measuring; k++) {
       progress(ui, k / todo.length, `Reading block ${k + 1} of ${todo.length} silently`);
-      await measure(said(todo[k]), todo[k].speed);
+      await measure(said(todo[k]), todo[k].speed, { voice: todo[k].voice });
     }
   }
   ui.bar.value = 1;
@@ -1628,7 +1637,7 @@ async function updateAllTimings(ask = true) {
   if (!blocks.length) return (ttsAllStatus.textContent = 'There are no blocks with text yet.');
   // Piper and Google make exact lengths quickly, so it always measures. Browser voices only do
   // when asked, since they have to read each block in real time.
-  const audio = usingAudioVoice();
+  const audio = blocks.every((c) => usingAudioVoice(c.voice));
   if (audio || $('ttsAllExact').checked) {
     if (!(await measureAll(blocks, { btn: ttsAll, bar: ttsAllBar, stop: ttsAllStop, status: ttsAllStatus, job: 'Updating timings' }))) {
       return report(ttsAllStatus, 'Update all timings stopped. No timings were changed.');
@@ -1643,7 +1652,7 @@ async function updateAllTimings(ask = true) {
   for (let i = 0; i < S.cues.length; i++) {
     const c = S.cues[i], next = S.cues[i + 1];
     if (!spoken(c.text)) continue;
-    const { secs, exact } = speechLength(said(c), c.speed);
+    const { secs, exact } = speechLength(said(c), c.speed, c.voice);
     const hi = next ? Math.max(next.start, c.start + MIN_DUR) : Math.max(duration(), c.start + secs);
     const end = clamp(c.start + secs, c.start + MIN_DUR, hi);
     if (c.start + secs > hi + 0.0005) short++;
@@ -1664,12 +1673,12 @@ const ttsMakeAll = $('ttsMakeAll'), ttsMakeStatus = $('ttsMakeStatus');
 async function makeAllReadings() {
   const blocks = S.cues.filter((c) => spoken(c.text));
   if (!blocks.length) return (ttsMakeStatus.textContent = 'There are no blocks with text yet.');
-  const todo = blocks.filter((c) => !speechLength(said(c), c.speed).exact).length;
+  const todo = blocks.filter((c) => !speechLength(said(c), c.speed, c.voice).exact).length;
   if (!todo) return report(ttsMakeStatus, `All ${blocks.length} readings are made already.`);
   if (!(await measureAll(blocks, { btn: ttsMakeAll, bar: $('ttsMakeBar'), stop: $('ttsMakeStop'), status: ttsMakeStatus, job: 'Making readings' }))) {
     return report(ttsMakeStatus, 'Make all readings stopped. The readings made so far are kept.');
   }
-  const failed = blocks.filter((c) => !speechLength(said(c), c.speed).exact).length;
+  const failed = blocks.filter((c) => !speechLength(said(c), c.speed, c.voice).exact).length;
   report(ttsMakeStatus, failed ? `Made ${todo - failed} of ${todo} readings. ${failed} couldn’t be made: try again in a moment.`
     : `Made ${todo} reading${todo > 1 ? 's' : ''}. All ${blocks.length} are ready.`);
 }
@@ -1704,19 +1713,22 @@ async function fitEach(blocks, ui) {
 }
 async function fitBlock(c) {
   const target = c.end - c.start;
-  const near = Math.max(0.03, target * 0.005); // half a 1% step, on long blocks
+  const near = fitNear(target);
   const tried = new Set();
-  for (let attempt = 0; attempt < 6 && measuring; attempt++) {
-    const pts = readingsOf(said(c));
-    const s = pts.length ? speedFromReadings(pts, target, c.speed ?? 1, fixedShare())
-      : speedToFit(speechLength(said(c), 1).secs, 1, target);
+  for (let attempt = 0; attempt < 8 && measuring; attempt++) {
+    const pts = readingsOf(said(c), false, c.voice);
+    const s = pts.length ? nextFitSpeed(pts, target, speedFromReadings(pts, target, c.speed ?? 1, fixedShare(c.voice)), near)
+      : speedToFit(speechLength(said(c), 1, c.voice).secs, 1, target);
     if (s != null) c.speed = s;
     const at = c.speed ?? 1;
     if (tried.has(at)) break; // back to a speed already read: it's as close as it gets
     tried.add(at);
-    const secs = await measure(said(c), at, { bulk: true });
+    const secs = await measure(said(c), at, { bulk: true, voice: c.voice });
     if (secs == null || Math.abs(secs - target) <= near || at <= MIN_SPEED || at >= MAX_SPEED) break;
   }
+  // The best of the speeds read, rather than the last one tried.
+  const best = measuring ? bestFit(readingsOf(said(c), false, c.voice), target, near) : null;
+  if (best != null) c.speed = best;
 }
 
 // Fit speeds to timings, the other way round: every block keeps its timing, and its
@@ -1737,7 +1749,7 @@ async function fitAllSpeeds(ask = true) {
   for (const c of blocks) { delete c.auto; c.fit = true; }
   const fits = () => { let any = false; for (const c of blocks) any = fitSpeed(c, true) || any; if (any) changed(); };
   fits();
-  const audio = usingAudioVoice();
+  const audio = blocks.every((c) => usingAudioVoice(c.voice));
   const ui = { btn: ttsFitAll, bar: ttsFitBar, stop: ttsFitStop, status: ttsFitStatus, job: 'Fitting speeds' };
   let stopped = false;
   // Piper and Google read quickly, so each block is read, its speed moved, and read again until the
@@ -1750,7 +1762,7 @@ async function fitAllSpeeds(ask = true) {
   let left = 0;
   if (stopped && audio) {
     for (const c of blocks) {
-      if (!readingsOf(said(c)).length) { delete c.fit; left++; }
+      if (!readingsOf(said(c), false, c.voice).length) { delete c.fit; left++; }
     }
   }
   const fitted = n - left;
@@ -1758,10 +1770,10 @@ async function fitAllSpeeds(ask = true) {
   const atLimit = (c) => (c.speed ?? 1) <= MIN_SPEED || (c.speed ?? 1) >= MAX_SPEED;
   const off = blocks.filter((c) => {
     if (!c.fit) return false;
-    const m = speechLength(said(c), c.speed);
+    const m = speechLength(said(c), c.speed, c.voice);
     return (m.exact || atLimit(c)) && Math.abs(m.secs - (c.end - c.start)) > 0.05;
   }).length;
-  const estimated = blocks.filter((c) => !speechLength(said(c), c.speed).exact).length;
+  const estimated = blocks.filter((c) => !speechLength(said(c), c.speed, c.voice).exact).length;
   changed();
   const msg = (stopped
     ? `Fit speeds to timings stopped. Fitted ${fitted} of ${n} block${n > 1 ? 's' : ''}${left ? `; ${left === 1 ? '1 was' : `${left} were`} left as ${left === 1 ? 'it was' : 'they were'}` : ''}.`
@@ -1837,7 +1849,7 @@ ttsFitStop.addEventListener('click', () => { measuring = false; stopSpeech(); })
 // block's start, as long as the video (or the last reading, without one).
 const ttsExport = $('ttsExport'), ttsExportStatus = $('ttsExportStatus'), ttsExportBar = $('ttsExportBar');
 ttsExport.addEventListener('click', async () => {
-  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed }));
+  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice }));
   if (!blocks.length) return (ttsExportStatus.textContent = 'There are no blocks with text yet.');
   pause();
   busy(ttsExport, ttsExportBar, true);
@@ -1879,6 +1891,53 @@ function setBlockSpeed(c, v) {
   toast(c.speed ? `Block #${idx(c.id) + 1} reads at ${speedName(c.speed)}`
     : `Block #${idx(c.id) + 1} reads at normal speed`);
 }
+// A block's own voice, such as a second voice for subtitles. Without one, a block reads
+// with the voice chosen in Settings, and follows it when that changes.
+const edVoice = $('edVoice'), edVoiceWrap = $('edVoiceWrap');
+const blockVoiceName = (uri) => { const n = voiceName(uri); return n === 'the voice before' ? voiceLabel(uri) : n; };
+let edVoiceFor = '';
+// force: refill even if nothing seems to have changed, as when the list is opened, since
+// voices can arrive at any time.
+function fillEdVoice(c, force = false) {
+  const key = `${c.id}|${c.voice || ''}|${chosenVoice()}`;
+  if (!force && key === edVoiceFor) return;
+  edVoiceFor = key;
+  fillVoiceSelect(edVoice, c.voice || '');
+  edVoice.prepend(new Option(`Same as Settings (${chosenVoiceName()})`, ''));
+  // A voice that isn't here, such as Kokoro's in the web version, stays chosen and says so.
+  if (c.voice && ![...edVoice.options].some((o) => o.value === c.voice)) edVoice.add(new Option(`${voiceLabel(c.voice)}: not available here`, c.voice), 1);
+  edVoice.value = c.voice || '';
+  edVoice.disabled = false;
+}
+for (const ev of ['mousedown', 'focus']) edVoice.addEventListener(ev, () => { if (selCue()) fillEdVoice(selCue(), true); });
+edVoice.addEventListener('change', () => {
+  const c = selCue();
+  if (c) setBlockVoice(c, edVoice.value);
+  edVoice.blur();
+});
+function setBlockVoice(c, uri) {
+  pushUndo(undefined, 'voice-' + c.id);
+  if (uri) c.voice = uri; else delete c.voice;
+  fitAuto(c);
+  fitSpeed(c);
+  changed(c.id);
+  tlDirty = true;
+  schedulePrefetch(c);
+  toast(c.voice ? `Block #${idx(c.id) + 1} reads with ${blockVoiceName(c.voice)}` : `Block #${idx(c.id) + 1} reads with the voice in Settings`);
+}
+
+// Replace all voices: every block reads with the voice chosen in Settings again.
+$('ttsReplaceVoices').addEventListener('click', () => {
+  const own = S.cues.filter((c) => c.voice);
+  if (!own.length) return;
+  pushUndo();
+  for (const c of own) { delete c.voice; fitAuto(c); fitSpeed(c); }
+  changed();
+  tlDirty = true;
+  openTts(); // shows the panel again, without the note
+  toast(`${own.length === 1 ? '1 block reads' : `${own.length} blocks read`} with ${chosenVoiceName()} again. ⌘Z undoes it`);
+});
+
 // [ and ]: one speed step slower or faster for the selected block.
 function stepBlockSpeed(d) {
   if (!writing()) return modeOnly('Text to speech', 'write');
@@ -1983,7 +2042,7 @@ sayDlg.addEventListener('close', () => {
 });
 $('sayAdd').addEventListener('click', () => addSayRow().w.focus());
 $('sayTry').addEventListener('click', () => {
-  if (sayFor) speak(soundsLike(sayFor.text, sayPairs()), { speed: sayFor.speed });
+  if (sayFor) speak(soundsLike(sayFor.text, sayPairs()), { speed: sayFor.speed, voice: sayFor.voice });
 });
 $('sayDone').addEventListener('click', () => sayDlg.close());
 sayDlg.addEventListener('click', (e) => { if (e.target === sayDlg) sayDlg.close(); });
@@ -2044,7 +2103,7 @@ function liveSpeech(prevT, t) {
   readAheadOf(t);
   if (!ttsOn() || !tts.live || tts.speaking?.manual || hold) return; // not over someone reading
   const a = cueAt(t);
-  if (a && prevT <= a.start && t > a.start && t - prevT < 0.5 && tts.speaking?.id !== a.id) speak(said(a), { id: a.id, speed: a.speed });
+  if (a && prevT <= a.start && t > a.start && t - prevT < 0.5 && tts.speaking?.id !== a.id) speak(said(a), { id: a.id, speed: a.speed, voice: a.voice });
 }
 
 // Making a reading takes a moment, a second or more with Kokoro, so while playing, the
@@ -2052,14 +2111,14 @@ function liveSpeech(prevT, t) {
 const AHEAD_SECS = 15, AHEAD_BLOCKS = 2;
 let aheadOf = '';
 function readAheadOf(t) {
-  if (!ttsOn() || !tts.live || !usingAudioVoice()) return;
-  const next = S.cues.filter((c) => c.start > t && c.start - t <= AHEAD_SECS && spoken(c.text))
+  if (!ttsOn() || !tts.live) return;
+  const next = S.cues.filter((c) => c.start > t && c.start - t <= AHEAD_SECS && spoken(c.text) && usingAudioVoice(c.voice))
     .sort((a, b) => a.start - b.start).slice(0, AHEAD_BLOCKS);
   // Only when the blocks ahead, or what they say, change: this runs on every frame.
-  const key = `${chosenVoice()}|${tts.base}|` + next.map((c) => `${c.id}|${c.speed}|${said(c)}`).join('\n');
+  const key = `${chosenVoice()}|${tts.base}|` + next.map((c) => `${c.id}|${c.speed}|${c.voice}|${said(c)}`).join('\n');
   if (key === aheadOf) return;
   aheadOf = key;
-  for (const c of next) readAhead(said(c), c.speed);
+  for (const c of next) readAhead(said(c), c.speed, c.voice);
 }
 
 // Lower the original audio while a block is read, and as the mix slider says.
@@ -2754,7 +2813,7 @@ async function loadSubsFile(file) {
   if (!okToReplace(`Open ${file.name}`)) return;
   await stopJob();
   pushUndo();
-  S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.say ? { say: c.say } : {}));
+  S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.voice ? { voice: c.voice } : {}, c.say ? { say: c.say } : {}));
   S.subName = file.name;
   S.handle = null; // saving makes a project next to it, rather than overwriting the script
   handleStore.set(null);
@@ -3494,6 +3553,7 @@ initTts({
   sample: () => spoken(selCue() ? said(selCue()) : ''),
   changed: () => { fitAllAuto(); renderList(); updateEditor(); updateInd(); tlDirty = true; },
   readingChanged,
+  blockVoices: () => S.cues.filter((c) => c.voice).map((c) => c.voice),
 });
 initTour();
 $('helpTour').addEventListener('click', () => { toggleHelp(false); startTour(S.mode); });

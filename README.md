@@ -197,12 +197,12 @@ Scribecue, such as another writer or a QC reviewer. The **Export** menu at the t
 
 - **Script as SRT** (`Ctrl/Cmd+E`).
 - **Script as WebVTT** (`Ctrl/Cmd+Shift+E`), which also keeps each block's text to speech
-  speed and sounds-like words.
+  speed, voice and sounds-like words.
 - **Description track (WAV)**, in Write mode with a [Piper](#piper-voices), [Kokoro](#kokoro-voices) or [Google](#google-cloud-voices) voice: the
   readings as one audio file. It's also in the text to speech settings.
 
 `Ctrl/Cmd+O` also opens SRT and VTT files, and Frazier's `.adc` scripts, with their
-timings, block speeds and base speed, and the pronunciations marked in them, which become
+timings, block speeds and voices, base speed, and the pronunciations marked in them, which become
 sounds-like words. Your work in progress is saved in the browser as you go too, so
 reloading the page doesn't lose anything.
 
@@ -337,6 +337,14 @@ click it to take it out.
   menu in the block editor. Blocks with a speed other than normal show it in the list and
   on the timeline, such as `+15%`. Block speeds are saved with your work and in exported VTT
   files, as notes that other programs ignore. SRT files can't store them.
+- **Voice per block:** a block can have a voice of its own, such as a second voice for
+  subtitles. Pick it from the **Voice** menu in the block editor; **Same as Settings**
+  reads it with the voice chosen in the text to speech settings, and follows it when that
+  changes. Blocks with their own voice show its name in the list. They're saved with your
+  work and in exported VTT files, and Frazier's `.adc` scripts bring theirs. The text to
+  speech settings say how many blocks have their own voice, and **Replace all voices** reads
+  them all with the chosen voice again, which `Ctrl/Cmd+Z` undoes. A description track can
+  mix voices.
 - **When the voice or base speed changes:** every reading takes a different time, so
   Scribecue asks whether to change the blocks' ends to match the new readings, never running
   into the next block, or leave the timings as they are. Or go back to the voice or base

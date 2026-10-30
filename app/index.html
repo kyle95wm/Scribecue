@@ -71,6 +71,8 @@
           <span id="edDur" class="dim"></span>
           <label id="edSpeedWrap" class="edspeed" hidden data-tip="Text to speech speed for this block. [ and ] change it">TTS
             <select id="edSpeed"></select></label>
+          <label id="edVoiceWrap" class="edspeed" hidden data-tip="Text to speech voice for this block, such as a second voice for subtitles. Same as Settings follows the voice chosen there">Voice
+            <select id="edVoice"></select></label>
           <button id="edSay" class="edsay" hidden data-tip="How text to speech says words in this block, without changing the text (⌥⇧P)">sounds like</button>
           <span class="grow"></span>
           <span id="edStats"></span>
@@ -499,6 +501,8 @@ docker compose up -d --build</code></pre>
       <p id="ttsNoVoices" class="warnbox" hidden></p>
       <p id="ttsMissing" class="warnbox" hidden></p>
       <p id="ttsPiperNote" class="dim small"></p>
+      <p id="ttsBlockVoices" class="updstatus small" hidden><span id="ttsBlockVoicesText"></span>
+        <button id="ttsReplaceVoices" data-tip="Read every block with the voice above, and follow it when it changes. You can undo it">Replace all voices</button></p>
       <section id="ttsWeb" hidden>
         <h3>Natural voices <span class="rec">Recommended</span></h3>
         <p class="small">Piper voices sound more natural, give exact lengths straight away, and let you export

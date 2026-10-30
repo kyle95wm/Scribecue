@@ -725,7 +725,7 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .sayrows .missing[hidden] { display: none; }
 .edspeed[hidden] { display: none; }
 .edspeed select {
-  max-width: 150px;
+  max-width: 115px;
   font: 12px var(--mono);
   color: var(--text);
   background: var(--bg);

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
   piperVoiceList, kokoroVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
-  googleVoiceList, googleRequest, googleFailure, makesAudio, overCap,
+  googleVoiceList, googleRequest, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
   toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice } from '../app/js/tts.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
@@ -358,4 +358,36 @@ test('nothing in tts.js hides the worker’s ask, which the web version uses to 
   const src = await import('node:fs').then((fs) => fs.readFileSync(new URL('../app/js/tts.js', import.meta.url), 'utf8'));
   assert.deepEqual(src.match(/\b(?:const|let|var)\s+ask\b|\(\s*ask\s*[,)]/g), null);
   assert.equal(src.match(/^function ask\(/gm)?.length, 1);
+});
+
+// Heart (Kokoro) reading one line: its length goes in steps, not smoothly, with speed.
+const heart = { 0.8: 6.38, 0.85: 5.74, 0.9: 5.44, 0.94: 5.36, 0.95: 5.25, 1: 4.99, 1.05: 4.9, 1.1: 4.8, 1.15: 4.69, 1.3: 4.25 };
+const readHeart = (...speeds) => speeds.map((speed) => ({ speed, secs: heart[speed] }));
+
+test('fitting tries a new guess, then halfway between the closest readings either side', () => {
+  assert.equal(nextFitSpeed(readHeart(1), 5.3, 0.95), 0.95);
+  // The guess was read already: between 1 (4.99, fits) and 0.85 (5.74, too long).
+  assert.equal(nextFitSpeed(readHeart(1, 0.85), 5.3, 0.85, 0.03), 0.93);
+  assert.equal(nextFitSpeed(readHeart(1, 0.85, 0.9, 0.95), 5.3, 0.9, 0.03), 0.93);
+  // Nothing left between 0.95 (fits) and 0.94 (too long), so it settles on the best fit.
+  assert.equal(nextFitSpeed(readHeart(1, 0.85, 0.94, 0.95), 5.3, 0.94, 0.03), 0.95);
+});
+
+test('fitting settles on the reading that fills the block best without running over', () => {
+  assert.equal(bestFit(readHeart(1, 0.9, 0.95), 5.3, 0.03), 0.95); // 5.25 fits; 5.44 runs over
+  assert.equal(bestFit(readHeart(1, 0.9, 0.95), 5.45, 0.03), 0.9); // 5.44 fits now
+  assert.equal(bestFit(readHeart(1, 1.3), 4, 0.03), 1.3); // none fits: the shortest
+  // Speeds before the base speed come back to the block's own 1% steps.
+  assert.equal(bestFit([{ speed: 1.155 / 1.05, secs: 3 }], 3.1), 1.1);
+  assert.equal(bestFit([], 3), null);
+});
+
+test('readings by voices with different rates are brought to one rate for the export', () => {
+  const s = Int16Array.from([0, 100, 200, 300]);
+  assert.equal(resample(s, 22050, 22050), s);
+  const up = resample(s, 2, 4);
+  assert.equal(up.length, 8);
+  assert.deepEqual([...up.slice(0, 7)], [0, 50, 100, 150, 200, 250, 300]);
+  assert.deepEqual([...resample(Int16Array.from([0, 10, 20, 30]), 4, 2)], [0, 20]);
+  assert.equal(resample(new Int16Array(22050), 22050, 24000).length, 24000);
 });

@@ -18,15 +18,19 @@ export function fmtTime(t, sep = ',') {
   return `${p2(h)}:${p2(m)}:${p2(s)}${sep}${p3(ms)}`;
 }
 
-// A block's text to speech speed and "sounds like" words are kept in exported VTT
+// A block's text to speech speed, voice and "sounds like" words are kept in exported VTT
 // files as notes just before the block. Other programs ignore notes.
 const SPEED_NOTE = 'NOTE Scribecue text to speech speed:';
+const VOICE_NOTE = 'NOTE Scribecue text to speech voice:';
 const SAY_NOTE = 'NOTE Scribecue sounds like:';
-// What a note says about the block after it: { speed } or { say: [[written, said], …] }.
+// What a note says about the block after it: { speed }, { voice } or
+// { say: [[written, said], …] }.
 function readNote(block) {
   block = block.trim();
   const m = block.match(/^NOTE Scribecue text to speech speed: (\d+(?:\.\d+)?)$/);
   if (m) return { speed: +m[1] };
+  const v = block.match(/^NOTE Scribecue text to speech voice: (\S.*)$/);
+  if (v) return { voice: v[1].trim() };
   if (block.startsWith(SAY_NOTE)) {
     const say = block.split('\n').slice(1).map((l) => l.split(' = ')).filter((p) => p.length >= 2 && p[0].trim())
       .map(([w, ...s]) => [w.trim(), s.join(' = ').trim()]).filter(([, s]) => s);
@@ -49,6 +53,7 @@ export function parseSubs(text) {
     if (Number.isNaN(start) || Number.isNaN(end)) continue;
     const cue = { start, end: Math.max(end, start), text: lines.slice(i + 1).join('\n').trim() };
     if (notes.speed) cue.speed = notes.speed;
+    if (notes.voice) cue.voice = notes.voice;
     if (notes.say) cue.say = notes.say;
     notes = {};
     cues.push(cue);
@@ -65,7 +70,7 @@ export function toSRT(cues) {
 
 export function toVTT(cues) {
   const say = (c) => (c.say?.length ? `${SAY_NOTE}\n${c.say.map(([w, s]) => `${w} = ${s}`).join('\n')}\n\n` : '');
-  return 'WEBVTT\n\n' + cues.map((c, i) => (c.speed ? `${SPEED_NOTE} ${c.speed}\n\n` : '') + say(c) +
+  return 'WEBVTT\n\n' + cues.map((c, i) => (c.speed ? `${SPEED_NOTE} ${c.speed}\n\n` : '') + (c.voice ? `${VOICE_NOTE} ${c.voice}\n\n` : '') + say(c) +
     `${i + 1}\n${fmtTime(c.start, '.')} --> ${fmtTime(c.end, '.')}\n${clean(c.text)}`).join('\n\n') + '\n';
 }
 
@@ -107,6 +112,9 @@ export function parseAdc(text) {
     const cue = { start, end: Math.max(c.end / 1000, start), text: t };
     const speed = ADC_SPEEDS[c.speed] ?? 1;
     if (speed !== 1) cue.speed = speed;
+    // Frazier names a Google voice for every block; one other than the document's is the
+    // block's own, such as a second voice for subtitles.
+    if (typeof c.voice === 'string' && /^[a-z]{2,3}-[A-Z]{2}-\w+-\w+$/.test(c.voice) && c.voice !== doc.voice) cue.voice = 'google:' + c.voice;
     if (say.length) cue.say = say;
     return cue;
   }).sort((x, y) => x.start - y.start);

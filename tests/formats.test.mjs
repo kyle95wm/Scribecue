@@ -125,3 +125,21 @@ test('parseAdc reads Frazier cue points in milliseconds, sorted, skipping broken
   assert.deepEqual(parseAdc('not json'), { cues: [], base: 1 });
   assert.deepEqual(parseAdc('{"cue_points": null}'), { cues: [], base: 1 });
 });
+
+test('block voices are kept in VTT as notes and read back', () => {
+  const cues = [{ start: 1, end: 2, text: 'Subtitle', speed: 1.15, voice: 'kokoro:bf_emma' }, { start: 3, end: 4, text: 'Description' }];
+  const vtt = toVTT(cues);
+  assert.match(vtt, /NOTE Scribecue text to speech voice: kokoro:bf_emma\n\n1\n/);
+  assert.deepEqual(parseSubs(vtt), cues);
+  assert.doesNotMatch(toSRT(cues), /voice/);
+});
+
+test('parseAdc gives a block a voice of its own only when it differs from the document’s', () => {
+  const doc = JSON.stringify({ voice: 'en-US-Standard-J', cue_points: [
+    { start: 0, end: 500, text: 'a', voice: 'en-US-Standard-J' },
+    { start: 1000, end: 1500, text: 'b', voice: 'en-GB-Standard-A' },
+    { start: 2000, end: 2500, text: 'c', voice: '' },
+    { start: 3000, end: 3500, text: 'd', voice: 'not a voice' },
+  ] });
+  assert.deepEqual(parseAdc(doc).cues.map((c) => c.voice), [undefined, 'google:en-GB-Standard-A', undefined, undefined]);
+});

@@ -6,7 +6,7 @@ const state = {
   app: '0.10.0',
   blocks: [
     { id: 7, start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, pinned: true },
-    { id: 8, start: 11.5, end: 14, text: 'The colours fold.', auto: true, say: [['colours', 'kul-ers']] },
+    { id: 8, start: 11.5, end: 14, text: 'The colours fold.', voice: 'kokoro:bf_emma', auto: true, say: [['colours', 'kul-ers']] },
     { id: 9, start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true },
   ],
   media: { name: 'lights.mkv', size: 2376368, duration: 60.02 },
@@ -14,7 +14,7 @@ const state = {
   view: { playhead: 21.6, selected: 1 },
 };
 
-test('a project keeps blocks, their speeds and auto ends, settings, view and media', () => {
+test('a project keeps blocks, their speeds, voices and auto ends, settings, view and media', () => {
   const saved = JSON.parse(JSON.stringify(toProject(state)));
   assert.equal(saved.scribecue, PROJECT_FORMAT);
   assert.equal(saved.app, '0.10.0');
@@ -22,7 +22,7 @@ test('a project keeps blocks, their speeds and auto ends, settings, view and med
   const p = fromProject(saved);
   assert.deepEqual(p.blocks, [
     { start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, pinned: true },
-    { start: 11.5, end: 14, text: 'The colours fold.', auto: true, say: [['colours', 'kul-ers']] },
+    { start: 11.5, end: 14, text: 'The colours fold.', voice: 'kokoro:bf_emma', auto: true, say: [['colours', 'kul-ers']] },
     { start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true },
   ]);
   assert.deepEqual(p.settings, state.settings);

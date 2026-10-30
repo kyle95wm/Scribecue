@@ -23,9 +23,10 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     media: media && media.name ? { name: media.name, size: media.size ?? null, duration: num(media.duration) ? media.duration : null } : null,
     settings,
     view,
-    blocks: blocks.map(({ start, end, text, speed, auto, fit, pinned, say }) => ({
+    blocks: blocks.map(({ start, end, text, speed, voice, auto, fit, pinned, say }) => ({
       start, end, text,
       ...(speed ? { speed } : {}),
+      ...(voice ? { voice } : {}),
       ...(cleanSay(say).length ? { say: cleanSay(say) } : {}),
       ...(auto ? { auto: true } : {}),
       ...(fit ? { fit: true } : {}),
@@ -50,6 +51,7 @@ export function fromProject(json) {
       end: Math.max(b.start, b.end),
       text: typeof b.text === 'string' ? b.text : '',
       ...(num(b.speed) ? { speed: b.speed } : {}),
+      ...(typeof b.voice === 'string' && b.voice ? { voice: b.voice.slice(0, 300) } : {}),
       ...(cleanSay(b.say).length ? { say: cleanSay(b.say) } : {}),
       ...(b.auto === true ? { auto: true } : {}),
       ...(b.fit === true ? { fit: true } : {}),
