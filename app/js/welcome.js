@@ -35,7 +35,7 @@ function summarise() {
   const lines = [m === 'write' ? 'Write mode, for new audio description' : 'Transcribe mode, for existing audio description'];
   if (m === 'transcribe') {
     lines.push(`Hold-to-mark reaction offset: ${Math.round(+$('wzOffset').value * 1000)} ms`);
-    if ($('wzReplay').checked) lines.push('Each block replays after you type it');
+    if ($('wzReplay').checked) lines.push('Goes back to each block’s start after you edit it');
   }
   if (m === 'write') {
     if ($('wzTts').checked) {
@@ -128,7 +128,7 @@ function piperNote() {
   $('wzPiper').hidden = !$('wzWebPiper').hidden; // the offer says it instead
   $('wzPiper').textContent = tts.piper.length
     ? `Piper voices are available, and recommended: they sound natural, give exact lengths and can be exported as a description track.`
-    : HOSTED ? 'Tip: for natural-sounding voices, download a Piper voice later in the text to speech panel.'
+    : HOSTED ? 'Tip: for natural-sounding voices, download a Piper voice later in Settings, under Text to speech.'
       : 'Recommended: for natural-sounding voices that run on your computer, with exact lengths, add Piper (see INSTALL.md).';
 }
 

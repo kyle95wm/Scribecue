@@ -247,8 +247,8 @@ docker compose up -d --build</code></pre>
     <button class="wzcard wzchoice" data-choice="leave"><span><strong>Leave everything as it is</strong>
       <span class="dim">Lines that don't fit show their duration in red, so you can deal with them one by one.</span></span></button>
     <label class="updopt"><input type="checkbox" id="impAlways"> Always do this when I open a script</label>
-    <p class="dim small">You can undo either change with <kbd><span class="mod"></span>Z</kbd>, and change this in the
-      text to speech panel.</p>
+    <p class="dim small">You can undo either change with <kbd><span class="mod"></span>Z</kbd>, and change this in
+      Settings, under Text to speech.</p>
   </dialog>
 
   <dialog id="welcome" class="updbox wizard" aria-labelledby="wzTitle">
@@ -277,7 +277,7 @@ docker compose up -d --build</code></pre>
       <div class="ttsgrid"><label for="wzOffset">Reaction offset</label><select id="wzOffset"></select></div>
       <p class="dim small">Both edges of a mark move back by this much, because your key press comes a moment
         after you hear the voice. 200 ms suits most people.</p>
-      <label class="updopt"><input type="checkbox" id="wzReplay"> Replay each block after I type it, to check it</label>
+      <label class="updopt"><input type="checkbox" id="wzReplay"> Go back to a block's start after I edit it, to hear it again</label>
       <p class="dim small">When you press <kbd>Esc</kbd> or <kbd>↵</kbd>, the playhead goes back to the block's
         start, so it plays again, then carries on. <kbd>⇧</kbd><kbd>L</kbd> turns it on or off any time.</p>
     </section>
@@ -533,7 +533,7 @@ docker compose up -d --build</code></pre>
         <kbd>⇧</kbd><kbd>V</kbd> set the block's end to where the reading finishes ·
         <kbd>[</kbd> <kbd>]</kbd> this block slower / faster ·
         <kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd> how words in this block sound ·
-        <kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd> this panel</p>
+        <kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd> these settings</p>
     </div>
     <aside id="ttsTip" class="tipbox" hidden>
       <strong>Did you know?</strong> <span class="rec">Recommended</span>
@@ -649,7 +649,7 @@ docker compose up -d --build</code></pre>
         <button id="updYes" class="hl">Check once a day</button>
         <button id="updNo">Don't check</button>
       </div>
-      <p class="dim small">You can change this later by clicking the version number in the bottom right.</p>
+      <p class="dim small">You can change this later in Settings, under General.</p>
     </section>
     <section id="updMain" hidden>
       <h2>Scribecue <span id="updCurrent" class="dim"></span></h2>

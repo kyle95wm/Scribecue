@@ -35,7 +35,8 @@ export function loop(mode, key = keyFor) {
 }
 
 // Each step: what to light up (a selector, or none for a card in the middle), and what to
-// say. text can depend on the mode. only: shown in that mode only.
+// say. text can depend on the mode, and on whether the setup comes next. only: shown in
+// that mode only.
 export const STEPS = [
   {
     title: 'Welcome to Scribecue',
@@ -100,7 +101,7 @@ export const STEPS = [
   {
     target: 'nav [data-act="help"]',
     title: 'That’s the tour',
-    text: () => 'Press ? any time for every keyboard shortcut, and to change them. Next comes a short setup; once you’ve picked a mode, you’ll see the loop to work in. Settings changes your choices later, and Settings and the shortcuts overlay can show you this tour again.',
+    text: (mode, { setupNext = false } = {}) => `Press ? any time for every keyboard shortcut, and to change them. ${setupNext ? 'Next comes a short setup; once you’ve picked a mode, you’ll see the loop to work in. ' : ''}Settings changes your choices later, and Settings and the shortcuts overlay can show you this tour again.`,
   },
 ];
 
@@ -122,7 +123,7 @@ function place() {
   const s = steps[k];
   const hole = $('tourHole'), card = $('tourCard');
   $('tourTitle').textContent = typeof s.title === 'function' ? s.title(mode) : s.title;
-  $('tourText').textContent = s.text(mode);
+  $('tourText').textContent = s.text(mode, { setupNext: !!state.then });
   $('tourStep').textContent = state.single ? '' : `${k + 1} of ${steps.length}`;
   $('tourSkip').hidden = !!state.single;
   $('tourBack').hidden = k === 0;

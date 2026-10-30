@@ -1306,8 +1306,8 @@ const IND_TIPS = {
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
   replay: 'Replay is on: Esc or ↵ after editing a block puts the playhead back at its start (⇧L). Click for its settings',
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H changes it; click for its settings',
-  tts: 'Text to speech: hear blocks read aloud (V). Click for its settings: the voice and speed, or to turn it on (⌥⇧V)',
-  stt: 'Speech to text: Whisper types what the narrator says in each block you mark. Click for its settings, or to transcribe empty blocks (⌥⇧H)',
+  tts: 'Text to speech is on: hear blocks read aloud (V). Click for its settings, such as the voice and speed (⌥⇧V)',
+  stt: 'Speech to text is on: Whisper types what the narrator says in each block you mark. Click for its settings, or to transcribe empty blocks (⌥⇧H)',
 };
 function updateInd() {
   const items = [
@@ -1969,7 +1969,7 @@ function setMode(m, quiet = false) {
   tlDirty = true;
   if (!quiet) {
     toast(m === 'write'
-      ? `Write mode: text to speech${tts.on ? '' : ' (turn it on with ⌥⇧V or TTS under the video)'}, reading times and block speeds`
+      ? `Write mode: text to speech${tts.on ? '' : ' (turn it on in Settings, or with ⌥⇧V)'}, reading times and block speeds`
       : 'Transcribe mode: hold H while the narrator speaks to mark each line');
   }
 }
@@ -3230,10 +3230,10 @@ const RUN = {
   trackPrev: () => stepTrack(-1),
   transcribeBlock: () => transcribeSelected(),
   findReplace: () => openFind(),
-  sttPanel: () => { if (writing()) modeOnly('Speech to text', 'transcribe'); else showMarking(); },
+  sttPanel: () => showMarking(),
   read: () => speakBlock(false),
   fitToReading: () => speakBlock(true),
-  ttsPanel: () => { if (writing()) openTts(); else modeOnly('Text to speech', 'write'); },
+  ttsPanel: () => openTts(),
   soundsLike: () => openSay(),
   aiHelp: () => toggleAi(),
   help: () => toggleHelp(),

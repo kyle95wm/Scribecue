@@ -584,7 +584,7 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
   if (voice.piper) return speakPiper(text, voice, { id, manual, silent, speed, done });
   if (!tts.available) { done(null); return false; }
   if (!voice.localService && navigator.onLine === false) {
-    if (manual) hooks.toast(`You’re offline, so the online voice ${voice.name} can’t read. Choose a voice on this computer, or a Piper voice, in the text to speech panel`);
+    if (manual) hooks.toast(`You’re offline, so the online voice ${voice.name} can’t read. Choose a voice on this computer, or a Piper voice, in Settings`);
     done(null);
     return false;
   }

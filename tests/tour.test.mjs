@@ -9,6 +9,9 @@ test('the tour covers both modes, privacy and how to find it again', () => {
   const titles = STEPS.map((s) => (typeof s.title === 'function' ? s.title('write') : s.title));
   assert.ok(titles.includes('Your work stays yours'));
   assert.match(STEPS.at(-1).text('write'), /shortcuts overlay can show you this tour again/);
+  // the setup is only mentioned when it really comes next, on a first visit
+  assert.match(STEPS.at(-1).text('write', { setupNext: true }), /Next comes a short setup/);
+  assert.doesNotMatch(STEPS.at(-1).text('write'), /setup/);
   // Settings is where text to speech or speech to text is turned on, by mode
   const set = STEPS.find((s) => s.title === 'Settings');
   assert.match(set.text('write'), /Text to speech/);
