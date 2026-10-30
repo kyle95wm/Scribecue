@@ -78,6 +78,7 @@ you through it, and covers updating and troubleshooting.
   - [Looping a block](#looping-a-block)
   - [Text to speech](#text-to-speech)
   - [Piper voices](#piper-voices)
+  - [Kokoro voices](#kokoro-voices)
   - [Google Cloud voices](#google-cloud-voices) (full guide: [GOOGLE-VOICES.md](GOOGLE-VOICES.md))
   - [AI help](#ai-help)
 - [Files with several audio tracks](#files-with-several-audio-tracks)
@@ -197,7 +198,7 @@ Scribecue, such as another writer or a QC reviewer. The **Export** menu at the t
 - **Script as SRT** (`Ctrl/Cmd+E`).
 - **Script as WebVTT** (`Ctrl/Cmd+Shift+E`), which also keeps each block's text to speech
   speed and sounds-like words.
-- **Description track (WAV)**, in Write mode with a [Piper](#piper-voices) or [Google](#google-cloud-voices) voice: the
+- **Description track (WAV)**, in Write mode with a [Piper](#piper-voices), [Kokoro](#kokoro-voices) or [Google](#google-cloud-voices) voice: the
   readings as one audio file. It's also in the text to speech settings.
 
 `Ctrl/Cmd+O` also opens SRT and VTT files, and Frazier's `.adc` scripts, with their
@@ -396,7 +397,7 @@ click it to take it out.
 - **Update all timings:** a button in the text to speech settings sets the end of every block
   with text from its reading, using each block's own speed. It asks first, because it also
   changes blocks marked with `H` or opened from a file, and `Ctrl/Cmd+Z` undoes it. Ends never run
-  into the next block. With a [Piper](#piper-voices) or [Google](#google-cloud-voices) voice the lengths are always exact.
+  into the next block. With a [Piper](#piper-voices), [Kokoro](#kokoro-voices) or [Google](#google-cloud-voices) voice the lengths are always exact.
   With a browser voice, tick **Read each block silently first** for exact lengths. That
   takes about as long as reading them all, shows its progress, and can be stopped.
 - **Timing check:** the editor shows how long the reading takes, such as `TTS 2.9 s`, in red
@@ -430,7 +431,7 @@ To add more voices that stay on your computer, then reload Scribecue:
 Not every browser lists every installed voice.
 
 The browser's own voices can only be heard, not recorded. To export the readings as an
-audio file, use a [Piper](#piper-voices) or [Google Cloud](#google-cloud-voices) voice.
+audio file, use a [Piper](#piper-voices), [Kokoro](#kokoro-voices) or [Google Cloud](#google-cloud-voices) voice.
 
 ### Piper voices
 
@@ -474,6 +475,18 @@ the same length to the hundredth of a second.
 Running Scribecue yourself, Piper can run in a container next to it instead, with four
 English voices built in and others you choose. See
 [Natural-sounding voices](INSTALL.md#natural-sounding-voices-piper) in INSTALL.md.
+
+### Kokoro voices
+
+[Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) is a newer open-source voice model
+whose voices sound closer to a person reading than Piper's. Running Scribecue
+[with Docker](#with-docker), it can run in its own container next to Piper or instead of
+it, with 41 voices in US and UK English, Spanish, French, Hindi, Italian and Brazilian
+Portuguese. They run on your computer and work offline, and everything above about Piper
+voices applies to them too: exact lengths, the same time for each line, and the
+description track. Readings take a second or two each, a little longer than Piper's.
+To add it, see [More lifelike voices](INSTALL.md#more-lifelike-voices-kokoro) in INSTALL.md.
+Kokoro isn't in the web version yet.
 
 ### Google Cloud voices
 
@@ -760,7 +773,7 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
 - [Piper](#piper-voices), if you add it, runs in its own container with no internet access
   and no port of its own. The page reaches it through Scribecue's server. In the web
   version, Piper voices you download come from Scribecue's own site and run in your
-  browser.
+  browser. [Kokoro](#kokoro-voices) runs the same way as Piper's container.
 
 ## Updating
 
@@ -797,6 +810,11 @@ its container. The web version runs Piper's voices with
 [espeak-ng](https://github.com/espeak-ng/espeak-ng) build used by Piper (GPL), downloaded
 only when you choose a voice. Each voice has its own licence, listed on its
 [voice page](https://huggingface.co/rhasspy/piper-voices).
+
+The optional [Kokoro voices](#kokoro-voices) use the
+[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) model by hexgrad (Apache 2.0),
+run with [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) by thewh1teagle (MIT)
+and espeak-ng (GPL), downloaded when you build its container.
 
 Scribecue is an independent project. It is not affiliated with, endorsed by or connected
 to Frazier or videotovoice. Frazier is their product name, used here only to describe the

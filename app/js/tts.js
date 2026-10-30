@@ -111,12 +111,14 @@ export function pickVoices(voices, { online = false, lang = 'en' } = {}) {
     .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
 
-// Splits voices for the menu: Piper, the browser's voices on this computer, then online ones.
+// Splits voices for the menu: Piper, Kokoro, Google, the browser's voices on this
+// computer, then online ones.
 export function groupVoices(voices) {
   return [
     ['Piper: natural voices on this computer', voices.filter((v) => v.piper)],
+    ['Kokoro: natural voices on this computer', voices.filter((v) => v.kokoro)],
     ['Google Cloud: the text is sent to Google', voices.filter((v) => v.google)],
-    ['On this computer', voices.filter((v) => v.localService && !v.piper)],
+    ['On this computer', voices.filter((v) => v.localService && !v.piper && !v.kokoro)],
     ['Online: the text is sent to the provider', voices.filter((v) => !v.localService && !v.google)],
   ];
 }
@@ -128,9 +130,9 @@ export const toggleFavourite = (favs, uri) => (favs.includes(uri) ? favs.filter(
 // running, no Google key, online voices off, or not in this browser).
 export const favouriteVoices = (favs, voices) => favs.map((uri) => ({ uri, voice: voices.find((v) => v.voiceURI === uri) || null }));
 
-// Voices that make their readings as audio, Piper's and Google's: lengths are exact, and
-// a description track can be exported.
-export const makesAudio = (v) => !!(v?.piper || v?.google);
+// Voices that make their readings as audio, Piper's, Kokoro's and Google's: lengths are
+// exact, and a description track can be exported.
+export const makesAudio = (v) => !!(v?.piper || v?.kokoro || v?.google);
 
 // Google Cloud's voice list, as Scribecue's voice objects: only the Standard voices, in
 // the user's languages if it has any of those. "en-GB-Standard-A" becomes
@@ -201,6 +203,19 @@ export function piperVoiceList(json) {
     const pretty = name.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
     return { voiceURI: 'piper:' + id, piper: id, name: pretty, lang: lang.replace('_', '-'), localService: true };
   });
+}
+
+// Kokoro's voice list, as Scribecue's voice objects: "af_heart" becomes "Heart (en-US)".
+// Its first letter is the language and its second the gender.
+const KOKORO_LANGS = { a: 'en-US', b: 'en-GB', e: 'es', f: 'fr-FR', h: 'hi', i: 'it', p: 'pt-BR' };
+export function kokoroVoiceList(json) {
+  return (json?.voices || []).map((v) => (typeof v === 'string' ? { id: v } : v))
+    .filter((v) => /^[a-z][fm]_\w+$/.test(v.id || ''))
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(({ id, lang }) => {
+      const name = id.slice(3).replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+      return { voiceURI: 'kokoro:' + id, kokoro: id, name, lang: lang || KOKORO_LANGS[id[0]] || '', localService: true };
+    });
 }
 
 // Reads a 16-bit PCM WAV file, as Piper returns.
@@ -304,6 +319,7 @@ export const tts = {
   ...DEFAULTS,
   available: typeof speechSynthesis !== 'undefined', // the browser's own voices
   piper: [], // Piper voices, once the container has answered
+  kokoro: [], // Kokoro voices, the same
   google: [], // Google Cloud voices, while there's a key
   speaking: null, // { id, manual } of the block being read, while speaking
 };
@@ -349,19 +365,20 @@ const measured = new Map(); // voice|speed|text -> seconds of video time
 
 function allowed() {
   const browser = pickVoices(tts.available ? speechSynthesis.getVoices() : [], { online: tts.online, lang: navigator.language || 'en' });
-  return [...tts.piper, ...tts.google, ...browser];
+  return [...tts.piper, ...tts.kokoro, ...tts.google, ...browser];
 }
-// The chosen voice, or a Piper voice if there is one, since they sound best.
+// The chosen voice, or a Piper or Kokoro voice if there is one, since they sound best.
 function currentVoice() {
-  return voices.find((v) => v.voiceURI === tts.voice) || voices.find((v) => v.piper) ||
+  return voices.find((v) => v.voiceURI === tts.voice) || voices.find((v) => v.piper || v.kokoro) ||
     voices.find((v) => v.default) || voices[0] || null;
 }
-// A voice that makes its readings as audio, with exact lengths: Piper or Google.
+// A voice that makes its readings as audio, with exact lengths: Piper, Kokoro or Google.
 export const usingAudioVoice = () => makesAudio(currentVoice());
 
 // A voice's name from its id alone, for a voice that isn't available to ask: Google's
 // "google:en-US-Standard-C" is "Google Standard C (en-US)", Piper's "piper:en_US-lessac-medium"
-// is "Lessac (en-US)", and a browser voice's id ends in its name.
+// is "Lessac (en-US)", Kokoro's "kokoro:bf_emma" is "Kokoro Emma (en-GB)", and a browser
+// voice's id ends in its name.
 export function voiceLabel(uri) {
   const s = String(uri || '');
   const g = s.match(/^google:([a-z]{2,3}-[A-Z]{2})-Standard-(\w+)$/);
@@ -369,6 +386,10 @@ export function voiceLabel(uri) {
   if (s.startsWith('piper:')) {
     const v = piperVoiceList({ [s.slice(6)]: 1 })[0];
     return v.lang ? `${v.name} (${v.lang})` : v.name;
+  }
+  if (s.startsWith('kokoro:')) {
+    const v = kokoroVoiceList({ voices: [s.slice(7)] })[0];
+    return v ? `Kokoro ${v.name}${v.lang ? ` (${v.lang})` : ''}` : `Kokoro ${s.slice(7)}`;
   }
   const last = s.split('.').pop() || s;
   return last.charAt(0).toUpperCase() + last.slice(1);
@@ -380,6 +401,9 @@ export function missingVoiceAdvice(uri, { googleKey = false, hosted = false } = 
   }
   if (String(uri).startsWith('piper:')) {
     return hosted ? 'Download it in Settings, under Text to speech.' : 'Piper isn’t running, or doesn’t have this voice. See INSTALL.md.';
+  }
+  if (String(uri).startsWith('kokoro:')) {
+    return hosted ? 'Kokoro voices need Scribecue’s Docker version.' : 'Kokoro isn’t running, or doesn’t have this voice. See INSTALL.md.';
   }
   return 'It isn’t on this computer, or in this browser.';
 }
@@ -393,7 +417,7 @@ function missingVoice() {
   const uri = tts.voice;
   if (!uri || !piperKnown || voices.some((v) => v.voiceURI === uri)) return '';
   // Browser voices can arrive late, so wait for some before saying one's missing.
-  if (!uri.startsWith('google:') && !uri.startsWith('piper:') && tts.available && !speechSynthesis.getVoices().length) return '';
+  if (!/^(google|piper|kokoro):/.test(uri) && tts.available && !speechSynthesis.getVoices().length) return '';
   return uri;
 }
 export function missingVoiceNote() {
@@ -417,7 +441,7 @@ export const usingGoogle = () => !!currentVoice()?.google;
 export function showGoogleCost() {
   for (const el of document.querySelectorAll('.googlecost')) el.hidden = !usingGoogle();
 }
-export const anyVoices = () => tts.available || tts.piper.length > 0 || tts.google.length > 0;
+export const anyVoices = () => tts.available || tts.piper.length > 0 || tts.kokoro.length > 0 || tts.google.length > 0;
 const voiceKey = () => currentVoice()?.voiceURI || '';
 const measureKey = (text, speed) => `${voiceKey()}|${rate(speed)}|${spoken(text)}`;
 
@@ -614,11 +638,12 @@ export async function loadPiper() {
     checkVoice();
     return tts.piper.length;
   }
-  try {
-    const r = await fetch('tts/voices', { cache: 'no-store' });
-    // Voices in the user's language first, so the default suits them.
-    tts.piper = r.ok ? pickVoices(piperVoiceList(await r.json()), { lang: navigator.language || 'en' }) : [];
-  } catch { tts.piper = []; }
+  // Each from its own container, if it's running. Voices in the user's language first,
+  // so the default suits them.
+  const ask = (url, list) => fetch(url, { cache: 'no-store' })
+    .then(async (r) => (r.ok ? pickVoices(list(await r.json()), { lang: navigator.language || 'en' }) : []))
+    .catch(() => []);
+  [tts.piper, tts.kokoro] = await Promise.all([ask('tts/voices', piperVoiceList), ask('tts/kokoro/voices', kokoroVoiceList)]);
   voices = allowed();
   piperKnown = true;
   hooks.changed();
@@ -769,6 +794,14 @@ function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background')
   if (!p) {
     let reading;
     if (voice.google) reading = googleOrSaved(key, words, voice, speed, how === 'now');
+    else if (voice.kokoro) reading = fetch('tts/kokoro/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: words, voice: voice.kokoro, speed }),
+    }).then((r) => {
+      if (!r.ok) throw new Error(`Kokoro answered ${r.status}`);
+      return r.arrayBuffer();
+    });
     else if (HOSTED) {
       reading = ask('synthesize', { voice: voice.piper, text: words, speed, urgent: how === 'now' }, how === 'bulk');
       pending.set(key, reading);
@@ -816,7 +849,7 @@ export function prefetch(text, speed = 1) {
 // Returns { blob, overlaps }, where overlaps counts readings that run into the next one.
 export async function renderTrack(blocks, secs, progress = () => {}) {
   const voice = currentVoice();
-  if (!makesAudio(voice)) throw new Error('Exporting needs a Piper or Google voice');
+  if (!makesAudio(voice)) throw new Error('Exporting needs a Piper, Kokoro or Google voice');
   const items = [];
   let rate = 0;
   for (let k = 0; k < blocks.length; k++) {
@@ -880,6 +913,7 @@ function speakAudio(text, voice, { id, manual, silent, speed, done }) {
   }, (e) => {
     if (current?.piper !== token) return;
     hooks.toast(voice.google ? (navigator.onLine === false ? `You’re offline, so the Google voice can’t read. Choose a voice on this computer, or a Piper voice, in Settings` : e.message)
+      : voice.kokoro ? 'Kokoro isn’t answering. Is its container running? See INSTALL.md'
       : HOSTED ? 'The Piper voice couldn’t read that block. Try reloading the page'
       : 'Piper isn’t answering. Is its container running? See INSTALL.md');
     finish(null);
@@ -966,8 +1000,8 @@ export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
     const away = (online || google) && navigator.onLine === false; // they can't be reached
     g.label = away ? `${google ? 'Google Cloud' : 'Online'}: unavailable while you’re offline` : label;
     g.disabled = away;
-    // Only when Piper is running, or there's a Google key.
-    if ((label.startsWith('Piper') || google) && !list.length) continue;
+    // Only when Piper or Kokoro is running, or there's a Google key.
+    if ((label.startsWith('Piper') || label.startsWith('Kokoro') || google) && !list.length) continue;
     for (const v of list) {
       const o = document.createElement('option');
       o.value = v.voiceURI;
@@ -1017,7 +1051,7 @@ function renderFavourites() {
       return b;
     }
     // Not available now: it stays, for when it is again, and can be taken out.
-    b.textContent = `${uri.replace(/^(piper|google):/, '')} ×`;
+    b.textContent = `${uri.replace(/^(piper|kokoro|google):/, '')} ×`;
     b.classList.add('gone');
     b.dataset.tip = 'Not available right now. Click to take it out of your favourites';
     b.addEventListener('click', () => setTtsOption('favourites', toggleFavourite(tts.favourites, uri)));
@@ -1037,6 +1071,12 @@ function fillVoices() {
     : 'No voices on this computer. Your system may need speech voices installed, or you can allow online voices below.';
 }
 
+// "3 Piper voices and 41 Kokoro voices", for the ones running.
+function naturalCount() {
+  const n = (k, name) => (k ? `${k} ${name} voice${k > 1 ? 's' : ''}` : '');
+  return [n(tts.piper.length, 'Piper'), n(tts.kokoro.length, 'Kokoro')].filter(Boolean).join(' and ');
+}
+
 // googleError: what went wrong the last time Google was asked for its voices.
 function render(googleError = '') {
   $('ttsUnavailable').hidden = anyVoices();
@@ -1045,9 +1085,11 @@ function render(googleError = '') {
   const piper = usingAudioVoice();
   $('ttsPiperNote').textContent = currentVoice()?.google
     ? 'Google voice: lengths are exact as soon as a block has text, and you can export a description track. Each reading sends the block’s text to Google.'
-    : tts.piper.length
+    : currentVoice()?.kokoro
+    ? 'Kokoro voice: lengths are exact as soon as a block has text, and you can export a description track.'
+    : tts.piper.length || tts.kokoro.length
     ? (piper ? 'Piper voice: lengths are exact as soon as a block has text, and you can export a description track.'
-      : `${tts.piper.length} Piper voice${tts.piper.length > 1 ? 's' : ''} available at the top of the list: they sound more natural and give exact lengths.`)
+      : `${naturalCount()} available at the top of the list: they sound more natural and give exact lengths.`)
     : ''; // the Did you know box below explains Piper
   const key = googleKey();
   if (document.activeElement !== $('ttsGoogleKey')) $('ttsGoogleKey').value = key;
@@ -1057,11 +1099,11 @@ function render(googleError = '') {
     : 'No Standard voices yet. Reopen these settings once you’re online.');
   $('ttsGoogleStatus').classList.toggle('err', !!googleError);
   // The tip is about adding Piper to the Docker setup, which the web version doesn't have.
-  $('ttsTip').hidden = tts.piper.length > 0 || HOSTED;
+  $('ttsTip').hidden = tts.piper.length > 0 || tts.kokoro.length > 0 || HOSTED;
   $('ttsAllExactRow').hidden = piper;
   showGoogleCost();
   $('ttsExport').disabled = !piper;
-  $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper or Google voice: the browser\'s own voices can\'t be recorded.';
+  $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper, Kokoro or Google voice: the browser\'s own voices can\'t be recorded.';
   $('ttsBody').classList.toggle('off', !tts.on);
   $('ttsBase').value = String(Math.round(tts.base * 100));
   $('ttsBaseOut').textContent = `${Math.round(tts.base * 100)}%`;
@@ -1145,7 +1187,7 @@ export function initTts(h) {
   $('ttsGoogleKey').addEventListener('change', async (e) => {
     $('ttsGoogleStatus').textContent = e.target.value.trim() ? 'Asking Google for its voices…' : '';
     const error = await setGoogleKey(e.target.value.trim());
-    if (!error && tts.google.length && !currentVoice()?.google && !currentVoice()?.piper) {
+    if (!error && tts.google.length && !makesAudio(currentVoice())) {
       tts.voice = tts.google[0].voiceURI; save(); render(); hooks.changed();
     }
   });

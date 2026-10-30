@@ -14,6 +14,7 @@ it.
 - [Install](#install)
 - [Starting and stopping](#starting-and-stopping), and [installing it as an app](#installing-it-as-an-app)
 - [Natural-sounding voices (Piper)](#natural-sounding-voices-piper)
+- [More lifelike voices (Kokoro)](#more-lifelike-voices-kokoro)
 - [Speech to text (Whisper)](#speech-to-text-whisper)
 - [Ollama in Docker](#ollama-in-docker)
 - [Updating](#updating)
@@ -128,6 +129,44 @@ PIPER_VOICES=en_US-lessac-medium en_GB-jenny_dioco-medium
 
 To stop using Piper, remove the `COMPOSE_PROFILES` line from `.env` and run
 `docker compose down`, then `docker compose up -d`.
+
+## More lifelike voices (Kokoro)
+
+[Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) is a newer, free, open-source voice
+model whose voices sound closer to a person reading than Piper's. Like Piper, it runs in
+its own container, so your script stays on your computer and it works offline. It has 41
+voices in US and UK English, Spanish, French, Hindi, Italian and Brazilian Portuguese.
+
+Add `kokoro` to the profiles in `.env`, for example:
+
+```
+COMPOSE_PROFILES=piper,kokoro
+```
+
+Then build and start it:
+
+```bash
+docker compose up -d --build
+```
+
+The first build downloads Kokoro and its voices, about 1.1 GB in all. After that, it has
+no internet access, and only Scribecue's own server can reach it. Reload Scribecue and
+pick a voice from the **Kokoro** group in the voice menu. Lengths are exact, and you can
+export a description track, as with Piper.
+
+Kokoro takes longer to read than Piper: a line takes a second or two on a recent computer,
+against a fraction of a second. Scribecue reads blocks ahead in the background, so you
+mostly won't notice, but fitting every block's speed takes longer. It reads between half
+and twice its normal speed, so a block's reading stops getting faster beyond that.
+
+For a smaller, quicker model that sounds a little rougher, add this line to `.env`, then
+build again:
+
+```
+KOKORO_MODEL=kokoro-v1.0.int8.onnx
+```
+
+Both can run at once. Scribecue only uses the one whose voice is chosen.
 
 ## Speech to text (Whisper)
 
@@ -245,6 +284,8 @@ and port as before.
   reload.
 - **"Piper isn't answering":** the Piper container isn't running. Check that `.env` has
   `COMPOSE_PROFILES=piper`, then run `docker compose up -d --build`.
+- **"Kokoro isn't answering":** the Kokoro container isn't running. Check that
+  `COMPOSE_PROFILES` in `.env` includes `kokoro`, then run `docker compose up -d --build`.
 - **"The Whisper container isn't running":** check that `COMPOSE_PROFILES` in `.env`
   includes `whisper`, then run `docker compose up -d --build`.
 

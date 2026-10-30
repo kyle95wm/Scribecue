@@ -128,8 +128,9 @@ function webPiperOffer() {
 function piperNote() {
   webPiperOffer();
   $('wzPiper').hidden = !$('wzWebPiper').hidden; // the offer says it instead
-  $('wzPiper').textContent = tts.piper.length
-    ? `Piper voices are available, and recommended: they sound natural, give exact lengths and can be exported as a description track.`
+  const which = [tts.piper.length && 'Piper', tts.kokoro.length && 'Kokoro'].filter(Boolean).join(' and ');
+  $('wzPiper').textContent = which
+    ? `${which} voices are available, and recommended: they sound natural, give exact lengths and can be exported as a description track.`
     : HOSTED ? 'Tip: for natural-sounding voices, download a Piper voice later in Settings, under Text to speech.'
       : 'Recommended: for natural-sounding voices that run on your computer, with exact lengths, add Piper (see INSTALL.md).';
 }

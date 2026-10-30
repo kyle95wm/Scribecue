@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
-  piperVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
+  piperVoiceList, kokoroVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleFailure, makesAudio, overCap,
   toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice } from '../app/js/tts.js';
 
@@ -46,16 +46,30 @@ test('tags and line breaks are not read out', () => {
   assert.equal(spoken('<i>Hello</i>\n  {\\an8}there'), 'Hello there');
 });
 
-test('the voice menu lists Piper, then voices on this computer, then online ones', () => {
+test('the voice menu lists Piper and Kokoro, then voices on this computer, then online ones', () => {
   const piper = piperVoiceList({ 'en_GB-alba-medium': {}, 'en_US-lessac-medium': {} });
-  const groups = groupVoices([...piper, ...pickVoices(voices, { online: true, lang: 'en-US' })]);
+  const kokoro = kokoroVoiceList({ voices: [{ id: 'af_heart', lang: 'en-US' }] });
+  const groups = groupVoices([...piper, ...kokoro, ...pickVoices(voices, { online: true, lang: 'en-US' })]);
   assert.deepEqual(groups.map(([label]) => label),
-    ['Piper: natural voices on this computer', 'Google Cloud: the text is sent to Google', 'On this computer',
-      'Online: the text is sent to the provider']);
+    ['Piper: natural voices on this computer', 'Kokoro: natural voices on this computer', 'Google Cloud: the text is sent to Google',
+      'On this computer', 'Online: the text is sent to the provider']);
   assert.deepEqual(groups[0][1].map((x) => x.name), ['Alba', 'Lessac']);
-  assert.deepEqual(groups[1][1], []);
-  assert.deepEqual(groups[2][1].map((x) => x.name), ['Anna', 'Zed', 'Alex', 'Amélie']);
-  assert.deepEqual(groups[3][1].map((x) => x.name), ['Google UK']);
+  assert.deepEqual(groups[1][1].map((x) => x.name), ['Heart']);
+  assert.deepEqual(groups[2][1], []);
+  assert.deepEqual(groups[3][1].map((x) => x.name), ['Anna', 'Zed', 'Alex', 'Amélie']);
+  assert.deepEqual(groups[4][1].map((x) => x.name), ['Google UK']);
+});
+
+test('Kokoro voice names are made readable, with the language from the first letter', () => {
+  const list = kokoroVoiceList({ voices: [{ id: 'bf_emma', lang: 'en-GB', gender: 'female' }, 'am_santa_claus', 'ff_siwis', 'zf_xiaobei', 'nonsense'] });
+  assert.deepEqual(list, [
+    { voiceURI: 'kokoro:am_santa_claus', kokoro: 'am_santa_claus', name: 'Santa Claus', lang: 'en-US', localService: true },
+    { voiceURI: 'kokoro:bf_emma', kokoro: 'bf_emma', name: 'Emma', lang: 'en-GB', localService: true },
+    { voiceURI: 'kokoro:ff_siwis', kokoro: 'ff_siwis', name: 'Siwis', lang: 'fr-FR', localService: true },
+    { voiceURI: 'kokoro:zf_xiaobei', kokoro: 'zf_xiaobei', name: 'Xiaobei', lang: '', localService: true },
+  ]);
+  assert.equal(makesAudio(list[0]), true);
+  assert.deepEqual(kokoroVoiceList(null), []);
 });
 
 test('Piper voice names are made readable', () => {
@@ -235,8 +249,8 @@ test('Google voices make audio, so they give exact lengths and export, as Piper 
   assert.equal(makesAudio(v('Zed', 'en-US', true)), false);
   assert.equal(makesAudio(null), false);
   const groups = groupVoices([g, v('Google UK', 'en-GB', false)]);
-  assert.deepEqual(groups[1][1], [g]);
-  assert.deepEqual(groups[3][1].map((x) => x.name), ['Google UK']);
+  assert.deepEqual(groups[2][1], [g]);
+  assert.deepEqual(groups[4][1].map((x) => x.name), ['Google UK']);
 });
 
 test('a Google reading sends the text, voice and speed, with the key in a header, not the address', () => {
@@ -315,6 +329,8 @@ test('a voice that isn\'t available is named from its id', () => {
   assert.equal(voiceLabel('google:en-US-Standard-C'), 'Google Standard C (en-US)');
   assert.equal(voiceLabel('google:fil-PH-Standard-A'), 'Google Standard A (fil-PH)');
   assert.equal(voiceLabel('piper:en_US-lessac-medium'), 'Lessac (en-US)');
+  assert.equal(voiceLabel('kokoro:bf_emma'), 'Kokoro Emma (en-GB)');
+  assert.equal(voiceLabel('kokoro:zz_nobody'), 'Kokoro zz_nobody');
   assert.equal(voiceLabel('com.apple.voice.compact.en-US.Samantha'), 'Samantha');
   assert.equal(voiceLabel('Google US English'), 'Google US English');
 });
@@ -324,5 +340,7 @@ test('a missing voice comes with what to do about it', () => {
   assert.match(missingVoiceAdvice('google:en-US-Standard-C', { googleKey: true }), /key doesn’t offer it/);
   assert.match(missingVoiceAdvice('piper:en_US-lessac-medium', { hosted: true }), /Download it/);
   assert.match(missingVoiceAdvice('piper:en_US-lessac-medium'), /Piper isn’t running/);
+  assert.match(missingVoiceAdvice('kokoro:af_heart'), /Kokoro isn’t running/);
+  assert.match(missingVoiceAdvice('kokoro:af_heart', { hosted: true }), /Docker version/);
   assert.match(missingVoiceAdvice('Samantha'), /isn’t on this computer/);
 });

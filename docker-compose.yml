@@ -41,6 +41,31 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
+  # Optional, even more natural voices that run on this computer, made by Kokoro. Turn it on
+  # by adding kokoro to COMPOSE_PROFILES in .env (see INSTALL.md).
+  kokoro:
+    build:
+      context: ./kokoro
+      args:
+        # kokoro-v1.0.onnx sounds best; kokoro-v1.0.int8.onnx is smaller and quicker. Set
+        # KOKORO_MODEL in .env to change it, then rebuild.
+        KOKORO_MODEL: ${KOKORO_MODEL:-kokoro-v1.0.onnx}
+    image: scribecue-kokoro:latest
+    container_name: scribecue-kokoro
+    profiles: [kokoro]
+    # Like Piper: only on the internal network, with no internet and no port on this
+    # computer. Scribecue's server is the only thing that can reach it.
+    networks: [voices]
+    read_only: true
+    tmpfs:
+      # exec: the speech engine copies its espeak-ng library here and loads it from here.
+      - /tmp:exec
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
   # Optional speech to text that runs on this computer: Whisper fills in the text of the
   # blocks you mark. Turn it on by adding whisper to COMPOSE_PROFILES in .env (see INSTALL.md).
   whisper:
