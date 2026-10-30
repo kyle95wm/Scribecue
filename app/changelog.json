@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.51.0",
+  "date": "2026-10-30",
+  "notes": "## A voice for each block\n\n- The block editor has a new **Voice** menu next to the speed. Leave it on **Same as Settings** to use the voice chosen in Settings, or pick another voice for just that block, for example a different voice for subtitles or a second narrator.\n- Blocks with their own voice show its name in the list. Playing, fitting, Make all readings and exported description tracks all use each block’s own voice, and a track can mix Piper, Kokoro and Google voices.\n- Block voices are saved in projects and WebVTT exports. Frazier `.adc` files bring their per-block voices with them.\n- If a block’s voice isn’t available, for example a Kokoro voice in the web version, it reads with the voice in Settings until it is.\n\n## Replace all voices\n\n- When blocks have voices of their own, the text to speech settings say which, with a **Replace all voices** button that sets every block back to the voice chosen there. Ctrl/Cmd+Z undoes it.\n\n## Steadier fitting\n\n- Fitting a block’s speed now settles on the reading that fills the block best without running over. Before, it could stop on a speed that came out slightly short or a little long, especially with Kokoro voices."
+ },
+ {
   "version": "0.50.0",
   "date": "2026-10-30",
   "notes": "## Make all readings\n\n- A new **Make all readings** button in the text to speech settings reads every block now, at its own speed, without changing any timings. Each block then plays straight away and its length is exact.\n- The readings are kept in your browser, so they're still ready after a reload or the next time you open the project, and they work offline.\n- It runs in the background, with its progress and a Stop button in the bottom bar. Blocks already read are skipped.\n- It needs a Piper, Kokoro or Google voice. With a Google voice, it reads with Google every block that hasn't been read yet, which uses up your free characters."
