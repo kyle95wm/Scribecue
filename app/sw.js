@@ -20,6 +20,7 @@ const GUIDES = [
   'guides/README.md',
   'guides/TRANSCRIBING.md',
   'guides/AI.md',
+  'guides/GOOGLE-VOICES.md',
   'guides/INSTALL.md',
   'guides/docs/screenshots/ai-help.png',
   'guides/docs/screenshots/hold-to-mark.png',

@@ -28,6 +28,7 @@ test('escapes everything, and only allows safe links', () => {
 test('knows links to the guides, on GitHub or between them', () => {
   assert.deepEqual(guideLink('https://github.com/kyle95wm/Scribecue/blob/main/AI.md#costs'), { file: 'AI.md', hash: 'costs' });
   assert.deepEqual(guideLink('INSTALL.md'), { file: 'INSTALL.md', hash: '' });
+  assert.deepEqual(guideLink('GOOGLE-VOICES.md#never-being-billed'), { file: 'GOOGLE-VOICES.md', hash: 'never-being-billed' });
   assert.equal(guideLink('LICENSE'), null);
   assert.equal(guideLink('https://github.com/kyle95wm/Scribecue/releases'), null);
 });

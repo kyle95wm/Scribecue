@@ -3,7 +3,7 @@
 // screenshots, and the offline copy keeps them. Links to them on GitHub open here instead,
 // when they're available; otherwise they open on GitHub as before.
 
-export const GUIDES = { 'README.md': 'Scribecue', 'TRANSCRIBING.md': 'Transcribing', 'AI.md': 'AI help', 'INSTALL.md': 'Running Scribecue yourself' };
+export const GUIDES = { 'README.md': 'Scribecue', 'TRANSCRIBING.md': 'Transcribing', 'AI.md': 'AI help', 'GOOGLE-VOICES.md': 'Google voices', 'INSTALL.md': 'Running Scribecue yourself' };
 export const REPO = 'https://github.com/kyle95wm/Scribecue/blob/main/';
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -127,7 +127,7 @@ function blocks(lines) {
 // Which guide and anchor a link points to, if it's one of the guides: on GitHub, or
 // relative from another guide. null otherwise.
 export function guideLink(href) {
-  const m = String(href).replace(REPO, '').match(/^(?:\.\/)?([A-Z]+\.md)(#[^\s]*)?$/);
+  const m = String(href).replace(REPO, '').match(/^(?:\.\/)?([A-Z][A-Z-]*\.md)(#[^\s]*)?$/);
   return m && GUIDES[m[1]] ? { file: m[1], hash: m[2] ? decodeURIComponent(m[2].slice(1)) : '' } : null;
 }
 

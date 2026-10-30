@@ -78,7 +78,7 @@ you through it, and covers updating and troubleshooting.
   - [Looping a block](#looping-a-block)
   - [Text to speech](#text-to-speech)
   - [Piper voices](#piper-voices)
-  - [Google Cloud voices](#google-cloud-voices)
+  - [Google Cloud voices](#google-cloud-voices) (full guide: [GOOGLE-VOICES.md](GOOGLE-VOICES.md))
   - [AI help](#ai-help)
 - [Files with several audio tracks](#files-with-several-audio-tracks)
 - [Other handy features](#other-handy-features)
@@ -461,6 +461,8 @@ Scribecue can also use Google Cloud's **Standard** text to speech voices, with y
 Google Cloud key, in the web version and with Docker. Like Piper voices, they make real
 recordings, so lengths are exact straight away and you can export a description track.
 Unlike Piper, each reading sends the block's text to Google, and they need the internet.
+[GOOGLE-VOICES.md](GOOGLE-VOICES.md) is the full guide, including how to make sure you're
+never billed.
 
 1. In the [Google Cloud console](https://console.cloud.google.com/apis/library/texttospeech.googleapis.com),
    turn on the **Cloud Text-to-Speech API** for a project.
@@ -481,8 +483,10 @@ removes the key and its voices.
 Google bills your Google Cloud account for the readings. Standard voices have a free
 allowance each month, which is plenty for most scripts, but jobs such as **Fit speeds to
 timings** read each block more than once. See
-[Google's prices](https://cloud.google.com/text-to-speech/pricing). The key stays in your
-browser and is only sent to Google.
+[Google's prices](https://cloud.google.com/text-to-speech/pricing). To make sure you're
+never billed, [GOOGLE-VOICES.md](GOOGLE-VOICES.md#never-being-billed) shows how to have
+Google Cloud turn billing off as soon as you go past the free allowance. The key stays in
+your browser and is only sent to Google.
 
 ### AI help
 
@@ -549,7 +553,7 @@ afterwards is instant. Safari switches tracks itself.
   version you were on. In the web version, click the version number in the bottom right to
   see the current release's notes again.
 - **Guides:** **Guides** in the shortcuts overlay (`?`) opens this README, the
-  [transcribing guide](TRANSCRIBING.md), the [AI guide](AI.md) and [INSTALL.md](INSTALL.md)
+  [transcribing guide](TRANSCRIBING.md), the [AI guide](AI.md), the [Google voices guide](GOOGLE-VOICES.md) and [INSTALL.md](INSTALL.md)
   inside Scribecue, and links to them anywhere in Scribecue open there too.
 - **Screen readers:** Scribecue's messages are read out as they appear, with key symbols
   said as words. The block list is a list a screen reader can move through, reading each

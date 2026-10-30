@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { GUIDES } from '../app/js/guide.js';
 
 const read = (p) => readFileSync(new URL(`../app/${p}`, import.meta.url), 'utf8');
 
@@ -42,11 +43,16 @@ test('hidden buttons stay hidden, such as Install app until the browser offers i
 test('the guides and every screenshot they show are built in and kept offline', () => {
   const sw = read('sw.js');
   const shots = readdirSync(new URL('../docs/screenshots', import.meta.url)).filter((f) => f.endsWith('.png'));
-  for (const f of ['README.md', 'TRANSCRIBING.md', 'AI.md', 'INSTALL.md', ...shots.map((s) => `docs/screenshots/${s}`)]) {
+  // Every guide the viewer has tabs for.
+  const guides = Object.keys(GUIDES);
+  for (const f of [...guides, ...shots.map((s) => `docs/screenshots/${s}`)]) {
     assert.ok(sw.includes(`'guides/${f}'`), `guides/${f} isn't kept offline (add it to GUIDES in app/sw.js)`);
   }
   const pages = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
-  assert.match(pages, /cp README\.md TRANSCRIBING\.md AI\.md INSTALL\.md _site\/guides\//);
   const docker = readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8');
-  assert.match(docker, /COPY README\.md TRANSCRIBING\.md AI\.md INSTALL\.md \/usr\/share\/nginx\/html\/guides\//);
+  const copied = (text, re) => (text.match(re)?.[1] || '').split(/\s+/);
+  for (const f of guides) {
+    assert.ok(copied(pages, /cp ([\w. -]+) _site\/guides\//).includes(f), `pages.yml doesn't copy ${f} into the guides`);
+    assert.ok(copied(docker, /COPY ([\w. -]+) \/usr\/share\/nginx\/html\/guides\//).includes(f), `the Dockerfile doesn't copy ${f} into the guides`);
+  }
 });
