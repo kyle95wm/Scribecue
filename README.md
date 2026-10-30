@@ -263,9 +263,10 @@ it. Pausing first and then holding `H` starts the block exactly where you paused
 blocks never overlap the ones next to them. See
 [Marking lines with H](TRANSCRIBING.md#marking-lines-with-h).
 
-**Replay**, `REPLAY` under the video or `Shift+L`, plays each block again from its start
-once you've typed it and pressed `Esc` or `Enter`, so you can check it against the
-narration before carrying on.
+**Replay**, `REPLAY` under the video or `Shift+L`, puts the playhead back at the start of
+a block when you finish editing it with `Esc` or `Enter`, in either mode. If it was playing,
+it plays the block again, so you can check it against the narration before carrying on.
+It's on unless you turn it off.
 
 ### Speech to text
 
@@ -580,7 +581,7 @@ this browser.
 | Hold `H` | [Hold-to-mark](#hold-to-mark) a block while the narrator speaks; in Write mode, time [your own read](#the-writing-loop) of the selected block |
 | `Shift+H` | Change the hold-to-mark reaction offset |
 | `L` | [Loop this block](#looping-a-block) until you finish editing it |
-| `Shift+L` | [Replay](#hold-to-mark) each block after typing it, on / off (Transcribe) |
+| `Shift+L` | [Replay](#hold-to-mark): back to a block's start after editing it, on / off |
 | `N` | New block at the playhead |
 | `A` / `S` | Set start / end to the playhead |
 | `Q` `W` | Start −/+ 100 ms (with `Shift`: 10 ms) |

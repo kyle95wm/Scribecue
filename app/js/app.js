@@ -92,8 +92,8 @@ const S = {
   loop: false,
   loopOnce: false, // loop started with L: ends when the block editor closes
   offset: (() => { try { const v = parseFloat(localStorage.getItem('scribecue.offset')); return OFFSETS.includes(v) ? v : 0.2; } catch { return 0.2; } })(),
-  // Transcribe: after typing a block marked with H, replay it from its start, to check.
-  replay: (() => { try { return localStorage.getItem('scribecue.replay') === '1'; } catch { return false; } })(),
+  // After editing a block, go back to its start, to hear it again. On unless turned off.
+  replay: (() => { try { return localStorage.getItem('scribecue.replay') !== '0'; } catch { return true; } })(),
   resumeAfterEdit: false, // hold-to-mark paused playback; closing the editor resumes it
   rate: 1,
   hasVideo: false,
@@ -593,13 +593,15 @@ function editText(field = edText) {
   else field.select();
 }
 
-function closeEditor() {
+// finished: closed with Esc or ↵, rather than by opening something else.
+function closeEditor(finished = false) {
   document.activeElement?.blur();
   if (S.loopOnce) stopLoop();
+  // With Replay on, the playhead goes back to the start of the block just edited, so it
+  // can be heard again, and playback carries on from there if it was playing.
+  if (finished && S.replay && selCue()) seek(selCue().start);
   if (S.resumeAfterEdit) {
     S.resumeAfterEdit = false;
-    // With Replay on, hear the block just typed again, then carry on from there.
-    if (S.replay && !writing() && selCue()) seek(selCue().start);
     play();
   }
 }
@@ -608,7 +610,7 @@ function setReplay(on, quiet = false) {
   S.replay = on;
   try { localStorage.setItem('scribecue.replay', on ? '1' : '0'); } catch { /* ignore */ }
   updateInd();
-  if (!quiet) toast(on ? 'Replay on: after you type a block marked with H, it plays again from its start' : 'Replay off: playback carries on from where you stopped');
+  if (!quiet) toast(on ? 'Replay on: Esc or ↵ after editing a block goes back to its start' : 'Replay off: the playhead stays where it is after editing');
 }
 
 function confirmDelete() {
@@ -642,7 +644,7 @@ function toggleTag(tag) {
 const FIELDS = [edText, edStart, edEnd];
 function editorKeys(e, field) {
   const mod = e.metaKey || e.ctrlKey, os = e.altKey && e.shiftKey;
-  if (e.key === 'Escape') { e.preventDefault(); closeEditor(); return true; }
+  if (e.key === 'Escape') { e.preventDefault(); closeEditor(true); return true; }
   if (e.key === 'Tab') {
     e.preventDefault();
     const i = FIELDS.indexOf(field);
@@ -705,7 +707,7 @@ edText.addEventListener('keydown', (e) => {
   if (e.altKey && e.shiftKey && !e.metaKey && !e.ctrlKey && e.code === 'KeyP') { e.preventDefault(); openSay(); return; }
   if (editorKeys(e, edText)) return;
   const mod = e.metaKey || e.ctrlKey;
-  if (e.key === 'Enter' && !e.shiftKey && !e.altKey) { e.preventDefault(); closeEditor(); return; }
+  if (e.key === 'Enter' && !e.shiftKey && !e.altKey) { e.preventDefault(); closeEditor(true); return; }
   if (mod && !e.shiftKey && !e.altKey && ['KeyB', 'KeyI', 'KeyU'].includes(e.code)) {
     e.preventDefault();
     toggleTag(e.code[3].toLowerCase());
@@ -744,7 +746,7 @@ function bindTimeInput(input, which) {
     e.stopPropagation();
     if (e.key === 'Escape' || e.key === 'Tab') apply();
     if (editorKeys(e, input)) return;
-    if (e.key === 'Enter') { e.preventDefault(); apply(); closeEditor(); }
+    if (e.key === 'Enter') { e.preventDefault(); apply(); closeEditor(true); }
     else if (!e.shiftKey && !e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
       apply();
@@ -1301,7 +1303,7 @@ const IND_TIPS = {
   speed: 'Playback speed. + and - change it; click or press \\ to reset to 1×',
   follow: 'Follow: keep the playhead in view and select each block as it plays (F)',
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
-  replay: 'Replay: after you type a block marked with H, Esc or ↵ plays it again from its start, to check it (⇧L)',
+  replay: 'Replay: Esc or ↵ after editing a block puts the playhead back at its start, to hear it again (⇧L)',
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H or click to change',
   tts: 'Text to speech: hear blocks read aloud (V). Click to choose the voice and speed, or to turn it on (⌥⇧V)',
   stt: 'Speech to text: Whisper types what the narrator says in each block you mark. Click to set it up or transcribe empty blocks (⌥⇧H)',
@@ -1312,7 +1314,8 @@ function updateInd() {
     ['follow', 'FOLLOW', S.follow],
     ['loop', 'LOOP', S.loop],
     ['offset', `H −${Math.round(S.offset * 1000)}ms`, false],
-    ...(writing() ? [] : [['replay', 'REPLAY', S.replay], ['stt', 'STT', stt.on && stt.ready]]),
+    ['replay', 'REPLAY', S.replay],
+    ...(writing() ? [] : [['stt', 'STT', stt.on && stt.ready]]),
     ...(writing() ? [['tts', tts.on && tts.speed !== 1 ? `TTS ${speedLabel(tts.speed)}` : 'TTS', tts.on]] : []),
   ];
   ind.textContent = '';
@@ -3219,7 +3222,7 @@ const RUN = {
   // The key that starts a hold ends it when it's let go, whichever key that is.
   hold: (e) => { if (!e.repeat) { holdKey = e.code; holdStart(); } },
   offset: () => cycleOffset(),
-  replayToggle: () => { if (writing()) modeOnly('Replay', 'transcribe'); else setReplay(!S.replay); },
+  replayToggle: () => setReplay(!S.replay),
   trackNext: () => stepTrack(1),
   trackPrev: () => stepTrack(-1),
   transcribeBlock: () => transcribeSelected(),

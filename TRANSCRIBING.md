@@ -213,9 +213,10 @@ Docker version only uses its container.
   it without editing.
 - **`Shift+Space`** plays just the selected block, once.
 - **`O`** turns on a loop that stays on until you turn it off.
-- **Replay** (`REPLAY` under the video, or `Shift+L`) plays each block you've just marked
-  again from its start when you press `Esc` or `Enter`, then carries on. Turn it on to
-  check every line as you go; setup offers it too.
+- **Replay** (`REPLAY` under the video, or `Shift+L`) puts the playhead back at the start
+  of a block when you finish editing it with `Esc` or `Enter`. If it was playing, the block
+  plays again and then carries on, so you check every line as you go. It's on unless you
+  turn it off, here or in setup.
 
 ### Fixing the timing
 
@@ -275,7 +276,7 @@ Once the whole programme is marked:
 | `T` / `Shift+T` | Next / previous audio track |
 | `Enter` / `Esc` | Close the block and carry on playing |
 | `L` | Loop this block while you type |
-| `Shift+L` | Replay each block after you type it, on / off |
+| `Shift+L` | Replay: back to a block's start after editing it, on / off |
 | `Shift+Space` | Play the selected block |
 | `Alt+Shift+T` | Transcribe the selected block again with Whisper |
 | `Alt+Shift+H` | Speech to text settings |
