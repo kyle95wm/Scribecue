@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.43.1",
+  "date": "2026-10-30",
+  "notes": "## Google Cloud voices\n\n- Readings from Google are now kept in your browser, so each line is only sent to Google, and counted against your allowance, once. It's read again only if you change its text, speed or voice.\n- Reopening a project, playing it back or exporting the description track uses the kept readings, so lengths are exact straight away, and lines already read play offline.\n- **Settings**, under **Storage**, shows how many readings are kept and can clear them. Up to 250 MB are kept, the ones used longest ago going first."
+ },
+ {
   "version": "0.43.0",
   "date": "2026-10-30",
   "notes": "## Google Cloud voices\n\n- Text to speech can now use Google Cloud's **Standard** voices, with your own Google Cloud key. Add it in **Settings**, under **Text to speech**, and the voices in your languages appear in the voice list. Like Piper voices, they give exact lengths straight away and can be exported as a description track. Each reading sends the block's text to Google.\n- The key stays in your browser and is only sent to Google, along with Scribecue's address and nothing else, so you can restrict the key to Scribecue's website.\n- A new guide, **Google voices**, covers setting up the key and making sure you're never billed. It's in **Guides**, in the shortcuts overlay."
