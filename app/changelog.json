@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.50.0",
+  "date": "2026-10-30",
+  "notes": "## Make all readings\n\n- A new **Make all readings** button in the text to speech settings reads every block now, at its own speed, without changing any timings. Each block then plays straight away and its length is exact.\n- The readings are kept in your browser, so they're still ready after a reload or the next time you open the project, and they work offline.\n- It runs in the background, with its progress and a Stop button in the bottom bar. Blocks already read are skipped.\n- It needs a Piper, Kokoro or Google voice. With a Google voice, it reads with Google every block that hasn't been read yet, which uses up your free characters."
+ },
+ {
   "version": "0.49.0",
   "date": "2026-10-30",
   "notes": "## Readings kept across reloads\n\n- Piper and Kokoro readings are now kept in your browser, as Google's already were. After you reload or reopen Scribecue, blocks already read keep their ● dot and exact length, and play straight away, even offline.\n- Up to 250 MB of readings are kept. When that fills up, Piper and Kokoro readings go first, since they're free to make again, then the ones used longest ago. Settings, under Storage, shows them as Saved readings and can clear them.\n\n## Readings on time while playing\n\n- While playing, Scribecue now makes the next blocks' readings ahead of the playhead. Before, a reading was only made as its block began, so Kokoro voices, which take a second or more, started late and ran past the end of their block. Exported description tracks were never affected."
