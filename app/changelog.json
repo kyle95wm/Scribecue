@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.48.3",
+  "date": "2026-10-30",
+  "notes": "## Updates in the web version\n\n- If you opened Scribecue shortly before an update came out, the update could keep some of the previous version's files, so a fix it brought didn't reach you until the next one. Updates now always fetch every file fresh.\n- If Piper voices were still missing after 0.48.2, this brings them back. Your downloaded voices were kept, so there's nothing to download again."
+ },
+ {
   "version": "0.48.2",
   "date": "2026-10-30",
   "notes": "## Piper voices in the web version\n\n- Piper voices are back in the web version. Since 0.48.0, Scribecue couldn't see them: the Natural voices section was hidden, and voices you'd downloaded were missing from the voice list, so blocks were read with a browser voice instead. Your downloaded voices were kept, so they're there again without downloading them.\n- The note about Kokoro voices, under Natural voices, shows again too."
