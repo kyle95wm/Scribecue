@@ -63,6 +63,7 @@ export const GROUPS = [
   ['Transcribing', [
     ['hold', 'Hold to mark a block while the narrator speaks; in Write mode, time your own read of the selected block', ['KeyH']],
     ['offset', 'Change the reaction offset for H', ['Shift+KeyH']],
+    ['replayToggle', 'Replay each block after typing it, on / off', ['Shift+KeyL']],
     ['trackNext', 'Next audio track', ['KeyT']],
     ['trackPrev', 'Previous audio track', ['Shift+KeyT']],
     ['transcribeBlock', 'Transcribe the selected block with Whisper', ['Alt+Shift+KeyT']],

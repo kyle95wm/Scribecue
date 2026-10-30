@@ -9,7 +9,7 @@ import { HOSTED } from './config.js';
 
 const $ = (id) => document.getElementById(id);
 const KEY = 'scribecue.welcome';
-let hooks = { getMode: () => 'transcribe', setMode: () => {}, getOffset: () => 0.2, setOffset: () => {}, offsets: [], toast: () => {} };
+let hooks = { getMode: () => 'transcribe', setMode: () => {}, getOffset: () => 0.2, setOffset: () => {}, getReplay: () => false, setReplay: () => {}, offsets: [], toast: () => {} };
 let step = 0;
 let finished = false;
 
@@ -33,7 +33,10 @@ function show() {
 function summarise() {
   const m = mode();
   const lines = [m === 'write' ? 'Write mode, for new audio description' : 'Transcribe mode, for existing audio description'];
-  if (m === 'transcribe') lines.push(`Hold-to-mark reaction offset: ${Math.round(+$('wzOffset').value * 1000)} ms`);
+  if (m === 'transcribe') {
+    lines.push(`Hold-to-mark reaction offset: ${Math.round(+$('wzOffset').value * 1000)} ms`);
+    if ($('wzReplay').checked) lines.push('Each block replays after you type it');
+  }
   if (m === 'write') {
     if ($('wzTts').checked) {
       const v = $('wzVoice').selectedOptions[0]?.textContent || 'the default voice';
@@ -53,7 +56,7 @@ function summarise() {
 function finish() {
   const m = mode();
   hooks.setMode(m, true);
-  if (m === 'transcribe') hooks.setOffset(+$('wzOffset').value);
+  if (m === 'transcribe') { hooks.setOffset(+$('wzOffset').value); hooks.setReplay($('wzReplay').checked); }
   if (m === 'write') {
     setTtsOption('on', $('wzTts').checked);
     if ($('wzTts').checked) {
@@ -84,6 +87,7 @@ export function openWelcome() {
   step = 0;
   for (const r of document.querySelectorAll('input[name=wzMode]')) r.checked = r.value === hooks.getMode();
   $('wzOffset').value = String(hooks.getOffset());
+  $('wzReplay').checked = hooks.getReplay();
   // New users who pick Write most likely want text to speech, so it starts ticked for them.
   $('wzTts').checked = tts.on || !welcomed();
   fillVoiceSelect($('wzVoice'), chosenVoice());

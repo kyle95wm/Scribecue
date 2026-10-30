@@ -92,6 +92,8 @@ const S = {
   loop: false,
   loopOnce: false, // loop started with L: ends when the block editor closes
   offset: (() => { try { const v = parseFloat(localStorage.getItem('scribecue.offset')); return OFFSETS.includes(v) ? v : 0.2; } catch { return 0.2; } })(),
+  // Transcribe: after typing a block marked with H, replay it from its start, to check.
+  replay: (() => { try { return localStorage.getItem('scribecue.replay') === '1'; } catch { return false; } })(),
   resumeAfterEdit: false, // hold-to-mark paused playback; closing the editor resumes it
   rate: 1,
   hasVideo: false,
@@ -594,7 +596,19 @@ function editText(field = edText) {
 function closeEditor() {
   document.activeElement?.blur();
   if (S.loopOnce) stopLoop();
-  if (S.resumeAfterEdit) { S.resumeAfterEdit = false; play(); }
+  if (S.resumeAfterEdit) {
+    S.resumeAfterEdit = false;
+    // With Replay on, hear the block just typed again, then carry on from there.
+    if (S.replay && !writing() && selCue()) seek(selCue().start);
+    play();
+  }
+}
+
+function setReplay(on, quiet = false) {
+  S.replay = on;
+  try { localStorage.setItem('scribecue.replay', on ? '1' : '0'); } catch { /* ignore */ }
+  updateInd();
+  if (!quiet) toast(on ? 'Replay on: after you type a block marked with H, it plays again from its start' : 'Replay off: playback carries on from where you stopped');
 }
 
 function confirmDelete() {
@@ -1287,6 +1301,7 @@ const IND_TIPS = {
   speed: 'Playback speed. + and - change it; click or press \\ to reset to 1×',
   follow: 'Follow: keep the playhead in view and select each block as it plays (F)',
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
+  replay: 'Replay: after you type a block marked with H, Esc or ↵ plays it again from its start, to check it (⇧L)',
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H or click to change',
   tts: 'Text to speech: hear blocks read aloud (V). Click to choose the voice and speed, or to turn it on (⌥⇧V)',
   stt: 'Speech to text: Whisper types what the narrator says in each block you mark. Click to set it up or transcribe empty blocks (⌥⇧H)',
@@ -1297,7 +1312,7 @@ function updateInd() {
     ['follow', 'FOLLOW', S.follow],
     ['loop', 'LOOP', S.loop],
     ['offset', `H −${Math.round(S.offset * 1000)}ms`, false],
-    ...(writing() ? [] : [['stt', 'STT', stt.on && stt.ready]]),
+    ...(writing() ? [] : [['replay', 'REPLAY', S.replay], ['stt', 'STT', stt.on && stt.ready]]),
     ...(writing() ? [['tts', tts.on && tts.speed !== 1 ? `TTS ${speedLabel(tts.speed)}` : 'TTS', tts.on]] : []),
   ];
   ind.textContent = '';
@@ -1307,7 +1322,7 @@ function updateInd() {
     s.dataset.key = key;
     s.dataset.tip = pcKeys(IND_TIPS[key]);
     s.setAttribute('aria-label', speakable(IND_TIPS[key], IS_MAC));
-    if (['follow', 'loop', 'tts', 'stt'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
+    if (['follow', 'loop', 'tts', 'stt', 'replay'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
     s.className = (on ? 'on ' : '') + (key === 'speed' || key === 'follow' ? '' : 'tip-end');
     ind.append(s);
   }
@@ -1357,6 +1372,7 @@ ind.addEventListener('click', (e) => {
   else if (k === 'offset') cycleOffset();
   else if (k === 'tts') openTts();
   else if (k === 'stt') openStt();
+  else if (k === 'replay') setReplay(!S.replay);
   else if (k) toggleFlag(k);
 });
 
@@ -3203,6 +3219,7 @@ const RUN = {
   // The key that starts a hold ends it when it's let go, whichever key that is.
   hold: (e) => { if (!e.repeat) { holdKey = e.code; holdStart(); } },
   offset: () => cycleOffset(),
+  replayToggle: () => { if (writing()) modeOnly('Replay', 'transcribe'); else setReplay(!S.replay); },
   trackNext: () => stepTrack(1),
   trackPrev: () => stepTrack(-1),
   transcribeBlock: () => transcribeSelected(),
@@ -3334,6 +3351,8 @@ initWelcome({
   setMode,
   getOffset: () => S.offset,
   setOffset,
+  getReplay: () => S.replay,
+  setReplay: (on) => setReplay(on, true),
   offsets: OFFSETS,
   toast,
 }, (finished) => {

@@ -263,6 +263,10 @@ it. Pausing first and then holding `H` starts the block exactly where you paused
 blocks never overlap the ones next to them. See
 [Marking lines with H](TRANSCRIBING.md#marking-lines-with-h).
 
+**Replay**, `REPLAY` under the video or `Shift+L`, plays each block again from its start
+once you've typed it and pressed `Esc` or `Enter`, so you can check it against the
+narration before carrying on.
+
 ### Speech to text
 
 Whisper, running on your own computer, can type each line you mark. When you let go of
@@ -576,6 +580,7 @@ this browser.
 | Hold `H` | [Hold-to-mark](#hold-to-mark) a block while the narrator speaks; in Write mode, time [your own read](#the-writing-loop) of the selected block |
 | `Shift+H` | Change the hold-to-mark reaction offset |
 | `L` | [Loop this block](#looping-a-block) until you finish editing it |
+| `Shift+L` | [Replay](#hold-to-mark) each block after typing it, on / off (Transcribe) |
 | `N` | New block at the playhead |
 | `A` / `S` | Set start / end to the playhead |
 | `Q` `W` | Start −/+ 100 ms (with `Shift`: 10 ms) |

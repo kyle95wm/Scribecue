@@ -277,6 +277,9 @@ docker compose up -d --build</code></pre>
       <div class="ttsgrid"><label for="wzOffset">Reaction offset</label><select id="wzOffset"></select></div>
       <p class="dim small">Both edges of a mark move back by this much, because your key press comes a moment
         after you hear the voice. 200 ms suits most people.</p>
+      <label class="updopt"><input type="checkbox" id="wzReplay"> Replay each block after I type it, to check it</label>
+      <p class="dim small">When you press <kbd>Esc</kbd> or <kbd>↵</kbd>, the block plays again from its start,
+        then carries on. <kbd>⇧</kbd><kbd>L</kbd> turns it on or off any time.</p>
     </section>
     <section data-step="write" hidden>
       <h2>Text to speech</h2>
@@ -759,6 +762,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="hold" class="transcribe-only">Hold <kbd>H</kbd></dt><dd class="transcribe-only">Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on</dd>
             <dt data-keys="hold" class="write-only">Hold <kbd>H</kbd></dt><dd class="write-only">Time your own read of the selected block: let go to set its end. Hold again to carry on after a breath; <kbd>G</kbd> first to start over</dd>
             <dt data-keys="offset"><kbd>⇧</kbd><kbd>H</kbd></dt><dd>Change the reaction offset</dd>
+            <dt data-keys="replayToggle" class="transcribe-only"><kbd>⇧</kbd><kbd>L</kbd></dt><dd class="transcribe-only">Replay each block after typing it, on / off</dd>
             <dt data-keys="transcribeBlock" class="transcribe-only"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>T</kbd></dt><dd class="transcribe-only">Transcribe the selected block with Whisper</dd>
             <dt data-keys="sttPanel" class="transcribe-only"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>H</kbd></dt><dd class="transcribe-only">Speech to text settings</dd>
             <dt data-keys="loopBlock"><kbd>L</kbd></dt><dd>Loop this block and play. ↵ to type, Esc when done ends the loop</dd>
