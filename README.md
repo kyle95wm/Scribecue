@@ -848,8 +848,9 @@ run with [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) by thewh1tea
 and espeak-ng (GPL), downloaded when you build its container.
 
 Scribecue is an independent project. It is not affiliated with, endorsed by or connected
-to Frazier or videotovoice. Frazier is their product name, used here only to describe the
-keyboard layout.
+to Frazier or videotovoice. Frazier is their product name, used here only to describe
+familiar behaviour, such as the keyboard layout and how blocks are laid out and timed, and
+to say which scripts Scribecue can open.
 
 ## License
 
