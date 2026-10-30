@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.56.2",
+  "date": "2026-10-30",
+  "notes": "## Fixes\n\n- Pressing play partway through a block now reads it from there, in step with the video, instead of staying silent. Jumping into a block while playing does the same.\n- Voices built into the browser can’t start partway through a reading, so they start at the word they’d have reached."
+ },
+ {
   "version": "0.56.1",
   "date": "2026-10-30",
   "notes": "## Opening and closing blocks\n\n- One click on a block in the list opens it, ready to type.\n- **Esc** or **Enter** closes it again, and it stays selected in the list and on the timeline.\n- Picking blocks on the timeline or with the arrow keys no longer opens them."
