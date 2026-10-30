@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
   piperVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleFailure, makesAudio, overCap,
-  toggleFavourite, favouriteVoices } from '../app/js/tts.js';
+  toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice } from '../app/js/tts.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -309,4 +309,20 @@ test('an old overall speed becomes the base speed, as near as it can be', () => 
   assert.equal(baseFromSpeed(2), 1.5, 'the base speed goes no higher than 150%');
   assert.equal(baseFromSpeed(1.15, 1.05), 1.21);
   assert.equal(tts.speed, undefined, 'there is no overall speed any more');
+});
+
+test('a voice that isn\'t available is named from its id', () => {
+  assert.equal(voiceLabel('google:en-US-Standard-C'), 'Google Standard C (en-US)');
+  assert.equal(voiceLabel('google:fil-PH-Standard-A'), 'Google Standard A (fil-PH)');
+  assert.equal(voiceLabel('piper:en_US-lessac-medium'), 'Lessac (en-US)');
+  assert.equal(voiceLabel('com.apple.voice.compact.en-US.Samantha'), 'Samantha');
+  assert.equal(voiceLabel('Google US English'), 'Google US English');
+});
+
+test('a missing voice comes with what to do about it', () => {
+  assert.match(missingVoiceAdvice('google:en-US-Standard-C'), /Add your Google Cloud key/);
+  assert.match(missingVoiceAdvice('google:en-US-Standard-C', { googleKey: true }), /key doesn’t offer it/);
+  assert.match(missingVoiceAdvice('piper:en_US-lessac-medium', { hosted: true }), /Download it/);
+  assert.match(missingVoiceAdvice('piper:en_US-lessac-medium'), /Piper isn’t running/);
+  assert.match(missingVoiceAdvice('Samantha'), /isn’t on this computer/);
 });

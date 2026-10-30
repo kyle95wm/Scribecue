@@ -358,6 +358,59 @@ function currentVoice() {
 }
 // A voice that makes its readings as audio, with exact lengths: Piper or Google.
 export const usingAudioVoice = () => makesAudio(currentVoice());
+
+// A voice's name from its id alone, for a voice that isn't available to ask: Google's
+// "google:en-US-Standard-C" is "Google Standard C (en-US)", Piper's "piper:en_US-lessac-medium"
+// is "Lessac (en-US)", and a browser voice's id ends in its name.
+export function voiceLabel(uri) {
+  const s = String(uri || '');
+  const g = s.match(/^google:([a-z]{2,3}-[A-Z]{2})-Standard-(\w+)$/);
+  if (g) return `Google Standard ${g[2]} (${g[1]})`;
+  if (s.startsWith('piper:')) {
+    const v = piperVoiceList({ [s.slice(6)]: 1 })[0];
+    return v.lang ? `${v.name} (${v.lang})` : v.name;
+  }
+  const last = s.split('.').pop() || s;
+  return last.charAt(0).toUpperCase() + last.slice(1);
+}
+// Why a voice isn't available, and what to do: by kind, with or without a Google key.
+export function missingVoiceAdvice(uri, { googleKey = false, hosted = false } = {}) {
+  if (String(uri).startsWith('google:')) {
+    return googleKey ? 'Your Google Cloud key doesn’t offer it here.' : 'Add your Google Cloud key in Settings, under Text to speech, to use it.';
+  }
+  if (String(uri).startsWith('piper:')) {
+    return hosted ? 'Download it in Settings, under Text to speech.' : 'Piper isn’t running, or doesn’t have this voice. See INSTALL.md.';
+  }
+  return 'It isn’t on this computer, or in this browser.';
+}
+
+// The chosen voice, when it isn't available here, such as a project's Google voice in a
+// browser without the key. Readings carry on with another voice meanwhile, so say so,
+// once for each voice, as soon as the voices are known. Kept in the settings and projects,
+// so it's used again once it's back.
+let piperKnown = false, missingSaid = '';
+function missingVoice() {
+  const uri = tts.voice;
+  if (!uri || !piperKnown || voices.some((v) => v.voiceURI === uri)) return '';
+  // Browser voices can arrive late, so wait for some before saying one's missing.
+  if (!uri.startsWith('google:') && !uri.startsWith('piper:') && tts.available && !speechSynthesis.getVoices().length) return '';
+  return uri;
+}
+export function missingVoiceNote() {
+  const uri = missingVoice();
+  if (!uri) return '';
+  const instead = currentVoice();
+  return `This project’s voice, ${voiceLabel(uri)}, isn’t available here. ${missingVoiceAdvice(uri, { googleKey: !!googleKey(), hosted: HOSTED })} ` +
+    (instead ? `Until then, blocks are read with ${instead.name}.` : 'Until then, there’s no voice to read with.');
+}
+function checkVoice() {
+  const uri = missingVoice();
+  if (!uri) { missingSaid = ''; return; }
+  if (!tts.on || missingSaid === uri) return;
+  missingSaid = uri;
+  // Short enough for the bottom bar: Settings has the whole story.
+  hooks.toast(`${voiceLabel(uri)} isn’t available here${currentVoice() ? `, so ${currentVoice().name} is reading` : ''}. See Settings, under Text to speech`);
+}
 // A Google voice: every new reading is sent to Google, and counts against the user's allowance.
 export const usingGoogle = () => !!currentVoice()?.google;
 // Shows the warnings that a job reading every block may cost money, with a Google voice.
@@ -554,9 +607,11 @@ export async function loadPiper() {
       tts.piper = pickVoices(piperVoiceList(Object.fromEntries(webPiper.downloaded.map((v) => [v, 1]))), { lang: navigator.language || 'en' });
     } catch { tts.piper = []; }
     voices = allowed();
+    piperKnown = true;
     hooks.changed();
     if ($('ttsDlg').open) render();
     warmUp();
+    checkVoice();
     return tts.piper.length;
   }
   try {
@@ -565,8 +620,10 @@ export async function loadPiper() {
     tts.piper = r.ok ? pickVoices(piperVoiceList(await r.json()), { lang: navigator.language || 'en' }) : [];
   } catch { tts.piper = []; }
   voices = allowed();
+  piperKnown = true;
   hooks.changed();
   if ($('ttsDlg').open) render();
+  checkVoice();
   return tts.piper.length;
 }
 
@@ -591,6 +648,7 @@ export async function loadGoogle() {
   voices = allowed();
   hooks.changed();
   if ($('ttsDlg').open) render(error);
+  checkVoice();
   return error;
 }
 
@@ -971,6 +1029,8 @@ function fillVoices() {
   fillVoiceSelect($('ttsVoice'));
   renderFavourites();
   $('ttsNoVoices').hidden = !!voices.length || !anyVoices();
+  $('ttsMissing').textContent = missingVoiceNote();
+  $('ttsMissing').hidden = !$('ttsMissing').textContent;
   $('ttsNoOnline').hidden = !tts.online || voices.some((v) => !v.localService && !v.google);
   $('ttsNoVoices').textContent = tts.online
     ? 'This browser has no voices. Try Microsoft Edge or Google Chrome.'
@@ -1033,6 +1093,7 @@ export function setTtsOption(k, v) {
   warmUp();
   if ($('ttsDlg').open) render();
   hooks.changed();
+  if (k === 'voice' || k === 'on') checkVoice();
 }
 
 export function openTts() {
@@ -1095,7 +1156,7 @@ export function initTts(h) {
   document.addEventListener('keydown', (e) => { if (d.open) e.stopPropagation(); }, true);
   voices = allowed();
   if (tts.available) {
-    speechSynthesis.addEventListener('voiceschanged', () => { voices = allowed(); if (d.open) render(); hooks.changed(); });
+    speechSynthesis.addEventListener('voiceschanged', () => { voices = allowed(); if (d.open) render(); hooks.changed(); checkVoice(); });
   }
   loadPiper();
   loadSavedLengths();

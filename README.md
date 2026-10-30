@@ -500,6 +500,11 @@ The Standard voices in your languages then appear in the voice list, under
 **Google Cloud**, and the first is chosen if you weren't using a Piper voice. **Forget**
 removes the key and its voices.
 
+If a project's voice isn't available, such as a Google voice in a browser without your key,
+or a Piper voice while Piper isn't running, Scribecue says so and which voice is reading
+instead. The text to speech settings say what to do about it. The project keeps its own
+voice, so it's used again once it's back.
+
 Each reading is kept in your browser, so a line is only sent to Google once, unless you
 change its text, speed or voice. Reopening a project, playing it again or exporting the
 description track uses the kept readings, which costs nothing, and lines already read play

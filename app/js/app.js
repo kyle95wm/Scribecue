@@ -2434,7 +2434,7 @@ function projectData() {
     blocks: S.cues,
     notes: S.notes,
     media: m,
-    settings: { mode: S.mode, offset: S.offset, ttsBase: tts.base, ttsVoice: chosenVoice() },
+    settings: { mode: S.mode, offset: S.offset, ttsBase: tts.base, ttsVoice: tts.voice || chosenVoice() },
     view: { playhead: now(), ...(selIdx() >= 0 ? { selected: selIdx() } : {}) },
   });
 }
