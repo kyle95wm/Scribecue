@@ -325,7 +325,9 @@ function loadSaved() {
 
 // ---------------------------------------------------------------- selection
 
-function select(id, { seek: doSeek = true, reveal = true } = {}) {
+// toTop: the block's row goes to the top of the list, so the blocks after it show below.
+// Not for a row just clicked, which stays where it is under the pointer.
+function select(id, { seek: doSeek = true, reveal = true, toTop = true } = {}) {
   if (S.sel !== id) {
     rowMap.get(S.sel)?.classList.remove('sel');
     rowMap.get(S.sel)?.setAttribute('aria-selected', 'false');
@@ -336,7 +338,8 @@ function select(id, { seek: doSeek = true, reveal = true } = {}) {
   r?.setAttribute('aria-selected', 'true');
   // The list says which block is selected, so a screen reader in it reads each as you move.
   if (r) list.setAttribute('aria-activedescendant', r.id); else list.removeAttribute('aria-activedescendant');
-  r?.scrollIntoView({ block: 'nearest' });
+  if (r && toTop) list.scrollTop += r.getBoundingClientRect().top - list.getBoundingClientRect().top;
+  else r?.scrollIntoView({ block: 'nearest' });
   const c = selCue();
   if (c && doSeek) { S.playUntil = null; seek(c.start); }
   if (c && reveal) revealRange(c.start, c.end);
@@ -901,12 +904,12 @@ list.addEventListener('click', (e) => {
   const r = e.target.closest('.row');
   if (!r) return;
   if (e.target.closest('.rowdel')) { e.target.blur(); del(S.cues[idx(+r.dataset.id)]); return; }
-  select(+r.dataset.id);
+  select(+r.dataset.id, { toTop: false });
 });
 list.addEventListener('dblclick', (e) => {
   if (e.target.closest('.rowdel')) return;
   const r = e.target.closest('.row');
-  if (r) { select(+r.dataset.id, { seek: false }); editText(); }
+  if (r) { select(+r.dataset.id, { seek: false, toTop: false }); editText(); }
 });
 
 // ---------------------------------------------------------------- find and replace

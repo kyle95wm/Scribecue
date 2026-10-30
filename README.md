@@ -489,6 +489,8 @@ afterwards is instant. Safari switches tracks itself.
 
 ## Other handy features
 
+- **Blocks ahead:** the selected block, or the one playing, moves to the top of the list,
+  so the blocks coming up show below it. A block you click stays where it is.
 - **Search:** the box above the list filters blocks by text, or by number with `#12`.
   Press `/` to jump to it. `Shift+F` opens quick navigation, and `Alt+Shift+J` jumps to a timecode.
 - **Find and replace:** **Replace…** next to the search box, or `Alt+Shift+F`, changes text
