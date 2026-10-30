@@ -290,6 +290,13 @@ test('saved readings over the limit go, the ones used longest ago first', () => 
   assert.deepEqual(overCap([], 0), []);
 });
 
+test('Piper and Kokoro readings go before Google ones, which cost money to make again', () => {
+  const e = (key, bytes, at) => ({ key, bytes, at });
+  const entries = [e('google:en-US-Standard-C|1|Old', 50, 100), e('kokoro:af_heart|1|New', 40, 300), e('piper:en_US-lessac-medium|1|Mid', 30, 200)];
+  assert.deepEqual(overCap(entries, 60), ['piper:en_US-lessac-medium|1|Mid', 'kokoro:af_heart|1|New']);
+  assert.deepEqual(overCap(entries, 0), ['piper:en_US-lessac-medium|1|Mid', 'kokoro:af_heart|1|New', 'google:en-US-Standard-C|1|Old']);
+});
+
 test('favourite voices: pinning adds to the end, pinning again takes it out', () => {
   assert.deepEqual(toggleFavourite([], 'piper:a'), ['piper:a']);
   assert.deepEqual(toggleFavourite(['piper:a'], 'google:b'), ['piper:a', 'google:b']);

@@ -25,7 +25,7 @@ export function offlineLabel({ hosted, offline, ready }) {
 // refused: the browser has just said no when asked. It decides by itself, mostly by how
 // much the site is used, and nothing can make it agree, so the row says what keeps work
 // safe anyway.
-// readings: Google voices' readings kept in this browser, { count, bytes }.
+// readings: Piper, Kokoro and Google readings kept in this browser, { count, bytes }.
 export function checklist({ hosted, appKept, guides, voices, whisper, persisted, usage, refused = false, readings = null }) {
   const rows = [];
   if (hosted) rows.push(...offlineRows({ appKept, guides, voices, whisper }));
@@ -37,8 +37,8 @@ export function checklist({ hosted, appKept, guides, voices, whisper, persisted,
         : [false, 'Kept safe', 'The browser may clear Scribecue’s storage if space runs low, including unsaved work. You can ask it to keep it; saving your work as a project keeps it safe either way.', 'persist']);
   }
   if (readings?.count) {
-    rows.push([null, 'Saved Google readings', `${readings.count} line${readings.count === 1 ? '' : 's'}, ${mb(readings.bytes)}. `
-      + 'They play from here, without asking Google again, and work offline.', 'readings']);
+    rows.push([null, 'Saved readings', `${readings.count} line${readings.count === 1 ? '' : 's'}, ${mb(readings.bytes)}. `
+      + 'They play straight away and offline, and Google ones aren’t sent to Google again.', 'readings']);
   }
   if (usage) rows.push([null, 'Space used', `${usage < 1e6 ? 'Less than 1' : Math.round(usage / 1e6)} MB in this browser.`]);
   return rows;
@@ -150,7 +150,7 @@ async function persist() {
 
 // Google charges for readings past its free allowance, so this asks first.
 async function clearReadings() {
-  if (!confirm('Remove the Google readings kept in this browser? Lines are read by Google again, and counted again, the next time they’re needed.')) return;
+  if (!confirm('Remove the readings kept in this browser? Lines are read again the next time they’re needed, and Google readings are counted again.')) return;
   await hooks.clearReadings();
   await render();
 }

@@ -406,8 +406,11 @@ click it to take it out.
   get more accurate for a voice as you use it.
 - **Readings made:** a dot (●) after a block's duration in the list means its reading has
   been made with the chosen voice, at its speed and the base speed, so its length is exact.
-  With a Google voice, it means the reading is kept in your browser: it plays straight away
-  and isn't sent to Google again.
+  With a Piper, Kokoro or Google voice, it also means the reading is kept in your browser:
+  it plays straight away, even after you reload or reopen Scribecue, and a Google reading
+  isn't sent to Google again. Up to 250 MB of readings are kept; when that fills up, Piper
+  and Kokoro readings go first, since they're free to make again, then the ones used
+  longest ago. **Settings**, under **Storage**, shows how many there are and can clear them.
 
 Scribecue uses the voices built into your computer, so the text stays on it. For much more
 natural voices that also stay on your computer, [use Piper](#piper-voices). Mac and
@@ -524,7 +527,8 @@ change its text, speed or voice. Reopening a project, playing it again or export
 description track uses the kept readings, which costs nothing, and lines already read play
 offline. While you type in a block, its length is estimated and nothing is sent: it's read
 when you finish editing it, with `Enter` or `Esc` or by moving to another block. Up to
-250 MB are kept, dropping the ones used longest ago first. **Settings**,
+250 MB of readings are kept, dropping Piper and Kokoro readings first, then the Google
+ones used longest ago. **Settings**,
 under **Storage**, shows how many there are and can clear them.
 
 Google bills your Google Cloud account for the readings. Standard voices have a free

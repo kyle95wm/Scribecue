@@ -45,14 +45,14 @@ test('when the browser won’t keep storage, the row says what keeps work safe a
   assert.doesNotMatch(no[2], /Installing/);
 });
 
-test('saved Google readings show, with a way to clear them, only when there are some', () => {
+test('saved readings show, with a way to clear them, only when there are some', () => {
   const base = { hosted: false, persisted: true, usage: 5e6 };
-  assert.ok(!checklist({ ...base, readings: { count: 0, bytes: 0 } }).some((r) => r[1] === 'Saved Google readings'));
-  assert.ok(!checklist(base).some((r) => r[1] === 'Saved Google readings'));
-  const row = checklist({ ...base, readings: { count: 212, bytes: 31.4e6 } }).find((r) => r[1] === 'Saved Google readings');
+  assert.ok(!checklist({ ...base, readings: { count: 0, bytes: 0 } }).some((r) => r[1] === 'Saved readings'));
+  assert.ok(!checklist(base).some((r) => r[1] === 'Saved readings'));
+  const row = checklist({ ...base, readings: { count: 212, bytes: 31.4e6 } }).find((r) => r[1] === 'Saved readings');
   assert.match(row[2], /^212 lines, 31 MB\./);
   assert.equal(row[3], 'readings');
-  assert.match(checklist({ ...base, readings: { count: 1, bytes: 9e4 } }).find((r) => r[1] === 'Saved Google readings')[2], /^1 line, less than 1 MB/);
+  assert.match(checklist({ ...base, readings: { count: 1, bytes: 9e4 } }).find((r) => r[1] === 'Saved readings')[2], /^1 line, less than 1 MB/);
   // Space used stays last.
   assert.equal(checklist({ ...base, readings: { count: 3, bytes: 1 } }).at(-1)[1], 'Space used');
 });

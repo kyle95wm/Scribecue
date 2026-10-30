@@ -864,11 +864,12 @@ function fillRow(r, c, i) {
   const over = !!reading && reading.secs > c.end - c.start + 0.05;
   t.children[1].classList.toggle('over', over);
   if (over) t.children[1].textContent += ' ⚠';
-  // A dot when the reading has been made, at this voice and speed: with Google, it's kept
-  // in the browser, so it plays straight away and isn't sent again.
+  // A dot when the reading has been made, at this voice and speed. Piper, Kokoro and Google
+  // readings are kept in the browser, so they play straight away, even after a reload.
   if (reading?.exact) {
     t.children[1].append(Object.assign(document.createElement('span'), { className: 'ready', textContent: ' ●',
-      title: usingGoogle() ? 'Reading kept: plays straight away, and isn\'t sent to Google again' : 'Reading made: its length is exact' }));
+      title: usingGoogle() ? 'Reading kept: plays straight away, and isn\'t sent to Google again'
+        : usingAudioVoice() ? 'Reading kept: its length is exact, and it plays straight away' : 'Reading made: its length is exact' }));
   }
   r.setAttribute('aria-label', blockLabel({ n: i + 1, start: fmtTime(c.start, '.'), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, ready: !!reading?.exact }));
   fillText(tx, c);

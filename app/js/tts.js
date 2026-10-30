@@ -150,12 +150,14 @@ export function googleVoiceList(json, langs = ['en']) {
   return mine.length ? mine : all;
 }
 
-// Which saved readings to remove so the rest fit in `cap` bytes: the ones used longest
-// ago go first. entries [{ key, bytes, at }].
+// Which saved readings to remove so the rest fit in `cap` bytes: Piper's and Kokoro's go
+// before Google's, since they cost nothing to make again, and then the ones used longest
+// ago. entries [{ key, bytes, at }], each key starting with its voice.
 export function overCap(entries, cap) {
   let total = entries.reduce((n, e) => n + e.bytes, 0);
   const out = [];
-  for (const e of [...entries].sort((a, b) => a.at - b.at)) {
+  const paid = (e) => (String(e.key).startsWith('google:') ? 1 : 0);
+  for (const e of [...entries].sort((a, b) => paid(a) - paid(b) || a.at - b.at)) {
     if (total <= cap) break;
     out.push(e.key);
     total -= e.bytes;
@@ -686,11 +688,12 @@ export function setGoogleKey(key) {
   return loadGoogle();
 }
 
-// Google's readings are kept in the browser, by voice, speed and text, so a line that
-// hasn't changed is never sent twice: not when Scribecue is next opened, nor to export.
-// That saves characters, which Google charges for past its free allowance, and lets lines
-// already read play offline. Their lengths are loaded as Scribecue opens, so they're exact
-// straight away. At most SAVED_MAX bytes are kept, the readings used longest ago going first.
+// Readings by Piper, Kokoro and Google are kept in the browser, by voice, speed and text,
+// so a line that hasn't changed is never made twice: not when Scribecue is next opened, nor
+// to export. With Google, that saves characters, which it charges for past its free
+// allowance. Lines already read play straight away, and offline. Their lengths are loaded
+// as Scribecue opens, so they're exact straight away. At most SAVED_MAX bytes are kept
+// (see overCap).
 const SAVED_DB = 'scribecue-readings';
 export const SAVED_MAX = 250e6;
 let savedDb = null;
@@ -752,14 +755,14 @@ export async function savedReadings() {
 }
 export async function clearSavedReadings() {
   await saved('readwrite', ({ audio, meta }) => { audio.clear(); meta.clear(); });
-  for (const k of [...audioCache.keys()]) if (k.startsWith('google:')) audioCache.delete(k);
+  audioCache.clear();
 }
 
-// A saved reading if there is one; otherwise Google is asked, and its reading is kept.
-async function googleOrSaved(key, words, voice, speed, urgent) {
+// A saved reading if there is one; otherwise make() makes it, and it's kept.
+async function keptOr(key, make) {
   const kept = await savedReading(key);
   if (kept) return kept;
-  const buf = await googleRead(words, voice, speed, urgent);
+  const buf = await make();
   try { saveReading(key, buf.slice(0), readWav(buf).secs); } catch { /* not kept */ }
   return buf;
 }
@@ -792,9 +795,9 @@ function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background')
   let p = audioCache.get(key);
   if (p && how === 'now') pending.get(key)?.hurry();
   if (!p) {
-    let reading;
-    if (voice.google) reading = googleOrSaved(key, words, voice, speed, how === 'now');
-    else if (voice.kokoro) reading = fetch('tts/kokoro/synthesize', {
+    let make;
+    if (voice.google) make = () => googleRead(words, voice, speed, how === 'now');
+    else if (voice.kokoro) make = () => fetch('tts/kokoro/synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: words, voice: voice.kokoro, speed }),
@@ -802,11 +805,13 @@ function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background')
       if (!r.ok) throw new Error(`Kokoro answered ${r.status}`);
       return r.arrayBuffer();
     });
-    else if (HOSTED) {
-      reading = ask('synthesize', { voice: voice.piper, text: words, speed, urgent: how === 'now' }, how === 'bulk');
-      pending.set(key, reading);
-      reading.finally(() => pending.delete(key)).catch(() => {});
-    } else reading = fetch('tts/synthesize', {
+    else if (HOSTED) make = () => {
+      const job = ask('synthesize', { voice: voice.piper, text: words, speed, urgent: how === 'now' }, how === 'bulk');
+      pending.set(key, job);
+      job.finally(() => pending.delete(key)).catch(() => {});
+      return job;
+    };
+    else make = () => fetch('tts/synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // noise_w_scale 0 turns off Piper's random variation in timing, so the same line
@@ -816,7 +821,7 @@ function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background')
       if (!r.ok) throw new Error(`Piper answered ${r.status}`);
       return r.arrayBuffer();
     });
-    p = reading.then((buf) => {
+    p = keptOr(key, make).then((buf) => {
       const wav = readWav(buf);
       measured.set(key, wav.secs);
       if (voice.voiceURI === voiceKey()) learnShare(voice.voiceURI, readingsOf(text, true));
