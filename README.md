@@ -201,7 +201,8 @@ Scribecue, such as another writer or a QC reviewer. The **Export** menu at the t
   readings as one audio file. It's also in the text to speech settings.
 
 `Ctrl/Cmd+O` also opens SRT and VTT files, and Frazier's `.adc` scripts, with their
-timings and the pronunciations marked in them, which become sounds-like words. Your work in progress is saved in the browser
+timings, their speed, and the pronunciations marked in them, which become sounds-like
+words. Your work in progress is saved in the browser
 as you go too, so reloading the page doesn't lose anything.
 
 ### Getting around

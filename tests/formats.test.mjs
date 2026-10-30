@@ -100,6 +100,13 @@ test('adcText turns HTML into plain text, and speech marks into sounds-like word
   assert.deepEqual(adcText(null), { text: '', say: [] });
 });
 
+test('parseAdc reads Frazier speed codes, on top of the base speed', () => {
+  const adc = (base, speeds) => JSON.stringify({ base_speed: base, cue_points: speeds.map((speed, i) => ({ start: i * 1000, end: i * 1000 + 500, text: 'x', speed })) });
+  assert.deepEqual(parseAdc(adc(100, [0, 1, 2, 99, 98, 3, 4, 7])).map((c) => c.speed), [undefined, 1.15, 1.3, 0.85, 0.7, 1.5, 2, undefined]);
+  assert.deepEqual(parseAdc(adc(105, [0, 1])).map((c) => c.speed), [1.05, 1.21]);
+  assert.deepEqual(parseAdc(adc(undefined, [0])).map((c) => c.speed), [undefined]);
+});
+
 test('parseAdc reads Frazier cue points in milliseconds, sorted, skipping broken ones', () => {
   const adc = JSON.stringify({ title: 'T', cue_points: [
     { start: 56855, end: 59239, text: '<p>Second <abbr class="speech" title="matthew">Mathieu</abbr></p>', speed: 0 },
