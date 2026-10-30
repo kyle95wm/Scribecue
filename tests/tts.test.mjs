@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
-  piperVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB } from '../app/js/tts.js';
+  piperVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels } from '../app/js/tts.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -194,4 +194,14 @@ test('a sounds-like list takes more words, and a word already in it takes the ne
   assert.deepEqual(mergeSay([['Siobhan', 'shiv-awn']], [['Okafor', 'oh-KAH-for']]), [['Siobhan', 'shiv-awn'], ['Okafor', 'oh-KAH-for']]);
   assert.deepEqual(mergeSay([['siobhan', 'old']], [['Siobhan', 'shiv-AWN']]), [['Siobhan', 'shiv-AWN']]);
   assert.deepEqual(mergeSay(undefined, [['Leeds', 'leeds']]), [['Leeds', 'leeds']]);
+});
+
+test('the mix slider turns one side down, never either up past full', () => {
+  assert.deepEqual(mixLevels(0), { reading: 1, video: 1 });
+  assert.deepEqual(mixLevels(0.4), { reading: 1, video: 0.6 });
+  assert.deepEqual(mixLevels(-0.25), { reading: 0.75, video: 1 });
+  assert.deepEqual(mixLevels(1), { reading: 1, video: 0 });
+  assert.deepEqual(mixLevels(-3), { reading: 0, video: 1 }, 'kept within the ends');
+  assert.deepEqual(mixLevels(undefined), { reading: 1, video: 1 });
+  assert.equal(tts.mix, 0, 'even unless moved');
 });

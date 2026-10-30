@@ -23,7 +23,7 @@ import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
-  usingPiper, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes } from './tts.js';
+  usingPiper, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes, mixLevels, setMix } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -1325,6 +1325,8 @@ function updateInd() {
     ...(writing() && tts.on ? [['tts', tts.speed !== 1 ? `TTS ${speedLabel(tts.speed)}` : 'TTS', true]] : []),
   ];
   ind.textContent = '';
+  showMix();
+  duckAudio(); // the mix only applies in Write mode with text to speech on
   for (const [key, label, on] of items) {
     const s = document.createElement('button');
     s.textContent = label;
@@ -1980,12 +1982,34 @@ function liveSpeech(prevT, t) {
   if (a && prevT <= a.start && t > a.start && t - prevT < 0.5 && tts.speaking?.id !== a.id) speak(said(a), { id: a.id, speed: a.speed });
 }
 
-// Lower the original audio while a block is read.
-function duckAudio(on) {
-  const v = on && tts.duck ? 0.3 : 1;
+// Lower the original audio while a block is read, and as the mix slider says.
+let ducked = false;
+function duckAudio(on = ducked) {
+  ducked = on;
+  const v = (on && tts.duck ? 0.3 : 1) * (writing() && tts.on ? mixLevels(tts.mix).video : 1);
   video.volume = v;
   altAudio.volume = v;
 }
+
+// The mix slider under the video, in Write mode with text to speech on: the video's sound
+// against the readings. Double-click puts it back in the middle.
+function mixText(m) {
+  const pct = Math.round(Math.abs(m) * 100);
+  return !pct ? 'Even: both at full volume' : m > 0 ? `Readings louder: the video at ${100 - pct}%` : `Video louder: readings at ${100 - pct}%`;
+}
+function showMix() {
+  const mixEl = $('mix'), mixBox = $('mixBox');
+  mixBox.hidden = !(writing() && tts.on);
+  mixEl.value = String(Math.round(tts.mix * 100));
+  mixEl.setAttribute('aria-valuetext', mixText(tts.mix));
+  mixBox.dataset.tip = `Mix: ${mixText(tts.mix)}. Double-click for even`;
+}
+const mixEl = $('mix');
+mixEl.addEventListener('input', () => { setMix(+mixEl.value / 100, false); duckAudio(); showMix(); });
+mixEl.addEventListener('change', () => setMix(+mixEl.value / 100));
+// After dragging it, keys go back to the timeline; from the keyboard, it keeps them.
+mixEl.addEventListener('pointerup', () => mixEl.blur());
+mixEl.addEventListener('dblclick', () => { setMix(0); duckAudio(); showMix(); });
 
 // ---------------------------------------------------------------- modes
 

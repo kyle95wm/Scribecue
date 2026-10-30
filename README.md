@@ -326,6 +326,10 @@ to speech**. `TTS` under the video shows while it's on.
   files, as notes that other programs ignore. SRT files can't store them.
 - **Read blocks aloud while playing:** each block is read as the playhead reaches it,
   with the original audio turned down. You can turn either part off.
+- **Mix:** the **Video / TTS** slider under the video sets how loud the readings are
+  against the video's sound. In the middle both are at full volume; slide towards TTS to
+  turn the video down, or towards Video to turn the readings down. Double-click it to put
+  it back in the middle. It shows in Write mode while text to speech is on.
 - **Opening a script:** when you open an SRT or VTT script in Write mode with text to
   speech on, Scribecue asks what to do with its timings: keep them and fit the reading
   speeds, change the ends to match the readings, or leave everything as it is. Tick

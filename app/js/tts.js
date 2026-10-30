@@ -211,7 +211,7 @@ export function mergeSay(say = [], add = []) {
 export const hasWord = (text, word) => !!word.trim() && sayPattern([word.trim()]).test(text);
 
 const KEY = 'scribecue.tts';
-const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', online: false, cps: {} };
+const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', online: false, cps: {}, mix: 0 };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -225,9 +225,22 @@ tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
 if (!isSpeed(tts.speed)) tts.speed = 1;
 
 const save = () => {
-  const { on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, onImport, online, cps } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, onImport, online, cps })); } catch { /* ignore */ }
+  const { on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, onImport, online, cps, mix } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, onImport, online, cps, mix })); } catch { /* ignore */ }
 };
+
+// The mix between the video's sound and the readings, from −1 (only the video) to 1
+// (only the readings). In the middle both are at full volume; moving one way turns the
+// other down, since a browser voice can't be made louder than full.
+export function mixLevels(mix) {
+  const m = Math.max(-1, Math.min(1, Number(mix) || 0));
+  return { reading: m < 0 ? 1 + m : 1, video: m > 0 ? 1 - m : 1 };
+}
+export function setMix(mix, keep = true) {
+  tts.mix = Math.max(-1, Math.min(1, Number(mix) || 0));
+  if (keep) save();
+  if (piperAudioEl) piperAudioEl.volume = mixLevels(tts.mix).reading; // a reading under way follows
+}
 
 let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1 };
 let voices = [];
@@ -563,6 +576,7 @@ function speakPiper(text, voice, { id, manual, silent, speed, done }) {
     a.preservesPitch = true;
     a.onended = () => finish(w.secs);
     a.onerror = () => finish(null);
+    a.volume = mixLevels(tts.mix).reading;
     hooks.duck(true);
     a.play().catch(() => finish(null));
   }, () => {
@@ -593,7 +607,7 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
   if (voice) { u.voice = voice; u.lang = voice.lang; }
   const playRate = hooks.rate();
   u.rate = Math.min(10, Math.max(0.1, speed * playRate));
-  if (silent) u.volume = 0;
+  u.volume = silent ? 0 : mixLevels(tts.mix).reading;
   const key = measureKey(text, speed);
   let t0 = 0;
   u.onstart = () => { t0 = performance.now(); };
