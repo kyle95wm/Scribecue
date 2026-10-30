@@ -213,6 +213,14 @@ script around a block. A model that needs more can take a higher `OLLAMA_CONTEXT
    - where and when: "A hospital in Leeds, winter, present day.";
    - your team's style: "Present tense. Name characters once they've been introduced.
      British spelling. No 'we see'."
+
+   **Look up the cast**, under the notes, fills in the character names for you: paste the
+   programme's IMDb link (an episode's own link adds its guest cast too), or type its title,
+   and click **Look up**. The characters and their actors come from
+   [TMDB](https://www.themoviedb.org/), a free film and TV database, and are added below
+   your notes, ready to add how to tell people apart. It needs your own free TMDB key: the
+   first time, Scribecue asks for it, with a link to
+   [get one](https://www.themoviedb.org/settings/api). Only the link or title goes to TMDB.
 2. **Send enough frames.** With 3 frames, something that happens briefly in the block can be
    missed; try 5 for busy scenes. Frames are taken from inside the block, so time the block
    to the gap you're describing first.
@@ -236,7 +244,8 @@ And always check a draft against the picture: AI is confident even when it's wro
   block and those around it, and your project notes, to that provider only, under its terms.
   Scribecue's own server never sees them.
 - With Ollama, everything stays on your computer.
-- Keys stay in your browser, and only go to their own provider.
+- Keys stay in your browser, and only go to their own provider. Your TMDB key, if you look
+  up a cast, only goes to TMDB, with the IMDb link or title you looked up.
 
 ## Costs
 

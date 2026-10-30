@@ -6,6 +6,7 @@ import {
 } from './ai.js';
 import { tts, chosenVoice, DEFAULT_CPS } from './tts.js';
 import { HOSTED } from './config.js';
+import { lookup as lookUpCast, KEY_PAGE as TMDB_KEY_PAGE } from './tmdb.js';
 
 const $ = (id) => document.getElementById(id);
 const KEY = 'scribecue.ai', KEYS = 'scribecue.ai.keys', PKCE = 'scribecue.ai.pkce';
@@ -332,6 +333,41 @@ export function toggleAi(open = $('aiDrawer').hidden) {
   setTimeout(() => (ready() ? $('aiInput') : $('aiProvider')).focus(), 50);
 }
 
+// Looks the programme up on TMDB with the person's own key, and adds its characters to
+// the notes, below what's there already.
+async function lookUpForNotes() {
+  const q = $('aiLookup').value.trim(), status = $('aiLookupStatus');
+  const key = $('aiTmdbKey').value.trim() || keys().tmdb;
+  if (!q) { status.textContent = 'Paste an IMDb link, or type the title.'; $('aiLookup').focus(); return; }
+  if (!key) {
+    $('aiTmdbRow').hidden = false;
+    status.textContent = 'Looking up needs your own free TMDB key: get one, paste it here, then Look up.';
+    $('aiTmdbKey').focus();
+    return;
+  }
+  if (navigator.onLine === false) { status.textContent = 'You’re offline, so TMDB can’t be reached.'; return; }
+  status.textContent = 'Looking it up…';
+  $('aiLookupGo').disabled = true;
+  try {
+    const { title, text } = await lookUpCast(q, key);
+    setKey('tmdb', key);
+    $('aiTmdbKey').value = '';
+    $('aiTmdbRow').hidden = true;
+    const notes = $('aiNotes');
+    notes.value = notes.value.trim() ? `${notes.value.replace(/\s+$/, '')}\n\n${text}` : text;
+    notes.dispatchEvent(new Event('input'));
+    notes.scrollTop = notes.scrollHeight;
+    $('aiLookup').value = '';
+    status.textContent = `Added the characters from ${title}. Check them, and add how to tell people apart. Not the right one? Paste its IMDb link instead.`;
+  } catch (e) {
+    const badKey = /key/.test(e.message);
+    if (badKey) { setKey('tmdb', ''); $('aiTmdbRow').hidden = false; }
+    status.textContent = e instanceof TypeError ? 'Couldn’t reach TMDB. Check your connection.' : `${e.message}.`;
+  } finally {
+    $('aiLookupGo').disabled = false;
+  }
+}
+
 export function initAi(h) {
   hooks = { ...hooks, ...h };
   const sel = $('aiProvider');
@@ -344,6 +380,9 @@ export function initAi(h) {
   $('aiSettings').addEventListener('click', () => { $('aiNotesBox').hidden = true; openSettings($('aiSetup').hidden); });
   $('aiNotesBtn').addEventListener('click', () => toggleNotes());
   $('aiNotes').addEventListener('input', () => { hooks.setNotes($('aiNotes').value); showNotesState(); });
+  $('aiTmdbGet').href = TMDB_KEY_PAGE;
+  $('aiLookupGo').addEventListener('click', lookUpForNotes);
+  for (const id of ['aiLookup', 'aiTmdbKey']) $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); lookUpForNotes(); } });
   $('aiClose').addEventListener('click', () => toggleAi(false));
   $('aiConnect').addEventListener('click', connect);
   $('aiRefresh').addEventListener('click', () => loadModels($('aiProvider').value));

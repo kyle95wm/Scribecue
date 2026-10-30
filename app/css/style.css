@@ -858,6 +858,10 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .aihead button, .aicompose button, .aisetup button { font: 13px var(--sans); }
 .aisetup { padding: 4px 12px 10px; border-bottom: 1px solid var(--line); overflow-y: auto; max-height: 60%; }
 .aisetup[hidden] { display: none; }
+.ailookup { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.ailookup .updstatus { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.ailookup input { flex: 1; min-width: 12em; }
+#aiLookupStatus:empty { display: none; }
 .aisetup input:not([type="checkbox"]) {
   min-width: 0; font: 13px var(--sans); color: var(--text); background: var(--bg);
   border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px;

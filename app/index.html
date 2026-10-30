@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Scribecue</title>
   <!-- The same policy nginx sends, here too for the web version, which has no nginx. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://openrouter.ai http://localhost:11434 http://127.0.0.1:11434; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://openrouter.ai https://api.themoviedb.org http://localhost:11434 http://127.0.0.1:11434; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#11141a">
@@ -379,6 +379,17 @@ docker compose up -d --build</code></pre>
         placeholder="Mara: woman in her 40s, short grey hair, red coat. Her son Theo, about 10.&#10;Set in a hospital in Leeds, winter.&#10;Name characters once they've been introduced. British spelling."></textarea>
       <p class="dim small">Useful: who's who and how to tell them apart, places, the period, and your
         team's style. These go to your AI provider with the frames.</p>
+      <div class="ailookup">
+        <label for="aiLookup" class="small"><strong>Look up the cast</strong> from an IMDb link, or a title</label>
+        <p class="updstatus"><input id="aiLookup" type="text" spellcheck="false" autocomplete="off"
+          placeholder="imdb.com/title/tt0118276/ or a title"> <button id="aiLookupGo">Look up</button></p>
+        <p id="aiTmdbRow" class="updstatus" hidden><label for="aiTmdbKey" class="small">Your TMDB key</label>
+          <input id="aiTmdbKey" type="password" autocomplete="off" spellcheck="false">
+          <a id="aiTmdbGet" class="small" target="_blank" rel="noopener noreferrer">Get a free key</a></p>
+        <p id="aiLookupStatus" class="small" aria-live="polite"></p>
+        <p class="dim small">Characters and actors come from <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">TMDB</a>, which only gets the
+          IMDb link or title you look up. This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+      </div>
     </section>
     <p id="aiOffline" class="warnbox" hidden></p>
     <div id="aiLog" class="ailog" aria-live="polite" tabindex="0" aria-label="AI conversation"></div>

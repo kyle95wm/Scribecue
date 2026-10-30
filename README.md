@@ -636,14 +636,16 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
 - The server only hands out the app's own files, and only to your own computer
   (`127.0.0.1`).
 - A strict security policy stops the page from contacting any other site. The exceptions
-  are the [update check](#updating), which only runs if you agree to it, and the AI
-  providers below, which are only contacted once you connect one.
+  are the [update check](#updating), which only runs if you agree to it, the AI
+  providers below, which are only contacted once you connect one, and TMDB, for looking up
+  a programme's cast.
 - [Text to speech](#text-to-speech) uses the voices on your computer. Online voices, which
   send the text to their provider, are only offered if you turn them on.
 - [AI help](#ai-help) is off until you connect a provider. Then, only when you send a
   message or ask for a draft, frames and nearby blocks go to the provider you chose, or
   stay on your computer with Ollama. The security policy allows those providers' addresses
-  and nothing else.
+  and nothing else. **Look up the cast**, in AI help's notes, sends only the IMDb link or
+  title you type to TMDB, with your own key, when you click it.
 - [Speech to text](#speech-to-text) runs Whisper in your browser, downloaded from
   Scribecue's own site, or in its own container with no internet access, which the page
   reaches through Scribecue's server. The audio never leaves your computer.
