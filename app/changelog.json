@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.47.0",
+  "date": "2026-10-30",
+  "notes": "## Readings in the block list\n\n- A dot (●) after a block's duration in the list means its reading has been made with the chosen voice, at its speed and the base speed, so its length is exact.\n- With a Google Cloud voice, the dot means the reading is kept in your browser: it plays straight away and isn't sent to Google again. Hover over it to see which.\n- Screen readers say \"reading ready\" for those blocks."
+ },
+ {
   "version": "0.46.2",
   "date": "2026-10-30",
   "notes": "## Changing the voice or base speed\n\n- When Scribecue asks what to do with the timings, you can now **go back** to the voice or base speed you had, and nothing changes.\n- With a Google Cloud voice, Scribecue now warns that changing the ends, fitting the speeds or updating all timings reads every block with Google again. That uses up your free characters, and may cost money once they run out. Lines already read at the same voice and speed aren't sent again."
