@@ -993,3 +993,10 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
   .settabs { flex-direction: row; width: auto; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
 }
 #ttsGoogleStatus.err { color: var(--bad); }
+.favstar { min-width: 2.2em; justify-content: center; }
+.favstar[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.favs { min-width: 0; }
+#ttsFavs { display: flex; flex-wrap: wrap; gap: 6px; }
+#ttsFavs:empty { display: none; }
+#ttsFavs .fav[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+#ttsFavs .fav.gone { color: var(--dim); border-style: dashed; }

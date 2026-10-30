@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
   piperVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
-  googleVoiceList, googleRequest, googleFailure, makesAudio, overCap } from '../app/js/tts.js';
+  googleVoiceList, googleRequest, googleFailure, makesAudio, overCap,
+  toggleFavourite, favouriteVoices } from '../app/js/tts.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -273,4 +274,21 @@ test('saved readings over the limit go, the ones used longest ago first', () => 
   assert.deepEqual(overCap(entries, 60), ['old', 'mid']);
   assert.deepEqual(overCap(entries, 0), ['old', 'mid', 'new']);
   assert.deepEqual(overCap([], 0), []);
+});
+
+test('favourite voices: pinning adds to the end, pinning again takes it out', () => {
+  assert.deepEqual(toggleFavourite([], 'piper:a'), ['piper:a']);
+  assert.deepEqual(toggleFavourite(['piper:a'], 'google:b'), ['piper:a', 'google:b']);
+  assert.deepEqual(toggleFavourite(['piper:a', 'google:b'], 'piper:a'), ['google:b']);
+});
+
+test('favourites that are not available right now are kept, without a voice', () => {
+  const list = [v('Zed', 'en-US', true), v('Anna', 'en-US', true)];
+  assert.deepEqual(favouriteVoices(['Anna', 'google:gone', 'Zed'], list).map((f) => [f.uri, f.voice?.name ?? null]),
+    [['Anna', 'Anna'], ['google:gone', null], ['Zed', 'Zed']]);
+  assert.deepEqual(favouriteVoices([], list), []);
+});
+
+test('favourites start empty', () => {
+  assert.deepEqual(tts.favourites, []);
 });

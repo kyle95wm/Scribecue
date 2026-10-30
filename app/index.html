@@ -470,7 +470,11 @@ docker compose up -d --build</code></pre>
       <div class="ttsgrid">
         <label for="ttsVoice">Voice</label>
         <div class="ttsvoice"><select id="ttsVoice"></select>
+          <button id="ttsFav" class="favstar" aria-pressed="false" aria-label="Favourite voice">☆</button>
           <button id="ttsTest" data-tip="Hear the voice read a short sample description">Test</button></div>
+        <span class="favlabel" id="ttsFavsLabel">Favourites</span>
+        <div class="favs"><div id="ttsFavs" role="group" aria-labelledby="ttsFavsLabel"></div>
+          <span id="ttsFavsNone" class="dim small">Click ☆ beside a voice to keep it here, and switch to it in one click.</span></div>
         <label for="ttsSpeed">Speed</label>
         <select id="ttsSpeed"></select>
       </div>

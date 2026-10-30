@@ -308,6 +308,11 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
 `Alt+Shift+V`, or open **Settings** and choose **Text to speech**, then tick **Turn on text
 to speech**. `TTS` under the video shows while it's on.
 **Test**, next to the voice, reads a short sample description so you can hear each voice.
+**Favourites:** click ☆ beside the voice to pin it. Your favourites then sit at the top of
+the voice list, and each gets a button under it, so you can switch between them in one
+click. Click ★ to unpin the chosen voice. A favourite that isn't available, such as a
+Piper voice while Piper isn't running, stays in the row, greyed out, until it's back;
+click it to take it out.
 
 ![The text to speech settings, with voice, speed and Update all timings](docs/screenshots/text-to-speech.png)
 

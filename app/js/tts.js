@@ -111,6 +111,13 @@ export function groupVoices(voices) {
   ];
 }
 
+// Favourite voices, pinned to the top of the voice list for switching between quickly:
+// voiceURIs, in the order they were added. Pinning one that's there takes it out.
+export const toggleFavourite = (favs, uri) => (favs.includes(uri) ? favs.filter((f) => f !== uri) : [...favs, uri]);
+// The favourites, each with its voice, or null while it isn't available (Piper not
+// running, no Google key, online voices off, or not in this browser).
+export const favouriteVoices = (favs, voices) => favs.map((uri) => ({ uri, voice: voices.find((v) => v.voiceURI === uri) || null }));
+
 // Voices that make their readings as audio, Piper's and Google's: lengths are exact, and
 // a description track can be exported.
 export const makesAudio = (v) => !!(v?.piper || v?.google);
@@ -280,7 +287,7 @@ export function mergeSay(say = [], add = []) {
 export const hasWord = (text, word) => !!word.trim() && sayPattern([word.trim()]).test(text);
 
 const KEY = 'scribecue.tts';
-const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', online: false, cps: {}, mix: 0 };
+const DEFAULTS = { on: false, voice: '', speed: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', online: false, cps: {}, mix: 0, favourites: [] };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -301,11 +308,12 @@ const googleKey = () => googleStore().key || '';
 const langs = () => [...new Set([...(navigator.languages || []), navigator.language || 'en'])];
 tts.google = googleKey() ? googleVoiceList({ voices: googleStore().voices }, langs()) : [];
 tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
+tts.favourites = Array.isArray(tts.favourites) ? tts.favourites.filter((f) => typeof f === 'string') : [];
 if (!isSpeed(tts.speed)) tts.speed = 1;
 
 const save = () => {
-  const { on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, onImport, online, cps, mix } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, onImport, online, cps, mix })); } catch { /* ignore */ }
+  const { on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, onImport, online, cps, mix, favourites } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, live, duck, autoEnd, fitSpeed, skipNotes, onImport, online, cps, mix, favourites })); } catch { /* ignore */ }
 };
 
 // The mix between the video's sound and the readings, from −1 (only the video) to 1
@@ -858,6 +866,20 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
 export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
   voices = allowed();
   sel.textContent = '';
+  // Favourites first, so they're at hand at the top of a long list. They're also in their
+  // own group below.
+  const favs = favouriteVoices(tts.favourites, voices).filter((f) => f.voice);
+  if (favs.length) {
+    const g = document.createElement('optgroup');
+    g.label = 'Favourites';
+    for (const { voice: v } of favs) {
+      const o = document.createElement('option');
+      o.value = v.voiceURI;
+      o.textContent = `★ ${v.name} (${v.lang})`;
+      g.append(o);
+    }
+    sel.append(g);
+  }
   for (const [label, list] of groupVoices(voices)) {
     const online = label.startsWith('Online'), google = label.startsWith('Google');
     if (online && !tts.online) continue;
@@ -887,8 +909,44 @@ export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
 }
 export const chosenVoice = () => currentVoice()?.voiceURI || '';
 
+// The favourites row: a button for each favourite, to switch to it in one click, and the
+// star beside the voice list, to pin or unpin the chosen voice.
+function renderFavourites() {
+  const cur = currentVoice()?.voiceURI || '';
+  const pinned = !!cur && tts.favourites.includes(cur);
+  const star = $('ttsFav');
+  star.textContent = pinned ? '★' : '☆';
+  star.setAttribute('aria-pressed', String(pinned));
+  star.setAttribute('aria-label', 'Favourite voice');
+  star.dataset.tip = pinned ? 'Take this voice out of your favourites' : 'Add this voice to your favourites, to switch to it in one click';
+  star.disabled = !cur;
+  const row = $('ttsFavs');
+  const favs = favouriteVoices(tts.favourites, voices);
+  $('ttsFavsNone').hidden = favs.length > 0;
+  row.replaceChildren(...favs.map(({ uri, voice: v }) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'fav';
+    if (v) {
+      // With its language, since voices in different languages can share a name.
+      b.textContent = `${v.name} (${v.lang})`;
+      b.setAttribute('aria-pressed', String(uri === cur));
+      b.dataset.tip = 'Switch to this voice';
+      b.addEventListener('click', () => setTtsOption('voice', uri));
+      return b;
+    }
+    // Not available now: it stays, for when it is again, and can be taken out.
+    b.textContent = `${uri.replace(/^(piper|google):/, '')} ×`;
+    b.classList.add('gone');
+    b.dataset.tip = 'Not available right now. Click to take it out of your favourites';
+    b.addEventListener('click', () => setTtsOption('favourites', toggleFavourite(tts.favourites, uri)));
+    return b;
+  }));
+}
+
 function fillVoices() {
   fillVoiceSelect($('ttsVoice'));
+  renderFavourites();
   $('ttsNoVoices').hidden = !!voices.length || !anyVoices();
   $('ttsNoOnline').hidden = !tts.online || voices.some((v) => !v.localService && !v.google);
   $('ttsNoVoices').textContent = tts.online
@@ -963,6 +1021,10 @@ export function initTts(h) {
   const set = (k, v) => { tts[k] = v; save(); render(); hooks.changed(); warmUp(); };
   $('ttsOn').addEventListener('change', (e) => { if (!e.target.checked) stop(); set('on', e.target.checked); });
   $('ttsVoice').addEventListener('change', (e) => set('voice', e.target.value));
+  $('ttsFav').addEventListener('click', () => {
+    const cur = currentVoice()?.voiceURI;
+    if (cur) set('favourites', toggleFavourite(tts.favourites, cur));
+  });
   sp.addEventListener('change', (e) => set('speed', +e.target.value));
   $('ttsLive').addEventListener('change', (e) => set('live', e.target.checked));
   $('ttsDuck').addEventListener('change', (e) => set('duck', e.target.checked));
