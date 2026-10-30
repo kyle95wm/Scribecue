@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.39.0",
+  "date": "2026-10-29",
+  "notes": "## Find and replace\n\n- **Replace…**, next to the block search, or **Alt+Shift+F**, changes text in every block at once, such as a character's name. **Match case** and **Whole words only** are there if you need them (Tom, but not Tomorrow). **Find next** steps through the blocks it's in, and one Ctrl/Cmd+Z undoes **Replace all**.\n\n## Sounds like, for every block\n\n- In Sounds like, tick **Use them in every block with these words** to add your pronunciations to every other block that has those words too, in one step.\n\n## Projects remember their video\n\n- In Chrome and Edge, opening a project, or Scribecue again, now reopens its video too. After a restart the browser asks first: click **Reopen**, with the video's name, where the video goes.\n\n## Fix\n\n- Transcribed blocks now start with a capital letter. Whisper sometimes wrote \"they speed off.\" when a block started partway through a sentence."
+ },
+ {
   "version": "0.38.0",
   "date": "2026-10-29",
   "notes": "## Look up the cast for your project notes\n\n- In AI help's **Notes**, **Look up the cast** fills in the character names for you. Paste the programme's IMDb link, or type its title, and click **Look up**. An episode's own link adds its guest cast too.\n- The characters and their actors come from [TMDB](https://www.themoviedb.org/), a free film and TV database, and are added below your notes, ready to add how to tell people apart.\n- It uses your own free TMDB key. The first time, Scribecue asks for it, with a link to get one. Only the link or title you look up goes to TMDB."
