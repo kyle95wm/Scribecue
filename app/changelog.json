@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.40.1",
+  "date": "2026-10-29",
+  "notes": "## Tour and setup\n\n- The tour has caught up with Settings: one step shows you Settings and what to set up first for your mode, and a new step covers what's on under the video, such as REPLAY.\n- Setup's text to speech step now asks about Replay too, as the transcribing step does.\n\n## Fixes\n\n- **Alt+Shift+V** and **Alt+Shift+H** open their settings in either mode, as Settings does.\n- Messages that pointed to the old text to speech panel, to TTS under the video or to the version number now point to Settings.\n- The tour only says setup comes next when it does."
+ },
+ {
   "version": "0.40.0",
   "date": "2026-10-29",
   "notes": "## Settings\n\n- **Settings**, at the top (**Alt+Shift+S**), puts everything you set up in one window, so the screen has less on it while you work. Its sections are **General**, **Transcribing**, **Text to speech**, **AI help**, **Keyboard shortcuts** and **Storage**.\n- The **Setup** button at the top has moved into Settings, under **General**, as **Run setup again**, next to **Take the tour**. The storage button in the bottom right is in Settings too. **offline** still shows there while you're offline.\n- AI help's provider, key and model are set in Settings, under **AI help**, along with your TMDB key for looking up the cast. The drawer's **Settings** button opens it.\n- **REPLAY**, **STT** and **TTS** under the video show only while they're on, and clicking one, or the reaction offset, opens its section. The usual keys, such as **Alt+Shift+V** and **Alt+Shift+H**, open their sections too.\n\n## Replay\n\n- After you edit a block and press **Esc** or **Enter**, the playhead goes back to the block's start, so you can hear it again. If the video was playing, it carries on from there. It works in both modes.\n- Replay is on unless you turn it off: **Shift+L**, or in Settings under **General**."
