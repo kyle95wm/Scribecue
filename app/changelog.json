@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.46.2",
+  "date": "2026-10-30",
+  "notes": "## Changing the voice or base speed\n\n- When Scribecue asks what to do with the timings, you can now **go back** to the voice or base speed you had, and nothing changes.\n- With a Google Cloud voice, Scribecue now warns that changing the ends, fitting the speeds or updating all timings reads every block with Google again. That uses up your free characters, and may cost money once they run out. Lines already read at the same voice and speed aren't sent again."
+ },
+ {
   "version": "0.46.1",
   "date": "2026-10-30",
   "notes": "## Base speed\n\n- The **Speed** menu in the text to speech settings is gone: the **Base speed** slider now sets the speed of the whole project, as in Frazier. Blocks without a speed of their own read at normal speed.\n- If you had chosen a speed in that menu, it's now your base speed, so fast (+15%) becomes 115%.\n- The setup wizard asks for a base speed, and the setting for what happens to timings is now called **When the voice or base speed changes**."
