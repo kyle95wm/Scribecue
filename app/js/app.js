@@ -1535,6 +1535,31 @@ function busy(btn, bar, on) {
   bar.value = 0;
 }
 let measuring = false;
+// Update all timings and Fit speeds to timings run in the background, one at a time, so
+// work can carry on while they do. Their progress shows in the bottom bar, with Stop,
+// wherever they were started, and in the text to speech settings too.
+const jobBox = $('jobBox'), jobBar = $('jobBar'), jobText = $('jobText');
+let jobActive = false;
+async function asJob(fn) {
+  if (jobActive) return toast('Another job is running. Wait for it to finish, or press Stop in the bottom bar');
+  jobActive = true;
+  try { return await fn(); } finally { jobActive = false; jobBox.hidden = true; }
+}
+function progress(ui, frac, text) {
+  ui.bar.value = jobBar.value = frac;
+  ui.status.textContent = text;
+  jobText.textContent = `${ui.job}: ${text.replace(/^[^:]*: /, '')}`;
+  jobBox.hidden = false;
+}
+// Stops the job under way, if there is one, and waits for it to finish, as before the
+// blocks it's working on are replaced.
+async function stopJob() {
+  if (!jobActive) return;
+  measuring = false;
+  stopSpeech();
+  while (jobActive) await new Promise((r) => setTimeout(r, 50));
+}
+$('jobStop').addEventListener('click', () => { measuring = false; stopSpeech(); });
 // Measures every block that hasn't been yet, at its current speed, showing progress in
 // place of a button. Returns false if Stop was pressed. ui: { btn, bar, stop, status }.
 // Shows a job's result in the panel and on screen, so it's seen even if the panel was
@@ -1555,19 +1580,18 @@ async function measureAll(blocks, ui) {
   if (piper) {
     // Several readings at once where the web version can (see LANES).
     let next = 0, done = 0;
-    ui.status.textContent = `Making readings: 0 of ${todo.length}`;
+    progress(ui, 0, `Making readings: 0 of ${todo.length}`);
     await Promise.all(Array.from({ length: LANES }, async () => {
       while (measuring && next < todo.length) {
         const c = todo[next++];
         await measure(said(c), c.speed, { bulk: true });
-        ui.bar.value = ++done / todo.length;
-        ui.status.textContent = `Making readings: ${done} of ${todo.length}`;
+        ++done;
+        progress(ui, done / todo.length, `Making readings: ${done} of ${todo.length}`);
       }
     }));
   } else {
     for (let k = 0; k < todo.length && measuring; k++) {
-      ui.bar.value = k / todo.length;
-      ui.status.textContent = `Reading block ${k + 1} of ${todo.length} silently`;
+      progress(ui, k / todo.length, `Reading block ${k + 1} of ${todo.length} silently`);
       await measure(said(todo[k]), todo[k].speed);
     }
   }
@@ -1587,7 +1611,7 @@ async function updateAllTimings(ask = true) {
   // when asked, since they have to read each block in real time.
   const piper = usingPiper();
   if (piper || $('ttsAllExact').checked) {
-    if (!(await measureAll(blocks, { btn: ttsAll, bar: ttsAllBar, stop: ttsAllStop, status: ttsAllStatus }))) {
+    if (!(await measureAll(blocks, { btn: ttsAll, bar: ttsAllBar, stop: ttsAllStop, status: ttsAllStatus, job: 'Updating timings' }))) {
       return report(ttsAllStatus, 'Update all timings stopped. No timings were changed.');
     }
   }
@@ -1614,7 +1638,7 @@ async function updateAllTimings(ask = true) {
     (estimated && !piper ? ` ${estimated === n ? 'All' : estimated} used estimated lengths: tick the box above for exact ones.` : '');
   report(ttsAllStatus, msg);
 }
-ttsAll.addEventListener('click', () => updateAllTimings());
+ttsAll.addEventListener('click', () => asJob(() => updateAllTimings()));
 
 // Fits Piper readings to their blocks one block at a time, so the progress runs once from
 // the first block to the last. Each block is read at a speed guessed from its estimate,
@@ -1626,13 +1650,13 @@ async function fitEach(blocks, ui) {
   busy(ui.btn, ui.bar, true);
   ui.stop.hidden = false;
   let next = 0, done = 0;
-  ui.status.textContent = `Fitting blocks: 0 of ${blocks.length} done`;
+  progress(ui, 0, `Fitting blocks: 0 of ${blocks.length} done`);
   // Several blocks at once where the web version can run several readings (see LANES).
   await Promise.all(Array.from({ length: LANES }, async () => {
     while (measuring && next < blocks.length) {
       await fitBlock(blocks[next++]);
-      ui.bar.value = ++done / blocks.length;
-      ui.status.textContent = `Fitting blocks: ${done} of ${blocks.length} done`;
+      ++done;
+      progress(ui, done / blocks.length, `Fitting blocks: ${done} of ${blocks.length} done`);
     }
   }));
   ui.bar.value = 1;
@@ -1678,7 +1702,7 @@ async function fitAllSpeeds(ask = true) {
   const fits = () => { let any = false; for (const c of blocks) any = fitSpeed(c, true) || any; if (any) changed(); };
   fits();
   const piper = usingPiper();
-  const ui = { btn: ttsFitAll, bar: ttsFitBar, stop: ttsFitStop, status: ttsFitStatus };
+  const ui = { btn: ttsFitAll, bar: ttsFitBar, stop: ttsFitStop, status: ttsFitStatus, job: 'Fitting speeds' };
   let stopped = false;
   // Piper reads quickly, so each block is read, its speed moved, and read again until the
   // reading fills it. Browser voices read in real time, so they measure once, and only
@@ -1711,17 +1735,15 @@ async function fitAllSpeeds(ask = true) {
     (stopped && !piper ? ' Some speeds are from estimates.' : !stopped && estimated && !piper ? ' Speeds are from estimates: tick "Read each block silently first" for exact ones.' : '');
   report(ttsFitStatus, msg);
 }
-ttsFitAll.addEventListener('click', () => fitAllSpeeds());
+ttsFitAll.addEventListener('click', () => asJob(() => fitAllSpeeds()));
 
 // Opening a script in Write mode with text to speech on: ask what to do with its
-// timings, or do what was chosen before. The panel opens so the progress shows.
+// timings, or do what was chosen before. It runs in the background, with its progress
+// and Stop in the bottom bar, so the script can be worked on meanwhile.
 const importDlg = $('importDlg');
 function runImportChoice(choice) {
   if (choice !== 'fit' && choice !== 'ends') return;
-  openTts();
-  const go = choice === 'fit' ? ttsFitAll : ttsAll;
-  go.scrollIntoView({ block: 'center' });
-  choice === 'fit' ? fitAllSpeeds(false) : updateAllTimings(false);
+  asJob(() => (choice === 'fit' ? fitAllSpeeds(false) : updateAllTimings(false)));
 }
 function afterImport(name) {
   if (!ttsOn() || !S.cues.some((c) => spoken(c.text))) return;
@@ -1772,7 +1794,8 @@ ttsExport.addEventListener('click', async () => {
   }
 });
 ttsAllStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
-$('ttsDlg').addEventListener('close', () => { measuring = false; ttsAllStatus.textContent = ''; ttsFitStatus.textContent = ''; });
+// A job carries on when the settings close: it shows in the bottom bar.
+$('ttsDlg').addEventListener('close', () => { if (!jobActive) { ttsAllStatus.textContent = ''; ttsFitStatus.textContent = ''; } });
 
 // A block's own speed. Setting it to the overall speed makes the block follow the
 // overall speed again, so changing that later still applies to it.
@@ -2472,6 +2495,7 @@ async function openProject(file, handle = null) {
   try { p = fromProject(JSON.parse(await file.text())); }
   catch (e) { return toast(`Couldn’t open ${file.name}: ${e instanceof SyntaxError ? 'the file is damaged' : e.message}`); }
   if (!okToReplace(`Open ${file.name}`)) return;
+  await stopJob();
   pushUndo();
   S.cues = p.blocks.map(revive);
   S.handle = handle;
@@ -2556,6 +2580,7 @@ document.addEventListener('keydown', (e) => { if (newDlg.open) e.stopPropagation
 function clearBlocks() {
   const n = S.cues.length;
   if (!n) return;
+  stopJob();
   pushUndo();
   S.cues = [];
   changed();
@@ -2572,6 +2597,7 @@ function newProject(ask = true) {
     const undo = blocks ? ` Undo (${IS_MAC ? '⌘Z' : 'Ctrl+Z'}) brings the blocks back${media ? `, but you’d need to open ${media} again` : ''}.` : '';
     if (!confirm(`Start a new project? This ${what}.${unsaved}${undo}`)) return;
   }
+  stopJob();
   closeVideo();
   pushUndo();
   S.cues = [];
@@ -2615,6 +2641,7 @@ async function loadSubsFile(file) {
   const parsed = parseSubs(await file.text());
   if (!parsed.length) return toast(`No cues found in ${file.name}`);
   if (!okToReplace(`Open ${file.name}`)) return;
+  await stopJob();
   pushUndo();
   S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.say ? { say: c.say } : {}));
   S.subName = file.name;

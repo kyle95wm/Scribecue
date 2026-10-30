@@ -506,6 +506,10 @@ textarea:disabled { opacity: 0.5; }
 }
 #toast { min-width: 0; color: var(--accent); transition: opacity 0.4s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #toast.fade { opacity: 0; }
+/* A job running in the background, such as fitting speeds to a script just opened. */
+.jobbox { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; color: var(--text); white-space: nowrap; }
+.jobbox[hidden] { display: none; }
+.jobbox .jobbar { width: 120px; }
 /* Read by screen readers, not shown. */
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .hint { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dim); white-space: nowrap; }

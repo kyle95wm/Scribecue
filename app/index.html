@@ -145,6 +145,11 @@
   <footer class="status">
     <span id="toast" aria-hidden="true"></span>
     <span id="announce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></span>
+    <span id="jobBox" class="jobbox" hidden>
+      <span id="jobText"></span>
+      <progress id="jobBar" class="jobbar" max="1" value="0" aria-label="Progress"></progress>
+      <button id="jobStop" class="ver">Stop</button>
+    </span>
     <span class="hint">
       <kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>⌥⇧←</kbd><kbd>⌥⇧→</kbd> block
       <kbd>↵</kbd> create/edit <kbd>⇧F</kbd> find <kbd>⇧O</kbd> all keys

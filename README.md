@@ -331,7 +331,9 @@ to speech**. `TTS` under the video shows while it's on.
   speeds, change the ends to match the readings, or leave everything as it is. Tick
   **Always do this** to stop it asking, and change your choice later under **When you open
   a script** in the text to speech settings. Either change can be undone. Opening a Scribecue
-  project doesn't ask.
+  project doesn't ask. The change runs in the background, with its progress and **Stop** in
+  the bottom bar, so you can start on the script straight away. So do **Update all timings**
+  and **Fit speeds to timings**, one at a time, carrying on if you close Settings.
 
   ![The question when a script is opened: fit the reading speeds, change the ends, or leave it](docs/screenshots/import-timings.png)
 - **Fit speeds to timings:** the opposite of Update all timings, for a script whose
