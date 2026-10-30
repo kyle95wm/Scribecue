@@ -1286,7 +1286,9 @@ function renderOverlay(c) {
 }
 
 function updateActive(t) {
-  const a = cueAt(t);
+  // While you hold H to time your own read, the block you're reading stays up, even
+  // past its old end, until you let go.
+  const a = (hold?.take != null && S.cues[idx(hold.take)]) || cueAt(t);
   const id = a ? a.id : null;
   if (id === S.activeId) return;
   rowMap.get(S.activeId)?.classList.remove('active');
