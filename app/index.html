@@ -542,7 +542,8 @@ docker compose up -d --build</code></pre>
       <p class="dim small">The key needs the Cloud Text-to-Speech API turned on in its project. It's kept in this
         browser, and only sent to Google.
         <a href="https://github.com/kyle95wm/Scribecue/blob/main/GOOGLE-VOICES.md" target="_blank" rel="noopener noreferrer">The Google voices guide</a>
-        covers setting up the key, and making sure you're never billed.</p>
+        covers setting up the key, and making sure you're never billed. Readings are kept in this browser,
+        so each line is only sent to Google once, unless you change it.</p>
       <h3>Online voices</h3>
       <label class="updopt"><input type="checkbox" id="ttsOnline"> Include online voices</label>
       <p id="ttsNoOnline" class="warnbox" hidden>This browser doesn't offer any online voices. To use
@@ -592,7 +593,7 @@ docker compose up -d --build</code></pre>
     <h3>Needs a connection</h3>
     <ul class="small">
       <li>AI help with Claude, OpenAI, Gemini or OpenRouter. Ollama, on this computer, works offline.</li>
-      <li>Online and Google Cloud text to speech voices. Your computer's voices and Piper voices work offline.</li>
+      <li>Online and Google Cloud text to speech voices. Your computer's voices and Piper voices work offline, and so do lines a Google voice has already read.</li>
       <li class="hosted-only">New versions of Scribecue. Until you're back online, you keep the one you have.</li>
       <li class="hosted-only">Downloading Piper voices or Whisper, so get them before you go offline.</li>
       <li class="docker-only">Checking for updates, if you've turned that on.</li>

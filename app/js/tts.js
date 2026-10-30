@@ -131,6 +131,19 @@ export function googleVoiceList(json, langs = ['en']) {
   return mine.length ? mine : all;
 }
 
+// Which saved readings to remove so the rest fit in `cap` bytes: the ones used longest
+// ago go first. entries [{ key, bytes, at }].
+export function overCap(entries, cap) {
+  let total = entries.reduce((n, e) => n + e.bytes, 0);
+  const out = [];
+  for (const e of [...entries].sort((a, b) => a.at - b.at)) {
+    if (total <= cap) break;
+    out.push(e.key);
+    total -= e.bytes;
+  }
+  return out;
+}
+
 // How every request to Google goes: no cookies, and only Scribecue's address as the
 // referrer (never the page's path), so a key restricted to Scribecue's website works.
 export const GOOGLE_FETCH = { credentials: 'omit', referrerPolicy: 'strict-origin' };
@@ -561,6 +574,84 @@ export function setGoogleKey(key) {
   return loadGoogle();
 }
 
+// Google's readings are kept in the browser, by voice, speed and text, so a line that
+// hasn't changed is never sent twice: not when Scribecue is next opened, nor to export.
+// That saves characters, which Google charges for past its free allowance, and lets lines
+// already read play offline. Their lengths are loaded as Scribecue opens, so they're exact
+// straight away. At most SAVED_MAX bytes are kept, the readings used longest ago going first.
+const SAVED_DB = 'scribecue-readings';
+export const SAVED_MAX = 250e6;
+let savedDb = null;
+function openSaved() {
+  if (!globalThis.indexedDB) return Promise.resolve(null);
+  return (savedDb ||= new Promise((ok) => {
+    const q = indexedDB.open(SAVED_DB, 1);
+    q.onupgradeneeded = () => { q.result.createObjectStore('audio'); q.result.createObjectStore('meta'); };
+    q.onsuccess = () => ok(q.result);
+    q.onerror = q.onblocked = () => ok(null);
+  }));
+}
+// Runs fn(stores) in one transaction, and resolves with what it sets as the result.
+async function saved(mode, fn) {
+  const db = await openSaved();
+  if (!db) return null;
+  return new Promise((ok) => {
+    let out = null;
+    try {
+      const t = db.transaction(['audio', 'meta'], mode);
+      fn({ audio: t.objectStore('audio'), meta: t.objectStore('meta') }, (v) => { out = v; });
+      t.oncomplete = () => ok(out);
+      t.onerror = t.onabort = () => ok(null);
+    } catch { ok(null); }
+  });
+}
+const all = (store) => new Promise((ok) => { const r = store.getAll(); r.onsuccess = () => ok(r.result); r.onerror = () => ok([]); });
+
+async function savedReading(key) {
+  return saved('readwrite', ({ audio, meta }, done) => {
+    const a = audio.get(key);
+    a.onsuccess = () => {
+      if (!a.result) return;
+      done(a.result);
+      const m = meta.get(key);
+      m.onsuccess = () => { if (m.result) meta.put({ ...m.result, at: Date.now() }, key); };
+    };
+  });
+}
+async function saveReading(key, buf, secs) {
+  await saved('readwrite', ({ audio, meta }) => {
+    audio.put(buf, key);
+    meta.put({ key, secs, bytes: buf.byteLength, at: Date.now() }, key);
+  });
+  const entries = await saved('readonly', ({ meta }, done) => all(meta).then(done));
+  const drop = overCap(entries || [], SAVED_MAX);
+  if (drop.length) await saved('readwrite', ({ audio, meta }) => { for (const k of drop) { audio.delete(k); meta.delete(k); } });
+}
+// The lengths of every saved reading, so they're exact as Scribecue opens.
+async function loadSavedLengths() {
+  const entries = await saved('readonly', ({ meta }, done) => all(meta).then(done));
+  for (const e of entries || []) if (!measured.has(e.key)) measured.set(e.key, e.secs);
+  if (entries?.length) hooks.changed();
+}
+// How many readings are kept, and how big they are, for Settings.
+export async function savedReadings() {
+  const entries = await saved('readonly', ({ meta }, done) => all(meta).then(done));
+  return { count: entries?.length || 0, bytes: (entries || []).reduce((n, e) => n + e.bytes, 0) };
+}
+export async function clearSavedReadings() {
+  await saved('readwrite', ({ audio, meta }) => { audio.clear(); meta.clear(); });
+  for (const k of [...audioCache.keys()]) if (k.startsWith('google:')) audioCache.delete(k);
+}
+
+// A saved reading if there is one; otherwise Google is asked, and its reading is kept.
+async function googleOrSaved(key, words, voice, speed, urgent) {
+  const kept = await savedReading(key);
+  if (kept) return kept;
+  const buf = await googleRead(words, voice, speed, urgent);
+  try { saveReading(key, buf.slice(0), readWav(buf).secs); } catch { /* not kept */ }
+  return buf;
+}
+
 // A few readings at a time, so a long job doesn't send Google hundreds at once.
 const GOOGLE_AT_ONCE = 4;
 let googleBusy = 0;
@@ -590,7 +681,7 @@ function readAudio(text, speed, voice = currentVoice(), how = 'background') {
   if (p && how === 'now') pending.get(key)?.hurry();
   if (!p) {
     let reading;
-    if (voice.google) reading = googleRead(words, voice, speed, how === 'now');
+    if (voice.google) reading = googleOrSaved(key, words, voice, speed, how === 'now');
     else if (HOSTED) {
       reading = ask('synthesize', { voice: voice.piper, text: words, speed, urgent: how === 'now' }, how === 'bulk');
       pending.set(key, reading);
@@ -912,4 +1003,5 @@ export function initTts(h) {
     speechSynthesis.addEventListener('voiceschanged', () => { voices = allowed(); if (d.open) render(); hooks.changed(); });
   }
   loadPiper();
+  loadSavedLengths();
 }

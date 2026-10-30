@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
   piperVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
-  googleVoiceList, googleRequest, googleFailure, makesAudio } from '../app/js/tts.js';
+  googleVoiceList, googleRequest, googleFailure, makesAudio, overCap } from '../app/js/tts.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -262,4 +262,15 @@ test('Google errors are explained', async () => {
   assert.match(await googleFailure(res(403, 'Requests from referer https://example.com/ are blocked.')), /restricted to other websites/);
   assert.match(await googleFailure(res(429, 'Quota exceeded')), /too many readings/);
   assert.equal(await googleFailure({ status: 500, json: async () => { throw new Error('x'); } }), 'Google answered 500');
+});
+
+test('saved readings over the limit go, the ones used longest ago first', () => {
+  const e = (key, bytes, at) => ({ key, bytes, at });
+  const entries = [e('new', 40, 300), e('old', 50, 100), e('mid', 30, 200)];
+  assert.deepEqual(overCap(entries, 200), []);
+  assert.deepEqual(overCap(entries, 120), []);
+  assert.deepEqual(overCap(entries, 100), ['old']);
+  assert.deepEqual(overCap(entries, 60), ['old', 'mid']);
+  assert.deepEqual(overCap(entries, 0), ['old', 'mid', 'new']);
+  assert.deepEqual(overCap([], 0), []);
 });

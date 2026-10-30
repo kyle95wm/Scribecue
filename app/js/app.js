@@ -23,7 +23,8 @@ import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
-  usingAudioVoice, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes, mixLevels, setMix } from './tts.js';
+  usingAudioVoice, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes, mixLevels, setMix,
+  savedReadings, clearSavedReadings } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -3421,6 +3422,8 @@ initOffline({
   toast: (m) => toast(m),
   voices: () => tts.piper.map((v) => v.name),
   whisper: () => stt.ready,
+  readings: () => savedReadings(),
+  clearReadings: () => clearSavedReadings(),
   openTts: () => openTts(),
   openStt: () => openStt(),
   guides: () => guidesHere(),

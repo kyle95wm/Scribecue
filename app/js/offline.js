@@ -9,6 +9,7 @@ import { VERSION } from './update.js';
 import { chromium } from './browser.js';
 
 const $ = (id) => document.getElementById(id);
+const mb = (bytes) => `${bytes < 1e6 ? 'less than 1' : Math.round(bytes / 1e6)} MB`;
 export const online = () => globalThis.navigator?.onLine !== false;
 
 // What the bottom bar says: offline is the news when it happens; otherwise, in the web
@@ -24,7 +25,8 @@ export function offlineLabel({ hosted, offline, ready }) {
 // refused: the browser has just said no when asked. It decides by itself, mostly by how
 // much the site is used, and nothing can make it agree, so the row says what keeps work
 // safe anyway.
-export function checklist({ hosted, appKept, guides, voices, whisper, persisted, usage, refused = false }) {
+// readings: Google voices' readings kept in this browser, { count, bytes }.
+export function checklist({ hosted, appKept, guides, voices, whisper, persisted, usage, refused = false, readings = null }) {
   const rows = [];
   if (hosted) rows.push(...offlineRows({ appKept, guides, voices, whisper }));
   if (persisted !== null) {
@@ -33,6 +35,10 @@ export function checklist({ hosted, appKept, guides, voices, whisper, persisted,
       : refused
         ? [false, 'Kept safe', 'The browser said no. It decides by itself, mostly by how much you use Scribecue, and may agree later. Either way, saving your work as a project keeps it safe: the file is on your computer, and in Chrome or Edge it autosaves.', 'persist']
         : [false, 'Kept safe', 'The browser may clear Scribecue’s storage if space runs low, including unsaved work. You can ask it to keep it; saving your work as a project keeps it safe either way.', 'persist']);
+  }
+  if (readings?.count) {
+    rows.push([null, 'Saved Google readings', `${readings.count} line${readings.count === 1 ? '' : 's'}, ${mb(readings.bytes)}. `
+      + 'They play from here, without asking Google again, and work offline.', 'readings']);
   }
   if (usage) rows.push([null, 'Space used', `${usage < 1e6 ? 'Less than 1' : Math.round(usage / 1e6)} MB in this browser.`]);
   return rows;
@@ -60,7 +66,7 @@ export async function keepStorage({ ask = false } = {}) {
   return ask || chromium(navigator.userAgent, navigator.userAgentData?.brands || []) ? s.persist() : false;
 }
 
-let hooks = { toast: () => {}, voices: () => [], whisper: () => false, openTts: () => {}, openStt: () => {}, guides: async () => false,
+let hooks = { toast: () => {}, voices: () => [], whisper: () => false, readings: async () => null, clearReadings: async () => {}, openTts: () => {}, openStt: () => {}, guides: async () => false,
   unsaved: () => 0, save: async () => {} };
 
 // The warning before removing everything, from what would be lost.
@@ -96,7 +102,8 @@ async function survey() {
   const appKept = HOSTED && !!navigator.serviceWorker?.controller && (await caches.has(`scribecue-${VERSION}`).catch(() => false));
   const persisted = navigator.storage?.persisted ? await navigator.storage.persisted() : null;
   const usage = (await navigator.storage?.estimate?.().catch(() => null))?.usage || 0;
-  return { hosted: HOSTED, appKept, guides: await hooks.guides(), voices: hooks.voices(), whisper: hooks.whisper(), persisted, usage, refused };
+  return { hosted: HOSTED, appKept, guides: await hooks.guides(), voices: hooks.voices(), whisper: hooks.whisper(), persisted, usage, refused,
+    readings: await hooks.readings() };
 }
 
 async function render() {
@@ -116,7 +123,7 @@ async function render() {
     ? (!online() ? 'You’re offline. Everything below with a ✓ works now.'
       : 'What this browser has for working without a connection. Get what you need before you go offline.')
     : `${!online() ? 'You’re offline, but that’s fine: ' : ''}Scribecue runs from this computer, in Docker, so it works without a connection. Until you save a project, your blocks and settings are kept in this browser.`;
-  const btn = { voices: 'Choose a voice', whisper: 'Set up', persist: refused ? 'Ask again' : 'Keep it safe' };
+  const btn = { voices: 'Choose a voice', whisper: 'Set up', persist: refused ? 'Ask again' : 'Keep it safe', readings: 'Clear' };
   $('offlineList').replaceChildren(...checklist(s).map(([ok, title, detail, act]) => {
     const li = document.createElement('li');
     li.className = ok === null ? 'info' : ok ? 'ok' : 'no';
@@ -127,7 +134,8 @@ async function render() {
     if (act) {
       const a = document.createElement('button');
       a.textContent = btn[act];
-      a.addEventListener('click', () => act === 'persist' ? persist() : ($('offlineDlg').close(), act === 'voices' ? hooks.openTts() : hooks.openStt()));
+      a.addEventListener('click', () => act === 'persist' ? persist() : act === 'readings' ? clearReadings()
+        : ($('offlineDlg').close(), act === 'voices' ? hooks.openTts() : hooks.openStt()));
       li.append(a);
     }
     return li;
@@ -137,6 +145,13 @@ async function render() {
 // The answer shows in the window's own row: a message under the window would be hidden.
 async function persist() {
   refused = !(await keepStorage({ ask: true }));
+  await render();
+}
+
+// Google charges for readings past its free allowance, so this asks first.
+async function clearReadings() {
+  if (!confirm('Remove the Google readings kept in this browser? Lines are read by Google again, and counted again, the next time they’re needed.')) return;
+  await hooks.clearReadings();
   await render();
 }
 

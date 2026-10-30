@@ -63,9 +63,25 @@ and its voices.
 ## Never being billed
 
 Standard voices have a free allowance of characters each month, which is plenty for most
-work, but jobs such as **Fit speeds to timings** read each block more than once. See
-[Google's prices](https://cloud.google.com/text-to-speech/pricing) for the current
+work. See [Google's prices](https://cloud.google.com/text-to-speech/pricing) for the current
 allowance.
+
+Scribecue keeps every reading in your browser, so a line is only sent to Google, and
+counted, once. It's sent again only when its text, speed or voice changes. What still adds
+up:
+
+- **Writing:** Scribecue reads a block each time you pause typing, to keep its length
+  exact, so a line you rewrite several times is read several times.
+- **Speeds:** each speed a block is read at is a reading of its own. **Fit speeds to
+  timings** tries two to four speeds for each block it changes.
+- **Clearing them:** clearing the kept readings, in **Settings** under **Storage**, or
+  removing all data, means lines are read and counted again.
+- **Another browser or computer** has its own readings.
+
+As a rough guide, a 45-minute episode's script is 12,000 to 25,000 characters, and a
+feature film's 30,000 to 70,000. Even read several times over, that's a small part of
+the allowance for most describers. Someone describing full time, or a team sharing a key,
+could get close, which is what the rest of this section is for.
 
 ### Why a budget alone isn't enough
 
@@ -252,6 +268,9 @@ in a month.
 
 - Each reading sends the block's text, as it's read aloud, to Google. Nothing else from
   your project goes with it.
+- Readings are kept in your browser, with the text they're of, so that lines aren't sent
+  twice. **Settings**, under **Storage**, shows them and can clear them, and **Remove all
+  data** removes them too.
 - The key stays in your browser, kept apart from your other settings, and is only sent to
   Google. **Forget** removes it.
 - Scribecue doesn't contact Google when it opens. The voice list is only fetched again
