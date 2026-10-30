@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.38.0",
+  "date": "2026-10-29",
+  "notes": "## Look up the cast for your project notes\n\n- In AI help's **Notes**, **Look up the cast** fills in the character names for you. Paste the programme's IMDb link, or type its title, and click **Look up**. An episode's own link adds its guest cast too.\n- The characters and their actors come from [TMDB](https://www.themoviedb.org/), a free film and TV database, and are added below your notes, ready to add how to tell people apart.\n- It uses your own free TMDB key. The first time, Scribecue asks for it, with a link to get one. Only the link or title you look up goes to TMDB."
+ },
+ {
   "version": "0.37.2",
   "date": "2026-10-29",
   "notes": "## Fix\n\n- **Keep it safe**, in the storage window, now shows the browser's answer right there. Before, it seemed to do nothing, because the answer appeared behind the window.\n- Chrome and Edge decide for themselves whether to keep Scribecue's storage, so they may say no. If they do, the window says so and offers **Ask again**. Saving your work as a project keeps it safe either way."
