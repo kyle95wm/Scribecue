@@ -287,16 +287,31 @@ button.clock { padding: 0; border: 0; background: none; color: inherit; }
 #ind button.on { color: var(--text); border-color: var(--faint); }
 
 .editor {
-  padding: 8px 12px 10px;
+  margin: 4px 6px;
+  padding: 6px 8px 8px;
   background: var(--panel2);
-  border-bottom: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: 6px;
 }
-.editing .editor { box-shadow: inset 3px 0 0 var(--accent); }
-.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 6px; font: 12px var(--mono); }
-.meta label { color: var(--dim); display: flex; align-items: center; gap: 6px; }
-.idx { font-weight: 700; color: var(--accent); min-width: 3em; }
+.editor[hidden] { display: none; }
+.editing .editor { border-color: var(--accent); }
+.meta, .edtts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font: 12px var(--mono); }
+.meta { margin-bottom: 6px; }
+.edtts { margin-top: 6px; }
+.edtts[hidden] { display: none; }
+.idx { font-weight: 700; color: var(--accent); }
+/* Move the block a frame back, to the playhead, or a frame forward. */
+.edmove { display: inline-flex; gap: 2px; margin-left: 4px; }
+.edmove button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 22px; padding: 0;
+  color: var(--dim); background: none; border: 1px solid transparent; border-radius: 4px; cursor: pointer;
+}
+.edmove button:hover { color: var(--text); background: var(--raise); border-color: var(--line); }
+.edmove svg { width: 12px; height: 12px; fill: currentColor; }
+.editor .rowdel { opacity: 1; }
 input.time {
-  width: 10.5em;
+  width: 8.2em;
   font: 13px var(--mono);
   color: var(--text);
   background: var(--bg);
@@ -330,25 +345,10 @@ textarea:disabled { opacity: 0.5; }
   border-right: 1px solid var(--line);
   background: var(--panel);
 }
-.listhead, .row {
-  display: grid;
-  grid-template-columns: 46px 112px minmax(0, 1fr) 20px;
-  gap: 8px;
-  padding: 0 6px 0 10px;
-}
-.listhead {
-  font: 11px var(--mono);
-  color: var(--faint);
-  text-transform: uppercase;
-  padding-top: 6px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--line);
-}
-.list { flex: 1; overflow-y: auto; min-height: 0; }
+.list { position: relative; flex: 1; overflow-y: auto; min-height: 0; }
 .list .emptyhint { padding: 24px 16px; color: var(--dim); line-height: 2; }
 .row {
-  padding-top: 6px;
-  padding-bottom: 6px;
+  padding: 6px 6px 8px 10px;
   border-bottom: 1px solid #1a1e25;
   border-left: 3px solid transparent;
   cursor: pointer;
@@ -373,10 +373,13 @@ textarea:disabled { opacity: 0.5; }
 }
 .row:hover .rowdel, .row.sel .rowdel { opacity: 1; }
 .rowdel:hover { color: var(--bad); border-color: var(--bad); background: rgba(255, 107, 107, 0.12); }
-.row .n { font: 12px var(--mono); color: var(--faint); padding-top: 2px; }
-.row .t { font: 12px var(--mono); display: flex; flex-direction: column; }
-.row .t i { font-style: normal; color: var(--faint); }
+/* Each block: its number, start – end and length, then its text, as in Frazier. */
+.row .rh { display: flex; align-items: center; gap: 10px; margin-bottom: 3px; font: 12px var(--mono); }
+.row .n { min-width: 2em; color: var(--faint); }
+.row .t { font-weight: 700; }
+.row .d { flex: 1; min-width: 0; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .tx {
+  margin-left: calc(2em + 10px);
   white-space: pre-line;
   overflow: hidden;
   display: -webkit-box;
@@ -387,8 +390,12 @@ textarea:disabled { opacity: 0.5; }
 .row.active { border-left-color: var(--play); }
 .row.sel { background: var(--accent-bg); }
 .row.sel .n { color: var(--accent); font-weight: 700; }
-.row.sel .t i, .row.sel .tx.blank { color: #b4bbc6; } /* the faint grey is too faint on amber */
+.row.sel .d, .row.sel .tx.blank { color: #b4bbc6; } /* the faint grey is too faint on amber */
 #list .row.sel .over { color: #ff9a9a; }
+/* The editor stands in for the selected block's row, which stays for screen readers. */
+#list .row.sel:has(+ .editor:not([hidden])) {
+  position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%);
+}
 
 /* ---------- timeline ---------- */
 .timeline {
@@ -718,13 +725,9 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .jobbar { width: 220px; height: 10px; vertical-align: middle; accent-color: var(--accent); }
 #ttsPiperNote:empty, #ttsExportNote:empty { display: none; }
 .edspeed { display: inline-flex; align-items: center; gap: 4px; }
-.edsay { padding: 1px 6px; font: 11px var(--mono); color: var(--dim); background: none; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
-.edsay:hover { color: var(--text); border-color: var(--faint); }
 /* Pops up under a selection in the block text, to set how it sounds. */
 #selSay { position: fixed; z-index: 40; padding: 2px 8px; font: 12px var(--mono); color: var(--accent); background: var(--panel2); border: 1px solid var(--accent); border-radius: 5px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45); }
 #selSay:hover { background: var(--raise); }
-.edsay.on { color: var(--cue); border-color: var(--cue); }
-.edsay[hidden] { display: none; }
 .sayrows { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 6px 8px; align-items: center; margin: 12px 0 4px; }
 .sayrows:empty { display: none; }
 .sayrows input { min-width: 0; font: 14px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
@@ -732,6 +735,7 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .sayrows .missing { grid-column: 1 / -1; margin: -2px 0 2px; font-size: 12px; color: var(--warn); }
 .sayrows .missing[hidden] { display: none; }
 .edspeed[hidden] { display: none; }
+.edspeed #edVoice { max-width: 180px; }
 .edspeed select {
   max-width: 115px;
   font: 12px var(--mono);

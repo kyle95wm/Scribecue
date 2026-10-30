@@ -40,6 +40,7 @@ const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('
 const tl = $('tl'), ruler = $('ruler'), lane = $('lane'), wave = $('wave'), cuesLayer = $('cues');
 const playheadEl = $('playhead'), dragtip = $('dragtip'), overview = $('overview'), ovWin = $('ovWin');
 const edText = $('edText'), edStart = $('edStart'), edEnd = $('edEnd');
+const editor = $('editor'), edTts = $('edTts');
 const edIdx = $('edIdx'), edDur = $('edDur'), edStats = $('edStats'), edSpeed = $('edSpeed'), edSpeedWrap = $('edSpeedWrap'), edAuto = $('edAuto');
 const clockEl = $('clock'), durEl = $('durEl'), ind = $('ind');
 const toastEl = $('toast'), helpEl = $('help'), fileSubs = $('fileSubs'), fileVideo = $('fileVideo');
@@ -380,8 +381,10 @@ function select(id, { seek: doSeek = true, reveal = true, toTop = true } = {}) {
   r?.setAttribute('aria-selected', 'true');
   // The list says which block is selected, so a screen reader in it reads each as you move.
   if (r) list.setAttribute('aria-activedescendant', r.id); else list.removeAttribute('aria-activedescendant');
-  if (r && toTop) list.scrollTop += r.getBoundingClientRect().top - list.getBoundingClientRect().top;
-  else r?.scrollIntoView({ block: 'nearest' });
+  placeEditor();
+  const shown = editor.hidden ? r : editor;
+  if (shown && toTop) list.scrollTop += shown.getBoundingClientRect().top - list.getBoundingClientRect().top;
+  else shown?.scrollIntoView({ block: 'nearest' });
   const c = selCue();
   if (c && doSeek) { S.playUntil = null; seek(c.start); }
   if (c && reveal) revealRange(c.start, c.end);
@@ -468,6 +471,21 @@ function setEdge(which) {
   }
   changed(c.id);
 }
+
+// The pencil in the block editor: the block starts at the playhead, keeping its length.
+function moveToPlayhead() {
+  const c = needSel(); if (!c) return;
+  const { lo, hi } = bounds(selIdx()), len = c.end - c.start, t = now();
+  if (t < lo || t + len > hi) return toast('The block doesn’t fit there without running into another one');
+  pushUndo();
+  c.start = t; c.end = t + len;
+  changed(c.id);
+  revealRange(c.start, c.end);
+}
+$('edBack').addEventListener('click', (e) => { e.currentTarget.blur(); nudge('move', -frame()); });
+$('edFwd').addEventListener('click', (e) => { e.currentTarget.blur(); nudge('move', frame()); });
+$('edHere').addEventListener('click', (e) => { e.currentTarget.blur(); moveToPlayhead(); });
+$('edDel').addEventListener('click', (e) => { e.currentTarget.blur(); del(); });
 
 function newCue() {
   const t = now();
@@ -578,10 +596,10 @@ let edit = null; // { id, orig, pushed }
 
 function updateEditor() {
   const c = selCue();
+  edTts.hidden = !(c && ttsOn());
   if (!c) {
     edSpeedWrap.hidden = true;
     edVoiceWrap.hidden = true;
-    edSay.hidden = true;
     edAuto.hidden = true;
     edIdx.textContent = '#–';
     if (document.activeElement !== edStart) edStart.value = '';
@@ -603,9 +621,6 @@ function updateEditor() {
   edSpeedWrap.hidden = !ttsOn();
   edVoiceWrap.hidden = !ttsOn();
   if (ttsOn() && document.activeElement !== edVoice) fillEdVoice(c);
-  edSay.hidden = !ttsOn();
-  edSay.textContent = c.say?.length ? `sounds like · ${c.say.length}` : 'sounds like';
-  edSay.classList.toggle('on', !!c.say?.length);
   const custom = c.speed && !isSpeed(c.speed);
   edSpeedCustom.hidden = !custom;
   edSpeedCustom.textContent = custom ? speedName(c.speed) + (c.fit ? ', fits the block' : '') : 'custom';
@@ -911,20 +926,20 @@ listSearch.addEventListener('keydown', (e) => {
 });
 
 function fillRow(r, c, i) {
-  const [n, t, tx] = r.children;
+  const [n, t, d] = r.children[0].children, tx = r.children[1];
   n.textContent = i + 1;
-  t.children[0].textContent = tc(c.start);
-  t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '')
+  t.textContent = `${tc(c.start)} – ${tc(c.end)}`;
+  d.textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '')
     + (ttsOn() && c.voice ? ` · ${blockVoiceName(c.voice)}` : '');
   // Red when the reading is longer than the block, with a sign for anyone who can't tell red.
   const reading = ttsOn() && !!spoken(c.text) ? speechLength(said(c), c.speed, c.voice) : null;
   const over = !!reading && reading.secs > c.end - c.start + 0.05;
-  t.children[1].classList.toggle('over', over);
-  if (over) t.children[1].textContent += ' ⚠';
+  d.classList.toggle('over', over);
+  if (over) d.textContent += ' ⚠';
   // A dot when the reading has been made, at this voice and speed. Piper, Kokoro and Google
   // readings are kept in the browser, so they play straight away, even after a reload.
   if (reading?.exact) {
-    t.children[1].append(Object.assign(document.createElement('span'), { className: 'ready', textContent: ' ●',
+    d.append(Object.assign(document.createElement('span'), { className: 'ready', textContent: ' ●',
       title: usingGoogle(c.voice) ? 'Reading kept: plays straight away, and isn\'t sent to Google again'
         : usingAudioVoice(c.voice) ? 'Reading kept: its length is exact, and it plays straight away' : 'Reading made: its length is exact' }));
   }
@@ -936,7 +951,8 @@ function fillRow(r, c, i) {
 
 function renderList() {
   rowMap.clear();
-  list.textContent = '';
+  // Everything but the editor, which stays put so typing in it isn't interrupted.
+  for (const el of [...list.children]) if (el !== editor) el.remove();
   list.removeAttribute('aria-activedescendant');
   // A list for screen readers only when there are blocks in it.
   if (S.cues.length) list.setAttribute('role', 'listbox'); else list.removeAttribute('role');
@@ -947,6 +963,7 @@ function renderList() {
       '<kbd>' + (IS_MAC ? '⌘' : 'Ctrl+') + 'O</kbd> open an SRT / VTT file<br>' +
       'or drag on the timeline lane to draw one.';
     list.append(h);
+    placeEditor();
     return;
   }
   const frag = document.createDocumentFragment();
@@ -957,18 +974,33 @@ function renderList() {
     r.id = `blk-${c.id}`;
     r.setAttribute('role', 'option');
     r.setAttribute('aria-selected', String(c.id === S.sel));
-    r.innerHTML = '<span class="n"></span><span class="t"><b></b><i></i></span><span class="tx"></span>' +
+    r.innerHTML = '<div class="rh"><span class="n"></span><span class="t"></span><span class="d"></span>' +
       // Only for the mouse: from the keyboard, Delete does it, so screen readers skip it.
-      '<span class="rowdel" aria-hidden="true" data-tip="Delete this block (Del). Ctrl/Cmd+Z brings it back">×</span>';
+      '<span class="rowdel" aria-hidden="true" data-tip="Delete this block (Del). Ctrl/Cmd+Z brings it back">×</span></div>' +
+      '<div class="tx"></div>';
     fillRow(r, c, i);
     if (c.id === S.sel) r.classList.add('sel');
     if (c.id === S.activeId) r.classList.add('active');
     rowMap.set(c.id, r);
     frag.append(r);
   });
-  list.append(frag);
+  list.insertBefore(frag, editor);
   if (rowMap.has(S.sel)) list.setAttribute('aria-activedescendant', `blk-${S.sel}`);
+  placeEditor();
   applyFilter();
+}
+
+// The selected block opens in its place, as in Frazier: the rows up to it go above the
+// editor and the rest below. The rows move rather than the editor, as moving a text box
+// takes the focus out of it.
+function placeEditor() {
+  const i = selIdx();
+  editor.hidden = i < 0 || !rowMap.has(S.sel);
+  if (editor.hidden) return;
+  const rows = S.cues.map((c) => rowMap.get(c.id));
+  const above = (r) => r.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING;
+  for (let k = 0; k <= i; k++) if (!above(rows[k])) list.insertBefore(rows[k], editor);
+  for (let k = rows.length - 1; k > i; k--) if (above(rows[k])) editor.after(rows[k]);
 }
 
 list.addEventListener('click', (e) => {
@@ -2054,7 +2086,7 @@ edSpeed.addEventListener('change', () => {
 
 // Each block can say how text to speech should pronounce words in it, as pairs of
 // [written, said] in c.say. The text itself never changes (see said()).
-const sayDlg = $('sayDlg'), sayRows = $('sayRows'), edSay = $('edSay');
+const sayDlg = $('sayDlg'), sayRows = $('sayRows');
 let sayFor = null, rows = [];
 function addSayRow(word = '', as = '') {
   const w = document.createElement('input'), s = document.createElement('input');
@@ -2138,7 +2170,6 @@ $('sayTry').addEventListener('click', () => {
 $('sayDone').addEventListener('click', () => sayDlg.close());
 sayDlg.addEventListener('click', (e) => { if (e.target === sayDlg) sayDlg.close(); });
 document.addEventListener('keydown', (e) => { if (sayDlg.open) e.stopPropagation(); }, true);
-edSay.addEventListener('click', () => { edSay.blur(); openSay(); });
 
 // Select a word in the block text and a "sounds like" button pops up under it: one click
 // opens Sounds like with the word filled in, so only how it sounds is left to type.

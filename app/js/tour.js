@@ -58,14 +58,9 @@ export const STEPS = [
     text: (mode) => `Each box is a block: one description. Drag a block to move it, or drag across the empty lane to draw one. ${mode === 'write' ? 'Enter makes a block at the playhead, ready to type. With text to speech on, a block ends where its reading does: change its speed to make it longer or shorter.' : 'Drag its edges to resize it. Holding H marks a block from when you press to when you let go.'}`,
   },
   {
-    target: '#editor',
-    title: 'The block editor',
-    text: (mode) => `The selected block’s text and its in and out times. ${mode === 'write' ? 'With text to speech on, it also shows how long the reading takes, in red if it doesn’t fit, and “sounds like” fixes how a name is said without changing the text.' : 'Type here once a block is marked; Enter or Esc carries on with the video.'}`,
-  },
-  {
     target: '#list',
     title: 'All your blocks',
-    text: () => 'Every block in order. Click one to go to it, press / to search, and use the × at the end of a row to delete it. Ctrl/Cmd+Z undoes almost anything.',
+    text: (mode) => `Every block in order. The selected one opens right here to edit, as in Frazier: its start and end, buttons to move it a frame back, to the playhead or a frame forward, and its text. ${mode === 'write' ? 'With text to speech on, it also shows the speed, the voice and how long the reading takes, in red if it doesn’t fit. ' : 'Type in it once a block is marked; Enter or Esc carries on with the video. '}Press / to search, and Ctrl/Cmd+Z undoes almost anything.`,
   },
   {
     target: '.transport',

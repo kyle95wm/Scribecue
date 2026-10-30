@@ -379,8 +379,8 @@ click it to take it out.
 - **Each block ends where its reading ends:** as in Frazier, a block's length comes from
   its reading, not from dragging. As you write, its end follows the reading; to make it
   longer or shorter, change its speed, from its menu or with `[` `]`. Its edges can't be
-  dragged, and OUT shows where the reading ends; moving a block, or changing its IN, moves
-  the whole block. Blocks opened from a file keep their timing until you edit them. A
+  dragged, and its end time shows where the reading ends; moving a block, or changing its
+  start, moves the whole block. Blocks opened from a file keep their timing until you edit them. A
   reading only runs over its block, shown in red, when the next block is in the way.
 - **Sounds like:** when a voice says a name or word wrong, tell it how to say it, without
   changing the text. Select the word in the text box and click the **Sounds Like** button
@@ -400,8 +400,8 @@ click it to take it out.
   in SRT and VTT exports.
 - **Ends set from the reading:** while text to speech is on, a new block made with `Enter` or
   `N` takes its end from how long the reading takes, and keeps following it as you type
-  or change the speed. An `auto` tag next to OUT shows this. It never runs into the next
-  block. Once you set the end yourself, by dragging, `S`, `E` / `R` or typing in OUT,
+  or change the speed. An `auto` tag next to its end time shows this. It never runs into the next
+  block. Once you set the end yourself, by dragging, `S`, `E` / `R` or typing its end time,
   the block keeps it. Blocks marked with `H`, drawn on the timeline or opened from a file
   are never changed. You can turn this off in the text to speech settings.
 - **Make all readings:** with a Piper, Kokoro or Google voice, a button in the text to
@@ -589,6 +589,10 @@ afterwards is instant. Safari switches tracks itself.
 
 ## Other handy features
 
+- **Editing in the list:** as in Frazier, the selected block opens in its place in the list,
+  with its start and end, its text and, with text to speech on, its speed, voice and reading
+  time. The buttons after the times move it back one frame, to start at the playhead, or
+  forward one frame. The × deletes it.
 - **Blocks ahead:** the selected block, or the one playing, moves to the top of the list,
   so the blocks coming up show below it. A block you click stays where it is.
 - **Search:** the box above the list filters blocks by text, or by number with `#12`.
@@ -604,7 +608,7 @@ afterwards is instant. Safari switches tracks itself.
 - **SMPTE timecode:** times show as `hh:mm:ss:ff`, in frames of the video, at its own
   frame rate, read from the file or measured as it plays (25 until then). 29.97 and
   59.94 fps videos use drop-frame timecode, `hh:mm:ss;ff`, which keeps to the clock. You
-  can type IN and OUT as timecode or as `hh:mm:ss.mmm`. Exported SRT and WebVTT files
+  can type a block's start and end as timecode or as `hh:mm:ss.mmm`. Exported SRT and WebVTT files
   keep their usual milliseconds. `←` `→` step one frame of the video.
 - **Copy a timecode:** click the clock under the video. To set a block's start or end to
   the playhead, press `A` or `S`.
@@ -688,7 +692,7 @@ this browser.
 
 | Key | Action |
 | --- | --- |
-| `Tab` `Shift+Tab` | Next / previous field (text → IN → OUT) |
+| `Tab` `Shift+Tab` | Next / previous field (text → start → end) |
 | `Esc` or `Enter` | Close the editor |
 | `Shift+Enter` | New line |
 | `↑` `↓` | Previous / next block (from the first / last line) |
