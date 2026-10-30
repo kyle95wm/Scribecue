@@ -33,11 +33,15 @@ const spelled = (text) => (stt.spelling === 'uk' ? britishSpelling(text) : text)
 
 // Whisper's own notes for what isn't speech, such as [BLANK_AUDIO] or (music), which are
 // no use in a description.
+// And a capital letter to start: a block's audio often begins partway through what Whisper
+// takes for a sentence, so it writes "they speed off." for "They speed off."
 export function cleanText(s) {
   return String(s || '')
     .replace(/\[[^\]]*\]|\((?:music|applause|laughter|silence|inaudible|blank_audio|no speech)[^)]*\)|[♪♫]+/gi, ' ')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    // ...unless the word has capitals of its own, like iPhone.
+    .replace(/^([^\p{L}\p{N}]*)(\p{Ll})(?=[\p{Ll}\p{M}'’-]*(?![\p{L}]))/u, (_, before, first) => before + first.toLocaleUpperCase());
 }
 
 // 16 kHz mono float samples as a 16-bit WAV file, for the container.

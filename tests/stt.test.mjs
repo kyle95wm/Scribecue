@@ -13,6 +13,16 @@ test('drops Whisper’s notes for what isn’t speech', () => {
   assert.equal(cleanText(undefined), '');
 });
 
+test('a block’s text starts with a capital letter', () => {
+  assert.equal(cleanText('they speed off.'), 'They speed off.');
+  assert.equal(cleanText(' …and then she runs.'), '…And then she runs.');
+  assert.equal(cleanText('"we\'re late," says Tom.'), '"We\'re late," says Tom.');
+  assert.equal(cleanText('élise smiles.'), 'Élise smiles.');
+  assert.equal(cleanText('iPhone in hand, Tom waits.'), 'iPhone in hand, Tom waits.', 'words with capitals of their own stay');
+  assert.equal(cleanText('3 men enter.'), '3 men enter.', 'a number first stays');
+  assert.equal(cleanText('Already right.'), 'Already right.');
+});
+
 test('writes 16 kHz mono 16-bit WAV for the container', async () => {
   const samples = Float32Array.from([0, 0.5, -0.5, 1, -1, 2]);
   const dv = new DataView(await toWav(samples).arrayBuffer());
