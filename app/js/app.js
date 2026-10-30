@@ -21,7 +21,7 @@ import { VERSION } from './update.js';
 import { MIN_SPEED, MAX_SPEED } from './tts.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
-import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, speedLabel,
+import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
   usingAudioVoice, measure, prefetch, renderTrack, chosenVoice, chosenVoiceName, setTtsOption, onlyNotes, mixLevels, setMix,
   savedReadings, clearSavedReadings } from './tts.js';
@@ -552,11 +552,10 @@ function updateEditor() {
   edSay.hidden = !ttsOn();
   edSay.textContent = c.say?.length ? `sounds like · ${c.say.length}` : 'sounds like';
   edSay.classList.toggle('on', !!c.say?.length);
-  edSpeed.options[0].textContent = `default (${speedLabel(tts.speed)})`;
   const custom = c.speed && !isSpeed(c.speed);
   edSpeedCustom.hidden = !custom;
   edSpeedCustom.textContent = custom ? speedName(c.speed) + (c.fit ? ', fits the block' : '') : 'custom';
-  if (document.activeElement !== edSpeed) edSpeed.value = custom ? 'custom' : c.speed ? String(c.speed) : '';
+  if (document.activeElement !== edSpeed) edSpeed.value = custom ? 'custom' : String(c.speed || 1);
   if (!edit || edit.id !== c.id) edText.value = c.text;
   edStats.textContent = '';
   if (ttsOn() && spoken(c.text)) {
@@ -1326,7 +1325,7 @@ function updateInd() {
     // Settings show only while they're on, and open their section of Settings.
     ...(S.replay ? [['replay', 'REPLAY', true]] : []),
     ...(!writing() && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
-    ...(writing() && tts.on ? [['tts', tts.speed !== 1 ? `TTS ${speedLabel(tts.speed)}` : 'TTS', true]] : []),
+    ...(writing() && tts.on ? [['tts', tts.base !== 1 ? `TTS ${Math.round(tts.base * 100)}%` : 'TTS', true]] : []),
   ];
   ind.textContent = '';
   showMix();
@@ -1512,7 +1511,7 @@ function resized(c, edge) {
 // force: fit even with the resize setting off, as Fit speeds to timings does.
 function fitSpeed(c, force = false) {
   if (!c?.fit || !ttsOn() || (!tts.fitSpeed && !force) || !spoken(c.text)) return false;
-  const at = c.speed ?? tts.speed, target = c.end - c.start;
+  const at = c.speed ?? 1, target = c.end - c.start;
   const pts = readingsOf(said(c));
   let s;
   if (pts.length) s = speedFromReadings(pts, target, at, fixedShare());
@@ -1678,10 +1677,10 @@ async function fitBlock(c) {
   const tried = new Set();
   for (let attempt = 0; attempt < 6 && measuring; attempt++) {
     const pts = readingsOf(said(c));
-    const s = pts.length ? speedFromReadings(pts, target, c.speed ?? tts.speed, fixedShare())
+    const s = pts.length ? speedFromReadings(pts, target, c.speed ?? 1, fixedShare())
       : speedToFit(speechLength(said(c), 1).secs, 1, target);
     if (s != null) c.speed = s;
-    const at = c.speed ?? tts.speed;
+    const at = c.speed ?? 1;
     if (tried.has(at)) break; // back to a speed already read: it's as close as it gets
     tried.add(at);
     const secs = await measure(said(c), at, { bulk: true });
@@ -1725,7 +1724,7 @@ async function fitAllSpeeds(ask = true) {
   }
   const fitted = n - left;
   // Doesn't fit: a measured reading that misses its block, or a speed stuck at a limit.
-  const atLimit = (c) => (c.speed ?? tts.speed) <= MIN_SPEED || (c.speed ?? tts.speed) >= MAX_SPEED;
+  const atLimit = (c) => (c.speed ?? 1) <= MIN_SPEED || (c.speed ?? 1) >= MAX_SPEED;
   const off = blocks.filter((c) => {
     if (!c.fit) return false;
     const m = speechLength(said(c), c.speed);
@@ -1778,7 +1777,7 @@ function readingChanged(what) {
   const n = S.cues.filter((c) => spoken(c.text)).length;
   if (!writing() || !ttsOn() || !n || tts.onChange === 'leave') return;
   if (tts.onChange === 'ends') return asJob(() => updateAllTimings(false));
-  const now = { voice: () => `The voice is now ${chosenVoiceName()}`, speed: () => `The speed is now ${speedName(tts.speed)}`,
+  const now = { voice: () => `The voice is now ${chosenVoiceName()}`,
     base: () => `The base speed is now ${Math.round(tts.base * 100)}%` }[what]();
   $('chgWhat').textContent = `${now}, so the readings of ${n === 1 ? 'the 1 block' : `all ${n} blocks`} take a different time.`;
   $('chgAlways').checked = false;
@@ -1828,11 +1827,10 @@ ttsAllStop.addEventListener('click', () => { measuring = false; stopSpeech(); })
 // A job carries on when the settings close: it shows in the bottom bar.
 $('ttsDlg').addEventListener('close', () => { if (!jobActive) { ttsAllStatus.textContent = ''; ttsFitStatus.textContent = ''; } });
 
-// A block's own speed. Setting it to the overall speed makes the block follow the
-// overall speed again, so changing that later still applies to it.
+// A block's own speed. Setting it to normal leaves the block without one.
 function setBlockSpeed(c, v) {
   pushUndo(undefined, 'speed-' + c.id);
-  if (!isBlockSpeed(v) || v === tts.speed) delete c.speed;
+  if (!isBlockSpeed(v) || v === 1) delete c.speed;
   else c.speed = v;
   // A speed picked by hand stays put when the block is resized. Back to default, and
   // resizing fits the speed again.
@@ -1842,7 +1840,7 @@ function setBlockSpeed(c, v) {
   changed(c.id);
   tlDirty = true;
   toast(c.speed ? `Block #${idx(c.id) + 1} reads at ${speedName(c.speed)}`
-    : `Block #${idx(c.id) + 1} follows the overall speed (${speedLabel(tts.speed)})`);
+    : `Block #${idx(c.id) + 1} reads at normal speed`);
 }
 // [ and ]: one speed step slower or faster for the selected block.
 function stepBlockSpeed(d) {
@@ -1850,7 +1848,7 @@ function stepBlockSpeed(d) {
   if (!tts.on) return toast('Turn on text to speech first (⌥⇧V)');
   const c = needSel(); if (!c) return;
   // From a custom speed, step to the next set speed in that direction.
-  const list = SPEEDS.map(([s]) => s), cur = c.speed ?? tts.speed;
+  const list = SPEEDS.map(([s]) => s), cur = c.speed ?? 1;
   const next = d > 0 ? list.find((s) => s > cur + 1e-9) : [...list].reverse().find((s) => s < cur - 1e-9);
   if (next == null) return toast(`Already at the ${d < 0 ? 'slowest' : 'fastest'} speed`);
   setBlockSpeed(c, next);
@@ -2417,7 +2415,7 @@ function projectData() {
     blocks: S.cues,
     notes: S.notes,
     media: m,
-    settings: { mode: S.mode, offset: S.offset, ttsSpeed: tts.speed, ttsBase: tts.base, ttsVoice: chosenVoice() },
+    settings: { mode: S.mode, offset: S.offset, ttsBase: tts.base, ttsVoice: chosenVoice() },
     view: { playhead: now(), ...(selIdx() >= 0 ? { selected: selIdx() } : {}) },
   });
 }
@@ -2564,9 +2562,10 @@ async function openProject(file, handle = null) {
   const { mode, offset, ttsSpeed, ttsBase, ttsVoice } = p.settings;
   if (mode) setMode(mode, true);
   if (offset != null) setOffset(offset);
-  if (isSpeed(ttsSpeed)) setTtsOption('speed', ttsSpeed);
-  // Projects saved before there was a base speed were read at 100%.
-  if (toBase(ttsBase) !== tts.base) setTtsOption('base', toBase(ttsBase));
+  // Projects saved before there was a base speed were read at 100%, with an overall
+  // speed for blocks without their own, which becomes the base speed.
+  const base = isSpeed(ttsSpeed) ? baseFromSpeed(ttsSpeed, toBase(ttsBase)) : toBase(ttsBase);
+  if (base !== tts.base) setTtsOption('base', base);
   if (ttsVoice) setTtsOption('voice', ttsVoice);
   changed();
   select(S.cues[p.view.selected]?.id ?? S.cues[0]?.id ?? null, { seek: false });

@@ -326,22 +326,21 @@ click it to take it out.
 | `Alt+Shift+V` | Choose the voice and speed |
 | `Alt+Shift+P` | Sounds like: how words in this block are said |
 
-- **Speed:** very slow (−30%), slow (−15%), normal, fast (+15%), very fast (+30%), and
-  experimental +50% and +100%. The voice also follows the playback speed.
-- **Speed per block:** set a block's own speed with `[` `]` or the **TTS** menu in the
-  block editor. Blocks with their own speed show it in the list and on the timeline, such
-  as `+15%`. The rest follow the overall speed. Setting a block back to the overall speed
-  makes it follow that again. Block speeds are saved with your work and in exported VTT
+- **Base speed:** a slider from 50% to 150%, as in Frazier, for the whole project. Every
+  reading is made this much faster or slower, on top of its block's own speed, so a whole
+  project can be nudged without changing any block's speed. 100% is normal, and
+  double-clicking the slider puts it back. It's saved with each project, and a Frazier
+  `.adc` script's base speed comes with it. The voice also follows the playback speed.
+- **Speed per block:** very slow (−30%), slow (−15%), normal, fast (+15%), very fast
+  (+30%), and experimental +50% and +100%. Set a block's speed with `[` `]` or the **TTS**
+  menu in the block editor. Blocks with a speed other than normal show it in the list and
+  on the timeline, such as `+15%`. Block speeds are saved with your work and in exported VTT
   files, as notes that other programs ignore. SRT files can't store them.
-- **Base speed:** a slider from 50% to 150%, as in Frazier. Every reading is made this
-  much faster or slower, on top of its own speed, so a whole project can be nudged without
-  changing any block's speed. 100% is normal, and double-clicking the slider puts it back.
-  It's saved with each project, and a Frazier `.adc` script's base speed comes with it.
-- **When the voice or speed changes:** every reading takes a different time, so Scribecue
-  asks whether to change the blocks' ends to match the new readings, never running into the
-  next block, or leave the timings as they are. Tick **Always do this** to stop it asking,
-  and change your choice later under **When the voice or speed changes**. Changing the ends
-  can be undone.
+- **When the voice or base speed changes:** every reading takes a different time, so
+  Scribecue asks whether to change the blocks' ends to match the new readings, never running
+  into the next block, or leave the timings as they are. Tick **Always do this** to stop it
+  asking, and change your choice later under **When the voice or base speed changes**.
+  Changing the ends can be undone.
 - **Read blocks aloud while playing:** each block is read as the playhead reaches it,
   with the original audio turned down. You can turn either part off.
 - **Mix:** the **Video / TTS** slider under the video sets how loud the readings are

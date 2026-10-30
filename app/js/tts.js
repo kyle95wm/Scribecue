@@ -37,6 +37,9 @@ export const MIN_BASE = 0.5, MAX_BASE = 1.5;
 export const toBase = (v) => (typeof v === 'number' && v >= MIN_BASE && v <= MAX_BASE ? Math.round(v * 100) / 100 : 1);
 // The rate a reading is made at: a speed, times the base speed.
 export const atBase = (speed, base) => (base === 1 ? speed : Math.round(speed * base * 1e4) / 1e4);
+// Before there was a base speed, there was an overall speed for blocks without their own:
+// it becomes the base speed, as near as it can be.
+export const baseFromSpeed = (speed, base = 1) => toBase(Math.min(MAX_BASE, Math.max(MIN_BASE, base * speed)));
 
 // The speed at which a reading fills secs exactly. Given how long the reading takes at
 // speed `at`, which is the closest it can be measured; reading time scales with 1 / speed.
@@ -294,7 +297,7 @@ export function mergeSay(say = [], add = []) {
 export const hasWord = (text, word) => !!word.trim() && sayPattern([word.trim()]).test(text);
 
 const KEY = 'scribecue.tts';
-const DEFAULTS = { on: false, voice: '', speed: 1, base: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [] };
+const DEFAULTS = { on: false, voice: '', base: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [] };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -316,14 +319,15 @@ const langs = () => [...new Set([...(navigator.languages || []), navigator.langu
 tts.google = googleKey() ? googleVoiceList({ voices: googleStore().voices }, langs()) : [];
 tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
 tts.favourites = Array.isArray(tts.favourites) ? tts.favourites.filter((f) => typeof f === 'string') : [];
-if (!isSpeed(tts.speed)) tts.speed = 1;
 tts.base = toBase(tts.base);
+if (isSpeed(tts.speed) && tts.speed !== 1) tts.base = baseFromSpeed(tts.speed, tts.base);
+delete tts.speed;
 if (!['ask', 'ends', 'leave'].includes(tts.onChange)) tts.onChange = 'ask';
 const rate = (speed) => atBase(speed, tts.base);
 
 const save = () => {
-  const { on, voice, speed, base, live, duck, autoEnd, fitSpeed, skipNotes, onImport, onChange, online, cps, mix, favourites } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, speed, base, live, duck, autoEnd, fitSpeed, skipNotes, onImport, onChange, online, cps, mix, favourites })); } catch { /* ignore */ }
+  const { on, voice, base, live, duck, autoEnd, fitSpeed, skipNotes, onImport, onChange, online, cps, mix, favourites } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, base, live, duck, autoEnd, fitSpeed, skipNotes, onImport, onChange, online, cps, mix, favourites })); } catch { /* ignore */ }
 };
 
 // The mix between the video's sound and the readings, from −1 (only the video) to 1
@@ -372,9 +376,9 @@ export function readingsOf(text, asMade = false) {
 }
 
 // How long the text takes to say with the chosen voice, in video seconds, at a block's
-// own speed or the overall one. Uses the last real reading of this exact text, or an
+// own speed or normal speed. Uses the last real reading of this exact text, or an
 // estimate.
-export function duration(text, speed = tts.speed) {
+export function duration(text, speed = 1) {
   const m = measured.get(measureKey(text, speed));
   if (m != null) return { secs: m, exact: true };
   return { secs: estimate(text, tts.cps[voiceKey()] || DEFAULT_CPS, rate(speed)), exact: false };
@@ -732,14 +736,14 @@ function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background')
 // Measure without playing: returns the length in video seconds, or null. With Piper or
 // Google this only makes the reading; with a browser voice it reads silently in real time.
 // bulk: one of many readings in a long job, which can run several at once.
-export function measure(text, speed = tts.speed, { bulk = false } = {}) {
+export function measure(text, speed = 1, { bulk = false } = {}) {
   if (!spoken(text)) return Promise.resolve(null);
   if (usingAudioVoice()) return readAudio(text, speed, currentVoice(), bulk ? 'bulk' : 'background').then((w) => { hooks.changed(); return w.secs; }, () => null);
   return new Promise((done) => speak(text, { silent: true, speed, done }));
 }
 
 // With Piper or Google, make the reading in the background so the length shown becomes exact.
-export function prefetch(text, speed = tts.speed) {
+export function prefetch(text, speed = 1) {
   if (usingAudioVoice() && spoken(text) && !duration(text, speed).exact) readAudio(text, speed).then(() => hooks.changed(), () => {});
 }
 
@@ -754,7 +758,7 @@ export async function renderTrack(blocks, secs, progress = () => {}) {
   for (let k = 0; k < blocks.length; k++) {
     progress(k, blocks.length);
     const b = blocks[k];
-    const w = await readAudio(b.text, b.speed ?? tts.speed, voice, 'bulk');
+    const w = await readAudio(b.text, b.speed ?? 1, voice, 'bulk');
     rate ||= w.rate;
     items.push({ start: b.start, samples: w.samples, secs: w.secs });
   }
@@ -822,7 +826,7 @@ function speakAudio(text, voice, { id, manual, silent, speed, done }) {
 // Read text aloud. done(secs) runs with the spoken length in video seconds when it
 // finishes on its own, or with null if it was stopped or failed.
 // silent: read at zero volume, just to measure it.
-export function speak(text, { id = null, manual = false, silent = false, speed = tts.speed, done = () => {} } = {}) {
+export function speak(text, { id = null, manual = false, silent = false, speed = 1, done = () => {} } = {}) {
   const voice = currentVoice();
   const words = spoken(text);
   if (!words || !voice) { stop(); done(null); return false; }
@@ -991,7 +995,6 @@ function render(googleError = '') {
   $('ttsExport').disabled = !piper;
   $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper or Google voice: the browser\'s own voices can\'t be recorded.';
   $('ttsBody').classList.toggle('off', !tts.on);
-  $('ttsSpeed').value = String(tts.speed);
   $('ttsBase').value = String(Math.round(tts.base * 100));
   $('ttsBaseOut').textContent = `${Math.round(tts.base * 100)}%`;
   $('ttsLive').checked = tts.live;
@@ -1007,8 +1010,8 @@ function render(googleError = '') {
 }
 
 // Change a setting from outside the panel, such as the welcome wizard.
-// The voice, speed or base speed, changed by hand in Settings: every reading's length
-// changes, so the blocks' ends may need to follow (see When the voice or speed changes).
+// The voice or base speed, changed by hand in Settings: every reading's length
+// changes, so the blocks' ends may need to follow (see When the voice or base speed changes).
 function changeReading(k, v) {
   const was = currentVoice()?.voiceURI, before = tts[k];
   setTtsOption(k, v);
@@ -1033,13 +1036,6 @@ export function openTts() {
 
 export function initTts(h) {
   hooks = { ...hooks, ...h };
-  const sp = $('ttsSpeed');
-  for (const [s, label] of SPEEDS) {
-    const o = document.createElement('option');
-    o.value = String(s);
-    o.textContent = label;
-    sp.append(o);
-  }
   const d = $('ttsDlg');
   const set = (k, v) => { tts[k] = v; save(); render(); hooks.changed(); warmUp(); };
   $('ttsOn').addEventListener('change', (e) => { if (!e.target.checked) stop(); set('on', e.target.checked); });
@@ -1048,7 +1044,6 @@ export function initTts(h) {
     const cur = currentVoice()?.voiceURI;
     if (cur) set('favourites', toggleFavourite(tts.favourites, cur));
   });
-  sp.addEventListener('change', (e) => changeReading('speed', +e.target.value));
   // The number follows the slider as it moves, and the speed changes when it's let go.
   const base = $('ttsBase');
   base.addEventListener('input', () => { $('ttsBaseOut').textContent = `${base.value}%`; });

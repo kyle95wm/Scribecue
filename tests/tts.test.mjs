@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPEEDS, toBase, atBase, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
+import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
   piperVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleFailure, makesAudio, overCap,
   toggleFavourite, favouriteVoices } from '../app/js/tts.js';
@@ -301,4 +301,12 @@ test('the base speed is 50% to 150%, and readings are made at it times their spe
   assert.equal(atBase(1.15, 1.05), 1.2075);
   assert.equal(atBase(0.7, 0.5), 0.35);
   assert.equal(tts.base, 1);
+});
+
+test('an old overall speed becomes the base speed, as near as it can be', () => {
+  assert.equal(baseFromSpeed(1.15), 1.15);
+  assert.equal(baseFromSpeed(0.7), 0.7);
+  assert.equal(baseFromSpeed(2), 1.5, 'the base speed goes no higher than 150%');
+  assert.equal(baseFromSpeed(1.15, 1.05), 1.21);
+  assert.equal(tts.speed, undefined, 'there is no overall speed any more');
 });

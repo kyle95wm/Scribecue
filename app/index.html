@@ -70,7 +70,7 @@
           <span id="edAuto" class="autotag" hidden data-tip="This block's end follows the reading as you type. Set the end yourself and it stays where you put it">auto</span>
           <span id="edDur" class="dim"></span>
           <label id="edSpeedWrap" class="edspeed" hidden data-tip="Text to speech speed for this block. [ and ] change it">TTS
-            <select id="edSpeed"><option value="">default</option></select></label>
+            <select id="edSpeed"></select></label>
           <button id="edSay" class="edsay" hidden data-tip="How text to speech says words in this block, without changing the text (⌥⇧P)">sounds like</button>
           <span class="grow"></span>
           <span id="edStats"></span>
@@ -253,7 +253,7 @@ docker compose up -d --build</code></pre>
       <span class="dim">Each block ends where its reading now finishes, never running into the next block.</span></span></button>
     <button class="wzcard wzchoice" data-choice="leave"><span><strong>Leave the timings as they are</strong>
       <span class="dim">Lines that no longer fit show their duration in red.</span></span></button>
-    <label class="updopt"><input type="checkbox" id="chgAlways"> Always do this when the voice or speed changes</label>
+    <label class="updopt"><input type="checkbox" id="chgAlways"> Always do this when the voice or base speed changes</label>
     <p class="dim small">You can undo the change with <kbd><span class="mod"></span>Z</kbd>, and change this in
       Settings, under Text to speech.</p>
   </dialog>
@@ -264,7 +264,7 @@ docker compose up -d --build</code></pre>
     <button class="wzcard wzchoice" data-choice="fit"><span><strong>Keep the timings, and fit the reading speeds</strong>
       <span class="dim">Each line speeds up or slows down to fill its block. Best when the timing is already right.</span></span></button>
     <button class="wzcard wzchoice" data-choice="ends"><span><strong>Change the ends to match the readings</strong>
-      <span class="dim">Each block ends where its reading finishes, at your chosen speed, never running into the next block.</span></span></button>
+      <span class="dim">Each block ends where its reading finishes, at its speed, never running into the next block.</span></span></button>
     <button class="wzcard wzchoice" data-choice="leave"><span><strong>Leave everything as it is</strong>
       <span class="dim">Lines that don't fit show their duration in red, so you can deal with them one by one.</span></span></button>
     <label class="updopt"><input type="checkbox" id="impAlways"> Always do this when I open a script</label>
@@ -309,7 +309,7 @@ docker compose up -d --build</code></pre>
       <div id="wzTtsBody" class="ttsbody">
         <div class="ttsgrid">
           <label for="wzVoice">Voice</label><select id="wzVoice"></select>
-          <label for="wzSpeed">Speed</label><select id="wzSpeed"></select>
+          <label for="wzSpeed">Base speed</label><select id="wzSpeed"></select>
         </div>
         <p id="wzPiper" class="dim small"></p>
         <div id="wzWebPiper" hidden>
@@ -487,8 +487,6 @@ docker compose up -d --build</code></pre>
         <span class="favlabel" id="ttsFavsLabel">Favourites</span>
         <div class="favs"><div id="ttsFavs" role="group" aria-labelledby="ttsFavsLabel"></div>
           <span id="ttsFavsNone" class="dim small">Click ☆ beside a voice to keep it here, and switch to it in one click.</span></div>
-        <label for="ttsSpeed">Speed</label>
-        <select id="ttsSpeed"></select>
         <label for="ttsBase">Base speed</label>
         <div class="basespeed"><input type="range" id="ttsBase" min="50" max="150" step="1" value="100"
             aria-describedby="ttsBaseNote" data-tip="Double-click for 100%"><output id="ttsBaseOut" for="ttsBase">100%</output>
@@ -524,7 +522,7 @@ docker compose up -d --build</code></pre>
           <option value="ends">Change its ends to match the readings</option>
           <option value="leave">Leave it as it is</option>
         </select>
-        <label for="ttsOnChange">When the voice or speed changes</label>
+        <label for="ttsOnChange">When the voice or base speed changes</label>
         <select id="ttsOnChange">
           <option value="ask">Ask what to do with the timings</option>
           <option value="ends">Change the ends to match the new readings</option>

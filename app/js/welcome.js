@@ -3,7 +3,7 @@
 // used, and Settings at the top runs it again. Choices take effect only when
 // Finish is pressed, so skipping changes nothing.
 
-import { tts, SPEEDS, fillVoiceSelect, chosenVoice, setTtsOption, loadPiper, webPiper, webVoiceChoices, downloadVoice, megabytes } from './tts.js';
+import { tts, SPEEDS, MAX_BASE, toBase, fillVoiceSelect, chosenVoice, setTtsOption, loadPiper, webPiper, webVoiceChoices, downloadVoice, megabytes } from './tts.js';
 import { updateChoice, setUpdateChoice } from './update.js';
 import { HOSTED } from './config.js';
 
@@ -63,7 +63,7 @@ function finish() {
     setTtsOption('on', $('wzTts').checked);
     if ($('wzTts').checked) {
       if ($('wzVoice').value) setTtsOption('voice', $('wzVoice').value);
-      setTtsOption('speed', +$('wzSpeed').value);
+      setTtsOption('base', toBase(+$('wzSpeed').value));
       setTtsOption('live', $('wzLive').checked);
       setTtsOption('autoEnd', $('wzAuto').checked);
       setTtsOption('skipNotes', $('wzNotes').checked);
@@ -93,7 +93,9 @@ export function openWelcome() {
   // New users who pick Write most likely want text to speech, so it starts ticked for them.
   $('wzTts').checked = tts.on || !welcomed();
   fillVoiceSelect($('wzVoice'), chosenVoice());
-  $('wzSpeed').value = String(tts.speed);
+  const ws = $('wzSpeed');
+  if (![...ws.options].some((o) => +o.value === tts.base)) ws.add(new Option(`${Math.round(tts.base * 100)}%`, String(tts.base)));
+  ws.value = String(tts.base);
   $('wzLive').checked = tts.live;
   $('wzAuto').checked = tts.autoEnd;
   $('wzNotes').checked = tts.skipNotes;
@@ -137,7 +139,7 @@ export function initWelcome(h, onClose = () => {}) {
   hooks = { ...hooks, ...h };
   const d = $('welcome');
   for (const v of hooks.offsets) $('wzOffset').add(new Option(v ? `${Math.round(v * 1000)} ms` : 'None', String(v)));
-  for (const [v, label] of SPEEDS) $('wzSpeed').add(new Option(label, String(v)));
+  for (const [v, label] of SPEEDS) if (v <= MAX_BASE) $('wzSpeed').add(new Option(label, String(v)));
   $('wzNext').addEventListener('click', () => { if (step === steps().length - 1) finish(); else { step++; show(); } });
   $('wzBack').addEventListener('click', () => { step--; show(); });
   $('wzSkip').addEventListener('click', () => d.close());
