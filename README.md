@@ -87,6 +87,7 @@ you through it, and covers updating and troubleshooting.
 - [Supported files](#supported-files)
 - [Privacy](#privacy)
 - [Updating](#updating)
+- [To do](#to-do)
 - [Running it yourself](INSTALL.md)
 - [Development](#development)
 - [Credits](#credits)
@@ -698,6 +699,13 @@ working waits until you click **update ready** on the version number, or open Sc
 again.
 
 **Running it yourself with Docker:** see [Updating](INSTALL.md#updating) in INSTALL.md.
+
+## To do
+
+- [ ] **Recording narration.** Hand the narrator a locked recording file, so they can
+  record each line against the video, in the slots you've timed, and send the mixer one
+  timestamped WAV. Takes are raw, with their levels checked. The plan is in
+  [RECORDING.md](RECORDING.md).
 
 ## Development
 
