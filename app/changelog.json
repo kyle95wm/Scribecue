@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.51.1",
+  "date": "2026-10-30",
+  "notes": "## Fixes\n\n- Resizing a block now settles on a reading speed that fills it in a reading or two. Before, with Kokoro voices especially, the speed could wander for a few seconds, through speeds whose readings ran past the block’s end, and stop somewhere slightly off.\n- Resizing a block whose speed you picked by hand now says that it keeps that speed, and how to have the reading fill the block instead."
+ },
+ {
   "version": "0.51.0",
   "date": "2026-10-30",
   "notes": "## A voice for each block\n\n- The block editor has a new **Voice** menu next to the speed. Leave it on **Same as Settings** to use the voice chosen in Settings, or pick another voice for just that block, for example a different voice for subtitles or a second narrator.\n- Blocks with their own voice show its name in the list. Playing, fitting, Make all readings and exported description tracks all use each block’s own voice, and a track can mix Piper, Kokoro and Google voices.\n- Block voices are saved in projects and WebVTT exports. Frazier `.adc` files bring their per-block voices with them.\n- If a block’s voice isn’t available, for example a Kokoro voice in the web version, it reads with the voice in Settings until it is.\n\n## Replace all voices\n\n- When blocks have voices of their own, the text to speech settings say which, with a **Replace all voices** button that sets every block back to the voice chosen there. Ctrl/Cmd+Z undoes it.\n\n## Steadier fitting\n\n- Fitting a block’s speed now settles on the reading that fills the block best without running over. Before, it could stop on a speed that came out slightly short or a little long, especially with Kokoro voices."
