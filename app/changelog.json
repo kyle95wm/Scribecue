@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.56.1",
+  "date": "2026-10-30",
+  "notes": "## Opening and closing blocks\n\n- One click on a block in the list opens it, ready to type.\n- **Esc** or **Enter** closes it again, and it stays selected in the list and on the timeline.\n- Picking blocks on the timeline or with the arrow keys no longer opens them."
+ },
+ {
   "version": "0.56.0",
   "date": "2026-10-30",
   "notes": "## Edit blocks in the list\n\n- As in Frazier, the selected block now opens right where it is in the list, instead of in a box above it. Every other block shows its start and end, with its text underneath.\n- Next to the selected block’s times, three buttons move it back one frame, to start at the playhead, or forward one frame.\n- With text to speech on, the block’s speed, voice and reading time sit under its text.\n- The **sounds like** button is gone. Select a word in the text and click the **Sounds Like** button that pops up, or press **Alt+Shift+P**."
