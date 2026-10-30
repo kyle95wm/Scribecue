@@ -356,7 +356,9 @@ click it to take it out.
   change your choice later under **When the voice or base speed changes**. Changing the
   ends can be undone.
 - **Read blocks aloud while playing:** each block is read as the playhead reaches it,
-  with the original audio turned down. You can turn either part off.
+  with the original audio turned down. You can turn either part off. Play from partway
+  through a block, or jump into one, and its reading picks up from there. Voices in the
+  browser start at the word they'd have reached.
 - **Mix:** the **Video / TTS** slider under the video sets how loud the readings are
   against the video's sound. In the middle both are at full volume; slide towards TTS to
   turn the video down, or towards Video to turn the readings down. Double-click it to put

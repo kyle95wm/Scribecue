@@ -399,3 +399,14 @@ test('readings by voices with different rates are brought to one rate for the ex
   assert.deepEqual([...resample(Int16Array.from([0, 10, 20, 30]), 4, 2)], [0, 20]);
   assert.equal(resample(new Int16Array(22050), 22050, 24000).length, 24000);
 });
+
+test('a reading picked up partway starts at the word it would have reached', async () => {
+  const { wordsFrom } = await import('../app/js/tts.js');
+  const text = 'one two three four five six seven eight nine ten';
+  assert.equal(wordsFrom(text, 0), text);
+  assert.equal(wordsFrom(text, 0.5), 'six seven eight nine ten');
+  assert.equal(wordsFrom(text, 0.95), 'ten');
+  // Never nothing, even right at the end.
+  assert.equal(wordsFrom(text, 1.5), 'ten');
+  assert.equal(wordsFrom('<i>one</i>  two\nthree', 0.4), 'two three');
+});

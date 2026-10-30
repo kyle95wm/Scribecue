@@ -2227,12 +2227,18 @@ for (const ev of ['input', 'scroll', 'blur']) edText.addEventListener(ev, () => 
 selSay.addEventListener('mousedown', (e) => e.preventDefault());
 selSay.addEventListener('click', () => { selSay.hidden = true; openSay(); });
 
-// While playing, read each block as the playhead reaches its start.
-function liveSpeech(prevT, t) {
+// While playing, read each block as the playhead reaches its start. Played from partway
+// through a block, or jumped into one, its reading picks up from there.
+function liveSpeech(prevT, t, started) {
   readAheadOf(t);
   if (!ttsOn() || !tts.live || tts.speaking?.manual || hold) return; // not over someone reading
   const a = cueAt(t);
-  if (a && prevT <= a.start && t > a.start && t - prevT < 0.5 && tts.speaking?.id !== a.id) speak(said(a), { id: a.id, speed: a.speed, voice: a.voice });
+  if (!a || tts.speaking?.id === a.id) return;
+  const jumped = started || t < prevT || t - prevT >= 0.5;
+  if (!jumped && prevT <= a.start && t > a.start) speak(said(a), { id: a.id, speed: a.speed, voice: a.voice });
+  else if (jumped && t > a.start && t - a.start < speechLength(said(a), a.speed, a.voice).secs - 0.1) {
+    speak(said(a), { id: a.id, speed: a.speed, voice: a.voice, from: () => now() - a.start });
+  }
 }
 
 // Making a reading takes a moment, a second or more with Kokoro, so while playing, the
@@ -3607,7 +3613,7 @@ function tick(ts) {
   const playing = isPlaying();
   if (playing) {
     const c = selCue(), t = now();
-    liveSpeech(lastT, t);
+    liveSpeech(lastT, t, !lastPlaying);
     if (S.playUntil != null && t >= S.playUntil) {
       pause();
       setTime(S.playUntil);

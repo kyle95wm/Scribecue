@@ -336,6 +336,12 @@ export function spoken(text, skipNotes = tts.skipNotes) {
   if (skipNotes) t = t.replace(/\[[^\]]*\]/g, ' ');
   return t.replace(/\s+/g, ' ').trim();
 }
+// The rest of a reading started partway through, for a voice that can only read from the
+// start of its text: from the word a fraction frac of the way in.
+export function wordsFrom(text, frac) {
+  const words = spoken(text).split(' ');
+  return words.slice(Math.min(words.length - 1, Math.floor(Math.max(0, frac) * words.length))).join(' ');
+}
 // True when a block has text, but all of it is notes that aren't read.
 export const onlyNotes = (text) => !spoken(text) && !!spoken(text, false);
 
@@ -948,7 +954,7 @@ export function stop() {
   if (c) { tts.speaking = null; if (!c.silent) hooks.duck(false); c.done(null); }
 }
 
-function speakAudio(text, voice, { id, manual, silent, speed, done }) {
+function speakAudio(text, voice, { id, manual, silent, speed, from, done }) {
   stop();
   const token = {};
   const playRate = hooks.rate();
@@ -972,6 +978,10 @@ function speakAudio(text, voice, { id, manual, silent, speed, done }) {
     a.preservesPitch = true;
     a.onended = () => finish(w.secs);
     a.onerror = () => finish(null);
+    // Partway in, worked out now the reading is ready, as making it can take a moment.
+    const at = from?.() || 0;
+    if (at >= w.secs - 0.05) return finish(null);
+    a.currentTime = at;
     a.volume = mixLevels(tts.mix).reading;
     hooks.duck(true);
     a.play().catch(() => finish(null));
@@ -989,11 +999,15 @@ function speakAudio(text, voice, { id, manual, silent, speed, done }) {
 // Read text aloud. done(secs) runs with the spoken length in video seconds when it
 // finishes on its own, or with null if it was stopped or failed.
 // silent: read at zero volume, just to measure it.
-export function speak(text, { id = null, manual = false, silent = false, speed = 1, voice: uri, done = () => {} } = {}) {
+// from: for a reading picked up partway through, how far into it to start, in seconds.
+export function speak(text, { id = null, manual = false, silent = false, speed = 1, voice: uri, from = null, done = () => {} } = {}) {
   const voice = voiceOf(uri);
-  const words = spoken(text);
+  let words = spoken(text);
   if (!words || !voice) { stop(); done(null); return false; }
-  if (makesAudio(voice)) return speakAudio(text, voice, { id, manual, silent, speed, done });
+  if (makesAudio(voice)) return speakAudio(text, voice, { id, manual, silent, speed, from, done });
+  // A voice in the browser can't start partway through, so it starts at the word it would
+  // have reached.
+  if (from) words = wordsFrom(words, from() / duration(text, speed, uri).secs);
   if (!tts.available) { done(null); return false; }
   if (!voice.localService && navigator.onLine === false) {
     if (manual) hooks.toast(`You’re offline, so the online voice ${voice.name} can’t read. Choose a voice on this computer, or a Piper voice, in Settings`);
