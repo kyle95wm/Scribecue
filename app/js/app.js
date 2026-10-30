@@ -1497,7 +1497,9 @@ function fitToSpeech(c, secs) {
   const end = clamp(c.start + secs, c.start + MIN_DUR, hi);
   pushUndo();
   c.end = end;
-  delete c.fit; // the end now follows the reading, not the other way round
+  // The end now follows the reading, not the other way round, including as the text changes.
+  delete c.fit;
+  if (tts.autoEnd) c.auto = true;
   select(c.id, { seek: false });
   changed(c.id);
   toast(c.start + secs > hi + 0.001
@@ -1663,7 +1665,9 @@ async function updateAllTimings(ask = true) {
     const end = clamp(c.start + secs, c.start + MIN_DUR, hi);
     if (c.start + secs > hi + 0.0005) short++;
     if (!exact) estimated++;
+    // From now on the end follows the reading, as the text changes, as in a new block.
     delete c.fit;
+    if (tts.autoEnd) c.auto = true;
     if (Math.abs(end - c.end) > 0.0005) { c.end = end; moved++; }
   }
   changed();

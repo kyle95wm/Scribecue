@@ -322,7 +322,7 @@ click it to take it out.
 | Key | Action |
 | --- | --- |
 | `V` | Read the block from its start, with the video playing. Playback stops at the block's end, or where the reading ends if it runs over |
-| `Shift+V` | Read the block, then set its end to where the reading finishes |
+| `Shift+V` | Read the block, then set its end to where the reading finishes, and keep it there as you edit |
 | `[` `]` | Make the selected block's reading slower / faster |
 | `Alt+Shift+V` | Choose the voice and speed |
 | `Alt+Shift+P` | Sounds like: how words in this block are said |
@@ -409,7 +409,7 @@ click it to take it out.
 - **Update all timings:** a button in the text to speech settings sets the end of every block
   with text from its reading, using each block's own speed. It asks first, because it also
   changes blocks marked with `H` or opened from a file, and `Ctrl/Cmd+Z` undoes it. Ends never run
-  into the next block. With a [Piper](#piper-voices), [Kokoro](#kokoro-voices) or [Google](#google-cloud-voices) voice the lengths are always exact.
+  into the next block, and from then on each end follows its reading as you edit the text. With a [Piper](#piper-voices), [Kokoro](#kokoro-voices) or [Google](#google-cloud-voices) voice the lengths are always exact.
   With a browser voice, tick **Read each block silently first** for exact lengths. That
   takes about as long as reading them all, shows its progress, and can be stopped.
 - **Timing check:** the editor shows how long the reading takes, such as `TTS 2.9 s`, in red
