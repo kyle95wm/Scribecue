@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.45.0",
+  "date": "2026-10-30",
+  "notes": "## Frazier scripts\n\n- **Open** (Ctrl/Cmd+O) now opens Frazier's `.adc` scripts, and you can drop them on the window too. Each block keeps its timings to the millisecond.\n- Block speeds come across as the matching Scribecue speed, on top of the project's base speed.\n- Pronunciations marked in Frazier become **sounds like** words, so the text stays as written and text to speech says it your way."
+ },
+ {
   "version": "0.44.0",
   "date": "2026-10-30",
   "notes": "## Favourite voices\n\n- In **Settings**, under **Text to speech**, click ☆ beside the voice list to pin the current voice to your favourites. Click it again to unpin it.\n- Your favourites appear as buttons under the voice list, so you can switch between them in one click, and at the top of the voice list itself.\n- If a favourite isn't available, for example because Piper is off, its button is dashed, and clicking it removes it."
