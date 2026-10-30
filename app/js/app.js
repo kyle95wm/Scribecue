@@ -23,7 +23,7 @@ import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
-  usingPiper, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes, mixLevels, setMix } from './tts.js';
+  usingAudioVoice, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes, mixLevels, setMix } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -575,7 +575,7 @@ function updateEditor() {
   }
 }
 
-// With a Piper voice, make the selected block's reading once typing pauses, so its
+// With a Piper or Google voice, make the selected block's reading once typing pauses, so its
 // length is exact rather than estimated.
 let prefetchTimer = 0;
 function schedulePrefetch(c) {
@@ -1515,8 +1515,8 @@ function fitSpeed(c, force = false) {
   const pts = readingsOf(said(c));
   let s;
   if (pts.length) s = speedFromReadings(pts, target, at, fixedShare());
-  // With Piper, wait for real readings rather than move the speed on an estimate.
-  else if (usingPiper()) { if (c.id === S.sel) schedulePrefetch(c); return false; }
+  // With Piper or Google, wait for real readings rather than move the speed on an estimate.
+  else if (usingAudioVoice()) { if (c.id === S.sel) schedulePrefetch(c); return false; }
   else s = speedToFit(speechLength(said(c), 1).secs, 1, target);
   if (s == null || Math.abs(s - at) < 0.005) return false;
   c.speed = s;
@@ -1575,14 +1575,14 @@ function report(el, msg) {
 }
 
 async function measureAll(blocks, ui) {
-  const piper = usingPiper();
+  const audio = usingAudioVoice();
   const todo = blocks.filter((c) => !speechLength(said(c), c.speed).exact);
   if (!todo.length) return true;
   pause();
   measuring = true;
   busy(ui.btn, ui.bar, true);
   ui.stop.hidden = false;
-  if (piper) {
+  if (audio) {
     // Several readings at once where the web version can (see LANES).
     let next = 0, done = 0;
     progress(ui, 0, `Making readings: 0 of ${todo.length}`);
@@ -1612,10 +1612,10 @@ async function measureAll(blocks, ui) {
 async function updateAllTimings(ask = true) {
   const blocks = S.cues.filter((c) => spoken(c.text));
   if (!blocks.length) return (ttsAllStatus.textContent = 'There are no blocks with text yet.');
-  // Piper makes exact lengths quickly, so it always measures. Browser voices only do
+  // Piper and Google make exact lengths quickly, so it always measures. Browser voices only do
   // when asked, since they have to read each block in real time.
-  const piper = usingPiper();
-  if (piper || $('ttsAllExact').checked) {
+  const audio = usingAudioVoice();
+  if (audio || $('ttsAllExact').checked) {
     if (!(await measureAll(blocks, { btn: ttsAll, bar: ttsAllBar, stop: ttsAllStop, status: ttsAllStatus, job: 'Updating timings' }))) {
       return report(ttsAllStatus, 'Update all timings stopped. No timings were changed.');
     }
@@ -1640,12 +1640,12 @@ async function updateAllTimings(ask = true) {
   changed();
   const msg = `Updated ${moved} of ${n} block${n > 1 ? 's' : ''}.` +
     (short ? ` ${short === 1 ? "1 block doesn't" : `${short} blocks don't`} fit before the next one (red in the list).` : '') +
-    (estimated && !piper ? ` ${estimated === n ? 'All' : estimated} used estimated lengths: tick the box above for exact ones.` : '');
+    (estimated && !audio ? ` ${estimated === n ? 'All' : estimated} used estimated lengths: tick the box above for exact ones.` : '');
   report(ttsAllStatus, msg);
 }
 ttsAll.addEventListener('click', () => asJob(() => updateAllTimings()));
 
-// Fits Piper readings to their blocks one block at a time, so the progress runs once from
+// Fits Piper or Google readings to their blocks one block at a time, so the progress runs once from
 // the first block to the last. Each block is read at a speed guessed from its estimate,
 // then at better guesses from the readings so far, until the reading is as close to the
 // block as the speed's 1% steps allow. Returns false if Stop was pressed.
@@ -1706,18 +1706,18 @@ async function fitAllSpeeds(ask = true) {
   for (const c of blocks) { delete c.auto; c.fit = true; }
   const fits = () => { let any = false; for (const c of blocks) any = fitSpeed(c, true) || any; if (any) changed(); };
   fits();
-  const piper = usingPiper();
+  const audio = usingAudioVoice();
   const ui = { btn: ttsFitAll, bar: ttsFitBar, stop: ttsFitStop, status: ttsFitStatus, job: 'Fitting speeds' };
   let stopped = false;
-  // Piper reads quickly, so each block is read, its speed moved, and read again until the
+  // Piper and Google read quickly, so each block is read, its speed moved, and read again until the
   // reading fills it. Browser voices read in real time, so they measure once, and only
   // when asked to.
-  if (piper) stopped = !(await fitEach(blocks, ui));
+  if (audio) stopped = !(await fitEach(blocks, ui));
   else if ($('ttsAllExact').checked) { stopped = !(await measureAll(blocks, ui)); fits(); }
-  // Stopped before Piper reached some blocks: leave those exactly as they were, rather
+  // Stopped before the voice reached some blocks: leave those exactly as they were, rather
   // than marked to change speed later when they're next selected or edited.
   let left = 0;
-  if (stopped && piper) {
+  if (stopped && audio) {
     for (const c of blocks) {
       if (!readingsOf(said(c)).length) { delete c.fit; left++; }
     }
@@ -1737,7 +1737,7 @@ async function fitAllSpeeds(ask = true) {
     : `Fitted the speed of ${n} block${n > 1 ? 's' : ''} to ${n > 1 ? 'their' : 'its'} timing.`) +
     (off ? ` ${off === 1 ? '1 block' : `${off} blocks`} can't fit within −50% to +100%.` : '') +
     (kept ? ` ${kept} kept the speed you picked.` : '') +
-    (stopped && !piper ? ' Some speeds are from estimates.' : !stopped && estimated && !piper ? ' Speeds are from estimates: tick "Read each block silently first" for exact ones.' : '');
+    (stopped && !audio ? ' Some speeds are from estimates.' : !stopped && estimated && !audio ? ' Speeds are from estimates: tick "Read each block silently first" for exact ones.' : '');
   report(ttsFitStatus, msg);
 }
 ttsFitAll.addEventListener('click', () => asJob(() => fitAllSpeeds()));
@@ -1771,7 +1771,7 @@ importDlg.addEventListener('click', (e) => { if (e.target === importDlg) importD
 document.addEventListener('keydown', (e) => { if (importDlg.open) e.stopPropagation(); }, true);
 ttsFitStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
 
-// Export description track: every block's Piper reading in one WAV file, each at its
+// Export description track: every block's Piper or Google reading in one WAV file, each at its
 // block's start, as long as the video (or the last reading, without one).
 const ttsExport = $('ttsExport'), ttsExportStatus = $('ttsExportStatus'), ttsExportBar = $('ttsExportBar');
 ttsExport.addEventListener('click', async () => {
@@ -1795,7 +1795,7 @@ ttsExport.addEventListener('click', async () => {
     report(ttsExportStatus, `Couldn’t export the description track: ${e.message}`);
   } finally {
     busy(ttsExport, ttsExportBar, false);
-    ttsExport.disabled = !usingPiper();
+    ttsExport.disabled = !usingAudioVoice();
   }
 });
 ttsAllStop.addEventListener('click', () => { measuring = false; stopSpeech(); });

@@ -992,3 +992,4 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
   .setbody { flex-direction: column; }
   .settabs { flex-direction: row; width: auto; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
 }
+#ttsGoogleStatus.err { color: var(--bad); }

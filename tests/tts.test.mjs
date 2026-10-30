@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
-  piperVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels } from '../app/js/tts.js';
+  piperVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
+  googleVoiceList, googleRequest, googleFailure, makesAudio } from '../app/js/tts.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -48,10 +49,12 @@ test('the voice menu lists Piper, then voices on this computer, then online ones
   const piper = piperVoiceList({ 'en_GB-alba-medium': {}, 'en_US-lessac-medium': {} });
   const groups = groupVoices([...piper, ...pickVoices(voices, { online: true, lang: 'en-US' })]);
   assert.deepEqual(groups.map(([label]) => label),
-    ['Piper: natural voices on this computer', 'On this computer', 'Online: the text is sent to the provider']);
+    ['Piper: natural voices on this computer', 'Google Cloud: the text is sent to Google', 'On this computer',
+      'Online: the text is sent to the provider']);
   assert.deepEqual(groups[0][1].map((x) => x.name), ['Alba', 'Lessac']);
-  assert.deepEqual(groups[1][1].map((x) => x.name), ['Anna', 'Zed', 'Alex', 'Amélie']);
-  assert.deepEqual(groups[2][1].map((x) => x.name), ['Google UK']);
+  assert.deepEqual(groups[1][1], []);
+  assert.deepEqual(groups[2][1].map((x) => x.name), ['Anna', 'Zed', 'Alex', 'Amélie']);
+  assert.deepEqual(groups[3][1].map((x) => x.name), ['Google UK']);
 });
 
 test('Piper voice names are made readable', () => {
@@ -204,4 +207,55 @@ test('the mix slider turns one side down, never either up past full', () => {
   assert.deepEqual(mixLevels(-3), { reading: 0, video: 1 }, 'kept within the ends');
   assert.deepEqual(mixLevels(undefined), { reading: 1, video: 1 });
   assert.equal(tts.mix, 0, 'even unless moved');
+});
+
+const googleJson = { voices: [
+  { name: 'en-GB-Standard-A', languageCodes: ['en-GB'], ssmlGender: 'FEMALE' },
+  { name: 'en-GB-Wavenet-B', languageCodes: ['en-GB'], ssmlGender: 'MALE' },
+  { name: 'en-US-Standard-B', languageCodes: ['en-US'], ssmlGender: 'MALE' },
+  { name: 'fr-CA-Standard-A', languageCodes: ['fr-CA'], ssmlGender: 'FEMALE' },
+] };
+
+test('Google voices: only Standard ones, in the user languages, with readable names', () => {
+  const list = googleVoiceList(googleJson, ['en-CA']);
+  assert.deepEqual(list.map((x) => x.name), ['Google Standard A, female', 'Google Standard B, male']);
+  assert.deepEqual(list[0], { voiceURI: 'google:en-GB-Standard-A', google: 'en-GB-Standard-A',
+    name: 'Google Standard A, female', lang: 'en-GB', localService: false });
+  assert.deepEqual(googleVoiceList(googleJson, ['fr-FR', 'en']).map((x) => x.lang), ['en-GB', 'en-US', 'fr-CA']);
+  // No voices in the user languages: all the Standard ones, rather than none.
+  assert.equal(googleVoiceList(googleJson, ['ja-JP']).length, 3);
+  assert.deepEqual(googleVoiceList(null), []);
+});
+
+test('Google voices make audio, so they give exact lengths and export, as Piper does', () => {
+  const [g] = googleVoiceList(googleJson, ['en']);
+  assert.equal(makesAudio(g), true);
+  assert.equal(makesAudio(piperVoiceList({ 'en_GB-alba-medium': 1 })[0]), true);
+  assert.equal(makesAudio(v('Zed', 'en-US', true)), false);
+  assert.equal(makesAudio(null), false);
+  const groups = groupVoices([g, v('Google UK', 'en-GB', false)]);
+  assert.deepEqual(groups[1][1], [g]);
+  assert.deepEqual(groups[3][1].map((x) => x.name), ['Google UK']);
+});
+
+test('a Google reading sends the text, voice and speed, with the key in a header, not the address', () => {
+  const [g] = googleVoiceList(googleJson, ['en']);
+  const { url, init } = googleRequest('A door opens.', g, 1.15, 'AIzaTEST');
+  assert.equal(url, 'https://texttospeech.googleapis.com/v1/text:synthesize');
+  assert.ok(!url.includes('AIza'));
+  assert.equal(init.method, 'POST');
+  assert.equal(init.headers['x-goog-api-key'], 'AIzaTEST');
+  assert.deepEqual(JSON.parse(init.body), {
+    input: { text: 'A door opens.' },
+    voice: { languageCode: 'en-GB', name: 'en-GB-Standard-A' },
+    audioConfig: { audioEncoding: 'LINEAR16', speakingRate: 1.15 },
+  });
+});
+
+test('Google errors are explained', async () => {
+  const res = (status, message) => ({ status, json: async () => ({ error: { message } }) });
+  assert.match(await googleFailure(res(400, 'API key not valid. Please pass a valid API key.')), /didn’t accept the key/);
+  assert.match(await googleFailure(res(403, 'Cloud Text-to-Speech API has not been used in project 1')), /^Google refused: Cloud Text-to-Speech/);
+  assert.match(await googleFailure(res(429, 'Quota exceeded')), /too many readings/);
+  assert.equal(await googleFailure({ status: 500, json: async () => { throw new Error('x'); } }), 'Google answered 500');
 });

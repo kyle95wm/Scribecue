@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Scribecue</title>
   <!-- The same policy nginx sends, here too for the web version, which has no nginx. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://openrouter.ai https://api.themoviedb.org http://localhost:11434 http://127.0.0.1:11434; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://texttospeech.googleapis.com https://openrouter.ai https://api.themoviedb.org http://localhost:11434 http://127.0.0.1:11434; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#11141a">
@@ -51,7 +51,7 @@
         <div class="navmenu" id="exportMenu" role="menu" aria-labelledby="exportBtn" hidden>
           <button role="menuitem" data-act="exportSrt"><span><strong>Script as SRT</strong><span class="dim">to hand off, or for the final output</span></span><kbd><span class="mod"></span>E</kbd></button>
           <button role="menuitem" data-act="exportVtt"><span><strong>Script as WebVTT</strong><span class="dim">also keeps block speeds and sounds-like words</span></span><kbd><span class="mod"></span>⇧E</kbd></button>
-          <button role="menuitem" data-act="exportTrack" class="write-only"><span><strong>Description track (WAV)</strong><span class="dim">every reading in one audio file, with a Piper voice</span></span></button>
+          <button role="menuitem" data-act="exportTrack" class="write-only"><span><strong>Description track (WAV)</strong><span class="dim">every reading in one audio file, with a Piper or Google voice</span></span></button>
         </div>
       </span>
       <button data-act="ai" id="aiBtn" class="tip-end" data-tip="AI help: chat about the scene and draft descriptions (⌥⇧A)">AI</button>
@@ -529,6 +529,18 @@ docker compose up -d --build</code></pre>
         <progress id="ttsExportBar" class="jobbar" max="1" value="0" hidden aria-label="Exporting the description track"></progress>
         <span id="ttsExportStatus" class="dim"></span></p>
       <p id="ttsExportNote" class="dim small"></p>
+      <h3>Google Cloud voices</h3>
+      <p class="small">Google's Standard voices, with your own Google Cloud key. Like Piper voices, they give
+        exact lengths and can be exported as a description track. Each reading sends the block's text to
+        Google, and Google bills your Google Cloud account for it: Standard voices have a free allowance
+        each month. See <a href="https://cloud.google.com/text-to-speech/pricing" target="_blank" rel="noopener noreferrer">Google's prices</a>.</p>
+      <p class="updstatus"><label for="ttsGoogleKey" class="small">Google Cloud key</label>
+        <input id="ttsGoogleKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…">
+        <a id="ttsGoogleGet" class="small" target="_blank" rel="noopener noreferrer">Get a key</a>
+        <button id="ttsGoogleForget">Forget</button></p>
+      <p id="ttsGoogleStatus" class="dim small" aria-live="polite"></p>
+      <p class="dim small">The key needs the Cloud Text-to-Speech API turned on in its project. It's kept in this
+        browser, and only sent to Google.</p>
       <h3>Online voices</h3>
       <label class="updopt"><input type="checkbox" id="ttsOnline"> Include online voices</label>
       <p id="ttsNoOnline" class="warnbox" hidden>This browser doesn't offer any online voices. To use
@@ -578,18 +590,18 @@ docker compose up -d --build</code></pre>
     <h3>Needs a connection</h3>
     <ul class="small">
       <li>AI help with Claude, OpenAI, Gemini or OpenRouter. Ollama, on this computer, works offline.</li>
-      <li>Online text to speech voices. Your computer's voices and Piper voices work offline.</li>
+      <li>Online and Google Cloud text to speech voices. Your computer's voices and Piper voices work offline.</li>
       <li class="hosted-only">New versions of Scribecue. Until you're back online, you keep the one you have.</li>
       <li class="hosted-only">Downloading Piper voices or Whisper, so get them before you go offline.</li>
       <li class="docker-only">Checking for updates, if you've turned that on.</li>
     </ul>
     <h3>Remove all data</h3>
     <p class="small hosted-only">Removes everything Scribecue keeps in this browser: unsaved blocks, settings and
-      shortcuts, AI keys, downloaded Piper voices and Whisper, and its offline copy. Project and script
+      shortcuts, AI and Google keys, downloaded Piper voices and Whisper, and its offline copy. Project and script
       files on your computer aren't touched, and neither is anything in Docker, such as Piper, Whisper
       or Ollama models.</p>
     <p class="small docker-only">Removes everything Scribecue keeps in this browser: unsaved blocks,
-      settings and shortcuts, and AI keys. Project and script files on your computer aren't touched,
+      settings and shortcuts, and AI and Google keys. Project and script files on your computer aren't touched,
       and neither are the containers or anything in them, such as Piper voices, Whisper or Ollama
       models.</p>
     <p id="wipeAsk"><button id="wipeBtn">Remove all data…</button></p>

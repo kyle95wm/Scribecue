@@ -1,9 +1,12 @@
 // Text to speech for audio description work, off until the user turns it on.
-// Voices come from two places:
+// Voices come from three places:
 // - Piper, an optional container next to Scribecue (see docker-compose.yml), or in the
 //   web version, Piper running in the browser (piper-worker.js) with voices the user
 //   downloads. Its voices run on this computer and return audio, so lengths are exact
 //   straight away and a whole description track can be exported.
+// - Google Cloud's Standard voices, with the user's own API key. They also return audio,
+//   so they work like Piper, but each reading sends the block's text to Google. Adding
+//   the key is the opt-in.
 // - The browser's speech synthesis. By default only voices that run on this computer
 //   are offered; online voices send the text to their provider, so they need a
 //   separate opt-in.
@@ -67,7 +70,7 @@ export function speedFromReadings(points, secs, near = 1, share = 0) {
 const SHARE = 0.23;
 const shares = new Map(); // voice -> [sum, count]
 export function fixedShare() {
-  if (!usingPiper()) return 0;
+  if (!usingAudioVoice()) return 0;
   const s = shares.get(voiceKey());
   return s ? s[0] / s[1] : SHARE;
 }
@@ -102,9 +105,56 @@ export function pickVoices(voices, { online = false, lang = 'en' } = {}) {
 export function groupVoices(voices) {
   return [
     ['Piper: natural voices on this computer', voices.filter((v) => v.piper)],
+    ['Google Cloud: the text is sent to Google', voices.filter((v) => v.google)],
     ['On this computer', voices.filter((v) => v.localService && !v.piper)],
-    ['Online: the text is sent to the provider', voices.filter((v) => !v.localService)],
+    ['Online: the text is sent to the provider', voices.filter((v) => !v.localService && !v.google)],
   ];
+}
+
+// Voices that make their readings as audio, Piper's and Google's: lengths are exact, and
+// a description track can be exported.
+export const makesAudio = (v) => !!(v?.piper || v?.google);
+
+// Google Cloud's voice list, as Scribecue's voice objects: only the Standard voices, in
+// the user's languages if it has any of those. "en-GB-Standard-A" becomes
+// "Google Standard A, female".
+const GOOGLE = 'https://texttospeech.googleapis.com/v1';
+export const GOOGLE_KEY_PAGE = 'https://console.cloud.google.com/apis/library/texttospeech.googleapis.com';
+export function googleVoiceList(json, langs = ['en']) {
+  const all = (json?.voices || []).filter((v) => /-Standard-/.test(v.name || '')).map((v) => {
+    const gender = { FEMALE: ', female', MALE: ', male' }[v.ssmlGender] || '';
+    return { voiceURI: 'google:' + v.name, google: v.name, name: `Google Standard ${v.name.split('-Standard-')[1]}${gender}`,
+      lang: v.languageCodes?.[0] || v.name.split('-').slice(0, 2).join('-'), localService: false };
+  });
+  const bases = new Set(langs.map((l) => l.toLowerCase().split('-')[0]));
+  const mine = all.filter((v) => bases.has(v.lang.toLowerCase().split('-')[0]));
+  return mine.length ? mine : all;
+}
+
+// The request for one reading. LINEAR16 comes back as a WAV file, base64 encoded.
+export function googleRequest(text, voice, speed, key) {
+  return {
+    url: `${GOOGLE}/text:synthesize`,
+    init: {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({
+        input: { text },
+        voice: { languageCode: voice.lang, name: voice.google },
+        audioConfig: { audioEncoding: 'LINEAR16', speakingRate: speed },
+      }),
+    },
+  };
+}
+
+// What went wrong, from Google's answer, in words someone can act on.
+export async function googleFailure(r) {
+  let msg = '';
+  try { msg = (await r.json())?.error?.message || ''; } catch { /* not JSON */ }
+  if (r.status === 400 && /api key/i.test(msg)) return 'Google didn’t accept the key. Check it in Settings, under Text to speech';
+  if (r.status === 403) return `Google refused: ${msg || 'the key may not be allowed to use Text-to-Speech'}`;
+  if (r.status === 429) return 'Google says too many readings were asked for at once, or the key’s quota is used up';
+  return `Google answered ${r.status}${msg ? `: ${msg}` : ''}`;
 }
 
 // Piper's voice list, as Scribecue's voice objects: "en_GB-alba-medium" becomes
@@ -218,9 +268,19 @@ export const tts = {
   ...DEFAULTS,
   available: typeof speechSynthesis !== 'undefined', // the browser's own voices
   piper: [], // Piper voices, once the container has answered
+  google: [], // Google Cloud voices, while there's a key
   speaking: null, // { id, manual } of the block being read, while speaking
 };
 try { Object.assign(tts, JSON.parse(localStorage.getItem(KEY)) || {}); } catch { /* ignore */ }
+
+// The Google Cloud key, and the voice list it last gave, kept apart from the settings.
+// The list is kept so that opening Scribecue doesn't contact Google: it's only asked
+// again when the key changes or Text to speech settings are opened.
+const GKEY = 'scribecue.googleTts';
+const googleStore = () => { try { return JSON.parse(localStorage.getItem(GKEY)) || {}; } catch { return {}; } };
+const googleKey = () => googleStore().key || '';
+const langs = () => [...new Set([...(navigator.languages || []), navigator.language || 'en'])];
+tts.google = googleKey() ? googleVoiceList({ voices: googleStore().voices }, langs()) : [];
 tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
 if (!isSpeed(tts.speed)) tts.speed = 1;
 
@@ -239,7 +299,7 @@ export function mixLevels(mix) {
 export function setMix(mix, keep = true) {
   tts.mix = Math.max(-1, Math.min(1, Number(mix) || 0));
   if (keep) save();
-  if (piperAudioEl) piperAudioEl.volume = mixLevels(tts.mix).reading; // a reading under way follows
+  if (readingEl) readingEl.volume = mixLevels(tts.mix).reading; // a reading under way follows
 }
 
 let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1 };
@@ -248,15 +308,16 @@ const measured = new Map(); // voice|speed|text -> seconds of video time
 
 function allowed() {
   const browser = pickVoices(tts.available ? speechSynthesis.getVoices() : [], { online: tts.online, lang: navigator.language || 'en' });
-  return [...tts.piper, ...browser];
+  return [...tts.piper, ...tts.google, ...browser];
 }
 // The chosen voice, or a Piper voice if there is one, since they sound best.
 function currentVoice() {
   return voices.find((v) => v.voiceURI === tts.voice) || voices.find((v) => v.piper) ||
     voices.find((v) => v.default) || voices[0] || null;
 }
-export const usingPiper = () => !!currentVoice()?.piper;
-export const anyVoices = () => tts.available || tts.piper.length > 0;
+// A voice that makes its readings as audio, with exact lengths: Piper or Google.
+export const usingAudioVoice = () => makesAudio(currentVoice());
+export const anyVoices = () => tts.available || tts.piper.length > 0 || tts.google.length > 0;
 const voiceKey = () => currentVoice()?.voiceURI || '';
 const measureKey = (text, speed) => `${voiceKey()}|${speed}|${spoken(text)}`;
 
@@ -281,13 +342,13 @@ export function duration(text, speed = tts.speed) {
   return { secs: estimate(text, tts.cps[voiceKey()] || DEFAULT_CPS, speed), exact: false };
 }
 
-// ---- Piper
+// ---- Voices that make audio: Piper and Google
 
 // Readings already made, by voice, speed and text: a promise of { samples, rate, secs, buf }.
-const piperCache = new Map();
-const PIPER_CACHE_MAX = 400;
-let piperAudioEl = null;
-const piperAudio = () => (piperAudioEl ||= new Audio());
+const audioCache = new Map();
+const AUDIO_CACHE_MAX = 400;
+let readingEl = null;
+const readingAudio = () => (readingEl ||= new Audio());
 
 // ---- Piper in the browser (web version)
 
@@ -461,17 +522,70 @@ export async function loadPiper() {
   return tts.piper.length;
 }
 
+// ---- Google Cloud
+
+// Asks Google for the voices the key can use, keeps the list, and offers them. With no
+// key, they're dropped. Returns an error message, or ''.
+export async function loadGoogle() {
+  const key = googleKey();
+  let error = '';
+  if (!key) tts.google = [];
+  else if (navigator.onLine !== false) {
+    try {
+      const r = await fetch(`${GOOGLE}/voices`, { headers: { 'x-goog-api-key': key }, credentials: 'omit', referrerPolicy: 'no-referrer' });
+      if (!r.ok) throw new Error(await googleFailure(r));
+      const list = ((await r.json()).voices || []).filter((v) => /-Standard-/.test(v.name || ''))
+        .map(({ name, languageCodes, ssmlGender }) => ({ name, languageCodes, ssmlGender }));
+      try { localStorage.setItem(GKEY, JSON.stringify({ key, voices: list })); } catch { /* ignore */ }
+      tts.google = googleVoiceList({ voices: list }, langs());
+    } catch (e) { error = e.message === 'Failed to fetch' ? 'Couldn’t reach Google' : e.message; }
+  }
+  voices = allowed();
+  hooks.changed();
+  if ($('ttsDlg').open) render(error);
+  return error;
+}
+
+export function setGoogleKey(key) {
+  try {
+    if (key) localStorage.setItem(GKEY, JSON.stringify({ key }));
+    else localStorage.removeItem(GKEY);
+  } catch { /* ignore */ }
+  if (!key && currentVoice()?.google) { stop(); tts.voice = ''; save(); }
+  return loadGoogle();
+}
+
+// A few readings at a time, so a long job doesn't send Google hundreds at once.
+const GOOGLE_AT_ONCE = 4;
+let googleBusy = 0;
+const googleWaiting = [];
+async function googleRead(words, voice, speed, urgent) {
+  if (googleBusy >= GOOGLE_AT_ONCE) await new Promise((go) => (urgent ? googleWaiting.unshift(go) : googleWaiting.push(go)));
+  googleBusy++;
+  try {
+    const { url, init } = googleRequest(words, voice, speed, googleKey());
+    const r = await fetch(url, { ...init, credentials: 'omit', referrerPolicy: 'no-referrer' });
+    if (!r.ok) throw new Error(await googleFailure(r));
+    const b64 = (await r.json()).audioContent || '';
+    return Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)).buffer;
+  } finally {
+    googleBusy--;
+    googleWaiting.shift()?.();
+  }
+}
+
 // how: 'now' for a reading someone is waiting to hear, 'bulk' for one of many in a long
 // job, or 'background' to have it ready.
 const pending = new Map(); // key -> the worker request, while it's queued or running
-function piperRead(text, speed, voice = currentVoice(), how = 'background') {
+function readAudio(text, speed, voice = currentVoice(), how = 'background') {
   const words = spoken(text);
   const key = `${voice.voiceURI}|${speed}|${words}`;
-  let p = piperCache.get(key);
+  let p = audioCache.get(key);
   if (p && how === 'now') pending.get(key)?.hurry();
   if (!p) {
     let reading;
-    if (HOSTED) {
+    if (voice.google) reading = googleRead(words, voice, speed, how === 'now');
+    else if (HOSTED) {
       reading = ask('synthesize', { voice: voice.piper, text: words, speed, urgent: how === 'now' }, how === 'bulk');
       pending.set(key, reading);
       reading.finally(() => pending.delete(key)).catch(() => {});
@@ -492,25 +606,25 @@ function piperRead(text, speed, voice = currentVoice(), how = 'background') {
       if (words.length > 8) { tts.cps[voice.voiceURI] = words.length / (wav.secs * speed); save(); }
       return { ...wav, buf };
     });
-    p.catch(() => piperCache.delete(key));
-    piperCache.set(key, p);
-    if (piperCache.size > PIPER_CACHE_MAX) piperCache.delete(piperCache.keys().next().value);
+    p.catch(() => audioCache.delete(key));
+    audioCache.set(key, p);
+    if (audioCache.size > AUDIO_CACHE_MAX) audioCache.delete(audioCache.keys().next().value);
   }
   return p;
 }
 
-// Measure without playing: returns the length in video seconds, or null. With Piper this
-// only makes the reading; with a browser voice it reads silently in real time.
+// Measure without playing: returns the length in video seconds, or null. With Piper or
+// Google this only makes the reading; with a browser voice it reads silently in real time.
 // bulk: one of many readings in a long job, which can run several at once.
 export function measure(text, speed = tts.speed, { bulk = false } = {}) {
   if (!spoken(text)) return Promise.resolve(null);
-  if (usingPiper()) return piperRead(text, speed, currentVoice(), bulk ? 'bulk' : 'background').then((w) => { hooks.changed(); return w.secs; }, () => null);
+  if (usingAudioVoice()) return readAudio(text, speed, currentVoice(), bulk ? 'bulk' : 'background').then((w) => { hooks.changed(); return w.secs; }, () => null);
   return new Promise((done) => speak(text, { silent: true, speed, done }));
 }
 
-// With Piper, make the reading in the background so the length shown becomes exact.
+// With Piper or Google, make the reading in the background so the length shown becomes exact.
 export function prefetch(text, speed = tts.speed) {
-  if (usingPiper() && spoken(text) && !duration(text, speed).exact) piperRead(text, speed).then(() => hooks.changed(), () => {});
+  if (usingAudioVoice() && spoken(text) && !duration(text, speed).exact) readAudio(text, speed).then(() => hooks.changed(), () => {});
 }
 
 // The whole script as one audio file: each block's reading starts at the block's start.
@@ -518,13 +632,13 @@ export function prefetch(text, speed = tts.speed) {
 // Returns { blob, overlaps }, where overlaps counts readings that run into the next one.
 export async function renderTrack(blocks, secs, progress = () => {}) {
   const voice = currentVoice();
-  if (!voice?.piper) throw new Error('Exporting needs a Piper voice');
+  if (!makesAudio(voice)) throw new Error('Exporting needs a Piper or Google voice');
   const items = [];
   let rate = 0;
   for (let k = 0; k < blocks.length; k++) {
     progress(k, blocks.length);
     const b = blocks[k];
-    const w = await piperRead(b.text, b.speed ?? tts.speed, voice, 'bulk');
+    const w = await readAudio(b.text, b.speed ?? tts.speed, voice, 'bulk');
     rate ||= w.rate;
     items.push({ start: b.start, samples: w.samples, secs: w.secs });
   }
@@ -540,7 +654,7 @@ export async function renderTrack(blocks, secs, progress = () => {}) {
 
 // The utterance being spoken. Keeping a reference also stops Chrome dropping its
 // events when it would otherwise be garbage collected.
-let current = null; // { u, done } for a browser voice, or { piper: token, done } for Piper
+let current = null; // { u, done } for a browser voice, or { piper: token, done } for Piper or Google
 // The first reading with a voice includes loading it, which would add a few tenths of a
 // second to the measured length. A short silent reading first loads it.
 const warmed = new Set();
@@ -548,11 +662,11 @@ export function stop() {
   const c = current;
   current = null;
   if (tts.available && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel();
-  if (c?.piper) piperAudio().pause();
+  if (c?.piper) readingAudio().pause();
   if (c) { tts.speaking = null; if (!c.silent) hooks.duck(false); c.done(null); }
 }
 
-function speakPiper(text, voice, { id, manual, silent, speed, done }) {
+function speakAudio(text, voice, { id, manual, silent, speed, done }) {
   stop();
   const token = {};
   const playRate = hooks.rate();
@@ -566,10 +680,10 @@ function speakPiper(text, voice, { id, manual, silent, speed, done }) {
     hooks.changed();
     done(secs);
   };
-  piperRead(text, speed, voice, 'now').then((w) => {
+  readAudio(text, speed, voice, 'now').then((w) => {
     if (current?.piper !== token) return;
     if (silent) return finish(w.secs);
-    const a = piperAudio();
+    const a = readingAudio();
     if (a.src) URL.revokeObjectURL(a.src);
     a.src = URL.createObjectURL(new Blob([w.buf], { type: 'audio/wav' }));
     a.playbackRate = playRate; // in step with the video; the length on its clock stays w.secs
@@ -579,9 +693,10 @@ function speakPiper(text, voice, { id, manual, silent, speed, done }) {
     a.volume = mixLevels(tts.mix).reading;
     hooks.duck(true);
     a.play().catch(() => finish(null));
-  }, () => {
+  }, (e) => {
     if (current?.piper !== token) return;
-    hooks.toast(HOSTED ? 'The Piper voice couldn’t read that block. Try reloading the page'
+    hooks.toast(voice.google ? (navigator.onLine === false ? `You’re offline, so the Google voice can’t read. Choose a voice on this computer, or a Piper voice, in Settings` : e.message)
+      : HOSTED ? 'The Piper voice couldn’t read that block. Try reloading the page'
       : 'Piper isn’t answering. Is its container running? See INSTALL.md');
     finish(null);
   });
@@ -595,7 +710,7 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
   const voice = currentVoice();
   const words = spoken(text);
   if (!words || !voice) { stop(); done(null); return false; }
-  if (voice.piper) return speakPiper(text, voice, { id, manual, silent, speed, done });
+  if (makesAudio(voice)) return speakAudio(text, voice, { id, manual, silent, speed, done });
   if (!tts.available) { done(null); return false; }
   if (!voice.localService && navigator.onLine === false) {
     if (manual) hooks.toast(`You’re offline, so the online voice ${voice.name} can’t read. Choose a voice on this computer, or a Piper voice, in Settings`);
@@ -647,13 +762,14 @@ export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
   voices = allowed();
   sel.textContent = '';
   for (const [label, list] of groupVoices(voices)) {
-    const online = label.startsWith('Online');
+    const online = label.startsWith('Online'), google = label.startsWith('Google');
     if (online && !tts.online) continue;
     const g = document.createElement('optgroup');
-    const away = online && navigator.onLine === false; // they can't be reached
-    g.label = away ? 'Online: unavailable while you’re offline' : label;
+    const away = (online || google) && navigator.onLine === false; // they can't be reached
+    g.label = away ? `${google ? 'Google Cloud' : 'Online'}: unavailable while you’re offline` : label;
     g.disabled = away;
-    if (label.startsWith('Piper') && !list.length) continue; // only when Piper is running
+    // Only when Piper is running, or there's a Google key.
+    if ((label.startsWith('Piper') || google) && !list.length) continue;
     for (const v of list) {
       const o = document.createElement('option');
       o.value = v.voiceURI;
@@ -677,26 +793,36 @@ export const chosenVoice = () => currentVoice()?.voiceURI || '';
 function fillVoices() {
   fillVoiceSelect($('ttsVoice'));
   $('ttsNoVoices').hidden = !!voices.length || !anyVoices();
-  $('ttsNoOnline').hidden = !tts.online || voices.some((v) => !v.localService);
+  $('ttsNoOnline').hidden = !tts.online || voices.some((v) => !v.localService && !v.google);
   $('ttsNoVoices').textContent = tts.online
     ? 'This browser has no voices. Try Microsoft Edge or Google Chrome.'
     : 'No voices on this computer. Your system may need speech voices installed, or you can allow online voices below.';
 }
 
-function render() {
+// googleError: what went wrong the last time Google was asked for its voices.
+function render(googleError = '') {
   $('ttsUnavailable').hidden = anyVoices();
   $('ttsOn').checked = tts.on;
   $('ttsOn').disabled = !anyVoices();
-  const piper = usingPiper();
-  $('ttsPiperNote').textContent = tts.piper.length
+  const piper = usingAudioVoice();
+  $('ttsPiperNote').textContent = currentVoice()?.google
+    ? 'Google voice: lengths are exact as soon as a block has text, and you can export a description track. Each reading sends the block’s text to Google.'
+    : tts.piper.length
     ? (piper ? 'Piper voice: lengths are exact as soon as a block has text, and you can export a description track.'
       : `${tts.piper.length} Piper voice${tts.piper.length > 1 ? 's' : ''} available at the top of the list: they sound more natural and give exact lengths.`)
     : ''; // the Did you know box below explains Piper
+  const key = googleKey();
+  if (document.activeElement !== $('ttsGoogleKey')) $('ttsGoogleKey').value = key;
+  $('ttsGoogleForget').hidden = !key;
+  $('ttsGoogleStatus').textContent = googleError || (!key ? ''
+    : tts.google.length ? `${tts.google.length} Standard voice${tts.google.length > 1 ? 's' : ''}, in the voice list above.`
+    : 'No Standard voices yet. Reopen these settings once you’re online.');
+  $('ttsGoogleStatus').classList.toggle('err', !!googleError);
   // The tip is about adding Piper to the Docker setup, which the web version doesn't have.
   $('ttsTip').hidden = tts.piper.length > 0 || HOSTED;
   $('ttsAllExactRow').hidden = piper;
   $('ttsExport').disabled = !piper;
-  $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper voice: the browser\'s own voices can\'t be recorded.';
+  $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper or Google voice: the browser\'s own voices can\'t be recorded.';
   $('ttsBody').classList.toggle('off', !tts.on);
   $('ttsSpeed').value = String(tts.speed);
   $('ttsLive').checked = tts.live;
@@ -722,6 +848,7 @@ export function setTtsOption(k, v) {
 export function openTts() {
   render();
   loadPiper(); // in case Piper was started since
+  if (googleKey()) loadGoogle(); // in case the key's voices have changed
   const d = $('ttsDlg');
   if (!d.open) d.showModal();
 }
@@ -748,7 +875,7 @@ export function initTts(h) {
   $('ttsImport').addEventListener('change', (e) => set('onImport', e.target.value));
   $('ttsOnline').addEventListener('change', (e) => {
     // Turning online voices off also drops an online voice that was chosen.
-    if (!e.target.checked && currentVoice() && !currentVoice().localService) { stop(); tts.voice = ''; }
+    if (!e.target.checked && currentVoice() && !currentVoice().localService && !currentVoice().google) { stop(); tts.voice = ''; }
     set('online', e.target.checked);
   });
   // Sounds like a real audio description, so voices can be judged on what they'll read.
@@ -761,6 +888,15 @@ export function initTts(h) {
     const v = $('ttsWebVoice').value;
     if (v) (webPiper.downloaded.includes(v) ? removeVoice : downloadVoice)(v);
   });
+  $('ttsGoogleGet').href = GOOGLE_KEY_PAGE;
+  $('ttsGoogleKey').addEventListener('change', async (e) => {
+    $('ttsGoogleStatus').textContent = e.target.value.trim() ? 'Asking Google for its voices…' : '';
+    const error = await setGoogleKey(e.target.value.trim());
+    if (!error && tts.google.length && !currentVoice()?.google && !currentVoice()?.piper) {
+      tts.voice = tts.google[0].voiceURI; save(); render(); hooks.changed();
+    }
+  });
+  $('ttsGoogleForget').addEventListener('click', () => setGoogleKey(''));
   $('ttsClose').addEventListener('click', () => d.close());
   d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
   d.addEventListener('close', () => stop());

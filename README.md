@@ -50,7 +50,7 @@ and so do Piper voices and Whisper once they're downloaded. **Settings**, under 
 and storage**, has a checklist of what this browser has for working offline, with buttons
 for anything missing, and asks the browser to keep it all safe. The same section has
 **Remove all data**, which clears everything Scribecue keeps in this browser (unsaved
-blocks, settings, AI keys, voices, Whisper and its offline copy) after a warning. Your
+blocks, settings, AI and Google keys, voices, Whisper and its offline copy) after a warning. Your
 project files, and anything in Docker, stay as they are. The Docker version runs from your
 computer anyway, so there the section is called **Storage**, and it's just about what's kept
 in the browser. While you're offline, **offline** shows in the bottom right, and online AI
@@ -78,6 +78,7 @@ you through it, and covers updating and troubleshooting.
   - [Looping a block](#looping-a-block)
   - [Text to speech](#text-to-speech)
   - [Piper voices](#piper-voices)
+  - [Google Cloud voices](#google-cloud-voices)
   - [AI help](#ai-help)
 - [Files with several audio tracks](#files-with-several-audio-tracks)
 - [Other handy features](#other-handy-features)
@@ -196,7 +197,7 @@ Scribecue, such as another writer or a QC reviewer. The **Export** menu at the t
 - **Script as SRT** (`Ctrl/Cmd+E`).
 - **Script as WebVTT** (`Ctrl/Cmd+Shift+E`), which also keeps each block's text to speech
   speed and sounds-like words.
-- **Description track (WAV)**, in Write mode with a [Piper voice](#piper-voices): the
+- **Description track (WAV)**, in Write mode with a [Piper](#piper-voices) or [Google](#google-cloud-voices) voice: the
   readings as one audio file. It's also in the text to speech settings.
 
 `Ctrl/Cmd+O` also opens SRT and VTT files. Your work in progress is saved in the browser
@@ -344,8 +345,8 @@ to speech**. `TTS` under the video shows while it's on.
 - **Fit speeds to timings:** the opposite of Update all timings, for a script whose
   timing is already right, such as one opened from a file. Every block keeps its timing,
   and its reading speeds up or slows down to fill it, within −50% to +100%. Blocks with a
-  speed you picked keep it. It asks first, and `Ctrl/Cmd+Z` undoes it. With a Piper voice
-  the fit is exact. The blocks then keep fitting as you edit their text or resize them.
+  speed you picked keep it. It asks first, and `Ctrl/Cmd+Z` undoes it. With a Piper or Google
+  voice the fit is exact. The blocks then keep fitting as you edit their text or resize them.
 - **Resizing changes the speed:** in Write mode, change a block's length by dragging an
   edge, with `A` `S` `Q` `W` `E` `R`, or by typing in IN or OUT, and its reading speeds up or
   slows down to fill the new length. The block's speed then shows as custom, such as
@@ -379,7 +380,7 @@ to speech**. `TTS` under the video shows while it's on.
 - **Update all timings:** a button in the text to speech settings sets the end of every block
   with text from its reading, using each block's own speed. It asks first, because it also
   changes blocks marked with `H` or opened from a file, and `Ctrl/Cmd+Z` undoes it. Ends never run
-  into the next block. With a [Piper voice](#piper-voices) the lengths are always exact.
+  into the next block. With a [Piper](#piper-voices) or [Google](#google-cloud-voices) voice the lengths are always exact.
   With a browser voice, tick **Read each block silently first** for exact lengths. That
   takes about as long as reading them all, shows its progress, and can be stopped.
 - **Timing check:** the editor shows how long the reading takes, such as `TTS 2.9 s`, in red
@@ -409,7 +410,7 @@ To add more voices that stay on your computer, then reload Scribecue:
 Not every browser lists every installed voice.
 
 The browser's own voices can only be heard, not recorded. To export the readings as an
-audio file, use a [Piper voice](#piper-voices).
+audio file, use a [Piper](#piper-voices) or [Google Cloud](#google-cloud-voices) voice.
 
 ### Piper voices
 
@@ -453,6 +454,30 @@ the same length to the hundredth of a second.
 Running Scribecue yourself, Piper can run in a container next to it instead, with four
 English voices built in and others you choose. See
 [Natural-sounding voices](INSTALL.md#natural-sounding-voices-piper) in INSTALL.md.
+
+### Google Cloud voices
+
+Scribecue can also use Google Cloud's **Standard** text to speech voices, with your own
+Google Cloud key, in the web version and with Docker. Like Piper voices, they make real
+recordings, so lengths are exact straight away and you can export a description track.
+Unlike Piper, each reading sends the block's text to Google, and they need the internet.
+
+1. In the [Google Cloud console](https://console.cloud.google.com/apis/library/texttospeech.googleapis.com),
+   turn on the **Cloud Text-to-Speech API** for a project, then make an API key under
+   **APIs & Services**, **Credentials**. Restricting the key to the Text-to-Speech API is
+   a good idea.
+2. In Scribecue, open **Settings**, choose **Text to speech**, and paste the key under
+   **Google Cloud voices**.
+
+The Standard voices in your languages then appear in the voice list, under
+**Google Cloud**, and the first is chosen if you weren't using a Piper voice. **Forget**
+removes the key and its voices.
+
+Google bills your Google Cloud account for the readings. Standard voices have a free
+allowance each month, which is plenty for most scripts, but jobs such as **Fit speeds to
+timings** read each block more than once. See
+[Google's prices](https://cloud.google.com/text-to-speech/pricing). The key stays in your
+browser and is only sent to Google.
 
 ### AI help
 
@@ -675,10 +700,12 @@ When switching audio tracks, Vorbis tracks show a waveform but can't be played o
   (`127.0.0.1`).
 - A strict security policy stops the page from contacting any other site. The exceptions
   are the [update check](#updating), which only runs if you agree to it, the AI
-  providers below, which are only contacted once you connect one, and TMDB, for looking up
-  a programme's cast.
+  providers below, which are only contacted once you connect one, TMDB, for looking up
+  a programme's cast, and Google Cloud's text to speech, once you add a key.
 - [Text to speech](#text-to-speech) uses the voices on your computer. Online voices, which
   send the text to their provider, are only offered if you turn them on.
+  [Google Cloud voices](#google-cloud-voices) are only offered once you add your own key;
+  then each reading sends the block's text to Google.
 - [AI help](#ai-help) is off until you connect a provider. Then, only when you send a
   message or ask for a draft, frames and nearby blocks go to the provider you chose, or
   stay on your computer with Ollama. The security policy allows those providers' addresses
