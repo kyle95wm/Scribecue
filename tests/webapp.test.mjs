@@ -11,6 +11,24 @@ test('the offline copy is named after the same version as the app', () => {
   assert.equal(sw, app, 'update VERSION in app/sw.js to match app/js/update.js');
 });
 
+test('a new version’s offline copy is fetched fresh, not from the browser’s cache', async () => {
+  // GitHub Pages lets browsers keep files for 10 minutes, so a release soon after a visit
+  // once kept the old files under the new version's name.
+  const { runInNewContext } = await import('node:vm');
+  const added = [], on = {};
+  const cache = { addAll: async (rs) => { added.push(...rs); }, add: async (r) => { added.push(r); } };
+  runInNewContext(read('sw.js'), {
+    self: { addEventListener: (type, f) => { on[type] = f; } }, URL, location: { origin: 'https://example.com' },
+    Request: class { constructor(url, init = {}) { this.url = url; this.cache = init.cache; } },
+    caches: { open: async () => cache },
+  });
+  let done;
+  on.install({ waitUntil: (p) => { done = p; } });
+  await done;
+  assert.ok(added.length > 30);
+  for (const r of added) assert.equal(typeof r === 'object' && r.cache, 'reload', `${r.url || r} may come from the browser’s cache`);
+});
+
 test('every file the offline copy keeps exists', () => {
   const list = read('sw.js').match(/const FILES = (\[[\s\S]*?\]);/)[1];
   const files = JSON.parse(list.replace(/'/g, '"').replace(/,\s*\]/, ']'));

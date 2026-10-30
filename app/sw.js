@@ -33,10 +33,14 @@ const GUIDES = [
   'guides/docs/screenshots/text-to-speech.png',
 ];
 
+// Straight from the site, never the browser's own cache: GitHub Pages lets browsers keep
+// files for 10 minutes, so a release soon after a visit would otherwise keep the old
+// version's files under the new version's name, until the next release.
+const fresh = (f) => new Request(f, { cache: 'reload' });
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then(async (c) => {
-    await c.addAll(FILES);
-    await Promise.allSettled(GUIDES.map((f) => c.add(f)));
+    await c.addAll(FILES.map(fresh));
+    await Promise.allSettled(GUIDES.map((f) => c.add(fresh(f))));
   }));
 });
 
