@@ -72,16 +72,16 @@ export const STEPS = [
     text: () => 'The scrubber covers the whole video, with your blocks marked along it. The buttons step by frame, by three seconds or by block, play just the selected block, or loop it. Each one has a key, too.',
   },
   {
-    target: '#ind [data-key="tts"]',
+    target: 'nav [data-act="settings"]',
     only: 'write',
     title: 'Text to speech',
-    text: () => 'Hear your blocks read aloud, to check each one fits before the next line of dialogue. Readings can set a block’s end, or a block’s speed can stretch to fill it. With a Piper voice, lengths are exact and you can export a description track.',
+    text: () => 'Hear your blocks read aloud, to check each one fits before the next line of dialogue. Readings can set a block’s end, or a block’s speed can stretch to fill it. With a Piper voice, lengths are exact and you can export a description track. Choose the voice in Settings, under Text to speech.',
   },
   {
-    target: '#ind [data-key="stt"]',
+    target: 'nav [data-act="settings"]',
     only: 'transcribe',
     title: 'Speech to text',
-    text: () => `Whisper can type each line for you: when you let go of ${keyFor('hold')}, it listens to the block and fills in what the narrator said, ready to check. It runs on your computer. Click STT to set it up, or to fill in every empty block at once.`,
+    text: () => `Whisper can type each line for you: when you let go of ${keyFor('hold')}, it listens to the block and fills in what the narrator said, ready to check. It runs on your computer. Set it up in Settings, under Transcribing, where it can also fill in every empty block at once.`,
   },
   {
     target: '#aiBtn',
@@ -100,7 +100,7 @@ export const STEPS = [
   {
     target: 'nav [data-act="help"]',
     title: 'That’s the tour',
-    text: () => 'Press ? any time for every keyboard shortcut, and to change them. Next comes a short setup; once you’ve picked a mode, you’ll see the loop to work in. Setup at the top changes your choices later, and the shortcuts overlay can show you this tour again.',
+    text: () => 'Press ? any time for every keyboard shortcut, and to change them. Next comes a short setup; once you’ve picked a mode, you’ll see the loop to work in. Settings, at the top, changes your choices later, and the shortcuts overlay can show you this tour again.',
   },
 ];
 

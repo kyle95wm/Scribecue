@@ -104,8 +104,8 @@ below. If the video was paused, holding `H` starts it playing.
 You press a key a moment after you hear the narrator start, and let go a moment after they
 stop. So both edges of a block move back by a **reaction offset**, 200 ms to begin with.
 
-`H −200ms` under the video shows it. Click it, or press `Shift+H`, to step through 0, 100,
-150, 200, 250 and 300 ms. Setup asks for it too. Your choice is remembered.
+`H −200ms` under the video shows it. Press `Shift+H` to step through 0, 100, 150, 200, 250
+and 300 ms, or click it to choose in **Settings**, under **Transcribing**. Setup asks for it too. Your choice is remembered.
 
 To find yours, mark a few lines and look at the waveform: if blocks start late, after the
 sound begins, raise the offset; if they start early, lower it.
@@ -131,16 +131,17 @@ block yourself; Whisper only fills in the text.
 
 ### Setting it up
 
-Click **STT** under the video, or press `Alt+Shift+H`, to open the speech to text panel.
+Open **Settings** at the top and choose **Transcribing**, or press `Alt+Shift+H`, to set up
+speech to text.
 
 - **In the web version** ([scribecue.kyleadvoice.ca](https://scribecue.kyleadvoice.ca/)),
   click **Download Whisper**. It's 166 MB, downloaded once from Scribecue's own site into
   your browser, and then it works offline. **Remove** takes it out again.
 - **With Docker**, add the Whisper container next to Scribecue (see
   [INSTALL.md](INSTALL.md#speech-to-text-whisper)): add `whisper` to `COMPOSE_PROFILES` in
-  `.env`, then run `docker compose up -d --build`. The panel says when it's running.
+  `.env`, then run `docker compose up -d --build`. Settings says when it's running.
 
-Then tick **Fill in blocks as I mark them**. **STT** under the video lights up while it's on.
+Then tick **Fill in blocks as I mark them**. **STT** shows under the video while it's on.
 Choose the **Spelling** you want too: American, or British and Canadian (see
 [What Whisper gets wrong](#what-whisper-gets-wrong)).
 
@@ -164,7 +165,7 @@ word cut off by your timing isn't lost. It never listens into the blocks next to
 - **`Alt+Shift+T`** transcribes the selected block again and replaces its text. Use it after
   you change a block's timing, or if the text came out badly. `Ctrl/Cmd+Z` brings the old
   text back.
-- **Transcribe empty blocks**, in the panel, fills in every block that has no text yet, one
+- **Transcribe empty blocks**, in Settings under Transcribing, fills in every block that has no text yet, one
   after the other, with a progress bar and **Stop**. Use it for blocks you marked with
   speech to text off, drew on the timeline, or opened from a script with empty lines.
   Blocks with text are never touched. One `Ctrl/Cmd+Z` undoes the whole run.
@@ -182,7 +183,7 @@ Whisper is good with clear narration, but check every line. Most often:
   character speaking under the narration, or right after it, can end up in the text, and
   so can song lyrics or a TV in the scene. Delete the extra words, or tighten the block and
   press `Alt+Shift+T`. A narration-only track avoids this.
-- **Spelling.** Whisper writes American spelling. **Spelling** in the speech to text panel
+- **Spelling.** Whisper writes American spelling. **Spelling** in the speech to text settings
   can change it to British and Canadian spelling as the text arrives: colour, grey, centre,
   travelled, catalogue and the like. It starts on whichever suits your browser's language.
   It leaves words whose spelling depends on the meaning, such as meter or tire, and keeps
@@ -287,7 +288,8 @@ Once the whole programme is marked:
 | `Alt+Shift+←` `Alt+Shift+→` | Start of this block, then the previous / the next block |
 | `/` | Search the blocks |
 
-You can change any of these: press `?`, then **Change shortcuts**. The overlay always shows
+You can change any of these: press `?`, then **Change shortcuts**, or open **Settings** and
+choose **Keyboard shortcuts**. The overlay always shows
 the keys as you've set them.
 
 ## Privacy
@@ -308,8 +310,8 @@ else.
   file.
 - **No waveform:** the audio is AC-3, E-AC-3, DTS or TrueHD, which browsers can't decode.
   It plays, but speech to text can't read it either.
-- **STT is greyed out, or the panel says Whisper isn't ready:** in the web version,
-  download it from the panel; with Docker, check that `COMPOSE_PROFILES` in `.env`
+- **STT doesn't show, or Settings says Whisper isn't ready:** in the web version,
+  download it in Settings, under Transcribing; with Docker, check that `COMPOSE_PROFILES` in `.env`
   includes `whisper`, then run `docker compose up -d --build`. The container takes a few
   seconds to start.
 - **"Whisper didn't hear any words":** the block is silent or very quiet on the chosen

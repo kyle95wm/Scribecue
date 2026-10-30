@@ -7,6 +7,7 @@ import {
 import { tts, chosenVoice, DEFAULT_CPS } from './tts.js';
 import { HOSTED } from './config.js';
 import { lookup as lookUpCast, KEY_PAGE as TMDB_KEY_PAGE } from './tmdb.js';
+import { openSettings as showSettings } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 const KEY = 'scribecue.ai', KEYS = 'scribecue.ai.keys', PKCE = 'scribecue.ai.pkce';
@@ -117,7 +118,7 @@ function busy(on) {
 // Sends the conversation so far plus this message; shows the reply as it arrives. draft: { id, n } of the
 // block it's for, which adds buttons to use the reply.
 async function send(msg, shown, frames, draft = null) {
-  if (!ready()) { openSettings(); return note('Connect a provider first, in the settings above.'); }
+  if (!ready()) { openAiSettings(); return note('Connect a provider first, in Settings, under AI help.'); }
   if (running) return;
   if (unreachable()) return renderOffline();
   bubble('user', shown, frames);
@@ -231,9 +232,17 @@ function renderWho() {
   renderOffline();
   $('aiWho').textContent = ready() ? `${PROVIDERS[ai.provider].name} · ${ai.models[ai.provider]}` : 'not connected';
 }
-function openSettings(show = true) {
-  $('aiSetup').hidden = !show;
-  if (show) { $('aiProvider').value = ai.provider || 'anthropic'; renderSetup(); }
+// The provider's settings are in Settings, under AI help, with the TMDB key.
+export function openAiSettings() {
+  $('aiProvider').value = ai.provider || 'anthropic';
+  renderSetup();
+  renderTmdb();
+  showSettings('ai');
+}
+function renderTmdb() {
+  const k = keys().tmdb || '';
+  $('setTmdbKey').value = k;
+  $('setTmdbForget').hidden = !k;
 }
 
 async function loadModels(p) {
@@ -267,7 +276,7 @@ async function connect() {
   if (!PROVIDERS[p].local && !keys()[p]) return ($('aiSetupStatus').textContent = 'Paste a key first.');
   if (await loadModels(p)) {
     renderWho();
-    openSettings(false);
+    $('aiSetupStatus').textContent = `Connected to ${PROVIDERS[p].name}, using ${ai.models[p]}.`;
     note(`Connected to ${PROVIDERS[p].name}, using ${ai.models[p]}.`);
   }
 }
@@ -296,7 +305,7 @@ async function finishSignIn() {
     keep(localStorage, `${KEY}.signedIn`, Date.now());
     if (window.opener) { window.close(); return true; }
     toggleAi(true);
-    if (await loadModels('openrouter')) { renderWho(); openSettings(false); note(`Signed in to OpenRouter. Using ${ai.models.openrouter}; change it in Settings.`); }
+    if (await loadModels('openrouter')) { renderWho(); note(`Signed in to OpenRouter. Using ${ai.models.openrouter}; change it in Settings.`); }
   } catch (e) {
     hooks.toast(`OpenRouter sign-in didn't finish: ${e.message}`);
   }
@@ -318,7 +327,7 @@ export function aiNotesChanged() {
 }
 function toggleNotes(show = $('aiNotesBox').hidden) {
   $('aiNotesBox').hidden = !show;
-  if (show) { $('aiSetup').hidden = true; $('aiNotes').value = hooks.notes(); $('aiNotes').focus(); }
+  if (show) { $('aiNotes').value = hooks.notes(); $('aiNotes').focus(); }
 }
 
 // ---- drawer
@@ -328,9 +337,9 @@ export function toggleAi(open = $('aiDrawer').hidden) {
   $('aiBtn').classList.toggle('on', open);
   if (!open) { document.activeElement?.blur(); return; }
   renderWho();
-  if (!ready()) openSettings(true);
+  if (!ready()) note('To start, connect an AI provider: click Settings, above. Scribecue sends it nothing until you send a message or ask for a draft.');
   if (!$('aiLog').childElementCount) note('Ask about the scene, or select a block and click Draft this block. Drafts appear here for you to use, change or try again; nothing changes until you choose.');
-  setTimeout(() => (ready() ? $('aiInput') : $('aiProvider')).focus(), 50);
+  setTimeout(() => (ready() ? $('aiInput') : $('aiSettings')).focus(), 50);
 }
 
 // Looks the programme up on TMDB with the person's own key, and adds its characters to
@@ -377,7 +386,14 @@ export function initAi(h) {
     sel.append(o);
   }
   sel.addEventListener('change', renderSetup);
-  $('aiSettings').addEventListener('click', () => { $('aiNotesBox').hidden = true; openSettings($('aiSetup').hidden); });
+  $('aiSettings').addEventListener('click', openAiSettings);
+  $('setTmdbGet').href = TMDB_KEY_PAGE;
+  $('setTmdbKey').addEventListener('change', (e) => {
+    setKey('tmdb', e.target.value.trim());
+    renderTmdb();
+    $('setTmdbStatus').textContent = e.target.value ? 'Saved.' : 'Forgotten.';
+  });
+  $('setTmdbForget').addEventListener('click', () => { setKey('tmdb', ''); renderTmdb(); $('setTmdbStatus').textContent = 'Forgotten.'; });
   $('aiNotesBtn').addEventListener('click', () => toggleNotes());
   $('aiNotes').addEventListener('input', () => { hooks.setNotes($('aiNotes').value); showNotesState(); });
   $('aiTmdbGet').href = TMDB_KEY_PAGE;

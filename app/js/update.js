@@ -6,6 +6,7 @@
 export const VERSION = '0.39.0';
 import { HOSTED } from './config.js';
 import { openWhatsNew } from './whatsnew.js';
+import { openSettings } from './settings.js';
 
 const REPO = 'kyle95wm/Scribecue';
 const API = `https://api.github.com/repos/${REPO}/releases/latest`;
@@ -109,10 +110,15 @@ function render() {
     : `You have the latest version. Checked ${ago(c.at)}.`;
 }
 
+// Until the question's been answered, it's asked in its own window; after that, the update
+// settings are in Settings, under General.
 export function openUpdates() {
   render();
-  if (!dlg().open) dlg().showModal();
+  if (get(K_OPT) === null) { if (!dlg().open) dlg().showModal(); }
+  else openSettings('general');
 }
+// Brings the update settings up to date, as General is shown.
+export function renderUpdates() { if (!HOSTED) render(); }
 
 // The update check choice: '1' checks, '0' never, null if not asked yet.
 export const updateChoice = () => get(K_OPT);
@@ -200,7 +206,7 @@ export function initUpdates(opts = {}) {
     toast('You won’t be reminded about this version. The version number, bottom right, still shows it');
   });
   $('updYes').addEventListener('click', () => { choose(true); d.close(); toast('Scribecue will check for updates once a day'); });
-  $('updNo').addEventListener('click', () => { choose(false); d.close(); toast('Update checks are off. Turn them on from the version number, bottom right'); });
+  $('updNo').addEventListener('click', () => { choose(false); d.close(); toast('Update checks are off. Turn them on in Settings, under General'); });
   $('updOpt').addEventListener('change', (e) => choose(e.target.checked));
   $('updNow').addEventListener('click', check);
   $('updClose').addEventListener('click', () => d.close());

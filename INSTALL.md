@@ -72,8 +72,8 @@ one at a time.
 5. Open <http://localhost:8484> in Chrome or Edge.
 
 A one-minute guided tour shows you around, then a short setup asks what you're working on
-and turns on the tools for it. You can run the setup again any time with **Setup** at the
-top, and the tour from the shortcuts overlay.
+and turns on the tools for it. You can run the setup again any time from **Settings** at
+the top, under **General**, and the tour from the shortcuts overlay.
 
 ## Starting and stopping
 
@@ -98,9 +98,9 @@ editor. Its voices run on your computer, so your script never leaves it, and the
 offline. (The web version can download Piper voices into the browser instead; see the
 README's [Piper voices](README.md#piper-voices).)
 
-Until you add it, the text to speech panel ends with a short note about it:
+Until you add it, the text to speech settings ends with a short note about it:
 
-![The Did you know? box about Piper at the bottom of the text to speech panel](docs/screenshots/piper-tip.png)
+![The Did you know? box about Piper at the bottom of the text to speech settings](docs/screenshots/piper-tip.png)
 
 To add it, create a file called `.env` in the Scribecue folder containing:
 
@@ -214,8 +214,8 @@ The first time you open Scribecue, its setup asks whether it may check GitHub fo
 When a new version is out, an alert drops down at the top of the window with the update
 steps and a link to what's new. **Later** hides it until you next open Scribecue, and
 **Skip this version** hides it until a newer one comes out. The version number in the
-bottom right also turns into **Update available**. Click it at any time to see the steps,
-check now, or change your choice.
+bottom right also turns into **Update available**. Click it, or open **Settings** and
+choose **General**, at any time to see the steps, check now, or change your choice.
 
 To update, run these in the `Scribecue` folder, then reload the page:
 

@@ -14,9 +14,10 @@ export const online = () => globalThis.navigator?.onLine !== false;
 // What the bottom bar says: offline is the news when it happens; otherwise, in the web
 // version, whether it's ready to be used offline.
 export function offlineLabel({ hosted, offline, ready }) {
+  // Otherwise it only shows when something's wrong: the rest is in Settings.
   if (offline) return { text: 'offline', on: true };
-  if (!hosted) return { text: 'storage', on: false }; // it all runs on this computer anyway
-  return ready ? { text: 'offline ready', on: false } : { text: 'not ready offline', on: false };
+  if (!hosted || ready) return null; // the Docker version runs on this computer anyway
+  return { text: 'not ready offline', on: false };
 }
 
 // The checklist's rows: [ok, title, detail, button?] from what's been found.
@@ -108,9 +109,7 @@ async function render() {
     b.textContent = label.text;
     b.classList.toggle('on', label.on);
     b.dataset.tip = !online() ? 'You’re offline. Click to see what works without a connection'
-      : !HOSTED ? 'What Scribecue keeps in this browser, such as unsaved blocks and settings, and removing it'
-        : ready ? 'Scribecue works without a connection. Click to see what’s ready for offline, or what it keeps in this browser'
-          : 'Scribecue isn’t ready to work offline yet. Click to see why';
+      : 'Scribecue isn’t ready to work offline yet. Click to see why';
   }
   if (!$('offlineDlg').open) return;
   $('offlineNow').textContent = HOSTED

@@ -46,15 +46,15 @@ can interrupt the video's sound. Phones and tablets get a notice instead: Scribe
 keyboard and a bigger screen. So do browsers from before 2022, which are too old to run it.
 
 **Working offline:** once you've opened the web version, it works without a connection,
-and so do Piper voices and Whisper once they're downloaded. **offline ready** in the bottom
-right opens a checklist of what this browser has for working offline, with buttons for
-anything missing, and asks the browser to keep it all safe. The same window has **Remove
-all data**, which clears everything Scribecue keeps in this browser (unsaved blocks,
-settings, AI keys, voices, Whisper and its offline copy) after a warning. Your project
-files, and anything in Docker, stay as they are. The Docker version runs from your computer anyway, so
-there the button says **storage**, and its window is just about what's kept in the browser. While you're offline it says
-**offline**, and online AI providers and online voices say they're unavailable rather than
-failing. The guides, such as this one, open inside Scribecue, so they work offline too.
+and so do Piper voices and Whisper once they're downloaded. **Settings**, under **Offline
+and storage**, has a checklist of what this browser has for working offline, with buttons
+for anything missing, and asks the browser to keep it all safe. The same section has
+**Remove all data**, which clears everything Scribecue keeps in this browser (unsaved
+blocks, settings, AI keys, voices, Whisper and its offline copy) after a warning. Your
+project files, and anything in Docker, stay as they are. The Docker version runs from your
+computer anyway, so there the section is called **Storage**, and it's just about what's kept
+in the browser. While you're offline, **offline** shows in the bottom right, and online AI
+providers and online voices say they're unavailable rather than failing. The guides, such as this one, open inside Scribecue, so they work offline too.
 
 ### Or run it yourself
 
@@ -100,7 +100,7 @@ you'll rarely need anything else. Press `?` at any time to see every shortcut.
 ### The writing loop
 
 For new audio description, in **Write** mode with text to speech on (`Alt+Shift+V`, or
-**Setup**). Open the video with `Ctrl/Cmd+Shift+O`, then repeat:
+**Settings**). Open the video with `Ctrl/Cmd+Shift+O`, then repeat:
 
 1. **Find a gap.** Play until there's room for a description, and stop there.
    - `Space` plays or pauses.
@@ -196,7 +196,7 @@ Scribecue, such as another writer or a QC reviewer. The **Export** menu at the t
 - **Script as WebVTT** (`Ctrl/Cmd+Shift+E`), which also keeps each block's text to speech
   speed and sounds-like words.
 - **Description track (WAV)**, in Write mode with a [Piper voice](#piper-voices): the
-  readings as one audio file. It's also in the text to speech panel.
+  readings as one audio file. It's also in the text to speech settings.
 
 `Ctrl/Cmd+O` also opens SRT and VTT files. Your work in progress is saved in the browser
 as you go too, so reloading the page doesn't lose anything.
@@ -231,7 +231,17 @@ as you go too, so reloading the page doesn't lose anything.
 The switch next to the Scribecue name picks what you're doing, and shows only the features
 for it. Your choice is remembered. The setup that opens the first time you use Scribecue
 asks this too, along with the tools for that mode and whether to check for updates.
-**Setup** at the top runs it again. Nothing changes until you press **Finish**.
+**Run setup again**, in **Settings** under **General**, runs it again. Nothing changes until
+you press **Finish**.
+
+**Settings**, at the top (`Alt+Shift+S`), has everything you set up rather than use while
+you work, in sections: **General** (Replay, setup and the tour, and update checks in the
+Docker version), **Transcribing** (the reaction offset and speech to text), **Text to
+speech**, **AI help** (your provider, and a TMDB key for looking up the cast), **Keyboard
+shortcuts**, and **Storage**. Settings that are on show under the video, such as `REPLAY`,
+`STT` or `TTS`, and clicking one opens its section.
+
+![Settings, with its sections down the left and General showing](docs/screenshots/settings.png)
 
 | | Transcribe | Write |
 | --- | --- | --- |
@@ -258,8 +268,8 @@ In Transcribe mode, **hold `H`** while the narrator speaks a line, and **let go*
 stop. Playback pauses and the new block opens for typing; `Enter` or `Esc` carries on.
 
 Both edges move back by a reaction offset, 200 ms to begin with, because your key press
-comes a moment after you hear the voice: `Shift+H`, or `H −200ms` under the video, changes
-it. Pausing first and then holding `H` starts the block exactly where you paused. New
+comes a moment after you hear the voice: `Shift+H` changes it, or click `H −200ms` under
+the video to choose it in Settings. Pausing first and then holding `H` starts the block exactly where you paused. New
 blocks never overlap the ones next to them. See
 [Marking lines with H](TRANSCRIBING.md#marking-lines-with-h).
 
@@ -271,10 +281,10 @@ It's on unless you turn it off.
 ### Speech to text
 
 Whisper, running on your own computer, can type each line you mark. When you let go of
-`H`, it fills in what the narrator said, ready to check. Click **STT** under the video, or
-press `Alt+Shift+H`, to set it up: a one-time 166 MB download in the web version, or the
+`H`, it fills in what the narrator said, ready to check. Open **Settings** and choose
+**Transcribing**, or press `Alt+Shift+H`, to set it up: a one-time 166 MB download in the web version, or the
 [Whisper container](INSTALL.md#speech-to-text-whisper) with Docker. `Alt+Shift+T`
-transcribes the selected block again, and **Transcribe empty blocks** in the panel fills in
+transcribes the selected block again, and **Transcribe empty blocks** in the same section fills in
 every block without text. It can use British and Canadian spelling (colour, grey, centre)
 instead of American. It works best in Chrome or Edge. See
 [Speech to text with Whisper](TRANSCRIBING.md#speech-to-text-with-whisper), including what
@@ -293,10 +303,11 @@ For a loop that stays on until you turn it off, use `O` instead.
 
 Hear your lines read aloud, to check where each one sits and whether it fits before the
 next piece of dialogue. It's part of Write mode, and off until you turn it on: press
-`Alt+Shift+V`, or click `TTS` under the video, then tick **Turn on text to speech**.
+`Alt+Shift+V`, or open **Settings** and choose **Text to speech**, then tick **Turn on text
+to speech**. `TTS` under the video shows while it's on.
 **Test**, next to the voice, reads a short sample description so you can hear each voice.
 
-![The text to speech panel, with voice, speed and Update all timings](docs/screenshots/text-to-speech.png)
+![The text to speech settings, with voice, speed and Update all timings](docs/screenshots/text-to-speech.png)
 
 | Key | Action |
 | --- | --- |
@@ -319,7 +330,7 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   speech on, Scribecue asks what to do with its timings: keep them and fit the reading
   speeds, change the ends to match the readings, or leave everything as it is. Tick
   **Always do this** to stop it asking, and change your choice later under **When you open
-  a script** in the text to speech panel. Either change can be undone. Opening a Scribecue
+  a script** in the text to speech settings. Either change can be undone. Opening a Scribecue
   project doesn't ask.
 
   ![The question when a script is opened: fit the reading speeds, change the ends, or leave it](docs/screenshots/import-timings.png)
@@ -335,7 +346,7 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   +100%. Picking a speed for the block yourself, from its menu or with `[` `]`, keeps that
   speed when you resize; setting it back to default lets resizing fit it again. Turn this
   off with **Change a block's reading speed when you resize it** in the text to speech
-  panel.
+  settings.
 - **Sounds like:** when a voice says a name or word wrong, tell it how to say it, without
   changing the text. Select the word in the text box and click the **Sounds Like** button
   that pops up under it, or press `Alt+Shift+P`. The word is filled in for you, so spell
@@ -349,7 +360,7 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   ![The Sounds like dialog, with diagonally to be said as dye-AG-nuh-lee](docs/screenshots/sounds-like.png)
 - **Notes in [square brackets]:** if your team writes notes in the script inside square
   brackets, such as `[Wide shot, hold for the door]`, tick **Don't read notes in [square
-  brackets]** in the text to speech panel. They're then left out of every reading, reading
+  brackets]** in the text to speech settings. They're then left out of every reading, reading
   time and auto end, and out of the exported description track, but stay in the script and
   in SRT and VTT exports.
 - **Ends set from the reading:** while text to speech is on, a new block made with `Enter` or
@@ -357,8 +368,8 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   or change the speed. An `auto` tag next to OUT shows this. It never runs into the next
   block. Once you set the end yourself, by dragging, `S`, `E` / `R` or typing in OUT,
   the block keeps it. Blocks marked with `H`, drawn on the timeline or opened from a file
-  are never changed. You can turn this off in the text to speech panel.
-- **Update all timings:** a button in the text to speech panel sets the end of every block
+  are never changed. You can turn this off in the text to speech settings.
+- **Update all timings:** a button in the text to speech settings sets the end of every block
   with text from its reading, using each block's own speed. It asks first, because it also
   changes blocks marked with `H` or opened from a file, and `Ctrl/Cmd+Z` undoes it. Ends never run
   into the next block. With a [Piper voice](#piper-voices) the lengths are always exact.
@@ -374,7 +385,7 @@ natural voices that also stay on your computer, [use Piper](#piper-voices). Mac 
 Windows come with several built-in voices. On Linux, browsers read through speech-dispatcher, so you may
 need to install it with a voice such as espeak-ng from your distribution's packages.
 
-**Online voices** are a separate opt-in in the same panel. They often sound more natural,
+**Online voices** are a separate opt-in in the same settings. They often sound more natural,
 but each block's text is sent to the company that runs the voice, such as Google or
 Microsoft, to be spoken. Leave them off if your script mustn't leave your computer.
 They come from the browser, so which ones you get depends on where you open Scribecue:
@@ -408,11 +419,11 @@ With a Piper voice:
 - **Each line always takes the same time,** so the timing you see is the timing you get,
   between sessions and in the export.
 - **You can export a description track.** **Export description track** in the text to
-  speech panel saves every block's reading as one WAV file, each starting at its block's
+  speech settings saves every block's reading as one WAV file, each starting at its block's
   start, as long as the video. It's ready to mix with the programme. Every reading peaks at
   −8 dBFS, so blocks are evenly matched and there's headroom for processing and mastering;
   readings that run into the next block overlap in the file, never taking it past −6 dBFS,
-  and the panel tells you how many there are.
+  and Settings tells you how many there are.
 
 Four English voices are offered: Lessac and Ryan (US), and Alba and Alan (UK).
 
@@ -420,8 +431,7 @@ Four English voices are offered: Lessac and Ryan (US), and Alba and Alan (UK).
 
 Setup offers one: in its text to speech step, tick **Download a natural-sounding Piper
 voice** and pick a voice, and it downloads in the background when you finish. Or, any
-time in Write mode, open the text to speech panel (`Alt+Shift+V`, or `TTS` under the
-video), turn text to speech on, and under **Natural voices** pick a voice and click
+time, open the text to speech settings (`Alt+Shift+V`, or **Settings**), turn text to speech on, and under **Natural voices** pick a voice and click
 **Download**. Each voice is about 63 MB. The first one also brings the speech engine,
 about 33 MB, which all the voices share.
 Once it's downloaded, the voice is chosen for you and works offline. The files come from
@@ -521,7 +531,8 @@ keys are named on each system. The tables below are the usual keys.
 
 ### Changing shortcuts
 
-Press `?` and click **Change shortcuts** to give any action the keys you like:
+Press `?` and click **Change shortcuts**, or open **Settings** and choose **Keyboard
+shortcuts**, to give any action the keys you like:
 
 - Click **Add** next to an action, then press the keys. If they already belong to another
   action, Scribecue says which and asks before moving them. Click a key to take it off,
@@ -606,6 +617,7 @@ this browser.
 | `Alt+Shift+V` | Text to speech settings |
 | `Alt+Shift+P` | [Sounds like](#text-to-speech) for the selected block |
 | `Alt+Shift+A` | Open or close [AI help](#ai-help) |
+| `Alt+Shift+S` | Settings |
 | `Alt+=` `Alt+-` `Alt+0` | Zoom the timeline in / out / to fit |
 | `\` | Reset speed to 1× |
 

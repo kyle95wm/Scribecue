@@ -55,7 +55,7 @@
         </div>
       </span>
       <button data-act="ai" id="aiBtn" class="tip-end" data-tip="AI help: chat about the scene and draft descriptions (⌥⇧A)">AI</button>
-      <button data-act="setup" class="tip-end" data-tip="Run the welcome setup again: your task, its tools and update checks">Setup</button>
+      <button data-act="settings" class="tip-end" data-tip="Settings: text to speech, speech to text, AI help, shortcuts, storage and more (⌥⇧S)">Settings</button>
       <button data-act="help" class="hl tip-end" data-tip="Show all keyboard shortcuts (? or ⇧O)">Shortcuts <kbd>?</kbd></button>
     </nav>
   </header>
@@ -258,7 +258,7 @@ docker compose up -d --build</code></pre>
       <p>Scribecue is a keyboard-first editor for audio description scripts. Your video and your
         script stay on your computer: nothing is uploaded.</p>
       <p>This quick setup picks the tools you need. You can change any of it later, and run it
-        again with <strong>Setup</strong> at the top.</p>
+        again from <strong>Settings</strong> at the top.</p>
     </section>
     <section data-step="task" hidden>
       <h2>What are you working on?</h2>
@@ -278,8 +278,8 @@ docker compose up -d --build</code></pre>
       <p class="dim small">Both edges of a mark move back by this much, because your key press comes a moment
         after you hear the voice. 200 ms suits most people.</p>
       <label class="updopt"><input type="checkbox" id="wzReplay"> Replay each block after I type it, to check it</label>
-      <p class="dim small">When you press <kbd>Esc</kbd> or <kbd>↵</kbd>, the block plays again from its start,
-        then carries on. <kbd>⇧</kbd><kbd>L</kbd> turns it on or off any time.</p>
+      <p class="dim small">When you press <kbd>Esc</kbd> or <kbd>↵</kbd>, the playhead goes back to the block's
+        start, so it plays again, then carries on. <kbd>⇧</kbd><kbd>L</kbd> turns it on or off any time.</p>
     </section>
     <section data-step="write" hidden>
       <h2>Text to speech</h2>
@@ -323,7 +323,7 @@ docker compose up -d --build</code></pre>
         <dt><kbd><span class="mod"></span>S</kbd></dt><dd>Save your work as a project</dd>
         <dt><kbd>?</kbd></dt><dd>All keyboard shortcuts</dd>
       </dl>
-      <p class="dim small">Run this again any time with <strong>Setup</strong> at the top.</p>
+      <p class="dim small">Run this again any time from <strong>Settings</strong> at the top, under General.</p>
     </section>
     <div class="updbtns"><button id="wzBack">Back</button><span class="grow"></span><button id="wzNext" class="hl">Next</button></div>
   </dialog>
@@ -668,6 +668,50 @@ docker compose up -d --build</code></pre>
     </section>
   </dialog>
 
+  <dialog id="settingsDlg" class="updbox setbox" aria-labelledby="setTitle">
+    <div class="sethead">
+      <h2 id="setTitle">Settings</h2>
+      <span class="grow"></span>
+      <button id="setClose">Close</button>
+    </div>
+    <div class="setbody">
+      <div id="setTabs" class="settabs" role="tablist" aria-orientation="vertical" aria-label="Settings"></div>
+      <div id="setPanes" class="setpanes"></div>
+    </div>
+    <div id="setGeneral" hidden>
+      <p>Scribecue <span id="setVersion"></span> <button id="setWhatsNew" class="link">What's new</button></p>
+      <p class="hosted-only small">The web version updates itself. When a new version is ready, the version
+        number in the bottom right says so.</p>
+      <h3>Editing</h3>
+      <label class="updopt"><input type="checkbox" id="setReplay"> Replay: after editing a block, go back to its start</label>
+      <p class="dim small">When you press <kbd>Esc</kbd> or <kbd>↵</kbd>, the playhead goes back to the start of
+        the block, to hear it again. If it was playing, it carries on from there.
+        <kbd>⇧</kbd><kbd>L</kbd> turns it on or off.</p>
+      <h3>Getting started</h3>
+      <p class="updstatus"><button id="setSetup">Run setup again</button> <button id="setTour">Take the tour</button></p>
+      <p class="dim small">Setup asks what you're working on and sets up its tools. The tour shows you round the screen.</p>
+      <h3 class="docker-only">Updates</h3>
+    </div>
+    <div id="setMarking" hidden>
+      <h3>Marking with H</h3>
+      <div class="ttsgrid">
+        <label for="setOffset">Reaction offset</label>
+        <select id="setOffset"></select>
+      </div>
+      <p class="dim small">Blocks you mark, and reads you time, with <kbd>H</kbd> move back by this much, because
+        you let go a moment after you hear the voice. 200 ms suits most people. <kbd>⇧</kbd><kbd>H</kbd> changes it too.</p>
+      <h3>Speech to text</h3>
+    </div>
+    <div id="setTmdb" hidden>
+      <h3>Looking up the cast</h3>
+      <p class="small">Project notes can look up a programme's characters and actors on TMDB, with your own free key.</p>
+      <p class="updstatus"><label for="setTmdbKey" class="small">TMDB key</label>
+        <input id="setTmdbKey" type="password" autocomplete="off" spellcheck="false">
+        <a id="setTmdbGet" class="small" target="_blank" rel="noopener noreferrer">Get a free key</a>
+        <button id="setTmdbForget">Forget</button> <span id="setTmdbStatus" class="dim small"></span></p>
+    </div>
+  </dialog>
+
   <div id="tour" class="tour" hidden>
     <div id="tourHole" class="tourhole" hidden></div>
     <div id="tourCard" class="tourcard" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
@@ -696,7 +740,8 @@ docker compose up -d --build</code></pre>
             <dt data-keys="videoStart videoEnd" data-pc="&lt;kbd&gt;Home&lt;/kbd&gt; &lt;kbd&gt;End&lt;/kbd&gt;"><kbd>Fn</kbd><kbd>←</kbd> <kbd>Fn</kbd><kbd>→</kbd></dt><dd data-pc="Beginning / end of video">Beginning / end of video (Home / End)</dd>
             <dt data-keys="jumpTime"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>J</kbd></dt><dd>Jump to a timecode</dd>
             <dt data-keys="quickNav"><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Quick navigation (search blocks)</dd>
-            <dt data-keys="help"><kbd>⇧</kbd><kbd>O</kbd></dt><dd>Options / this overlay</dd>
+            <dt data-keys="help"><kbd>⇧</kbd><kbd>O</kbd></dt><dd>This overlay</dd>
+            <dt data-keys="settings"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>S</kbd></dt><dd>Settings</dd>
             <dt><kbd>+</kbd> <kbd>-</kbd></dt><dd>Increase / reduce speed</dd>
             <dt data-keys="createEdit"><kbd>↵</kbd></dt><dd>Create or edit text block</dd>
             <dt data-keys="deleteAsk"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>D</kbd></dt><dd>Delete text block (after confirmation)</dd>
@@ -707,7 +752,7 @@ docker compose up -d --build</code></pre>
             <dt>Drag empty lane</dt><dd>Draw a new block</dd>
             <dt>× in the list</dt><dd>Delete that block (undoable)</dd>
             <dt>Buttons under video</dt><dd>Block, 3 s and frame steps, play, play block, loop block</dd>
-            <dt>Setup</dt><dd>Run the welcome setup again</dd>
+            <dt>Settings</dt><dd>Everything you set up, and the welcome setup again</dd>
             <dt>Wheel</dt><dd>Pan · <kbd><span class="mod"></span></kbd>/pinch to zoom</dd>
           </dl>
         </section>

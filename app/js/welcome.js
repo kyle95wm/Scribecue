@@ -1,6 +1,6 @@
 // The welcome wizard: a short setup that picks the task (Transcribe or Write), the
 // tools for it, and update checks. It opens by itself the first time Scribecue is
-// used, and the Setup button at the top runs it again. Choices take effect only when
+// used, and Settings at the top runs it again. Choices take effect only when
 // Finish is pressed, so skipping changes nothing.
 
 import { tts, SPEEDS, fillVoiceSelect, chosenVoice, setTtsOption, loadPiper, webPiper, webVoiceChoices, downloadVoice, megabytes } from './tts.js';
@@ -78,8 +78,8 @@ function finish() {
     return;
   }
   hooks.toast(m === 'write'
-    ? `All set for writing.${$('wzTts').checked ? ' Press V to hear a block.' : ''} Setup at the top runs this again`
-    : 'All set for transcribing. Hold H while the narrator speaks. Setup at the top runs this again');
+    ? `All set for writing.${$('wzTts').checked ? ' Press V to hear a block.' : ''} Settings at the top runs this again`
+    : 'All set for transcribing. Hold H while the narrator speaks. Settings at the top runs this again');
 }
 
 export function openWelcome() {

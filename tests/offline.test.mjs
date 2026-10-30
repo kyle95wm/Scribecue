@@ -2,11 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { offlineLabel, checklist, wipeWarning } from '../app/js/offline.js';
 
-test('the bottom bar says when you’re offline, and in the web version whether it’s ready', () => {
+test('the bottom bar says when you’re offline, and in the web version when it isn’t ready', () => {
   assert.deepEqual(offlineLabel({ hosted: true, offline: true, ready: true }), { text: 'offline', on: true });
   assert.deepEqual(offlineLabel({ hosted: false, offline: true }), { text: 'offline', on: true });
-  assert.equal(offlineLabel({ hosted: false, offline: false }).text, 'storage', 'Docker works offline anyway, so it’s about storage');
-  assert.equal(offlineLabel({ hosted: true, offline: false, ready: true }).text, 'offline ready');
+  assert.equal(offlineLabel({ hosted: false, offline: false }), null, 'Docker works offline anyway, and storage is in Settings');
+  assert.equal(offlineLabel({ hosted: true, offline: false, ready: true }), null, 'nothing to say when it’s ready');
   assert.equal(offlineLabel({ hosted: true, offline: false, ready: false }).text, 'not ready offline');
 });
 

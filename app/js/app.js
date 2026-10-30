@@ -1,16 +1,17 @@
 import { parseSubs, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
-import { initUpdates, openUpdates, updateChoice } from './update.js';
+import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
-import { initAi, toggleAi, aiNotesChanged } from './aidrawer.js';
+import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, noticeItems, needsNotice, isMobile } from './browser.js';
 import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop } from './tour.js';
-import { initWhatsNew } from './whatsnew.js';
+import { initWhatsNew, openWhatsNew } from './whatsnew.js';
+import { initSettings, addSection, adopt, place, openSettings, closeSettings } from './settings.js';
 import { initReminder } from './reminder.js';
 import { announce, speakable, blockLabel } from './a11y.js';
-import { initOffline } from './offline.js';
+import { initOffline, openOffline } from './offline.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
@@ -1303,10 +1304,10 @@ const IND_TIPS = {
   speed: 'Playback speed. + and - change it; click or press \\ to reset to 1×',
   follow: 'Follow: keep the playhead in view and select each block as it plays (F)',
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
-  replay: 'Replay: Esc or ↵ after editing a block puts the playhead back at its start, to hear it again (⇧L)',
-  offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H or click to change',
-  tts: 'Text to speech: hear blocks read aloud (V). Click to choose the voice and speed, or to turn it on (⌥⇧V)',
-  stt: 'Speech to text: Whisper types what the narrator says in each block you mark. Click to set it up or transcribe empty blocks (⌥⇧H)',
+  replay: 'Replay is on: Esc or ↵ after editing a block puts the playhead back at its start (⇧L). Click for its settings',
+  offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H changes it; click for its settings',
+  tts: 'Text to speech: hear blocks read aloud (V). Click for its settings: the voice and speed, or to turn it on (⌥⇧V)',
+  stt: 'Speech to text: Whisper types what the narrator says in each block you mark. Click for its settings, or to transcribe empty blocks (⌥⇧H)',
 };
 function updateInd() {
   const items = [
@@ -1314,9 +1315,10 @@ function updateInd() {
     ['follow', 'FOLLOW', S.follow],
     ['loop', 'LOOP', S.loop],
     ['offset', `H −${Math.round(S.offset * 1000)}ms`, false],
-    ['replay', 'REPLAY', S.replay],
-    ...(writing() ? [] : [['stt', 'STT', stt.on && stt.ready]]),
-    ...(writing() ? [['tts', tts.on && tts.speed !== 1 ? `TTS ${speedLabel(tts.speed)}` : 'TTS', tts.on]] : []),
+    // Settings show only while they're on, and open their section of Settings.
+    ...(S.replay ? [['replay', 'REPLAY', true]] : []),
+    ...(!writing() && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
+    ...(writing() && tts.on ? [['tts', tts.speed !== 1 ? `TTS ${speedLabel(tts.speed)}` : 'TTS', true]] : []),
   ];
   ind.textContent = '';
   for (const [key, label, on] of items) {
@@ -1325,7 +1327,8 @@ function updateInd() {
     s.dataset.key = key;
     s.dataset.tip = pcKeys(IND_TIPS[key]);
     s.setAttribute('aria-label', speakable(IND_TIPS[key], IS_MAC));
-    if (['follow', 'loop', 'tts', 'stt', 'replay'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
+    if (['follow', 'loop'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
+    else if (key !== 'speed') s.classList.add('setlabel');
     s.className = (on ? 'on ' : '') + (key === 'speed' || key === 'follow' ? '' : 'tip-end');
     ind.append(s);
   }
@@ -1372,10 +1375,10 @@ ind.addEventListener('click', (e) => {
   e.target.blur?.(); // so Space still plays
   const k = e.target.dataset.key;
   if (k === 'speed') setRate(1);
-  else if (k === 'offset') cycleOffset();
+  // The settings' labels open their section of Settings.
+  else if (k === 'offset' || k === 'stt') showMarking();
   else if (k === 'tts') openTts();
-  else if (k === 'stt') openStt();
-  else if (k === 'replay') setReplay(!S.replay);
+  else if (k === 'replay') showGeneral();
   else if (k) toggleFlag(k);
 });
 
@@ -2978,7 +2981,7 @@ const actions = {
   },
   exportMenu: () => toggleMenu(exportMenu),
   help: () => toggleHelp(),
-  setup: () => openWelcome(),
+  settings: () => showGeneral(),
   newProject: () => startAgain(),
   ai: () => toggleAi(),
 };
@@ -3227,13 +3230,14 @@ const RUN = {
   trackPrev: () => stepTrack(-1),
   transcribeBlock: () => transcribeSelected(),
   findReplace: () => openFind(),
-  sttPanel: () => { if (writing()) modeOnly('Speech to text', 'transcribe'); else openStt(); },
+  sttPanel: () => { if (writing()) modeOnly('Speech to text', 'transcribe'); else showMarking(); },
   read: () => speakBlock(false),
   fitToReading: () => speakBlock(true),
   ttsPanel: () => { if (writing()) openTts(); else modeOnly('Text to speech', 'write'); },
   soundsLike: () => openSay(),
   aiHelp: () => toggleAi(),
   help: () => toggleHelp(),
+  settings: () => showGeneral(),
   zoomIn: () => zoom(1.5),
   zoomOut: () => zoom(1 / 1.5),
   zoomFit: () => fitAll(),
@@ -3365,6 +3369,45 @@ initWelcome({
   // Then the loop for the mode picked, once nothing else is on screen.
   whenClear(() => maybeShowLoop(S.mode));
 });
+
+// ---------------------------------------------------------------- settings
+
+// Everything that's set up rather than used while working, in one window. The panels
+// that were windows of their own are moved in, once they've been set up above.
+initSettings();
+const showGeneral = () => {
+  $('setVersion').textContent = VERSION;
+  $('setReplay').checked = S.replay;
+  renderUpdates();
+  openSettings('general');
+};
+const showMarking = () => {
+  const sel = $('setOffset');
+  if (!sel.options.length) for (const v of OFFSETS) sel.append(new Option(`${Math.round(v * 1000)} ms`, String(v)));
+  sel.value = String(S.offset);
+  openStt();
+};
+$('setGeneral').append($('updMain'));
+$('updMain').querySelector('h2').hidden = true;
+$('updClose').parentElement.hidden = true;
+if (HOSTED) $('updMain').remove();
+addSection('general', 'General', { open: showGeneral, content: $('setGeneral') });
+addSection('marking', 'Transcribing', { open: showMarking, content: $('setMarking') });
+adopt($('sttDlg'), 'marking', { skip: ['.updbtns:has(#sttClose)'] });
+addSection('tts', 'Text to speech', { open: () => openTts() });
+adopt($('ttsDlg'), 'tts', { skip: ['#ttsClose'] });
+addSection('ai', 'AI help', { open: openAiSettings, content: $('aiSetup') });
+place($('setTmdb'), 'ai');
+addSection('keys', 'Keyboard shortcuts', { open: () => openKeys() });
+adopt($('keysDlg'), 'keys', { skip: ['#keysDone'] });
+addSection('storage', HOSTED ? 'Offline and storage' : 'Storage', { open: () => openOffline() });
+adopt($('offlineDlg'), 'storage', { skip: ['.updbtns:has(#offlineClose)'] });
+$('setWhatsNew').addEventListener('click', () => openWhatsNew(VERSION));
+$('setSetup').addEventListener('click', () => { closeSettings(); openWelcome(); });
+$('setTour').addEventListener('click', () => { closeSettings(); startTour(S.mode); });
+$('setReplay').addEventListener('change', (e) => setReplay(e.target.checked, true));
+$('setOffset').addEventListener('change', (e) => setOffset(+e.target.value));
+
 // Runs fn once no dialog, notice or tour is showing, checking for up to a minute.
 function whenClear(fn, tries = 120) {
   const busy = document.querySelector('dialog[open]') || !$('tour').hidden || !$('browserAlert').hidden;
@@ -3415,6 +3458,6 @@ if (FIRST_RUN) setTimeout(() => startTour(S.mode, { then: openWelcome, finish: '
 else if (!welcomed()) {
   // Someone who used Scribecue before the wizard existed: mention it once.
   markWelcomed();
-  setTimeout(() => toast('New: Setup at the top walks you through choosing your task and its tools'), 2500);
+  setTimeout(() => toast('New: Settings at the top has setup, which walks you through choosing your task and its tools'), 2500);
 }
 requestAnimationFrame(tick);

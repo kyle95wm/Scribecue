@@ -79,14 +79,18 @@ await sleep(400);
 await shot('shortcuts');
 
 await js(`document.querySelector('#modeSw [data-mode=write]').click(); 1`); await sleep(200);
-// text to speech panel
+// text to speech settings
 await key('Escape', 'Escape'); await sleep(200);
-// taller, so the whole panel fits
-await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1500, deviceScaleFactor: 2, mobile: false });
+await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
 await sleep(300);
 console.log('voices', await js('speechSynthesis.getVoices().length'));
 await key('KeyV', 'V', { altKey: true, shiftKey: true }); await sleep(500);
-await shot('text-to-speech');
+await shot('text-to-speech', '#settingsDlg', 0);
+
+// Settings, at General
+await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
+await js(`document.getElementById('settab-general').click(); document.activeElement?.blur(); 1`); await sleep(400);
+await shot('settings');
 
 // sounds like: a word selected in block 3, then Alt+Shift+P
 await js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`); await sleep(300);
@@ -123,11 +127,13 @@ await js(`(async () => {
   };
   document.querySelectorAll('#list .row')[1].click();
   await new Promise((r) => setTimeout(r, 300));
-  document.getElementById('aiBtn').click();
-  await new Promise((r) => setTimeout(r, 300));
+  // Connected first, in Settings, as it would be by the time anyone drafts.
   const p = document.getElementById('aiProvider'); p.value = 'ollama'; p.dispatchEvent(new Event('change'));
   document.getElementById('aiConnect').click();
   await new Promise((r) => setTimeout(r, 600));
+  document.getElementById('aiLog').textContent = '';
+  document.getElementById('aiBtn').click();
+  await new Promise((r) => setTimeout(r, 300));
   document.getElementById('aiDraft').click();
   for (let i = 0; i < 40 && !document.querySelector('#aiLog .draft .acts'); i++) await new Promise((r) => setTimeout(r, 150));
   document.activeElement?.blur();
