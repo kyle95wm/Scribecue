@@ -593,6 +593,8 @@ function gotoSel(end) {
 // ---------------------------------------------------------------- text + time editor
 
 let edit = null; // { id, orig, pushed }
+// Whether the selected block is open in the list to edit. Esc closes it, leaving it selected.
+let edOpen = false;
 
 function updateEditor() {
   const c = selCue();
@@ -665,6 +667,7 @@ function createOrEdit() {
 
 function editText(field = edText) {
   if (!selCue()) return toast('No text block selected — press Enter to create one at the playhead');
+  openEditor();
   field.focus();
   if (field === edText) edText.setSelectionRange(edText.value.length, edText.value.length);
   else field.select();
@@ -673,6 +676,7 @@ function editText(field = edText) {
 // finished: closed with Esc or ↵, rather than by opening something else.
 function closeEditor(finished = false) {
   document.activeElement?.blur();
+  if (finished) { edOpen = false; placeEditor(); }
   if (S.loopOnce) stopLoop();
   // With Replay on, the playhead goes back to the start of the block just edited, so it
   // can be heard again, and playback carries on from there if it was playing.
@@ -993,9 +997,15 @@ function renderList() {
 // The selected block opens in its place, as in Frazier: the rows up to it go above the
 // editor and the rest below. The rows move rather than the editor, as moving a text box
 // takes the focus out of it.
+function openEditor() {
+  if (edOpen) return;
+  edOpen = true;
+  placeEditor();
+  editor.scrollIntoView({ block: 'nearest' });
+}
 function placeEditor() {
   const i = selIdx();
-  editor.hidden = i < 0 || !rowMap.has(S.sel);
+  editor.hidden = !edOpen || i < 0 || !rowMap.has(S.sel);
   if (editor.hidden) return;
   const rows = S.cues.map((c) => rowMap.get(c.id));
   const above = (r) => r.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING;
@@ -1007,6 +1017,7 @@ list.addEventListener('click', (e) => {
   const r = e.target.closest('.row');
   if (!r) return;
   if (e.target.closest('.rowdel')) { e.target.blur(); del(S.cues[idx(+r.dataset.id)]); return; }
+  edOpen = true;
   select(+r.dataset.id, { toTop: false });
 });
 list.addEventListener('dblclick', (e) => {
