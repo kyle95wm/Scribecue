@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.47.1",
+  "date": "2026-10-30",
+  "notes": "## Google Cloud voices\n\n- While you type in a block, Scribecue no longer reads it with Google each time you pause. The length shown is an estimate until you finish editing, with Enter or Esc or by moving to another block, and then the block is read once. Rewriting a line several times no longer uses up characters for every draft.\n- Piper and browser voices still update the length as you type, since they cost nothing."
+ },
+ {
   "version": "0.47.0",
   "date": "2026-10-30",
   "notes": "## Readings in the block list\n\n- A dot (●) after a block's duration in the list means its reading has been made with the chosen voice, at its speed and the base speed, so its length is exact.\n- With a Google Cloud voice, the dot means the reading is kept in your browser: it plays straight away and isn't sent to Google again. Hover over it to see which.\n- Screen readers say \"reading ready\" for those blocks."
