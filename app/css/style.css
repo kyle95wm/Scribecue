@@ -125,6 +125,11 @@ main {
   border-bottom: 1px solid var(--line);
 }
 .right { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+/* Swap sides: the video on the left, the editor and list on the right. */
+body.swapped main { grid-template-columns: minmax(0, 1fr) minmax(380px, 38%); }
+body.swapped .right { order: -1; }
+body.swapped .listwrap { border-right: 0; border-left: 1px solid var(--line); }
+.swapbtn { font-size: 15px; line-height: 1; }
 .stage {
   position: relative;
   flex: 1;
@@ -556,7 +561,8 @@ dd { margin: 0; }
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; grid-template-rows: 40% minmax(0, 1fr); }
   .right { order: -1; }
-  .listwrap { border-right: 0; border-top: 1px solid var(--line); }
+  .listwrap, body.swapped .listwrap { border-right: 0; border-left: 0; border-top: 1px solid var(--line); }
+  .swapbtn { display: none; }
   nav button kbd, .hint { display: none; }
   .cols { grid-template-columns: 1fr; }
 }

@@ -1411,6 +1411,18 @@ durEl.addEventListener('click', () => {
   try { localStorage.setItem('scribecue.remaining', S.remaining ? '1' : '0'); } catch { /* ignore */ }
   showDur();
 });
+// Swap sides: the video on the left and the editor on the right, or back. Remembered.
+function setSwapped(on) {
+  document.body.classList.toggle('swapped', on);
+  $('swapBtn').setAttribute('aria-pressed', String(on));
+  tlDirty = true;
+}
+setSwapped((() => { try { return localStorage.getItem('scribecue.swapped') === '1'; } catch { return false; } })());
+function swapSides() {
+  const on = !document.body.classList.contains('swapped');
+  setSwapped(on);
+  try { localStorage.setItem('scribecue.swapped', on ? '1' : '0'); } catch { /* ignore */ }
+}
 clockEl.addEventListener('click', async (e) => {
   e.currentTarget.blur(); // so Space still plays
   const tc = fmtTime(now(), '.');
@@ -3228,6 +3240,7 @@ window.addEventListener('drop', (e) => {
 });
 
 const actions = {
+  swapSides,
   openSubs: () => openAny(),
   saveProject: () => saveProject(),
   openVideo: () => openVideoPicker(),
