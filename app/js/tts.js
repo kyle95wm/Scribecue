@@ -849,6 +849,14 @@ export function prefetch(text, speed = 1) {
   if (usingAudioVoice() && spoken(text) && !duration(text, speed).exact) readAudio(text, speed).then(() => hooks.changed(), () => {});
 }
 
+// Has a reading in memory, ready to play straight away: made, or loaded from the browser's
+// store. For the blocks just ahead of the playhead, so their readings don't start late.
+export function readAhead(text, speed = 1) {
+  if (!usingAudioVoice() || !spoken(text)) return;
+  const exact = duration(text, speed).exact;
+  readAudio(text, speed).then(() => { if (!exact) hooks.changed(); }, () => {});
+}
+
 // The whole script as one audio file: each block's reading starts at the block's start.
 // blocks [{ start, text, speed }], secs: total length. progress(done, total) as it goes.
 // Returns { blob, overlaps }, where overlaps counts readings that run into the next one.

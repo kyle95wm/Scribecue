@@ -23,7 +23,7 @@ import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
-  usingAudioVoice, measure, prefetch, renderTrack, chosenVoice, chosenVoiceName, voiceName, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix,
+  usingAudioVoice, measure, prefetch, readAhead, renderTrack, chosenVoice, chosenVoiceName, voiceName, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix,
   savedReadings, clearSavedReadings } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -2024,9 +2024,25 @@ selSay.addEventListener('click', () => { selSay.hidden = true; openSay(); });
 
 // While playing, read each block as the playhead reaches its start.
 function liveSpeech(prevT, t) {
+  readAheadOf(t);
   if (!ttsOn() || !tts.live || tts.speaking?.manual || hold) return; // not over someone reading
   const a = cueAt(t);
   if (a && prevT <= a.start && t > a.start && t - prevT < 0.5 && tts.speaking?.id !== a.id) speak(said(a), { id: a.id, speed: a.speed });
+}
+
+// Making a reading takes a moment, a second or more with Kokoro, so while playing, the
+// next blocks are read ahead. Otherwise a reading would start late and run past its block.
+const AHEAD_SECS = 15, AHEAD_BLOCKS = 2;
+let aheadOf = '';
+function readAheadOf(t) {
+  if (!ttsOn() || !tts.live || !usingAudioVoice()) return;
+  const next = S.cues.filter((c) => c.start > t && c.start - t <= AHEAD_SECS && spoken(c.text))
+    .sort((a, b) => a.start - b.start).slice(0, AHEAD_BLOCKS);
+  // Only when the blocks ahead, or what they say, change: this runs on every frame.
+  const key = `${chosenVoice()}|${tts.base}|` + next.map((c) => `${c.id}|${c.speed}|${said(c)}`).join('\n');
+  if (key === aheadOf) return;
+  aheadOf = key;
+  for (const c of next) readAhead(said(c), c.speed);
 }
 
 // Lower the original audio while a block is read, and as the mix slider says.
