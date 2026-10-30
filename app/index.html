@@ -82,6 +82,7 @@
         <input id="listSearch" type="search" placeholder="Search text, or #12 for a block number"
           spellcheck="false" autocomplete="off" aria-label="Search text blocks">
         <span id="listCount" class="dim"></span>
+        <button id="replaceBtn" class="tip-end" data-tip="Find and replace text in every block (⌥⇧F)">Replace…</button>
       </div>
       <div class="listhead">
         <span>#</span><span>Start / Dur</span><span>Text</span><span></span>
@@ -408,12 +409,31 @@ docker compose up -d --build</code></pre>
     </div>
   </aside>
 
+  <dialog id="findDlg" class="updbox finddlg" aria-labelledby="findTitle">
+    <h2 id="findTitle">Find and replace</h2>
+    <div class="ttsgrid">
+      <label for="frFind">Find</label><input id="frFind" type="text" spellcheck="false" autocomplete="off">
+      <label for="frWith">Replace with</label><input id="frWith" type="text" spellcheck="false" autocomplete="off">
+    </div>
+    <label class="updopt"><input type="checkbox" id="frCase"> Match case</label>
+    <label class="updopt"><input type="checkbox" id="frWhole"> Whole words only</label>
+    <p id="frCount" class="small" aria-live="polite"></p>
+    <div class="updbtns">
+      <button id="frNext">Find next</button>
+      <button id="frAll" class="hl">Replace all</button>
+      <span class="grow"></span>
+      <button id="frClose">Close</button>
+    </div>
+  </dialog>
+
   <dialog id="sayDlg" class="updbox" aria-labelledby="sayTitle">
     <h2 id="sayTitle">Sounds like</h2>
     <p>Tell text to speech how to say words in <span id="sayBlock">this block</span>. Only the reading
       changes: the block's text stays as written, in the list and in exports.</p>
     <div id="sayRows" class="sayrows"></div>
     <p><button id="sayAdd">Add a word</button></p>
+    <label class="updopt"><input type="checkbox" id="sayAll"> Use them in every block with these words
+      <span id="sayAllCount" class="dim"></span></label>
     <p class="dim small">Spell it how it sounds, such as <em>shiv-AWN</em> for Siobhan. Each word or phrase
       is matched as a whole word, in any case. Tip: select a word in the text box and click
       <strong>Sounds Like</strong> under it, or press <kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd>, and it's filled in for you.</p>
@@ -733,6 +753,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="selectAtPlayhead"><kbd>C</kbd></dt><dd>Select block under playhead</dd>
             <dt data-keys="trackNext trackPrev"><kbd>T</kbd> / <kbd>⇧</kbd><kbd>T</kbd></dt><dd>Next / previous audio track</dd>
             <dt><kbd>/</kbd></dt><dd>Search the block list (↑ ↓ step through matches, ↵ back to timeline, Esc clears)</dd>
+            <dt data-keys="findReplace"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Find and replace text in every block</dd>
             <dt data-keys="toStart toEnd"><kbd>G</kbd> / <kbd>⇧</kbd><kbd>G</kbd></dt><dd>Playhead to block start / end</dd>
             <dt data-keys="hold" class="transcribe-only">Hold <kbd>H</kbd></dt><dd class="transcribe-only">Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on</dd>
             <dt data-keys="hold" class="write-only">Hold <kbd>H</kbd></dt><dd class="write-only">Time your own read of the selected block: let go to set its end. Hold again to carry on after a breath; <kbd>G</kbd> first to start over</dd>

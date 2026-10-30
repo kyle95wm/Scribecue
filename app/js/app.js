@@ -12,13 +12,14 @@ import { initReminder } from './reminder.js';
 import { announce, speakable, blockLabel } from './a11y.js';
 import { initOffline } from './offline.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
+import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
 import { MIN_SPEED, MAX_SPEED } from './tts.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
-import { soundsLike, hasWord } from './tts.js';
+import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
   usingPiper, measure, prefetch, renderTrack, chosenVoice, setTtsOption, onlyNotes } from './tts.js';
@@ -888,6 +889,49 @@ list.addEventListener('dblclick', (e) => {
   if (r) { select(+r.dataset.id, { seek: false }); editText(); }
 });
 
+// ---------------------------------------------------------------- find and replace
+
+const findDlg = $('findDlg');
+const findRe = () => matcher($('frFind').value, { matchCase: $('frCase').checked, wholeWords: $('frWhole').checked });
+function showFindCount() {
+  const { matches, blocks } = countMatches(S.cues, findRe());
+  $('frCount').textContent = !$('frFind').value ? 'Type what to find.'
+    : matches ? `Found ${matches} time${matches === 1 ? '' : 's'} in ${blocks} block${blocks === 1 ? '' : 's'}.` : 'Not found.';
+  $('frAll').disabled = $('frNext').disabled = !matches;
+}
+function openFind() {
+  if (edit) closeEditor();
+  // What's selected in the text box, or searched for in the list, is what to find.
+  const picked = document.activeElement === edText ? edText.value.slice(edText.selectionStart, edText.selectionEnd).trim() : '';
+  if (picked && !picked.includes('\n')) $('frFind').value = picked;
+  else if (!$('frFind').value && listSearch.value && !listSearch.value.startsWith('#')) $('frFind').value = listSearch.value;
+  if (!findDlg.open) findDlg.showModal();
+  showFindCount();
+  $('frFind').select();
+}
+$('replaceBtn').addEventListener('click', (e) => { e.currentTarget.blur(); openFind(); });
+for (const id of ['frFind', 'frCase', 'frWhole']) $(id).addEventListener('input', showFindCount);
+$('frFind').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('frNext').click(); } });
+$('frWith').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('frAll').click(); } });
+$('frNext').addEventListener('click', () => {
+  const i = nextMatch(S.cues, findRe(), selIdx());
+  if (i < 0) return showFindCount();
+  select(S.cues[i].id);
+  $('frCount').textContent = `Block #${i + 1}: ${plain(S.cues[i].text).slice(0, 80)}`;
+});
+$('frAll').addEventListener('click', () => {
+  const re = findRe(), { matches, blocks } = countMatches(S.cues, re);
+  if (!matches) return showFindCount();
+  pushUndo();
+  for (const c of S.cues) c.text = replaceIn(c.text, re, $('frWith').value);
+  changed();
+  showFindCount();
+  $('frCount').textContent = `Replaced ${matches} in ${blocks} block${blocks === 1 ? '' : 's'}. ${IS_MAC ? '⌘Z' : 'Ctrl+Z'} undoes it.`;
+  toast(`Replaced ${matches} in ${blocks} block${blocks === 1 ? '' : 's'}. ⌘Z undoes it`);
+});
+$('frClose').addEventListener('click', () => findDlg.close());
+document.addEventListener('keydown', (e) => { if (findDlg.open) e.stopPropagation(); }, true);
+
 // ---------------------------------------------------------------- timeline drawing
 
 function fitCanvas(cv) {
@@ -1755,6 +1799,16 @@ function addSayRow(word = '', as = '') {
   return row;
 }
 const sayPairs = () => rows.map((r) => [r.w.value.trim(), r.s.value.trim()]).filter(([w, s]) => w && s);
+// The other blocks that have any of these words, for "Use them in every block".
+const sayOthers = (c, pairs) => S.cues.filter((o) => o !== c && pairs.some(([w]) => hasWord(o.text, w)));
+function showSayAll() {
+  if (!sayFor) return;
+  const n = sayOthers(sayFor, rows.map((r) => [r.w.value.trim()]).filter(([w]) => w)).length;
+  $('sayAllCount').textContent = n ? `(${n} other block${n === 1 ? '' : 's'})` : '(no other blocks have them)';
+  $('sayAll').disabled = !n;
+  if (!n) $('sayAll').checked = false;
+}
+sayRows.addEventListener('input', showSayAll);
 
 function openSay() {
   if (!writing()) return modeOnly('Sounds like', 'write');
@@ -1772,6 +1826,8 @@ function openSay() {
   if (picked && !picked.includes('\n') && picked.length <= 60) {
     focus = rows.find((r) => r.w.value.toLocaleLowerCase() === picked.toLocaleLowerCase())?.s || addSayRow(picked).s;
   } else if (!rows.length) focus = addSayRow().w;
+  $('sayAll').checked = false;
+  showSayAll();
   sayDlg.showModal();
   (focus || rows[0].s).focus();
 }
@@ -1783,11 +1839,16 @@ sayDlg.addEventListener('close', () => {
   sayFor = null;
   if (!c || !S.cues.includes(c)) return;
   const pairs = sayPairs();
-  if (JSON.stringify(pairs) === JSON.stringify(c.say || [])) return;
-  pushUndo();
-  if (pairs.length) c.say = pairs; else delete c.say;
+  const others = $('sayAll').checked && pairs.length ? sayOthers(c, pairs) : [];
+  const same = JSON.stringify(pairs) === JSON.stringify(c.say || []);
+  if (same && !others.length) return;
+  pushUndo(); // one step, for this block and every other one
+  if (!same) { if (pairs.length) c.say = pairs; else delete c.say; }
+  for (const o of others) o.say = mergeSay(o.say, pairs.filter(([w]) => hasWord(o.text, w)));
   changed();
-  toast(pairs.length ? `${pairs.length === 1 ? '1 word sounds' : `${pairs.length} words sound`} different in this block when read aloud` : 'This block is read as written again');
+  const words = pairs.length === 1 ? '1 word sounds' : `${pairs.length} words sound`;
+  toast(others.length ? `${words} different when read aloud, in this block and ${others.length} other${others.length === 1 ? '' : 's'}. ⌘Z undoes it`
+    : pairs.length ? `${words} different in this block when read aloud` : 'This block is read as written again');
 });
 $('sayAdd').addEventListener('click', () => addSayRow().w.focus());
 $('sayTry').addEventListener('click', () => {
@@ -3072,6 +3133,7 @@ const RUN = {
   trackNext: () => stepTrack(1),
   trackPrev: () => stepTrack(-1),
   transcribeBlock: () => transcribeSelected(),
+  findReplace: () => openFind(),
   sttPanel: () => { if (writing()) modeOnly('Speech to text', 'transcribe'); else openStt(); },
   read: () => speakBlock(false),
   fitToReading: () => speakBlock(true),

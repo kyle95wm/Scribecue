@@ -42,6 +42,7 @@ export const GROUPS = [
     ['merge', 'Merge with the next block', ['KeyM']],
     ['deleteNow', 'Delete the block (undoable)', ['Delete', 'Backspace']],
     ['deleteAsk', 'Delete the block, after asking', ['Alt+Shift+KeyD']],
+    ['findReplace', 'Find and replace text in every block', ['Alt+Shift+KeyF']],
   ]],
   ['Timing', [
     ['setStart', 'Set the start to the playhead', ['KeyA']],

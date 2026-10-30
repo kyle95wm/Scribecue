@@ -201,6 +201,12 @@ export function soundsLike(text, say) {
   const said = new Map(pairs.map(([w, s]) => [w.toLocaleLowerCase(), s]));
   return text.replace(sayPattern(pairs.map(([w]) => w)), (m) => said.get(m.toLocaleLowerCase()) ?? m);
 }
+// A block's sounds-like list with more added: a word already in it takes the new sound.
+export function mergeSay(say = [], add = []) {
+  const out = new Map((say || []).map(([w, s]) => [w.toLocaleLowerCase(), [w, s]]));
+  for (const [w, s] of add) out.set(w.toLocaleLowerCase(), [w, s]);
+  return [...out.values()];
+}
 // Whether the text has this word or phrase in it, as soundsLike would find it.
 export const hasWord = (text, word) => !!word.trim() && sayPattern([word.trim()]).test(text);
 

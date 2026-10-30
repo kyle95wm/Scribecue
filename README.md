@@ -333,7 +333,8 @@ next piece of dialogue. It's part of Write mode, and off until you turn it on: p
   changing the text. Select the word in the text box and click the **Sounds Like** button
   that pops up under it, or press `Alt+Shift+P`. The word is filled in for you, so spell
   it how it sounds, such as *shiv-AWN* for Siobhan, and click **Hear the block** to check.
-  Each block keeps its own list. Words are matched whole and in any case, so the reading,
+  Each block keeps its own list; tick **Use them in every block with these words** to add
+  them to every other block that has them too, in one step. Words are matched whole and in any case, so the reading,
   its length and the exported description track all use the new sound, while the list, SRT
   exports and the timeline show the words as written. Projects and VTT exports keep the
   list, as notes other programs ignore. `Ctrl/Cmd+Z` undoes a change.
@@ -467,6 +468,11 @@ afterwards is instant. Safari switches tracks itself.
 
 - **Search:** the box above the list filters blocks by text, or by number with `#12`.
   Press `/` to jump to it. `Shift+F` opens quick navigation, and `Alt+Shift+J` jumps to a timecode.
+- **Find and replace:** **Replace…** next to the search box, or `Alt+Shift+F`, changes text
+  in every block at once, such as a character's name. Tick **Match case** to only change
+  it written exactly that way, and **Whole words only** to leave longer words alone (Tom,
+  but not Tomorrow). **Find next** steps through the blocks it's in, and one `Ctrl/Cmd+Z`
+  undoes **Replace all**.
 - **Player controls:** the buttons under the video step to the previous or next block,
   jump 3 seconds or one frame, play or pause, play just the selected block, and loop the
   block under the playhead. Hover over one to see its key.
@@ -584,6 +590,7 @@ this browser.
 | `Alt+Shift+T` | [Transcribe](#speech-to-text) the selected block, replacing its text |
 | `Alt+Shift+H` | Speech to text settings |
 | `/` | Search the block list |
+| `Alt+Shift+F` | [Find and replace](#other-handy-features) in every block |
 | `O` | Loop on / off |
 | `F` | Follow the playhead on / off |
 | `V` / `Shift+V` | [Read the block aloud](#text-to-speech) / fit the block to the reading |

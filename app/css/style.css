@@ -617,6 +617,9 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
 .tipbox strong:first-child { color: var(--cue); }
 .tipbox p { margin: 6px 0; }
 .updbox::backdrop { background: rgba(0, 0, 0, 0.7); }
+/* Find and replace sits to the side and leaves the editor visible, to see what it finds. */
+.finddlg { width: min(380px, 92vw); margin: 64px 16px auto auto; }
+.finddlg::backdrop { background: transparent; }
 
 /* Phones and tablets: only the notice shows. */
 /* Phones and tablets, and browsers too old for Scribecue: only the notice shows. */

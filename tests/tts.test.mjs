@@ -188,3 +188,10 @@ test('the web version offers its Piper voices in the user’s language first, wi
   assert.equal(megabytes(63201294), '63 MB');
   webPiper.offered = null;
 });
+
+test('a sounds-like list takes more words, and a word already in it takes the new sound', async () => {
+  const { mergeSay } = await import('../app/js/tts.js');
+  assert.deepEqual(mergeSay([['Siobhan', 'shiv-awn']], [['Okafor', 'oh-KAH-for']]), [['Siobhan', 'shiv-awn'], ['Okafor', 'oh-KAH-for']]);
+  assert.deepEqual(mergeSay([['siobhan', 'old']], [['Siobhan', 'shiv-AWN']]), [['Siobhan', 'shiv-AWN']]);
+  assert.deepEqual(mergeSay(undefined, [['Leeds', 'leeds']]), [['Leeds', 'leeds']]);
+});
