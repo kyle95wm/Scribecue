@@ -18,7 +18,7 @@ import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } fr
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
-import { MIN_SPEED, MAX_SPEED } from './tts.js';
+import { FIT_MIN, MAX_SPEED } from './tts.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
@@ -399,6 +399,7 @@ function needSel() {
 
 function nudge(what, d) {
   const c = needSel(); if (!c) return;
+  if (what === 'end' && endLocked(c)) return;
   const { lo, hi } = bounds(selIdx());
   pushUndo(undefined, 'nudge-' + what + c.id);
   if (what === 'start') { c.start = clamp(c.start + d, lo, c.end - MIN_DUR); resized(c, 'start'); }
@@ -420,6 +421,7 @@ function setEdge(which) {
     c.start = Math.max(lo, t);
     resized(c, 'start');
   } else {
+    if (endLocked(c)) return;
     if (t < c.start + MIN_DUR) return toast('Playhead is before this cue’s start');
     pushUndo();
     c.end = Math.min(hi, t);
@@ -476,6 +478,9 @@ function split() {
   c.end = t; c.text = a;
   delete c.auto; delete c.fit;
   S.cues.push(c2);
+  sortCues();
+  // With text to speech on, each half ends where its reading does.
+  for (const x of [c, c2]) { adapt(x); fitAuto(x); }
   changed();
   select(c2.id, { seek: false });
   toast('Split');
@@ -493,6 +498,8 @@ function merge() {
   if (more.length) c.say = [...(c.say || []), ...more];
   delete c.auto; delete c.fit;
   S.cues.splice(i + 1, 1);
+  adapt(c);
+  fitAuto(c);
   changed();
   select(c.id, { seek: false });
   toast('Merged');
@@ -549,6 +556,9 @@ function updateEditor() {
   edIdx.textContent = `#${i + 1}`;
   if (document.activeElement !== edStart) edStart.value = fmtTime(c.start, '.');
   if (document.activeElement !== edEnd) edEnd.value = fmtTime(c.end, '.');
+  // The end comes from the reading with text to speech on.
+  edEnd.readOnly = following(c);
+  if (edEnd.readOnly) edEnd.dataset.tip = 'Where the reading ends. Change the block’s speed to move it'; else delete edEnd.dataset.tip;
   edAuto.hidden = !(c.auto && ttsOn() && tts.autoEnd);
   edDur.textContent = `${(c.end - c.start).toFixed(3)} s`;
   edSpeedWrap.hidden = !ttsOn();
@@ -707,8 +717,8 @@ edText.addEventListener('input', () => {
   if (!c) return;
   if (!edit.pushed) { pushUndo(); edit.pushed = true; }
   c.text = edText.value;
-  if (ttsOn()) adapt(c);
-  fitAuto(c) || fitSpeed(c);
+  adapt(c);
+  fitAuto(c);
   changed(c.id);
 });
 edText.addEventListener('blur', () => {
@@ -750,6 +760,7 @@ function bindTimeInput(input, which) {
     const t = parseTime(input.value);
     const cur = which === 'start' ? c.start : c.end;
     if (Number.isNaN(t)) { toast('Invalid time — use hh:mm:ss.mmm'); }
+    else if (Math.abs(t - cur) > 0.0005 && which === 'end' && endLocked(c)) input.value = fmtTime(c.end, '.');
     else if (Math.abs(t - cur) > 0.0005) {
       pushUndo();
       if (which === 'start') c.start = clamp(t, 0, c.end - MIN_DUR);
@@ -1089,6 +1100,7 @@ function drawCues(W) {
     el.style.left = x + 'px';
     el.style.width = w + 'px';
     el.classList.toggle('narrow', w < 36);
+    el.classList.toggle('locked', following(c));
     el.classList.toggle('sel', c.id === S.sel);
     el.classList.toggle('active', c.id === S.activeId);
     el.classList.toggle('faded', !matches(c, i));
@@ -1187,7 +1199,7 @@ lane.addEventListener('pointerdown', (e) => {
     const id = +el.dataset.id, i = idx(id), c = S.cues[i];
     if (!c) return;
     if (S.sel !== id) select(id, { seek: false, reveal: false });
-    const mode = e.target.closest('.hl') ? 'start' : e.target.closest('.hr') ? 'end' : 'move';
+    const mode = following(c) ? 'move' : e.target.closest('.hl') ? 'start' : e.target.closest('.hr') ? 'end' : 'move';
     drag = { mode, id, x0: e.clientX, s0: c.start, e0: c.end, ...bounds(i), snap: snapshot(), moved: false };
   } else {
     const t = xToT(e.clientX);
@@ -1258,12 +1270,6 @@ function endDrag() {
   if (d.moved && d.id != null && d.mode !== 'none') {
     pushUndo(d.snap);
     changed();
-    // A speed picked by hand stays when the block is resized, so say why the reading
-    // doesn't follow the new length.
-    const c = S.cues[idx(d.id)];
-    if ((d.mode === 'start' || d.mode === 'end') && c?.pinned && ttsOn() && tts.fitSpeed && spoken(c.text)) {
-      toast(`Block #${idx(c.id) + 1} keeps the speed you picked, ${speedName(c.speed)}. Set its speed to normal to have the reading fill the block`);
-    }
     if (d.mode === 'create') { select(d.id, { seek: false, reveal: false }); editText(); }
   }
 }
@@ -1520,24 +1526,29 @@ function fitAuto(c) {
   c.end = end;
   return true;
 }
-// Every block being written fits its reading one way or the other: its end follows the
-// reading (new blocks, and blocks with a speed picked by hand), or its speed fills its
-// length (the rest, such as blocks marked with H, drawn on the timeline or opened from a
-// file), so a reading only runs over when nothing makes room for it.
+// With text to speech on, a block with text ends where its reading does, as in Frazier:
+// its length changes with its text and speed, not by hand. With "Set the end of each
+// block from its reading" off, blocks are timed by hand instead.
+const following = (c) => ttsOn() && tts.autoEnd && !!spoken(c.text);
 function adapt(c) {
-  if (c.auto || c.fit) return;
-  if (!c.pinned && tts.fitSpeed) c.fit = true;
-  else if (tts.autoEnd) c.auto = true;
+  if (!following(c)) return;
+  delete c.fit;
+  c.auto = true;
 }
-// A block's length changed by hand: its start or end edge. With text to speech on and
-// "change a block's reading speed when you resize it", the reading's speed follows the
-// new length from now on. Otherwise a new end is simply kept, and an auto block whose
-// start moved keeps the length of its reading.
+const lockedTip = 'With text to speech on, a block ends where its reading does. Change its speed to make it longer or shorter';
+// A block's end about to be set by hand: says why it can't be, with text to speech on.
+function endLocked(c) {
+  if (!following(c)) return false;
+  toast(lockedTip);
+  return true;
+}
+// A block's length changed by hand: its start or end edge. With text to speech on, the end
+// goes back to where the reading finishes, so a new start moves the whole block.
 function resized(c, edge) {
-  if (ttsOn() && tts.fitSpeed && spoken(c.text) && !c.pinned) {
-    delete c.auto;
-    c.fit = true;
-    fitSpeed(c);
+  if (following(c)) {
+    adapt(c);
+    fitAuto(c);
+    if (edge === 'end') toast(lockedTip);
     return;
   }
   if (edge === 'end') delete c.auto;
@@ -1547,18 +1558,25 @@ function resized(c, edge) {
 // How far over its block a reading can run and still count as fitting: half a 1% step,
 // on long blocks.
 const fitNear = (secs) => Math.max(0.03, secs * 0.005);
+// The readings fitting can choose from, at FIT_MIN or faster, and the next speed to try.
+const fitReadings = (c) => readingsOf(said(c), false, c.voice).filter((p) => p.speed >= FIT_MIN - 0.005);
+function nextFit(c, target, near) {
+  const pts = fitReadings(c);
+  const guess = speedFromReadings(pts, target, c.speed ?? 1, fixedShare(c.voice));
+  const s = nextFitSpeed(pts, target, guess == null ? null : Math.max(FIT_MIN, guess), near);
+  return s == null ? null : Math.max(FIT_MIN, s);
+}
 // Blocks marked fit read at whatever speed fills them. Uses the reading at the block's
 // current speed when that's been measured, so the speed closes in on an exact fit.
 // force: fit even with the resize setting off, as Fit speeds to timings does.
-function fitSpeed(c, force = false) {
-  if (!c?.fit || !ttsOn() || (!tts.fitSpeed && !force) || !spoken(c.text)) return false;
+function fitSpeed(c) {
+  if (!c?.fit || !ttsOn() || !spoken(c.text)) return false;
   const at = c.speed ?? 1, target = c.end - c.start;
-  const pts = readingsOf(said(c), false, c.voice);
   let s;
-  if (pts.length) s = nextFitSpeed(pts, target, speedFromReadings(pts, target, at, fixedShare(c.voice)), fitNear(target));
+  if (fitReadings(c).length) s = nextFit(c, target, fitNear(target));
   // With Piper or Google, wait for real readings rather than move the speed on an estimate.
-  else if (usingAudioVoice(c.voice)) { if (c.id === S.sel) schedulePrefetch(c); return false; }
-  else s = speedToFit(speechLength(said(c), 1, c.voice).secs, 1, target);
+  else if (usingAudioVoice(c.voice) && at >= FIT_MIN) { if (c.id === S.sel) schedulePrefetch(c); return false; }
+  else s = Math.max(FIT_MIN, speedToFit(speechLength(said(c), 1, c.voice).secs, 1, target));
   if (s == null || Math.abs(s - at) < 0.005) return false;
   c.speed = s;
   if (c.id === S.sel) schedulePrefetch(c);
@@ -1567,7 +1585,7 @@ function fitSpeed(c, force = false) {
 
 function fitAllAuto() {
   let any = false;
-  for (const c of S.cues) any = (fitAuto(c) || fitSpeed(c)) || any;
+  for (const c of S.cues) any = (fitAuto(c) || (c.fit && measuring && fitSpeed(c))) || any;
   if (any) changed();
 }
 
@@ -1736,18 +1754,17 @@ async function fitBlock(c) {
   const near = fitNear(target);
   const tried = new Set();
   for (let attempt = 0; attempt < 8 && measuring; attempt++) {
-    const pts = readingsOf(said(c), false, c.voice);
-    const s = pts.length ? nextFitSpeed(pts, target, speedFromReadings(pts, target, c.speed ?? 1, fixedShare(c.voice)), near)
-      : speedToFit(speechLength(said(c), 1, c.voice).secs, 1, target);
+    const s = fitReadings(c).length ? nextFit(c, target, near)
+      : Math.max(FIT_MIN, speedToFit(speechLength(said(c), 1, c.voice).secs, 1, target));
     if (s != null) c.speed = s;
     const at = c.speed ?? 1;
     if (tried.has(at)) break; // back to a speed already read: it's as close as it gets
     tried.add(at);
     const secs = await measure(said(c), at, { bulk: true, voice: c.voice });
-    if (secs == null || Math.abs(secs - target) <= near || at <= MIN_SPEED || at >= MAX_SPEED) break;
+    if (secs == null || Math.abs(secs - target) <= near || at <= FIT_MIN || at >= MAX_SPEED) break;
   }
   // The best of the speeds read, rather than the last one tried.
-  const best = measuring ? bestFit(readingsOf(said(c), false, c.voice), target, near) : null;
+  const best = measuring ? bestFit(fitReadings(c), target, near) : null;
   if (best != null) c.speed = best;
 }
 
@@ -1767,7 +1784,7 @@ async function fitAllSpeeds(ask = true) {
   // Marked fit, the speeds follow each block's length from here on, including as
   // readings are measured below.
   for (const c of blocks) { delete c.auto; c.fit = true; }
-  const fits = () => { let any = false; for (const c of blocks) any = fitSpeed(c, true) || any; if (any) changed(); };
+  const fits = () => { let any = false; for (const c of blocks) any = fitSpeed(c) || any; if (any) changed(); };
   fits();
   const audio = blocks.every((c) => usingAudioVoice(c.voice));
   const ui = { btn: ttsFitAll, bar: ttsFitBar, stop: ttsFitStop, status: ttsFitStatus, job: 'Fitting speeds' };
@@ -1786,19 +1803,22 @@ async function fitAllSpeeds(ask = true) {
     }
   }
   const fitted = n - left;
-  // Doesn't fit: a measured reading that misses its block, or a speed stuck at a limit.
-  const atLimit = (c) => (c.speed ?? 1) <= MIN_SPEED || (c.speed ?? 1) >= MAX_SPEED;
+  // Doesn't fit: a reading that runs over its block even at the fastest speed, or a
+  // measured one that does. Shorter is fine: the rest of the block is silence.
   const off = blocks.filter((c) => {
     if (!c.fit) return false;
     const m = speechLength(said(c), c.speed, c.voice);
-    return (m.exact || atLimit(c)) && Math.abs(m.secs - (c.end - c.start)) > 0.05;
+    return (m.exact || (c.speed ?? 1) >= MAX_SPEED) && m.secs - (c.end - c.start) > 0.05;
   }).length;
   const estimated = blocks.filter((c) => !speechLength(said(c), c.speed, c.voice).exact).length;
+  // Done: the blocks keep their timing and new speeds. Edited later, a block's end follows
+  // its reading at that speed, like any other.
+  for (const c of blocks) delete c.fit;
   changed();
   const msg = (stopped
     ? `Fit speeds to timings stopped. Fitted ${fitted} of ${n} block${n > 1 ? 's' : ''}${left ? `; ${left === 1 ? '1 was' : `${left} were`} left as ${left === 1 ? 'it was' : 'they were'}` : ''}.`
     : `Fitted the speed of ${n} block${n > 1 ? 's' : ''} to ${n > 1 ? 'their' : 'its'} timing.`) +
-    (off ? ` ${off === 1 ? '1 block' : `${off} blocks`} can't fit within −50% to +100%.` : '') +
+    (off ? ` ${off === 1 ? '1 block' : `${off} blocks`} ${off === 1 ? 'is' : 'are'} too long to fit, even at +100%.` : '') +
     (kept ? ` ${kept} kept the speed you picked.` : '') +
     (stopped && !audio ? ' Some speeds are from estimates.' : !stopped && estimated && !audio ? ' Speeds are from estimates: tick "Read each block silently first" for exact ones.' : '');
   report(ttsFitStatus, msg);
@@ -1941,7 +1961,6 @@ function setBlockVoice(c, uri) {
   pushUndo(undefined, 'voice-' + c.id);
   if (uri) c.voice = uri; else delete c.voice;
   fitAuto(c);
-  fitSpeed(c);
   changed(c.id);
   tlDirty = true;
   schedulePrefetch(c);
@@ -1953,7 +1972,7 @@ $('ttsReplaceVoices').addEventListener('click', () => {
   const own = S.cues.filter((c) => c.voice);
   if (!own.length) return;
   pushUndo();
-  for (const c of own) { delete c.voice; fitAuto(c); fitSpeed(c); }
+  for (const c of own) { delete c.voice; fitAuto(c); }
   changed();
   tlDirty = true;
   openTts(); // shows the panel again, without the note
@@ -2266,6 +2285,7 @@ function takeEnd() {
   pause();
   const i = idx(id), c = S.cues[i];
   if (!c) return;
+  if (endLocked(c)) return;
   const end = Math.min(bounds(i).hi, now() - S.offset * S.rate);
   if (end < c.start + MIN_DUR || end <= from) { seek(from); return toast('Hold H for as long as you read the line'); }
   pushUndo();

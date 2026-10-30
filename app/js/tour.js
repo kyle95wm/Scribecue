@@ -55,7 +55,7 @@ export const STEPS = [
   {
     target: '#tl',
     title: 'The timeline',
-    text: (mode) => `Each box is a block: one description. Drag a block to move it, drag its edges to resize it, or drag across the empty lane to draw one. ${mode === 'write' ? 'Enter makes a block at the playhead, ready to type.' : 'Holding H marks a block from when you press to when you let go.'}`,
+    text: (mode) => `Each box is a block: one description. Drag a block to move it, or drag across the empty lane to draw one. ${mode === 'write' ? 'Enter makes a block at the playhead, ready to type. With text to speech on, a block ends where its reading does: change its speed to make it longer or shorter.' : 'Drag its edges to resize it. Holding H marks a block from when you press to when you let go.'}`,
   },
   {
     target: '#editor',

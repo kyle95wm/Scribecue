@@ -443,6 +443,8 @@ textarea:disabled { opacity: 0.5; }
 .cue .hl { left: 0; }
 .cue .hr { right: 0; }
 .cue.narrow .hl, .cue.narrow .hr { width: 33%; }
+/* With text to speech on, a block's length comes from its reading, so it has no edges to drag. */
+.cue.locked .hl, .cue.locked .hr { display: none; }
 .cue .hl::after, .cue .hr::after {
   content: "";
   position: absolute;

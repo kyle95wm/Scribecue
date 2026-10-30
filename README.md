@@ -373,22 +373,17 @@ click it to take it out.
   ![The question when a script is opened: fit the reading speeds, change the ends, or leave it](docs/screenshots/import-timings.png)
 - **Fit speeds to timings:** the opposite of Update all timings, for a script whose
   timing is already right, such as one opened from a file. Every block keeps its timing,
-  and its reading speeds up or slows down to fill it, within −50% to +100%. Blocks with a
+  and its reading speeds up or slows down to fill it, within −15% to +100%. Blocks with a
   speed you picked keep it. It asks first, and `Ctrl/Cmd+Z` undoes it. With a Piper or Google
-  voice the fit is exact. The blocks then keep fitting as you edit their text or resize them.
-- **Resizing changes the speed:** in Write mode, change a block's length by dragging an
-  edge, with `A` `S` `Q` `W` `E` `R`, or by typing in IN or OUT, and its reading speeds up or
-  slows down to fill the new length. The block's speed then shows as custom, such as
-  `custom (−12%)`, and keeps fitting as you edit the text. It stays between −50% and
-  +100%. Picking a speed for the block yourself, from its menu or with `[` `]`, keeps that
-  speed when you resize, and the block's end follows the reading instead; resizing it after
-  setting it back to normal fits the speed again. Turn this off with **Change a block's
-  reading speed when you resize it** in the text to speech settings.
-- **Every block fits its reading:** as you edit a block, either its end follows the
-  reading, as in a new block, or its reading speed fills its length, as in a resized one.
-  Blocks marked with `H`, drawn on the timeline or opened from a file keep their length
-  and fit the speed. A reading only runs over its block, shown in red, when even +100% is
-  too slow or the next block is in the way.
+  voice the fit is exact. Edited later, a block's end follows its reading at its new speed.
+- **Each block ends where its reading ends:** as in Frazier, a block's length comes from
+  its reading, not from dragging. As you write, its end follows the reading; to make it
+  longer or shorter, change its speed, from its menu or with `[` `]`. Its edges can't be
+  dragged, and OUT shows where the reading ends; moving a block, or changing its IN, moves
+  the whole block. Blocks opened from a file keep their timing until you edit them. A
+  reading only runs over its block, shown in red, when the next block is in the way. Turn
+  this off with **End each block where its reading ends** in the text to speech settings,
+  to time blocks yourself by dragging their edges.
 - **Sounds like:** when a voice says a name or word wrong, tell it how to say it, without
   changing the text. Select the word in the text box and click the **Sounds Like** button
   that pops up under it, or press `Alt+Shift+P`. The word is filled in for you, so spell
@@ -612,7 +607,8 @@ afterwards is instant. Safari switches tracks itself.
   the playhead, press `A` or `S`.
 - **Time remaining:** click the total length, next to the clock, to show the time left
   instead. Click it again to go back. Scribecue remembers which you chose.
-- **Mouse:** drag a block to move it, drag an edge to resize it, or drag across empty
+- **Mouse:** drag a block to move it, drag an edge to resize it (with text to speech
+  off; with it on, a block's length comes from its reading), or drag across empty
   space to draw a new block. Scroll to pan, and `Ctrl/Cmd`+scroll or pinch to zoom.
 - **Guided tour:** lights up each part of the editor in turn and explains it, from the two
   modes to text to speech, AI help and privacy. It opens on your first visit, before the

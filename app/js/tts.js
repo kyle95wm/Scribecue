@@ -23,8 +23,11 @@ export const SPEEDS = [
   [2, 'experimental (+100%)'],
 ];
 export const isSpeed = (v) => SPEEDS.some(([s]) => s === v);
-// A block's own speed can also be a custom one, set by resizing the block to fit.
+// A block's own speed can also be a custom one, set by Fit speeds to timings.
 export const MIN_SPEED = 0.5, MAX_SPEED = 2;
+// Fitting a reading to its block never slows it below this, so a short line in a long block
+// still sounds natural, with silence after it.
+export const FIT_MIN = 0.85;
 export const isBlockSpeed = (v) => typeof v === 'number' && v >= MIN_SPEED && v <= MAX_SPEED;
 // Short form for markers: "+15%", "−30%", "normal".
 export const speedLabel = (s) => (s === 1 ? 'normal' : `${s > 1 ? '+' : '−'}${Math.round(Math.abs(s - 1) * 100)}%`);
@@ -358,7 +361,7 @@ export function mergeSay(say = [], add = []) {
 export const hasWord = (text, word) => !!word.trim() && sayPattern([word.trim()]).test(text);
 
 const KEY = 'scribecue.tts';
-const DEFAULTS = { on: false, voice: '', base: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [], sample: null };
+const DEFAULTS = { on: false, voice: '', base: 1, live: true, duck: true, autoEnd: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [], sample: null };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -388,8 +391,8 @@ if (!['ask', 'ends', 'leave'].includes(tts.onChange)) tts.onChange = 'ask';
 const rate = (speed) => atBase(speed, tts.base);
 
 const save = () => {
-  const { on, voice, base, live, duck, autoEnd, fitSpeed, skipNotes, onImport, onChange, online, cps, mix, favourites, sample } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, base, live, duck, autoEnd, fitSpeed, skipNotes, onImport, onChange, online, cps, mix, favourites, sample })); } catch { /* ignore */ }
+  const { on, voice, base, live, duck, autoEnd, skipNotes, onImport, onChange, online, cps, mix, favourites, sample } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, base, live, duck, autoEnd, skipNotes, onImport, onChange, online, cps, mix, favourites, sample })); } catch { /* ignore */ }
 };
 
 // The mix between the video's sound and the readings, from −1 (only the video) to 1
@@ -1205,7 +1208,6 @@ function render(googleError = '') {
   $('ttsDuck').checked = tts.duck;
   $('ttsAuto').checked = tts.autoEnd;
   $('ttsNotes').checked = tts.skipNotes;
-  $('ttsFit').checked = tts.fitSpeed;
   $('ttsImport').value = tts.onImport;
   $('ttsOnChange').value = tts.onChange;
   $('ttsOnline').checked = tts.online;
@@ -1263,7 +1265,6 @@ export function initTts(h) {
   $('ttsDuck').addEventListener('change', (e) => set('duck', e.target.checked));
   $('ttsAuto').addEventListener('change', (e) => set('autoEnd', e.target.checked));
   $('ttsNotes').addEventListener('change', (e) => set('skipNotes', e.target.checked));
-  $('ttsFit').addEventListener('change', (e) => set('fitSpeed', e.target.checked));
   $('ttsImport').addEventListener('change', (e) => set('onImport', e.target.value));
   $('ttsOnChange').addEventListener('change', (e) => set('onChange', e.target.value));
   $('ttsOnline').addEventListener('change', (e) => {
