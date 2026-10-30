@@ -310,9 +310,13 @@ Hear your lines read aloud, to check where each one sits and whether it fits bef
 next piece of dialogue. It's part of Write mode, and off until you turn it on: press
 `Alt+Shift+V`, or open **Settings** and choose **Text to speech**, then tick **Turn on text
 to speech**. `TTS` under the video shows while it's on.
-**Test**, next to the voice, reads a short sample description so you can hear each voice.
+**Test**, next to the voice, reads what's in **Test text** under it, a short sample
+description until you type your own line, so you can hear each voice. Picking a voice only tries it out: Test
+reads with it, but nothing else changes until you click **Apply**, so you can go through
+voices without being asked about the timings each time. Close Settings without Apply and
+the voice stays as it was.
 **Favourites:** click ☆ beside the voice to pin it. Your favourites then sit at the top of
-the voice list, and each gets a button under it, so you can switch between them in one
+the voice list, and each gets a button under it, so you can pick between them in one
 click. Click ★ to unpin the chosen voice. A favourite that isn't available, such as a
 Piper voice while Piper isn't running, stays in the row, greyed out, until it's back;
 click it to take it out.

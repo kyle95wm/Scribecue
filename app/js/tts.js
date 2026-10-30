@@ -358,7 +358,7 @@ export function mergeSay(say = [], add = []) {
 export const hasWord = (text, word) => !!word.trim() && sayPattern([word.trim()]).test(text);
 
 const KEY = 'scribecue.tts';
-const DEFAULTS = { on: false, voice: '', base: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [] };
+const DEFAULTS = { on: false, voice: '', base: 1, live: true, duck: true, autoEnd: true, fitSpeed: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [], sample: null };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -388,8 +388,8 @@ if (!['ask', 'ends', 'leave'].includes(tts.onChange)) tts.onChange = 'ask';
 const rate = (speed) => atBase(speed, tts.base);
 
 const save = () => {
-  const { on, voice, base, live, duck, autoEnd, fitSpeed, skipNotes, onImport, onChange, online, cps, mix, favourites } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, base, live, duck, autoEnd, fitSpeed, skipNotes, onImport, onChange, online, cps, mix, favourites })); } catch { /* ignore */ }
+  const { on, voice, base, live, duck, autoEnd, fitSpeed, skipNotes, onImport, onChange, online, cps, mix, favourites, sample } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, base, live, duck, autoEnd, fitSpeed, skipNotes, onImport, onChange, online, cps, mix, favourites, sample })); } catch { /* ignore */ }
 };
 
 // The mix between the video's sound and the readings, from −1 (only the video) to 1
@@ -1086,10 +1086,34 @@ export const chosenVoice = () => currentVoice()?.voiceURI || '';
 export const chosenVoiceName = () => currentVoice()?.name || 'none';
 export const voiceName = (uri) => voices.find((v) => v.voiceURI === uri)?.name || 'the voice before';
 
-// The favourites row: a button for each favourite, to switch to it in one click, and the
-// star beside the voice list, to pin or unpin the chosen voice.
+// Sounds like a real audio description, so voices can be judged on what they'll read.
+const SAMPLE = 'Rain streaks the windows of an empty diner. A woman in a soaked coat slides into a booth '
+  + 'and pushes a folded note across the table. The man opposite reads it, then slowly looks up.';
+
+const testLine = () => (typeof tts.sample === 'string' ? tts.sample : SAMPLE);
+
+// A voice picked in Settings but not applied yet: Test reads with it, so voices can be
+// tried without the blocks' timings changing, until Apply.
+let picked = null;
+const shownVoice = () => picked ?? currentVoice()?.voiceURI ?? '';
+function pickVoice(uri) {
+  picked = uri && uri !== currentVoice()?.voiceURI ? uri : null;
+  $('ttsVoice').value = shownVoice();
+  stop();
+  renderFavourites();
+  renderApply();
+}
+function renderApply() {
+  if (picked === currentVoice()?.voiceURI) picked = null;
+  const v = picked && voices.find((x) => x.voiceURI === picked);
+  $('ttsApply').hidden = !v;
+  if (v) $('ttsApply').dataset.tip = `Read every block with ${v.name}. Until then, Test tries it without changing anything`;
+}
+
+// The favourites row: a button for each favourite, to pick it in one click, and the
+// star beside the voice list, to pin or unpin the voice shown.
 function renderFavourites() {
-  const cur = currentVoice()?.voiceURI || '';
+  const cur = shownVoice();
   const pinned = !!cur && tts.favourites.includes(cur);
   const star = $('ttsFav');
   star.textContent = pinned ? '★' : '☆';
@@ -1108,8 +1132,8 @@ function renderFavourites() {
       // With its language, since voices in different languages can share a name.
       b.textContent = `${v.name} (${v.lang})`;
       b.setAttribute('aria-pressed', String(uri === cur));
-      b.dataset.tip = 'Switch to this voice';
-      b.addEventListener('click', () => changeReading('voice', uri));
+      b.dataset.tip = 'Pick this voice, to try it and apply it';
+      b.addEventListener('click', () => pickVoice(uri));
       return b;
     }
     // Not available now: it stays, for when it is again, and can be taken out.
@@ -1122,8 +1146,9 @@ function renderFavourites() {
 }
 
 function fillVoices() {
-  fillVoiceSelect($('ttsVoice'));
+  fillVoiceSelect($('ttsVoice'), shownVoice());
   renderFavourites();
+  renderApply();
   $('ttsNoVoices').hidden = !!voices.length || !anyVoices();
   $('ttsMissing').textContent = missingVoiceNote();
   $('ttsMissing').hidden = !$('ttsMissing').textContent;
@@ -1184,6 +1209,8 @@ function render(googleError = '') {
   $('ttsImport').value = tts.onImport;
   $('ttsOnChange').value = tts.onChange;
   $('ttsOnline').checked = tts.online;
+  if (document.activeElement !== $('ttsSample')) $('ttsSample').value = testLine();
+  $('ttsTest').disabled = !testLine().trim();
   fillVoices();
   renderWeb();
 }
@@ -1199,6 +1226,7 @@ function changeReading(k, v) {
 }
 
 export function setTtsOption(k, v) {
+  if (k === 'voice') picked = null;
   tts[k] = v;
   save();
   warmUp();
@@ -1220,9 +1248,10 @@ export function initTts(h) {
   const d = $('ttsDlg');
   const set = (k, v) => { tts[k] = v; save(); render(); hooks.changed(); warmUp(); };
   $('ttsOn').addEventListener('change', (e) => { if (!e.target.checked) stop(); set('on', e.target.checked); });
-  $('ttsVoice').addEventListener('change', (e) => changeReading('voice', e.target.value));
+  $('ttsVoice').addEventListener('change', (e) => pickVoice(e.target.value));
+  $('ttsApply').addEventListener('click', () => { if (picked) changeReading('voice', picked); });
   $('ttsFav').addEventListener('click', () => {
-    const cur = currentVoice()?.voiceURI;
+    const cur = shownVoice();
     if (cur) set('favourites', toggleFavourite(tts.favourites, cur));
   });
   // The number follows the slider as it moves, and the speed changes when it's let go.
@@ -1242,11 +1271,13 @@ export function initTts(h) {
     if (!e.target.checked && currentVoice() && !currentVoice().localService && !currentVoice().google) { stop(); tts.voice = ''; }
     set('online', e.target.checked);
   });
-  // Sounds like a real audio description, so voices can be judged on what they'll read.
-  const SAMPLE = 'Rain streaks the windows of an empty diner. A woman in a soaked coat slides into a booth '
-    + 'and pushes a folded note across the table. The man opposite reads it, then slowly looks up.';
-  $('ttsTest').addEventListener('click', () => speak(SAMPLE));
-  $('ttsTry').addEventListener('click', () => speak(hooks.sample?.() || SAMPLE));
+  // Test reads what's in Test text, the sample until it's changed. Emptied, Test does nothing.
+  const sample = $('ttsSample');
+  const test = () => { const line = testLine().trim(); if (line) speak(line, { voice: shownVoice() }); };
+  sample.addEventListener('input', () => { tts.sample = sample.value; save(); $('ttsTest').disabled = !sample.value.trim(); });
+  sample.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); test(); } });
+  $('ttsTest').addEventListener('click', test);
+  $('ttsTry').addEventListener('click', () => speak(hooks.sample?.() || SAMPLE, { voice: shownVoice() }));
   $('ttsWebVoice').addEventListener('change', renderWeb);
   $('ttsWebGet').addEventListener('click', () => {
     const v = $('ttsWebVoice').value;
@@ -1257,13 +1288,21 @@ export function initTts(h) {
     $('ttsGoogleStatus').textContent = e.target.value.trim() ? 'Asking Google for its voices…' : '';
     const error = await setGoogleKey(e.target.value.trim());
     if (!error && tts.google.length && !makesAudio(currentVoice())) {
-      tts.voice = tts.google[0].voiceURI; save(); render(); hooks.changed();
+      picked = null; tts.voice = tts.google[0].voiceURI; save(); render(); hooks.changed();
     }
   });
   $('ttsGoogleForget').addEventListener('click', () => setGoogleKey(''));
   $('ttsClose').addEventListener('click', () => d.close());
   d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
-  d.addEventListener('close', () => stop());
+  d.addEventListener('close', () => {
+    stop();
+    // Closed without Apply: the voice stays as it was.
+    if (picked) {
+      const v = voices.find((x) => x.voiceURI === picked);
+      picked = null;
+      hooks.toast(`The voice is still ${chosenVoiceName()}${v ? `. To read with ${v.name}, pick it again and click Apply` : ''}`);
+    }
+  });
   document.addEventListener('keydown', (e) => { if (d.open) e.stopPropagation(); }, true);
   voices = allowed();
   if (tts.available) {

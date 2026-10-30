@@ -489,7 +489,10 @@ docker compose up -d --build</code></pre>
         <label for="ttsVoice">Voice</label>
         <div class="ttsvoice"><select id="ttsVoice"></select>
           <button id="ttsFav" class="favstar" aria-pressed="false" aria-label="Favourite voice">☆</button>
-          <button id="ttsTest" data-tip="Hear the voice read a short sample description">Test</button></div>
+          <button id="ttsTest" data-tip="Hear the voice read a short sample description">Test</button>
+          <button id="ttsApply" class="hl" hidden>Apply</button></div>
+        <label for="ttsSample">Test text</label>
+        <input id="ttsSample" type="text" maxlength="500" data-tip="What Test reads. Type any line to hear it in each voice">
         <span class="favlabel" id="ttsFavsLabel">Favourites</span>
         <div class="favs"><div id="ttsFavs" role="group" aria-labelledby="ttsFavsLabel"></div>
           <span id="ttsFavsNone" class="dim small">Click ☆ beside a voice to keep it here, and switch to it in one click.</span></div>
