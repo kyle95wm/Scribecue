@@ -1017,13 +1017,9 @@ list.addEventListener('click', (e) => {
   const r = e.target.closest('.row');
   if (!r) return;
   if (e.target.closest('.rowdel')) { e.target.blur(); del(S.cues[idx(+r.dataset.id)]); return; }
-  edOpen = true;
+  // One click opens the block, ready to type, as in Frazier.
   select(+r.dataset.id, { toTop: false });
-});
-list.addEventListener('dblclick', (e) => {
-  if (e.target.closest('.rowdel')) return;
-  const r = e.target.closest('.row');
-  if (r) { select(+r.dataset.id, { seek: false, toTop: false }); editText(); }
+  editText();
 });
 
 // ---------------------------------------------------------------- find and replace
@@ -3515,6 +3511,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '[' || e.key === ']') { e.preventDefault(); stepBlockSpeed(e.key === '[' ? -1 : 1); return; }
   if (e.code === 'Escape' && !e.altKey && !e.shiftKey) {
     e.preventDefault();
+    // An open block closes, even when its text box isn't focused.
+    if (edOpen) { closeEditor(true); return; }
     S.playUntil = null;
     document.activeElement?.blur();
     if (S.loopOnce) stopLoop(); else updateInd();
