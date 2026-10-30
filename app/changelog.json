@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.46.0",
+  "date": "2026-10-30",
+  "notes": "## Base speed\n\n- **Settings**, under **Text to speech**, has a **Base speed** slider from 50% to 150%, as in Frazier. Every reading is made this much faster or slower, on top of its own speed, so you can nudge a whole project without changing any block's speed. Double-click it to go back to 100%.\n- The base speed is saved with each project, and a Frazier `.adc` script's base speed now comes with it, so its blocks keep their own speeds by name.\n\n## When the voice or speed changes\n\n- Changing the voice, the speed or the base speed changes how long every reading takes. Scribecue now asks whether to change the blocks' ends to match the new readings, never running into the next block, or leave the timings as they are. Tick **Always do this** to stop it asking, and change your choice under **When the voice or speed changes**. Changing the ends can be undone with Ctrl/Cmd+Z."
+ },
+ {
   "version": "0.45.0",
   "date": "2026-10-30",
   "notes": "## Frazier scripts\n\n- **Open** (Ctrl/Cmd+O) now opens Frazier's `.adc` scripts, and you can drop them on the window too. Each block keeps its timings to the millisecond.\n- Block speeds come across as the matching Scribecue speed, on top of the project's base speed.\n- Pronunciations marked in Frazier become **sounds like** words, so the text stays as written and text to speech says it your way."
