@@ -68,3 +68,40 @@ export function toVTT(cues) {
   return 'WEBVTT\n\n' + cues.map((c, i) => (c.speed ? `${SPEED_NOTE} ${c.speed}\n\n` : '') + say(c) +
     `${i + 1}\n${fmtTime(c.start, '.')} --> ${fmtTime(c.end, '.')}\n${clean(c.text)}`).join('\n\n') + '\n';
 }
+
+// Frazier's .adc scripts: JSON, with each block in cue_points as { start, end } in
+// milliseconds and its text as HTML. A word marked <abbr class="speech" title="…"> is
+// said as its title, which becomes one of the block's "sounds like" words.
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+const decode = (s) => s.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (m, e) => {
+  if (e[0] !== '#') return ENTITIES[e.toLowerCase()] ?? m;
+  const n = e[1].toLowerCase() === 'x' ? parseInt(e.slice(2), 16) : +e.slice(1);
+  return n === 160 ? ' ' : String.fromCodePoint(n);
+});
+export function adcText(html) {
+  const say = [];
+  const text = decode(String(html || '')
+    .replace(/<abbr\b[^>]*\bclass="[^"]*\bspeech\b[^"]*"[^>]*>([\s\S]*?)<\/abbr>/gi, (m, inner) => {
+      const title = m.match(/\btitle="([^"]*)"/i);
+      const written = decode(inner.replace(/<[^>]*>/g, '')).trim();
+      const said = title ? decode(title[1]).trim() : '';
+      if (written && said && !say.some(([w]) => w === written)) say.push([written, said]);
+      return inner;
+    })
+    .replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>\s*<p\b[^>]*>/gi, '\n').replace(/<[^>]*>/g, ''))
+    .split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim()).join('\n').replace(/\n{2,}/g, '\n').trim();
+  return { text, say };
+}
+
+export function parseAdc(text) {
+  let doc;
+  try { doc = JSON.parse(text.replace(/^﻿/, '')); } catch { return []; }
+  if (!Array.isArray(doc?.cue_points)) return [];
+  return doc.cue_points.filter((c) => Number.isFinite(c?.start) && Number.isFinite(c?.end)).map((c) => {
+    const { text: t, say } = adcText(c.text);
+    const start = Math.max(0, c.start) / 1000;
+    const cue = { start, end: Math.max(c.end / 1000, start), text: t };
+    if (say.length) cue.say = say;
+    return cue;
+  }).sort((x, y) => x.start - y.start);
+}

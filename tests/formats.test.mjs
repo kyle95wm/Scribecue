@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseTime, fmtTime, parseSubs, toSRT, toVTT } from '../app/js/formats.js';
+import { parseTime, fmtTime, parseSubs, parseAdc, adcText, toSRT, toVTT } from '../app/js/formats.js';
 
 test('parseTime reads SRT, VTT and short forms', () => {
   assert.equal(parseTime('01:02:03,456'), 3723.456);
@@ -86,4 +86,32 @@ test('sounds like words are kept in VTT as notes, alongside a speed, and read ba
   assert.deepEqual(back[0].say[0], ['Siobhan', 'shiv-awn']);
   assert.equal(back[1].say, undefined);
   assert.doesNotMatch(toSRT(cues), /NOTE|shiv/);
+});
+
+test('adcText turns HTML into plain text, and speech marks into sounds-like words', () => {
+  assert.deepEqual(adcText('<p>Vee nods.&nbsp;</p>'), { text: 'Vee nods.', say: [] });
+  assert.deepEqual(adcText('<p>Text reads "<abbr class="speech" title="far far away">Far, far away</abbr> from Wilson Hall."</p>'),
+    { text: 'Text reads "Far, far away from Wilson Hall."', say: [['Far, far away', 'far far away']] });
+  assert.deepEqual(adcText('<p>One &amp; <strong>two</strong></p><p>Three&#39;s<br>four &#x2014; five</p>'),
+    { text: "One & two\nThree's\nfour — five", say: [] });
+  // A word marked twice is said one way; other abbreviations are only text.
+  assert.deepEqual(adcText('<abbr class="speech" title="a">X</abbr> <abbr class="speech" title="b">X</abbr> <abbr title="Doctor">Dr.</abbr>'),
+    { text: 'X X Dr.', say: [['X', 'a']] });
+  assert.deepEqual(adcText(null), { text: '', say: [] });
+});
+
+test('parseAdc reads Frazier cue points in milliseconds, sorted, skipping broken ones', () => {
+  const adc = JSON.stringify({ title: 'T', cue_points: [
+    { start: 56855, end: 59239, text: '<p>Second <abbr class="speech" title="matthew">Mathieu</abbr></p>', speed: 0 },
+    { start: 6804, end: 8718, text: '<p>First.&nbsp;</p>' },
+    { start: 'x', end: 1, text: '<p>Broken</p>' },
+    { start: 9000, end: 8000, text: '<p>Backwards</p>' },
+  ] });
+  assert.deepEqual(parseAdc('﻿' + adc), [
+    { start: 6.804, end: 8.718, text: 'First.' },
+    { start: 9, end: 9, text: 'Backwards' },
+    { start: 56.855, end: 59.239, text: 'Second Mathieu', say: [['Mathieu', 'matthew']] },
+  ]);
+  assert.deepEqual(parseAdc('not json'), []);
+  assert.deepEqual(parseAdc('{"cue_points": null}'), []);
 });

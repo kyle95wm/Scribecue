@@ -9,7 +9,7 @@
   before the next piece of dialogue.
 - Runs on your own computer in Docker. Your files are never uploaded.
 - Uses the same keyboard layout as Frazier, so Frazier users don't need to relearn keys.
-- Scripts open and save as SRT or WebVTT files.
+- Scripts open and save as SRT or WebVTT files, and Frazier's `.adc` scripts open too.
 
 ![Scribecue with a video, its audio description track and five text blocks on the timeline](docs/screenshots/main.png)
 
@@ -200,7 +200,8 @@ Scribecue, such as another writer or a QC reviewer. The **Export** menu at the t
 - **Description track (WAV)**, in Write mode with a [Piper](#piper-voices) or [Google](#google-cloud-voices) voice: the
   readings as one audio file. It's also in the text to speech settings.
 
-`Ctrl/Cmd+O` also opens SRT and VTT files. Your work in progress is saved in the browser
+`Ctrl/Cmd+O` also opens SRT and VTT files, and Frazier's `.adc` scripts, with their
+timings and the pronunciations marked in them, which become sounds-like words. Your work in progress is saved in the browser
 as you go too, so reloading the page doesn't lose anything.
 
 ### Getting around
@@ -337,7 +338,7 @@ click it to take it out.
   against the video's sound. In the middle both are at full volume; slide towards TTS to
   turn the video down, or towards Video to turn the readings down. Double-click it to put
   it back in the middle. It shows in Write mode while text to speech is on.
-- **Opening a script:** when you open an SRT or VTT script in Write mode with text to
+- **Opening a script:** when you open an SRT, VTT or `.adc` script in Write mode with text to
   speech on, Scribecue asks what to do with its timings: keep them and fit the reading
   speeds, change the ends to match the readings, or leave everything as it is. Tick
   **Always do this** to stop it asking, and change your choice later under **When you open
@@ -702,7 +703,7 @@ marks. Their keys show a short notice instead.
 | | Supported |
 | --- | --- |
 | **Projects** | Scribecue projects (`.scribecue`), to open and save |
-| **Scripts** | SRT and WebVTT, to open and to export |
+| **Scripts** | SRT and WebVTT, to open and to export; Frazier's `.adc`, to open |
 | **Video and audio** | MP4, MOV, M4A, MKV, WebM and WAV, with AAC, Opus, Vorbis, FLAC, MP3 or PCM audio |
 | **Very large files** | Fine: the waveform is built by streaming the file from disk, and fills in as it goes |
 | **Other formats** | The whole file is decoded in memory, so they need to be under 2 GB |

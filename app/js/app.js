@@ -1,4 +1,4 @@
-import { parseSubs, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
+import { parseSubs, parseAdc, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
@@ -2554,7 +2554,7 @@ async function openProject(file, handle = null) {
   if (p.media && !ready) reopenVideo(p.media, { ask: true }).then((ok) => { if (ok) toast(`Opened ${file.name} and its video, ${p.media.name}`); });
 }
 
-// Ctrl/Cmd+O: a project, or a script saved as SRT or VTT.
+// Ctrl/Cmd+O: a project, or a script saved as SRT, VTT or .adc.
 // Open: a project, a script, a video or audio file, or several at once, each opened as
 // what it is. A project opened this way can be saved back to its own file.
 async function openAny() {
@@ -2564,7 +2564,7 @@ async function openAny() {
       multiple: true,
       types: [
         { description: 'Scribecue project, script, video or audio', accept: {
-          'application/json': [PROJECT_EXT], 'text/plain': ['.srt', '.vtt', '.txt'],
+          'application/json': [PROJECT_EXT], 'text/plain': ['.srt', '.vtt', '.txt', '.adc'],
           'video/*': ['.mp4', '.m4v', '.mov', '.mkv', '.webm'], 'audio/*': ['.wav', '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.opus'],
         } },
       ],
@@ -2574,7 +2574,7 @@ async function openAny() {
     const isProject = ([, f]) => f.name.toLowerCase().endsWith(PROJECT_EXT);
     for (const [h, file] of files.filter((x) => !isProject(x))) {
       openFiles([file]);
-      if (!/\.(srt|vtt|txt)$/i.test(file.name)) rememberVideo(h, file);
+      if (!SCRIPT.test(file.name)) rememberVideo(h, file);
     }
     for (const [h, file] of files.filter(isProject)) openProject(file, h);
   } catch (e) {
@@ -2665,8 +2665,11 @@ function exportSubs(fmt) {
   toast(`Exported ${name} (${S.cues.length} cues)` + (speeds ? '. SRT can’t store block speeds: export VTT to keep them' : ''));
 }
 
+// Scripts Scribecue opens: SRT, VTT, plain text, and Frazier's .adc files.
+const SCRIPT = /\.(srt|vtt|txt|adc)$/i;
 async function loadSubsFile(file) {
-  const parsed = parseSubs(await file.text());
+  const text = await file.text();
+  const parsed = /\.adc$/i.test(file.name) ? parseAdc(text) : parseSubs(text);
   if (!parsed.length) return toast(`No cues found in ${file.name}`);
   if (!okToReplace(`Open ${file.name}`)) return;
   await stopJob();
@@ -3020,7 +3023,7 @@ video.addEventListener('click', togglePlay);
 function openFiles(files) {
   for (const f of files) {
     if (f.name.toLowerCase().endsWith(PROJECT_EXT)) openProject(f);
-    else if (/\.(srt|vtt|txt)$/i.test(f.name)) loadSubsFile(f);
+    else if (SCRIPT.test(f.name)) loadSubsFile(f);
     else loadVideoFile(f);
   }
 }
@@ -3037,7 +3040,7 @@ window.addEventListener('drop', (e) => {
   const files = [...e.dataTransfer.files];
   openFiles(files);
   Promise.all(links).then((hs) => hs.forEach((h, i) => {
-    if (files[i] && !/\.(srt|vtt|txt|scribecue)$/i.test(files[i].name)) rememberVideo(h, files[i]);
+    if (files[i] && !SCRIPT.test(files[i].name) && !files[i].name.toLowerCase().endsWith(PROJECT_EXT)) rememberVideo(h, files[i]);
   })).catch(() => {});
 });
 
