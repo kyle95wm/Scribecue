@@ -1,6 +1,41 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseTime, fmtTime, parseSubs, parseAdc, adcText, toSRT, toVTT } from '../app/js/formats.js';
+import { parseTime, fmtTime, fmtTC, parseTC, isDropFrame, parseSubs, parseAdc, adcText, toSRT, toVTT } from '../app/js/formats.js';
+
+test('timecode counts frames at the video’s rate', () => {
+  assert.equal(fmtTC(0, 25), '00:00:00:00');
+  assert.equal(fmtTC(3723.48, 25), '01:02:03:12');
+  assert.equal(fmtTC(1 / 25 - 1e-9, 25), '00:00:00:01'); // a hair before a frame counts as it
+  assert.equal(fmtTC(59.99, 24), '00:00:59:23');
+  // 23.976 counts all 24 frame numbers, so its timecode runs behind the clock.
+  assert.equal(isDropFrame(24000 / 1001), false);
+  assert.equal(fmtTC(1001 / 24000 * 24 * 60, 24000 / 1001), '00:01:00:00');
+});
+
+test('drop-frame timecode for 29.97 and 59.94 skips frame numbers to keep to the clock', () => {
+  const ntsc = 30000 / 1001;
+  assert.equal(isDropFrame(ntsc), true);
+  assert.equal(isDropFrame(60000 / 1001), true);
+  assert.equal(isDropFrame(30), false);
+  assert.equal(fmtTC(1799 / ntsc, ntsc), '00:00:59;29');
+  assert.equal(fmtTC(1800 / ntsc, ntsc), '00:01:00;02'); // ;00 and ;01 are skipped
+  assert.equal(fmtTC(17982 / ntsc, ntsc), '00:10:00;00'); // but not on every tenth minute
+  assert.equal(fmtTC(3600, ntsc), '01:00:00;00'); // an hour of video is an hour of timecode
+  assert.equal(fmtTC(3600, 24000 / 1001), '00:59:56:09'); // 23.976 doesn't drop, so falls behind
+  assert.equal(fmtTC(1800 / (60000 / 1001) * 2, 60000 / 1001), '00:01:00;04');
+});
+
+test('typed timecode goes back to the same frame', () => {
+  for (const fps of [24000 / 1001, 24, 25, 30000 / 1001, 30, 50, 60000 / 1001]) {
+    for (const n of [0, 1, 1799, 1800, 17982, 53947, 107892]) {
+      const t = n / fps;
+      assert.equal(Math.round(parseTC(fmtTC(t, fps), fps) * fps), n, `${fps} fps, frame ${n}`);
+    }
+  }
+  assert.equal(parseTC('00:00:01:10', 25), 1.4);
+  assert.equal(parseTC('00:00:01.500', 25), 1.5); // seconds still work
+  assert.ok(Number.isNaN(parseTC('00:00:01:25', 25))); // no frame 25 at 25 fps
+});
 
 test('parseTime reads SRT, VTT and short forms', () => {
   assert.equal(parseTime('01:02:03,456'), 3723.456);

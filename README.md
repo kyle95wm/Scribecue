@@ -601,6 +601,11 @@ afterwards is instant. Safari switches tracks itself.
 - **Player controls:** the buttons under the video step to the previous or next block,
   jump 3 seconds or one frame, play or pause, play just the selected block, and loop the
   block under the playhead. Hover over one to see its key.
+- **SMPTE timecode:** times show as `hh:mm:ss:ff`, in frames of the video, at its own
+  frame rate, read from the file or measured as it plays (25 until then). 29.97 and
+  59.94 fps videos use drop-frame timecode, `hh:mm:ss;ff`, which keeps to the clock. You
+  can type IN and OUT as timecode or as `hh:mm:ss.mmm`. Exported SRT and WebVTT files
+  keep their usual milliseconds. `←` `→` step one frame of the video.
 - **Copy a timecode:** click the clock under the video. To set a block's start or end to
   the playhead, press `A` or `S`.
 - **Swap sides:** the ⇄ button at the top puts the video on the left and the editor and
@@ -669,7 +674,7 @@ this browser.
 | `Shift+←` `Shift+→` | Three seconds back / forward |
 | `Alt+Shift+←` `Alt+Shift+→` | Start of the block you're in, then the previous block / the next block, from the playhead |
 | `Home` `End` | Beginning / end of the video (`Fn+←` `Fn+→` on Mac laptops) |
-| `Alt+Shift+J` | Jump to a timecode (`hh:mm:ss.mmm`, `hh:mm:ss:ff`, `mm:ss` or seconds) |
+| `Alt+Shift+J` | Jump to a timecode (`hh:mm:ss:ff`, `hh:mm:ss.mmm`, `mm:ss` or seconds) |
 | `Shift+F` | Quick navigation: find a block by text or number |
 | `+` `-` | Faster / slower playback |
 | `Enter` | Create or edit a block |

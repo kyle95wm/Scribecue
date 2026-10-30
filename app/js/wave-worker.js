@@ -7,7 +7,7 @@
 // the page can play, since most browsers can't switch tracks inside a video. It can
 // also cut out the audio between two times as 16 kHz mono, for speech to text.
 //
-// in:  { cmd: 'probe', file }                    -> { type: 'tracks', tracks }
+// in:  { cmd: 'probe', file }                    -> { type: 'tracks', tracks, fps } (fps: 0 if unknown)
 //      { cmd: 'build', file, rate, track, mux }  -> { type: 'peaks', from, data, max } ...
 //                                                   { type: 'progress', done: 0..1 } ...
 //                                                   { type: 'audio', blob, mime, start } or { type: 'audio', reason } (with mux)
@@ -20,6 +20,8 @@ const MAX_CHANNELS = 8;
 
 class Unsupported extends Error {}
 class Enough extends Error {} // a clip has all the audio it needs
+
+let videoFps = 0; // the video's frame rate, found while probing
 
 self.onmessage = async ({ data: job }) => {
   const clip = job.cmd === 'clip';
@@ -34,10 +36,11 @@ self.onmessage = async ({ data: job }) => {
     else if (['ftyp', 'moov', 'mdat', 'free', 'skip', 'wide', 'pnot'].includes(tag)) parse = mp4;
     else if (/^(RIFF|RF64)$/.test(ascii(head, 0, 4)) && ascii(head, 8, 12) === 'WAVE') parse = wav;
     else throw new Unsupported('this file type is not streamed');
+    videoFps = 0;
     let out;
     try { out = await parse(file, peaks, job); } catch (err) { if (!(clip && err instanceof Enough)) throw err; }
     if (clip) { closeDecoders(); postMessage({ type: 'clip', audio: peaks.out }, [peaks.out.buffer]); return; }
-    if (job.cmd === 'probe') { postMessage({ type: 'tracks', tracks: out }); return; }
+    if (job.cmd === 'probe') { postMessage({ type: 'tracks', tracks: out, fps: videoFps }); return; }
     peaks.progress = 1;
     peaks.post();
     if (job.mux) postMessage({ type: 'audio', ...(out || { reason: 'nothing to play' }) });
@@ -320,13 +323,13 @@ const MKV = {
   TrackNumber: 0xd7, TrackType: 0x83, CodecID: 0x86, CodecPrivate: 0x63a2, Audio: 0xe1, SamplingFrequency: 0xb5,
   Channels: 0x9f, BitDepth: 0x6264, ContentEncodings: 0x6d80, Cluster: 0x1f43b675, Timecode: 0xe7,
   SimpleBlock: 0xa3, BlockGroup: 0xa0, Block: 0xa1, Language: 0x22b59c, LanguageBCP47: 0x22b59d, Name: 0x536e,
-  FlagDefault: 0x88, FlagVisualImpaired: 0x55ac, CodecDelay: 0x56aa,
+  FlagDefault: 0x88, FlagVisualImpaired: 0x55ac, CodecDelay: 0x56aa, DefaultDuration: 0x23e383,
 };
 // Masters we step into; every other element is skipped by its size.
 const MKV_ENTER = new Set([MKV.Segment, MKV.Info, MKV.Tracks, MKV.TrackEntry, MKV.Audio, MKV.Cluster, MKV.BlockGroup]);
 const MKV_READ = new Set([MKV.TimecodeScale, MKV.TrackNumber, MKV.TrackType, MKV.CodecID, MKV.CodecPrivate,
   MKV.SamplingFrequency, MKV.Channels, MKV.BitDepth, MKV.Timecode, MKV.Language, MKV.LanguageBCP47, MKV.Name,
-  MKV.FlagDefault, MKV.FlagVisualImpaired, MKV.CodecDelay]);
+  MKV.FlagDefault, MKV.FlagVisualImpaired, MKV.CodecDelay, MKV.DefaultDuration]);
 
 function vint(b, o, isSize) {
   const first = b[o];
@@ -409,7 +412,13 @@ async function matroska(file, peaks, job) {
   const r = new Reader(file), size = file.size;
   const tracks = [];
   const audioTracks = () => tracks.filter((t) => t.type === 2);
-  const list = () => audioTracks().map((t) => describe(mkvInfo(t), {
+  const list = () => {
+    // The video's frame rate, from its frame length, for timecode.
+    const v = tracks.find((t) => t.type === 1 && t.frameNs > 0);
+    if (v) videoFps = 1e9 / v.frameNs;
+    return listAudio();
+  };
+  const listAudio = () => audioTracks().map((t) => describe(mkvInfo(t), {
     lang: t.bcp47 || t.lang, name: t.name, default: t.default !== 0, ad: t.vi === 1 || isAD(t.name),
   }));
   let clusterEnd = -1; // where the current cluster ends, if its size is known
@@ -475,6 +484,7 @@ async function matroska(file, peaks, job) {
           break;
         case MKV.TrackNumber: if (track) track.number = uint(v); break;
         case MKV.TrackType: if (track) track.type = uint(v); break;
+        case MKV.DefaultDuration: if (track) track.frameNs = uint(v); break;
         case MKV.CodecID: if (track) track.codec = ascii(v, 0, v.length).replace(/\0+$/, ''); break;
         case MKV.CodecPrivate: if (track) track.priv = v.slice(); break;
         case MKV.SamplingFrequency: if (track) track.rate = ebmlFloat(v); break;
@@ -677,6 +687,20 @@ async function mp4(file, peaks, job) {
   }
   if (!moov) throw new Unsupported('MP4 has no index (moov box)');
   const all = { start: 0, end: moov.byteLength };
+  // The video's frame rate, for timecode: its timescale over its usual frame length.
+  for (const trak of [...boxes(moov, 0, moov.byteLength)].filter((b) => b.type === 'trak')) {
+    const mdia = child(moov, trak, 'mdia');
+    const hdlr = child(moov, mdia, 'hdlr'), mdhd = child(moov, mdia, 'mdhd');
+    const stts = child(moov, path(moov, mdia, 'minf', 'stbl'), 'stts');
+    if (!hdlr || !mdhd || !stts || fourcc(moov, hdlr.start + 8) !== 'vide') continue;
+    const scale = moov.getUint32(mdhd.start + (moov.getUint8(mdhd.start) === 1 ? 20 : 12));
+    let most = 0, delta = 0;
+    for (let i = 0, n = moov.getUint32(stts.start + 4); i < n; i++) {
+      const count = moov.getUint32(stts.start + 8 + i * 8);
+      if (count > most) { most = count; delta = moov.getUint32(stts.start + 12 + i * 8); }
+    }
+    if (scale && delta) { videoFps = scale / delta; break; }
+  }
   const sound = [...boxes(moov, 0, moov.byteLength)].filter((b) => b.type === 'trak').flatMap((trak) => {
     const mdia = child(moov, trak, 'mdia');
     const hdlr = child(moov, mdia, 'hdlr'), mdhd = child(moov, mdia, 'mdhd');

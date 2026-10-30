@@ -18,6 +18,37 @@ export function fmtTime(t, sep = ',') {
   return `${p2(h)}:${p2(m)}:${p2(s)}${sep}${p3(ms)}`;
 }
 
+// SMPTE timecode, hh:mm:ss:ff, at a video's frame rate. 29.97 and 59.94 count in drop-frame
+// timecode, hh:mm:ss;ff, which skips two (or four) frame numbers each minute, except every
+// tenth, so the timecode keeps to the clock. Other rates, 23.976 too, count every frame.
+const nominal = (fps) => Math.round(fps);
+export const isDropFrame = (fps) => nominal(fps) % 30 === 0 && Math.abs(fps - nominal(fps) * 1000 / 1001) < 0.005;
+export function fmtTC(t, fps = 25) {
+  const fr = nominal(fps);
+  let n = Math.floor(Math.max(0, t) * fps + 1e-4); // the frame showing at t
+  const df = isDropFrame(fps);
+  if (df) {
+    const drop = fr / 15, per10 = fr * 600 - drop * 9, perMin = fr * 60 - drop;
+    const tens = Math.floor(n / per10), rest = n % per10;
+    n += drop * 9 * tens + (rest > drop ? drop * Math.floor((rest - drop) / perMin) : 0);
+  }
+  const s = Math.floor(n / fr);
+  return `${p2(Math.floor(s / 3600))}:${p2(Math.floor(s / 60) % 60)}:${p2(s % 60)}${df ? ';' : ':'}${p2(n % fr)}`;
+}
+// A typed time: SMPTE timecode at fps, or seconds as in parseTime.
+export function parseTC(str, fps = 25) {
+  const m = String(str).trim().match(/^(\d+):(\d{1,2}):(\d{1,2})[:;](\d{1,2})$/);
+  if (!m) return parseTime(str);
+  const fr = nominal(fps), [h, mi, s, f] = m.slice(1).map(Number);
+  if (mi > 59 || s > 59 || f >= fr) return NaN;
+  let n = ((h * 60 + mi) * 60 + s) * fr + f;
+  if (isDropFrame(fps)) {
+    const mins = h * 60 + mi;
+    n -= (fr / 15) * (mins - Math.floor(mins / 10));
+  }
+  return n / fps;
+}
+
 // A block's text to speech speed, voice and "sounds like" words are kept in exported VTT
 // files as notes just before the block. Other programs ignore notes.
 const SPEED_NOTE = 'NOTE Scribecue text to speech speed:';

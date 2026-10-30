@@ -1,4 +1,4 @@
-import { parseSubs, parseAdc, toSRT, toVTT, fmtTime, parseTime } from './formats.js';
+import { parseSubs, parseAdc, toSRT, toVTT, fmtTC, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
@@ -53,7 +53,6 @@ const pcKeys = (s) => (IS_MAC ? s : s
   .replace(/⌥(?=\S)/g, 'Alt+').replace(/⌥/g, 'Alt')
   .replace(/⇧(?=\S)/g, 'Shift+').replace(/⇧/g, 'Shift'));
 const MIN_DUR = 0.1;
-const FRAME = 1 / 25;
 const MAX_PPS = 1500;
 const DEFAULT_LEN = 2;
 const STORE_KEY = 'scribecue.v1';
@@ -100,6 +99,7 @@ const S = {
   remaining: (() => { try { return localStorage.getItem('scribecue.remaining') === '1'; } catch { return false; } })(),
   resumeAfterEdit: false, // hold-to-mark paused playback; closing the editor resumes it
   rate: 1,
+  fps: 25, // the video's frame rate, for timecode and frame steps (see setFps)
   hasVideo: false,
   videoFile: null,
   vt: 0,
@@ -119,6 +119,45 @@ const S = {
   pendingPlayhead: null, // where to put the playhead once that video is open
   notes: '', // the writer's notes about the programme, for AI help
 };
+
+// Times show as SMPTE timecode at the video's frame rate, and typed times can be timecode
+// or seconds. A frame step is one of the video's frames.
+const tc = (t) => fmtTC(t, S.fps);
+const readTime = (s) => parseTC(s, S.fps);
+const frame = () => 1 / S.fps;
+// The usual frame rates, to tidy a measured one: 23.976, 29.97 and 59.94 exactly.
+const RATES = [24000 / 1001, 24, 25, 30000 / 1001, 30, 48000 / 1001, 48, 50, 60000 / 1001, 60];
+function setFps(f) {
+  if (!(f > 1 && f < 1000)) return;
+  const near = RATES.find((r) => Math.abs(r - f) / r < 0.004);
+  const fps = near ?? Math.round(f * 1000) / 1000;
+  S.fpsKnown = true;
+  if (fps === S.fps) return;
+  S.fps = fps;
+  updateEditor();
+  applyFilter();
+  showDur();
+  tlDirty = true;
+}
+// For a video whose file doesn't say its frame rate: measured from the frames shown as it
+// plays, once enough have played. Averaged over the steps of one frame (skipped frames
+// make longer ones), as some files round frame times to the millisecond.
+function measureFps() {
+  if (!video.requestVideoFrameCallback) return;
+  const src = video.src, steps = [];
+  let last = null;
+  const onFrame = (_, m) => {
+    if (S.fpsKnown || video.src !== src) return;
+    if (last != null && m.mediaTime > last) steps.push(m.mediaTime - last);
+    last = m.mediaTime;
+    if (steps.length >= 40) {
+      const ok = steps.filter((d) => d > 0.004), one = ok.filter((d) => d < Math.min(...ok) * 1.5);
+      return setFps(one.length / one.reduce((a, d) => a + d, 0));
+    }
+    video.requestVideoFrameCallback(onFrame);
+  };
+  video.requestVideoFrameCallback(onFrame);
+}
 
 let nextId = 1;
 // speed: the block's own text to speech speed, if it has one.
@@ -554,8 +593,8 @@ function updateEditor() {
   }
   const i = selIdx();
   edIdx.textContent = `#${i + 1}`;
-  if (document.activeElement !== edStart) edStart.value = fmtTime(c.start, '.');
-  if (document.activeElement !== edEnd) edEnd.value = fmtTime(c.end, '.');
+  if (document.activeElement !== edStart) edStart.value = tc(c.start);
+  if (document.activeElement !== edEnd) edEnd.value = tc(c.end);
   // The end comes from the reading with text to speech on.
   edEnd.readOnly = following(c);
   if (edEnd.readOnly) edEnd.dataset.tip = 'Where the reading ends. Change the block’s speed to move it'; else delete edEnd.dataset.tip;
@@ -676,7 +715,7 @@ function editorKeys(e, field) {
   }
   if (os && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
     e.preventDefault();
-    nudge('move', e.code === 'ArrowLeft' ? -FRAME : FRAME);
+    nudge('move', e.code === 'ArrowLeft' ? -frame() : frame());
     updateEditorTimes();
     return true;
   }
@@ -757,10 +796,10 @@ function bindTimeInput(input, which) {
   const apply = () => {
     const c = selCue();
     if (!c) return;
-    const t = parseTime(input.value);
+    const t = readTime(input.value);
     const cur = which === 'start' ? c.start : c.end;
-    if (Number.isNaN(t)) { toast('Invalid time — use hh:mm:ss.mmm'); }
-    else if (Math.abs(t - cur) > 0.0005 && which === 'end' && endLocked(c)) input.value = fmtTime(c.end, '.');
+    if (Number.isNaN(t)) { toast('Invalid time — use hh:mm:ss:ff, or seconds'); }
+    else if (Math.abs(t - cur) > 0.0005 && which === 'end' && endLocked(c)) input.value = tc(c.end);
     else if (Math.abs(t - cur) > 0.0005) {
       pushUndo();
       if (which === 'start') c.start = clamp(t, 0, c.end - MIN_DUR);
@@ -769,7 +808,7 @@ function bindTimeInput(input, which) {
       changed();
       select(c.id, { seek: false });
     }
-    input.value = fmtTime(which === 'start' ? c.start : c.end, '.');
+    input.value = tc(which === 'start' ? c.start : c.end);
   };
   input.addEventListener('keydown', (e) => {
     e.stopPropagation();
@@ -791,8 +830,8 @@ function bindTimeInput(input, which) {
 }
 function updateEditorTimes() {
   const c = selCue();
-  edStart.value = c ? fmtTime(c.start, '.') : '';
-  edEnd.value = c ? fmtTime(c.end, '.') : '';
+  edStart.value = c ? tc(c.start) : '';
+  edEnd.value = c ? tc(c.end) : '';
 }
 bindTimeInput(edStart, 'start');
 bindTimeInput(edEnd, 'end');
@@ -874,7 +913,7 @@ listSearch.addEventListener('keydown', (e) => {
 function fillRow(r, c, i) {
   const [n, t, tx] = r.children;
   n.textContent = i + 1;
-  t.children[0].textContent = fmtTime(c.start, '.');
+  t.children[0].textContent = tc(c.start);
   t.children[1].textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '')
     + (ttsOn() && c.voice ? ` · ${blockVoiceName(c.voice)}` : '');
   // Red when the reading is longer than the block, with a sign for anyone who can't tell red.
@@ -889,7 +928,7 @@ function fillRow(r, c, i) {
       title: usingGoogle(c.voice) ? 'Reading kept: plays straight away, and isn\'t sent to Google again'
         : usingAudioVoice(c.voice) ? 'Reading kept: its length is exact, and it plays straight away' : 'Reading made: its length is exact' }));
   }
-  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: fmtTime(c.start, '.'), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, ready: !!reading?.exact }));
+  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, ready: !!reading?.exact }));
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
   r.hidden = !matches(c, i);
@@ -1131,7 +1170,7 @@ function placeScrub(t) {
     scrubSec = sec;
     scrubEl.setAttribute('aria-valuemax', String(Math.round(d)));
     scrubEl.setAttribute('aria-valuenow', String(sec));
-    scrubEl.setAttribute('aria-valuetext', fmtTime(t, '.').slice(0, 8));
+    scrubEl.setAttribute('aria-valuetext', tc(t).slice(0, 8));
   }
 }
 function drawScrub(force = false) {
@@ -1158,7 +1197,7 @@ const scrubAt = (e) => {
 function showScrubTime(e) {
   const r = scrubEl.getBoundingClientRect(), mr = scrubMarks.getBoundingClientRect();
   scrubTime.hidden = false;
-  scrubTime.textContent = fmtTime(scrubAt(e), '.');
+  scrubTime.textContent = tc(scrubAt(e));
   scrubTime.style.left = `${clamp(e.clientX, mr.left, mr.right) - r.left}px`;
 }
 scrubEl.addEventListener('pointerdown', (e) => {
@@ -1256,7 +1295,7 @@ lane.addEventListener('pointermove', (e) => {
   }
   changed(c.id);
   dragtip.hidden = false;
-  dragtip.textContent = `${fmtTime(c.start, '.')} → ${fmtTime(c.end, '.')}  ·  ${(c.end - c.start).toFixed(2)} s`;
+  dragtip.textContent = `${tc(c.start)} → ${tc(c.end)}  ·  ${(c.end - c.start).toFixed(2)} s`;
   const lx = e.clientX - lane.getBoundingClientRect().left;
   dragtip.style.left = clamp(lx + 12, 0, lane.clientWidth - dragtip.offsetWidth - 4) + 'px';
 });
@@ -1385,9 +1424,9 @@ const ctrls = $('ctrls');
 const CTL = {
   prevBlock: () => playheadBlock(-1),
   back3: () => seekBy(-3),
-  backFrame: () => seekBy(-FRAME),
+  backFrame: () => seekBy(-frame()),
   play: () => togglePlay(),
-  fwdFrame: () => seekBy(FRAME),
+  fwdFrame: () => seekBy(frame()),
   fwd3: () => seekBy(3),
   nextBlock: () => playheadBlock(1),
   playBlock: () => playCue(),
@@ -1399,8 +1438,8 @@ ctrls.addEventListener('click', (e) => CTL[e.target.closest('button')?.dataset.c
 // After the clock: the total length, or, clicked, the time remaining. Remembered.
 function showDur(t = now()) {
   const d = S.hasVideo ? duration() : NaN, remaining = S.remaining && d > 0;
-  durEl.textContent = !(d > 0) ? '--:--:--.---'
-    : remaining ? `−${fmtTime(Math.max(0, d - t), '.')}` : fmtTime(d, '.');
+  durEl.textContent = !(d > 0) ? '--:--:--:--'
+    : remaining ? `−${tc(Math.max(0, d - t))}` : tc(d);
   durEl.dataset.tip = remaining ? 'Time remaining. Click to show the total length instead'
     : 'Total length. Click to show the time remaining instead';
   durEl.setAttribute('aria-label', remaining ? 'Time remaining. Show the total length instead' : 'Total length. Show the time remaining instead');
@@ -1425,20 +1464,20 @@ function swapSides() {
 }
 clockEl.addEventListener('click', async (e) => {
   e.currentTarget.blur(); // so Space still plays
-  const tc = fmtTime(now(), '.');
+  const code = tc(now());
   let ok = false;
-  try { await navigator.clipboard.writeText(tc); ok = true; } catch { /* fall back below */ }
+  try { await navigator.clipboard.writeText(code); ok = true; } catch { /* fall back below */ }
   if (!ok) {
     // older path for browsers that refuse the async clipboard API
     const ta = document.createElement('textarea');
-    ta.value = tc;
+    ta.value = code;
     ta.style.cssText = 'position:fixed;opacity:0';
     document.body.append(ta);
     ta.select();
     try { ok = document.execCommand('copy'); } catch { /* ignore */ }
     ta.remove();
   }
-  toast(ok ? `Copied ${tc}` : 'Couldn’t copy: the browser blocked clipboard access');
+  toast(ok ? `Copied ${code}` : 'Couldn’t copy: the browser blocked clipboard access');
 });
 ind.addEventListener('click', (e) => {
   e.target.blur?.(); // so Space still plays
@@ -2304,7 +2343,7 @@ function takeEnd() {
   resized(c, 'end');
   changed(c.id);
   seek(end); // where the next part carries on from
-  toast(`Block #${i + 1} now ends at ${fmtTime(end, '.')} (${(end - c.start).toFixed(2)} s). Hold H to carry on, or G then H to start again`);
+  toast(`Block #${i + 1} now ends at ${tc(end)} (${(end - c.start).toFixed(2)} s). Hold H to carry on, or G then H to start again`);
 }
 
 function holdEnd() {
@@ -2889,7 +2928,9 @@ function loadVideoFile(file) {
   videoURL = URL.createObjectURL(file);
   S.videoFile = file;
   S.hasVideo = true;
+  S.fpsKnown = false;
   video.src = videoURL;
+  measureFps();
   video.playbackRate = S.rate;
   document.body.classList.add('has-video');
   offerReopen(null);
@@ -2958,9 +2999,9 @@ function resetTracks() {
 function probeTracks(file) {
   return new Promise((done) => {
     let w;
-    try { w = new Worker('js/wave-worker.js'); } catch { return done([]); }
-    w.onmessage = ({ data: m }) => { w.terminate(); done(m.type === 'tracks' ? m.tracks : []); };
-    w.onerror = (e) => { e.preventDefault(); w.terminate(); done([]); };
+    try { w = new Worker('js/wave-worker.js'); } catch { return done({ tracks: [] }); }
+    w.onmessage = ({ data: m }) => { w.terminate(); done(m.type === 'tracks' ? m : { tracks: [] }); };
+    w.onerror = (e) => { e.preventDefault(); w.terminate(); done({ tracks: [] }); };
     w.postMessage({ cmd: 'probe', file });
   });
 }
@@ -2969,8 +3010,9 @@ async function loadTracks(file) {
   resetTracks();
   resetWaveform();
   S.waveStatus = 'Reading audio tracks…';
-  const tracks = await probeTracks(file);
+  const { tracks, fps } = await probeTracks(file);
   if (S.videoFile !== file) return;
+  if (fps) setFps(fps);
   S.tracks = tracks;
   renderTrackPicker();
   if (tracks.length < 2) return buildWaveform(file, 0, false);
@@ -3329,17 +3371,13 @@ document.addEventListener('keydown', (e) => {
 const pal = $('palette'), palInput = $('palInput'), palList = $('palList'), palTitle = $('palTitle'), palHint = $('palHint');
 let palMode = null, palItems = [], palPos = 0;
 
-function parseTimecode(s) {
-  const m = s.trim().match(/^(\d+):(\d+):(\d+)[:;](\d+)$/); // hh:mm:ss:ff
-  return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] + +m[4] * FRAME : parseTime(s);
-}
 function openPalette(mode) {
   palMode = mode;
   palPos = 0;
   pal.hidden = false;
   palTitle.textContent = mode === 'time' ? 'Jump to timecode' : 'Quick navigation';
-  palInput.placeholder = mode === 'time' ? 'hh:mm:ss.mmm · hh:mm:ss:ff · mm:ss · seconds' : 'Type text or a block number';
-  palInput.value = mode === 'time' ? fmtTime(now(), '.') : '';
+  palInput.placeholder = mode === 'time' ? 'hh:mm:ss:ff · hh:mm:ss.mmm · mm:ss · seconds' : 'Type text or a block number';
+  palInput.value = mode === 'time' ? tc(now()) : '';
   renderPalette();
   palInput.focus();
   palInput.select();
@@ -3352,8 +3390,8 @@ function closePalette() {
 function renderPalette() {
   palList.textContent = '';
   if (palMode === 'time') {
-    const t = parseTimecode(palInput.value);
-    palHint.textContent = Number.isNaN(t) ? 'Not a valid timecode' : `Enter jumps to ${fmtTime(clamp(t, 0, duration()), '.')}`;
+    const t = readTime(palInput.value);
+    palHint.textContent = Number.isNaN(t) ? 'Not a valid timecode' : `Enter jumps to ${tc(clamp(t, 0, duration()))}`;
     palItems = [];
     return;
   }
@@ -3369,7 +3407,7 @@ function renderPalette() {
     r.className = 'palrow' + (k === palPos ? ' on' : '');
     r.innerHTML = '<span class="n"></span><span class="t"></span><span class="tx"></span>';
     r.children[0].textContent = '#' + (i + 1);
-    r.children[1].textContent = fmtTime(c.start, '.');
+    r.children[1].textContent = tc(c.start);
     r.children[2].textContent = plain(c.text).replace(/\n/g, ' / ') || '(empty)';
     r.addEventListener('mousedown', (ev) => { ev.preventDefault(); palPos = k; palGo(); });
     palList.append(r);
@@ -3378,7 +3416,7 @@ function renderPalette() {
 }
 function palGo() {
   if (palMode === 'time') {
-    const t = parseTimecode(palInput.value);
+    const t = readTime(palInput.value);
     if (Number.isNaN(t)) return toast('Not a valid timecode');
     closePalette();
     S.playUntil = null;
@@ -3458,8 +3496,8 @@ const RUN = {
   loopToggle: () => toggleFlag('loop'),
   followToggle: () => toggleFlag('follow'),
   speedReset: () => setRate(1),
-  frameBack: () => seekBy(-FRAME),
-  frameFwd: () => seekBy(FRAME),
+  frameBack: () => seekBy(-frame()),
+  frameFwd: () => seekBy(frame()),
   back3: () => seekBy(-3),
   fwd3: () => seekBy(3),
   blockBack: () => playheadBlock(-1),
@@ -3545,7 +3583,7 @@ function tick(ts) {
   if (t !== lastT || S.activeId === undefined) {
     lastT = t;
     updateActive(t);
-    clockEl.textContent = fmtTime(t, '.');
+    clockEl.textContent = tc(t);
     if (S.remaining) showDur(t);
   }
   if (tlDirty) { drawTimeline(); drawScrub(true); } else drawScrub();
