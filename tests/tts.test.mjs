@@ -344,3 +344,11 @@ test('a missing voice comes with what to do about it', () => {
   assert.match(missingVoiceAdvice('kokoro:af_heart', { hosted: true }), /Docker version/);
   assert.match(missingVoiceAdvice('Samantha'), /isn’t on this computer/);
 });
+
+test('nothing in tts.js hides the worker’s ask, which the web version uses to reach Piper', async () => {
+  // A local "ask" in loadPiper once made the web version's ask('status') throw, so its
+  // Piper voices disappeared.
+  const src = await import('node:fs').then((fs) => fs.readFileSync(new URL('../app/js/tts.js', import.meta.url), 'utf8'));
+  assert.deepEqual(src.match(/\b(?:const|let|var)\s+ask\b|\(\s*ask\s*[,)]/g), null);
+  assert.equal(src.match(/^function ask\(/gm)?.length, 1);
+});

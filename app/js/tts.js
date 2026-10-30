@@ -640,10 +640,10 @@ export async function loadPiper() {
   }
   // Each from its own container, if it's running. Voices in the user's language first,
   // so the default suits them.
-  const ask = (url, list) => fetch(url, { cache: 'no-store' })
+  const voicesFrom = (url, list) => fetch(url, { cache: 'no-store' })
     .then(async (r) => (r.ok ? pickVoices(list(await r.json()), { lang: navigator.language || 'en' }) : []))
     .catch(() => []);
-  [tts.piper, tts.kokoro] = await Promise.all([ask('tts/voices', piperVoiceList), ask('tts/kokoro/voices', kokoroVoiceList)]);
+  [tts.piper, tts.kokoro] = await Promise.all([voicesFrom('tts/voices', piperVoiceList), voicesFrom('tts/kokoro/voices', kokoroVoiceList)]);
   voices = allowed();
   piperKnown = true;
   hooks.changed();
