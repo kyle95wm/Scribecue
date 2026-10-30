@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.51.3",
+  "date": "2026-10-30",
+  "notes": "## Fixes\n\n- Every block now fits its reading as you edit it. Blocks marked with H, drawn on the timeline or opened from a file keep their length, and their reading speeds up or slows down to fill it. A block with a speed you picked keeps that speed, and its end moves to where the reading finishes. Before, these blocks kept both their length and their speed, so a longer line ran past the end of its block."
+ },
+ {
   "version": "0.51.2",
   "date": "2026-10-30",
   "notes": "## Fixes\n\n- After **Shift+V** or **Update all timings** set a block’s end from its reading, the end now keeps following the reading as you edit the text, as a new block’s does. Before, it stayed where it was, so a longer line, or a Google reading that came out longer than its estimate, left the block too short, marked ⚠, with its reading running past the end. This also applies when you open a script and choose to change the ends to match the readings."
