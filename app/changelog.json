@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.44.0",
+  "date": "2026-10-30",
+  "notes": "## Favourite voices\n\n- In **Settings**, under **Text to speech**, click ☆ beside the voice list to pin the current voice to your favourites. Click it again to unpin it.\n- Your favourites appear as buttons under the voice list, so you can switch between them in one click, and at the top of the voice list itself.\n- If a favourite isn't available, for example because Piper is off, its button is dashed, and clicking it removes it."
+ },
+ {
   "version": "0.43.1",
   "date": "2026-10-30",
   "notes": "## Google Cloud voices\n\n- Readings from Google are now kept in your browser, so each line is only sent to Google, and counted against your allowance, once. It's read again only if you change its text, speed or voice.\n- Reopening a project, playing it back or exporting the description track uses the kept readings, so lengths are exact straight away, and lines already read play offline.\n- **Settings**, under **Storage**, shows how many readings are kept and can clear them. Up to 250 MB are kept, the ones used longest ago going first."
