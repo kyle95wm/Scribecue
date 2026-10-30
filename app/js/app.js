@@ -296,7 +296,8 @@ function save() {
     localStorage.setItem(STORE_KEY, JSON.stringify({
       subName: S.subName,
       dirty: S.dirty,
-      projectMedia: S.projectMedia,
+      // The open video, so it can be reopened after a reload, or else the project's.
+      projectMedia: S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size } : S.projectMedia,
       notes: S.notes,
       cues: S.cues.map(({ start, end, text, speed, auto, fit, pinned, say }) => ({ start, end, text, speed, auto, fit, pinned, say })),
     }));
@@ -2216,20 +2217,79 @@ const handleStore = {
     r.onsuccess = () => ok(r.result);
     r.onerror = () => fail(r.error);
   }),
-  async get() {
+  // key: 'project', or a video's mediaKey.
+  async get(key = 'project') {
     try {
       const db = await this.db();
-      return await new Promise((ok) => { const q = db.transaction('files').objectStore('files').get('project'); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); });
+      return await new Promise((ok) => { const q = db.transaction('files').objectStore('files').get(key); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); });
     } catch { return null; }
   },
-  async set(h) {
+  async set(h, key = 'project') {
     try {
       const db = await this.db();
       const st = db.transaction('files', 'readwrite').objectStore('files');
-      h ? st.put(h, 'project') : st.delete('project');
+      h ? st.put(h, key) : st.delete(key);
     } catch { /* ignore */ }
   },
 };
+
+// ---- remembering videos
+//
+// Browsers don't let a page keep a file's path, but Chrome and Edge let it keep a link to
+// a file you opened. So each video opened is remembered by its name and size, which is
+// how projects name their video, and opening the project, or Scribecue again, reopens it.
+// After a reload the browser asks first, which needs a click: the empty video area offers
+// it then.
+const mediaKey = (m) => `video:${m.name}:${m.size}`;
+function rememberVideo(h, file) {
+  if (h?.kind === 'file') handleStore.set(h, mediaKey(file));
+}
+// Opens the remembered video for this media, if there is one and the browser allows it.
+// ask: whether this follows a click, so the browser may be asked. Returns whether it did.
+async function reopenVideo(media, { ask = false } = {}) {
+  if (!media?.name || S.videoFile) return false;
+  const h = await handleStore.get(mediaKey(media));
+  if (!h) return false;
+  let p = await h.queryPermission?.({ mode: 'read' }).catch(() => 'prompt');
+  if (p !== 'granted' && ask) p = await h.requestPermission({ mode: 'read' }).catch(() => 'denied');
+  if (p !== 'granted') { offerReopen(media); return false; }
+  try {
+    const file = await h.getFile();
+    if (!sameMedia(media, file)) throw new Error('it has changed');
+    loadVideoFile(file);
+    return true;
+  } catch (e) {
+    handleStore.set(null, mediaKey(media));
+    toast(`Couldn’t reopen ${media.name}${e.name === 'NotFoundError' ? ': it has been moved or deleted' : ''}. Open it with ${IS_MAC ? '⌘⇧O' : 'Ctrl+Shift+O'}`);
+    offerReopen(null);
+    return false;
+  }
+}
+// The button in the empty video area that reopens the project's video with one click.
+function offerReopen(media) {
+  const b = $('reopenVideo');
+  b.hidden = !media || !!S.videoFile;
+  if (media) { b.textContent = `Reopen ${media.name}`; b.dataset.media = JSON.stringify(media); }
+}
+$('reopenVideo').addEventListener('click', (e) => {
+  e.currentTarget.blur();
+  reopenVideo(JSON.parse(e.currentTarget.dataset.media || 'null'), { ask: true });
+});
+// The video-only open (Ctrl/Cmd+Shift+O), through the browser's own picker where there is
+// one, so the video can be remembered.
+async function openVideoPicker() {
+  if (!window.showOpenFilePicker) return fileVideo.click();
+  try {
+    const [h] = await window.showOpenFilePicker({ types: [{ description: 'Video or audio', accept: {
+      'video/*': ['.mp4', '.m4v', '.mov', '.mkv', '.webm'], 'audio/*': ['.wav', '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.opus'],
+    } }] });
+    const file = await h.getFile();
+    loadVideoFile(file);
+    rememberVideo(h, file);
+  } catch (e) {
+    if (e.name !== 'AbortError') toast(`Couldn’t open the file: ${e.message}`);
+  }
+}
 
 const PROJECT_TYPES = [{ description: 'Scribecue project', accept: { 'application/json': [PROJECT_EXT] } }];
 
@@ -2396,6 +2456,9 @@ async function openProject(file, handle = null) {
   projectSaved(file.name);
   toast(`Opened ${file.name} (${S.cues.length} blocks)` + (p.media && !ready
     ? `. Now open its video, ${p.media.name}, with ${IS_MAC ? '⌘⇧O' : 'Ctrl+Shift+O'}` : ''));
+  // A different video is open: this project's one replaces it, if it's remembered.
+  if (p.media && !ready && S.videoFile && await handleStore.get(mediaKey(p.media))) closeVideo();
+  if (p.media && !ready) reopenVideo(p.media, { ask: true }).then((ok) => { if (ok) toast(`Opened ${file.name} and its video, ${p.media.name}`); });
 }
 
 // Ctrl/Cmd+O: a project, or a script saved as SRT or VTT.
@@ -2413,11 +2476,14 @@ async function openAny() {
         } },
       ],
     });
-    for (const h of handles) {
-      const file = await h.getFile();
-      if (file.name.toLowerCase().endsWith(PROJECT_EXT)) openProject(file, h);
-      else openFiles([file]);
+    // Videos first, so a project picked with its video finds it already open.
+    const files = await Promise.all(handles.map(async (h) => [h, await h.getFile()]));
+    const isProject = ([, f]) => f.name.toLowerCase().endsWith(PROJECT_EXT);
+    for (const [h, file] of files.filter((x) => !isProject(x))) {
+      openFiles([file]);
+      if (!/\.(srt|vtt|txt)$/i.test(file.name)) rememberVideo(h, file);
     }
+    for (const [h, file] of files.filter(isProject)) openProject(file, h);
   } catch (e) {
     if (e.name !== 'AbortError') toast(`Couldn’t open the file: ${e.message}`);
   }
@@ -2487,7 +2553,7 @@ function fileKeys(e) {
   const k = e.key.toLowerCase();
   if (k === 's') { e.preventDefault(); saveProject(e.shiftKey); return true; }
   if (k === 'e') { e.preventDefault(); exportSubs(e.shiftKey ? 'vtt' : 'srt'); return true; }
-  if (k === 'o') { e.preventDefault(); e.shiftKey ? fileVideo.click() : openAny(); return true; }
+  if (k === 'o') { e.preventDefault(); e.shiftKey ? openVideoPicker() : openAny(); return true; }
   return false;
 }
 
@@ -2532,6 +2598,7 @@ function loadVideoFile(file) {
   video.src = videoURL;
   video.playbackRate = S.rate;
   document.body.classList.add('has-video');
+  offerReopen(null);
   const v = $('videoName');
   v.textContent = file.name;
   v.classList.remove('dim');
@@ -2869,13 +2936,19 @@ window.addEventListener('dragleave', (e) => { if (!e.relatedTarget) stage.classL
 window.addEventListener('drop', (e) => {
   e.preventDefault();
   stage.classList.remove('drop');
-  openFiles(e.dataTransfer.files);
+  // Links to dropped videos, so they can be reopened later; only to be had during the drop.
+  const links = [...e.dataTransfer.items].map((it) => it.getAsFileSystemHandle?.()).filter(Boolean);
+  const files = [...e.dataTransfer.files];
+  openFiles(files);
+  Promise.all(links).then((hs) => hs.forEach((h, i) => {
+    if (files[i] && !/\.(srt|vtt|txt|scribecue)$/i.test(files[i].name)) rememberVideo(h, files[i]);
+  })).catch(() => {});
 });
 
 const actions = {
   openSubs: () => openAny(),
   saveProject: () => saveProject(),
-  openVideo: () => fileVideo.click(),
+  openVideo: () => openVideoPicker(),
   exportSrt: () => exportSubs('srt'),
   exportVtt: () => exportSubs('vtt'),
   exportTrack: () => {
@@ -3214,6 +3287,8 @@ durEl.textContent = S.hasVideo ? fmtTime(duration(), '.') : '--:--:--.---';
 if (restored) {
   select(S.cues[0].id, { seek: false });
   toast(`Restored ${restored} cues from autosave`);
+  // Its video too, straight away if the browser still allows it, or with one click.
+  if (S.projectMedia) reopenVideo(S.projectMedia).then((ok) => { if (ok) toast(`Restored ${restored} cues, and reopened ${S.projectMedia.name}`); });
 } else {
   toast('Ready. Press ? for keyboard shortcuts.');
 }

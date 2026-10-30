@@ -254,9 +254,10 @@ Once the whole programme is marked:
   **autosave paused** to let it carry on). Your work is also kept in the browser as you
   go, so reloading the page loses nothing. After 20 minutes of unsaved work, a note
   reminds you to save; **Later** asks again in half an hour.
-- **Next time,** open the project with `Ctrl/Cmd+O`, then its video. Browsers can't
-  remember where a video is, but Scribecue tells you which one the project belongs to, and
-  warns you if you pick a different file.
+- **Next time,** open the project with `Ctrl/Cmd+O`. In Chrome and Edge its video opens
+  with it, or after a restart, with one click on **Reopen** where the video goes. Other
+  browsers can't keep a link to a file, so there you open the video too; Scribecue tells
+  you which one the project belongs to, and warns you if you pick a different file.
 - **To hand it over,** use the **Export** menu: **Script as SRT** (`Ctrl/Cmd+E`) or **Script
   as WebVTT** (`Ctrl/Cmd+Shift+E`). Both open in most subtitle and description tools, and
   in Scribecue again.

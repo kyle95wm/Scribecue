@@ -169,11 +169,13 @@ one per programme, and open any of them with `Ctrl/Cmd+O`.
   are changes you haven't saved yet. After 20 minutes of unsaved work, a note reminds you
   to save, since until then the work is only kept in the browser. **Later** asks again in
   half an hour.
-- Browsers can't remember where a video is, so after opening a project, open its video
-  too. **Open** (`Ctrl/Cmd+O`) takes projects, scripts and video or audio files alike, and
-  you can pick the project and its video together; `Ctrl/Cmd+Shift+O` opens only video or
-  audio. Scribecue tells you which video a project belongs to, and warns you if you pick a
-  different file.
+- **The video comes back with the project.** In Chrome and Edge, Scribecue remembers each
+  video you open, so opening a project, or Scribecue again, reopens its video too. After a
+  restart the browser asks first: click **Reopen** with the video's name, where the video
+  goes. If the video has moved, open it again with `Ctrl/Cmd+Shift+O`. Other browsers can't
+  keep a link to a file, so there you open the video yourself. **Open** (`Ctrl/Cmd+O`)
+  takes projects, scripts and video or audio files alike, and you can pick the project and
+  its video together. Scribecue warns you if you pick a different video from the project's.
 - **New**, at the top left, starts again, and offers two ways to do it:
   - **Clear the blocks** removes every block and keeps the video, the project file and your
     notes, ready to write from scratch on the same video. To swap in a different script
