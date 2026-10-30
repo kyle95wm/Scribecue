@@ -23,7 +23,7 @@ import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, readingsOf, fixedShare, LANES,
-  usingAudioVoice, measure, prefetch, renderTrack, chosenVoice, chosenVoiceName, showGoogleCost, setTtsOption, onlyNotes, mixLevels, setMix,
+  usingAudioVoice, measure, prefetch, renderTrack, chosenVoice, chosenVoiceName, voiceName, showGoogleCost, setTtsOption, onlyNotes, mixLevels, setMix,
   savedReadings, clearSavedReadings } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1774,13 +1774,16 @@ document.addEventListener('keydown', (e) => { if (importDlg.open) e.stopPropagat
 // The voice, speed or base speed changed in Settings: every reading takes a different
 // time now, so ask whether the ends should follow, or do what was chosen before.
 const changeDlg = $('changeDlg');
-function readingChanged(what) {
+let changedFrom = null; // { what, was }: the voice or base speed before, to go back to
+function readingChanged(what, was) {
   const n = S.cues.filter((c) => spoken(c.text)).length;
   if (!writing() || !ttsOn() || !n || tts.onChange === 'leave') return;
   if (tts.onChange === 'ends') return asJob(() => updateAllTimings(false));
   const now = { voice: () => `The voice is now ${chosenVoiceName()}`,
     base: () => `The base speed is now ${Math.round(tts.base * 100)}%` }[what]();
   $('chgWhat').textContent = `${now}, so the readings of ${n === 1 ? 'the 1 block' : `all ${n} blocks`} take a different time.`;
+  changedFrom = { what, was };
+  $('chgBack').textContent = `Go back to ${what === 'voice' ? voiceName(was) : `${Math.round(was * 100)}%`}`;
   $('chgAlways').checked = false;
   showGoogleCost();
   changeDlg.showModal();
@@ -1789,8 +1792,9 @@ function readingChanged(what) {
 for (const b of changeDlg.querySelectorAll('.wzchoice')) {
   b.addEventListener('click', () => {
     const choice = b.dataset.choice;
-    if ($('chgAlways').checked) setTtsOption('onChange', choice);
     changeDlg.close();
+    if (choice === 'back') return setTtsOption(changedFrom.what, changedFrom.was);
+    if ($('chgAlways').checked) setTtsOption('onChange', choice);
     if (choice === 'ends') asJob(() => updateAllTimings(false));
   });
 }

@@ -930,6 +930,7 @@ export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
 }
 export const chosenVoice = () => currentVoice()?.voiceURI || '';
 export const chosenVoiceName = () => currentVoice()?.name || 'none';
+export const voiceName = (uri) => voices.find((v) => v.voiceURI === uri)?.name || 'the voice before';
 
 // The favourites row: a button for each favourite, to switch to it in one click, and the
 // star beside the voice list, to pin or unpin the chosen voice.
@@ -1022,7 +1023,8 @@ function render(googleError = '') {
 function changeReading(k, v) {
   const was = currentVoice()?.voiceURI, before = tts[k];
   setTtsOption(k, v);
-  if (k === 'voice' ? currentVoice()?.voiceURI !== was : tts[k] !== before) hooks.readingChanged(k);
+  // What it was before, to go back to: for the voice, the one that was reading.
+  if (k === 'voice' ? currentVoice()?.voiceURI !== was : tts[k] !== before) hooks.readingChanged(k, k === 'voice' ? was : before);
 }
 
 export function setTtsOption(k, v) {

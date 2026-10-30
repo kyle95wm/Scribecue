@@ -338,9 +338,10 @@ click it to take it out.
   files, as notes that other programs ignore. SRT files can't store them.
 - **When the voice or base speed changes:** every reading takes a different time, so
   Scribecue asks whether to change the blocks' ends to match the new readings, never running
-  into the next block, or leave the timings as they are. Tick **Always do this** to stop it
-  asking, and change your choice later under **When the voice or base speed changes**.
-  Changing the ends can be undone.
+  into the next block, or leave the timings as they are. Or go back to the voice or base
+  speed you had, and nothing changes. Tick **Always do this** to stop it asking, and
+  change your choice later under **When the voice or base speed changes**. Changing the
+  ends can be undone.
 - **Read blocks aloud while playing:** each block is read as the playhead reaches it,
   with the original audio turned down. You can turn either part off.
 - **Mix:** the **Video / TTS** slider under the video sets how loud the readings are

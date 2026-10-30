@@ -253,7 +253,9 @@ docker compose up -d --build</code></pre>
       <span class="dim">Each block ends where its reading now finishes, never running into the next block.</span></span></button>
     <button class="wzcard wzchoice" data-choice="leave"><span><strong>Leave the timings as they are</strong>
       <span class="dim">Lines that no longer fit show their duration in red.</span></span></button>
-    <p class="warnbox googlecost" hidden>You're using a Google Cloud voice, so this reads every block with Google again, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
+    <button class="wzcard wzchoice" data-choice="back"><span><strong id="chgBack">Go back</strong>
+      <span class="dim">Nothing changes: the voice and speed are as they were, and so are the timings.</span></span></button>
+    <p class="warnbox googlecost" hidden>You're using a Google Cloud voice, so changing the ends reads every block with Google again, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
     <label class="updopt"><input type="checkbox" id="chgAlways"> Always do this when the voice or base speed changes</label>
     <p class="dim small">You can undo the change with <kbd><span class="mod"></span>Z</kbd>, and change this in
       Settings, under Text to speech.</p>
