@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.41.0",
+  "date": "2026-10-29",
+  "notes": "## Time remaining\n\n- Click the total length, next to the clock under the video, to show the time left instead. It counts down as the video plays. Click it again to go back, and Scribecue remembers which you chose."
+ },
+ {
   "version": "0.40.2",
   "date": "2026-10-29",
   "notes": "## Reading it yourself\n\n- In Write mode, while you hold **H** to time your own read, the block's text stays on the video until you let go, even once the playhead passes its old end."
