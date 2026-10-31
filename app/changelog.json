@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.58.1",
+  "date": "2026-10-30",
+  "notes": "## Smoother on slower computers\n\n- Long jobs, such as **Make all readings** or **Fit speeds to timings** on a long script, no longer make Scribecue stutter or freeze while they run, and finish sooner.\n- **Loading…** shows next to the clock while the video gets ready to play, so play no longer looks as if it did nothing.\n- Pressing play and pause quickly no longer shows a “Playback failed” message.\n- Getting started has tips for slower computers, such as writing with a smaller copy of the video.\n\n## Fixes\n\n- **Fit speeds to timings** no longer gives up on a block whose reading is still too long at the slowest speed: it tries faster ones until the reading fits."
+ },
+ {
   "version": "0.58.0",
   "date": "2026-10-30",
   "notes": "## Waveforms are kept\n\n- Reopening a video, even after a reload, shows its waveform straight away, instead of building it again.\n- Waveforms are kept in your browser for the 20 videos and audio tracks used most recently, and take little space: about 3 MB for a two-hour film.\n- In a file with several audio tracks, the waveform shows straight away, while Scribecue still copies the track out to play it.\n- **Remove all data**, in **Settings**, clears them too."
