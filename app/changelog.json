@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.58.0",
+  "date": "2026-10-30",
+  "notes": "## Waveforms are kept\n\n- Reopening a video, even after a reload, shows its waveform straight away, instead of building it again.\n- Waveforms are kept in your browser for the 20 videos and audio tracks used most recently, and take little space: about 3 MB for a two-hour film.\n- In a file with several audio tracks, the waveform shows straight away, while Scribecue still copies the track out to play it.\n- **Remove all data**, in **Settings**, clears them too."
+ },
+ {
   "version": "0.57.3",
   "date": "2026-10-30",
   "notes": "## Guides\n\n- The AI help guide now recommends OpenAI models: GPT-6.1 Sol to start with, GPT-6 Astra for busy or tricky scenes, and GPT-6 Luna for cheap first drafts, with roughly what each costs per draft."
