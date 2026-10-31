@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.62.1",
+  "date": "2026-10-31",
+  "notes": "## Fixes\n\n- When a browser doesn’t give its name, the notice about missing features now says **This browser is missing some features**, instead of “You’re using this browser”.\n- If you close Scribecue while ffmpeg is making a copy or a full mix, its files in Docker are now deleted after five minutes, instead of waiting for the next job."
+ },
+ {
   "version": "0.62.0",
   "date": "2026-10-31",
   "notes": "## When a video won’t play\n\n- Some Chromium builds can’t play H.264 video or AAC sound, which most MP4 files use. Scribecue now tells you when it starts.\n- Opening a file it can’t play names what’s missing and what to do, instead of a short message.\n- With ffmpeg in Docker, **Make a copy that plays** makes a copy, opens it and downloads it for you. When only the sound is the problem, the picture is kept as it is.\n\n## Guides\n\n- The guides now say what your computer needs to run Scribecue, and how much memory Docker needs for each voice."
