@@ -101,6 +101,10 @@ file, ready to listen to or share. It needs a Piper, Kokoro or Google voice.
   alongside the original sound, or in place of its sound. It works with MP4, MOV, MKV and
   WebM videos. In the video, the mix is AAC unless you choose AC-3 or E-AC-3 (or Opus, in
   a WebM). Stems stay WAV or MP3.
+- **With ffmpeg of your own:** if ffmpeg is installed on your computer, after exporting a
+  video's full mix Scribecue shows the commands that put the mix into the video, as an
+  extra audio description track or in place of its sound. Click **Copy**, then run it in a
+  folder with the video and the mix. The picture is copied as it is, so it's quick.
 - **Stop** cancels it.
 
 Your browser may ask whether Scribecue can download several files, for the stems. Allow

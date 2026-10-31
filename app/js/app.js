@@ -21,6 +21,7 @@ import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, writeWav, readingStarting } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
+import { ffmpegCommands } from './ffcmd.js';
 import { waveKey, loadWave, saveWave } from './wavestore.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
@@ -1552,21 +1553,23 @@ function swapSides() {
   setSwapped(on);
   try { localStorage.setItem('scribecue.swapped', on ? '1' : '0'); } catch { /* ignore */ }
 }
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* fall back below */ }
+  // older path for browsers that refuse the async clipboard API
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.append(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { /* ignore */ }
+  ta.remove();
+  return ok;
+}
 clockEl.addEventListener('click', async (e) => {
   e.currentTarget.blur(); // so Space still plays
   const code = tc(now());
-  let ok = false;
-  try { await navigator.clipboard.writeText(code); ok = true; } catch { /* fall back below */ }
-  if (!ok) {
-    // older path for browsers that refuse the async clipboard API
-    const ta = document.createElement('textarea');
-    ta.value = code;
-    ta.style.cssText = 'position:fixed;opacity:0';
-    document.body.append(ta);
-    ta.select();
-    try { ok = document.execCommand('copy'); } catch { /* ignore */ }
-    ta.remove();
-  }
+  const ok = await copyText(code);
   toast(ok ? `Copied ${code}` : 'Couldn’t copy: the browser blocked clipboard access');
 });
 ind.addEventListener('click', (e) => {
@@ -2151,6 +2154,7 @@ ttsMixExport.addEventListener('click', async () => {
   if (tts.ffmpeg && tts.mixInto && !into) return (ttsMixStatus.textContent = `ffmpeg can put the mix in an MP4, MOV, MKV or WebM video, not a .${ext} file.`);
   const ff = !!(tts.ffmpeg && (as.ffmpeg || into));
   mixStopped = false;
+  $('ttsMixCmds').hidden = true;
   // With ffmpeg, mixing ends at 70%, and sending and making the file take the rest.
   const share = ff ? 0.7 : 1;
   const show = (f, text) => { if (mixStopped) throw stopped(); ttsMixBar.value = f; ttsMixStatus.textContent = text; };
@@ -2194,6 +2198,14 @@ ttsMixExport.addEventListener('click', async () => {
       saved.push(name);
       await new Promise((ok) => setTimeout(ok, 300)); // browsers can drop downloads started together
     }
+    // Without ffmpeg here, the commands to put the mix in the video with ffmpeg of one's own.
+    const cmds = !into && ffmpegCommands({ video: file.name, mix: saved[0], tracks: S.tracks.length || 1,
+      out: `${baseName()} - with audio description.${ext}` });
+    if (cmds && S.hasVideo) {
+      $('ttsCmdAdd').textContent = cmds.add;
+      $('ttsCmdReplace').textContent = cmds.replace;
+      $('ttsMixCmds').hidden = false;
+    }
     const lufs = (v) => (Number.isFinite(v) ? `${v.toFixed(1)} LUFS` : 'silent');
     report(ttsMixStatus, `Saved ${saved.join(', ')}. Loudness: ${lufs(done.loudness)}` + (done.was != null ? `, from ${lufs(done.was)}.` : '.'));
   } catch (e) {
@@ -2206,6 +2218,9 @@ ttsMixExport.addEventListener('click', async () => {
     ttsMixExport.disabled = !usingAudioVoice();
   }
 });
+for (const [btn, code] of [['ttsCmdAddCopy', 'ttsCmdAdd'], ['ttsCmdReplaceCopy', 'ttsCmdReplace']]) {
+  $(btn).addEventListener('click', async () => toast(await copyText($(code).textContent) ? 'Copied the command' : 'Couldn’t copy: the browser blocked clipboard access'));
+}
 ttsMixStop.addEventListener('click', () => {
   mixStopped = true;
   mixWorker?.stop();

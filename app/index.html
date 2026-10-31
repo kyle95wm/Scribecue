@@ -669,6 +669,16 @@ docker compose up -d --build</code></pre>
         <progress id="ttsMixBar" class="jobbar" max="1" value="0" hidden aria-label="Exporting the full mix"></progress>
         <button id="ttsMixStop" hidden>Stop</button> <span id="ttsMixStatus" class="dim"></span></p>
       <p id="ttsMixNote" class="dim small"></p>
+      <div id="ttsMixCmds" class="ffcmds" hidden>
+        <p>To put the mix in the video with <a href="https://ffmpeg.org" target="_blank" rel="noopener">ffmpeg</a>
+          on your computer, run one of these in a folder with the video and the mix:</p>
+        <p class="ffcmdhead">As an extra audio description track <button id="ttsCmdAddCopy">Copy</button></p>
+        <pre id="ttsCmdAdd"></pre>
+        <p class="ffcmdhead">In place of its sound <button id="ttsCmdReplaceCopy">Copy</button></p>
+        <pre id="ttsCmdReplace"></pre>
+        <p class="dim small">The picture and other tracks are copied as they are, so it's quick. In the video,
+          the mix is AAC (Opus in a WebM).</p>
+      </div>
       <h3>Google Cloud voices</h3>
       <p class="small">Google's Standard voices, with your own Google Cloud key. Like Piper voices, they give
         exact lengths and can be exported as a description track. Each reading sends the block's text to

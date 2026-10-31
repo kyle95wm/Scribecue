@@ -696,6 +696,10 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .updbox .small { font-size: 12px; }
 .updbox a { color: var(--accent); }
 .updbox code { font: 12px var(--mono); }
+.ffcmds { margin: 4px 0 12px; }
+.ffcmds[hidden] { display: none; }
+.ffcmds .ffcmdhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 0; }
+.ffcmds pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px var(--mono); }
 .updbox pre { margin: 8px 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; user-select: all; }
 .updbtns { display: flex; gap: 8px; margin-top: 16px; }
 .updnew { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 6px; }

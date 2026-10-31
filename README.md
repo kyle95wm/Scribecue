@@ -4,8 +4,7 @@
 
 - **Write** new audio description, and hear each line read aloud to check it fits before
   the next piece of dialogue. Export the readings as an audio track, or as a full mix with
-  the programme, which [ffmpeg in Docker](INSTALL.md#the-full-mix-in-the-video-ffmpeg) can
-  put into the video.
+  the programme, ready to put into the video with ffmpeg.
 - **Transcribe** existing audio description: hold a key while the narrator speaks, and a
   block appears at that time. Speech to text can type the line for you.
 - **Private:** your video, audio and scripts are never uploaded.
