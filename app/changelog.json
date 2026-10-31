@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.63.0",
+  "date": "2026-10-31",
+  "notes": "## Record mode for narrators\n\n- In Write mode, **Export → Recording file** saves your script for a narrator. They can’t change it.\n- The narrator opens it with the video and records each block, with a lead-in and a level meter.\n- Every take is kept. While the video plays, you hear the take picked for each block. **TAKES** under the video turns that off.\n- **Export → Narration WAV** gives the mixer one timestamped file, with a marker at each block.\n- Open the narration WAV with your script to check the narrator’s copy wasn’t changed.\n\n## Fixing takes\n\n- **Punch in** (Shift+Enter) picks up a take from the playhead and keeps what came before.\n- **Edit** shows a take over its block’s slot. Drag to move it or trim its ends.\n- **Split** (X) cuts a take at the playhead. Move the parts closer, or delete one (Delete).\n- **Trim silence** and **Fit in slot** do the common fixes in one click. **Reset** undoes them all.\n\n## Keeping takes\n\n- Takes are kept in your browser. In Docker, the takes container keeps them on disk instead.\n- **Settings → Offline and storage** shows how much space takes use, with **Delete all**.\n\nThe [recording guide](https://github.com/kyle95wm/Scribecue/blob/main/RECORDING.md) has the details."
+ },
+ {
   "version": "0.62.1",
   "date": "2026-10-31",
   "notes": "## Fixes\n\n- When a browser doesn’t give its name, the notice about missing features now says **This browser is missing some features**, instead of “You’re using this browser”.\n- If you close Scribecue while ffmpeg is making a copy or a full mix, its files in Docker are now deleted after five minutes, instead of waiting for the next job."
