@@ -2,7 +2,7 @@
 // exports the chosen ones as one WAV for the mixer. The script is locked (app.js sees to
 // that); this file does the recording. The plan is in RECORDING.md.
 
-import { slots, peakDb, judgePeak, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, PREROLL, RATE } from './recording.js';
+import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, PREROLL, RATE } from './recording.js';
 import { to24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, deleteTake } from './takestore.js';
 
@@ -45,30 +45,34 @@ export function initRecord(h) {
     el.go.disabled = state === 'arming' || state === 'saving';
     const i = h.selIdx(), n = h.blocks().length;
     const done = h.blocks().filter((_, k) => chosenFor(k)).length;
-    el.count.textContent = rec ? `${done} of ${n} lines have a take` : '';
+    el.count.textContent = rec ? `${done} of ${n} blocks have a take` : '';
     el.takes.replaceChildren();
-    if (i < 0) { const li = document.createElement('li'); li.className = 'dim'; li.textContent = 'Select a line to record it.'; el.takes.append(li); return; }
+    const note = (text) => { const li = document.createElement('li'); li.className = 'dim'; li.textContent = text; el.takes.append(li); };
+    if (i < 0) return note('Select a block to record it.');
     const slot = sl()[i];
     const list = blockTakes(i);
-    if (!list.length) {
-      const li = document.createElement('li');
-      li.className = 'dim';
-      li.textContent = `Line ${i + 1} has no takes yet. Press Enter or R to record it.`;
-      el.takes.append(li);
-    }
+    if (busy && cap?.block === i) note(`Recording take ${list.length + 1} of block ${i + 1}.`);
+    else if (!list.length) note(`Block ${i + 1} has no takes yet. Press Enter or R to record it.`);
     list.forEach((t, k) => {
       const li = document.createElement('li');
       const j = judgePeak(t.peak), over = runsOver(t, slot);
       li.className = 'take' + (over ? ' over' : '');
-      const use = document.createElement('input');
-      use.type = 'radio'; use.name = 'recUse'; use.checked = t.chosen; use.setAttribute('aria-label', `Use take ${k + 1} in the export`);
-      use.addEventListener('change', async () => { await chooseTake(rec.id, t.id); await reload(); });
+      // The take that goes into the export: one per block, like a radio button.
+      const use = document.createElement('button');
+      use.className = 'use';
+      use.textContent = t.chosen ? 'In export' : 'Use';
+      use.setAttribute('aria-pressed', String(!!t.chosen));
+      use.setAttribute('aria-label', `Use take ${k + 1} in the export`);
+      use.addEventListener('click', async () => { if (!t.chosen) { await chooseTake(rec.id, t.id); await reload(); } });
       const name = document.createElement('span');
-      name.textContent = `Take ${k + 1} · ${t.duration.toFixed(1)} s`;
+      name.textContent = `Take ${k + 1}`;
+      const len = document.createElement('span');
+      len.className = 'num';
+      len.textContent = `${t.duration.toFixed(2)} s`;
       const lvl = document.createElement('span');
       lvl.className = 'lvl ' + j;
-      lvl.textContent = `${isFinite(t.peak) ? t.peak.toFixed(1) : '−∞'} dBFS, ${LEVEL_WORDS[j]}`;
-      li.append(use, name, lvl);
+      lvl.textContent = `${dbText(t.peak)}, ${LEVEL_WORDS[j]}`;
+      li.append(use, name, len, lvl);
       if (over) { const o = document.createElement('span'); o.className = 'lvl loud'; o.textContent = 'runs past its slot'; li.append(o); }
       const play = document.createElement('button');
       play.textContent = playing?.t.id === t.id ? 'Stop' : 'Play';
@@ -76,7 +80,7 @@ export function initRecord(h) {
       const del = document.createElement('button');
       del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete take ${k + 1}`);
       del.addEventListener('click', async () => {
-        if (!confirm(`Delete take ${k + 1} of line ${i + 1}? This can’t be undone.`)) return;
+        if (!confirm(`Delete take ${k + 1} of block ${i + 1}? This can’t be undone.`)) return;
         stopPlay();
         await deleteTake(t.id);
         // Another take takes its place in the export, if this one was chosen.
@@ -157,7 +161,7 @@ export function initRecord(h) {
 
   async function begin() {
     const i = h.selIdx();
-    if (i < 0) return h.toast('Select a line, then record it');
+    if (i < 0) return h.toast('Select a block, then record it');
     if (!h.hasVideo()) return h.toast('Open the video first');
     stopPlay();
     state = 'arming'; status('Getting the microphone…'); render();
@@ -214,7 +218,7 @@ export function initRecord(h) {
     });
     disarm();
     level = 0; drawMeter(); el.fill.style.width = '0'; el.slot.classList.remove('over');
-    if (samples.length < RATE * 0.3) { state = 'idle'; status(wasRec ? 'Too short to keep: nothing saved' : 'Stopped before the line: nothing saved'); render(); return; }
+    if (samples.length < RATE * 0.3) { state = 'idle'; status(wasRec ? 'Too short to keep: nothing saved' : 'Stopped before the block: nothing saved'); render(); return; }
     // The sound reaches the narrator late and reaches Scribecue late: take both off.
     const delay = c.inLatency + (syncMs != null ? syncMs / 1000 : c.outLatency);
     const { start, skip } = placeTake({ t0: c.t0, delay, prevEnd: c.prevEnd });
@@ -228,7 +232,7 @@ export function initRecord(h) {
     state = 'idle';
     await reload();
     const j = judgePeak(take.peak);
-    status(`Saved take ${blockTakes(c.block).length}: ${isFinite(take.peak) ? take.peak.toFixed(1) : '−∞'} dBFS, ${LEVEL_WORDS[j]}`);
+    status(`Saved take ${blockTakes(c.block).length}: ${dbText(take.peak)}, ${LEVEL_WORDS[j]}`);
     if (j === 'loud') h.toast('That take is too loud. Lower your gain and record it again: the export won’t go ahead with it');
   }
 
@@ -240,17 +244,21 @@ export function initRecord(h) {
 
   // ---- meter
   const ctx2 = el.meter.getContext('2d');
+  const css = getComputedStyle(document.documentElement), tok = (n) => css.getPropertyValue(n).trim();
+  const C = { ok: tok('--ok'), bad: tok('--bad'), quiet: tok('--faint'), hold: tok('--text') };
+  // The zones behind the bar: the target in the colour for good, too loud in the one for bad.
+  const zone = (c) => `color-mix(in srgb, ${c} 25%, transparent)`;
   function drawMeter() {
     const w = el.meter.width, hgt = el.meter.height;
     ctx2.clearRect(0, 0, w, hgt);
     const x = (db) => Math.round((Math.max(-48, Math.min(0, db)) + 48) / 48 * w);
-    ctx2.fillStyle = 'rgba(80,200,120,.25)'; ctx2.fillRect(x(-12), 0, x(-8) - x(-12), hgt); // the target zone
-    ctx2.fillStyle = 'rgba(230,80,70,.25)'; ctx2.fillRect(x(-6), 0, w - x(-6), hgt);
+    ctx2.fillStyle = zone(C.ok); ctx2.fillRect(x(-12), 0, x(-8) - x(-12), hgt);
+    ctx2.fillStyle = zone(C.bad); ctx2.fillRect(x(-6), 0, w - x(-6), hgt);
     const db = level > 0 ? 20 * Math.log10(level) : -48;
-    ctx2.fillStyle = db > -6 ? '#e65046' : db >= -16 ? '#50c878' : '#6c8ba8';
+    ctx2.fillStyle = db > -6 ? C.bad : db >= -16 ? C.ok : C.quiet;
     ctx2.fillRect(0, 3, x(db), hgt - 6);
     hold = Math.max(level, hold * 0.97);
-    if (hold > 0) { ctx2.fillStyle = '#fff'; ctx2.fillRect(x(20 * Math.log10(hold)), 0, 2, hgt); }
+    if (hold > 0) { ctx2.fillStyle = C.hold; ctx2.fillRect(x(20 * Math.log10(hold)), 0, 2, hgt); }
     level *= 0.85;
   }
 
@@ -333,8 +341,8 @@ export function initRecord(h) {
     };
     if (!check.stop.length && !check.warn.length) return go();
     const stopped = check.stop.length > 0;
-    el.title.textContent = stopped ? 'Retake these lines first' : 'Export with these notes?';
-    el.report.textContent = exportReport(check) + (stopped ? '\n\nThe export won’t go ahead until the lines marked STOPPED are retaken.' : '\n\nSend this with the WAV.');
+    el.title.textContent = stopped ? 'Retake these blocks first' : 'Export with these notes?';
+    el.report.textContent = exportReport(check) + (stopped ? '\n\nThe export won’t go ahead until the blocks marked STOPPED are retaken.' : '\n\nSend this with the WAV.');
     el.go2.hidden = stopped;
     el.go2.onclick = () => { el.dlg.close(); go(); };
     el.dlg.showModal();

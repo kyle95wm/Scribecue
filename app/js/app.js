@@ -3210,7 +3210,7 @@ function saveRecordingFile() {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   recFileDlg.close();
-  toast(`Saved ${name} (${file.blocks.length} lines)` + (m ? '' : '. Open the video first next time, so it can check the narrator has the right copy'));
+  toast(`Saved ${name} (${file.blocks.length} blocks)` + (m ? '' : '. Open the video first next time, so it can check the narrator has the right copy'));
 }
 $('recFileGo').addEventListener('click', saveRecordingFile);
 $('recFileStart').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveRecordingFile(); } });
@@ -3224,9 +3224,9 @@ function checkNarration(note, name) {
   const r = compareScript(note, S.cues);
   const out = [];
   if (r.edited) out.push('The recording file was changed outside Scribecue before this was recorded.');
-  out.push(r.same ? `All ${note.blocks.length} lines match this script.`
-    : 'These lines differ from the script open now. If you haven’t changed them since you sent the recording file, the narrator’s copy was changed.');
-  const list = r.lines.map((x) => `Line ${x.line} ${x.why}`).concat(r.more ? [`and ${r.more} more`] : []);
+  out.push(r.same ? `All ${note.blocks.length} blocks match this script.`
+    : 'These blocks differ from the script open now. If you haven’t changed them since you sent the recording file, the narrator’s copy was changed.');
+  const list = r.lines.map((x) => `Block ${x.line} ${x.why}`).concat(r.more ? [`and ${r.more} more`] : []);
   $('narrTitle').textContent = r.same && !r.edited ? 'The narration matches' : 'The narration doesn’t match';
   $('narrWhat').textContent = out.join(' ');
   $('narrList').textContent = list.join('\n');
@@ -3257,7 +3257,7 @@ async function openRecording(file) {
   await enterRecording(r, file.name);
   const ready = S.videoFile && sameVideo(r.media, { name: S.videoFile.name, duration: S.hasVideo ? video.duration : null });
   if (r.edited) toast(`${file.name} was changed outside Scribecue. Whoever sent it will see that when they check the narration`);
-  else toast(`Record mode: ${file.name} (${S.cues.length} lines). ` + (ready || !r.media ? 'Select a line and press Enter to record it'
+  else toast(`Record mode: ${file.name} (${S.cues.length} blocks). ` + (ready || !r.media ? 'Select a block and press Enter to record it'
     : `Now open the video, ${r.media.name}, with ${IS_MAC ? '⌘⇧O' : 'Ctrl+Shift+O'}`));
   if (r.media && !ready) reopenVideo(r.media, { ask: true });
 }
@@ -3289,6 +3289,11 @@ async function endRecording() {
 }
 async function leaveRecord() {
   await endRecording();
+  // What's open now is a copy of the script, not the recording file, and isn't saved yet.
+  S.subName = baseName();
+  S.dirty = true;
+  showDocName();
+  save();
   toast('Left Record mode. Your takes are kept for next time');
 }
 

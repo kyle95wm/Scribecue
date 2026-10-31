@@ -72,29 +72,51 @@ kbd + kbd { margin-left: 2px; }
 .mode-write .transcribe-only, .mode-transcribe .write-only { display: none; }
 .record-only { display: none; }
 .mode-record .record-only { display: flex; }
+.mode-record .hint.record-only { display: block; }
 .mode-record .transcribe-only, .mode-record .write-only, .mode-record .modesw { display: none; }
-/* Record mode: the script is locked, so nothing offers to change it. */
-.mode-record .rowdel, .mode-record .editor, .mode-record #replaceBtn, .mode-record #aiBtn { display: none; }
-.recbadge { align-items: center; gap: 8px; flex-shrink: 0; font: 12px var(--sans); }
-.recbadge strong { padding: 2px 10px; border-radius: 999px; background: #e65046; color: #fff; }
-.recbar { flex-direction: column; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--line); background: var(--panel); font-size: 12px; max-height: 38vh; overflow: auto; }
+/* Record mode: the script is locked, so nothing offers to change or save it. */
+.mode-record .rowdel, .mode-record .editor, .mode-record #replaceBtn, .mode-record #aiBtn,
+.mode-record nav [data-act=newProject], .mode-record nav [data-act=saveProject], .mode-record .hint:not(.record-only) { display: none; }
+/* Where the mode switch was, and shaped like it: the mode, and the way out. */
+.recbadge { align-items: center; flex-shrink: 0; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font: 12px var(--sans); }
+.recbadge strong { padding: 2px 12px; border-radius: 999px; background: var(--play); color: #fff; font-weight: 600; }
+.recbadge button { padding: 2px 12px; border: 0; border-radius: 999px; background: none; color: var(--dim); font: 12px var(--sans); }
+.recbadge button:hover { color: var(--text); background: none; }
+.recbar { flex-direction: column; gap: 6px; padding: 6px 12px; border-top: 1px solid var(--line); background: var(--panel); font-size: 12px; }
 .recrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.recgo.on { background: #e65046; border-color: #e65046; color: #fff; }
-#recMeter { border: 1px solid var(--line); border-radius: 3px; background: var(--bg); }
+.recgo.on { background: var(--play); border-color: var(--play); color: #fff; }
+#recMeter { border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
 .recslot { width: 120px; height: 8px; border-radius: 4px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
 .recslot > div { height: 100%; width: 0; background: var(--accent); }
-.recslot.over > div { background: #e65046; }
+.recslot.over > div { background: var(--bad); }
+#recStatus { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#recCount { font: 12px var(--mono); }
 .recopts summary { cursor: pointer; color: var(--dim); }
+.recopts summary:hover { color: var(--text); }
 .recopts .recrow { margin-top: 6px; }
-.recopts input[type=number] { width: 64px; }
+.recbar select, .recbar input[type=number] {
+  font: 12px var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+.recbar input[type=number] { width: 64px; font-family: var(--mono); }
+.recbar select:focus, .recbar input[type=number]:focus { outline: none; border-color: var(--accent); }
 .recflash { display: inline-block; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); }
-.recflash.on { background: #fff; }
-.rectakes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.recflash.on { background: var(--text); }
+.rectakes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 96px; overflow: auto; }
 .rectakes li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.rectakes .lvl.good { color: #50c878; }
+.rectakes .num { font: 12px var(--mono); color: var(--dim); }
+.rectakes button { padding: 1px 8px; font-size: 12px; }
+.rectakes .use { color: var(--dim); }
+.rectakes .use[aria-pressed=true] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+.rectakes .lvl { font: 12px var(--mono); }
+.rectakes .lvl.good { color: var(--ok); }
 .rectakes .lvl.note { color: var(--dim); }
 .rectakes .lvl.quiet { color: var(--warn); }
-.rectakes .lvl.loud, .rectakes .over { color: #e65046; }
+.rectakes .lvl.loud, .rectakes .over { color: var(--bad); }
 .recreport { max-height: 40vh; overflow: auto; white-space: pre-wrap; font: 12px var(--mono); }
 .recfield { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
 
@@ -599,7 +621,7 @@ dd { margin: 0; }
   .right { order: -1; }
   .listwrap, body.swapped .listwrap { border-right: 0; border-left: 0; border-top: 1px solid var(--line); }
   .swapbtn { display: none; }
-  nav button kbd, .hint { display: none; }
+  nav button kbd, .hint, .mode-record .hint.record-only { display: none; }
   .cols { grid-template-columns: 1fr; }
 }
 

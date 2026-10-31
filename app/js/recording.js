@@ -114,6 +114,9 @@ export function peakDb(samples) {
   return p ? 20 * Math.log10(p) : -Infinity;
 }
 
+// A peak for people to read, with a real minus sign.
+export const dbText = (db) => (Number.isFinite(db) ? db.toFixed(1).replace('-', '−') : '−∞') + ' dBFS';
+
 // Judges a take by its peak. 'good' is −12…−8; 'note' is a gentle word either side;
 // 'quiet' (below −16) is flagged; 'loud' (above −6) stops the export.
 export function judgePeak(db) {
@@ -135,8 +138,8 @@ export function checkExport(blocks, chosen, grace = GRACE) {
     const t = chosen[i], block = i + 1;
     if (!t) { warn.push({ block, why: 'has no take' }); return; }
     const j = judgePeak(t.peak);
-    if (j === 'loud') stop.push({ block, why: `peaks at ${t.peak.toFixed(1)} dBFS, above −6: retake it quieter` });
-    else if (j === 'quiet') warn.push({ block, why: `is too quiet (${t.peak.toFixed(1)} dBFS)` });
+    if (j === 'loud') stop.push({ block, why: `peaks at ${dbText(t.peak)}, above −6: retake it quieter` });
+    else if (j === 'quiet') warn.push({ block, why: `is too quiet (${dbText(t.peak)})` });
     if (runsOver(t, sl[i])) warn.push({ block, why: 'runs past its slot' });
   });
   return { stop, warn };
