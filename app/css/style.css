@@ -711,6 +711,11 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .ttsvoice select { flex: 1; }
 .ttsgrid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 12px; align-items: center; margin: 12px 0; }
 .ttsdip { margin: 4px 0 12px 30px; }
+.ttsdipdb { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ttsdipdb select { flex: 1; min-width: 0; }
+#ttsDipCustomWrap { white-space: nowrap; }
+#ttsDipCustomWrap[hidden] { display: none; }
+#ttsDipCustom { width: 64px; }
 .ttsgrid select, .updbox select {
   min-width: 0;
   font: 13px var(--sans);
@@ -744,6 +749,8 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .edspeed[hidden] { display: none; }
 .edspeed #edVoice { max-width: 180px; }
 .edspeed #edDip { max-width: 120px; }
+.edspeed #edDipCustom { width: 48px; font: 12px var(--mono); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 1px 2px; }
+.edspeed #edDipCustom[hidden] { display: none; }
 .edspeed select {
   max-width: 115px;
   font: 12px var(--mono);

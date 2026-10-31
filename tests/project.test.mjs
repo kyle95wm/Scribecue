@@ -7,7 +7,7 @@ const state = {
   blocks: [
     { id: 7, start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, pinned: true, dip: 0 },
     { id: 8, start: 11.5, end: 14, text: 'The colours fold.', voice: 'kokoro:bf_emma', auto: true, say: [['colours', 'kul-ers']] },
-    { id: 9, start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true, dip: 15 },
+    { id: 9, start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true, dip: 12 },
   ],
   media: { name: 'lights.mkv', size: 2376368, duration: 60.02 },
   settings: { mode: 'write', offset: 0.2, ttsSpeed: 1, ttsBase: 1.05, ttsVoice: 'piper:en_US-lessac-medium' },
@@ -23,7 +23,7 @@ test('a project keeps blocks, their speeds, voices, dips and auto ends, settings
   assert.deepEqual(p.blocks, [
     { start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, dip: 0, pinned: true },
     { start: 11.5, end: 14, text: 'The colours fold.', voice: 'kokoro:bf_emma', auto: true, say: [['colours', 'kul-ers']] },
-    { start: 20, end: 23, text: 'Fitted.', speed: 0.83, dip: 15, fit: true },
+    { start: 20, end: 23, text: 'Fitted.', speed: 0.83, dip: 12, fit: true },
   ]);
   assert.deepEqual(p.settings, state.settings);
   assert.deepEqual(p.view, state.view);

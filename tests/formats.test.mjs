@@ -170,10 +170,10 @@ test('block voices are kept in VTT as notes and read back', () => {
 });
 
 test('block dips are kept in VTT as notes and read back, not lowered (0) too', () => {
-  const cues = [{ start: 1, end: 2, text: 'Music', dip: 0 }, { start: 3, end: 4, text: 'Explosion', dip: 20 }, { start: 5, end: 6, text: 'Plain' }];
+  const cues = [{ start: 1, end: 2, text: 'Music', dip: 0 }, { start: 3, end: 4, text: 'Explosion', dip: 32 }, { start: 5, end: 6, text: 'Plain' }];
   const vtt = toVTT(cues);
   assert.match(vtt, /NOTE Scribecue programme lowered by \(dB\): 0\n\n1\n/);
-  assert.deepEqual(parseSubs(vtt).map((c) => c.dip), [0, 20, undefined]);
+  assert.deepEqual(parseSubs(vtt).map((c) => c.dip), [0, 32, undefined]);
   assert.doesNotMatch(toSRT(cues), /lowered/);
 });
 

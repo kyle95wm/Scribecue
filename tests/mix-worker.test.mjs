@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInThisContext } from 'node:vm';
-import { stepDip, dipLevel, isDip, DIPS, FADES, LOUDNESS } from '../app/js/tts.js';
+import { stepDip, dipLevel, isDip, typedDip, DIPS, MAX_DIP, FADES, LOUDNESS } from '../app/js/tts.js';
 import { MIX_FORMATS } from '../app/js/mp3.js';
 
 const app = (f) => new URL(`../app/${f}`, import.meta.url);
@@ -180,13 +180,29 @@ test('playback dips the same way: the same steps and levels', () => {
   assert.equal(stepDip(3, 10, 1 / 60, 0), 10, 'no fade: straight there');
   near(dipLevel(10), 10 ** (-10 / 20), 1e-12, 'level');
   assert.equal(dipLevel(0), 1);
-  assert.ok(isDip(0) && isDip(15) && !isDip(7) && !isDip(undefined));
+  assert.ok(isDip(0) && isDip(15) && isDip(7) && isDip(40) && !isDip(41) && !isDip(-1) && !isDip(7.5) && !isDip('7') && !isDip(undefined));
+});
+
+test('a custom dip is a whole number of dB, up to 40', () => {
+  assert.equal(MAX_DIP, 40);
+  assert.equal(typedDip('12'), 12);
+  assert.equal(typedDip(' 7.6 '), 8, 'rounded');
+  assert.equal(typedDip('40'), 40);
+  assert.equal(typedDip('41'), null);
+  assert.equal(typedDip('0'), null, 'the settings need some dip: untick the box for none');
+  assert.equal(typedDip('0', 0), 0, 'a block can have none');
+  for (const bad of ['', '  ', 'loud', '-3', undefined, null]) assert.equal(typedDip(bad), null, String(bad));
+});
+
+test('a custom dip lowers the mix as far as asked', async () => {
+  const m = await mix(programme(2, 2, sine(0.5)), { readings: readings([[0.2, 1.8]], 0, 10).map((r) => ({ ...r, dip: 32 })), fade: 0.1 });
+  near(peak((await decode(m)).l, 1, 1.5), 0.5 * dipLevel(32), 0.002, '32 dB down');
 });
 
 test('the settings offer the dips, fades, formats and loudness targets there are', () => {
   const html = readFileSync(app('index.html'), 'utf8');
   const values = (id) => [...html.match(new RegExp(`<select id="${id}"[^>]*>([\\s\\S]*?)</select>`))[1].matchAll(/value="([^"]*)"/g)].map((x) => x[1]);
-  assert.deepEqual(values('ttsDipDb').map(Number), DIPS);
+  assert.deepEqual(values('ttsDipDb'), [...DIPS.map(String), 'custom']);
   assert.deepEqual(values('ttsDipFade').map(Number), FADES);
   assert.deepEqual(values('ttsMixAs'), Object.keys(MIX_FORMATS));
   assert.deepEqual(values('ttsLoudness'), Object.keys(LOUDNESS));

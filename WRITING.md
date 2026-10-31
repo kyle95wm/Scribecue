@@ -65,13 +65,16 @@ turned down. Start partway through a block and the reading picks up from there.
 The **Video / TTS** slider under the video sets how loud the readings are against the
 video. Double-click it to put it back in the middle.
 
-In the text to speech settings, choose how far the video's sound goes down (6 to 20 dB)
-and how quickly it fades down and back up. The [full mix](#exporting-the-full-mix) uses
+In the text to speech settings, choose how far the video's sound goes down (6 to 20 dB,
+or **Custom** to type any amount from 1 to 40 dB) and how quickly it fades down and back
+up. The [full mix](#exporting-the-full-mix) uses
 the same settings, so it sounds like what you hear.
 
 A block can have its own dip: pick it from the **Dip** menu in the open block, such as
-**No dip** for a line over music, or **Dip 20 dB** under a loud scene. **Dip as set**
-follows the settings. It's saved in projects
+**No dip** for a line over music, or **Dip 20 dB** under a loud scene. Choose **Custom**
+to type any amount from 0 to 40 dB, then press `Enter`. **Dip as set** follows the
+settings, even if you change them later; a block with its own dip keeps it. Dips don't
+add up: a block's own dip replaces the setting for that block. It's saved in projects
 and WebVTT exports.
 
 ## Exporting the full mix

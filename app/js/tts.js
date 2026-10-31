@@ -326,10 +326,10 @@ export function mergeSay(say = [], add = []) {
 export const hasWord = (text, word) => !!word.trim() && sayPattern([word.trim()]).test(text);
 
 const KEY = 'scribecue.tts';
-// While a block is read, the programme goes down by one of DIPS (dB), or the block's
-// own, over one of FADES (seconds), and back up the same way after. Playback and the
-// full mix share these.
-export const DIPS = [6, 10, 15, 20], FADES = [0.1, 0.25, 0.5];
+// While a block is read, the programme goes down by the dip set (dB): one of DIPS, or a
+// whole number of dB up to MAX_DIP typed in; or by the block's own. It takes one of FADES
+// (seconds), and comes back up the same way after. Playback and the full mix share these.
+export const DIPS = [6, 10, 15, 20], MAX_DIP = 40, FADES = [0.1, 0.25, 0.5];
 // How far down the programme is, in dB, dt seconds on, moving towards target (the dip
 // while a reading plays, 0 after). Going all the way down, or back up, takes the fade;
 // from one block's dip to another's, the part of it the difference is. from: where it
@@ -340,8 +340,13 @@ export function stepDip(db, target, dt, fade, from = db) {
   return target > db ? Math.min(target, db + step) : Math.max(target, db - step);
 }
 export const dipLevel = (db) => 10 ** (-db / 20);
-// A block's own dip: none (0) or one of DIPS.
-export const isDip = (v) => v === 0 || DIPS.includes(v);
+// A block's own dip: none (0), or a whole number of dB up to MAX_DIP.
+export const isDip = (v) => Number.isInteger(v) && v >= 0 && v <= MAX_DIP;
+// A dip typed in: a whole number of dB from min to MAX_DIP, or null if it isn't one.
+export function typedDip(text, min = 1) {
+  const s = String(text ?? '').trim(), v = Math.round(Number(s));
+  return s !== '' && Number.isFinite(v) && v >= min && v <= MAX_DIP ? v : null;
+}
 // Loudness targets for the full mix: LUFS, and the highest peak in dBFS.
 export const LOUDNESS = {
   '': { ceiling: -1 }, // as it comes
@@ -378,7 +383,7 @@ tts.base = toBase(tts.base);
 if (isSpeed(tts.speed) && tts.speed !== 1) tts.base = baseFromSpeed(tts.speed, tts.base);
 delete tts.speed;
 if (!['ask', 'ends', 'leave'].includes(tts.onChange)) tts.onChange = 'ask';
-if (!DIPS.includes(tts.dipDb)) tts.dipDb = DEFAULTS.dipDb;
+if (!isDip(tts.dipDb) || tts.dipDb < 1) tts.dipDb = DEFAULTS.dipDb;
 if (!FADES.includes(tts.dipFade)) tts.dipFade = DEFAULTS.dipFade;
 if (!(tts.loudness in LOUDNESS)) tts.loudness = '';
 if (!['', 'add', 'replace'].includes(tts.mixInto)) tts.mixInto = '';
@@ -532,6 +537,7 @@ export const LANES = HOSTED ? Math.max(1, Math.min(3, Math.floor((navigator.hard
 const pool = []; // { w, asks: Map, queue: [], sent: id, idle: timer }
 let askId = 0;
 // What the site offers and what's downloaded, once the worker has said.
+let dipCustom = false; // Custom chosen for the dip in the settings, to type one in
 export const webPiper = { offered: null, engine: 0, engineReady: false, downloaded: [], downloading: null };
 function startWorker() {
   const p = { w: new Worker(new URL('./piper-worker.js', import.meta.url), { type: 'module' }), asks: new Map(), queue: [], sent: 0, idle: null };
@@ -1231,11 +1237,15 @@ function render(googleError = '') {
   $('ttsOnChange').value = tts.onChange;
   $('ttsTrackAs').value = TRACK_FORMATS[tts.trackAs] ? tts.trackAs : 'wav';
   renderFfmpeg();
-  $('ttsDipDb').value = String(tts.dipDb);
+  // A dip that isn't one of the choices is typed in, under Custom.
+  if (!DIPS.includes(tts.dipDb)) dipCustom = true;
+  $('ttsDipDb').value = dipCustom ? 'custom' : String(tts.dipDb);
+  $('ttsDipCustomWrap').hidden = !dipCustom;
+  if (document.activeElement !== $('ttsDipCustom')) $('ttsDipCustom').value = tts.dipDb;
   $('ttsDipFade').value = String(tts.dipFade);
   $('ttsLoudness').value = tts.loudness;
   $('ttsStems').checked = !!tts.stems;
-  $('ttsDipDb').disabled = $('ttsDipFade').disabled = !tts.duck;
+  $('ttsDipDb').disabled = $('ttsDipFade').disabled = $('ttsDipCustom').disabled = !tts.duck;
   $('ttsMixExport').disabled = !piper;
   $('ttsMixNote').textContent = piper ? '' : 'Needs a Piper, Kokoro or Google voice: the browser\'s own voices can\'t be recorded.';
   $('ttsOnline').checked = tts.online;
@@ -1316,7 +1326,18 @@ export function initTts(h) {
   $('ttsTrackAs').addEventListener('change', (e) => set('trackAs', e.target.value));
   $('ttsMixAs').addEventListener('change', (e) => set('mixAs', e.target.value));
   $('ttsMixInto').addEventListener('change', (e) => set('mixInto', e.target.value));
-  $('ttsDipDb').addEventListener('change', (e) => set('dipDb', +e.target.value));
+  $('ttsDipDb').addEventListener('change', (e) => {
+    dipCustom = e.target.value === 'custom';
+    if (!dipCustom) return set('dipDb', +e.target.value);
+    render();
+    $('ttsDipCustom').focus();
+    $('ttsDipCustom').select();
+  });
+  $('ttsDipCustom').addEventListener('change', (e) => {
+    const v = typedDip(e.target.value);
+    if (v == null) e.target.value = tts.dipDb; // back to what it was
+    else set('dipDb', v);
+  });
   $('ttsDipFade').addEventListener('change', (e) => set('dipFade', +e.target.value));
   $('ttsLoudness').addEventListener('change', (e) => set('loudness', e.target.value));
   $('ttsStems').addEventListener('change', (e) => set('stems', e.target.checked));

@@ -95,8 +95,10 @@
               <select id="edSpeed" aria-label="Speed"></select></label>
             <label id="edVoiceWrap" class="edspeed" hidden data-tip="Text to speech voice for this block, such as a second voice for translated dialogue. Same as Settings follows the voice chosen there">
               <select id="edVoice" aria-label="Voice"></select></label>
-            <label id="edDipWrap" class="edspeed" hidden data-tip="Dip: how far the programme is lowered under this block's reading, when playing and in the full mix. As set follows the text to speech settings">
-              <select id="edDip" aria-label="Programme lowered by"></select></label>
+            <span id="edDipWrap" class="edspeed" hidden data-tip="Dip: how far the programme is lowered under this block's reading, when playing and in the full mix. As set follows the text to speech settings. Custom: type 0 to 40 dB, then press Enter">
+              <select id="edDip" aria-label="Programme lowered by"></select>
+              <input type="number" id="edDipCustom" min="0" max="40" step="1" hidden
+                aria-label="Programme lowered by, in dB, from 0 to 40"></span>
             <span class="grow"></span>
             <span id="edStats"></span>
           </div>
@@ -554,12 +556,17 @@ docker compose up -d --build</code></pre>
       <label class="updopt"><input type="checkbox" id="ttsDuck"> Lower the original audio while a block is read</label>
       <div class="ttsgrid ttsdip">
         <label for="ttsDipDb">Lower it by</label>
-        <select id="ttsDipDb">
-          <option value="6">6 dB: a little</option>
-          <option value="10">10 dB</option>
-          <option value="15">15 dB</option>
-          <option value="20">20 dB: a lot</option>
-        </select>
+        <span class="ttsdipdb">
+          <select id="ttsDipDb">
+            <option value="6">6 dB: a little</option>
+            <option value="10">10 dB</option>
+            <option value="15">15 dB</option>
+            <option value="20">20 dB: a lot</option>
+            <option value="custom">Custom</option>
+          </select>
+          <span id="ttsDipCustomWrap" hidden><input type="number" id="ttsDipCustom" min="1" max="40" step="1"
+            aria-label="Lower it by, in dB, from 1 to 40"> dB</span>
+        </span>
         <label for="ttsDipFade">Fading down and back up over</label>
         <select id="ttsDipFade">
           <option value="0.1">0.1 seconds: quickly</option>

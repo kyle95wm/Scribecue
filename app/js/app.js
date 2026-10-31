@@ -27,7 +27,7 @@ import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
-  usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIPS, isDip,
+  usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIPS, isDip, typedDip,
   savedReadings, clearSavedReadings, checkFfmpeg } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -658,7 +658,7 @@ function updateEditor() {
   edVoiceWrap.hidden = !ttsOn();
   if (ttsOn() && document.activeElement !== edVoice) fillEdVoice(c);
   edDipWrap.hidden = !(ttsOn() && tts.duck);
-  if (!edDipWrap.hidden && document.activeElement !== edDip) fillEdDip(c);
+  if (!edDipWrap.hidden && document.activeElement !== edDip && document.activeElement !== edDipCustom) fillEdDip(c);
   const custom = c.speed && !isSpeed(c.speed);
   edSpeedCustom.hidden = !custom;
   edSpeedCustom.textContent = custom ? speedName(c.speed) + (c.fit ? ', fits the block' : '') : 'custom';
@@ -2284,17 +2284,44 @@ function setBlockVoice(c, uri) {
 
 // A block's own dip: how far the programme goes down under its reading, instead of the
 // setting, such as not at all under music, or further under a loud scene.
-const edDip = $('edDip'), edDipWrap = $('edDipWrap');
+const edDip = $('edDip'), edDipWrap = $('edDipWrap'), edDipCustom = $('edDipCustom');
+// Custom shows a box beside the menu, to type any dip from 0 to 40 dB.
 function fillEdDip(c) {
-  const opts = [['', `Dip as set`], ['0', 'No dip'], ...DIPS.map((d) => [String(d), `Dip ${d} dB`])];
+  const opts = [['', `Dip as set`], ['0', 'No dip'], ...DIPS.map((d) => [String(d), `Dip ${d} dB`]), ['custom', 'Custom']];
   if (edDip.options.length !== opts.length || edDip.options[0].text !== opts[0][1]) edDip.replaceChildren(...opts.map(([v, t]) => new Option(t, v)));
-  edDip.value = isDip(c.dip) ? String(c.dip) : '';
+  edDip.value = !isDip(c.dip) ? '' : c.dip === 0 || DIPS.includes(c.dip) ? String(c.dip) : 'custom';
+  edDipCustom.hidden = edDip.value !== 'custom';
+  edDipCustom.value = isDip(c.dip) ? c.dip : tts.dipDb;
 }
 edDip.addEventListener('change', () => {
   const c = selCue();
-  if (c) setBlockDip(c, edDip.value === '' ? null : +edDip.value);
-  edDip.blur();
+  if (!c) return;
+  if (edDip.value !== 'custom') {
+    setBlockDip(c, edDip.value === '' ? null : +edDip.value);
+    return edDip.blur();
+  }
+  edDipCustom.value = isDip(c.dip) ? c.dip : tts.dipDb;
+  edDipCustom.hidden = false;
+  edDipCustom.focus();
+  edDipCustom.select();
 });
+// Enter, or leaving the box, sets the dip typed in; Escape, or something that isn't a dip,
+// puts the menu back as it was.
+function setCustomDip(keep) {
+  const c = selCue();
+  if (!c || edDipCustom.hidden) return;
+  const v = keep ? typedDip(edDipCustom.value, 0) : null;
+  if (v != null && v !== c.dip) setBlockDip(c, v);
+  else fillEdDip(c);
+}
+edDipCustom.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== 'Escape') return;
+  e.preventDefault();
+  e.stopPropagation();
+  setCustomDip(e.key === 'Enter');
+  edDipCustom.blur();
+});
+edDipCustom.addEventListener('blur', () => setCustomDip(true));
 function setBlockDip(c, db) {
   pushUndo(undefined, 'dip-' + c.id);
   if (isDip(db)) c.dip = db; else delete c.dip;
