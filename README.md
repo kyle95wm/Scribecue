@@ -25,7 +25,7 @@ To give Scribecue its own window and icon, click **Install app** in the bottom r
 **Which browser:** Scribecue is built for Chrome and Edge. Brave, Opera, Vivaldi and Arc
 usually work too. Safari and Firefox can open it, but some features may be missing, and
 Scribecue tells you which. Phones and tablets aren't supported, because Scribecue needs a
-keyboard.
+keyboard. See [what your computer needs](GETTING-STARTED.md#what-your-computer-needs).
 
 **Working offline:** once you've opened Scribecue, it works without a connection. So do
 Piper voices and speech to text, once downloaded. **Settings → Offline and storage** shows

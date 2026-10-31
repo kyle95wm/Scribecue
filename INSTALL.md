@@ -31,6 +31,17 @@ Three free things. Install any you don't have yet:
   already on most Macs and Linux computers.
 - **A recent Chrome or Edge**, to use Scribecue in.
 
+Docker Desktop needs a computer with at least 4 GB of memory. With everything below added,
+8 GB is enough. Each part adds this much:
+
+| Part | Memory while working | Disk space |
+|---|---|---|
+| Scribecue | Very little | 85 MB |
+| [Piper](#natural-sounding-voices-piper) voices | About 350 MB | About 1 GB |
+| [Kokoro](#more-lifelike-voices-kokoro) voices | About 1.2 GB | About 1.1 GB |
+| [Whisper](#speech-to-text-whisper) speech to text | About 600 MB | About 1.6 GB |
+| [ffmpeg](#the-full-mix-in-the-video-ffmpeg) | Very little | About 240 MB, and room for a copy of the video while it works |
+
 ## Install
 
 Open a terminal: **Terminal** on a Mac or Linux, or **PowerShell** on Windows. Run these

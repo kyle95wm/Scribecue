@@ -176,6 +176,17 @@ as audio description is picked for you.
   block by block. With NVDA or JAWS, single-letter keys such as `H` may need focus mode.
   This is still being worked on.
 
+## What your computer needs
+
+| | Enough | Better |
+|---|---|---|
+| **Computer** | A laptop or desktop from about 2016 on, with a keyboard | Anything from the last few years |
+| **Memory** | 4 GB | 8 GB, for Piper voices or speech to text in the browser |
+| **Browser** | Chrome or Edge, kept up to date | |
+
+Phones and tablets aren't supported. Running Scribecue yourself with Docker needs a little
+more: see [what you need](INSTALL.md#what-you-need).
+
 ## On a slower computer
 
 If the video is slow to start, or stutters:
