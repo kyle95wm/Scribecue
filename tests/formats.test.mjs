@@ -177,6 +177,14 @@ test('block dips are kept in VTT as notes and read back, not lowered (0) too', (
   assert.doesNotMatch(toSRT(cues), /lowered/);
 });
 
+test('dips more or less than set, and reading volumes, are kept in VTT too', () => {
+  const cues = [{ start: 1, end: 2, text: 'Loud', dipBy: 7, vol: 150 }, { start: 3, end: 4, text: 'Quiet', dipBy: -3 }, { start: 5, end: 6, text: 'Soft', vol: 40 }];
+  const vtt = toVTT(cues);
+  assert.match(vtt, /NOTE Scribecue programme lowered more than set by \(dB\): \+7\n/);
+  assert.match(vtt, /NOTE Scribecue reading volume \(%\): 150\n/);
+  assert.deepEqual(parseSubs(vtt), cues);
+});
+
 test('parseAdc gives a block a voice of its own only when it differs from the document’s', () => {
   const doc = JSON.stringify({ voice: 'en-US-Standard-J', cue_points: [
     { start: 0, end: 500, text: 'a', voice: 'en-US-Standard-J' },

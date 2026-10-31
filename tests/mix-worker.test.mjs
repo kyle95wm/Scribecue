@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInThisContext } from 'node:vm';
-import { stepDip, dipLevel, isDip, typedDip, DIPS, MAX_DIP, FADES, LOUDNESS } from '../app/js/tts.js';
+import { stepDip, dipLevel, isDip, typedDip, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain, DIPS, MAX_DIP, FADES, LOUDNESS } from '../app/js/tts.js';
 import { MIX_FORMATS } from '../app/js/mp3.js';
 
 const app = (f) => new URL(`../app/${f}`, import.meta.url);
@@ -192,6 +192,46 @@ test('a custom dip is a whole number of dB, up to 40', () => {
   assert.equal(typedDip('0'), null, 'the settings need some dip: untick the box for none');
   assert.equal(typedDip('0', 0), 0, 'a block can have none');
   for (const bad of ['', '  ', 'loud', '-3', undefined, null]) assert.equal(typedDip(bad), null, String(bad));
+});
+
+test('a block’s dip follows the setting, more or less, or not at all', () => {
+  assert.equal(dipFor({}, 10), 10, 'as set');
+  assert.equal(dipFor({ dipBy: 5 }, 10), 15);
+  assert.equal(dipFor({ dipBy: -5 }, 10), 5);
+  assert.equal(dipFor({ dipBy: 5 }, 6), 11, 'moves with the setting');
+  assert.equal(dipFor({ dipBy: -10 }, 6), 0, 'never below none');
+  assert.equal(dipFor({ dipBy: 30 }, 20), MAX_DIP, 'never past 40 dB');
+  assert.equal(dipFor({ dip: 0, dipBy: 5 }, 10), 0, 'no dip');
+  // Exact dips from before 0.61 become the difference, so they sound the same.
+  assert.deepEqual(blockDipOf({ dip: 20 }, 10), { dipBy: 10 });
+  assert.deepEqual(blockDipOf({ dip: 6 }, 10), { dipBy: -4 });
+  assert.deepEqual(blockDipOf({ dip: 10 }, 10), {}, 'the same as set');
+  assert.deepEqual(blockDipOf({ dip: 0 }, 10), { dip: 0 });
+  assert.deepEqual(blockDipOf({ dipBy: 3 }, 10), { dipBy: 3 });
+  assert.deepEqual(blockDipOf({ dipBy: 0 }, 10), {});
+  assert.equal(typedDipBy('+7'), 7);
+  assert.equal(typedDipBy('−3'), -3, 'a typographic minus too');
+  assert.equal(typedDipBy('0'), 0);
+  assert.equal(typedDipBy('41'), null);
+  assert.equal(typedDipBy('more'), null);
+});
+
+test('a block’s volume is a whole percentage from 25 to 200', () => {
+  assert.ok(isVol(25) && isVol(150) && isVol(200) && !isVol(100) && !isVol(24) && !isVol(201) && !isVol(50.5));
+  assert.equal(typedVol('150%'), 150);
+  assert.equal(typedVol(' 80 '), 80);
+  assert.equal(typedVol('20'), null);
+  assert.equal(typedVol('loud'), null);
+  assert.equal(volGain({ vol: 150 }), 1.5);
+  assert.equal(volGain({}), 1);
+});
+
+test('a reading’s volume carries into the mix', async () => {
+  const p = programme(2, 2, () => 0);
+  const at = async (gain) => peak((await decode(await mix(p, { readings: readings([[0.2, 1.8]], 0.2).map((r) => ({ ...r, gain })) }))).l, 0.5, 1.5);
+  const one = await at(1);
+  near(await at(0.5), one * 0.5, 0.002, 'half');
+  near(await at(1.5), one * 1.5, 0.002, 'one and a half');
 });
 
 test('a custom dip lowers the mix as far as asked', async () => {

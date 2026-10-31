@@ -6,8 +6,9 @@ const state = {
   app: '0.10.0',
   blocks: [
     { id: 7, start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, pinned: true, dip: 0 },
-    { id: 8, start: 11.5, end: 14, text: 'The colours fold.', voice: 'kokoro:bf_emma', auto: true, say: [['colours', 'kul-ers']] },
-    { id: 9, start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true, dip: 12 },
+    { id: 8, start: 11.5, end: 14, text: 'The colours fold.', voice: 'kokoro:bf_emma', auto: true, say: [['colours', 'kul-ers']], vol: 140 },
+    { id: 9, start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true, dipBy: -4, vol: 60 },
+    { id: 10, start: 25, end: 26, text: 'Old.', dip: 12 },
   ],
   media: { name: 'lights.mkv', size: 2376368, duration: 60.02 },
   settings: { mode: 'write', offset: 0.2, ttsSpeed: 1, ttsBase: 1.05, ttsVoice: 'piper:en_US-lessac-medium' },
@@ -22,9 +23,12 @@ test('a project keeps blocks, their speeds, voices, dips and auto ends, settings
   const p = fromProject(saved);
   assert.deepEqual(p.blocks, [
     { start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, dip: 0, pinned: true },
-    { start: 11.5, end: 14, text: 'The colours fold.', voice: 'kokoro:bf_emma', auto: true, say: [['colours', 'kul-ers']] },
-    { start: 20, end: 23, text: 'Fitted.', speed: 0.83, dip: 12, fit: true },
+    { start: 11.5, end: 14, text: 'The colours fold.', voice: 'kokoro:bf_emma', vol: 140, auto: true, say: [['colours', 'kul-ers']] },
+    { start: 20, end: 23, text: 'Fitted.', speed: 0.83, dipBy: -4, vol: 60, fit: true },
+    { start: 25, end: 26, text: 'Old.', dip: 12 },
   ]);
+  const bad = fromProject({ ...saved, blocks: [{ start: 0, end: 1, text: 'x', dipBy: 41, vol: 300 }, { start: 0, end: 1, text: 'y', dipBy: 2.5, vol: 10 }] });
+  assert.deepEqual(bad.blocks.map((b) => [b.dipBy, b.vol]), [[undefined, undefined], [undefined, undefined]]);
   assert.deepEqual(p.settings, state.settings);
   assert.deepEqual(p.view, state.view);
   assert.deepEqual(p.media, state.media);

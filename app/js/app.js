@@ -27,7 +27,7 @@ import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
-  usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIPS, isDip, typedDip,
+  usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIP_BYS, isDipBy, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain,
   savedReadings, clearSavedReadings, checkFfmpeg } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -169,10 +169,11 @@ let nextId = 1;
 const mk = (start, end, text = '', speed) => ({ id: nextId++, start, end, text, ...(isBlockSpeed(speed) ? { speed } : {}) });
 // A saved block back as a block: voice (its own text to speech voice), auto (end follows
 // the reading), fit (speed follows the length), pinned (speed picked by hand, so
-// resizing leaves it alone) and dip (how far the programme goes down under it).
+// resizing leaves it alone), dip or dipBy (how far the programme goes down under it) and
+// vol (how loud its reading is).
 const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
   typeof b.voice === 'string' && b.voice ? { voice: b.voice } : {},
-  isDip(b.dip) ? { dip: b.dip } : {},
+  blockDipOf(b), isVol(b.vol) ? { vol: b.vol } : {},
   b.auto ? { auto: true } : {}, b.fit ? { fit: true } : {}, b.pinned ? { pinned: true } : {},
   b.say?.length ? { say: b.say } : {});
 // What text to speech reads for a block: its text, with its "sounds like" words.
@@ -380,7 +381,7 @@ function save() {
       // The open video, so it can be reopened after a reload, or else the project's.
       projectMedia: S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size } : S.projectMedia,
       notes: S.notes,
-      cues: S.cues.map(({ start, end, text, speed, voice, auto, fit, pinned, say }) => ({ start, end, text, speed, voice, auto, fit, pinned, say })),
+      cues: S.cues.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say }) => ({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say })),
     }));
   } catch { /* storage full or blocked */ }
 }
@@ -636,6 +637,7 @@ function updateEditor() {
     edSpeedWrap.hidden = true;
     edVoiceWrap.hidden = true;
     edDipWrap.hidden = true;
+    edVolWrap.hidden = true;
     edAuto.hidden = true;
     edIdx.textContent = '#–';
     if (document.activeElement !== edStart) edStart.value = '';
@@ -659,6 +661,8 @@ function updateEditor() {
   if (ttsOn() && document.activeElement !== edVoice) fillEdVoice(c);
   edDipWrap.hidden = !(ttsOn() && tts.duck);
   if (!edDipWrap.hidden && document.activeElement !== edDip && document.activeElement !== edDipCustom) fillEdDip(c);
+  edVolWrap.hidden = !ttsOn();
+  if (ttsOn()) fillEdVol(c);
   const custom = c.speed && !isSpeed(c.speed);
   edSpeedCustom.hidden = !custom;
   edSpeedCustom.textContent = custom ? speedName(c.speed) + (c.fit ? ', fits the block' : '') : 'custom';
@@ -1625,7 +1629,7 @@ function speakBlock(fit) {
   setTime(c.start);
   const id = c.id;
   speak(said(c), {
-    id, manual: true, speed: c.speed, voice: c.voice,
+    id, manual: true, speed: c.speed, voice: c.voice, gain: volGain(c),
     done: (secs) => {
       const cur = S.cues[idx(id)];
       if (secs == null || !cur) return;
@@ -2036,7 +2040,7 @@ ttsFitStop.addEventListener('click', () => { measuring = false; stopSpeech(); })
 // at its block's start, as long as the video (or the last reading, without one).
 const ttsExport = $('ttsExport'), ttsExportStatus = $('ttsExportStatus'), ttsExportBar = $('ttsExportBar');
 ttsExport.addEventListener('click', async () => {
-  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice }));
+  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice, gain: volGain(c) }));
   if (!blocks.length) return (ttsExportStatus.textContent = 'There are no blocks with text yet.');
   pause();
   busy(ttsExport, ttsExportBar, true);
@@ -2140,7 +2144,7 @@ async function wholeProgramme(file) {
 ttsMixExport.addEventListener('click', async () => {
   const file = S.videoFile;
   if (!file) return (ttsMixStatus.textContent = 'Open the programme’s video or audio first.');
-  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice, dip: blockDip(c) }));
+  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice, dip: blockDip(c), gain: volGain(c) }));
   if (!blocks.length) return (ttsMixStatus.textContent = 'There are no blocks with text yet.');
   pause();
   busy(ttsMixExport, ttsMixBar, true);
@@ -2162,7 +2166,7 @@ ttsMixExport.addEventListener('click', async () => {
     // Making the readings is the first 20% of the bar, and mixing the rest. Each reading
     // goes to the mixer as it is, at the level the voice gives it, as it plays.
     const made = await makeReadings(blocks, (k, n) => show(0.2 * k / n, `Making readings: ${k} of ${n}`));
-    const readings = made.map(({ start, w }, k) => ({ start, samples: w.samples, rate: w.rate, dip: blocks[k].dip }));
+    const readings = made.map(({ start, w }, k) => ({ start, samples: w.samples, rate: w.rate, dip: blocks[k].dip, gain: blocks[k].gain }));
     const levels = mixLevels(tts.mix), loud = LOUDNESS[tts.loudness] || LOUDNESS[''];
     const job = { readings, fade: tts.dipFade, video: levels.video, reading: levels.reading,
       kbps: as.kbps || 0, wavMix: ff, target: loud.lufs ?? null, ceiling: loud.ceiling, stems: !!tts.stems };
@@ -2282,25 +2286,27 @@ function setBlockVoice(c, uri) {
   toast(c.voice ? `Block #${idx(c.id) + 1} reads with ${blockVoiceName(c.voice)}` : `Block #${idx(c.id) + 1} reads with the voice in Settings`);
 }
 
-// A block's own dip: how far the programme goes down under its reading, instead of the
-// setting, such as not at all under music, or further under a loud scene.
+// A block's own dip: further or less far than the setting, such as further under a loud
+// scene, or not at all under music. It follows the setting, so changing that moves every
+// block's dip with it.
 const edDip = $('edDip'), edDipWrap = $('edDipWrap'), edDipCustom = $('edDipCustom');
-// Custom shows a box beside the menu, to type any dip from 0 to 40 dB.
+const signed = (v) => (v > 0 ? `+${v}` : String(v).replace('-', '−'));
+// Custom shows a box beside the menu, to type how many dB more (or less, with a minus).
 function fillEdDip(c) {
-  const opts = [['', `Dip as set`], ['0', 'No dip'], ...DIPS.map((d) => [String(d), `Dip ${d} dB`]), ['custom', 'Custom']];
+  const opts = [['', 'Dip as set'], ['none', 'No dip'], ...DIP_BYS.map((d) => [String(d), `${Math.abs(d)} dB ${d > 0 ? 'more' : 'less'}`]), ['custom', 'Custom']];
   if (edDip.options.length !== opts.length || edDip.options[0].text !== opts[0][1]) edDip.replaceChildren(...opts.map(([v, t]) => new Option(t, v)));
-  edDip.value = !isDip(c.dip) ? '' : c.dip === 0 || DIPS.includes(c.dip) ? String(c.dip) : 'custom';
+  edDip.value = c.dip === 0 ? 'none' : !isDipBy(c.dipBy) ? '' : DIP_BYS.includes(c.dipBy) ? String(c.dipBy) : 'custom';
   edDipCustom.hidden = edDip.value !== 'custom';
-  edDipCustom.value = isDip(c.dip) ? c.dip : tts.dipDb;
+  edDipCustom.value = isDipBy(c.dipBy) ? signed(c.dipBy) : '';
 }
 edDip.addEventListener('change', () => {
   const c = selCue();
   if (!c) return;
   if (edDip.value !== 'custom') {
-    setBlockDip(c, edDip.value === '' ? null : +edDip.value);
+    setBlockDip(c, edDip.value === 'none' ? { dip: 0 } : edDip.value === '' ? {} : { dipBy: +edDip.value });
     return edDip.blur();
   }
-  edDipCustom.value = isDip(c.dip) ? c.dip : tts.dipDb;
+  edDipCustom.value = isDipBy(c.dipBy) ? signed(c.dipBy) : '';
   edDipCustom.hidden = false;
   edDipCustom.focus();
   edDipCustom.select();
@@ -2310,8 +2316,8 @@ edDip.addEventListener('change', () => {
 function setCustomDip(keep) {
   const c = selCue();
   if (!c || edDipCustom.hidden) return;
-  const v = keep ? typedDip(edDipCustom.value, 0) : null;
-  if (v != null && v !== c.dip) setBlockDip(c, v);
+  const v = keep ? typedDipBy(edDipCustom.value) : null;
+  if (v != null && (v !== (c.dipBy || 0) || c.dip === 0)) setBlockDip(c, v ? { dipBy: v } : {});
   else fillEdDip(c);
 }
 edDipCustom.addEventListener('keydown', (e) => {
@@ -2322,12 +2328,54 @@ edDipCustom.addEventListener('keydown', (e) => {
   edDipCustom.blur();
 });
 edDipCustom.addEventListener('blur', () => setCustomDip(true));
-function setBlockDip(c, db) {
+// own: { dip: 0 } for none, { dipBy } for more or less than set, or {} to follow it.
+function setBlockDip(c, own) {
   pushUndo(undefined, 'dip-' + c.id);
-  if (isDip(db)) c.dip = db; else delete c.dip;
+  delete c.dip;
+  delete c.dipBy;
+  Object.assign(c, blockDipOf(own));
   changed(c.id);
-  toast(!isDip(c.dip) ? `Block #${idx(c.id) + 1}: the programme is lowered as set` : c.dip ? `Block #${idx(c.id) + 1}: the programme is lowered ${c.dip} dB` : `Block #${idx(c.id) + 1}: the programme isn’t lowered`);
+  const at = dipFor(c, tts.dipDb), n = `Block #${idx(c.id) + 1}`;
+  toast(c.dip === 0 ? `${n}: the programme isn’t lowered`
+    : c.dipBy ? `${n}: the programme is lowered ${Math.abs(c.dipBy)} dB ${c.dipBy > 0 ? 'more' : 'less'} than set, ${at} dB for now`
+    : `${n}: the programme is lowered as set, ${at} dB`);
 }
+
+// A block's reading volume, as a share of the Video / TTS slider's: quieter or louder than
+// the rest, moving with the slider. The box takes an exact percentage.
+const edVol = $('edVol'), edVolBox = $('edVolBox'), edVolWrap = $('edVolWrap');
+function fillEdVol(c) {
+  const v = isVol(c.vol) ? c.vol : 100;
+  if (document.activeElement !== edVol) edVol.value = v;
+  if (document.activeElement !== edVolBox) edVolBox.value = v;
+}
+function setBlockVol(c, v, { quiet = false } = {}) {
+  if ((isVol(c.vol) ? c.vol : 100) === v) return;
+  pushUndo(undefined, 'vol-' + c.id);
+  if (isVol(v)) c.vol = v; else delete c.vol;
+  changed(c.id);
+  if (!quiet) toast(`Block #${idx(c.id) + 1}: reading at ${v}%${v === 100 ? ', as the slider' : ' of the slider’s level'}`);
+}
+// Dragging shows the value in the box; letting go sets it. Double-click: back to 100%.
+edVol.addEventListener('input', () => { edVolBox.value = edVol.value; });
+edVol.addEventListener('change', () => { const c = selCue(); if (c) setBlockVol(c, +edVol.value); });
+edVol.addEventListener('pointerup', () => edVol.blur());
+edVol.addEventListener('dblclick', () => { const c = selCue(); if (c) setBlockVol(c, 100); fillEdVol(c || {}); });
+function setTypedVol(keep) {
+  const c = selCue();
+  if (!c) return;
+  const v = keep ? typedVol(edVolBox.value) : null;
+  if (v != null) setBlockVol(c, v);
+  fillEdVol(c);
+}
+edVolBox.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== 'Escape') return;
+  e.preventDefault();
+  e.stopPropagation();
+  setTypedVol(e.key === 'Enter');
+  edVolBox.blur();
+});
+edVolBox.addEventListener('blur', () => setTypedVol(true));
 
 // Replace all voices: every block reads with the voice chosen in Settings again.
 $('ttsReplaceVoices').addEventListener('click', () => {
@@ -2508,9 +2556,9 @@ function liveSpeech(prevT, t, started) {
   const a = cueAt(t);
   if (!a || tts.speaking?.id === a.id) return;
   const jumped = started || t < prevT || t - prevT >= 0.5;
-  if (!jumped && prevT <= a.start && t > a.start) speak(said(a), { id: a.id, speed: a.speed, voice: a.voice });
+  if (!jumped && prevT <= a.start && t > a.start) speak(said(a), { id: a.id, speed: a.speed, voice: a.voice, gain: volGain(a) });
   else if (jumped && t > a.start && t - a.start < speechLength(said(a), a.speed, a.voice).secs - 0.1) {
-    speak(said(a), { id: a.id, speed: a.speed, voice: a.voice, from: () => now() - a.start });
+    speak(said(a), { id: a.id, speed: a.speed, voice: a.voice, gain: volGain(a), from: () => now() - a.start });
   }
 }
 
@@ -2533,8 +2581,9 @@ function readAheadOf(t) {
 // speech settings say, just as the full mix does, and as the mix slider says. tick()
 // moves it along.
 let ducked = false, dip = 0, dipTo = 0, dipFrom = 0, volumeWas = -1;
-// How far the programme goes down under a block's reading, in dB: its own, or the setting.
-const blockDip = (c) => (!tts.duck ? 0 : isDip(c?.dip) ? c.dip : tts.dipDb);
+// How far the programme goes down under a block's reading, in dB: the setting, or more or
+// less with the block's own, or not at all.
+const blockDip = (c) => (!tts.duck ? 0 : dipFor(c, tts.dipDb));
 function duckAudio(on = ducked) {
   ducked = on;
   applyDuck(0);
@@ -3235,7 +3284,7 @@ async function loadSubsFile(file) {
   if (!okToReplace(`Open ${file.name}`)) return;
   await stopJob();
   pushUndo();
-  S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.voice ? { voice: c.voice } : {}, isDip(c.dip) ? { dip: c.dip } : {}, c.say ? { say: c.say } : {}));
+  S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.voice ? { voice: c.voice } : {}, blockDipOf(c), isVol(c.vol) ? { vol: c.vol } : {}, c.say ? { say: c.say } : {}));
   S.subName = file.name;
   S.handle = null; // saving makes a project next to it, rather than overwriting the script
   handleStore.set(null);

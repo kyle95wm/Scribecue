@@ -23,11 +23,13 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     media: media && media.name ? { name: media.name, size: media.size ?? null, duration: num(media.duration) ? media.duration : null } : null,
     settings,
     view,
-    blocks: blocks.map(({ start, end, text, speed, voice, dip, auto, fit, pinned, say }) => ({
+    blocks: blocks.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say }) => ({
       start, end, text,
       ...(speed ? { speed } : {}),
       ...(voice ? { voice } : {}),
       ...(num(dip) ? { dip } : {}),
+      ...(num(dipBy) && dipBy ? { dipBy } : {}),
+      ...(num(vol) ? { vol } : {}),
       ...(cleanSay(say).length ? { say: cleanSay(say) } : {}),
       ...(auto ? { auto: true } : {}),
       ...(fit ? { fit: true } : {}),
@@ -53,7 +55,10 @@ export function fromProject(json) {
       text: typeof b.text === 'string' ? b.text : '',
       ...(num(b.speed) ? { speed: b.speed } : {}),
       ...(typeof b.voice === 'string' && b.voice ? { voice: b.voice.slice(0, 300) } : {}),
+      // An exact dip, from before 0.61, or none (0); the editor makes it relative.
       ...(num(b.dip) && b.dip >= 0 && b.dip <= 40 ? { dip: b.dip } : {}),
+      ...(Number.isInteger(b.dipBy) && b.dipBy && Math.abs(b.dipBy) <= 40 ? { dipBy: b.dipBy } : {}),
+      ...(Number.isInteger(b.vol) && b.vol >= 25 && b.vol <= 200 ? { vol: b.vol } : {}),
       ...(cleanSay(b.say).length ? { say: cleanSay(b.say) } : {}),
       ...(b.auto === true ? { auto: true } : {}),
       ...(b.fit === true ? { fit: true } : {}),

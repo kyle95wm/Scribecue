@@ -32,12 +32,14 @@ export function resample(samples, from, to) {
 // never take the track past TRACK_MAX_DB.
 export const TRACK_PEAK_DB = -8, TRACK_MAX_DB = -6;
 const dbToLevel = (db) => 32767 * 10 ** (db / 20);
+// A reading's gain makes it louder or quieter than the rest; if that takes the track over
+// maxDb, all of it comes down, so the difference stays.
 export function mixTrack(items, rate, secs, peakDb = TRACK_PEAK_DB, maxDb = TRACK_MAX_DB) {
   const mix = new Float32Array(Math.max(1, Math.ceil(secs * rate)));
-  for (const { start, samples } of items) {
+  for (const { start, samples, gain = 1 } of items) {
     let peak = 0;
     for (const s of samples) peak = Math.max(peak, Math.abs(s));
-    const g = peak ? dbToLevel(peakDb) / peak : 0;
+    const g = peak ? (dbToLevel(peakDb) / peak) * gain : 0;
     const at = Math.round(start * rate);
     for (let i = Math.max(0, -at); i < samples.length && at + i < mix.length; i++) mix[at + i] += samples[i] * g;
   }
@@ -50,12 +52,12 @@ export function mixTrack(items, rate, secs, peakDb = TRACK_PEAK_DB, maxDb = TRAC
 }
 
 // Every reading laid out as the description track: readings [{ start, samples, rate,
-// secs }] by any voices, the track as long as secs or the last reading. Voices make audio
+// secs, gain }] by any voices, the track as long as secs or the last reading. Voices make audio
 // at different rates, so all of it goes at the highest. Returns { samples, rate,
 // overlaps }, overlaps counting readings that run into the next one.
 export function layTrack(readings, secs) {
   const rate = Math.max(0, ...readings.map((r) => r.rate)) || 22050;
-  const items = readings.map((r) => ({ start: r.start, samples: resample(r.samples, r.rate, rate), secs: r.secs }));
+  const items = readings.map((r) => ({ start: r.start, samples: resample(r.samples, r.rate, rate), secs: r.secs, gain: r.gain ?? 1 }));
   let overlaps = 0;
   for (let k = 0; k + 1 < items.length; k++) if (items[k].start + items[k].secs > items[k + 1].start + 0.0005) overlaps++;
   const end = Math.max(secs, ...items.map((i) => i.start + i.secs));

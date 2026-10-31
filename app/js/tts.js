@@ -327,9 +327,10 @@ export const hasWord = (text, word) => !!word.trim() && sayPattern([word.trim()]
 
 const KEY = 'scribecue.tts';
 // While a block is read, the programme goes down by the dip set (dB): one of DIPS, or a
-// whole number of dB up to MAX_DIP typed in; or by the block's own. It takes one of FADES
+// whole number of dB up to MAX_DIP typed in. A block can go further or less far than that
+// (DIP_BYS, or any whole number typed in), or not at all. It takes one of FADES
 // (seconds), and comes back up the same way after. Playback and the full mix share these.
-export const DIPS = [6, 10, 15, 20], MAX_DIP = 40, FADES = [0.1, 0.25, 0.5];
+export const DIPS = [6, 10, 15, 20], MAX_DIP = 40, FADES = [0.1, 0.25, 0.5], DIP_BYS = [5, 10, -5];
 // How far down the programme is, in dB, dt seconds on, moving towards target (the dip
 // while a reading plays, 0 after). Going all the way down, or back up, takes the fade;
 // from one block's dip to another's, the part of it the difference is. from: where it
@@ -347,6 +348,33 @@ export function typedDip(text, min = 1) {
   const s = String(text ?? '').trim(), v = Math.round(Number(s));
   return s !== '' && Number.isFinite(v) && v >= min && v <= MAX_DIP ? v : null;
 }
+// How much further down a block's dip goes than the setting (dB), or less far if negative.
+export const isDipBy = (v) => Number.isInteger(v) && v !== 0 && Math.abs(v) <= MAX_DIP;
+// The same typed in, with or without a +: null if it isn't one; 0 for as set.
+export function typedDipBy(text) {
+  const s = String(text ?? '').trim().replace(/^\+/, '').replace(/^[−–]/, '-'), v = Math.round(Number(s));
+  return s !== '' && Number.isFinite(v) && Math.abs(v) <= MAX_DIP ? v : null;
+}
+// A block's own dip, as kept: { dip: 0 } for none, { dipBy } for more or less than the
+// setting, or {} to follow it. Blocks from before 0.61 kept an exact dip, which becomes
+// its difference from the setting now, so it sounds the same.
+export function blockDipOf(b, setting = tts.dipDb) {
+  if (b?.dip === 0) return { dip: 0 };
+  if (isDipBy(b?.dipBy)) return { dipBy: b.dipBy };
+  if (isDip(b?.dip) && b.dip !== setting) return { dipBy: b.dip - setting };
+  return {};
+}
+// How far the programme goes down under a block, in dB, with the dip set.
+export const dipFor = (b, setting) => (b?.dip === 0 ? 0 : Math.max(0, Math.min(MAX_DIP, setting + (isDipBy(b?.dipBy) ? b.dipBy : 0))));
+// A block's reading volume, in percent of the Video / TTS slider's level: VOLS, or any
+// whole number from MIN_VOL to MAX_VOL typed in. 100 (as the slider) isn't kept.
+export const MIN_VOL = 25, MAX_VOL = 200;
+export const isVol = (v) => Number.isInteger(v) && v >= MIN_VOL && v <= MAX_VOL && v !== 100;
+export function typedVol(text) {
+  const s = String(text ?? '').trim().replace(/%$/, '').trim(), v = Math.round(Number(s));
+  return s !== '' && Number.isFinite(v) && v >= MIN_VOL && v <= MAX_VOL ? v : null;
+}
+export const volGain = (b) => (isVol(b?.vol) ? b.vol / 100 : 1);
 // Loudness targets for the full mix: LUFS, and the highest peak in dBFS.
 export const LOUDNESS = {
   '': { ceiling: -1 }, // as it comes
@@ -404,7 +432,7 @@ export function mixLevels(mix) {
 export function setMix(mix, keep = true) {
   tts.mix = Math.max(-1, Math.min(1, Number(mix) || 0));
   if (keep) save();
-  if (readingEl) readingEl.volume = mixLevels(tts.mix).reading; // a reading under way follows
+  setReadingLevel(readingLevel()); // a reading under way follows
 }
 
 let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1, readingChanged: () => {}, blockVoices: () => [] };
@@ -527,6 +555,32 @@ const audioCache = new Map();
 const AUDIO_CACHE_MAX = 400;
 let readingEl = null;
 const readingAudio = () => (readingEl ||= new Audio());
+// A reading louder than full volume goes through Web Audio, which can raise it, with a
+// limiter after so its peaks don't distort, as in the full mix. Set up the first time
+// one is, and used from then on.
+let boost = null;
+function setReadingLevel(v) {
+  const a = readingEl;
+  if (!a) return;
+  if (v > 1 && !boost) {
+    try {
+      const ctx = new AudioContext(), gain = ctx.createGain(), limit = ctx.createDynamicsCompressor();
+      limit.threshold.value = -3;
+      limit.knee.value = 0;
+      limit.ratio.value = 20;
+      limit.attack.value = 0.002;
+      limit.release.value = 0.1;
+      ctx.createMediaElementSource(a).connect(gain).connect(limit).connect(ctx.destination);
+      boost = { ctx, gain, limit };
+    } catch { /* stays at full volume */ }
+  }
+  if (!boost) { a.volume = Math.min(1, v); return; }
+  a.volume = 1;
+  boost.gain.gain.value = v;
+  if (boost.ctx.state === 'suspended') boost.ctx.resume().catch(() => {});
+}
+// How loud the reading under way is: the Video / TTS slider's level, times its block's.
+const readingLevel = () => mixLevels(tts.mix).reading * (current?.gain ?? 1);
 
 // ---- Piper in the browser (web version)
 
@@ -916,7 +970,7 @@ export function readAhead(text, speed = 1, uri) {
 export async function renderTrack(blocks, secs, progress = () => {}) {
   const made = await makeReadings(blocks, progress);
   // Laid out in a worker, as a long film makes a big track.
-  const readings = made.map(({ start, w }) => ({ start, samples: w.samples, rate: w.rate, secs: w.secs }));
+  const readings = made.map(({ start, w }, k) => ({ start, samples: w.samples, rate: w.rate, secs: w.secs, gain: blocks[k].gain ?? 1 }));
   return new Promise((resolve, reject) => {
     let w;
     try { w = new Worker(new URL('./track-worker.js', import.meta.url), { type: 'module' }); } catch { return resolve(layTrack(readings, secs)); }
@@ -965,11 +1019,11 @@ export function readingStarting() {
   return current.at == null || !a || a.paused || a.currentTime <= current.at + 0.005;
 }
 
-function speakAudio(text, voice, { id, manual, silent, speed, from, done }) {
+function speakAudio(text, voice, { id, manual, silent, speed, gain, from, done }) {
   stop();
   const token = {};
   const playRate = hooks.rate();
-  current = { piper: token, done, silent };
+  current = { piper: token, done, silent, gain };
   tts.speaking = { id, manual: manual || silent };
   const finish = (secs) => {
     if (current?.piper !== token) return;
@@ -994,7 +1048,7 @@ function speakAudio(text, voice, { id, manual, silent, speed, from, done }) {
     if (at >= w.secs - 0.05) return finish(null);
     a.currentTime = at;
     current.at = at;
-    a.volume = mixLevels(tts.mix).reading;
+    setReadingLevel(readingLevel());
     hooks.duck(true);
     a.play().catch(() => finish(null));
   }, (e) => {
@@ -1012,11 +1066,12 @@ function speakAudio(text, voice, { id, manual, silent, speed, from, done }) {
 // finishes on its own, or with null if it was stopped or failed.
 // silent: read at zero volume, just to measure it.
 // from: for a reading picked up partway through, how far into it to start, in seconds.
-export function speak(text, { id = null, manual = false, silent = false, speed = 1, voice: uri, from = null, done = () => {} } = {}) {
+// gain: how loud, against the Video / TTS slider's level (1 as it is).
+export function speak(text, { id = null, manual = false, silent = false, speed = 1, gain = 1, voice: uri, from = null, done = () => {} } = {}) {
   const voice = voiceOf(uri);
   let words = spoken(text);
   if (!words || !voice) { stop(); done(null); return false; }
-  if (makesAudio(voice)) return speakAudio(text, voice, { id, manual, silent, speed, from, done });
+  if (makesAudio(voice)) return speakAudio(text, voice, { id, manual, silent, speed, gain, from, done });
   // A voice in the browser can't start partway through, so it starts at the word it would
   // have reached.
   if (from) words = wordsFrom(words, from() / duration(text, speed, uri).secs);
@@ -1031,7 +1086,7 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
   if (voice) { u.voice = voice; u.lang = voice.lang; }
   const playRate = hooks.rate();
   u.rate = Math.min(10, Math.max(0.1, rate(speed) * playRate));
-  u.volume = silent ? 0 : mixLevels(tts.mix).reading;
+  u.volume = silent ? 0 : Math.min(1, mixLevels(tts.mix).reading * gain); // the browser's voices go no louder
   const key = measureKey(text, speed, voice.voiceURI);
   let t0 = 0;
   u.onstart = () => { t0 = performance.now(); };
@@ -1053,7 +1108,7 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
   };
   u.onend = () => finish(true);
   u.onerror = () => finish(false);
-  current = { u, done, silent };
+  current = { u, done, silent, gain };
   tts.speaking = { id, manual: manual || silent };
   if (!silent) hooks.duck(true);
   if (voice && !warmed.has(voice.voiceURI)) {

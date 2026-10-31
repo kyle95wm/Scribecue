@@ -8,8 +8,9 @@
 // in:  { cmd: 'mix', file, track, ...mix }        the programme, from the file
 //      { cmd: 'mixPlanes', planes, rate, ...mix }  the programme, decoded by the page
 //      mix: { readings, fade, video, reading, kbps, wavMix, target, ceiling, stems }
-//        readings: [{ start, samples, rate, dip }], each reading as mono 16-bit samples,
-//        when it starts (seconds) and how far the programme goes down under it (dB),
+//        readings: [{ start, samples, rate, dip, gain }], each reading as mono 16-bit
+//        samples, when it starts (seconds), how far the programme goes down under it (dB)
+//        and how loud it is against the others (1 as they are; optional),
 //        sorted by start; fade: seconds to go down that far, or back up; video, reading: levels from the
 //        mix slider; kbps: MP3s at this bitrate, or 0 for WAVs; wavMix: the mix as a WAV
 //        whatever kbps is, for ffmpeg to make into something else; target: the loudness to
@@ -237,7 +238,7 @@ class Mixer {
     // Each reading's first and last frame here, and its samples per frame.
     this.said = job.readings.map((r) => {
       const at = Math.round(r.start * rate);
-      return { at, end: at + Math.ceil((r.samples.length * rate) / r.rate), s: r.samples, ratio: r.rate / rate, dip: r.dip };
+      return { at, end: at + Math.ceil((r.samples.length * rate) / r.rate), s: r.samples, ratio: r.rate / rate, dip: r.dip, g: r.gain ?? 1 };
     });
     this.edges = this.said.map((r) => [r.at, r.end, r.dip]);
     this.first = 0; // the first reading that hasn't ended
@@ -297,12 +298,12 @@ class Mixer {
     while (this.first < rs.length && rs[this.first].end <= i) this.first++;
     let v = 0;
     for (let k = this.first; k < rs.length && rs[k].at <= i; k++) {
-      const { at, end, s, ratio } = rs[k];
+      const { at, end, s, ratio, g } = rs[k];
       if (i >= end) continue;
       const x = (i - at) * ratio, j = Math.floor(x);
-      if (j < 1 || j + 2 >= s.length) { if (j < s.length) v += s[j]; continue; }
+      if (j < 1 || j + 2 >= s.length) { if (j < s.length) v += s[j] * g; continue; }
       const y0 = s[j - 1], y1 = s[j], y2 = s[j + 1], y3 = s[j + 2], f = x - j;
-      v += (((-y0 + 3 * y1 - 3 * y2 + y3) / 2 * f + (y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3)) * f + (y2 - y0) / 2) * f + y1;
+      v += ((((-y0 + 3 * y1 - 3 * y2 + y3) / 2 * f + (y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3)) * f + (y2 - y0) / 2) * f + y1) * g;
     }
     return (v / 32768) * this.reading;
   }

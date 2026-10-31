@@ -67,15 +67,23 @@ video. Double-click it to put it back in the middle.
 
 In the text to speech settings, choose how far the video's sound goes down (6 to 20 dB,
 or **Custom** to type any amount from 1 to 40 dB) and how quickly it fades down and back
-up. The [full mix](#exporting-the-full-mix) uses
-the same settings, so it sounds like what you hear.
+up. The [full mix](#exporting-the-full-mix) uses the same settings, so it sounds like what
+you hear.
 
-A block can have its own dip: pick it from the **Dip** menu in the open block, such as
-**No dip** for a line over music, or **Dip 20 dB** under a loud scene. Choose **Custom**
-to type any amount from 0 to 40 dB, then press `Enter`. **Dip as set** follows the
-settings, even if you change them later; a block with its own dip keeps it. Dips don't
-add up: a block's own dip replaces the setting for that block. It's saved in projects
-and WebVTT exports.
+Each block can change that, in the open block:
+
+- **Dip:** go further or less far than the setting, such as **5 dB more** under a loud
+  scene, or **No dip** for a line over music. Choose **Custom** to type how many dB more,
+  or less with a minus (such as `-3`), then press `Enter`. A block's dip adds to the
+  setting, so if you change the setting later, every block moves with it.
+- **Vol:** make the reading louder or quieter than the rest, from 25% to 200% of the
+  **Video / TTS** slider's level. Drag the slider, or type a percentage in the box and
+  press `Enter`. Double-click the slider for 100%. It moves with the **Video / TTS**
+  slider too. The browser's own voices can't go above 100%.
+
+Both are saved in projects and WebVTT exports. The full mix uses both, and the
+description track the volume. Blocks given an exact dip in Scribecue 0.59 or 0.60 keep sounding the
+same: they become the difference from your setting.
 
 ## Exporting the full mix
 

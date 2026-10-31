@@ -95,10 +95,14 @@
               <select id="edSpeed" aria-label="Speed"></select></label>
             <label id="edVoiceWrap" class="edspeed" hidden data-tip="Text to speech voice for this block, such as a second voice for translated dialogue. Same as Settings follows the voice chosen there">
               <select id="edVoice" aria-label="Voice"></select></label>
-            <span id="edDipWrap" class="edspeed" hidden data-tip="Dip: how far the programme is lowered under this block's reading, when playing and in the full mix. As set follows the text to speech settings. Custom: type 0 to 40 dB, then press Enter">
-              <select id="edDip" aria-label="Programme lowered by"></select>
-              <input type="number" id="edDipCustom" min="0" max="40" step="1" hidden
-                aria-label="Programme lowered by, in dB, from 0 to 40"></span>
+            <span id="edDipWrap" class="edspeed" hidden data-tip="Dip: how far the programme is lowered under this block's reading, when playing and in the full mix: as set in the text to speech settings, or that much more or less. Custom: type the dB more, or less with a minus, then press Enter">
+              <select id="edDip" aria-label="Programme lowered"></select>
+              <input type="text" inputmode="numeric" id="edDipCustom" hidden placeholder="+3"
+                aria-label="dB more than set, or less with a minus, up to 40"></span>
+            <span id="edVolWrap" class="edspeed edvol" hidden data-tip="Volume: how loud this block's reading is, as a share of the Video / TTS slider's level, so it moves with the slider. Double-click the slider for 100%">
+              <span class="dim" aria-hidden="true">Vol</span>
+              <input type="range" id="edVol" min="25" max="200" step="5" value="100" aria-label="Reading volume, percent of the slider">
+              <input type="text" inputmode="numeric" id="edVolBox" value="100" aria-label="Reading volume, percent, 25 to 200"><span class="dim" aria-hidden="true">%</span></span>
             <span class="grow"></span>
             <span id="edStats"></span>
           </div>

@@ -25,6 +25,16 @@ test('readings by voices at different rates go in one track at the highest, each
   assert.ok(Math.abs(top(alone.samples) - 32767 * 10 ** (TRACK_PEAK_DB / 20)) < 2, 'a reading on its own peaks at −8 dBFS');
 });
 
+test('a reading’s volume carries into the track, and a loud one brings it all down together', () => {
+  const r = (start, gain) => ({ start, samples: tone(0.5, 22050), rate: 22050, secs: 0.5, gain });
+  const top = (s, a, b) => s.subarray(a * 22050, b * 22050).reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+  const quiet = layTrack([r(0, 1), r(1, 0.5)], 2).samples;
+  assert.ok(Math.abs(top(quiet, 1, 1.5) / top(quiet, 0, 0.5) - 0.5) < 0.01, 'half as loud');
+  const loud = layTrack([r(0, 1), r(1, 2)], 2).samples;
+  assert.ok(Math.abs(top(loud, 1, 1.5) / top(loud, 0, 0.5) - 2) < 0.01, 'twice as loud');
+  assert.ok(top(loud, 0, 2) <= 32767 * 10 ** (TRACK_MAX_DB / 20) + 1, 'still under −6 dBFS');
+});
+
 test('no readings: a silent track of the length asked', () => {
   const { samples, rate } = layTrack([], 2);
   assert.equal(rate, 22050);

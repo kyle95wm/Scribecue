@@ -749,8 +749,10 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .edspeed[hidden] { display: none; }
 .edspeed #edVoice { max-width: 180px; }
 .edspeed #edDip { max-width: 120px; }
-.edspeed #edDipCustom { width: 48px; font: 12px var(--mono); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 1px 2px; }
+.edspeed #edVol { width: 90px; accent-color: var(--accent); }
+.edspeed #edDipCustom, .edspeed #edVolBox { width: 40px; font: 12px var(--mono); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 1px 2px; }
 .edspeed #edDipCustom[hidden] { display: none; }
+.edspeed #edVolBox { text-align: right; }
 .edspeed select {
   max-width: 115px;
   font: 12px var(--mono);
