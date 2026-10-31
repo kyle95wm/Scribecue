@@ -116,7 +116,7 @@ timeline to pan, and `Ctrl/Cmd`+scroll or pinch to zoom.
 ## Saving
 
 Press `Ctrl/Cmd+S` to save a **project** (`.scribecue`). It keeps everything: the blocks,
-their speeds, your settings, where you were and which video goes with it. Keep one per
+their speeds, comments, your settings, where you were and which video goes with it. Keep one per
 programme. `Ctrl/Cmd+O` opens it again.
 
 - **Autosave:** once a project has a file, your changes are saved to it a couple of
@@ -131,6 +131,21 @@ programme. `Ctrl/Cmd+O` opens it again.
 
 Saving to the file, autosave and reopening the video need Chrome or Edge. Other browsers
 download a copy each time you save, and you open the video yourself.
+
+## Comments for QC
+
+Click **Comment** in an open block to comment on it. For a comment at the playhead,
+open **Comments** at the top and choose **Timeline time**. You can also right-click
+the timeline or type a time.
+Add your name if you like, write the comment, then click **Post comment**.
+
+- Add as many comments as you need. Click a comment's block or time to jump there.
+- Block comments move with the block. When you split a block, they stay on the first half.
+- **Resolve** hides a finished comment. **Show resolved** lets you find and reopen it.
+- **Edit** or **Delete** changes a comment. `Ctrl/Cmd+Z` in the editor undoes comment changes.
+- Save the `.scribecue` project and send it with the video for review. The reviewer saves
+  a copy to send back. Both people need a version with Comments.
+  Comments are kept in projects, not SRT, VTT or recording files.
 
 ## Exporting
 

@@ -74,6 +74,7 @@ export const GROUPS = [
     ['fitToReading', 'Set the block’s end to where the reading finishes', ['Shift+KeyV']],
     ['ttsPanel', 'Text to speech settings', ['Alt+Shift+KeyV']],
     ['soundsLike', 'Sounds like: how words in this block are said', ['Alt+Shift+KeyP']],
+    ['comments', 'Comments', ['Alt+Shift+KeyC']],
     ['aiHelp', 'AI help', ['Alt+Shift+KeyA']],
   ]],
   ['View', [

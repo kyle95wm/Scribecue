@@ -62,6 +62,7 @@
           <button role="menuitem" data-act="exportMix" class="write-only"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></button>
         </div>
       </span>
+      <button data-act="comments" id="commentsBtn" aria-pressed="false" aria-controls="commentsDrawer" data-tip="Comments on blocks and timeline times, saved with the project (⌥⇧C)">Comments</button>
       <button data-act="ai" id="aiBtn" class="tip-end" data-tip="AI help: chat about the scene and draft descriptions (⌥⇧A)">AI</button>
       <button data-act="settings" class="tip-end" data-tip="Settings: text to speech, speech to text, AI help, shortcuts, storage and more (⌥⇧S)">Settings</button>
       <button data-act="help" class="hl tip-end" data-tip="Show all keyboard shortcuts (? or ⇧O)">Shortcuts <kbd>?</kbd></button>
@@ -112,6 +113,7 @@
             <span class="grow"></span>
             <span id="edStats"></span>
           </div>
+          <div class="edtts"><button id="edComment" aria-controls="commentsDrawer" data-tip="Add a comment to this block">Comment</button></div>
         </div>
       </div>
     </aside>
@@ -461,6 +463,21 @@ docker compose up -d --build</code></pre>
     </section>
     <div class="updbtns"><button id="wzBack">Back</button><span class="grow"></span><button id="wzNext" class="hl">Next</button></div>
   </dialog>
+
+  <aside id="commentsDrawer" class="aidrawer" hidden aria-label="Comments">
+    <header class="aihead"><strong class="grow">Comments</strong><button id="commentsClose" aria-label="Close Comments (Esc)">×</button></header>
+    <div class="aicompose">
+      <label class="airow" for="commentAuthor">Your name <input id="commentAuthor" autocomplete="name" maxlength="100" placeholder="optional"></label>
+      <div class="airow"><button id="commentBlock" aria-pressed="true">Selected block</button><button id="commentTime" aria-pressed="false">Timeline time</button></div>
+      <label id="commentTarget" for="commentText"></label>
+      <label id="commentTimeLabel" hidden>Time <input id="commentAt" spellcheck="false" aria-label="Comment time"></label>
+      <textarea id="commentText" rows="2" placeholder="Add a comment…"></textarea>
+      <div class="airow"><button id="commentPost" class="hl" data-tip="Save the project to hand comments over for QC">Post comment</button><span id="commentStatus" class="dim small" role="status"></span></div>
+    </div>
+    <div class="aicompose"><button id="commentsResolved" aria-pressed="false">Show resolved</button></div>
+    <div id="commentsLog" class="ailog" aria-label="Project comments"></div>
+    <div id="commentsPager" class="aicompose airow"><button id="commentsPrev">Previous</button><span id="commentsPage" class="dim small"></span><button id="commentsNext">Next</button></div>
+  </aside>
 
   <aside id="aiDrawer" class="aidrawer" hidden aria-label="AI help">
     <header class="aihead">
@@ -1003,6 +1020,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="jumpTime"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>J</kbd></dt><dd>Jump to a timecode</dd>
             <dt data-keys="quickNav"><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Quick navigation (search blocks)</dd>
             <dt data-keys="help"><kbd>⇧</kbd><kbd>O</kbd></dt><dd>This overlay</dd>
+            <dt class="script-only" data-keys="comments"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>C</kbd></dt><dd class="script-only">Comments on blocks and timeline times</dd>
             <dt data-keys="settings"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>S</kbd></dt><dd>Settings</dd>
             <dt><kbd>+</kbd> <kbd>-</kbd></dt><dd>Increase / reduce speed</dd>
             <dt data-keys="createEdit"><kbd>↵</kbd></dt><dd>Create or edit text block</dd>

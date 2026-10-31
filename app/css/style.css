@@ -1090,3 +1090,18 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 #ttsFavs:empty { display: none; }
 #ttsFavs .fav[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 #ttsFavs .fav.gone { color: var(--dim); border-style: dashed; }
+
+/* Comments reuse the AI drawer and its message controls. */
+#commentsDrawer input { min-width: 0; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+#commentsDrawer button[aria-pressed="true"], #commentsBtn[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+#commentAt, .comment-location { font: 12px var(--mono); }
+.comment-body { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.comment-meta { font: 12px var(--sans); color: var(--dim); }
+.mode-record #commentsBtn, .mode-record #commentsDrawer { display: none; }
+#commentsPager { flex-direction: row; justify-content: space-between; }
+#commentsDrawer .aicompose { flex-shrink: 0; }
+#commentsDrawer .aihead { flex-shrink: 0; }
+#commentAuthor { flex: 1; }
+#commentText { min-height: 56px; resize: vertical; max-height: 120px; }
+#commentsDrawer .ailog { overscroll-behavior: contain; }
+.mode-record .script-only { display: none; }

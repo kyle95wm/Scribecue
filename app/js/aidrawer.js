@@ -333,6 +333,7 @@ function toggleNotes(show = $('aiNotesBox').hidden) {
 // ---- drawer
 
 export function toggleAi(open = $('aiDrawer').hidden) {
+  if (open && !document.getElementById('commentsDrawer').hidden) document.getElementById('commentsClose').click();
   $('aiDrawer').hidden = !open;
   $('aiBtn').classList.toggle('on', open);
   if (!open) { document.activeElement?.blur(); return; }

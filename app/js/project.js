@@ -1,3 +1,5 @@
+import { cleanComments } from './comments.js';
+
 // Scribecue project files (.scribecue): a whole piece of work in one JSON file, so you
 // can keep several projects and pick up where you left off. SRT and VTT exports are for
 // handing scripts off; a project also keeps block speeds, "sounds like" words and auto ends, the mode and its
@@ -14,17 +16,19 @@ export const cleanSay = (say) => (Array.isArray(say) ? say : [])
 
 // state: { blocks, media, settings, view, app, notes }. Returns the object to save as JSON.
 // notes: what the writer tells AI help about the programme (characters, setting, style).
-export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '' }) {
+export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', comments = [] }) {
   return {
     scribecue: PROJECT_FORMAT,
     app,
     saved: new Date().toISOString(),
     ...(notes.trim() ? { notes } : {}),
+    ...(cleanComments(comments, true).length ? { comments: cleanComments(comments, true) } : {}),
     media: media && media.name ? { name: media.name, size: media.size ?? null, duration: num(media.duration) ? media.duration : null } : null,
     settings,
     view,
-    blocks: blocks.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say }) => ({
+    blocks: blocks.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments }) => ({
       start, end, text,
+      ...(cleanComments(comments).length ? { comments: cleanComments(comments) } : {}),
       ...(speed ? { speed } : {}),
       ...(voice ? { voice } : {}),
       ...(num(dip) ? { dip } : {}),
@@ -50,6 +54,7 @@ export function fromProject(json) {
   for (const b of json.blocks) {
     if (!b || !num(b.start) || !num(b.end)) continue;
     blocks.push({
+      ...(cleanComments(b.comments).length ? { comments: cleanComments(b.comments) } : {}),
       start: Math.max(0, b.start),
       end: Math.max(b.start, b.end),
       text: typeof b.text === 'string' ? b.text : '',
@@ -71,6 +76,7 @@ export function fromProject(json) {
   const v = json.view && typeof json.view === 'object' ? json.view : {};
   return {
     blocks,
+    comments: cleanComments(json.comments, true),
     notes: typeof json.notes === 'string' ? json.notes : '',
     media: m && typeof m.name === 'string' ? { name: m.name, size: num(m.size) ? m.size : null, duration: num(m.duration) ? m.duration : null } : null,
     settings: {

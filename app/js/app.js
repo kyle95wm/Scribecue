@@ -1,3 +1,5 @@
+import { cleanComments } from './comments.js';
+import { initComments, toggleComments, refreshComments, openBlockComments } from './commentsdrawer.js';
 import { parseSubs, parseAdc, toSRT, toVTT, fmtTC, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
@@ -127,6 +129,7 @@ const S = {
   handle: null, // where the project saves to, when the browser allows saving in place
   projectMedia: null, // { name, size } of the video the open project belongs to
   pendingPlayhead: null, // where to put the playhead once that video is open
+  comments: [], // comments at fixed timeline times
   notes: '', // the writer's notes about the programme, for AI help
 };
 
@@ -180,6 +183,7 @@ const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
   typeof b.voice === 'string' && b.voice ? { voice: b.voice } : {},
   blockDipOf(b), isVol(b.vol) ? { vol: b.vol } : {},
   b.auto ? { auto: true } : {}, b.fit ? { fit: true } : {}, b.pinned ? { pinned: true } : {},
+  cleanComments(b.comments).length ? { comments: cleanComments(b.comments) } : {},
   b.say?.length ? { say: b.say } : {});
 // What text to speech reads for a block: its text, with its "sounds like" words.
 const said = (c) => soundsLike(c.text, c.say);
@@ -195,7 +199,7 @@ let tlDirty = true;
 
 function duration() {
   const d = S.hasVideo && Number.isFinite(video.duration) ? video.duration : 0;
-  return d > 0 ? Math.max(d, S.maxEnd) : Math.max(60, S.maxEnd + 30);
+  return d > 0 ? Math.max(d, S.maxEnd) : Math.max(60, S.maxEnd + 30, commentEnd);
 }
 const now = () => (S.hasVideo ? video.currentTime : S.vt);
 const isPlaying = () => (S.hasVideo ? !video.paused && !video.ended : S.vplaying);
@@ -314,7 +318,7 @@ function followPlayhead(t) {
 
 const undoStack = [], redoStack = [];
 let lastUndoTag = null, lastUndoTime = 0;
-const snapshot = () => JSON.stringify({ cues: S.cues, sel: S.sel });
+const snapshot = () => JSON.stringify({ cues: S.cues, sel: S.sel, comments: S.comments });
 
 // `tag` coalesces repeated identical actions (e.g. holding a nudge key) into one undo step.
 function pushUndo(snap = snapshot(), tag = null) {
@@ -328,6 +332,7 @@ function pushUndo(snap = snapshot(), tag = null) {
 function restore(snap) {
   const o = JSON.parse(snap);
   S.cues = o.cues;
+  S.comments = o.comments || [];
   nextId = S.cues.reduce((m, c) => Math.max(m, c.id), 0) + 1;
   changed();
   select(o.sel != null && idx(o.sel) >= 0 ? o.sel : null, { seek: false });
@@ -350,9 +355,12 @@ function doRedo() {
 // ---------------------------------------------------------------- change propagation
 
 let saveTimer = 0;
+let commentTimes = [], commentEnd = 0;
 function changed(id = null) {
   S.lastChange = Date.now();
   S.changeGen = (S.changeGen || 0) + 1;
+  commentEnd = S.comments.reduce((end, c) => Math.max(end, c.time + 5), 0);
+  commentTimes = [...S.comments.filter((c) => !c.resolved).map((c) => c.time), ...S.cues.filter((b) => b.comments?.some((c) => !c.resolved)).map((b) => b.start)].sort((a, b) => a - b);
   S.maxEnd = S.cues.reduce((m, c) => Math.max(m, c.end), 0);
   if (!S.dirty) { S.dirty = true; showDocName(); }
   if (id != null) {
@@ -371,6 +379,7 @@ function changed(id = null) {
     renderList();
   }
   updateEditor();
+  refreshComments();
   S.activeId = undefined; // force overlay/active refresh
   tlDirty = true;
   clearTimeout(saveTimer);
@@ -386,20 +395,22 @@ function save() {
       // The open video, so it can be reopened after a reload, or else the project's.
       projectMedia: S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size } : S.projectMedia,
       notes: S.notes,
-      cues: S.cues.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say }) => ({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say })),
+      comments: S.comments,
+      cues: S.cues.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments }) => ({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments })),
     }));
   } catch { /* storage full or blocked */ }
 }
 function loadSaved() {
   try {
     const o = JSON.parse(localStorage.getItem(STORE_KEY));
-    if (o?.cues?.length) {
-      S.cues = o.cues.map(revive);
+    if (o && (o.cues?.length || o.comments?.length)) {
+      S.cues = (o.cues || []).map(revive);
+      S.comments = cleanComments(o.comments, true);
       S.subName = o.subName || S.subName;
       S.savedDirty = o.dirty !== false;
       S.projectMedia = o.projectMedia || null;
       S.notes = typeof o.notes === 'string' ? o.notes : '';
-      return S.cues.length;
+      return S.cues.length || S.comments.length;
     }
   } catch { /* ignore */ }
   return 0;
@@ -415,6 +426,7 @@ function select(id, { seek: doSeek = true, reveal = true, toTop = true } = {}) {
     rowMap.get(S.sel)?.setAttribute('aria-selected', 'false');
   }
   S.sel = id;
+  refreshComments();
   const r = rowMap.get(id);
   r?.classList.add('sel');
   r?.setAttribute('aria-selected', 'true');
@@ -524,6 +536,7 @@ function moveToPlayhead() {
 $('edBack').addEventListener('click', (e) => { e.currentTarget.blur(); nudge('move', -frame()); });
 $('edFwd').addEventListener('click', (e) => { e.currentTarget.blur(); nudge('move', frame()); });
 $('edHere').addEventListener('click', (e) => { e.currentTarget.blur(); moveToPlayhead(); });
+$('edComment').addEventListener('click', () => openBlockComments());
 $('edDel').addEventListener('click', (e) => { e.currentTarget.blur(); del(); });
 
 function newCue() {
@@ -591,6 +604,7 @@ function merge() {
   c.text = [c.text, n.text].filter(Boolean).join('\n');
   const words = new Set((c.say || []).map(([w]) => w.toLocaleLowerCase()));
   const more = (n.say || []).filter(([w]) => !words.has(w.toLocaleLowerCase()));
+  if (n.comments?.length) c.comments = [...(c.comments || []), ...n.comments];
   if (more.length) c.say = [...(c.say || []), ...more];
   delete c.auto; delete c.fit;
   S.cues.splice(i + 1, 1);
@@ -1183,6 +1197,17 @@ function drawTimeline() {
   }
   rc.stroke();
 
+  // Open comments mark the ruler; nearby comments share a mark.
+  rc.fillStyle = C.accent;
+  let lastCommentX = -10;
+  for (const time of commentTimes) {
+    if (time < t0) continue;
+    const x = Math.round((time - t0) * pps);
+    if (x > rw) break;
+    if (x - lastCommentX < 6) continue;
+    rc.fillRect(x, 1, 4, 4); lastCommentX = x;
+  }
+
   // grid + waveform
   const [wc, ww, wh] = fitCanvas(wave);
   wc.fillStyle = C.grid;
@@ -1245,7 +1270,7 @@ function drawCues(W) {
     el.classList.toggle('sel', c.id === S.sel);
     el.classList.toggle('active', c.id === S.activeId);
     el.classList.toggle('faded', !matches(c, i));
-    el.children[1].textContent = w > 28 ? '#' + (i + 1) + (ttsOn() && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') : '';
+    el.children[1].textContent = w > 28 ? '#' + (i + 1) + (ttsOn() && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') + (c.comments?.some((n) => !n.resolved) ? ' · ●' : '') : '';
     if (el._text !== c.text) { el._text = c.text; el.children[2].textContent = c.text; }
   }
   for (const [id, el] of cueEls) if (!seen.has(id)) { el.remove(); cueEls.delete(id); }
@@ -2658,7 +2683,7 @@ function setMode(m, quiet = false) {
     b.classList.toggle('on', on);
     b.setAttribute('aria-checked', on);
   }
-  if (m === 'record') { holdEnd(); stopSpeech(); } else if (m === 'write') { holdEnd(); fitAllAuto(); } else { stopSpeech(); if (stt.on) warmStt(); }
+  if (m === 'record') { if (!$('commentsDrawer').hidden) toggleComments(false); holdEnd(); stopSpeech(); } else if (m === 'write') { holdEnd(); fitAllAuto(); } else { stopSpeech(); if (stt.on) warmStt(); }
   renderList();
   updateEditor();
   updateInd();
@@ -2920,9 +2945,9 @@ function baseName() {
 function showDocName() {
   const name = S.subName === 'untitled.srt' ? 'Untitled' : S.subName;
   const el = $('subName');
-  el.textContent = name + (S.dirty && S.cues.length ? ' •' : '');
-  el.title = S.dirty && S.cues.length ? 'Unsaved changes: save the project with ' + (IS_MAC ? '⌘S' : 'Ctrl+S') : 'Project or script file';
-  document.title = `${name}${S.dirty && S.cues.length ? ' •' : ''} · Scribecue`;
+  el.textContent = name + (S.dirty ? ' •' : '');
+  el.title = S.dirty ? 'Unsaved changes: save the project with ' + (IS_MAC ? '⌘S' : 'Ctrl+S') : 'Project or script file';
+  document.title = `${name}${S.dirty ? ' •' : ''} · Scribecue`;
 }
 
 // ---- project files
@@ -3019,6 +3044,7 @@ function projectData() {
     app: VERSION,
     blocks: S.cues,
     notes: S.notes,
+    comments: S.comments,
     media: m,
     settings: { mode: S.mode, offset: S.offset, ttsBase: tts.base, ttsVoice: tts.voice || chosenVoice(),
       ttsDuck: tts.duck, ttsDipDb: tts.dipDb, ttsDipFade: tts.dipFade, ttsMix: tts.mix },
@@ -3037,7 +3063,7 @@ function projectSaved(name) {
 // Browsers that can't save in place download a copy instead.
 async function saveProject(as = false) {
   if (S.mode === 'record') return toast('Takes are kept as you record them. Export the narration WAV when you’re done');
-  if (!S.cues.length) return toast('Nothing to save yet');
+  if (!S.cues.length && !S.comments.length && !S.dirty) return toast('Nothing to save yet');
   const text = JSON.stringify(projectData(), null, 1);
   const name = `${baseName()}${PROJECT_EXT}`;
   if (!window.showSaveFilePicker) {
@@ -3078,7 +3104,7 @@ const AUTO = { can: canAutosave(window), permission: 'prompt', saving: false, er
 function showAutosave() {
   const st = autosaveState({
     can: AUTO.can, file: !!S.handle, permission: AUTO.permission,
-    saving: AUTO.saving, dirty: S.dirty && S.cues.length > 0, error: AUTO.error,
+    saving: AUTO.saving, dirty: S.dirty, error: AUTO.error,
   });
   const b = $('autosaveBtn');
   b.hidden = !st;
@@ -3110,7 +3136,7 @@ async function autosave() {
   const h = S.handle;
   if (AUTO.saving) return; // the save running now looks again when it's done
   AUTO.first = 0;
-  if (!AUTO.can || !h || !S.dirty || !S.cues.length) return showAutosave();
+  if (!AUTO.can || !h || !S.dirty) return showAutosave();
   const gen = S.changeGen;
   AUTO.saving = true;
   showAutosave();
@@ -3144,7 +3170,7 @@ $('autosaveBtn').addEventListener('click', async (e) => {
 
 // Asks before replacing work that isn't saved in a project. It can still be undone.
 function okToReplace(what) {
-  if (!S.dirty || !S.cues.length) return true;
+  if (!S.dirty) return true;
   return confirm(`Your changes to ${S.subName === 'untitled.srt' ? 'this project' : S.subName} aren't saved in a project file. ${what} anyway? You can undo it with ${IS_MAC ? '⌘Z' : 'Ctrl+Z'}.`);
 }
 
@@ -3169,6 +3195,7 @@ async function openProject(file, handle = null) {
   if (handle && AUTO.can) handle.requestPermission({ mode: 'readwrite' }).catch(() => 'prompt').then(checkWrite);
   else showAutosave();
   S.projectMedia = p.media;
+  S.comments = p.comments;
   S.notes = p.notes;
   aiNotesChanged();
   const { mode, offset, ttsSpeed, ttsBase, ttsVoice } = p.settings;
@@ -3277,6 +3304,7 @@ async function enterRecording(r, name) {
   handleStore.set(null);
   showAutosave();
   S.projectMedia = r.media;
+  S.comments = [];
   S.notes = '';
   aiNotesChanged();
   setFps(r.fps);
@@ -3352,9 +3380,9 @@ async function openAny() {
 const newDlg = $('newDlg');
 function startAgain() {
   const blocks = S.cues.length, media = S.videoFile?.name;
-  if (!blocks && !media) return newProject(false);
+  if (!blocks && !media && !S.comments.length) return newProject(false);
   const n = blocks === 1 ? '1 block' : `${blocks} blocks`;
-  $('newWhat').textContent = blocks ? `This project has ${n}${media ? `, with ${media} open` : ''}.` : `${media} is open, with no blocks yet.`;
+  $('newWhat').textContent = S.comments.length && !blocks && !media ? `This project has ${S.comments.length} timeline comments.` : blocks ? `This project has ${n}${media ? `, with ${media} open` : ''}.` : `${media} is open, with no blocks yet.`;
   newDlg.querySelector('[data-choice="blocks"]').hidden = !blocks;
   newDlg.showModal();
   newDlg.querySelector(`[data-choice="${blocks ? 'blocks' : 'project'}"]`).focus();
@@ -3399,6 +3427,7 @@ function newProject(ask = true) {
   showAutosave();
   S.projectMedia = null;
   S.pendingPlayhead = null;
+  S.comments = [];
   S.notes = '';
   aiNotesChanged();
   changed();
@@ -3442,6 +3471,7 @@ async function loadSubsFile(file) {
   await stopJob();
   await endRecording();
   pushUndo();
+  S.comments = [];
   S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.voice ? { voice: c.voice } : {}, blockDipOf(c), isVol(c.vol) ? { vol: c.vol } : {}, c.say ? { say: c.say } : {}));
   S.subName = file.name;
   S.handle = null; // saving makes a project next to it, rather than overwriting the script
@@ -3981,8 +4011,21 @@ const actions = {
   help: () => toggleHelp(),
   settings: () => showGeneral(),
   newProject: () => startAgain(),
-  ai: () => toggleAi(),
+  comments: () => toggleComments(),
+  ai: () => { if (!$('commentsDrawer').hidden) toggleComments(false); toggleAi(); },
 };
+
+initComments({
+  blocks: () => S.cues, selected: selCue, comments: () => S.comments,
+  now, tc, readTime, duration, closeAi: () => { if (!$('aiDrawer').hidden) toggleAi(false); },
+  go: ({ block, time }) => { if (block) select(block.id); else { select(null, { seek: false }); seek(time); } },
+  change: (apply) => { pushUndo(); apply(); changed(); },
+});
+// Right-click anywhere on the timeline to comment at that time.
+tl.addEventListener('contextmenu', (e) => {
+  if (S.mode === 'record') return;
+  e.preventDefault(); toggleComments(true, clamp(xToT(e.clientX), 0, duration()));
+});
 
 // AI help: the drawer asks the editor for the script and puts drafts into blocks.
 initAi({
@@ -4135,7 +4178,7 @@ let keyLookup = lookup(keyChanges());
 const isPlus = (e) => e.key === '+' || e.code === 'NumpadAdd' || (e.key === '=' && !e.shiftKey);
 const isMinus = (e) => e.key === '-' || e.code === 'NumpadSubtract';
 const FRAZIER_ONLY = {
-  KeyP: 'Glossary', KeyL: 'Glossary', KeyM: 'Markers', KeyC: 'Comments', KeyS: 'Snippets',
+  KeyP: 'Glossary', KeyL: 'Glossary', KeyM: 'Markers', KeyS: 'Snippets',
 };
 
 document.addEventListener('keydown', (e) => {
@@ -4186,14 +4229,14 @@ document.addEventListener('keydown', (e) => {
   if (!e.altKey && isPlus(e)) { e.preventDefault(); setRate(S.rate + 0.25); return; }
   if (!e.altKey && isMinus(e)) { e.preventDefault(); setRate(S.rate - 0.25); return; }
   // Frazier keys for features this editor doesn't have, unless they've been given a job.
-  const frazier = e.altKey && e.shiftKey ? { KeyM: 'Markers', KeyC: 'Comments' }[e.code] : e.shiftKey && !e.altKey ? FRAZIER_ONLY[e.code] : null;
+  const frazier = e.altKey && e.shiftKey ? { KeyM: 'Markers' }[e.code] : e.shiftKey && !e.altKey ? FRAZIER_ONLY[e.code] : null;
   if (frazier) { e.preventDefault(); toast(`${frazier} are not part of this editor`); }
 });
 
 // Keys that change the script, or help with writing it: off in Record mode.
 const REC_LOCKED = new Set(['createEdit', 'newBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'findReplace', 'setStart', 'setEnd',
   'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10',
-  'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'aiHelp', 'offset']);
+  'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'aiHelp', 'comments', 'offset']);
 
 // What each keymap action does.
 const RUN = {
@@ -4253,6 +4296,7 @@ const RUN = {
   fitToReading: () => speakBlock(true),
   ttsPanel: () => openTts(),
   soundsLike: () => openSay(),
+  comments: () => toggleComments(),
   aiHelp: () => toggleAi(),
   help: () => toggleHelp(),
   settings: () => showGeneral(),
@@ -4396,7 +4440,7 @@ initOffline({
   openTts: () => openTts(),
   openStt: () => openStt(),
   guides: () => guidesHere(),
-  unsaved: () => (S.dirty ? S.cues.length : 0),
+  unsaved: () => (S.dirty ? Math.max(1, S.cues.length + S.comments.length) : 0),
   save: () => saveProject(),
 });
 initWelcome({
@@ -4492,7 +4536,7 @@ function whenClear(fn, tries = 120) {
 // After a while of unsaved work, a note asks to save it as a project.
 initReminder({
   state: () => ({
-    blocks: S.cues.length, dirty: S.dirty && S.cues.length > 0, lastChange: S.lastChange || 0,
+    blocks: S.cues.length + S.comments.length, dirty: S.dirty, lastChange: S.lastChange || 0,
     hasFile: !!S.handle || S.subName.endsWith(PROJECT_EXT), name: S.subName,
   }),
   busy: () => !!edit || !!hold || !!document.querySelector('dialog[open]') || !$('tour').hidden ||

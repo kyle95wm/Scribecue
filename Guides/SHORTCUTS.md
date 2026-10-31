@@ -92,6 +92,7 @@ changed. Your shortcuts are kept in this browser.
 | `[` `]` | Make the block's reading slower / faster |
 | `Alt+Shift+V` | Text to speech settings |
 | `Alt+Shift+P` | [Sounds like](WRITING.md) for the selected block |
+| `Alt+Shift+C` | Open or close Comments |
 | `Alt+Shift+A` | Open or close [AI help](AI.md) |
 | `Alt+Shift+S` | Settings |
 | `Alt+=` `Alt+-` `Alt+0` | Zoom the timeline in / out / to fit |
@@ -106,5 +107,4 @@ changed. Your shortcuts are kept in this browser.
 - **If `Alt+Shift` switches your keyboard layout** on Windows, use `↑` `↓` or `K` `J` for
   the previous or next block, and `Del` to delete.
 
-Frazier features that Scribecue doesn't have, such as glossaries, snippets, markers and
-comments, show a short notice when you press their keys.
+Frazier features that Scribecue doesn't have, such as glossaries, snippets and markers, show a short notice when you press their keys.
