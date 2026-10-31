@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.57.0",
+  "date": "2026-10-30",
+  "notes": "## Run it on your computer\n\n- In the web version, a short message after the tour and setup says you can also run Scribecue on your own computer with Docker, for Kokoro voices and more. It only shows once.\n- **Run it on your computer**, in **Settings** under **General**, opens the guide any time.\n\n## Simpler guides\n\n- The guides are split into shorter ones: Getting started, Writing, Voices, Transcribing, AI help, Shortcuts, Google voices and Running it yourself. Each has its own tab under **Guides** in the shortcuts overlay (**?**).\n- They’re rewritten to be quicker to read, with keys in tables and out-of-date parts fixed."
+ },
+ {
   "version": "0.56.2",
   "date": "2026-10-30",
   "notes": "## Fixes\n\n- Pressing play partway through a block now reads it from there, in step with the video, instead of staying silent. Jumping into a block while playing does the same.\n- Voices built into the browser can’t start partway through a reading, so they start at the word they’d have reached."
