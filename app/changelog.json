@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.57.1",
+  "date": "2026-10-30",
+  "notes": "## Fixes\n\n- Playing without a video, readings now start and end with their blocks. In Firefox especially, they used to start a little late, most of all when you pressed play right at a block."
+ },
+ {
   "version": "0.57.0",
   "date": "2026-10-30",
   "notes": "## Run it on your computer\n\n- In the web version, a short message after the tour and setup says you can also run Scribecue on your own computer with Docker, for Kokoro voices and more. It only shows once.\n- **Run it on your computer**, in **Settings** under **General**, opens the guide any time.\n\n## Simpler guides\n\n- The guides are split into shorter ones: Getting started, Writing, Voices, Transcribing, AI help, Shortcuts, Google voices and Running it yourself. Each has its own tab under **Guides** in the shortcuts overlay (**?**).\n- They’re rewritten to be quicker to read, with keys in tables and out-of-date parts fixed."
