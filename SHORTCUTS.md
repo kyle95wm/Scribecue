@@ -2,27 +2,25 @@
 
 ![The keyboard shortcuts overlay](docs/screenshots/shortcuts.png)
 
-The layout follows the
+Press `?` in Scribecue to see these at any time. The layout follows the
 [Frazier cheat sheet](https://www.videotovoice.com/docs/en/cheatsheet/mac.html).
-See [Keys on Mac, Windows and Linux](#keys-on-mac-windows-and-linux) for how the modifier
-keys are named on each system. The tables below are the usual keys.
+
+`Ctrl/Cmd` means `Ctrl` on Windows and Linux, and `Cmd` (⌘) on a Mac. `Alt` is `Option`
+(⌥) on a Mac. [Keys on Mac, Windows and Linux](#keys-on-mac-windows-and-linux) has the
+few differences.
 
 ## Changing shortcuts
 
-Press `?` and click **Change shortcuts**, or open **Settings** and choose **Keyboard
-shortcuts**, to give any action the keys you like:
+Press `?` and click **Change shortcuts**, or open **Settings → Keyboard shortcuts**.
 
-- Click **Add** next to an action, then press the keys. If they already belong to another
-  action, Scribecue says which and asks before moving them. Click a key to take it off,
-  and **Reset** puts an action back to its usual keys. **Find** narrows the list.
-- **Export** saves your shortcuts as `scribecue-shortcuts.json`, and **Import** loads one,
-  so a team can share a layout. **Reset all** goes back to the usual keys.
-- The shortcuts overlay and the player buttons' tooltips show your keys.
+- **Add** a key: click **Add** next to an action, then press the keys. If they're already
+  used, Scribecue asks before moving them.
+- **Remove** a key: click it.
+- **Reset** puts an action back to its usual keys, and **Reset all** does every action.
+- **Export** and **Import** share a layout with your team.
 
-Most actions can be changed. Keys with `Ctrl/Cmd` (undo, open, save, export), keys used
-while typing in a box, and `?` `/` `[` `]` `+` `−` `Esc` stay as they are, because they go
-by the character on the key and so suit every keyboard layout. Your shortcuts are kept in
-this browser.
+Keys with `Ctrl/Cmd`, keys used while typing, and `?` `/` `[` `]` `+` `−` `Esc` can't be
+changed. Your shortcuts are kept in this browser.
 
 <details open>
 <summary><strong>Timeline</strong></summary>
@@ -49,7 +47,7 @@ this browser.
 | Key | Action |
 | --- | --- |
 | `Tab` `Shift+Tab` | Next / previous field (text → start → end) |
-| `Esc` or `Enter` | Close the editor |
+| `Esc` or `Enter` | Close the block. It stays selected |
 | `Shift+Enter` | New line |
 | `↑` `↓` | Previous / next block (from the first / last line) |
 | `Alt+Shift+←` `Alt+Shift+→` | Move the block one frame back / forward |
@@ -103,18 +101,10 @@ this browser.
 
 ## Keys on Mac, Windows and Linux
 
-The keys are in the same places on every system. `Ctrl/Cmd` means `Ctrl` on Windows and
-Linux and `Cmd` (⌘) on a Mac. `Alt` is `Option` (⌥) on a Mac. Scribecue shows the right
-names for your system in the app.
+- **Play / pause while typing** is `Alt+Space` on a Mac, and `Ctrl+Space` on Windows and
+  Linux, where `Alt+Space` opens the window menu.
+- **If `Alt+Shift` switches your keyboard layout** on Windows, use `↑` `↓` or `K` `J` for
+  the previous or next block, and `Del` to delete.
 
-One key differs, to avoid a clash with the system: **play / pause while typing** is
-`Alt+Space` on a Mac and `Ctrl+Space` on Windows and Linux, because Windows keeps
-`Alt+Space` for the window menu.
-
-If `Alt+Shift` switches your keyboard layout on Windows, the block shortcuts also have
-other keys: `↑` `↓` or `K` `J` for previous / next block, and `Del` to delete. You can also
-drop a media file on the window instead of pressing `Ctrl+Shift+O`.
-
-Frazier features that Scribecue doesn't have aren't included: glossaries, snippets,
-markers, comments, pronunciation, extended audio description, and instruction or pause
-marks. Their keys show a short notice instead.
+Frazier features that Scribecue doesn't have, such as glossaries, snippets, markers and
+comments, show a short notice when you press their keys.

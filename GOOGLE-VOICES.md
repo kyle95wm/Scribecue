@@ -1,17 +1,14 @@
-# Google Cloud voices: the complete guide
+# Google Cloud voices
 
-Scribecue can read your blocks with Google Cloud's **Standard** text to speech voices,
-using your own Google Cloud key. Like Piper voices, they return real recordings, so
-lengths are exact straight away and you can export a description track. Unlike Piper,
-each reading sends the block's text to Google, and they need the internet.
+Google Cloud's **Standard** voices make real recordings, so lengths are exact and you can
+export a description track. Each reading sends the block's text to Google.
 
-Google Cloud needs a billing account, even for the free allowance. This guide covers
-setting up the key, and then setting up Google Cloud so that **you're never billed**: if a
-month's readings ever go past the free allowance, billing is turned off and the voices
-simply stop until you turn it back on.
+You need your own Google Cloud key, and Google needs a billing account even for the free
+allowance. This guide sets up the key, then makes sure **you're never billed**: if you go
+past the free allowance, billing turns off and the voices stop until you turn it back on.
 
-Google's console changes often. If a screen doesn't match what's described here, look for
-the nearest equivalent, or Google's own guide,
+Google's console changes often. If a screen doesn't match, look for the nearest
+equivalent, or Google's own guide,
 [Disable billing usage with notifications](https://cloud.google.com/billing/docs/how-to/disable-billing-with-notifications).
 
 ## Contents
@@ -28,8 +25,8 @@ the nearest equivalent, or Google's own guide,
   - [7. Test it](#7-test-it)
   - [8. Turn billing back on](#8-turn-billing-back-on)
 - [What happens from then on](#what-happens-from-then-on)
-- [Privacy](README.md#privacy)
-- [If something goes wrong](TRANSCRIBING.md#if-something-goes-wrong)
+- [Privacy](#privacy)
+- [If something goes wrong](#if-something-goes-wrong)
 
 ## Setting up the key
 
@@ -49,9 +46,6 @@ everything in the project, so nothing else should live there.
      at:
      - `https://scribecue.kyleadvoice.ca/*` for the web version
      - `http://localhost:8484/*` for Docker, or your own port if you've changed it
-
-     Scribecue sends Google only its address, never anything else about the page, so
-     this works without giving anything away.
 5. Copy the key.
 6. In Scribecue, open **Settings**, choose **Text to speech**, and paste the key under
    **Google Cloud voices**.
@@ -66,27 +60,20 @@ Standard voices have a free allowance of characters each month, which is plenty 
 work. See [Google's prices](https://cloud.google.com/text-to-speech/pricing) for the current
 allowance.
 
-Scribecue keeps every reading in your browser, so a line is only sent to Google, and
-counted, once. It's sent again only when its text, speed or voice changes. What still adds
-up:
+Each line is only sent to Google, and counted, once, unless you change its text, speed or
+voice. What adds up:
 
-- **Writing:** while you type, the length shown is an estimate, and nothing is sent. The
-  block is read when you finish editing it, with `Enter` or `Esc` or by moving to another
-  block, so each round of edits to a line is one reading.
-- **Speeds:** each speed a block is read at is a reading of its own. **Fit speeds to
-  timings** tries two to four speeds for each block it changes.
-- **Changing the voice or base speed:** every line is read again the first time it's
-  needed. Changing the ends to match, opening a script and fitting its speeds or ends,
-  **Make all readings** and **Update all timings** read every block straight away. Scribecue warns about this when
-  it asks.
-- **Clearing them:** clearing the kept readings, in **Settings** under **Storage**, or
-  removing all data, means lines are read and counted again.
-- **Another browser or computer** has its own readings.
+- **Editing a line:** it's read again each time you close it after a change.
+- **Speeds:** each speed is a separate reading. **Fit speeds to timings** tries two to
+  four per block.
+- **Changing the voice or base speed,** and jobs such as **Make all readings** and
+  **Update all timings**, read every block again. Scribecue warns you first.
+- **Clearing stored readings,** or using another browser or computer, means lines are
+  read again.
 
-As a rough guide, a 45-minute episode's script is 12,000 to 25,000 characters, and a
-feature film's 30,000 to 70,000. Even read several times over, that's a small part of
-the allowance for most describers. Someone describing full time, or a team sharing a key,
-could get close, which is what the rest of this section is for.
+A 45-minute episode is about 12,000 to 25,000 characters, and a film 30,000 to 70,000.
+That's a small part of the allowance for most describers. Someone describing full time,
+or a team sharing a key, could get close, which is what the rest of this section is for.
 
 ### Why a budget alone isn't enough
 

@@ -1,12 +1,10 @@
 # Running Scribecue yourself
 
-Most people don't need this page: the web version at **<https://scribecue.kyleadvoice.ca/>**
-works in Chrome or Edge with nothing to install. See the [README](README.md) for how to
-use Scribecue.
+Most people don't need this: the web version at **<https://scribecue.kyleadvoice.ca/>**
+works in Chrome or Edge with nothing to install.
 
-Run it yourself with Docker if you want everything, the app included, on your own
-computer, or to run Piper voices, Whisper speech to text or Ollama in containers next to
-it.
+Run Scribecue yourself with Docker to keep everything on your own computer, the app
+included, or to run Piper, Kokoro, Whisper or Ollama in containers next to it.
 
 ## Contents
 
@@ -17,9 +15,9 @@ it.
 - [More lifelike voices (Kokoro)](#more-lifelike-voices-kokoro)
 - [Speech to text (Whisper)](#speech-to-text-whisper)
 - [Ollama in Docker](#ollama-in-docker)
-- [Updating](README.md#updating)
-- [If something goes wrong](TRANSCRIBING.md#if-something-goes-wrong)
-- [Development](README.md#development)
+- [Updating](#updating)
+- [If something goes wrong](#if-something-goes-wrong)
+- [Development](#development)
 
 ## What you need
 
@@ -72,9 +70,8 @@ one at a time.
 
 5. Open <http://localhost:8484> in Chrome or Edge.
 
-A one-minute guided tour shows you around, then a short setup asks what you're working on
-and turns on the tools for it. You can run the setup again any time from **Settings** at
-the top, under **General**, and the tour from the shortcuts overlay.
+A short tour and setup show you around. You can run them again from the shortcuts
+overlay (`?`) and **Settings → General**.
 
 ## Starting and stopping
 
@@ -86,18 +83,15 @@ you stop it. In the `Scribecue` folder:
 
 ### Installing it as an app
 
-In Chrome or Edge, click **Install app** in the bottom right of Scribecue to give it its own
-window and icon, opened from your apps like any other. It still opens from Docker, so
-Docker needs to be running, and it's tied to the address: if you change `SCRIBECUE_PORT`,
-install it again. The app and a browser tab at the same address share the same blocks and
-settings.
+Click **Install app** in the bottom right to give Scribecue its own window and icon.
+Docker still needs to be running. If you change `SCRIBECUE_PORT`, install it again.
 
 ## Natural-sounding voices (Piper)
 
 [Piper](https://github.com/OHF-Voice/piper1-gpl) can run in a second container next to the
 editor. Its voices run on your computer, so your script never leaves it, and they work
-offline. (The web version can download Piper voices into the browser instead; see the
-README's [Piper voices](VOICES.md#piper-voices).)
+offline. (The web version can download Piper voices into the browser instead; see
+[Piper voices](VOICES.md#piper-voices).)
 
 Until you add it, the text to speech settings ends with a short note about it:
 
@@ -250,11 +244,9 @@ The first time you open Scribecue, its setup asks whether it may check GitHub fo
   visit. Nothing about your files or text blocks is sent.
 - **Don't check:** Scribecue never contacts anything outside your computer.
 
-When a new version is out, an alert drops down at the top of the window with the update
-steps and a link to what's new. **Later** hides it until you next open Scribecue, and
-**Skip this version** hides it until a newer one comes out. The version number in the
-bottom right also turns into **Update available**. Click it, or open **Settings** and
-choose **General**, at any time to see the steps, check now, or change your choice.
+When a new version is out, a message at the top of the window shows the update steps.
+**Later** hides it until next time, and **Skip this version** until a newer one. You can
+see the steps or check again any time in **Settings → General**.
 
 To update, run these in the `Scribecue` folder, then reload the page:
 

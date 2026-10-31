@@ -1,13 +1,11 @@
-# AI help: the complete guide
+# AI help
 
-Scribecue can use an AI model to help you describe what's on screen: drafting a block from
-stills of the video, or answering questions about a scene. This guide covers setting it up,
-choosing a model, and getting the best descriptions out of it.
+An AI model can draft a block from stills of the video, or answer questions about a
+scene.
 
-A word first: **AI isn't good enough to write audio description on its own yet.** It
-misreads scenes, misses what matters, names people it shouldn't, and sometimes describes
-things that aren't there. Treat every draft as a starting point from someone who can see
-the frames but hasn't watched the programme. You're still the describer.
+**AI can't write audio description on its own yet.** It misreads scenes, misses what
+matters, and sometimes describes things that aren't there. Treat every draft as a
+starting point. You're still the describer.
 
 ## Contents
 
@@ -21,9 +19,9 @@ the frames but hasn't watched the programme. You're still the describer.
   - [Online models](#online-models)
   - [Ollama models, by computer](#ollama-models-by-computer)
 - [Getting the best descriptions](#getting-the-best-descriptions)
-- [Privacy](README.md#privacy)
+- [Privacy](#privacy)
 - [Costs](#costs)
-- [If something goes wrong](TRANSCRIBING.md#if-something-goes-wrong)
+- [If something goes wrong](#if-something-goes-wrong)
 
 ## What it does
 
@@ -31,24 +29,14 @@ Click **AI** at the top, or press `Alt+Shift+A`, and a drawer slides out beside 
 
 ![The AI help drawer beside the video, with a draft for a block](docs/screenshots/ai-help.png)
 
-- **Draft this block:** select a block and click it. Scribecue sends stills from inside the
-  block, the script around it, and how many words fit, worked out from the block's length,
-  the voice's speaking rate and the block's speed. The draft appears in the drawer: **Use for
-  block #n** puts it in the block (`Ctrl/Cmd+Z` undoes it), and **Try again** asks for
-  another. Nothing changes until you choose.
-- **Chat:** ask about the scene, such as "what's on the sign behind her?" or "how would you
-  describe this in eight words?". With **Send the frame at the playhead** ticked, it sees the
-  frame you're on, along with the selected block and the script around it.
-- **Project notes:** **Notes** in the drawer is where you tell the AI what the frames can't
-  show (see [Getting the best descriptions](#getting-the-best-descriptions)). Every draft
-  and message includes them, and they're saved with the project. **Notes ✓** means there
-  are some.
-- **New chat** starts the conversation again.
-
-For transcribing existing audio description, there's also
-[speech to text](TRANSCRIBING.md#speech-to-text-with-whisper): Whisper, running on your own
-computer, types each line you mark with `H`. It needs no provider and no account. See the
-[transcribing guide](TRANSCRIBING.md).
+- **Draft this block:** select a block and click it. Scribecue sends stills from the block,
+  the script around it, and how many words fit. **Use for block #n** puts the draft in the
+  block, and **Try again** asks for another.
+- **Chat:** ask about the scene, such as "what's on the sign behind her?". Tick **Send the
+  frame at the playhead** so it sees the frame you're on.
+- **Notes:** tell the AI what the frames can't show, such as who's who. Every draft and
+  message includes them, and they're saved with the project.
+- **New chat** starts again.
 
 ## Choosing where it runs
 
@@ -65,15 +53,13 @@ you're sure your contract allows sending frames to an AI provider.
 
 ## Connecting a provider
 
-Open **AI**, then **Settings**. Pick the provider, connect it, click **Load models**, pick a
-model, choose **Frames per draft**, and click **Save and connect**.
+1. Open **AI**, then **Settings**, and pick the provider.
+2. Connect it, as below.
+3. Click **Load models**, and pick a model. Only models that can look at frames are listed.
+4. Click **Save and connect**.
 
-**Load models** only lists models that can look at the frames and write a description.
-Ones that couldn't help, such as models that only handle text, make pictures, speak, or
-work in slow batches, are left out, so anything in the list will work.
-
-Keys stay in your browser: tick **Remember the key on this computer**, or leave it unticked
-to keep it for this tab only. A key is only ever sent to its own provider.
+Keys stay in your browser, and are only sent to their own provider. Tick **Remember the
+key on this computer** to keep it after you close the tab.
 
 ### Claude, OpenAI or Gemini
 
@@ -89,10 +75,8 @@ Gemini subscription. Providers usually ask you to add some credit first.
 ### OpenRouter
 
 [OpenRouter](https://openrouter.ai) gives one account for models from Anthropic, OpenAI,
-Google and others, paid with OpenRouter credit. Click **Sign in with OpenRouter**; a window
-opens, you sign in and approve, and Scribecue receives a key of its own. You can also paste
-an OpenRouter key instead.
-
+Google and others, paid with OpenRouter credit. Click **Sign in with OpenRouter** and approve, or
+paste an OpenRouter key.
 
 ### Ollama, on your own computer
 
@@ -142,8 +126,7 @@ because Docker can't use the Mac's graphics chip.
 
 ## Choosing a model
 
-The model matters more than anything else. A good one sees the scene clearly, writes
-concisely, and keeps to the word count; a weak one guesses.
+The model matters more than anything else.
 
 ### Online models
 
@@ -161,14 +144,9 @@ concisely, and keeps to the word count; a weak one guesses.
 
 ### Ollama models, by computer
 
-What a computer can run depends on its memory: on a Mac with Apple silicon, its unified
-memory; on a PC, mostly its graphics card's memory (VRAM), since a model that doesn't fit
-there runs far more slowly from ordinary memory. Leave room beyond the model's download
-size, about half as much again, for the frames and the conversation.
-
-These are the families that see images well on Ollama today. We haven't compared them
-head-to-head on audio description, so try two on the same few blocks (**Try again** after
-switching model in Settings) and keep the one whose style suits you.
+What you can run depends on your computer's memory: on a Mac with Apple silicon, its
+memory; on a PC, mostly its graphics card's memory. Leave about half as much again as the
+download size free. Try two models on the same few blocks, and keep the one you like.
 
 | Memory | Suggested models | Download |
 | --- | --- | --- |
