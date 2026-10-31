@@ -2,6 +2,7 @@
 # without ffmpeg, which only the container has. Run by scripts/check.sh.
 import os
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -83,3 +84,17 @@ class Commands(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Forgetting(unittest.TestCase):
+    def test_a_job_the_page_stopped_asking_after_is_deleted(self):
+        with tempfile.TemporaryDirectory() as work:
+            for id in ("old", "new"):
+                os.makedirs(os.path.join(work, id))
+                server.jobs[id] = {"dir": os.path.join(work, id), "seen": 0 if id == "old" else 200}
+            try:
+                server.forget(now=server.STALE + 100)
+                self.assertEqual(set(server.jobs), {"new"})
+                self.assertEqual(os.listdir(work), ["new"])
+            finally:
+                server.jobs.clear()

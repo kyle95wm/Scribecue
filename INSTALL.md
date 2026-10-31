@@ -233,7 +233,7 @@ sound, which takes seconds. Otherwise it makes a 720p WebM, which takes about fi
 an hour of 1080p video on a recent computer, and longer on an older one.
 
 While it works, Docker needs room for a copy of the video and the finished file. Both are
-deleted as soon as the file is saved.
+deleted as soon as the file is saved, or five minutes after Scribecue is closed mid-way.
 
 ## Ollama in Docker
 

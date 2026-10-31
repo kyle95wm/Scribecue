@@ -15,7 +15,8 @@
 #   DELETE /jobs/<id>
 #
 # Starting a job deletes any other, and so does the server starting, so files never pile
-# up in /work.
+# up in /work. So does a job going five minutes without the page asking after it, as when
+# the page was closed while ffmpeg worked.
 import json
 import os
 import re
@@ -23,6 +24,7 @@ import secrets
 import shutil
 import subprocess
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import quote
 
@@ -41,6 +43,7 @@ VIDEOS = {"mp4", "m4v", "mov", "mkv", "webm"}
 COPIES = {"webm", "mp4"}
 SCALE = "scale=-2:min(720\\,trunc(ih/2)*2)"
 CHUNK = 1 << 20
+STALE = 300  # seconds without a word from the page before a job is deleted
 
 jobs = {}
 lock = threading.Lock()
@@ -62,6 +65,29 @@ def clear(keep=None):
         proc = jobs.pop(id).get("proc")
         if proc and proc.poll() is None:
             proc.kill()
+
+
+def drop(id):
+    job = jobs.pop(id, None)
+    if job:
+        proc = job.get("proc")
+        if proc and proc.poll() is None:
+            proc.kill()
+        shutil.rmtree(job["dir"], ignore_errors=True)
+
+
+def forget(now=None):
+    """Deletes jobs the page has stopped asking after."""
+    now = time.monotonic() if now is None else now
+    for id in [i for i, j in jobs.items() if now - j["seen"] > STALE]:
+        drop(id)
+
+
+def forgetting():
+    while True:
+        time.sleep(60)
+        with lock:
+            forget()
 
 
 def probe(path):
@@ -148,6 +174,8 @@ class Handler(BaseHTTPRequestHandler):
     def job(self):
         m = re.fullmatch(r"/jobs/([0-9a-f]{16})(/\w+)?", self.path)
         job = m and jobs.get(m.group(1))
+        if job:
+            job["seen"] = time.monotonic()
         return (job, m.group(2) or "") if job else (None, None)
 
     def do_GET(self):
@@ -187,7 +215,8 @@ class Handler(BaseHTTPRequestHandler):
                 clear()
                 os.makedirs(os.path.join(WORK, id))
                 jobs[id] = {"dir": os.path.join(WORK, id), "codec": codec, "video": video or None, "copy": copy or None,
-                            "replace": bool(body.get("replace")), "name": name, "state": "waiting", "done": 0, "error": None}
+                            "replace": bool(body.get("replace")), "name": name, "state": "waiting", "done": 0, "error": None,
+                            "seen": time.monotonic()}
             return self.reply(200, {"id": id})
         job, part = self.job()
         if not job or part != "/start":
@@ -218,6 +247,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.reply(400, {"error": "the upload stopped"})
                 f.write(data)
                 left -= len(data)
+                job["seen"] = time.monotonic()
         os.replace(path + ".part", path)
         self.reply(200, {"bytes": size})
 
@@ -234,6 +264,7 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     clear()
+    threading.Thread(target=forgetting, daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", 5000), Handler)
     server.version = ffmpeg_version()
     server.serve_forever()
