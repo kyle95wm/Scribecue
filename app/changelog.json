@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.64.2",
+  "date": "2026-10-31",
+  "notes": "## Voices\n\n- On a Mac, the voice list no longer shows some voices twice, such as Samantha in Chrome.\n- Voice names no longer repeat their language, as in “Eddy (English (United Kingdom)) (en-GB)”. They now read “Eddy (en-GB)”.\n- The voices guide says that browsers can’t use the Mac’s Enhanced and Premium voices. For a natural voice, use Piper or Kokoro."
+ },
+ {
   "version": "0.64.1",
   "date": "2026-10-31",
   "notes": "## Guides\n\n- The guides now live in a **Guides** folder on GitHub. The README stays where it was.\n- Links to the guides in Scribecue, and in What’s new, point to their new place on GitHub."
