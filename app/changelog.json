@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.62.0",
+  "date": "2026-10-31",
+  "notes": "## When a video won’t play\n\n- Some Chromium builds can’t play H.264 video or AAC sound, which most MP4 files use. Scribecue now tells you when it starts.\n- Opening a file it can’t play names what’s missing and what to do, instead of a short message.\n- With ffmpeg in Docker, **Make a copy that plays** makes a copy, opens it and downloads it for you. When only the sound is the problem, the picture is kept as it is.\n\n## Guides\n\n- The guides now say what your computer needs to run Scribecue, and how much memory Docker needs for each voice."
+ },
+ {
   "version": "0.61.1",
   "date": "2026-10-31",
   "notes": "## Projects sound the same everywhere\n\n- A project now keeps the settings that block dips and volumes build on: whether the video’s sound goes down under readings, how far, how quickly, and the **Video / TTS** slider.\n- Opening the project puts them back, so it sounds the same on another computer.\n- Projects saved before this leave your settings as they are."
