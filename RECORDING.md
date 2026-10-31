@@ -54,7 +54,8 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 - **Choose your microphone** under **Microphone, lead-in and sync**. Pick the lead-in
   there too: 3 to 5 seconds of video before each block.
 - **Set your interface to 48 kHz** if you can. Scribecue tells you if it's converting.
-- **Use Chrome, Edge or Safari.**
+- **Use Chrome, Edge or Firefox.** Safari can record, but playing and editing takes may not
+  work fully there.
 
 ### Recording a block
 
