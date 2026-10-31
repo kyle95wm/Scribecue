@@ -85,7 +85,9 @@ Each take is checked by its loudest moment:
 ### Takes
 
 - Every take is kept, under the video in Record mode.
-- **Play** plays a take against the video, where it was read.
+- **While the video plays,** you hear the take picked for each block, where it was read.
+  Click **TAKES** under the video to turn that off.
+- **Play** plays one take against the video.
 - **Use** picks the take for the export. A new take is picked automatically.
 - **Delete** removes a take for good.
 

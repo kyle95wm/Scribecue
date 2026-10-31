@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -149,4 +149,17 @@ test('the narration WAV carries the script, and other WAVs have none', async () 
   assert.equal(await readNote(buildBwf({ takes: [], secs: 1 })), null);
   assert.equal(await readNote(wav24(new Uint8Array(30))), null);
   assert.equal(await readNote(new Blob(['not a wav'])), null);
+});
+
+test('while the video plays, the take under the playhead plays from the right point', () => {
+  const takes = [{ id: 'a', start: 2, duration: 3 }, { id: 'b', start: 6, duration: 1 }, { id: 'c', start: 20, duration: 2 }];
+  assert.equal(takeAt(takes, 1.9), null);
+  assert.deepEqual(takeAt(takes, 3.5), { take: takes[0], from: 1.5 });
+  assert.equal(takeAt(takes, 5), null, 'a take ends where its sound does');
+  assert.equal(takeAt(takes, 6).take.id, 'b');
+  assert.equal(takeAt(takes, 30), null);
+  assert.equal(takeAt([], 3), null);
+  assert.equal(nextTake(takes, 5.2, 1).id, 'b');
+  assert.equal(nextTake(takes, 3, 1), null, 'too far ahead to get ready yet');
+  assert.equal(nextTake(takes, 6, 20).id, 'c', 'not the one already playing');
 });

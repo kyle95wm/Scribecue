@@ -2,7 +2,7 @@
 // exports the chosen ones as one WAV for the mixer. The script is locked (app.js sees to
 // that); this file does the recording. The plan is in RECORDING.md.
 
-import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, PREROLL, RATE } from './recording.js';
+import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, DRIFT, PREROLL, RATE } from './recording.js';
 import { to24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, deleteTake, takeAudio, takesWhere } from './takestore.js';
 
@@ -302,6 +302,78 @@ export function initRecord(h) {
     render();
   }
 
+  // ---- hearing the chosen takes as the video plays, each where it was read. Only the take
+  // playing and the next are decoded, so a long film never sits in memory.
+  let hear = get('hear') !== '0';
+  const pb = { ctx: null, gain: null, src: null, id: null, at: 0, from: 0, rate: 1, raf: 0, bufs: new Map() };
+  const chosenList = () => takes.filter((t) => t.chosen).sort((a, z) => a.start - z.start);
+  // Made on a key press or click: Safari won't play sound otherwise.
+  const wake = () => {
+    if (!rec || !hear) return;
+    if (!pb.ctx) {
+      pb.ctx = new AudioContext({ latencyHint: 'interactive' });
+      pb.gain = pb.ctx.createGain();
+      pb.gain.connect(pb.ctx.destination);
+    }
+    if (pb.ctx.state === 'suspended') pb.ctx.resume().catch(() => {});
+  };
+  document.addEventListener('keydown', wake, true);
+  document.addEventListener('pointerdown', wake, true);
+
+  function silence() {
+    if (pb.src) {
+      try { pb.src.stop(); } catch { /* not started */ }
+      pb.src.disconnect();
+    }
+    pb.src = null; pb.id = null;
+  }
+  // A take's sound, once it's decoded; until then, null, and it's on its way.
+  function buffer(t) {
+    let b = pb.bufs.get(t.id);
+    if (!b) {
+      b = takeAudio(t).then((w) => w.arrayBuffer()).then((a) => pb.ctx.decodeAudioData(a))
+        .then((d) => { b.ready = d; return d; }, () => null);
+      pb.bufs.set(t.id, b);
+    }
+    return b.ready || null;
+  }
+  // when: on the audio clock, or 0 for now; from: seconds into the take.
+  function startAt(t, buf, when, from) {
+    silence();
+    const src = pb.ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = video.playbackRate;
+    src.connect(pb.gain);
+    src.start(when, from);
+    Object.assign(pb, { src, id: t.id, at: when || pb.ctx.currentTime, from, rate: video.playbackRate });
+  }
+  function hearing() {
+    cancelAnimationFrame(pb.raf);
+    if (!rec || !hear || state !== 'idle' || playing || video.paused || pb.ctx?.state !== 'running') { silence(); return; }
+    const now = video.currentTime, list = chosenList();
+    const here = takeAt(list, now), next = nextTake(list, now, 4);
+    for (const id of pb.bufs.keys()) if (id !== here?.take.id && id !== next?.id && id !== pb.id) pb.bufs.delete(id);
+    if (here) {
+      const buf = buffer(here.take);
+      // Where the sound is now, if it's this take: put back in step if it's drifted.
+      const pos = pb.id === here.take.id ? (pb.ctx.currentTime - pb.at) * pb.rate + pb.from : null;
+      if (buf && (pos == null || Math.abs(pos - here.from) > DRIFT) && here.from < buf.duration - 0.02) startAt(here.take, buf, 0, here.from);
+    } else if (pb.id && pb.id !== next?.id) silence();
+    // The next take starts on the audio clock, at its exact moment, rather than a frame late.
+    if (!here && next && pb.id !== next.id) {
+      const buf = buffer(next), wait = (next.start - now) / video.playbackRate;
+      if (buf && wait < 0.25) startAt(next, buf, pb.ctx.currentTime + wait, 0);
+    }
+    pb.raf = requestAnimationFrame(hearing);
+  }
+  video.addEventListener('play', () => hearing());
+  for (const ev of ['pause', 'seeking', 'ratechange']) video.addEventListener(ev, () => silence());
+  function setHearing(on) {
+    hear = on;
+    put('hear', on ? null : '0');
+    if (on) { wake(); hearing(); } else silence();
+  }
+
   // ---- sync test: a flash and a beep once a second; raise the number until they agree
   let test = null;
   function syncTest() {
@@ -373,6 +445,8 @@ export function initRecord(h) {
     get open() { return !!rec; },
     toggle, exportWav, finish, render,
     refresh: () => reload(),
+    get hearing() { return hear; },
+    setHearing,
     stopPlayback: stopPlay,
     async open(file) {
       rec = { ...file, id: recordingId(file) };
@@ -384,6 +458,7 @@ export function initRecord(h) {
     async close() {
       if (state === 'lead' || state === 'rec') await finish();
       stopPlay();
+      silence(); pb.bufs.clear();
       if (test) syncTest();
       h.volume(false);
       rec = null; takes = []; render();

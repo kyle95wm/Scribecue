@@ -168,6 +168,25 @@ export function placeTake({ t0, delay, prevEnd = 0, rate = RATE }) {
   return { start: first + skip / rate, skip };
 }
 
+// Hearing the chosen takes while the video plays. takes: the chosen ones, in time order
+// and not overlapping ({ start, duration }). What plays at `t`, and how far into it:
+// { take, from }, or null.
+export function takeAt(takes, t) {
+  for (const take of takes) {
+    if (take.start > t) break;
+    if (t < take.start + take.duration) return { take, from: t - take.start };
+  }
+  return null;
+}
+
+// The next take to start after `t`, within `ahead` seconds, or null: it's got ready early,
+// so it can start on time.
+export const nextTake = (takes, t, ahead) => takes.find((x) => x.start > t && x.start - t <= ahead) || null;
+
+// How far a playing take may drift from the picture before it's put back in step: about
+// two frames, which nobody hears, while a jump back would be heard.
+export const DRIFT = 0.08;
+
 // Whether the sound output looks like Bluetooth, which delays sound by 150 to 300 ms,
 // by its name or the delay the browser reports (seconds).
 export const looksBluetooth = (label = '', latency = 0) => /bluetooth|airpods|buds|wireless|\bBT\b/i.test(label) || latency > 0.12;

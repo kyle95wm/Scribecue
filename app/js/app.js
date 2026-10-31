@@ -1489,6 +1489,7 @@ const IND_TIPS = {
   replay: 'Replay is on: Esc or ↵ after editing a block puts the playhead back at its start (⇧L). Click for its settings',
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H changes it; click for its settings',
   tts: 'Text to speech is on: hear blocks read aloud (V). Click for its settings, such as the voice and speed (⌥⇧V)',
+  takes: 'Takes: hear the take chosen for each block as the video plays. Click to turn it off or on',
   stt: 'Speech to text is on: Whisper types what the narrator says in each block you mark. Click for its settings, or to transcribe empty blocks (⌥⇧H)',
 };
 function updateInd() {
@@ -1500,6 +1501,7 @@ function updateInd() {
     // Settings show only while they're on, and open their section of Settings.
     ...(S.replay ? [['replay', 'REPLAY', true]] : []),
     ...(!writing() && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
+    ...(S.mode === 'record' ? [['takes', 'TAKES', !!recorder?.hearing]] : []),
     ...(writing() && tts.on ? [['tts', tts.base !== 1 ? `TTS ${Math.round(tts.base * 100)}%` : 'TTS', true]] : []),
   ];
   ind.textContent = '';
@@ -1511,7 +1513,7 @@ function updateInd() {
     s.dataset.key = key;
     s.dataset.tip = pcKeys(IND_TIPS[key]);
     s.setAttribute('aria-label', speakable(IND_TIPS[key], IS_MAC));
-    if (['follow', 'loop'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
+    if (['follow', 'loop', 'takes'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
     else if (key !== 'speed') s.classList.add('setlabel');
     s.className = (on ? 'on ' : '') + (key === 'speed' || key === 'follow' ? '' : 'tip-end');
     ind.append(s);
@@ -1592,6 +1594,11 @@ ind.addEventListener('click', (e) => {
   else if (k === 'offset' || k === 'stt') showMarking();
   else if (k === 'tts') openTts();
   else if (k === 'replay') showGeneral();
+  else if (k === 'takes') {
+    recorder.setHearing(!recorder.hearing);
+    updateInd();
+    toast(recorder.hearing ? 'Takes on: the chosen takes play with the video' : 'Takes off');
+  }
   else if (k) toggleFlag(k);
 });
 
