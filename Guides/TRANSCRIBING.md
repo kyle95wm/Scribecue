@@ -66,7 +66,7 @@ Repeat through the programme:
 
 ## Marking lines with H
 
-![Hold-to-mark: a dashed block grows on the timeline while H is held](docs/screenshots/hold-to-mark.png)
+![Hold-to-mark: a dashed block grows on the timeline while H is held](../docs/screenshots/hold-to-mark.png)
 
 While you hold `H`, a dashed block grows on the timeline. When you let go, it becomes a
 block. If the video was paused, holding `H` starts it.

@@ -1,6 +1,6 @@
 // Record mode: the narrator records each line against the video, keeps every take, and
 // exports the chosen ones as one WAV for the mixer. The script is locked (app.js sees to
-// that); this file does the recording. The plan is in RECORDING.md.
+// that); this file does the recording. The guide is Guides/RECORDING.md.
 
 import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, DRIFT, PREROLL, RATE } from './recording.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';

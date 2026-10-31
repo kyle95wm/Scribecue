@@ -30,7 +30,7 @@ section.
 **Run setup again**, under **General**, asks the first-time questions again. Nothing
 changes until you press **Finish**.
 
-![Settings, with its sections down the left and General showing](docs/screenshots/settings.png)
+![Settings, with its sections down the left and General showing](../docs/screenshots/settings.png)
 
 ## The loop
 

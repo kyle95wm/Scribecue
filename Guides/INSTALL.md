@@ -109,7 +109,7 @@ offline. (The web version can download Piper voices into the browser instead; se
 
 Until you add it, the text to speech settings ends with a short note about it:
 
-![The Did you know? box about Piper at the bottom of the text to speech settings](docs/screenshots/piper-tip.png)
+![The Did you know? box about Piper at the bottom of the text to speech settings](../docs/screenshots/piper-tip.png)
 
 To add it, create a file called `.env` in the Scribecue folder containing:
 
@@ -378,11 +378,11 @@ every push and pull request.
 
 To release a new version:
 
-1. Write the release's notes at the top of [app/changelog.json](app/changelog.json). The
+1. Write the release's notes at the top of [app/changelog.json](../app/changelog.json). The
    app shows them in its **What's new** window after an update, so write them for the
    people using it. The tests check the current version has some.
-2. Change `VERSION` in [app/js/update.js](app/js/update.js) and in
-   [app/sw.js](app/sw.js) to the new number, for example `0.2.0`. The tests check they
+2. Change `VERSION` in [app/js/update.js](../app/js/update.js) and in
+   [app/sw.js](../app/sw.js) to the new number, for example `0.2.0`. The tests check they
    match.
 3. Run `scripts/check.sh`, then commit as "Release 0.2.0" and push. That commit message is
    what publishes the web version.

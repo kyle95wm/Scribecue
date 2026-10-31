@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
 
   # Optional natural-sounding text to speech voices that run on this computer.
-  # Turn it on with COMPOSE_PROFILES=piper in a .env file next to this one (see INSTALL.md).
+  # Turn it on with COMPOSE_PROFILES=piper in a .env file next to this one (see Guides/INSTALL.md).
   piper:
     build:
       context: ./piper
@@ -42,7 +42,7 @@ services:
     restart: unless-stopped
 
   # Optional, even more natural voices that run on this computer, made by Kokoro. Turn it on
-  # by adding kokoro to COMPOSE_PROFILES in .env (see INSTALL.md).
+  # by adding kokoro to COMPOSE_PROFILES in .env (see Guides/INSTALL.md).
   kokoro:
     build:
       context: ./kokoro
@@ -67,7 +67,7 @@ services:
     restart: unless-stopped
 
   # Optional speech to text that runs on this computer: Whisper fills in the text of the
-  # blocks you mark. Turn it on by adding whisper to COMPOSE_PROFILES in .env (see INSTALL.md).
+  # blocks you mark. Turn it on by adding whisper to COMPOSE_PROFILES in .env (see Guides/INSTALL.md).
   whisper:
     build:
       context: ./whisper
@@ -91,7 +91,7 @@ services:
     restart: unless-stopped
 
   # Optional: ffmpeg, for the full mix as AAC, AC-3 or E-AC-3, and to put it into a copy of
-  # the video. Turn it on by adding ffmpeg to COMPOSE_PROFILES in .env (see INSTALL.md).
+  # the video. Turn it on by adding ffmpeg to COMPOSE_PROFILES in .env (see Guides/INSTALL.md).
   ffmpeg:
     build: ./ffmpeg
     image: scribecue-ffmpeg:latest
@@ -113,7 +113,7 @@ services:
     restart: unless-stopped
 
   # Optional: keeps a narrator's takes from Record mode on disk, rather than in the
-  # browser. Turn it on by adding takes to COMPOSE_PROFILES in .env (see INSTALL.md).
+  # browser. Turn it on by adding takes to COMPOSE_PROFILES in .env (see Guides/INSTALL.md).
   takes:
     build: ./takes
     image: scribecue-takes:latest
@@ -134,7 +134,7 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
-  # Optional AI models that run on this computer, for AI help (see INSTALL.md). Turn it on
+  # Optional AI models that run on this computer, for AI help (see Guides/INSTALL.md). Turn it on
   # by adding ollama to COMPOSE_PROFILES in .env, then download a model that can see
   # images: docker compose exec ollama ollama pull gemma3:4b
   ollama:

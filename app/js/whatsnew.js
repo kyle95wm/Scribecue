@@ -1,6 +1,6 @@
 // What's new: after Scribecue updates, a window lists every release between the version
 // someone was on and the one they have now. The notes travel with the app in
-// changelog.json, written at each release (see INSTALL.md), so this works offline and
+// changelog.json, written at each release (see Guides/INSTALL.md), so this works offline and
 // never contacts anything.
 import { newer } from './update.js';
 

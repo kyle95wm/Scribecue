@@ -1,6 +1,6 @@
 // Recording narration: the recording file the narrator opens, the slot each line is read
 // in, and how takes are judged. Plain functions, so they can be tested without a browser.
-// The plan is in RECORDING.md.
+// The guide is Guides/RECORDING.md.
 
 // Letters only: Chrome's file picker refuses an extension with a hyphen in it.
 export const RECORDING_EXT = '.scribecuerec';

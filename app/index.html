@@ -473,7 +473,7 @@ docker compose up -d --build</code></pre>
     </header>
     <section id="aiSetup" class="aisetup" hidden>
       <p class="small">Connect your own AI provider. Scribecue sends it nothing until you send a message or
-        ask for a draft. <a href="https://github.com/kyle95wm/Scribecue/blob/main/AI.md" target="_blank" rel="noopener noreferrer">The AI guide</a>
+        ask for a draft. <a href="https://github.com/kyle95wm/Scribecue/blob/main/Guides/AI.md" target="_blank" rel="noopener noreferrer">The AI guide</a>
         explains each provider and which models work best.</p>
       <div class="ttsgrid">
         <label for="aiProvider">Provider</label>
@@ -622,7 +622,7 @@ docker compose up -d --build</code></pre>
         <p class="small">Want voices that sound even more like a person reading? <strong>Kokoro</strong> voices
           are free too, but need Scribecue running on your computer with Docker: they're too big and slow to
           run well in a browser.
-          <a href="https://github.com/kyle95wm/Scribecue/blob/main/INSTALL.md#more-lifelike-voices-kokoro" target="_blank" rel="noopener noreferrer">How to add Kokoro</a></p>
+          <a href="https://github.com/kyle95wm/Scribecue/blob/main/Guides/INSTALL.md#more-lifelike-voices-kokoro" target="_blank" rel="noopener noreferrer">How to add Kokoro</a></p>
       </section>
       <label class="updopt"><input type="checkbox" id="ttsLive"> Read blocks aloud while playing</label>
       <label class="updopt"><input type="checkbox" id="ttsDuck"> Lower the original audio while a block is read</label>
@@ -770,7 +770,7 @@ docker compose up -d --build</code></pre>
       <p id="ttsGoogleStatus" class="dim small" aria-live="polite"></p>
       <p class="dim small">The key needs the Cloud Text-to-Speech API turned on in its project. It's kept in this
         browser, and only sent to Google.
-        <a href="https://github.com/kyle95wm/Scribecue/blob/main/GOOGLE-VOICES.md" target="_blank" rel="noopener noreferrer">The Google voices guide</a>
+        <a href="https://github.com/kyle95wm/Scribecue/blob/main/Guides/GOOGLE-VOICES.md" target="_blank" rel="noopener noreferrer">The Google voices guide</a>
         covers setting up the key, and making sure you're never billed. Readings are kept in this browser,
         so each line is only sent to Google once, unless you change it.</p>
       <h3>Online voices</h3>
@@ -795,10 +795,10 @@ docker compose up -d --build</code></pre>
         lengths are exact straight away, and you can export a description track as a WAV or MP3 file.</p>
       <p>To add it, put <code>COMPOSE_PROFILES=piper</code> in a file called <code>.env</code> in the Scribecue folder, then
         run <code>docker compose up -d --build</code> and reload this page.
-        <a href="https://github.com/kyle95wm/Scribecue/blob/main/INSTALL.md#natural-sounding-voices-piper" target="_blank" rel="noopener noreferrer">More about Piper</a></p>
+        <a href="https://github.com/kyle95wm/Scribecue/blob/main/Guides/INSTALL.md#natural-sounding-voices-piper" target="_blank" rel="noopener noreferrer">More about Piper</a></p>
       <p>For even more lifelike voices, add <code>kokoro</code> too, as in <code>COMPOSE_PROFILES=piper,kokoro</code>.
         Kokoro is about 1.1 GB, and reads a little slower.
-        <a href="https://github.com/kyle95wm/Scribecue/blob/main/INSTALL.md#more-lifelike-voices-kokoro" target="_blank" rel="noopener noreferrer">More about Kokoro</a></p>
+        <a href="https://github.com/kyle95wm/Scribecue/blob/main/Guides/INSTALL.md#more-lifelike-voices-kokoro" target="_blank" rel="noopener noreferrer">More about Kokoro</a></p>
     </aside>
     <div class="updbtns">
       <button id="ttsTry" class="hl">Try it</button>
@@ -887,7 +887,7 @@ docker compose up -d --build</code></pre>
     <p class="dim small">Whisper understands English. It hears everything in a block, so dialogue or
       lyrics under the narration can come out too: if your file has a description track on its own,
       choose it with <kbd>T</kbd>. Names are often misspelled, so check them.
-      <a href="https://github.com/kyle95wm/Scribecue/blob/main/TRANSCRIBING.md" target="_blank" rel="noopener noreferrer">The transcribing guide</a>
+      <a href="https://github.com/kyle95wm/Scribecue/blob/main/Guides/TRANSCRIBING.md" target="_blank" rel="noopener noreferrer">The transcribing guide</a>
       covers all of it.</p>
     <div class="updbtns">
       <button id="sttClose">Close</button>

@@ -1,6 +1,6 @@
 # Keyboard shortcuts
 
-![The keyboard shortcuts overlay](docs/screenshots/shortcuts.png)
+![The keyboard shortcuts overlay](../docs/screenshots/shortcuts.png)
 
 Press `?` in Scribecue to see these at any time. The layout follows the
 [Frazier cheat sheet](https://www.videotovoice.com/docs/en/cheatsheet/mac.html).

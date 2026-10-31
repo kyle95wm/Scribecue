@@ -3192,7 +3192,7 @@ async function openProject(file, handle = null) {
   if (p.media && !ready) reopenVideo(p.media, { ask: true }).then((ok) => { if (ok) toast(`Opened ${file.name} and its video, ${p.media.name}`); });
 }
 
-// ---- recording files (see record.js and RECORDING.md)
+// ---- recording files (see record.js and Guides/RECORDING.md)
 
 const recFileDlg = $('recFileDlg');
 function askRecordingFile() {

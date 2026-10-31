@@ -14,7 +14,7 @@ speech** and tick **Turn on text to speech**. `TTS` shows under the video while 
 
 [Voices](VOICES.md) explains the kinds of voice you can choose.
 
-![The text to speech settings, with voice, speed and Update all timings](docs/screenshots/text-to-speech.png)
+![The text to speech settings, with voice, speed and Update all timings](../docs/screenshots/text-to-speech.png)
 
 ## Keys
 
@@ -122,7 +122,7 @@ Tick **Use them in every block with these words** to fix the word everywhere at 
 Readings and the description track use the new sound. The script and SRT exports keep
 the word as written.
 
-![The Sounds like dialog, with diagonally to be said as dye-AG-nuh-lee](docs/screenshots/sounds-like.png)
+![The Sounds like dialog, with diagonally to be said as dye-AG-nuh-lee](../docs/screenshots/sounds-like.png)
 
 ## Notes in [square brackets]
 
@@ -151,7 +151,7 @@ timings and fit the speeds, change the ends to match the readings, or leave it a
 Tick **Always do this** on either question to stop it asking. You can change your answer
 later in the text to speech settings.
 
-![The question when a script is opened: fit the reading speeds, change the ends, or leave it](docs/screenshots/import-timings.png)
+![The question when a script is opened: fit the reading speeds, change the ends, or leave it](../docs/screenshots/import-timings.png)
 
 ## Good to know
 

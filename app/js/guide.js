@@ -1,11 +1,13 @@
-// The guides (the README and the guides it lists) inside Scribecue, so they open
-// without a connection. The build copies them next to the app, under guides/, with their
-// screenshots, and the offline copy keeps them. Links to them on GitHub open here instead,
+// The guides (the README and the guides it lists, in Guides/) inside Scribecue, so they
+// open without a connection. The build copies them all next to the app, into one guides/
+// folder, with their screenshots, and the offline copy keeps them. Links to them on GitHub open here instead,
 // when they're available; otherwise they open on GitHub as before.
 
 export const GUIDES = { 'README.md': 'Scribecue', 'GETTING-STARTED.md': 'Getting started', 'WRITING.md': 'Writing',
   'VOICES.md': 'Voices', 'TRANSCRIBING.md': 'Transcribing', 'RECORDING.md': 'Recording', 'SHORTCUTS.md': 'Shortcuts', 'AI.md': 'AI help', 'GOOGLE-VOICES.md': 'Google voices', 'INSTALL.md': 'Running it yourself' };
 export const REPO = 'https://github.com/kyle95wm/Scribecue/blob/main/';
+// Where a guide is in the repository: the README at the top, the others in Guides/.
+export const repoPath = (file) => (file === 'README.md' ? '' : 'Guides/') + file;
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -126,9 +128,9 @@ function blocks(lines) {
 }
 
 // Which guide and anchor a link points to, if it's one of the guides: on GitHub, or
-// relative from another guide. null otherwise.
+// relative from the README or another guide. null otherwise.
 export function guideLink(href) {
-  const m = String(href).replace(REPO, '').match(/^(?:\.\/)?([A-Z][A-Z-]*\.md)(#[^\s]*)?$/);
+  const m = String(href).replace(REPO, '').match(/^(?:\.\/|\.\.\/|Guides\/)?([A-Z][A-Z-]*\.md)(#[^\s]*)?$/);
   return m && GUIDES[m[1]] ? { file: m[1], hash: m[2] ? decodeURIComponent(m[2].slice(1)) : '' } : null;
 }
 
@@ -159,16 +161,17 @@ export async function guidesHere() {
 
 export async function openGuide(file = 'README.md', hash = '', { remember = true } = {}) {
   let md;
-  try { md = await fetchGuide(file); } catch { window.open(REPO + file + (hash ? `#${hash}` : ''), '_blank', 'noopener,noreferrer'); return; }
+  try { md = await fetchGuide(file); } catch { window.open(REPO + repoPath(file) + (hash ? `#${hash}` : ''), '_blank', 'noopener,noreferrer'); return; }
   const d = $('guideDlg'), body = $('guideBody');
   if (remember && current && d.open) back.push({ file: current, top: body.scrollTop });
   current = file;
   $('guideTitle').textContent = GUIDES[file];
   $('guideBack').hidden = !back.length;
-  $('guideWeb').href = REPO + file;
+  $('guideWeb').href = REPO + repoPath(file);
   for (const b of document.querySelectorAll('#guideTabs button')) b.classList.toggle('on', b.dataset.file === file);
   body.innerHTML = renderMarkdown(md.replace(/^# .*\n/, '')); // the title is the window's
-  for (const img of body.querySelectorAll('img')) if (!/^https?:/.test(img.getAttribute('src'))) img.src = base + img.getAttribute('src');
+  // Here the guides sit together, with docs/ beside them, so ../docs/ from Guides/ is docs/.
+  for (const img of body.querySelectorAll('img')) if (!/^https?:/.test(img.getAttribute('src'))) img.src = base + img.getAttribute('src').replace(/^\.\.\//, '');
   if (!d.open) d.showModal();
   const target = hash && body.querySelector(`#${CSS.escape(hash)}`);
   body.scrollTop = target ? target.offsetTop - body.offsetTop - 8 : 0;
@@ -206,7 +209,7 @@ export function initGuides({ path = 'guides/' } = {}) {
     }
     const g = guideLink(href);
     if (g) return openGuide(g.file, g.hash);
-    window.open(/^https?:|^mailto:/.test(href) ? href : REPO + href.replace(/^\.\//, ''), '_blank', 'noopener,noreferrer');
+    window.open(/^https?:|^mailto:/.test(href) ? href : new URL(href, REPO + repoPath(current)).href, '_blank', 'noopener,noreferrer');
   });
   // Links to the guides on GitHub, anywhere in Scribecue, open here when the guides are.
   // Whether they are is known before any click, since a link can only be stopped at once.

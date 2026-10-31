@@ -27,7 +27,7 @@ To give Scribecue its own window and icon, click **Install app** in the bottom r
 **Which browser:** Scribecue is built for Chrome and Edge. Brave, Opera, Vivaldi and Arc
 usually work too. Safari and Firefox can open it, but some features may be missing, and
 Scribecue tells you which. Phones and tablets aren't supported, because Scribecue needs a
-keyboard. See [what your computer needs](GETTING-STARTED.md#what-your-computer-needs).
+keyboard. See [what your computer needs](Guides/GETTING-STARTED.md#what-your-computer-needs).
 
 **Working offline:** once you've opened Scribecue, it works without a connection. So do
 Piper voices and speech to text, once downloaded. **Settings → Offline and storage** shows
@@ -37,7 +37,7 @@ keeps in your browser. Your project files aren't touched.
 ### Or run it yourself
 
 Run Scribecue on your own computer with Docker to keep everything there, the app
-included, and to add Kokoro voices and more. [Running it yourself](INSTALL.md) walks you
+included, and to add Kokoro voices and more. [Running it yourself](Guides/INSTALL.md) walks you
 through it. In the web version, **Settings → General → Run it on your computer** opens
 that guide.
 
@@ -45,15 +45,15 @@ that guide.
 
 The guides also open inside Scribecue: press `?` and click **Guides**.
 
-- [Getting started](GETTING-STARTED.md): the two modes, the loop you work in, saving and exporting.
-- [Writing with text to speech](WRITING.md): hearing your lines, speeds and timing.
-- [Voices](VOICES.md): the voices on your computer, Piper, Kokoro and Google.
-- [Transcribing](TRANSCRIBING.md): marking existing audio description, and speech to text.
-- [Recording narration](RECORDING.md): the recording file, Record mode and the narration WAV.
-- [AI help](AI.md): drafting descriptions with an AI model.
-- [Keyboard shortcuts](SHORTCUTS.md): every key, and how to change them.
-- [Google voices](GOOGLE-VOICES.md): setting up Google Cloud voices without being billed.
-- [Running it yourself](INSTALL.md): Docker, Piper, Kokoro, Whisper and Ollama.
+- [Getting started](Guides/GETTING-STARTED.md): the two modes, the loop you work in, saving and exporting.
+- [Writing with text to speech](Guides/WRITING.md): hearing your lines, speeds and timing.
+- [Voices](Guides/VOICES.md): the voices on your computer, Piper, Kokoro and Google.
+- [Transcribing](Guides/TRANSCRIBING.md): marking existing audio description, and speech to text.
+- [Recording narration](Guides/RECORDING.md): the recording file, Record mode and the narration WAV.
+- [AI help](Guides/AI.md): drafting descriptions with an AI model.
+- [Keyboard shortcuts](Guides/SHORTCUTS.md): every key, and how to change them.
+- [Google voices](Guides/GOOGLE-VOICES.md): setting up Google Cloud voices without being billed.
+- [Running it yourself](Guides/INSTALL.md): Docker, Piper, Kokoro, Whisper and Ollama.
 
 ## Privacy
 
@@ -62,27 +62,27 @@ The guides also open inside Scribecue: press `?` and click **Guides**.
 - **Nothing else is contacted unless you turn it on.** A strict security policy blocks the
   page from reaching other sites, except for things you choose to use:
   - the [update check](#updating) in the Docker version, if you agree to it;
-  - an [AI provider](AI.md), once you connect one, when you send a message or ask for a
+  - an [AI provider](Guides/AI.md), once you connect one, when you send a message or ask for a
     draft;
   - TMDB, when you click **Look up the cast** in AI help;
-  - [online voices and Google Cloud voices](VOICES.md), which send each line's text to be
+  - [online voices and Google Cloud voices](Guides/VOICES.md), which send each line's text to be
     read.
 - **Piper, Kokoro and speech to text run on your computer,** in your browser or in
   containers with no internet access. Your audio never leaves your computer.
 - **The web version** is downloaded from GitHub Pages the first time and when it updates.
-  To keep even that on your computer, [run it yourself](INSTALL.md).
+  To keep even that on your computer, [run it yourself](Guides/INSTALL.md).
 
 ## Updating
 
 The web version updates itself. If an update arrives while you're working, the version
 number in the bottom right says **update ready**: click it, or open Scribecue again later.
 
-If you run it yourself, see [Updating](INSTALL.md#updating).
+If you run it yourself, see [Updating](Guides/INSTALL.md#updating).
 
 ## Development
 
 Scribecue is plain HTML, CSS and JavaScript, with no build step.
-[Development](INSTALL.md#development) covers running it, the checks to run before
+[Development](Guides/INSTALL.md#development) covers running it, the checks to run before
 committing, and releases.
 
 ## Credits

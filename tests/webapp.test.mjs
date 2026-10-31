@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { GUIDES } from '../app/js/guide.js';
+import { GUIDES, repoPath } from '../app/js/guide.js';
 
 const read = (p) => readFileSync(new URL(`../app/${p}`, import.meta.url), 'utf8');
 
@@ -68,9 +68,10 @@ test('the guides and every screenshot they show are built in and kept offline', 
   }
   const pages = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
   const docker = readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8');
-  const copied = (text, re) => (text.match(re)?.[1] || '').split(/\s+/);
+  // The README at the top and the rest in Guides/, all copied into one guides/ folder.
   for (const f of guides) {
-    assert.ok(copied(pages, /cp ([\w. -]+) _site\/guides\//).includes(f), `pages.yml doesn't copy ${f} into the guides`);
-    assert.ok(copied(docker, /COPY ([\w. -]+) \/usr\/share\/nginx\/html\/guides\//).includes(f), `the Dockerfile doesn't copy ${f} into the guides`);
+    assert.ok(existsSync(new URL(`../${repoPath(f)}`, import.meta.url)), `${repoPath(f)} is missing`);
   }
+  assert.match(pages, /cp README\.md Guides\/\*\.md _site\/guides\//, 'pages.yml copies the README and Guides/ into the guides');
+  assert.match(docker, /COPY README\.md Guides\/\*\.md \/usr\/share\/nginx\/html\/guides\//, 'the Dockerfile copies the README and Guides/ into the guides');
 });

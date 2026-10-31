@@ -27,7 +27,7 @@ starting point. You're still the describer.
 
 Click **AI** at the top, or press `Alt+Shift+A`, and a drawer slides out beside the video.
 
-![The AI help drawer beside the video, with a draft for a block](docs/screenshots/ai-help.png)
+![The AI help drawer beside the video, with a draft for a block](../docs/screenshots/ai-help.png)
 
 - **Draft this block:** select a block and click it. Scribecue sends stills from the block,
   the script around it, and how many words fit. **Use for block #n** puts the draft in the
