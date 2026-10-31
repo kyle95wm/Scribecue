@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { RECORDING_EXT, isRecordingFile, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -162,4 +162,13 @@ test('while the video plays, the take under the playhead plays from the right po
   assert.equal(nextTake(takes, 5.2, 1).id, 'b');
   assert.equal(nextTake(takes, 3, 1), null, 'too far ahead to get ready yet');
   assert.equal(nextTake(takes, 6, 20).id, 'c', 'not the one already playing');
+});
+
+test('the recording file has an extension the file picker takes, and old files still open', () => {
+  // Chrome's showOpenFilePicker throws on anything but letters, digits, + and dots.
+  assert.match(RECORDING_EXT, /^\.[a-z0-9.+]{1,15}$/);
+  assert.ok(isRecordingFile('Film.scribecuerec'));
+  assert.ok(isRecordingFile('film.SCRIBECUE-REC'));
+  assert.ok(!isRecordingFile('film.scribecue'));
+  assert.ok(!isRecordingFile('film.srt'));
 });

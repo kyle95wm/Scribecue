@@ -4,7 +4,7 @@ import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
-import { RECORDING_EXT, toRecordingFile, fromRecordingFile, sameVideo, compareScript } from './recording.js';
+import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, sameVideo, compareScript } from './recording.js';
 import { readNote } from './bwf.js';
 import { initRecord } from './record.js';
 import { takesInfo, clearTakes } from './takestore.js';
@@ -3010,7 +3010,7 @@ async function openVideoPicker() {
   }
 }
 
-const isDoc = (name) => /\.scribecue(-rec)?$/i.test(name); // a project or a recording file
+const isDoc = (name) => name.toLowerCase().endsWith(PROJECT_EXT) || isRecordingFile(name);
 const PROJECT_TYPES = [{ description: 'Scribecue project', accept: { 'application/json': [PROJECT_EXT] } }];
 
 function projectData() {
@@ -3149,7 +3149,7 @@ function okToReplace(what) {
 }
 
 async function openProject(file, handle = null) {
-  if (file.name.toLowerCase().endsWith(RECORDING_EXT)) return openRecording(file);
+  if (isRecordingFile(file.name)) return openRecording(file);
   let p;
   try { p = fromProject(JSON.parse(await file.text())); }
   catch (e) { return toast(`Couldn’t open ${file.name}: ${e instanceof SyntaxError ? 'the file is damaged' : e.message}`); }

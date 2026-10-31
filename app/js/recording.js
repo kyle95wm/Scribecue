@@ -2,7 +2,10 @@
 // in, and how takes are judged. Plain functions, so they can be tested without a browser.
 // The plan is in RECORDING.md.
 
-export const RECORDING_EXT = '.scribecue-rec';
+// Letters only: Chrome's file picker refuses an extension with a hyphen in it.
+export const RECORDING_EXT = '.scribecuerec';
+// Earlier builds saved .scribecue-rec, which still opens.
+export const isRecordingFile = (name) => /\.scribecue-?rec$/i.test(name);
 export const RECORDING_FORMAT = 1;
 export const GRACE = 1; // seconds a take may run past its block, never into the next one
 export const RATE = 48000;
