@@ -15,6 +15,7 @@ included, or to run Piper, Kokoro, Whisper or Ollama in containers next to it.
 - [More lifelike voices (Kokoro)](#more-lifelike-voices-kokoro)
 - [Speech to text (Whisper)](#speech-to-text-whisper)
 - [The full mix in the video (ffmpeg)](#the-full-mix-in-the-video-ffmpeg)
+- [Keeping takes on disk](#keeping-takes-on-disk)
 - [Ollama in Docker](#ollama-in-docker)
 - [Updating](#updating)
 - [If something goes wrong](#if-something-goes-wrong)
@@ -41,6 +42,7 @@ Docker Desktop needs a computer with at least 4 GB of memory. With everything be
 | [Kokoro](#more-lifelike-voices-kokoro) voices | About 1.2 GB | About 1.1 GB |
 | [Whisper](#speech-to-text-whisper) speech to text | About 600 MB | About 1.6 GB |
 | [ffmpeg](#the-full-mix-in-the-video-ffmpeg) | Very little | About 240 MB, and room for a copy of the video while it works |
+| [Takes](#keeping-takes-on-disk) | Very little | About 60 MB, and 8.6 MB a minute of takes |
 
 ## Install
 
@@ -234,6 +236,31 @@ an hour of 1080p video on a recent computer, and longer on an older one.
 
 While it works, Docker needs room for a copy of the video and the finished file. Both are
 deleted as soon as the file is saved, or five minutes after Scribecue is closed mid-way.
+
+## Keeping takes on disk
+
+A narrator's takes from [Record mode](RECORDING.md) are kept in the browser unless you add
+the takes container. With it, they're kept on disk, in Docker, so clearing the browser
+doesn't lose them.
+
+Add `takes` to the profiles in `.env`, for example:
+
+```
+COMPOSE_PROFILES=piper,takes
+```
+
+Then build and start it:
+
+```bash
+docker compose up -d --build
+```
+
+Reload Scribecue. **Settings → Storage** then says the takes are kept in Docker.
+
+- Takes stay until they're deleted in Record mode.
+- They're in a Docker volume whose name ends in `_takes`. Deleting it deletes them.
+- Takes recorded in the browser before you added the container stay there. Export them
+  first, or record them again.
 
 ## Ollama in Docker
 

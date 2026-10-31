@@ -4,7 +4,7 @@
 
 import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, PREROLL, RATE } from './recording.js';
 import { to24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
-import { listTakes, saveTake, chooseTake, deleteTake } from './takestore.js';
+import { listTakes, saveTake, chooseTake, deleteTake, takeAudio, takesWhere } from './takestore.js';
 
 const $ = (id) => document.getElementById(id);
 const VIDEO_DB = -30; // the video's sound while recording, so the scene can still be followed
@@ -29,6 +29,7 @@ export function initRecord(h) {
   let leadSecs = LEAD.includes(+get('lead')) ? +get('lead') : 3;
   let syncMs = get('sync') != null ? +get('sync') : null; // null: use the browser's figure
   let wasPlaying = false;
+  let where = 'browser';     // where takes are kept: 'docker' or 'browser'
 
   el.lead.value = leadSecs;
   el.sync.value = syncMs ?? '';
@@ -46,6 +47,7 @@ export function initRecord(h) {
     const i = h.selIdx(), n = h.blocks().length;
     const done = h.blocks().filter((_, k) => chosenFor(k)).length;
     el.count.textContent = rec ? `${done} of ${n} blocks have a take` : '';
+    el.count.dataset.tip = where === 'docker' ? 'Takes are kept in Docker, on this computer' : 'Takes are kept in this browser. Clearing its data for Scribecue loses them';
     el.takes.replaceChildren();
     const note = (text) => { const li = document.createElement('li'); li.className = 'dim'; li.textContent = text; el.takes.append(li); };
     if (i < 0) return note('Select a block to record it.');
@@ -82,7 +84,7 @@ export function initRecord(h) {
       del.addEventListener('click', async () => {
         if (!confirm(`Delete take ${k + 1} of block ${i + 1}? This can’t be undone.`)) return;
         stopPlay();
-        await deleteTake(t.id);
+        await deleteTake(rec.id, t.id);
         // Another take takes its place in the export, if this one was chosen.
         const left = blockTakes(i).filter((x) => x.id !== t.id);
         if (t.chosen && left.length) await chooseTake(rec.id, left[left.length - 1].id);
@@ -119,15 +121,25 @@ export function initRecord(h) {
   async function arm() {
     const base = { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 };
     const id = el.dev.value;
+    // Made first, while the key or click that started recording still counts as the
+    // narrator's: Safari won't start sound otherwise, and resume() then never settles.
+    const ctx = new AudioContext({ sampleRate: RATE, latencyHint: 'interactive' });
+    const started = ctx.resume();
     let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: id ? { ...base, deviceId: { exact: id } } : base });
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: id ? { ...base, deviceId: { exact: id } } : base });
+      } catch (e) {
+        if (id && e.name === 'OverconstrainedError') stream = await navigator.mediaDevices.getUserMedia({ audio: base });
+        else throw e;
+      }
+      await Promise.race([started, new Promise((ok) => setTimeout(ok, 3000))]);
+      if (ctx.state !== 'running') throw new Error('the browser didn’t let Scribecue start sound. Click Record to try again');
     } catch (e) {
-      if (id && e.name === 'OverconstrainedError') stream = await navigator.mediaDevices.getUserMedia({ audio: base });
-      else throw e;
+      stream?.getTracks().forEach((t) => t.stop());
+      ctx.close().catch(() => {});
+      throw e;
     }
-    const ctx = new AudioContext({ sampleRate: RATE, latencyHint: 'interactive' });
-    await ctx.resume(); // a context made after waiting for the microphone may start suspended
     await ctx.audioWorklet.addModule('js/rec-worklet.js');
     const node = new AudioWorkletNode(ctx, 'rec-capture', { numberOfInputs: 1, numberOfOutputs: 1 });
     const mute = ctx.createGain();
@@ -166,7 +178,7 @@ export function initRecord(h) {
     stopPlay();
     state = 'arming'; status('Getting the microphone…'); render();
     try { await arm(); } catch (e) {
-      state = 'idle'; disarm(); render();
+      state = 'idle'; disarm(); status(''); render();
       return h.toast(e.name === 'NotAllowedError' ? 'Scribecue needs permission to use the microphone' : `Couldn’t use the microphone: ${e.message}`);
     }
     const s = sl()[i];
@@ -227,7 +239,7 @@ export function initRecord(h) {
       peak: peakDb(kept), made: Date.now(), wav: wav24(to24(kept), RATE) };
     try { await saveTake(take, true); } catch (e) {
       state = 'idle'; render();
-      return h.toast(`Couldn’t keep the take: ${e.message}. The browser’s storage may be full`);
+      return h.toast(`Couldn’t keep the take: ${e.message}` + (where === 'browser' ? '. The browser’s storage may be full' : ''));
     }
     state = 'idle';
     await reload();
@@ -263,9 +275,11 @@ export function initRecord(h) {
   }
 
   // ---- playing a take back, against the video where it was read
-  function playTake(t) {
+  async function playTake(t) {
     stopPlay();
-    const audio = new Audio(URL.createObjectURL(t.wav));
+    let wav;
+    try { wav = await takeAudio(t); } catch (e) { return h.toast(`Couldn’t play the take: ${e.message}`); }
+    const audio = new Audio(URL.createObjectURL(wav));
     playing = { t, audio, started: false };
     h.volume(false);
     h.seek(Math.max(0, t.start - 2));
@@ -323,11 +337,15 @@ export function initRecord(h) {
     await reload();
     const chosen = blocks.map((_, i) => chosenFor(i));
     const check = checkExport(blocks, chosen);
-    const go = () => {
+    const go = async () => {
       const media = h.duration();
+      const pieces = [];
+      try {
+        for (const t of chosen.filter(Boolean).sort((a, z) => a.start - z.start)) pieces.push({ start: t.start, pcm: (await takeAudio(t)).slice(WAV24_HEADER) });
+      } catch (e) { return h.toast(`Couldn’t get the takes: ${e.message}`); }
       const last = Math.max(0, ...chosen.filter(Boolean).map((t) => t.start + t.duration));
       const blob = buildBwf({
-        takes: chosen.filter(Boolean).sort((a, z) => a.start - z.start).map((t) => ({ start: t.start, pcm: t.wav.slice(WAV24_HEADER) })),
+        takes: pieces,
         markers: blocks.map((b, i) => ({ at: b.start, label: `${i + 1} ${b.text.replace(/\s+/g, ' ').slice(0, 40)}` })),
         note: narrationNote({ blocks, edited: rec.edited }),
         secs: Math.max(media, last), rate: RATE, startSecs: rec.start, description: `${h.baseName()} narration`,
@@ -358,6 +376,7 @@ export function initRecord(h) {
     async open(file) {
       rec = { ...file, id: recordingId(file) };
       state = 'idle';
+      where = await takesWhere();
       status(''); devices();
       await reload();
     },

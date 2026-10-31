@@ -4,7 +4,7 @@
 // when they're available; otherwise they open on GitHub as before.
 
 export const GUIDES = { 'README.md': 'Scribecue', 'GETTING-STARTED.md': 'Getting started', 'WRITING.md': 'Writing',
-  'VOICES.md': 'Voices', 'TRANSCRIBING.md': 'Transcribing', 'SHORTCUTS.md': 'Shortcuts', 'AI.md': 'AI help', 'GOOGLE-VOICES.md': 'Google voices', 'INSTALL.md': 'Running it yourself' };
+  'VOICES.md': 'Voices', 'TRANSCRIBING.md': 'Transcribing', 'RECORDING.md': 'Recording', 'SHORTCUTS.md': 'Shortcuts', 'AI.md': 'AI help', 'GOOGLE-VOICES.md': 'Google voices', 'INSTALL.md': 'Running it yourself' };
 export const REPO = 'https://github.com/kyle95wm/Scribecue/blob/main/';
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

@@ -65,3 +65,8 @@ test('recorded takes show in storage, and removing all data warns about them', (
   assert.match(wipeWarning({ unsaved: 0, offline: false, hosted: true, takes: 1 }), /1 recorded take will be lost\. Export the narration WAV first/);
   assert.doesNotMatch(wipeWarning({ unsaved: 0, offline: false, hosted: true }), /take/);
 });
+
+test('takes kept in Docker say so, and removing browser data leaves them out', () => {
+  const rows = checklist({ hosted: false, persisted: true, usage: 0, takes: { count: 2, bytes: 9e6, where: 'docker' } });
+  assert.match(rows.find((r) => r[1] === 'Recorded takes')[2], /^2 takes, 9 MB\. Kept in Docker, so clearing the browser doesn’t touch them/);
+});

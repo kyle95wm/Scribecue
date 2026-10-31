@@ -7,6 +7,8 @@
   the programme, ready to put into the video with ffmpeg.
 - **Transcribe** existing audio description: hold a key while the narrator speaks, and a
   block appears at that time. Speech to text can type the line for you.
+- **Record** the narration: a narrator records each block against the video, and the mixer
+  gets one timestamped WAV.
 - **Private:** your video, audio and scripts are never uploaded.
 - **Familiar keys** if you've used Frazier.
 - Opens and saves SRT and WebVTT scripts, and opens Frazier's `.adc` scripts.
@@ -47,6 +49,7 @@ The guides also open inside Scribecue: press `?` and click **Guides**.
 - [Writing with text to speech](WRITING.md): hearing your lines, speeds and timing.
 - [Voices](VOICES.md): the voices on your computer, Piper, Kokoro and Google.
 - [Transcribing](TRANSCRIBING.md): marking existing audio description, and speech to text.
+- [Recording narration](RECORDING.md): the recording file, Record mode and the narration WAV.
 - [AI help](AI.md): drafting descriptions with an AI model.
 - [Keyboard shortcuts](SHORTCUTS.md): every key, and how to change them.
 - [Google voices](GOOGLE-VOICES.md): setting up Google Cloud voices without being billed.
@@ -75,12 +78,6 @@ The web version updates itself. If an update arrives while you're working, the v
 number in the bottom right says **update ready**: click it, or open Scribecue again later.
 
 If you run it yourself, see [Updating](INSTALL.md#updating).
-
-## To do
-
-- [ ] **Recording narration:** a narrator records each line against the video, in the
-  slots you've timed, and the mixer gets one timestamped WAV. The plan is in
-  [RECORDING.md](RECORDING.md).
 
 ## Development
 
