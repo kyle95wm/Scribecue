@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.64.1",
+  "date": "2026-10-31",
+  "notes": "## Guides\n\n- The guides now live in a **Guides** folder on GitHub. The README stays where it was.\n- Links to the guides in Scribecue, and in What’s new, point to their new place on GitHub."
+ },
+ {
   "version": "0.64.0",
   "date": "2026-10-31",
   "notes": "## Fixing a late start\n\n- **Start at block** in a take’s editor moves the take so its sound starts where the block does.\n- Dragged edges now snap to the block’s start and end, the playhead and the take’s other parts.\n- So a late start takes two steps: trim the start up to the playhead, then click **Start at block**.\n\n## Guides\n\n- The recording guide now lists Firefox for recording, alongside Chrome, Edge and Safari."
