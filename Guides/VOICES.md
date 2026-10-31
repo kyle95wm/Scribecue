@@ -18,12 +18,16 @@ Scribecue uses the voices built into your computer to start with. To add more, t
 Scribecue:
 
 - **Mac:** System Settings → Accessibility → Spoken Content. Click ⓘ next to **System
-  voice**, and download an "Enhanced" or "Premium" voice.
+  voice** to download more voices.
 - **Windows:** Settings → Time & language → Speech, then **Add voices**.
 - **Linux:** install speech-dispatcher and a voice such as espeak-ng from your
   distribution's packages.
 
 These voices can only be heard, not recorded, so they can't be exported as an audio file.
+
+On a Mac, browsers only offer the standard voices. Enhanced and Premium voices, such as
+Samantha (Enhanced), don't show up in Safari, Chrome or other browsers. For a natural
+voice, use [Piper](#piper-voices) or [Kokoro](#kokoro-voices).
 
 ## Online voices
 

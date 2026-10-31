@@ -142,17 +142,23 @@ function learnShare(voiceURI, points) {
 export const DEFAULT_CPS = 15;
 
 // Voices the user may pick from: local ones, plus online ones if allowed, with
-// voices in the user's language first.
+// voices in the user's language first. Each only once: on a Mac, Chrome lists a voice
+// twice when it has a standard and an Enhanced version, under the same name.
 export function pickVoices(voices, { online = false, lang = 'en' } = {}) {
   const base = lang.toLowerCase().split('-')[0];
   const rank = (v) => {
     const l = (v.lang || '').toLowerCase();
     return l === lang.toLowerCase() ? 0 : l.split(/[-_]/)[0] === base ? 1 : 2;
   };
+  const seen = new Set();
   return voices
-    .filter((v) => online || v.localService)
+    .filter((v) => (online || v.localService) && !seen.has(v.voiceURI) && seen.add(v.voiceURI))
     .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
+
+// A voice's name for people to read. Chrome adds the language to Mac voices that come in
+// more than one, as in "Eddy (English (United Kingdom))", and the menu already shows it.
+export const voiceTitle = (v) => (v?.name || '').replace(/\s*\([^()]*\([^()]*\)\)$/, '') || v?.name || '';
 
 // Splits voices for the menu: Piper, Kokoro, Google, the browser's voices on this
 // computer, then online ones.
@@ -1134,7 +1140,7 @@ export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
     for (const { voice: v } of favs) {
       const o = document.createElement('option');
       o.value = v.voiceURI;
-      o.textContent = `★ ${v.name} (${v.lang})`;
+      o.textContent = `★ ${voiceTitle(v)} (${v.lang})`;
       g.append(o);
     }
     sel.append(g);
@@ -1151,7 +1157,7 @@ export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
     for (const v of list) {
       const o = document.createElement('option');
       o.value = v.voiceURI;
-      o.textContent = `${v.name} (${v.lang})`;
+      o.textContent = `${voiceTitle(v)} (${v.lang})`;
       g.append(o);
     }
     if (!list.length) {
@@ -1167,8 +1173,8 @@ export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
   sel.disabled = !voices.length;
 }
 export const chosenVoice = () => currentVoice()?.voiceURI || '';
-export const chosenVoiceName = () => currentVoice()?.name || 'none';
-export const voiceName = (uri) => voices.find((v) => v.voiceURI === uri)?.name || 'the voice before';
+export const chosenVoiceName = () => voiceTitle(currentVoice()) || 'none';
+export const voiceName = (uri) => voiceTitle(voices.find((v) => v.voiceURI === uri)) || 'the voice before';
 
 // Sounds like a real audio description, so voices can be judged on what they'll read.
 const SAMPLE = 'Rain streaks the windows of an empty diner. A woman in a soaked coat slides into a booth '
@@ -1430,7 +1436,7 @@ export function initTts(h) {
     if (picked) {
       const v = voices.find((x) => x.voiceURI === picked);
       picked = null;
-      hooks.toast(`The voice is still ${chosenVoiceName()}${v ? `. To read with ${v.name}, pick it again and click Apply` : ''}`);
+      hooks.toast(`The voice is still ${chosenVoiceName()}${v ? `. To read with ${voiceTitle(v)}, pick it again and click Apply` : ''}`);
     }
   });
   document.addEventListener('keydown', (e) => { if (d.open) e.stopPropagation(); }, true);

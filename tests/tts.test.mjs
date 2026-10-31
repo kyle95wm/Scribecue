@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
   piperVoiceList, kokoroVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
-  toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice } from '../app/js/tts.js';
+  toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice, voiceTitle } from '../app/js/tts.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -24,6 +24,19 @@ test('only voices on this computer are offered unless online voices are allowed'
 test('voices in the user language come first', () => {
   assert.deepEqual(pickVoices(voices, { lang: 'fr-FR' }).map((x) => x.name)[0], 'Amélie');
   assert.deepEqual(pickVoices(voices, { online: true, lang: 'en-GB' }).map((x) => x.name).slice(0, 2), ['Alex', 'Google UK']);
+});
+
+test('a voice listed twice under the same name is offered once', () => {
+  const sam = v('Samantha (English (United States))', 'en-US', true);
+  assert.deepEqual(pickVoices([sam, { ...sam }, ...voices], { lang: 'en-US' }).map((x) => x.name),
+    ['Anna', 'Samantha (English (United States))', 'Zed', 'Alex', 'Amélie']);
+});
+
+test('voice names leave out the language the menu already shows', () => {
+  assert.equal(voiceTitle(v('Eddy (English (United Kingdom))', 'en-GB', true)), 'Eddy');
+  assert.equal(voiceTitle(v('Google UK English Female', 'en-GB', false)), 'Google UK English Female');
+  assert.equal(voiceTitle(v('Piper Amy (medium)', 'en-US', true)), 'Piper Amy (medium)');
+  assert.equal(voiceTitle(null), '');
 });
 
 test('the speeds match Frazier, from −30% to +100%', () => {
