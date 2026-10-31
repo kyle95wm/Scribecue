@@ -11,7 +11,8 @@ const state = {
     { id: 10, start: 25, end: 26, text: 'Old.', dip: 12 },
   ],
   media: { name: 'lights.mkv', size: 2376368, duration: 60.02 },
-  settings: { mode: 'write', offset: 0.2, ttsSpeed: 1, ttsBase: 1.05, ttsVoice: 'piper:en_US-lessac-medium' },
+  settings: { mode: 'write', offset: 0.2, ttsSpeed: 1, ttsBase: 1.05, ttsVoice: 'piper:en_US-lessac-medium',
+    ttsDuck: true, ttsDipDb: 13, ttsDipFade: 0.5, ttsMix: -0.25 },
   view: { playhead: 21.6, selected: 1 },
 };
 
@@ -32,6 +33,15 @@ test('a project keeps blocks, their speeds, voices, dips and auto ends, settings
   assert.deepEqual(p.settings, state.settings);
   assert.deepEqual(p.view, state.view);
   assert.deepEqual(p.media, state.media);
+});
+
+test('the dip and the Video / TTS slider come back only when they make sense', () => {
+  const saved = JSON.parse(JSON.stringify(toProject(state)));
+  const s = (settings) => fromProject({ ...saved, settings }).settings;
+  assert.deepEqual(s({ ttsDuck: false, ttsDipDb: 40, ttsDipFade: 0, ttsMix: 1 }), { ttsDuck: false, ttsDipDb: 40, ttsDipFade: 0, ttsMix: 1 });
+  assert.deepEqual(s({ ttsDuck: 'yes', ttsDipDb: 0, ttsDipFade: 9, ttsMix: -2 }), {}, 'nonsense is left out');
+  assert.deepEqual(s({ ttsDipDb: 12.5 }), {}, 'whole dB only');
+  assert.deepEqual(s({}), {}, 'older projects have none, and leave the settings alone');
 });
 
 test('files that are not projects, or are from a newer version, are refused with a reason', () => {

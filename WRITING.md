@@ -81,7 +81,9 @@ Each block can change that, in the open block:
   press `Enter`. Double-click the slider for 100%. It moves with the **Video / TTS**
   slider too. The browser's own voices can't go above 100%.
 
-Both are saved in projects and WebVTT exports. The full mix uses both, and the
+Both are saved in projects and WebVTT exports. A project also keeps the settings they
+build on: whether and how far the video's sound goes down, how quickly, and the
+**Video / TTS** slider. Opening it puts those back, so it sounds the same on any computer. The full mix uses both, and the
 description track the volume. Blocks given an exact dip in Scribecue 0.59 or 0.60 keep sounding the
 same: they become the difference from your setting.
 

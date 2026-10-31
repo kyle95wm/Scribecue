@@ -79,6 +79,12 @@ export function fromProject(json) {
       ...(num(s.ttsSpeed) ? { ttsSpeed: s.ttsSpeed } : {}),
       ...(num(s.ttsBase) ? { ttsBase: s.ttsBase } : {}),
       ...(typeof s.ttsVoice === 'string' && s.ttsVoice ? { ttsVoice: s.ttsVoice } : {}),
+      // How the programme dips under readings, and the Video / TTS slider, which block
+      // dips and volumes build on.
+      ...(typeof s.ttsDuck === 'boolean' ? { ttsDuck: s.ttsDuck } : {}),
+      ...(Number.isInteger(s.ttsDipDb) && s.ttsDipDb >= 1 && s.ttsDipDb <= 40 ? { ttsDipDb: s.ttsDipDb } : {}),
+      ...(num(s.ttsDipFade) && s.ttsDipFade >= 0 && s.ttsDipFade <= 2 ? { ttsDipFade: s.ttsDipFade } : {}),
+      ...(num(s.ttsMix) && s.ttsMix >= -1 && s.ttsMix <= 1 ? { ttsMix: s.ttsMix } : {}),
     },
     view: {
       ...(num(v.playhead) ? { playhead: Math.max(0, v.playhead) } : {}),

@@ -27,7 +27,7 @@ import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
-  usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIP_BYS, isDipBy, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain,
+  usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIP_BYS, isDip, FADES, isDipBy, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain,
   savedReadings, clearSavedReadings, checkFfmpeg } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -2998,7 +2998,8 @@ function projectData() {
     blocks: S.cues,
     notes: S.notes,
     media: m,
-    settings: { mode: S.mode, offset: S.offset, ttsBase: tts.base, ttsVoice: tts.voice || chosenVoice() },
+    settings: { mode: S.mode, offset: S.offset, ttsBase: tts.base, ttsVoice: tts.voice || chosenVoice(),
+      ttsDuck: tts.duck, ttsDipDb: tts.dipDb, ttsDipFade: tts.dipFade, ttsMix: tts.mix },
     view: { playhead: now(), ...(selIdx() >= 0 ? { selected: selIdx() } : {}) },
   });
 }
@@ -3131,6 +3132,9 @@ async function openProject(file, handle = null) {
   if (!okToReplace(`Open ${file.name}`)) return;
   await stopJob();
   pushUndo();
+  // The project's dip and Video / TTS slider first, as its blocks' dips and volumes build
+  // on them, and exact dips from older projects become the difference from its dip.
+  projectSound(p.settings);
   S.cues = p.blocks.map(revive);
   S.handle = handle;
   handleStore.set(handle);
@@ -3161,6 +3165,14 @@ async function openProject(file, handle = null) {
   // A different video is open: this project's one replaces it, if it's remembered.
   if (p.media && !ready && S.videoFile && await handleStore.get(mediaKey(p.media))) closeVideo();
   if (p.media && !ready) reopenVideo(p.media, { ask: true }).then((ok) => { if (ok) toast(`Opened ${file.name} and its video, ${p.media.name}`); });
+}
+
+// Projects saved before 0.62 have none of these, and leave the settings as they are.
+function projectSound({ ttsDuck, ttsDipDb, ttsDipFade, ttsMix }) {
+  if (typeof ttsDuck === 'boolean' && ttsDuck !== tts.duck) setTtsOption('duck', ttsDuck);
+  if (isDip(ttsDipDb) && ttsDipDb >= 1 && ttsDipDb !== tts.dipDb) setTtsOption('dipDb', ttsDipDb);
+  if (FADES.includes(ttsDipFade) && ttsDipFade !== tts.dipFade) setTtsOption('dipFade', ttsDipFade);
+  if (ttsMix != null && ttsMix !== tts.mix) { setMix(ttsMix); showMix(); duckAudio(); }
 }
 
 // Ctrl/Cmd+O: a project, or a script saved as SRT, VTT or .adc.
