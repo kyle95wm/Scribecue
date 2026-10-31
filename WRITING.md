@@ -59,72 +59,56 @@ voice.
 
 ## Hearing it while you play
 
-While playing, each block is read as the playhead reaches it, and the video's sound is
-turned down. Start partway through a block and the reading picks up from there.
+While playing, each block is read as the playhead reaches it, and the video's sound goes
+down. Start partway through a block and the reading picks up from there.
 
 The **Video / TTS** slider under the video sets how loud the readings are against the
-video. Double-click it to put it back in the middle.
+video. Double-click it to make them even.
 
-In the text to speech settings, choose how far the video's sound goes down (6 to 20 dB,
-or **Custom** to type any amount from 1 to 40 dB) and how quickly it fades down and back
-up. The [full mix](#exporting-the-full-mix) uses the same settings, so it sounds like what
-you hear.
+In the text to speech settings, choose how far the video's sound goes down, and how
+quickly. The [full mix](#exporting-the-full-mix) sounds the same.
 
-Each block can change that, in the open block:
+### Changing one block
 
-- **Dip:** go further or less far than the setting, such as **5 dB more** under a loud
-  scene, or **No dip** for a line over music. Choose **Custom** to type how many dB more,
-  or less with a minus (such as `-3`), then press `Enter`. A block's dip adds to the
-  setting, so if you change the setting later, every block moves with it.
-- **Vol:** make the reading louder or quieter than the rest, from 25% to 200% of the
-  **Video / TTS** slider's level. Drag the slider, or type a percentage in the box and
-  press `Enter`. Double-click the slider for 100%. It moves with the **Video / TTS**
-  slider too. The browser's own voices can't go above 100%.
+The open block has two controls for its sound:
 
-Both are saved in projects and WebVTT exports. A project also keeps the settings they
-build on: whether and how far the video's sound goes down, how quickly, and the
-**Video / TTS** slider. Opening it puts those back, so it sounds the same on any computer. The full mix uses both, and the
-description track the volume. Blocks given an exact dip in Scribecue 0.59 or 0.60 keep sounding the
-same: they become the difference from your setting.
+| Control | What it does |
+|---------|--------------|
+| **Dip** | Lowers the video more or less than the setting, or not at all (**No dip**). **Custom** takes a number such as `+3` or `-3`. |
+| **Vol** | Makes the reading quieter or louder, from 25% to 200%. Type a number in the box for an exact one. Double-click the slider for 100%. |
+
+Both build on the settings and the slider: change those, and every block moves with them.
+
+Projects keep both, along with the settings they build on, so a project sounds the same
+on any computer. WebVTT exports keep them too.
 
 ## Exporting the full mix
 
-**Export → Full mix** saves the programme's sound and the readings together in one stereo
-file, ready to listen to or share. It needs a Piper, Kokoro or Google voice.
+**Export → Full mix** saves the video's sound and the readings together in one file. It
+sounds just as it does when you play. It needs a Piper, Kokoro or Google voice.
 
-- **It sounds as it does when you play:** the programme goes down under each reading, as
-  far and as quickly as set in the text to speech settings or the block, and the levels
-  follow the **Video / TTS** slider.
-- **It uses the audio track that's playing,** for a video with several.
-- **Loudness:** leave it as it comes, or bring the whole mix to a target: −23 LUFS for
-  broadcast in Europe (EBU R 128), −24 LUFS for North America (ATSC A/85), −16 LUFS for
-  podcasts and the web, or −14 LUFS for streaming. Scribecue measures the mix first, then
-  makes it at the right level, so it takes twice as long. When it's done, it says the
-  loudness.
-- **Peaks are kept under −1 dBFS** (−2 dBFS for ATSC), so the mix never clips.
-- **Stems:** tick **Also save the programme and the readings as separate files** to get
-  the programme, lowered as in the mix, and the readings on their own, to mix again in
-  your editor. Together they make the mix.
-- **WAV or MP3:** choose under **Save as** in the text to speech settings. A WAV of a
-  two-hour film is about 1.4 GB; an MP3 at 192 kbps is about 170 MB. An MP3 takes a few
-  minutes longer to make.
-- **In the video, and AAC, AC-3 or E-AC-3:** when you run Scribecue yourself with
-  [ffmpeg](INSTALL.md#the-full-mix-in-the-video-ffmpeg), choose **In the video** to get the
-  video back with the mix as an extra audio description track, which players offer
-  alongside the original sound, or in place of its sound. It works with MP4, MOV, MKV and
-  WebM videos. In the video, the mix is AAC unless you choose AC-3 or E-AC-3 (or Opus, in
-  a WebM). Stems stay WAV or MP3.
-- **With ffmpeg of your own:** if ffmpeg is installed on your computer, after exporting a
-  video's full mix Scribecue shows the commands that put the mix into the video, as an
-  extra audio description track or in place of its sound. Click **Copy**, then run it in a
-  folder with the video and the mix. The picture is copied as it is, so it's quick.
-- **Stop** cancels it.
+Choose how under **Export full mix**, in the text to speech settings:
 
-Your browser may ask whether Scribecue can download several files, for the stems. Allow
-it.
+| Setting | Choices |
+|---------|---------|
+| **Save as** | WAV: about 1.4 GB for a two-hour film. MP3: about 170 MB, and a few minutes slower to make. |
+| **Loudness** | As it comes, or a target: −23 LUFS for broadcast in Europe, −24 LUFS in North America, −16 LUFS for podcasts, −14 LUFS for streaming. A target takes twice as long. |
+| **Stems** | Also save the video's sound and the readings as separate files, to mix again in an editor. Your browser may ask to allow several downloads. |
 
-For your own mix, export the [description track](VOICES.md#piper-voices) instead and mix it
-in your editor.
+For a video with several audio tracks, it uses the one that's playing.
+
+### Putting it in the video
+
+- **With ffmpeg on your computer:** after the export, Scribecue shows a command. Copy it,
+  and run it in a folder with the video and the mix.
+- **Running Scribecue in Docker:** add [ffmpeg](INSTALL.md#the-full-mix-in-the-video-ffmpeg),
+  then choose **In the video**. You get the video back with the mix as an extra audio
+  description track, or in place of its sound.
+
+Both work with MP4, MOV, MKV and WebM videos. In Docker, ffmpeg can also save the mix as
+AAC, AC-3 or E-AC-3.
+
+To mix it yourself instead, export the [description track](VOICES.md#piper-voices).
 
 ## Sounds like
 

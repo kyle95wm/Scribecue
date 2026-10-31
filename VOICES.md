@@ -88,6 +88,6 @@ sent: the block is read when you close it.
 - **If a project's voice isn't available,** such as a Piper voice while Piper isn't
   running, Scribecue says which voice is reading instead. The project keeps its own voice
   for when it's back.
-- **Description tracks** are levelled: every reading peaks at −8 dBFS, and overlapping
-  readings never go past −6 dBFS. The [full mix](WRITING.md#exporting-the-full-mix)
+- **Description tracks** are levelled: every reading comes out at the same level, unless
+  you've changed a block's volume. The [full mix](WRITING.md#exporting-the-full-mix)
   keeps each voice's own level instead, as you hear it when playing.

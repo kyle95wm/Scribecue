@@ -197,12 +197,11 @@ languages too.
 
 ## The full mix in the video (ffmpeg)
 
-The [full mix](WRITING.md#exporting-the-full-mix) can go straight into the video, as an
-extra audio description track or in place of its sound, and be saved as AAC, AC-3 (Dolby
-Digital) or E-AC-3 (Dolby Digital Plus) as well as WAV or MP3. This uses
-[ffmpeg](https://ffmpeg.org) in a container next to the editor, which has no internet access
-and only Scribecue's own server can reach. Add `ffmpeg` to the profiles in `.env`, for
-example:
+With [ffmpeg](https://ffmpeg.org), the [full mix](WRITING.md#exporting-the-full-mix) can
+go straight into the video. It can also be saved as AAC, AC-3 or E-AC-3. Like Piper,
+ffmpeg runs in its own container with no internet access.
+
+Add `ffmpeg` to the profiles in `.env`, for example:
 
 ```
 COMPOSE_PROFILES=piper,ffmpeg
@@ -214,13 +213,11 @@ Then build and start it:
 docker compose up -d --build
 ```
 
-The container takes about 240 MB. Reload Scribecue, and the new choices appear under
-**Export full mix** in the text to speech settings.
+Reload Scribecue, and the new choices appear under **Export full mix** in the text to
+speech settings. The container takes about 240 MB.
 
-To put the mix in the video, Scribecue sends the video to the container, on your own
-computer, which needs room in Docker for a copy of it and the finished file while it works.
-They're deleted as soon as the file is saved, or if you stop. The picture, subtitles and
-other audio tracks are copied as they are, so it takes about as long as copying the file.
+While it works, Docker needs room for a copy of the video and the finished file. Both are
+deleted as soon as the file is saved.
 
 ## Ollama in Docker
 
