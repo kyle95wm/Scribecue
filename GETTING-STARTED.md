@@ -174,6 +174,18 @@ as audio description is picked for you.
   block by block. With NVDA or JAWS, single-letter keys such as `H` may need focus mode.
   This is still being worked on.
 
+## On a slower computer
+
+If the video is slow to start, or stutters:
+
+- **Use a smaller copy of the video to write with,** such as 720p instead of 1080p or 4K.
+  The timings are the same, so the script works with the full-size video too.
+- **Use Chrome or Edge.** Chromium, especially on Linux, often can't use the computer's
+  graphics chip to play video, and some builds can't play MP4 (H.264) at all.
+- **Prefer a file with only the description mix,** if you have one. With several audio
+  tracks, Scribecue plays the chosen track alongside the video, which is more work.
+- **Press play once.** **Loading…** next to the clock means it's getting ready.
+
 ## Supported files
 
 | | Supported |

@@ -250,10 +250,24 @@ function setRate(r) {
 
 // ---------------------------------------------------------------- view
 
-const visSec = () => tl.clientWidth / S.pps;
+// Sizes of the timeline's parts, kept up to date as they change. Reading clientWidth on
+// every frame made the browser lay out the whole page again whenever the list had
+// changed, which held up slower computers in long jobs.
+const sizes = new WeakMap();
+const sizer = new ResizeObserver((entries) => {
+  for (const e of entries) sizes.set(e.target, [e.target.clientWidth, e.target.clientHeight]);
+  tlDirty = true;
+});
+function box(el) {
+  let s = sizes.get(el);
+  if (!s) { s = [el.clientWidth, el.clientHeight]; sizes.set(el, s); sizer.observe(el); }
+  return s;
+}
+const boxW = (el) => box(el)[0];
+const visSec = () => boxW(tl) / S.pps;
 const xToT = (clientX) => S.view + (clientX - tl.getBoundingClientRect().left) / S.pps;
 const clampView = (v) => clamp(v, 0, Math.max(0, duration() - visSec() * 0.5));
-const minPps = () => Math.max(0.5, tl.clientWidth / duration());
+const minPps = () => Math.max(0.5, boxW(tl) / duration());
 
 function setView(v) {
   v = clampView(v);
@@ -277,7 +291,7 @@ function zoom(f, anchorT) {
   updateInd();
 }
 function fitAll() {
-  S.pps = clamp(tl.clientWidth / duration(), 0.5, MAX_PPS);
+  S.pps = clamp(boxW(tl) / duration(), 0.5, MAX_PPS);
   S.view = 0;
   tlDirty = true;
   updateInd();
@@ -947,26 +961,42 @@ listSearch.addEventListener('keydown', (e) => {
 
 function fillRow(r, c, i) {
   const [n, t, d] = r.children[0].children, tx = r.children[1];
-  n.textContent = i + 1;
-  t.textContent = `${tc(c.start)} – ${tc(c.end)}`;
-  d.textContent = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '')
+  const times = `${tc(c.start)} – ${tc(c.end)}`;
+  let dur = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '')
     + (ttsOn() && c.voice ? ` · ${blockVoiceName(c.voice)}` : '');
   // Red when the reading is longer than the block, with a sign for anyone who can't tell red.
   const reading = ttsOn() && !!spoken(c.text) ? speechLength(said(c), c.speed, c.voice) : null;
   const over = !!reading && reading.secs > c.end - c.start + 0.05;
+  if (over) dur += ' ⚠';
+  const ready = !!reading?.exact, shown = matches(c, i);
+  // Unchanged rows are left alone: long jobs refresh the list often, and rewriting every
+  // row each time made the browser lay it all out again.
+  const was = `${i}|${times}|${dur}|${ready}|${shown}|${query}|${c.text}`;
+  if (r.dataset.was === was) return;
+  r.dataset.was = was;
+  n.textContent = i + 1;
+  t.textContent = times;
+  d.textContent = dur;
   d.classList.toggle('over', over);
-  if (over) d.textContent += ' ⚠';
   // A dot when the reading has been made, at this voice and speed. Piper, Kokoro and Google
   // readings are kept in the browser, so they play straight away, even after a reload.
-  if (reading?.exact) {
+  if (ready) {
     d.append(Object.assign(document.createElement('span'), { className: 'ready', textContent: ' ●',
       title: usingGoogle(c.voice) ? 'Reading kept: plays straight away, and isn\'t sent to Google again'
         : usingAudioVoice(c.voice) ? 'Reading kept: its length is exact, and it plays straight away' : 'Reading made: its length is exact' }));
   }
-  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, ready: !!reading?.exact }));
+  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, ready }));
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
-  r.hidden = !matches(c, i);
+  r.hidden = !shown;
+}
+
+// Refreshes the rows in place when the blocks are the same ones in the same order, as
+// when readings arrive; otherwise builds the list again.
+function refreshList() {
+  const rows = [...list.children].filter((el) => el !== editor);
+  if (rows.length !== S.cues.length || S.cues.some((c, i) => rows[i] !== rowMap.get(c.id))) return renderList();
+  S.cues.forEach((c, i) => fillRow(rows[i], c, i));
 }
 
 function renderList() {
@@ -1084,7 +1114,7 @@ document.addEventListener('keydown', (e) => { if (findDlg.open) e.stopPropagatio
 // ---------------------------------------------------------------- timeline drawing
 
 function fitCanvas(cv) {
-  const w = cv.clientWidth, h = cv.clientHeight, dpr = devicePixelRatio || 1;
+  const [w, h] = box(cv), dpr = devicePixelRatio || 1;
   if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
     cv.width = Math.round(w * dpr);
     cv.height = Math.round(h * dpr);
@@ -1205,7 +1235,7 @@ function drawCues(W) {
 }
 
 function drawOverview() {
-  const d = duration(), W = overview.clientWidth;
+  const d = duration(), W = boxW(overview);
   ovWin.style.left = (S.view / d) * W + 'px';
   ovWin.style.width = Math.min(W, (visSec() / d) * W) + 'px';
 }
@@ -1229,7 +1259,7 @@ function placeScrub(t) {
   }
 }
 function drawScrub(force = false) {
-  const w = scrubMarks.clientWidth, dpr = devicePixelRatio || 1;
+  const w = boxW(scrubMarks), dpr = devicePixelRatio || 1;
   if (!w || (!force && w === scrubW)) return;
   scrubW = w;
   scrubMarks.width = Math.round(w * dpr);
@@ -1278,7 +1308,7 @@ scrubEl.addEventListener('pointerleave', () => { if (!scrubEl.classList.contains
 
 function placePlayhead(t) {
   const x = (t - S.view) * S.pps;
-  playheadEl.style.display = x < -2 || x > tl.clientWidth + 2 ? 'none' : '';
+  playheadEl.style.display = x < -2 || x > boxW(tl) + 2 ? 'none' : '';
   playheadEl.style.transform = `translateX(${x}px)`;
 }
 
@@ -1868,7 +1898,9 @@ async function fitBlock(c) {
     if (tried.has(at)) break; // back to a speed already read: it's as close as it gets
     tried.add(at);
     const secs = await measure(said(c), at, { bulk: true, voice: c.voice });
-    if (secs == null || Math.abs(secs - target) <= near || at <= FIT_MIN || at >= MAX_SPEED) break;
+    if (secs == null || Math.abs(secs - target) <= near) break;
+    // As slow as it goes and still short, or as fast as it goes and still long.
+    if ((at <= FIT_MIN && secs < target) || (at >= MAX_SPEED && secs > target)) break;
   }
   // The best of the speeds read, rather than the last one tried.
   const best = measuring ? bestFit(fitReadings(c), target, near) : null;
@@ -3754,12 +3786,25 @@ initUpdates({
   idle: () => !S.hasVideo && !measuring && !document.querySelector('dialog[open]')
     && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName),
 });
+// Readings were made or changed: block ends that follow them, the list and the editor.
+// Long jobs make hundreds of readings, and redrawing the whole list for each one held up
+// slower computers, so it's done at most four times a second: at once, then again for
+// whatever arrived meanwhile.
+const READINGS_EVERY = 250;
+let readingsAt = 0, readingsTimer = 0;
+function readingsChanged() {
+  if (readingsTimer) return;
+  const wait = readingsAt + READINGS_EVERY - performance.now();
+  if (wait > 0) { readingsTimer = setTimeout(() => { readingsTimer = 0; readingsChanged(); }, wait); return; }
+  readingsAt = performance.now();
+  fitAllAuto(); refreshList(); updateEditor(); updateInd(); tlDirty = true;
+}
 initTts({
   toast,
   rate: () => S.rate,
   duck: duckAudio,
   sample: () => spoken(selCue() ? said(selCue()) : ''),
-  changed: () => { fitAllAuto(); renderList(); updateEditor(); updateInd(); tlDirty = true; },
+  changed: readingsChanged,
   readingChanged,
   blockVoices: () => S.cues.filter((c) => c.voice).map((c) => c.voice),
 });
