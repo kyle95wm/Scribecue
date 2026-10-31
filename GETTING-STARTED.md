@@ -157,6 +157,8 @@ as audio description is picked for you.
 - **Timecode:** times show as `hh:mm:ss:ff`, in frames at the video's own frame rate.
   29.97 and 59.94 fps videos use drop-frame timecode (`hh:mm:ss;ff`). Exported scripts
   use the usual milliseconds.
+- **Waveforms are kept** in your browser, so reopening a video, even after a reload, shows
+  its waveform straight away. The 20 used most recently are kept.
 - **Copy a timecode:** click the clock under the video.
 - **Time remaining:** click the total length, next to the clock.
 - **Find and replace:** `Alt+Shift+F`, or **Replace…** next to the search box, changes text

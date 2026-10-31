@@ -87,8 +87,8 @@ export async function removeAllData() {
   try { for (const k of await caches.keys()) await caches.delete(k); } catch { /* none */ }
   const gone = (name) => new Promise((ok) => { const q = indexedDB.deleteDatabase(name); q.onsuccess = q.onerror = q.onblocked = () => ok(); });
   try {
-    const dbs = indexedDB.databases ? (await indexedDB.databases()).map((d) => d.name) : ['scribecue'];
-    for (const name of new Set([...dbs, 'scribecue'])) if (name) await gone(name);
+    const dbs = indexedDB.databases ? (await indexedDB.databases()).map((d) => d.name) : [];
+    for (const name of new Set([...dbs, 'scribecue', 'scribecue-readings', 'scribecue-waves'])) if (name) await gone(name);
   } catch { /* none */ }
   try {
     const root = await navigator.storage.getDirectory();

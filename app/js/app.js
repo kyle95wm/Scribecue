@@ -20,6 +20,7 @@ import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, writeWav, readingStarting } from './tts.js';
+import { waveKey, loadWave, saveWave } from './wavestore.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
@@ -3228,11 +3229,28 @@ function addPeaks(from, data, max) {
   tlDirty = true;
 }
 
-function buildWaveform(file, track, mux) {
+let waveGen = 0;
+async function buildWaveform(file, track, mux) {
   resetWaveform();
+  const gen = ++waveGen;
   const multi = S.tracks.length > 1;
   const prefix = multi ? `Track ${track + 1} · ` : '';
   S.waveStatus = `${prefix}Waveform 0%`;
+  // A waveform built before, kept in the browser. A track copied out to play still has
+  // to be copied, but its waveform shows straight away.
+  const key = waveKey(file, track, PEAK_RATE);
+  const kept = await loadWave(key);
+  if (gen !== waveGen || S.videoFile !== file) return;
+  if (kept) {
+    Object.assign(S, kept);
+    tlDirty = true;
+    if (!mux) {
+      S.waveStatus = '';
+      trackCache.set(track, { ...kept, audio: null, reason: '' });
+      return;
+    }
+    S.waveStatus = `${prefix}Copying the track`;
+  }
   let worker;
   try {
     worker = new Worker('js/wave-worker.js');
@@ -3255,8 +3273,8 @@ function buildWaveform(file, track, mux) {
   };
   worker.onmessage = ({ data: m }) => {
     if (stale()) return;
-    if (m.type === 'peaks') addPeaks(m.from, m.data, m.max);
-    else if (m.type === 'progress') { S.waveStatus = `${prefix}Waveform ${Math.round(m.done * 100)}%`; tlDirty = true; }
+    if (m.type === 'peaks') { if (!kept) addPeaks(m.from, m.data, m.max); }
+    else if (m.type === 'progress') { S.waveStatus = `${prefix}${kept ? 'Copying the track' : 'Waveform'} ${Math.round(m.done * 100)}%`; tlDirty = true; }
     else if (m.type === 'audio') {
       if (m.blob && !altAudio.canPlayType(m.mime)) entry.reason = `this browser can’t play ${S.tracks[track].codec} on its own`;
       else if (m.blob) entry.audio = { url: URL.createObjectURL(m.blob), start: m.start || 0 };
@@ -3270,6 +3288,7 @@ function buildWaveform(file, track, mux) {
       S.waveStatus = '';
       tlDirty = true;
       trackCache.set(track, { peaks: S.peaks, peakLen: S.peakLen, peakMax: S.peakMax, ...entry });
+      if (!kept && S.peakMax) saveWave(key, S.peaks, S.peakLen, S.peakMax);
       if (!S.peakMax) toast('No waveform: the audio track is silent');
       else toast(multi ? `Audio: ${trackLabel(track)}. T switches tracks` : 'Waveform ready');
     } else stop(m.message);
@@ -3313,6 +3332,7 @@ async function legacyWaveform(file, reason) {
     S.peaks = peaks;
     S.peakLen = n;
     S.peakMax = max;
+    if (max) saveWave(waveKey(file, 0, PEAK_RATE), peaks, n, max);
     toast('Waveform ready');
   } catch {
     if (S.videoFile === file) toast(`No waveform: ${reason}`);

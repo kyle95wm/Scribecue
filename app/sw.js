@@ -9,7 +9,7 @@ const CACHE = `scribecue-${VERSION}`;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'changelog.json', 'css/style.css',
   'js/ai.js', 'js/aidrawer.js', 'js/app.js', 'js/browser.js', 'js/nav.js', 'js/tour.js', 'js/keymap.js', 'js/keys.js', 'js/settings.js', 'js/whatsnew.js', 'js/config.js', 'js/formats.js', 'js/piper-engine.js', 'js/piper-worker.js',
-  'js/project.js', 'js/old.js', 'js/tmdb.js', 'js/findreplace.js', 'js/guide.js', 'js/offline.js', 'js/autosave.js', 'js/reminder.js', 'js/dockertip.js', 'js/spelling.js', 'js/stt.js', 'js/tts.js', 'js/whisper-worker.js',
+  'js/project.js', 'js/old.js', 'js/tmdb.js', 'js/findreplace.js', 'js/guide.js', 'js/offline.js', 'js/autosave.js', 'js/reminder.js', 'js/dockertip.js', 'js/wavestore.js', 'js/spelling.js', 'js/stt.js', 'js/tts.js', 'js/whisper-worker.js',
   'js/update.js', 'js/welcome.js', 'js/wave-worker.js',
   'icons/icon-192.png', 'icons/icon-512.png',
 ];
