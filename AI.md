@@ -135,8 +135,15 @@ The model matters more than anything else.
 - **Claude Sonnet 5.5** (`claude-sonnet-5-5`): nearly as good, at about half the price. A
   sensible everyday choice.
 - **Claude Haiku 5.5** (`claude-haiku-5-5`): very cheap and fast, for rough first drafts.
-- **Gemini** and **OpenAI**: pick their newest model from the list **Load models** shows.
-  Gemini's Flash models are fast and inexpensive.
+- **OpenAI:**
+  - **GPT-6.1 Sol** (`gpt-6.1-sol`): the one to start with. Good and inexpensive, for
+    everyday drafting.
+  - **GPT-6 Astra** (`gpt-6-astra`): OpenAI's most capable, at about five times the price,
+    for busy or tricky scenes.
+  - **GPT-6 Luna** (`gpt-6-luna`): very cheap and fast, for rough first drafts and quick
+    questions.
+- **Gemini:** pick its newest model from the list **Load models** shows. Gemini's Flash
+  models are fast and inexpensive.
 - **Through OpenRouter**, the same models have names like `anthropic/claude-sonnet-5.5` and
   `google/gemini-3.8-flash`. With a direct Claude key, Scribecue also sets the model's effort
   and turns on Anthropic's automatic fallback to another Claude model if a request is
@@ -229,7 +236,9 @@ And always check a draft against the picture: AI is confident even when it's wro
 
 Online providers charge by the amount sent and received. A draft with 3 frames sends about
 2,000 tokens and gets a short reply back: roughly 1–2 cents with Claude Opus 5.5, about a
-cent with Sonnet 5.5, and a fraction of a cent with Haiku 5.5. These are estimates; your
+cent with Sonnet 5.5, and a fraction of a cent with Haiku 5.5. With OpenAI, it's about
+2–3 cents with GPT-6 Astra, half a cent with GPT-6.1 Sol, and a tiny fraction of a cent
+with GPT-6 Luna. These are estimates; your
 provider's dashboard shows the real figures. Long chats cost more, though only the latest
 messages resend their frames. Ollama costs nothing to use.
 
