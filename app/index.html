@@ -121,6 +121,7 @@
         <button class="clock copy" id="clock" aria-label="Copy the current timecode" data-tip="Click to copy this timecode">00:00:00:00</button>
         <span class="dim">/</span>
         <button class="clock dim durbtn" id="durEl" data-tip="Total length. Click to show the time remaining instead">00:00:00:00</button>
+        <span class="dim vwait" id="vidWait" role="status" hidden>Loading…</span>
         <span class="ctrls" id="ctrls" role="toolbar" aria-label="Player controls">
           <button data-ctl="prevBlock" aria-label="Start of this block, or the previous one (⌥⇧←)" data-tip="Back to the start of the block you're in; at its start, the previous block (⌥⇧←)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h2v10H3zM13 3v10L6 8z"/></svg></button>
           <button data-ctl="back3" aria-label="Back 3 seconds (⇧←)" data-tip="Back 3 seconds (⇧←)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10L1 8zM15 3v10L8 8z"/></svg></button>

@@ -206,10 +206,24 @@ function seekBy(d) {
   seek(now() + d);
 }
 function play() {
-  if (S.hasVideo) video.play().catch((e) => toast('Playback failed: ' + e.message));
-  else S.vplaying = true;
+  if (S.hasVideo) {
+    // Pausing before the video has started cancels the play: that's no failure.
+    video.play().catch((e) => { if (e.name !== 'AbortError') toast('Playback failed: ' + e.message); });
+    if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) videoWaiting(true);
+  } else S.vplaying = true;
   updateInd();
 }
+// A slow computer can take a moment to start the video, or to carry on after a jump, so
+// say it's loading rather than look as if play did nothing. Only after a moment, so a
+// quick start doesn't flicker.
+let waitTimer = 0;
+function videoWaiting(on) {
+  clearTimeout(waitTimer);
+  if (on) waitTimer = setTimeout(() => { $('vidWait').hidden = video.paused; }, 300);
+  else $('vidWait').hidden = true;
+}
+video.addEventListener('waiting', () => videoWaiting(true));
+for (const ev of ['playing', 'pause', 'emptied']) video.addEventListener(ev, () => videoWaiting(false));
 function pause() {
   stopSpeech();
   if (S.hasVideo) video.pause();
