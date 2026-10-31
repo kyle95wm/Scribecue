@@ -81,10 +81,11 @@ If you run it yourself, see [Updating](INSTALL.md#updating).
   slots you've timed, and the mixer gets one timestamped WAV. The plan is in
   [RECORDING.md](RECORDING.md).
 - [ ] **Export a full AD mix:** the programme's sound with the readings, the programme
-  dipping under each one, as a stereo WAV. Settings for how far and how quickly it dips,
-  and the levels, with playback sounding the same as the export. Later, a loudness
-  target, per-block settings and separate stems. With Docker, an ffmpeg container could
-  also handle 5.1, AC-3 and DTS, and put the mix back into the video.
+  dipping under each one, as a stereo WAV, or an MP3 for a much smaller file. The
+  description track on its own could be saved as MP3 too. Settings for how far and how
+  quickly it dips, and the levels, with playback sounding the same as the export. Later,
+  a loudness target, per-block settings and separate stems. With Docker, an ffmpeg
+  container could also handle 5.1, AC-3 and DTS, and put the mix back into the video.
 
 ## Development
 
