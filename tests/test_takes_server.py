@@ -73,6 +73,16 @@ class Takes(unittest.TestCase):
         self.assertEqual(self.call("GET", f"/r/{REC}/{A}")[0], 404)
         self.assertEqual(os.listdir(os.path.join(self.dir.name, REC)), ["index.json"])
 
+    def test_clearing_removes_every_recording(self):
+        self.put(A, 0)
+        other = REC.replace("abc", "xyz")
+        take = {"block": 0, "start": 0, "duration": 1, "peak": -9, "made": 1}
+        self.call("PUT", f"/r/{other}/{B}", WAV, {"X-Take": json.dumps(take)})
+        os.makedirs(os.path.join(self.dir.name, "lost+found"))  # not Scribecue's: left alone
+        self.assertEqual(self.call("DELETE", "/all")[0], 200)
+        self.assertEqual(json.loads(self.call("GET", "/status")[1]), {"takes": 0, "bytes": 0})
+        self.assertEqual(os.listdir(self.dir.name), ["lost+found"])
+
     def test_silence_has_no_peak(self):
         self.put(A, 0, peak=None)
         self.assertIsNone(self.listing()[A]["peak"])

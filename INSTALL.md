@@ -257,8 +257,8 @@ docker compose up -d --build
 
 Reload Scribecue. **Settings → Storage** then says the takes are kept in Docker.
 
-- Takes stay until they're deleted in Record mode.
-- They're in a Docker volume whose name ends in `_takes`. Deleting it deletes them.
+- Takes stay until they're deleted. **Delete all** next to **Recorded takes** in
+  **Settings → Storage** deletes every take.
 - Takes recorded in the browser before you added the container stay there. Export them
   first, or record them again.
 

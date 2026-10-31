@@ -7,7 +7,7 @@ import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { RECORDING_EXT, toRecordingFile, fromRecordingFile, sameVideo, compareScript } from './recording.js';
 import { readNote } from './bwf.js';
 import { initRecord } from './record.js';
-import { takesInfo } from './takestore.js';
+import { takesInfo, clearTakes } from './takestore.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile } from './browser.js';
 import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
@@ -4373,6 +4373,7 @@ initOffline({
   whisper: () => stt.ready,
   readings: () => savedReadings(),
   takes: () => takesInfo(),
+  clearTakes: async () => { await clearTakes(); await recorder.refresh(); },
   clearReadings: () => clearSavedReadings(),
   openTts: () => openTts(),
   openStt: () => openStt(),

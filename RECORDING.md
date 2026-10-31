@@ -141,4 +141,6 @@ A minute of takes uses about 8.6 MB.
 - **In Docker,** add the [takes container](INSTALL.md#keeping-takes-on-disk) to keep them
   on disk instead.
 
-**Settings → Offline and storage** shows how many takes there are, and where.
+Takes stay until you delete them. To delete them all, from every recording, click
+**Delete all** next to **Recorded takes** in **Settings → Offline and storage**. You don't
+need the recording file for that. Export any narration you still need first.

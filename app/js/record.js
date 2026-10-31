@@ -372,6 +372,7 @@ export function initRecord(h) {
     get active() { return state !== 'idle'; },
     get open() { return !!rec; },
     toggle, exportWav, finish, render,
+    refresh: () => reload(),
     stopPlayback: stopPlay,
     async open(file) {
       rec = { ...file, id: recordingId(file) };

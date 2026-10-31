@@ -43,8 +43,8 @@ export function checklist({ hosted, appKept, guides, voices, whisper, persisted,
   }
   if (takes?.count) {
     rows.push([null, 'Recorded takes', `${takes.count} take${takes.count === 1 ? '' : 's'}, ${mb(takes.bytes)}. ` + (takes.where === 'docker'
-      ? 'Kept in Docker, so clearing the browser doesn’t touch them. Delete them in Record mode.'
-      : 'They’re only in this browser: clearing its data for Scribecue loses them. Export the narration WAV to keep them.')]);
+      ? 'Kept in Docker, so clearing the browser doesn’t touch them.'
+      : 'They’re only in this browser: clearing its data for Scribecue loses them. Export the narration WAV to keep them.'), 'takes']);
   }
   if (usage) rows.push([null, 'Space used', `${usage < 1e6 ? 'Less than 1' : Math.round(usage / 1e6)} MB in this browser.`]);
   return rows;
@@ -72,7 +72,7 @@ export async function keepStorage({ ask = false } = {}) {
   return ask || chromium(navigator.userAgent, navigator.userAgentData?.brands || []) ? s.persist() : false;
 }
 
-let hooks = { toast: () => {}, voices: () => [], whisper: () => false, readings: async () => null, takes: async () => null, clearReadings: async () => {}, openTts: () => {}, openStt: () => {}, guides: async () => false,
+let hooks = { toast: () => {}, voices: () => [], whisper: () => false, readings: async () => null, takes: async () => null, clearReadings: async () => {}, clearTakes: async () => {}, openTts: () => {}, openStt: () => {}, guides: async () => false,
   unsaved: () => 0, save: async () => {} };
 
 // The warning before removing everything, from what would be lost.
@@ -130,7 +130,7 @@ async function render() {
     ? (!online() ? 'You’re offline. Everything below with a ✓ works now.'
       : 'What this browser has for working without a connection. Get what you need before you go offline.')
     : `${!online() ? 'You’re offline, but that’s fine: ' : ''}Scribecue runs from this computer, in Docker, so it works without a connection. Until you save a project, your blocks and settings are kept in this browser.`;
-  const btn = { voices: 'Choose a voice', whisper: 'Set up', persist: refused ? 'Ask again' : 'Keep it safe', readings: 'Clear' };
+  const btn = { voices: 'Choose a voice', whisper: 'Set up', persist: refused ? 'Ask again' : 'Keep it safe', readings: 'Clear', takes: 'Delete all' };
   $('offlineList').replaceChildren(...checklist(s).map(([ok, title, detail, act]) => {
     const li = document.createElement('li');
     li.className = ok === null ? 'info' : ok ? 'ok' : 'no';
@@ -141,7 +141,7 @@ async function render() {
     if (act) {
       const a = document.createElement('button');
       a.textContent = btn[act];
-      a.addEventListener('click', () => act === 'persist' ? persist() : act === 'readings' ? clearReadings()
+      a.addEventListener('click', () => act === 'persist' ? persist() : act === 'readings' ? clearReadings() : act === 'takes' ? clearTakes()
         : ($('offlineDlg').close(), act === 'voices' ? hooks.openTts() : hooks.openStt()));
       li.append(a);
     }
@@ -159,6 +159,14 @@ async function persist() {
 async function clearReadings() {
   if (!confirm('Remove the readings kept in this browser? Lines are read again the next time they’re needed, and Google readings are counted again.')) return;
   await hooks.clearReadings();
+  await render();
+}
+
+// Takes can't be brought back, and a narrator may still need them, so this asks first.
+async function clearTakes() {
+  const t = await hooks.takes();
+  if (!t?.count || !confirm(`Delete all ${t.count} recorded take${t.count === 1 ? '' : 's'}, from every recording? This can’t be undone. Export any narration you still need first.`)) return;
+  try { await hooks.clearTakes(); } catch (e) { hooks.toast(`Couldn’t delete the takes: ${e.message}`); }
   await render();
 }
 

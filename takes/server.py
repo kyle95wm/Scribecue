@@ -9,6 +9,7 @@
 #   GET    /r/<rec>/<id>            the take's WAV
 #   POST   /r/<rec>/<id>/choose     makes it the one chosen for its block
 #   DELETE /r/<rec>/<id>
+#   DELETE /all                     every take of every recording
 #
 # <rec> is Scribecue's id for a recording, and <id> a take's own (a UUID).
 import json
@@ -168,6 +169,12 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(200, {})
 
     def do_DELETE(self):
+        if self.path == "/all":
+            with lock:
+                for rec in os.listdir(ROOT):
+                    if re.fullmatch(REC, rec):
+                        shutil.rmtree(folder(rec), ignore_errors=True)
+            return self.reply(200, {})
         r = self.route()
         if not r or not r[1] or r[2]:
             return self.reply(404, {"error": "not found"})

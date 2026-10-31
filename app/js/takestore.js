@@ -49,6 +49,12 @@ const browser = {
     await finish(tx);
   },
   audio: async (t) => t.wav,
+  async clear() {
+    const db = await open();
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).clear();
+    await finish(tx);
+  },
   // Reads the keys and sizes, not the sound.
   async info() {
     const db = await open();
@@ -88,6 +94,7 @@ const docker = {
   async choose(rec, id) { await answer(await fetch(url(rec, id) + '/choose', { method: 'POST' })); },
   async remove(rec, id) { await answer(await fetch(url(rec, id), { method: 'DELETE' })); },
   audio: async (t) => (await answer(await fetch(url(t.rec, t.id)))).blob(),
+  async clear() { await answer(await fetch('takes/all', { method: 'DELETE' })); },
   async info() {
     const s = await (await answer(await fetch('takes/status', { cache: 'no-store' }))).json();
     return { count: s.takes, bytes: s.bytes };
@@ -113,6 +120,9 @@ export const saveTake = async (take, choose = true) => (await store()).save(take
 export const chooseTake = async (rec, id) => (await store()).choose(rec, id);
 
 export const deleteTake = async (rec, id) => (await store()).remove(rec, id);
+
+// Deletes every take of every recording, with or without its recording file.
+export const clearTakes = async () => (await store()).clear();
 
 // The take's WAV, as a Blob.
 export const takeAudio = async (t) => (await store()).audio(t);
