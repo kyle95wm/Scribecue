@@ -81,7 +81,6 @@ If you run it yourself, see [Updating](INSTALL.md#updating).
 - [ ] **Recording narration:** a narrator records each line against the video, in the
   slots you've timed, and the mixer gets one timestamped WAV. The plan is in
   [RECORDING.md](RECORDING.md).
-- [ ] **More for the full mix:** 5.1 and DTS, with the ffmpeg container.
 
 ## Development
 
