@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.57.2",
+  "date": "2026-10-30",
+  "notes": "## Fixes\n\n- After **Fit speeds to timings**, blocks that fit no longer stay red in the list until they’re read. It happened most with a base speed other than 100%, when some blocks were left at a speed that hadn’t been read, so their lengths were only estimates."
+ },
+ {
   "version": "0.57.1",
   "date": "2026-10-30",
   "notes": "## Fixes\n\n- Playing without a video, readings now start and end with their blocks. In Firefox especially, they used to start a little late, most of all when you pressed play right at a block."
