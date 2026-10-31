@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.57.3",
+  "date": "2026-10-30",
+  "notes": "## Guides\n\n- The AI help guide now recommends OpenAI models: GPT-6.1 Sol to start with, GPT-6 Astra for busy or tricky scenes, and GPT-6 Luna for cheap first drafts, with roughly what each costs per draft."
+ },
+ {
   "version": "0.57.2",
   "date": "2026-10-30",
   "notes": "## Fixes\n\n- After **Fit speeds to timings**, blocks that fit no longer stay red in the list until they’re read. It happened most with a base speed other than 100%, when some blocks were left at a speed that hadn’t been read, so their lengths were only estimates."
