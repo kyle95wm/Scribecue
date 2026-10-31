@@ -132,6 +132,124 @@ export function judgePeak(db) {
 // A take that runs past its slot is marked in red. take: { start, duration }, slot as above.
 export const runsOver = (take, slot) => (take.start ?? slot.start) + take.duration > slot.end + 1e-6;
 
+// Editing a take. The narrator can split it into parts, at points in the recording, then
+// move each part (`shift`, in seconds, later if positive) and trim `head` and `tail` seconds
+// off its ends. The audio itself is never changed, so Reset brings it all back.
+// edit: { splits: [seconds into the recording], parts: [{ shift, head, tail }] }, with one
+// part more than splits. Takes saved before splitting existed have { shift, head, tail }.
+export const EDIT_MIN = 0.1; // seconds of sound a part keeps, at least
+const NO_EDIT = { shift: 0, head: 0, tail: 0 };
+export function fullEdit(t) {
+  const e = t.edit || {};
+  const splits = Array.isArray(e.splits) ? e.splits : [];
+  const parts = Array.isArray(e.parts) ? e.parts : [e];
+  return { splits, parts: [...splits, 0].map((_, k) => ({ ...NO_EDIT, ...parts[k] })) };
+}
+const bounds = (t, splits) => [0, ...splits, t.duration];
+
+// The parts of a take as heard and exported, in time order: { ...t, start, duration, head,
+// part, key }, where head is how far into the recording the part's sound begins.
+export function pieces(t) {
+  const { splits, parts } = fullEdit(t), b = bounds(t, splits);
+  return parts.map((p, k) => {
+    const head = b[k] + p.head;
+    return { ...t, start: t.start + head + p.shift, duration: Math.max(0, b[k + 1] - p.tail - head), head, part: k, key: `${t.id}:${k}` };
+  });
+}
+
+// The whole take as edited, from its first sound to its last: { ...t, start, duration }.
+export function placed(t) {
+  const ps = pieces(t), a = ps[0], z = ps[ps.length - 1];
+  return { ...t, start: a.start, duration: z.start + z.duration - a.start };
+}
+
+// An edit kept within bounds: each part keeps some sound, none starts before 0 or before the
+// previous block's slot ends, and none overlaps the part before it (a later part is pushed
+// along instead). Rounded to the millisecond.
+export function clampEdit(t, edit, prevEnd = 0) {
+  const ms = (v) => Math.round(v * 1000) / 1000;
+  const { splits, parts } = fullEdit({ ...t, edit }), b = bounds(t, splits);
+  let floor = Math.max(0, prevEnd);
+  return {
+    splits: splits.map(ms),
+    parts: parts.map((p, k) => {
+      const len = b[k + 1] - b[k];
+      const head = ms(Math.max(0, Math.min(p.head, len - EDIT_MIN)));
+      const tail = ms(Math.max(0, Math.min(p.tail, len - head - EDIT_MIN)));
+      let shift = ms(p.shift);
+      const at = t.start + b[k] + head + shift;
+      if (at < floor - 1e-9) shift = ms(shift + floor - at);
+      floor = t.start + b[k + 1] - tail + shift;
+      return { shift, head, tail };
+    }),
+  };
+}
+
+// Splits the take at `time` on the video, inside one of its parts: the new edit, or null if
+// `time` isn't far enough inside one.
+export function splitAt(t, time) {
+  const { splits, parts } = fullEdit(t);
+  const p = pieces(t).find((x) => time > x.start + EDIT_MIN && time < x.start + x.duration - EDIT_MIN);
+  if (!p) return null;
+  const at = Math.round((p.head + time - p.start) * 1000) / 1000, k = p.part, old = parts[k];
+  return {
+    splits: [...splits.slice(0, k), at, ...splits.slice(k)],
+    parts: [...parts.slice(0, k), { ...old, tail: 0 }, { ...old, head: 0 }, ...parts.slice(k + 1)],
+  };
+}
+
+// Where the sound begins and ends in a stretch of recording: { head, tail } to trim, in
+// seconds, keeping `pad` of quiet at each end. Quiet is below `floorDb`. pcm: Float32Array.
+export function silenceEnds(pcm, rate = RATE, { floorDb = -45, pad = 0.05 } = {}) {
+  const floor = 10 ** (floorDb / 20);
+  let a = 0, z = pcm.length - 1;
+  while (a < pcm.length && Math.abs(pcm[a]) < floor) a++;
+  while (z > a && Math.abs(pcm[z]) < floor) z--;
+  if (a >= pcm.length) return { head: 0, tail: 0 }; // all quiet: leave it for the narrator
+  const p = Math.round(pad * rate);
+  return { head: Math.max(0, a - p) / rate, tail: Math.max(0, pcm.length - 1 - z - p) / rate };
+}
+
+// Trim silence: the quiet cut off both ends of every part. pcm: the whole recording.
+export function trimSilence(t, pcm, rate = RATE) {
+  const { splits, parts } = fullEdit(t), b = bounds(t, splits);
+  return { splits, parts: parts.map((p, k) => ({ ...p, ...silenceEnds(pcm.subarray(Math.round(b[k] * rate), Math.round(b[k + 1] * rate)), rate) })) };
+}
+
+// Trimmed to end where its slot does, and moved to the slot's start first if it begins too
+// late. Only the last part is trimmed.
+export function fitSlot(t, slot, prevEnd = 0) {
+  const e = fullEdit(t), p = placed(t);
+  if (p.start > slot.end - EDIT_MIN) e.parts = e.parts.map((x) => ({ ...x, shift: x.shift + slot.start - p.start }));
+  const q = placed({ ...t, edit: e }), last = e.parts[e.parts.length - 1];
+  // Rounded up to the millisecond, so rounding the edit can't leave it a hair over.
+  if (q.start + q.duration > slot.end) last.tail += Math.ceil((q.start + q.duration - slot.end) * 1000 - 1e-6) / 1000;
+  return clampEdit(t, e, prevEnd);
+}
+
+// The take as edited, in one stretch from its first sound to its last, with silence between
+// parts: { start, pcm }. pcm: the whole recording.
+export function flatten(t, pcm, rate = RATE) {
+  const ps = pieces(t), start = ps[0].start, z = ps[ps.length - 1];
+  const out = new Float32Array(Math.round((z.start + z.duration - start) * rate));
+  for (const p of ps) {
+    const from = Math.round(p.head * rate), at = Math.round((p.start - start) * rate);
+    out.set(pcm.subarray(from, from + Math.min(Math.round(p.duration * rate), out.length - at)), at);
+  }
+  return { start, pcm: out };
+}
+
+// The loudest sample in each of `cols` columns, for drawing a take. pcm: Float32Array.
+export function wavePeaks(pcm, cols) {
+  const out = new Float32Array(cols), per = pcm.length / cols;
+  for (let c = 0; c < cols; c++) {
+    let m = 0;
+    for (let i = Math.floor(c * per), end = Math.min(pcm.length, Math.floor((c + 1) * per)); i < end; i++) { const v = Math.abs(pcm[i]); if (v > m) m = v; }
+    out[c] = m;
+  }
+  return out;
+}
+
 // Checks the chosen takes before export. chosen[i] is block i's take
 // ({ peak, duration }) or null. Returns { stop, warn }: lists of { block, why }, where
 // block is a 1-based number. Any item in stop means the export must not go ahead.
@@ -187,8 +305,10 @@ export function punchIn(base, add, at, rate = RATE) {
   for (let k = 0; k < tail; k++) {
     const x = add.pcm[a - h + k] ?? 0;
     if (k < 2 * h) {
-      const w = (k + 0.5) / (2 * h) * Math.PI / 2;
-      pcm[c - h + k] = (base.pcm[c - h + k] ?? 0) * Math.cos(w) + x * Math.sin(w);
+      // Linear, so the join is never louder than either take: the same voice in the
+      // same room is alike on both sides, and an equal-power fade would lift it by 3 dB.
+      const w = (k + 0.5) / (2 * h);
+      pcm[c - h + k] = (base.pcm[c - h + k] ?? 0) * (1 - w) + x * w;
     } else pcm[c - h + k] = x;
   }
   return { start: base.start, pcm };

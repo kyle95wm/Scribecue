@@ -2,9 +2,9 @@
 // exports the chosen ones as one WAV for the mixer. The script is locked (app.js sees to
 // that); this file does the recording. The plan is in RECORDING.md.
 
-import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, DRIFT, PREROLL, RATE } from './recording.js';
+import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, fullEdit, clampEdit, splitAt, trimSilence, fitSlot, flatten, wavePeaks, DRIFT, PREROLL, RATE } from './recording.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
-import { listTakes, saveTake, chooseTake, deleteTake, takeAudio, takesWhere } from './takestore.js';
+import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takesWhere } from './takestore.js';
 
 const $ = (id) => document.getElementById(id);
 const VIDEO_DB = -30; // the video's sound while recording, so the scene can still be followed
@@ -30,6 +30,7 @@ export function initRecord(h) {
   let syncMs = get('sync') != null ? +get('sync') : null; // null: use the browser's figure
   let wasPlaying = false;
   let where = 'browser';     // where takes are kept: 'docker' or 'browser'
+  let editing = null;        // the take being moved or trimmed: { id, pcm }
 
   el.lead.value = leadSecs;
   el.sync.value = syncMs ?? '';
@@ -58,7 +59,7 @@ export function initRecord(h) {
     else if (!list.length) note(`Block ${i + 1} has no takes yet. Press Enter or R to record it.`);
     list.forEach((t, k) => {
       const li = document.createElement('li');
-      const j = judgePeak(t.peak), over = runsOver(t, slot);
+      const j = judgePeak(t.peak), pt = placed(t), over = runsOver(pt, slot);
       li.className = 'take' + (over ? ' over' : '');
       // The take that goes into the export: one per block, like a radio button.
       const use = document.createElement('button');
@@ -71,7 +72,7 @@ export function initRecord(h) {
       name.textContent = `Take ${k + 1}`;
       const len = document.createElement('span');
       len.className = 'num';
-      len.textContent = `${t.duration.toFixed(2)} s`;
+      len.textContent = `${pt.duration.toFixed(2)} s`;
       const lvl = document.createElement('span');
       lvl.className = 'lvl ' + j;
       lvl.textContent = `${dbText(t.peak)}, ${LEVEL_WORDS[j]}`;
@@ -81,6 +82,11 @@ export function initRecord(h) {
       const play = document.createElement('button');
       play.textContent = playing?.t.id === t.id ? 'Stop' : 'Play';
       play.addEventListener('click', () => (playing?.t.id === t.id ? stopPlay() : playTake(t)));
+      const ed = document.createElement('button');
+      ed.textContent = 'Edit';
+      ed.setAttribute('aria-expanded', String(editing?.id === t.id));
+      ed.setAttribute('aria-label', `Move or trim take ${k + 1}`);
+      ed.addEventListener('click', () => { editing = editing?.id === t.id ? null : { id: t.id }; render(); });
       const del = document.createElement('button');
       del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete take ${k + 1}`);
       del.addEventListener('click', async () => {
@@ -92,14 +98,180 @@ export function initRecord(h) {
         if (t.chosen && left.length) await chooseTake(rec.id, left[left.length - 1].id);
         await reload();
       });
-      li.append(play, del);
+      li.append(play, ed, del);
       el.takes.append(li);
+      if (editing?.id === t.id) el.takes.append(editor(t, i));
     });
   }
   async function reload() {
     takes = rec ? await listTakes(rec.id).catch(() => []) : [];
     render();
   }
+
+  // ---- editing a take: split it, move the parts and trim their ends, against the slot
+  const MS = (v) => String(Math.round(v * 1000));
+  function editor(t, i) {
+    const li = document.createElement('li');
+    li.className = 'takeedit';
+    const slot = sl()[i], prevEnd = i ? sl()[i - 1].end : 0;
+    let e = clampEdit(t, t.edit, prevEnd);
+    let sel = Math.min(editing.part || 0, e.parts.length - 1); // the part the fields change
+    const cur = () => ({ ...t, edit: e });
+    const setPart = (k, patch) => ({ splits: e.splits, parts: e.parts.map((p, j) => (j === k ? { ...p, ...patch } : p)) });
+    // Where each part's stretch of the recording sits, trimmed ends and all.
+    const raw = () => { const b = [0, ...e.splits, t.duration]; return e.parts.map((p, k) => [t.start + b[k] + p.shift, t.start + b[k + 1] + p.shift]); };
+    // The view stays put while dragging, so the parts move and not the scale.
+    const r0 = raw();
+    const v0 = Math.min(slot.start, ...r0.map((r) => r[0])) - 0.3, v1 = Math.max(slot.end, ...r0.map((r) => r[1])) + 0.3;
+    const cv = document.createElement('canvas');
+    cv.width = 640; cv.height = 56;
+    cv.setAttribute('role', 'img');
+    const g = cv.getContext('2d');
+    const x = (s) => (s - v0) / (v1 - v0) * cv.width;
+    const tAt = (px) => v0 + px / cv.width * (v1 - v0);
+    const field = (label, key, tip) => {
+      const l = document.createElement('label');
+      l.dataset.tip = tip;
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.step = '10'; inp.dataset.edit = key;
+      if (key !== 'shift') inp.min = '0';
+      inp.addEventListener('change', () => {
+        const n = parseFloat(inp.value);
+        commit(setPart(sel, { [key]: Number.isFinite(n) ? n / 1000 : 0 }));
+      });
+      l.append(`${label} `, inp, ' ms');
+      return [l, inp];
+    };
+    const which = document.createElement('span');
+    which.className = 'num';
+    const [lMove, fMove] = field('Move', 'shift', 'Move this part: below 0 earlier, above 0 later');
+    const [lHead, fHead] = field('Trim start', 'head', 'Cut this much off the start of this part');
+    const [lTail, fTail] = field('Trim end', 'tail', 'Cut this much off the end of this part');
+    const btn = (text, tip, fn) => { const b = document.createElement('button'); b.textContent = text; b.dataset.tip = tip; b.addEventListener('click', fn); return b; };
+    const say = document.createElement('span');
+    const silenceBtn = btn('Trim silence', 'Cut the quiet off both ends of every part, keeping a moment of it', () => {
+      if (editing?.pcm) commit(trimSilence(cur(), editing.pcm));
+    });
+    silenceBtn.disabled = !editing?.pcm;
+    const split = () => {
+      const n = splitAt(cur(), video.currentTime);
+      if (!n) return h.toast('Put the playhead inside the take, away from the ends of its parts, to split it');
+      const k = pieces(cur()).findIndex((p) => video.currentTime > p.start && video.currentTime < p.start + p.duration);
+      sel = editing.part = k + 1;
+      commit(n);
+    };
+    const row = document.createElement('div');
+    row.className = 'recrow';
+    row.append(which, lMove, lHead, lTail,
+      btn('Split', 'Split the take at the playhead, to move its parts apart or closer together (X)', split), silenceBtn,
+      btn('Fit in slot', 'Trim the end so the take stops where its slot does', () => commit(fitSlot(cur(), slot, prevEnd))),
+      btn('Reset', 'Undo the splits, moves and trims: the take as recorded', () => { sel = editing.part = 0; commit({ splits: [], parts: [{}] }); }));
+    li.append(cv, row, say);
+
+    function draw() {
+      const css = getComputedStyle(document.documentElement), tk = (n) => css.getPropertyValue(n).trim();
+      const ps = pieces(cur()), over = runsOver(placed(cur()), slot), r = raw();
+      g.clearRect(0, 0, cv.width, cv.height);
+      g.fillStyle = `color-mix(in srgb, ${tk('--ok')} 18%, transparent)`;
+      g.fillRect(x(slot.start), 0, x(slot.end) - x(slot.start), cv.height);
+      g.fillStyle = over ? tk('--bad') : tk('--ok');
+      g.fillRect(x(slot.end) - 1, 0, 2, cv.height);
+      const cols = Math.max(1, Math.round(x(v0 + t.duration) - x(v0)));
+      if (editing?.pcm && editing.peaks?.length !== cols) editing.peaks = wavePeaks(editing.pcm, cols);
+      const pk = editing?.pcm ? editing.peaks : null, mid = cv.height / 2;
+      ps.forEach((p, k) => {
+        const kept = (s) => s >= p.start && s < p.start + p.duration;
+        if (!pk) {
+          g.fillStyle = tk('--faint');
+          g.fillRect(x(r[k][0]), mid - 1, x(r[k][1]) - x(r[k][0]), 2);
+          return;
+        }
+        // This part's columns of the recording's waveform, drawn where the part sits now.
+        const c0 = Math.round((r[k][0] - t.start - e.parts[k].shift) / t.duration * cols);
+        const c1 = Math.round((r[k][1] - t.start - e.parts[k].shift) / t.duration * cols);
+        for (let c = c0; c < c1; c++) {
+          const s = r[k][0] + (c - c0) / cols * t.duration;
+          g.fillStyle = !kept(s) ? tk('--faint') : over && s > slot.end ? tk('--bad') : k === sel ? tk('--accent') : tk('--dim');
+          const hh = Math.max(1, Math.min(1, pk[c] * 2) * (mid - 2));
+          g.fillRect(x(r[k][0]) + (c - c0), mid - hh, 1, hh * 2);
+        }
+      });
+      for (const [k, p] of ps.entries()) {
+        g.fillStyle = k === sel ? tk('--text') : tk('--dim');
+        for (const s of [p.start, p.start + p.duration]) g.fillRect(x(s) - 1, 4, 2, cv.height - 8);
+      }
+      const now = video.currentTime;
+      if (now > v0 && now < v1) { g.fillStyle = tk('--play'); g.fillRect(x(now) - 0.5, 0, 1, cv.height); }
+      const end = placed(cur());
+      say.textContent = over ? `Ends ${(end.start + end.duration - slot.end).toFixed(2)} s past its slot` : 'Fits its slot';
+      say.className = 'num ' + (over ? 'lvl loud' : 'dim');
+      which.textContent = ps.length > 1 ? `Part ${sel + 1} of ${ps.length}:` : '';
+      cv.setAttribute('aria-label', `Take from ${end.start.toFixed(2)} s to ${(end.start + end.duration).toFixed(2)} s${ps.length > 1 ? `, in ${ps.length} parts` : ''}. ${say.textContent}`);
+      const q = e.parts[sel];
+      fMove.value = MS(q.shift); fHead.value = MS(q.head); fTail.value = MS(q.tail);
+    }
+    async function commit(next) {
+      e = clampEdit(t, next, prevEnd);
+      draw();
+      try { await editTake(rec.id, t.id, e); } catch (err) { return h.toast(`Couldn’t keep the edit: ${err.message}`); }
+      t.edit = e;
+      silence();
+      const f = document.activeElement?.dataset.edit;
+      render();
+      if (f) el.takes.querySelector(`[data-edit="${f}"]`)?.focus();
+    }
+
+    // Drag a part's end to trim it, or its middle to move it. Clicking a part picks it for the fields.
+    const hit = (px) => {
+      const ps = pieces(cur());
+      for (const p of ps) {
+        if (Math.abs(px - x(p.start)) < 6) return { k: p.part, mode: 'head' };
+        if (Math.abs(px - x(p.start + p.duration)) < 6) return { k: p.part, mode: 'tail' };
+      }
+      const p = ps.find((q) => px > x(q.start) && px < x(q.start + q.duration));
+      return p ? { k: p.part, mode: 'shift' } : null;
+    };
+    const pxOf = (ev) => { const r = cv.getBoundingClientRect(); return (ev.clientX - r.left) / r.width * cv.width; };
+    let drag = null;
+    cv.addEventListener('pointerdown', (ev) => {
+      const px = pxOf(ev), on = hit(px);
+      if (!on) return;
+      sel = editing.part = on.k;
+      drag = { ...on, t0: tAt(px), e0: e };
+      cv.setPointerCapture(ev.pointerId);
+      draw();
+    });
+    cv.addEventListener('pointermove', (ev) => {
+      const px = pxOf(ev);
+      if (!drag) {
+        const on = hit(px);
+        cv.style.cursor = !on ? '' : on.mode === 'shift' ? 'grab' : 'ew-resize';
+        return;
+      }
+      const d = tAt(px) - drag.t0, o = drag.e0.parts[drag.k];
+      const patch = drag.mode === 'head' ? { head: o.head + d } : drag.mode === 'tail' ? { tail: o.tail - d } : { shift: o.shift + d };
+      e = clampEdit(t, { splits: drag.e0.splits, parts: drag.e0.parts.map((p, j) => (j === drag.k ? { ...p, ...patch } : p)) }, prevEnd);
+      draw();
+    });
+    const drop = () => { if (drag) { drag = null; commit(e); } };
+    cv.addEventListener('pointerup', drop);
+    cv.addEventListener('pointercancel', drop);
+
+    // The sound, for the waveform and Trim silence: only this take's, while it's open.
+    if (!editing.pcm && !editing.loading) {
+      editing.loading = true;
+      takeAudio(t).then((w) => w.arrayBuffer()).then((b) => {
+        if (editing?.id !== t.id) return;
+        editing.pcm = from24(new Uint8Array(b).subarray(WAV24_HEADER));
+        render();
+      }, (err) => h.toast(`Couldn’t read the take: ${err.message}`));
+    }
+    editing.draw = draw;
+    editing.split = split;
+    draw();
+    return li;
+  }
+  for (const ev of ['timeupdate', 'seeked']) video.addEventListener(ev, () => editing?.draw?.());
 
   // ---- devices
   async function devices() {
@@ -183,8 +355,8 @@ export function initRecord(h) {
     if (punch) {
       const base = chosenFor(i), at = video.currentTime;
       if (!base) return h.toast(`Block ${i + 1} has no take to pick up from. Press Enter to record it`);
-      if (at < base.start + PUNCH_MIN || at >= s.end) return h.toast(`Put the playhead where you want to pick up, inside block ${i + 1}’s take, then press Shift+Enter`);
-      p = { base, at };
+      if (at < placed(base).start + PUNCH_MIN || at >= s.end) return h.toast(`Put the playhead where you want to pick up, inside block ${i + 1}’s take, then press Shift+Enter`);
+      p = { base, at, ps: pieces(base), on: null };
     }
     stopPlay();
     state = 'arming'; status('Getting the microphone…'); render();
@@ -213,15 +385,14 @@ export function initRecord(h) {
   function loop() {
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(() => {
+      if (!cap) return drawMeter(); // stopped since this frame was asked for
       if (state === 'lead' && video.currentTime >= cap.t0) {
         cap.node.port.postMessage('start');
         state = 'rec';
       }
       const p = cap.punch;
       if (p) {
-        const now = video.currentTime, on = now >= p.base.start && now < Math.min(p.at, p.base.start + p.base.duration);
-        if (on && p.audio.paused && !p.done) { p.audio.currentTime = now - p.base.start; p.audio.play().catch(() => {}); }
-        if (!on && !p.audio.paused) { p.audio.pause(); p.done = now >= p.at; }
+        p.on = follow(p.audio, p.ps, video.currentTime, p.on, p.at);
       }
       if (state === 'lead') status(p ? `Picks up in ${Math.max(0, p.at - video.currentTime).toFixed(1)} s` : `Starts in ${Math.ceil(Math.max(0, cap.slot.start - video.currentTime))} s: set your level`);
       if (state === 'rec') {
@@ -262,8 +433,8 @@ export function initRecord(h) {
     const { start, skip } = placeTake({ t0: c.t0, delay, prevEnd: c.prevEnd });
     let kept = samples.subarray(skip), at = start;
     if (c.punch) {
-      const base = from24(new Uint8Array(await c.punch.wav.arrayBuffer()).subarray(WAV24_HEADER));
-      ({ start: at, pcm: kept } = punchIn({ start: c.punch.base.start, pcm: base }, { start, pcm: kept }, c.punch.at));
+      const whole = from24(new Uint8Array(await c.punch.wav.arrayBuffer()).subarray(WAV24_HEADER));
+      ({ start: at, pcm: kept } = punchIn(flatten(c.punch.base, whole), { start, pcm: kept }, c.punch.at));
     }
     const take = { id: crypto.randomUUID(), rec: rec.id, block: c.block, start: at, duration: kept.length / RATE,
       peak: peakDb(kept), made: Date.now(), wav: wav24(to24(kept), RATE), ...(c.punch && { punch: c.punch.at }) };
@@ -310,20 +481,29 @@ export function initRecord(h) {
   }
 
   // ---- playing a take back, against the video where it was read
-  async function playTake(t) {
+  // Plays the recording in an <audio> in step with the video, part by part, until `until`.
+  // on: the part playing, or null; returns the part playing now.
+  function follow(audio, ps, now, on, until = Infinity) {
+    const here = now < until ? takeAt(ps, now) : null;
+    if (here && on !== here.take.key) { audio.currentTime = here.take.head + here.from; audio.play().catch(() => {}); return here.take.key; }
+    if (!here && on) audio.pause();
+    return here ? on : null;
+  }
+  async function playTake(raw) {
     stopPlay();
+    const t = placed(raw), ps = pieces(raw);
     let wav;
     try { wav = await takeAudio(t); } catch (e) { return h.toast(`Couldn’t play the take: ${e.message}`); }
     const audio = new Audio(URL.createObjectURL(wav));
-    playing = { t, audio, started: false };
+    playing = { t, audio, on: null };
     h.volume(false);
     h.seek(Math.max(0, t.start - 2));
     video.play().catch(() => {});
     render();
     const tick = () => {
       if (!playing) return;
-      if (!playing.started && video.currentTime >= t.start) { playing.started = true; audio.play().catch(() => {}); }
-      if (video.paused || audio.ended) { stopPlay(); return; }
+      playing.on = follow(audio, ps, video.currentTime, playing.on);
+      if (video.paused || video.currentTime >= t.start + t.duration) { stopPlay(); return; }
       requestAnimationFrame(tick);
     };
     tick();
@@ -340,8 +520,9 @@ export function initRecord(h) {
   // ---- hearing the chosen takes as the video plays, each where it was read. Only the take
   // playing and the next are decoded, so a long film never sits in memory.
   let hear = get('hear') !== '0';
-  const pb = { ctx: null, gain: null, src: null, id: null, at: 0, from: 0, rate: 1, raf: 0, bufs: new Map() };
-  const chosenList = () => takes.filter((t) => t.chosen).sort((a, z) => a.start - z.start);
+  // id: the part playing (its key); tid: its take's; queued: the next part, already started on the audio clock.
+  const pb = { ctx: null, gain: null, src: null, id: null, tid: null, queued: null, at: 0, from: 0, rate: 1, raf: 0, bufs: new Map() };
+  const chosenList = () => takes.filter((t) => t.chosen).flatMap(pieces).sort((a, z) => a.start - z.start);
   // Made on a key press or click: Safari won't play sound otherwise.
   const wake = () => {
     if (!rec || !hear) return;
@@ -355,12 +536,11 @@ export function initRecord(h) {
   document.addEventListener('keydown', wake, true);
   document.addEventListener('pointerdown', wake, true);
 
+  const stopSrc = (src) => { try { src.stop(); } catch { /* not started */ } src.disconnect(); };
   function silence() {
-    if (pb.src) {
-      try { pb.src.stop(); } catch { /* not started */ }
-      pb.src.disconnect();
-    }
-    pb.src = null; pb.id = null;
+    if (pb.src) stopSrc(pb.src);
+    if (pb.queued) stopSrc(pb.queued.src);
+    pb.src = null; pb.id = null; pb.tid = null; pb.queued = null;
   }
   // A take's sound, once it's decoded; until then, null, and it's on its way.
   function buffer(t) {
@@ -372,32 +552,37 @@ export function initRecord(h) {
     }
     return b.ready || null;
   }
-  // when: on the audio clock, or 0 for now; from: seconds into the take.
-  function startAt(t, buf, when, from) {
-    silence();
+  // t: a part (see pieces()). when: on the audio clock, or 0 for now; from: seconds into the
+  // part. queue: start it alongside the part playing, to follow straight on from it.
+  function startAt(t, buf, when, from, queue = false) {
+    if (!queue) silence();
     const src = pb.ctx.createBufferSource();
     src.buffer = buf;
     src.playbackRate.value = video.playbackRate;
     src.connect(pb.gain);
-    src.start(when, from);
-    Object.assign(pb, { src, id: t.id, at: when || pb.ctx.currentTime, from, rate: video.playbackRate });
+    src.start(when, t.head + from, Math.max(0, t.duration - from));
+    const s = { src, id: t.key, tid: t.id, at: when || pb.ctx.currentTime, from, rate: video.playbackRate };
+    if (queue) { if (pb.queued) stopSrc(pb.queued.src); pb.queued = s; } else Object.assign(pb, s);
   }
   function hearing() {
     cancelAnimationFrame(pb.raf);
     if (!rec || !hear || state !== 'idle' || playing || video.paused || pb.ctx?.state !== 'running') { silence(); return; }
     const now = video.currentTime, list = chosenList();
     const here = takeAt(list, now), next = nextTake(list, now, 4);
-    for (const id of pb.bufs.keys()) if (id !== here?.take.id && id !== next?.id && id !== pb.id) pb.bufs.delete(id);
+    for (const id of pb.bufs.keys()) if (id !== here?.take.id && id !== next?.id && id !== pb.tid && id !== pb.queued?.tid) pb.bufs.delete(id);
+    // The part queued to follow on has begun: it's the one playing now.
+    if (here && pb.queued?.id === here.take.key) { if (pb.src) pb.src.disconnect(); Object.assign(pb, pb.queued); pb.queued = null; }
     if (here) {
       const buf = buffer(here.take);
-      // Where the sound is now, if it's this take: put back in step if it's drifted.
-      const pos = pb.id === here.take.id ? (pb.ctx.currentTime - pb.at) * pb.rate + pb.from : null;
-      if (buf && (pos == null || Math.abs(pos - here.from) > DRIFT) && here.from < buf.duration - 0.02) startAt(here.take, buf, 0, here.from);
-    } else if (pb.id && pb.id !== next?.id) silence();
-    // The next take starts on the audio clock, at its exact moment, rather than a frame late.
-    if (!here && next && pb.id !== next.id) {
+      // Where the sound is now, if it's this part: put back in step if it's drifted.
+      const pos = pb.id === here.take.key ? (pb.ctx.currentTime - pb.at) * pb.rate + pb.from : null;
+      if (buf && (pos == null || Math.abs(pos - here.from) > DRIFT) && here.from < here.take.duration - 0.02) startAt(here.take, buf, 0, here.from);
+    } else if (pb.id && pb.id !== next?.key) silence();
+    // The next part starts on the audio clock, at its exact moment, rather than a frame late,
+    // alongside the one playing if there is one.
+    if (next && pb.id !== next.key && pb.queued?.id !== next.key) {
       const buf = buffer(next), wait = (next.start - now) / video.playbackRate;
-      if (buf && wait < 0.25) startAt(next, buf, pb.ctx.currentTime + wait, 0);
+      if (buf && wait < 0.25) startAt(next, buf, pb.ctx.currentTime + wait, 0, !!here);
     }
     pb.raf = requestAnimationFrame(hearing);
   }
@@ -443,16 +628,24 @@ export function initRecord(h) {
     const blocks = h.blocks();
     await reload();
     const chosen = blocks.map((_, i) => chosenFor(i));
-    const check = checkExport(blocks, chosen);
+    const spans = chosen.map((t) => t && placed(t));
+    const check = checkExport(blocks, spans);
     const go = async () => {
       const media = h.duration();
-      const pieces = [];
+      const parts = [];
       try {
-        for (const t of chosen.filter(Boolean).sort((a, z) => a.start - z.start)) pieces.push({ start: t.start, pcm: (await takeAudio(t)).slice(WAV24_HEADER) });
+        for (const t of chosen.filter(Boolean)) {
+          const wav = await takeAudio(t);
+          for (const p of pieces(t)) {
+            const from = WAV24_HEADER + Math.round(p.head * RATE) * 3;
+            parts.push({ start: p.start, pcm: wav.slice(from, from + Math.round(p.duration * RATE) * 3) });
+          }
+        }
+        parts.sort((a, z) => a.start - z.start);
       } catch (e) { return h.toast(`Couldn’t get the takes: ${e.message}`); }
-      const last = Math.max(0, ...chosen.filter(Boolean).map((t) => t.start + t.duration));
+      const last = Math.max(0, ...spans.filter(Boolean).map((t) => t.start + t.duration));
       const blob = buildBwf({
-        takes: pieces,
+        takes: parts,
         markers: blocks.map((b, i) => ({ at: b.start, label: `${i + 1} ${b.text.replace(/\s+/g, ' ').slice(0, 40)}` })),
         note: narrationNote({ blocks, edited: rec.edited }),
         secs: Math.max(media, last), rate: RATE, startSecs: rec.start, description: `${h.baseName()} narration`,
@@ -479,6 +672,8 @@ export function initRecord(h) {
     get active() { return state !== 'idle'; },
     get open() { return !!rec; },
     toggle, punch, exportWav, finish, render,
+    // Splits the take open in the editor at the playhead: false if none is open.
+    splitTake() { if (!editing?.split || state !== 'idle') return false; editing.split(); return true; },
     refresh: () => reload(),
     get hearing() { return hear; },
     setHearing,
@@ -496,7 +691,7 @@ export function initRecord(h) {
       silence(); pb.bufs.clear();
       if (test) syncTest();
       h.volume(false);
-      rec = null; takes = []; render();
+      rec = null; takes = []; editing = null; render();
     },
   };
 }

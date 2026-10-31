@@ -8,6 +8,8 @@
 #                                   "peak", "made", "punch", "choose"} -> {"bytes": n}
 #   GET    /r/<rec>/<id>            the take's WAV
 #   POST   /r/<rec>/<id>/choose     makes it the one chosen for its block
+#   POST   /r/<rec>/<id>/edit       splits, moves and trims it: {"splits": [s], "parts": [{"shift",
+#                                   "head", "tail"}]}, in seconds, with a part more than splits
 #   DELETE /r/<rec>/<id>
 #   DELETE /all                     every take of every recording
 #
@@ -68,6 +70,24 @@ def meta(raw):
     return {k: m.get(k) for k in FIELDS}
 
 
+def edit(raw):
+    """Splits, moves and trims from a POST body, or None if they don't make sense."""
+    try:
+        e = json.loads(raw or b"")
+    except ValueError:
+        return None
+    ok = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v) < 1e6
+    if not isinstance(e, dict) or not isinstance(e.get("splits"), list) or not isinstance(e.get("parts"), list):
+        return None
+    splits, parts = e["splits"], e["parts"]
+    if len(splits) > 200 or len(parts) != len(splits) + 1 or not all(ok(s) and s > 0 for s in splits):
+        return None
+    for p in parts:
+        if not isinstance(p, dict) or not all(ok(p.get(k)) for k in ("shift", "head", "tail")) or p["head"] < 0 or p["tail"] < 0:
+            return None
+    return {"splits": splits, "parts": [{k: p[k] for k in ("shift", "head", "tail")} for p in parts]}
+
+
 def choose(index, id):
     block = index[id]["block"]
     for k, t in index.items():
@@ -97,7 +117,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def route(self):
         """(rec, id, action) from the path, or None."""
-        m = re.fullmatch(rf"/r/({REC})(?:/({ID})(/choose)?)?", self.path)
+        m = re.fullmatch(rf"/r/({REC})(?:/({ID})(/choose|/edit)?)?", self.path)
         return (m.group(1), m.group(2), m.group(3)) if m else None
 
     def do_GET(self):
@@ -160,12 +180,21 @@ class Handler(BaseHTTPRequestHandler):
         r = self.route()
         if not r or not r[1] or not r[2]:
             return self.reply(404, {"error": "not found"})
-        rec, id, _ = r
+        rec, id, action = r
+        e = None
+        if action == "/edit":
+            size = int(self.headers.get("Content-Length") or 0)
+            e = edit(self.rfile.read(size) if 0 < size < 4096 else b"")
+            if not e:
+                return self.reply(400, {"error": "the edit doesn't make sense"})
         with lock:
             index = load(rec)
             if id not in index:
                 return self.reply(404, {"error": "no such take"})
-            choose(index, id)
+            if e:
+                index[id]["edit"] = e
+            else:
+                choose(index, id)
             store(rec, index)
         self.reply(200, {})
 

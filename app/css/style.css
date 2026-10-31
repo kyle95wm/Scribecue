@@ -118,6 +118,11 @@ kbd + kbd { margin-left: 2px; }
 .rectakes .lvl.note { color: var(--dim); }
 .rectakes .lvl.quiet { color: var(--warn); }
 .rectakes .lvl.loud, .rectakes .over { color: var(--bad); }
+.rectakes:has(.takeedit) { max-height: 260px; }
+.rectakes .takeedit { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 0 8px; }
+.rectakes .takeedit canvas { width: 100%; height: 56px; touch-action: none; border: 1px solid var(--line); border-radius: 4px; }
+.rectakes .takeedit input { width: 72px; }
+.rectakes .takeedit label { font-size: 12px; color: var(--dim); }
 .recreport { max-height: 40vh; overflow: auto; white-space: pre-wrap; font: 12px var(--mono); }
 .recfield { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
 

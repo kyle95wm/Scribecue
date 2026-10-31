@@ -16,6 +16,7 @@ raw, for the mixer to work with.
   - [Levels](#levels)
   - [Takes](#takes)
   - [Punching in](#punching-in)
+  - [Editing a take](#editing-a-take)
   - [Keeping takes in sync](#keeping-takes-in-sync)
   - [Exporting the narration](#exporting-the-narration)
 - [For the mixer](#for-the-mixer)
@@ -67,13 +68,14 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 |---|---|
 | Enter or R | Record the selected block, or stop |
 | Shift+Enter or Shift+R | [Punch in](#punching-in) from the playhead |
+| X | Split the take being edited at the playhead |
 | Esc | Stop recording |
 | V | Hear the block read by text to speech, as a guide |
 | Space | Play or pause |
 | Alt+Shift+Left / Right | Previous or next block |
 
 A block's **slot** is its time plus 1 second, but never into the next block. A take that
-runs past it isn't cut off. It's marked in red, and the export mentions it.
+runs past it isn't cut off. It's marked in red until you [trim or move it](#editing-a-take).
 
 ### Levels
 
@@ -93,6 +95,7 @@ Each take is checked by its loudest moment:
   Click **TAKES** under the video to turn that off.
 - **Play** plays one take against the video.
 - **Use** picks the take for the export. A new take is picked automatically.
+- **Edit** moves, trims or splits a take.
 - **Delete** removes a take for good.
 
 ### Punching in
@@ -105,6 +108,23 @@ Punch in to redo the end of a take, or to finish one you stopped early.
 
 The result is a new take: the old one up to the playhead, then the new reading. The old
 take is kept, so **Use** brings it back.
+
+### Editing a take
+
+Click **Edit** on a take. Its waveform shows over the block's slot, in green.
+
+- **Drag the middle** to move the take, for a late start.
+- **Drag either end** to trim it.
+- **Split**, or X, cuts the take in two at the playhead. Each part moves and trims on its own.
+- **Move**, **Trim start** and **Trim end** do the same in milliseconds, for the part you last clicked.
+- **Trim silence** cuts the quiet off both ends of every part.
+- **Fit in slot** trims the end to where the slot stops.
+- **Reset** brings back the take as recorded.
+
+To close up a pause, split the take in it, click **Trim silence**, then drag the second
+part back. Parts can't overlap.
+
+The recording itself isn't changed, so nothing is lost.
 
 ### Keeping takes in sync
 

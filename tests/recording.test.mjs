@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, silenceEnds, trimSilence, fitSlot, flatten, wavePeaks, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -193,6 +193,10 @@ test('a punch-in keeps the earlier take up to the join, and the new one after it
   assert.equal(pcm.at(-1), -0.5);
   // The crossfade moves from one to the other without a jump.
   for (let k = 2 * R - fade; k < 2 * R + fade; k++) assert.ok(Math.abs(pcm[k] - pcm[k - 1]) < 0.2, `sample ${k}`);
+  // Two takes of the same sound join no louder than either.
+  const tone = (start, n) => ({ start, pcm: Float32Array.from({ length: n }, (_, i) => 0.5 * Math.sin(2 * Math.PI * 50 * (start + i / R))) });
+  const same = punchIn(tone(10, 3 * R), tone(11.8, 2 * R), 12, R).pcm;
+  assert.ok(Math.max(...same.map(Math.abs)) <= 0.5 + 1e-6);
 });
 
 test('a punch-in after a take that stopped short leaves the gap silent', () => {
@@ -204,4 +208,85 @@ test('a punch-in after a take that stopped short leaves the gap silent', () => {
   assert.equal(pcm[R - 10], 0.25);
   assert.equal(pcm[R + 100], 0); // the gap
   assert.equal(pcm.at(-1), -0.5);
+});
+
+test('a moved and trimmed take sits where the narrator put it', () => {
+  const t = { id: 'a', start: 10, duration: 3, peak: -10 };
+  assert.deepEqual(placed(t), { ...t, start: 10, duration: 3 }, 'unedited: as recorded');
+  const e = { splits: [], parts: [{ shift: -0.25, head: 0.5, tail: 1 }] };
+  const [p] = pieces({ ...t, edit: e });
+  assert.equal(p.start, 10.25); // moved 0.25 s earlier, with 0.5 s off the front
+  assert.equal(p.duration, 1.5);
+  assert.equal(p.head, 0.5);
+  assert.ok(!runsOver(placed({ ...t, edit: e }), { start: 10, end: 12 }), 'trimmed back inside its slot');
+  assert.ok(runsOver(placed(t), { start: 10, end: 12 }));
+});
+
+test('a split take is squeezed together by moving its second part', () => {
+  const t = { id: 'a', start: 10, duration: 4 }; // a pause from 11.5 s to 12.5 s
+  const e = splitAt(t, 12);
+  assert.deepEqual(e.splits, [2]);
+  assert.equal(splitAt(t, 10.05), null, 'too near an end');
+  const squeezed = clampEdit(t, { splits: [2], parts: [{ shift: 0, head: 0, tail: 0.5 }, { shift: -1, head: 0.5, tail: 0 }] });
+  const [a, b] = pieces({ ...t, edit: squeezed });
+  assert.deepEqual([a.start, a.duration, b.start, b.duration, b.head], [10, 1.5, 11.5, 1.5, 2.5]);
+  assert.equal(b.key, 'a:1');
+  assert.deepEqual(placed({ ...t, edit: squeezed }).duration, 3, 'a second shorter');
+  // Moved further, the second part stops at the first: parts never overlap.
+  const [, c] = pieces({ ...t, edit: clampEdit(t, { splits: [2], parts: [squeezed.parts[0], { ...squeezed.parts[1], shift: -2 }] }) });
+  assert.equal(c.start, 11.5);
+});
+
+test('an edit stays within bounds', () => {
+  const t = { start: 10, duration: 3 };
+  const one = (p) => ({ splits: [], parts: [p] });
+  assert.deepEqual(clampEdit(t, one({ head: 5, tail: 5 })), one({ shift: 0, head: 3 - EDIT_MIN, tail: 0 }), 'some sound is always kept');
+  assert.deepEqual(clampEdit(t, one({ head: -1, tail: -1, shift: 0 })), one({ shift: 0, head: 0, tail: 0 }));
+  assert.deepEqual(clampEdit(t, one({ shift: -4 }), 8), one({ shift: -2, head: 0, tail: 0 }), 'not before the previous slot ends');
+  assert.deepEqual(clampEdit(t, one({ shift: -20 })), one({ shift: -10, head: 0, tail: 0 }), 'not before the start of the video');
+  assert.deepEqual(clampEdit(t, one({ shift: 0.12345 })), one({ shift: 0.123, head: 0, tail: 0 }));
+  assert.deepEqual(clampEdit(t, undefined), one({ shift: 0, head: 0, tail: 0 }));
+  assert.deepEqual(fullEdit({ ...t, edit: { shift: 1, head: 0, tail: 0 } }), one({ shift: 1, head: 0, tail: 0 }), 'an edit from before splitting');
+});
+
+test('Trim silence finds where the sound begins and ends', () => {
+  const R = 1000, pcm = new Float32Array(3 * R);
+  pcm.fill(0.3, 1.2 * R, 2.5 * R); // sound from 1.2 s to 2.5 s, quiet around it
+  pcm[100] = 0.001; // a breath of noise under the floor
+  const s = silenceEnds(pcm, R, { pad: 0.05 });
+  assert.ok(Math.abs(s.head - 1.15) < 0.002, `head ${s.head}`);
+  assert.ok(Math.abs(s.tail - 0.45) < 0.002, `tail ${s.tail}`);
+  assert.deepEqual(silenceEnds(new Float32Array(R), R), { head: 0, tail: 0 }, 'all quiet: left alone');
+  // Every part's ends: a split in a pause trims both sides of it.
+  const two = new Float32Array(4 * R);
+  two.fill(0.3, 0, 1.5 * R); two.fill(0.3, 2.5 * R, 4 * R);
+  const e = trimSilence({ start: 0, duration: 4, edit: { splits: [2], parts: [{}, {}] } }, two, R);
+  assert.ok(Math.abs(e.parts[0].tail - 0.45) < 0.002 && Math.abs(e.parts[1].head - 0.45) < 0.002, JSON.stringify(e));
+});
+
+test('Fit in slot trims a take that runs past its slot', () => {
+  const slot = { start: 10, end: 12 };
+  const e = fitSlot({ start: 9.8, duration: 3 }, slot);
+  const p = placed({ start: 9.8, duration: 3, edit: e });
+  assert.ok(Math.abs(p.start + p.duration - 12) < 0.002);
+  assert.ok(!runsOver(p, slot));
+  const odd = { start: 9.8004, duration: 2.5371 };
+  assert.ok(!runsOver(placed({ ...odd, edit: fitSlot(odd, slot) }), slot), 'not a hair over after rounding');
+  assert.equal(e.parts[0].head, 0);
+  const late = fitSlot({ start: 14, duration: 1 }, slot);
+  assert.equal(placed({ start: 14, duration: 1, edit: late }).start, 10, 'a take after its slot moves to its start');
+  assert.deepEqual(fitSlot({ start: 10, duration: 1 }, slot), { splits: [], parts: [{ shift: 0, head: 0, tail: 0 }] }, 'already fits');
+});
+
+test('a split take flattens to one stretch, silent between its parts', () => {
+  const R = 10, t = { start: 5, duration: 2, edit: { splits: [1], parts: [{ shift: 0, head: 0, tail: 0 }, { shift: 0.5, head: 0, tail: 0 }] } };
+  const pcm = Float32Array.from({ length: 20 }, (_, i) => i + 1);
+  const f = flatten(t, pcm, R);
+  assert.equal(f.start, 5);
+  assert.deepEqual([...f.pcm], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
+});
+
+test('the waveform has the loudest sample of each column', () => {
+  const pcm = Float32Array.from([0, 0.5, -0.8, 0.1, 0, 0.2]);
+  assert.deepEqual([...wavePeaks(pcm, 3)].map((v) => +v.toFixed(2)), [0.5, 0.8, 0.2]);
 });

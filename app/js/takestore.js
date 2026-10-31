@@ -42,6 +42,13 @@ const browser = {
     for (const t of all) if (t.block === pick.block && t.chosen !== (t.id === id)) { t.chosen = t.id === id; st.put(t); }
     await finish(tx);
   },
+  async edit(rec, id, edit) {
+    const db = await open();
+    const tx = db.transaction(STORE, 'readwrite'), st = tx.objectStore(STORE);
+    const t = await done(st.get(id));
+    if (t) st.put({ ...t, edit });
+    await finish(tx);
+  },
   async remove(rec, id) {
     const db = await open();
     const tx = db.transaction(STORE, 'readwrite');
@@ -82,7 +89,7 @@ const docker = {
   where: 'docker',
   async list(rec) {
     const all = await (await answer(await fetch(url(rec), { cache: 'no-store' }))).json();
-    return all.map((t) => ({ ...t, rec, peak: t.peak ?? -Infinity, punch: t.punch ?? undefined }));
+    return all.map((t) => ({ ...t, rec, peak: t.peak ?? -Infinity, punch: t.punch ?? undefined, edit: t.edit ?? undefined }));
   },
   async save(take, choose) {
     const { block, start, duration, peak, made, punch } = take;
@@ -92,6 +99,7 @@ const docker = {
     }));
   },
   async choose(rec, id) { await answer(await fetch(url(rec, id) + '/choose', { method: 'POST' })); },
+  async edit(rec, id, edit) { await answer(await fetch(url(rec, id) + '/edit', { method: 'POST', body: JSON.stringify(edit) })); },
   async remove(rec, id) { await answer(await fetch(url(rec, id), { method: 'DELETE' })); },
   audio: async (t) => (await answer(await fetch(url(t.rec, t.id)))).blob(),
   async clear() { await answer(await fetch('takes/all', { method: 'DELETE' })); },
@@ -109,7 +117,7 @@ const store = () => (picked ||= HOSTED ? Promise.resolve(browser)
 // 'docker' or 'browser'.
 export const takesWhere = async () => (await store()).where;
 
-// Every take of a recording: { id, rec, block, start, duration, peak, chosen, made, punch? }, and
+// Every take of a recording: { id, rec, block, start, duration, peak, chosen, made, punch?, edit? }, and
 // in the browser, wav as well. takeAudio() gets the sound either way.
 export const listTakes = async (rec) => (await store()).list(rec);
 
@@ -118,6 +126,9 @@ export const saveTake = async (take, choose = true) => (await store()).save(take
 
 // Chooses one take for its block, so the others aren't.
 export const chooseTake = async (rec, id) => (await store()).choose(rec, id);
+
+// Moves and trims a take: edit is { shift, head, tail } (see placed() in recording.js).
+export const editTake = async (rec, id, edit) => (await store()).edit(rec, id, edit);
 
 export const deleteTake = async (rec, id) => (await store()).remove(rec, id);
 
