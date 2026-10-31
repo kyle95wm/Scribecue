@@ -7,9 +7,9 @@ screenshots and releases. This file only adds what isn't there.
 
 ## Where things stand
 
-- **Last release:** 0.64.2 (commit `180a483`), live on GitHub and at
-  <https://scribecue.kyleadvoice.ca/>. Checks and Publish web app both passed.
-- **Ready for the next release:** QC comments on blocks and timeline times, with a
+- **Release version:** 0.65.0. The release commit is `Release 0.65.0`.
+  The previous release was 0.64.2 (commit `180a483`).
+- **QC comments (0.65.0):** Comments on blocks and timeline times, with a
   dedicated Comments drawer. Each open block has a Comment button. Reviewer names are
   optional and remembered in the browser. Projects keep the comments for handoff.
 - Comments can be edited, deleted, resolved and reopened. Block comments follow timing

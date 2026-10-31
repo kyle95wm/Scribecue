@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.65.0",
+  "date": "2026-10-31",
+  "notes": "## Comments for QC\n\n- Click **Comment** in an open block to add a comment to it. Add as many as you need.\n- Open **Comments** at the top, or press **Alt+Shift+C**, to see the project's comments. Choose **Timeline time**, or right-click the timeline, to comment at a fixed time.\n- Add your name if you like. Edit, delete, resolve or reopen comments, and click a block or time to jump there.\n- Comments stay in the `.scribecue` project. Save it to hand over for review; the reviewer saves a copy to send back."
+ },
+ {
   "version": "0.64.2",
   "date": "2026-10-31",
   "notes": "## Voices\n\n- On a Mac, the voice list no longer shows some voices twice, such as Samantha in Chrome.\n- Voice names no longer repeat their language, as in “Eddy (English (United Kingdom)) (en-GB)”. They now read “Eddy (en-GB)”.\n- The voices guide says that browsers can’t use the Mac’s Enhanced and Premium voices. For a natural voice, use Piper or Kokoro."
