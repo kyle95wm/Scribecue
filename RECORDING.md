@@ -120,8 +120,14 @@ Click **Edit** on a take. Its waveform shows over the block's slot, in green.
 - **Delete part**, or Delete, removes the part you last clicked.
 - **Move**, **Trim start** and **Trim end** do the same in milliseconds, for the part you last clicked.
 - **Trim silence** cuts the quiet off both ends of every part.
+- **Start at block** moves the take so its sound starts where the block does.
 - **Fit in slot** trims the end to where the slot stops.
 - **Reset** brings back the take as recorded, deleted parts too.
+
+Dragged edges snap to the block's start and end, the playhead and the other parts.
+
+To cut a late start, drag the take's start in to where the sound begins, or click **Trim
+silence**. Then click **Start at block**.
 
 To close up a pause, split the take in it, click **Trim silence**, then drag the second
 part back. Parts can't overlap.

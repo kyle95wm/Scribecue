@@ -2,7 +2,7 @@
 // exports the chosen ones as one WAV for the mixer. The script is locked (app.js sees to
 // that); this file does the recording. The plan is in RECORDING.md.
 
-import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, trimSilence, fitSlot, flatten, wavePeaks, DRIFT, PREROLL, RATE } from './recording.js';
+import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, DRIFT, PREROLL, RATE } from './recording.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takesWhere } from './takestore.js';
 
@@ -175,6 +175,7 @@ export function initRecord(h) {
     row.className = 'recrow';
     row.append(which, lMove, lHead, lTail,
       btn('Split', 'Split the take at the playhead, to move its parts apart or closer together (X)', split), cutBtn, silenceBtn,
+      btn('Start at block', 'Move the take so its sound starts where the block does', () => commit(startAtBlock(cur(), slot, prevEnd))),
       btn('Fit in slot', 'Trim the end so the take stops where its slot does', () => commit(fitSlot(cur(), slot, prevEnd))),
       btn('Reset', 'Undo the splits, moves and trims: the take as recorded', () => { sel = editing.part = 0; commit({ splits: [], parts: [{}] }); }));
     li.append(cv, row, say);
@@ -213,6 +214,8 @@ export function initRecord(h) {
       }
       const now = video.currentTime;
       if (now > v0 && now < v1) { g.fillStyle = tk('--play'); g.fillRect(x(now) - 0.5, 0, 1, cv.height); }
+      // What a dragged edge has snapped to.
+      if (drag?.snapped != null) { g.fillStyle = tk('--text'); g.fillRect(x(drag.snapped) - 1, 0, 2, cv.height); }
       const end = placed(cur());
       say.textContent = over ? `Ends ${(end.start + end.duration - slot.end).toFixed(2)} s past its slot` : 'Fits its slot';
       say.className = 'num ' + (over ? 'lvl loud' : 'dim');
@@ -259,7 +262,17 @@ export function initRecord(h) {
         cv.style.cursor = !on ? '' : on.mode === 'shift' ? 'grab' : 'ew-resize';
         return;
       }
-      const d = tAt(px) - drag.t0, o = drag.e0.parts[drag.k];
+      let d = tAt(px) - drag.t0;
+      const o = drag.e0.parts[drag.k];
+      // Edges snap to the block's start and the slot's end, the playhead, and the other parts.
+      const all = pieces({ ...t, edit: drag.e0 }), p0 = all.find((p) => p.part === drag.k);
+      const a0 = p0.start, z0 = p0.start + p0.duration, tol = 8 / cv.width * (v1 - v0);
+      const targets = [slot.start, slot.end, video.currentTime, ...all.filter((p) => p !== p0).flatMap((p) => [p.start, p.start + p.duration])];
+      drag.snapped = null;
+      const pull = (edge) => { const s = snap(edge + d, targets, tol); if (s !== edge + d) { d = s - edge; drag.snapped = s; } return drag.snapped != null; };
+      if (drag.mode === 'head') pull(a0);
+      else if (drag.mode === 'tail') pull(z0);
+      else if (!pull(a0)) pull(z0);
       const patch = drag.mode === 'head' ? { head: o.head + d } : drag.mode === 'tail' ? { tail: o.tail - d } : { shift: o.shift + d };
       e = clampEdit(t, { splits: drag.e0.splits, parts: drag.e0.parts.map((p, j) => (j === drag.k ? { ...p, ...patch } : p)) }, prevEnd);
       draw();

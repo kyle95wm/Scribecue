@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, flatten, wavePeaks, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -306,4 +306,27 @@ test('a deleted part is gone from the take, and the rest stays put', () => {
   assert.ok(Math.abs(placed({ ...t, edit: fit }).duration - 1.5) < 0.002);
   const pushed = clampEdit(t, { splits: [2], parts: [{ shift: 0, head: 0, tail: 0, cut: true }, { shift: -2, head: 0, tail: 0 }] });
   assert.equal(pieces({ ...t, edit: pushed })[0].start, 10, 'the part after a deleted one can move into its place');
+});
+
+test('Start at block puts a trimmed take’s sound at the block’s start', () => {
+  const slot = { start: 10, end: 13 };
+  // Recorded from 9.8 s, a late reaction: 0.6 s trimmed off the front leaves it starting at 10.4 s.
+  const t = { start: 9.8, duration: 3, edit: { splits: [], parts: [{ shift: 0, head: 0.6, tail: 0 }] } };
+  assert.equal(placed(t).start, 10.4);
+  const e = startAtBlock(t, slot);
+  assert.equal(placed({ ...t, edit: e }).start, 10);
+  assert.equal(e.parts[0].head, 0.6, 'the trim stays');
+  // A split take moves as one, its parts keeping their spacing.
+  const split = { ...t, edit: splitAt(t, 11.5) };
+  const moved = pieces({ ...t, edit: startAtBlock(split, slot) });
+  assert.deepEqual(moved.map((p) => +p.start.toFixed(3)), [10, 11.1]);
+  // Not into the block before.
+  assert.equal(+placed({ ...t, edit: startAtBlock(t, slot, 10.2) }).start.toFixed(3), 10.2);
+});
+
+test('a dragged edge snaps to the nearest target in reach', () => {
+  assert.equal(snap(10.04, [10, 12], 0.05), 10);
+  assert.equal(snap(10.1, [10, 12], 0.05), 10.1, 'out of reach');
+  assert.equal(snap(11.98, [10, 11.97, 12], 0.05), 11.97, 'the nearest wins');
+  assert.equal(snap(5, [NaN, undefined], 1), 5);
 });

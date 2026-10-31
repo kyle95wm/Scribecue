@@ -236,6 +236,19 @@ export function fitSlot(t, slot, prevEnd = 0) {
   return clampEdit(t, e, prevEnd);
 }
 
+// Moved so its sound starts where the block does, parts and all.
+export function startAtBlock(t, slot, prevEnd = 0) {
+  const e = fullEdit(t), d = slot.start - placed(t).start;
+  return clampEdit(t, { splits: e.splits, parts: e.parts.map((x) => ({ ...x, shift: x.shift + d })) }, prevEnd);
+}
+
+// Snapping while dragging: the target nearest `v` within `tol`, or `v` if none is.
+export function snap(v, targets, tol) {
+  let best = v, gap = tol;
+  for (const s of targets) if (Number.isFinite(s) && Math.abs(s - v) <= gap) { best = s; gap = Math.abs(s - v); }
+  return best;
+}
+
 // The take as edited, in one stretch from its first sound to its last, with silence between
 // parts: { start, pcm }. pcm: the whole recording.
 export function flatten(t, pcm, rate = RATE) {
