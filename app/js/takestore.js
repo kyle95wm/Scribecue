@@ -82,13 +82,13 @@ const docker = {
   where: 'docker',
   async list(rec) {
     const all = await (await answer(await fetch(url(rec), { cache: 'no-store' }))).json();
-    return all.map((t) => ({ ...t, rec, peak: t.peak ?? -Infinity }));
+    return all.map((t) => ({ ...t, rec, peak: t.peak ?? -Infinity, punch: t.punch ?? undefined }));
   },
   async save(take, choose) {
-    const { block, start, duration, peak, made } = take;
+    const { block, start, duration, peak, made, punch } = take;
     await answer(await fetch(url(take.rec, take.id), {
       method: 'PUT', body: take.wav,
-      headers: { 'X-Take': JSON.stringify({ block, start, duration, peak: Number.isFinite(peak) ? peak : null, made, choose }) },
+      headers: { 'X-Take': JSON.stringify({ block, start, duration, peak: Number.isFinite(peak) ? peak : null, made, punch, choose }) },
     }));
   },
   async choose(rec, id) { await answer(await fetch(url(rec, id) + '/choose', { method: 'POST' })); },
@@ -109,7 +109,7 @@ const store = () => (picked ||= HOSTED ? Promise.resolve(browser)
 // 'docker' or 'browser'.
 export const takesWhere = async () => (await store()).where;
 
-// Every take of a recording: { id, rec, block, start, duration, peak, chosen, made }, and
+// Every take of a recording: { id, rec, block, start, duration, peak, chosen, made, punch? }, and
 // in the browser, wav as well. takeAudio() gets the sound either way.
 export const listTakes = async (rec) => (await store()).list(rec);
 

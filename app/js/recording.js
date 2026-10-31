@@ -171,6 +171,29 @@ export function placeTake({ t0, delay, prevEnd = 0, rate = RATE }) {
   return { start: first + skip / rate, skip };
 }
 
+// Punching in: the narrator picks up partway through a take. The new take keeps the earlier
+// one up to `at` (video seconds) and the new recording from there, with a short crossfade so
+// the join doesn't click. A gap after the earlier take, if it stopped short, stays silent.
+// base, add: { start, pcm: Float32Array }. Returns { start, pcm }.
+export const PUNCH_FADE = 0.01;
+export const PUNCH_MIN = 0.3; // seconds of the earlier take to keep, at least
+export function punchIn(base, add, at, rate = RATE) {
+  const c = Math.round((at - base.start) * rate);
+  const a = Math.round((at - add.start) * rate);
+  const h = Math.max(0, Math.min(Math.round(PUNCH_FADE / 2 * rate), c, a));
+  const tail = Math.max(0, add.pcm.length - (a - h));
+  const pcm = new Float32Array(c - h + tail);
+  pcm.set(base.pcm.subarray(0, Math.min(c - h, base.pcm.length)));
+  for (let k = 0; k < tail; k++) {
+    const x = add.pcm[a - h + k] ?? 0;
+    if (k < 2 * h) {
+      const w = (k + 0.5) / (2 * h) * Math.PI / 2;
+      pcm[c - h + k] = (base.pcm[c - h + k] ?? 0) * Math.cos(w) + x * Math.sin(w);
+    } else pcm[c - h + k] = x;
+  }
+  return { start: base.start, pcm };
+}
+
 // Hearing the chosen takes while the video plays. takes: the chosen ones, in time order
 // and not overlapping ({ start, duration }). What plays at `t`, and how far into it:
 // { take, from }, or null.

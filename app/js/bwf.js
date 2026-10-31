@@ -26,6 +26,16 @@ export function to24(samples) {
   return out;
 }
 
+// Raw 24-bit samples back to floats, as to24 made them.
+export function from24(bytes) {
+  const out = new Float32Array(Math.floor(bytes.length / 3));
+  for (let i = 0, o = 0; i < out.length; i++, o += 3) {
+    const n = (bytes[o] | (bytes[o + 1] << 8) | (bytes[o + 2] << 16)) << 8 >> 8;
+    out[i] = n / 0x7fffff;
+  }
+  return out;
+}
+
 // A 24-bit mono WAV file from raw 24-bit samples (a Blob or bytes): what a take is kept as.
 export function wav24(pcm, rate = 48000) {
   const len = pcm.byteLength ?? pcm.size;

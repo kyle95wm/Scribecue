@@ -4159,6 +4159,7 @@ document.addEventListener('keydown', (e) => {
   if (S.mode === 'record') {
     if (e.code === 'Escape' && recorder.active) { e.preventDefault(); recorder.finish(); return; }
     if (!e.altKey && !e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.toggle(); return; }
+    if (!e.altKey && e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.punch(); return; }
     if (e.key === '[' || e.key === ']') { e.preventDefault(); return; }
   }
   // [ ] by the character typed, since some layouts need ⌥ or AltGr for them.

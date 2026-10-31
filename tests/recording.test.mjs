@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RECORDING_EXT, isRecordingFile, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
-import { buildBwf, wav24, to24, readNote } from '../app/js/bwf.js';
+import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
   { start: 2, end: 5, text: 'One.', speed: 1.1 },
@@ -171,4 +171,37 @@ test('the recording file has an extension the file picker takes, and old files s
   assert.ok(isRecordingFile('film.SCRIBECUE-REC'));
   assert.ok(!isRecordingFile('film.scribecue'));
   assert.ok(!isRecordingFile('film.srt'));
+});
+
+test('24-bit samples read back as they were written', () => {
+  const x = Float32Array.from([0, 0.5, -0.5, 1, -1, 1e-6]);
+  const back = from24(to24(x));
+  x.forEach((v, i) => assert.ok(Math.abs(back[i] - v) < 1 / 0x7fffff, `sample ${i}`));
+  assert.deepEqual(to24(back), to24(x));
+});
+
+test('a punch-in keeps the earlier take up to the join, and the new one after it', () => {
+  const R = 1000, fade = PUNCH_FADE / 2 * R; // 5 samples each side
+  const base = { start: 10, pcm: new Float32Array(3 * R).fill(0.25) }; // 10 s to 13 s
+  const add = { start: 11.8, pcm: new Float32Array(2 * R).fill(-0.5) }; // recorded from 11.8 s
+  const { start, pcm } = punchIn(base, add, 12, R);
+  assert.equal(start, 10);
+  assert.equal(pcm.length, 2 * R + (2 * R - 0.2 * R)); // the earlier take to 12 s, then the rest of the new one
+  assert.equal(pcm[0], 0.25);
+  assert.equal(pcm[2 * R - fade - 1], 0.25); // untouched right up to the crossfade
+  assert.equal(pcm[2 * R + fade], -0.5); // the new take from just after the join
+  assert.equal(pcm.at(-1), -0.5);
+  // The crossfade moves from one to the other without a jump.
+  for (let k = 2 * R - fade; k < 2 * R + fade; k++) assert.ok(Math.abs(pcm[k] - pcm[k - 1]) < 0.2, `sample ${k}`);
+});
+
+test('a punch-in after a take that stopped short leaves the gap silent', () => {
+  const R = 1000;
+  const base = { start: 10, pcm: new Float32Array(R).fill(0.25) }; // stops at 11 s
+  const add = { start: 11.3, pcm: new Float32Array(R).fill(-0.5) };
+  const { pcm } = punchIn(base, add, 11.5, R);
+  assert.equal(pcm.length, 1.5 * R + 0.8 * R);
+  assert.equal(pcm[R - 10], 0.25);
+  assert.equal(pcm[R + 100], 0); // the gap
+  assert.equal(pcm.at(-1), -0.5);
 });

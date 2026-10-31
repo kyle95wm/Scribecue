@@ -83,6 +83,15 @@ class Takes(unittest.TestCase):
         self.assertEqual(json.loads(self.call("GET", "/status")[1]), {"takes": 0, "bytes": 0})
         self.assertEqual(os.listdir(self.dir.name), ["lost+found"])
 
+    def test_a_punch_in_keeps_where_it_joins(self):
+        take = {"block": 0, "start": 2.5, "duration": 3, "peak": -10, "made": 2, "punch": 4.25, "choose": True}
+        self.assertEqual(self.call("PUT", f"/r/{REC}/{A}", WAV, {"X-Take": json.dumps(take)})[0], 200)
+        self.put(B, 1)
+        self.assertEqual(self.listing()[A]["punch"], 4.25)
+        self.assertIsNone(self.listing()[B]["punch"])
+        take["punch"] = "x"
+        self.assertEqual(self.call("PUT", f"/r/{REC}/{C}", WAV, {"X-Take": json.dumps(take)})[0], 400)
+
     def test_silence_has_no_peak(self):
         self.put(A, 0, peak=None)
         self.assertIsNone(self.listing()[A]["peak"])

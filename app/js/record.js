@@ -2,8 +2,8 @@
 // exports the chosen ones as one WAV for the mixer. The script is locked (app.js sees to
 // that); this file does the recording. The plan is in RECORDING.md.
 
-import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, DRIFT, PREROLL, RATE } from './recording.js';
-import { to24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
+import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, DRIFT, PREROLL, RATE } from './recording.js';
+import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, deleteTake, takeAudio, takesWhere } from './takestore.js';
 
 const $ = (id) => document.getElementById(id);
@@ -18,12 +18,12 @@ export function initRecord(h) {
   const { video } = h;
   const el = { go: $('recGo'), status: $('recStatus'), meter: $('recMeter'), fill: $('recSlotFill'), slot: $('recSlot'),
     dev: $('recDev'), lead: $('recLead'), sync: $('recSync'), test: $('recTest'), flash: $('recFlash'), takes: $('recTakes'),
-    count: $('recCount'), dlg: $('recExportDlg'), report: $('recReport'), go2: $('recExportGo'), title: $('recExportTitle') };
+    punch: $('recPunch'), count: $('recCount'), dlg: $('recExportDlg'), report: $('recReport'), go2: $('recExportGo'), title: $('recExportTitle') };
 
   let rec = null;            // { id, start, fps, media }
   let takes = [];            // every take of this recording
   let state = 'idle';        // idle | arming | lead | rec | saving
-  let cap = null;            // { stream, ctx, node, chunks, t0, slot, prevEnd, block, inLatency }
+  let cap = null;            // { stream, ctx, node, chunks, t0, slot, prevEnd, block, inLatency, punch }
   let level = 0, hold = 0;   // meter: current and held peak, 0…1
   let raf = 0, playing = null, warned = new Set();
   let leadSecs = LEAD.includes(+get('lead')) ? +get('lead') : 3;
@@ -44,6 +44,7 @@ export function initRecord(h) {
     el.go.textContent = busy ? '■ Stop' : '● Record';
     el.go.classList.toggle('on', busy);
     el.go.disabled = state === 'arming' || state === 'saving';
+    el.punch.disabled = busy;
     const i = h.selIdx(), n = h.blocks().length;
     const done = h.blocks().filter((_, k) => chosenFor(k)).length;
     el.count.textContent = rec ? `${done} of ${n} blocks have a take` : '';
@@ -53,7 +54,7 @@ export function initRecord(h) {
     if (i < 0) return note('Select a block to record it.');
     const slot = sl()[i];
     const list = blockTakes(i);
-    if (busy && cap?.block === i) note(`Recording take ${list.length + 1} of block ${i + 1}.`);
+    if (busy && cap?.block === i) note(cap.punch ? `Punching in: take ${list.length + 1} of block ${i + 1}, from take ${list.findIndex((t) => t.id === cap.punch.base.id) + 1}.` : `Recording take ${list.length + 1} of block ${i + 1}.`);
     else if (!list.length) note(`Block ${i + 1} has no takes yet. Press Enter or R to record it.`);
     list.forEach((t, k) => {
       const li = document.createElement('li');
@@ -75,6 +76,7 @@ export function initRecord(h) {
       lvl.className = 'lvl ' + j;
       lvl.textContent = `${dbText(t.peak)}, ${LEVEL_WORDS[j]}`;
       li.append(use, name, len, lvl);
+      if (t.punch != null) { const j2 = document.createElement('span'); j2.className = 'num dim'; j2.textContent = `joined at ${(t.punch - t.start).toFixed(2)} s`; li.append(j2); }
       if (over) { const o = document.createElement('span'); o.className = 'lvl loud'; o.textContent = 'runs past its slot'; li.append(o); }
       const play = document.createElement('button');
       play.textContent = playing?.t.id === t.id ? 'Stop' : 'Play';
@@ -171,18 +173,35 @@ export function initRecord(h) {
     cap = null;
   }
 
-  async function begin() {
+  // punch: pick up the block's chosen take from the playhead, rather than record it afresh.
+  async function begin(punch = false) {
     const i = h.selIdx();
     if (i < 0) return h.toast('Select a block, then record it');
     if (!h.hasVideo()) return h.toast('Open the video first');
+    const s = sl()[i];
+    let p = null;
+    if (punch) {
+      const base = chosenFor(i), at = video.currentTime;
+      if (!base) return h.toast(`Block ${i + 1} has no take to pick up from. Press Enter to record it`);
+      if (at < base.start + PUNCH_MIN || at >= s.end) return h.toast(`Put the playhead where you want to pick up, inside block ${i + 1}’s take, then press Shift+Enter`);
+      p = { base, at };
+    }
     stopPlay();
     state = 'arming'; status('Getting the microphone…'); render();
     try { await arm(); } catch (e) {
       state = 'idle'; disarm(); status(''); render();
       return h.toast(e.name === 'NotAllowedError' ? 'Scribecue needs permission to use the microphone' : `Couldn’t use the microphone: ${e.message}`);
     }
-    const s = sl()[i];
-    cap.block = i; cap.slot = s; cap.prevEnd = i ? sl()[i - 1].end : 0; cap.t0 = Math.max(0, s.start - PREROLL);
+    if (p) {
+      // The earlier take plays in the lead-in, up to the join, so the narrator can match it.
+      try { p.wav = await takeAudio(p.base); } catch (e) {
+        state = 'idle'; disarm(); status(''); render();
+        return h.toast(`Couldn’t get the take to pick up from: ${e.message}`);
+      }
+      p.audio = new Audio(URL.createObjectURL(p.wav));
+    }
+    cap.block = i; cap.slot = s; cap.prevEnd = i ? sl()[i - 1].end : 0; cap.punch = p;
+    cap.t0 = Math.max(0, (p ? p.at : s.start) - PREROLL);
     h.seek(Math.max(0, cap.t0 - leadSecs));
     h.volume(true, VIDEO_DB);
     wasPlaying = true;
@@ -198,7 +217,13 @@ export function initRecord(h) {
         cap.node.port.postMessage('start');
         state = 'rec';
       }
-      if (state === 'lead') status(`Starts in ${Math.ceil(Math.max(0, cap.slot.start - video.currentTime))} s: set your level`);
+      const p = cap.punch;
+      if (p) {
+        const now = video.currentTime, on = now >= p.base.start && now < Math.min(p.at, p.base.start + p.base.duration);
+        if (on && p.audio.paused && !p.done) { p.audio.currentTime = now - p.base.start; p.audio.play().catch(() => {}); }
+        if (!on && !p.audio.paused) { p.audio.pause(); p.done = now >= p.at; }
+      }
+      if (state === 'lead') status(p ? `Picks up in ${Math.max(0, p.at - video.currentTime).toFixed(1)} s` : `Starts in ${Math.ceil(Math.max(0, cap.slot.start - video.currentTime))} s: set your level`);
       if (state === 'rec') {
         const left = cap.slot.end - video.currentTime;
         status(left >= 0 ? `Recording: ${left.toFixed(1)} s left in the slot` : `Recording: ${(-left).toFixed(1)} s over the slot`);
@@ -218,6 +243,7 @@ export function initRecord(h) {
     state = 'saving'; status('Saving the take…'); render();
     video.pause();
     h.volume(false);
+    if (c.punch) { c.punch.audio.pause(); URL.revokeObjectURL(c.punch.audio.src); }
     const samples = await new Promise((ok) => {
       if (!wasRec) return ok(new Float32Array(0));
       c.finish = () => {
@@ -230,13 +256,17 @@ export function initRecord(h) {
     });
     disarm();
     level = 0; drawMeter(); el.fill.style.width = '0'; el.slot.classList.remove('over');
-    if (samples.length < RATE * 0.3) { state = 'idle'; status(wasRec ? 'Too short to keep: nothing saved' : 'Stopped before the block: nothing saved'); render(); return; }
+    if (samples.length < RATE * 0.3) { state = 'idle'; status(wasRec ? 'Too short to keep: nothing saved' : c.punch ? 'Stopped before the join: nothing saved' : 'Stopped before the block: nothing saved'); render(); return; }
     // The sound reaches the narrator late and reaches Scribecue late: take both off.
     const delay = c.inLatency + (syncMs != null ? syncMs / 1000 : c.outLatency);
     const { start, skip } = placeTake({ t0: c.t0, delay, prevEnd: c.prevEnd });
-    const kept = samples.subarray(skip);
-    const take = { id: crypto.randomUUID(), rec: rec.id, block: c.block, start, duration: kept.length / RATE,
-      peak: peakDb(kept), made: Date.now(), wav: wav24(to24(kept), RATE) };
+    let kept = samples.subarray(skip), at = start;
+    if (c.punch) {
+      const base = from24(new Uint8Array(await c.punch.wav.arrayBuffer()).subarray(WAV24_HEADER));
+      ({ start: at, pcm: kept } = punchIn({ start: c.punch.base.start, pcm: base }, { start, pcm: kept }, c.punch.at));
+    }
+    const take = { id: crypto.randomUUID(), rec: rec.id, block: c.block, start: at, duration: kept.length / RATE,
+      peak: peakDb(kept), made: Date.now(), wav: wav24(to24(kept), RATE), ...(c.punch && { punch: c.punch.at }) };
     try { await saveTake(take, true); } catch (e) {
       state = 'idle'; render();
       return h.toast(`Couldn’t keep the take: ${e.message}` + (where === 'browser' ? '. The browser’s storage may be full' : ''));
@@ -252,7 +282,12 @@ export function initRecord(h) {
     if (!rec) return;
     if (state === 'idle') begin(); else finish();
   };
+  const punch = () => {
+    if (!rec) return;
+    if (state === 'idle') begin(true); else finish();
+  };
   el.go.addEventListener('click', toggle);
+  el.punch.addEventListener('click', punch);
 
   // ---- meter
   const ctx2 = el.meter.getContext('2d');
@@ -443,7 +478,7 @@ export function initRecord(h) {
   return {
     get active() { return state !== 'idle'; },
     get open() { return !!rec; },
-    toggle, exportWav, finish, render,
+    toggle, punch, exportWav, finish, render,
     refresh: () => reload(),
     get hearing() { return hear; },
     setHearing,

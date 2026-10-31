@@ -5,7 +5,7 @@
 #   GET    /status                  -> {"takes": 12, "bytes": 103000000}
 #   GET    /r/<rec>                 -> [{"id", "block", "start", "duration", "peak", "chosen", "made"}]
 #   PUT    /r/<rec>/<id>            the take, a WAV, with X-Take: {"block", "start", "duration",
-#                                   "peak", "made", "choose"} -> {"bytes": n}
+#                                   "peak", "made", "punch", "choose"} -> {"bytes": n}
 #   GET    /r/<rec>/<id>            the take's WAV
 #   POST   /r/<rec>/<id>/choose     makes it the one chosen for its block
 #   DELETE /r/<rec>/<id>
@@ -24,7 +24,7 @@ CHUNK = 1 << 20
 MAX_TAKE = 1 << 30  # a 24-bit mono take at 48 kHz: about two hours
 REC = r"[a-z0-9]{1,16}-\d{1,6}"
 ID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-FIELDS = ("block", "start", "duration", "peak", "made")
+FIELDS = ("block", "start", "duration", "peak", "made", "punch")
 
 lock = threading.Lock()
 
@@ -62,7 +62,8 @@ def meta(raw):
         return None
     num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)
     if not (isinstance(m.get("block"), int) and m["block"] >= 0 and num(m.get("start")) and num(m.get("duration"))
-            and num(m.get("made")) and (m.get("peak") is None or num(m.get("peak")))):
+            and num(m.get("made")) and (m.get("peak") is None or num(m.get("peak")))
+            and (m.get("punch") is None or num(m.get("punch")))):
         return None
     return {k: m.get(k) for k in FIELDS}
 

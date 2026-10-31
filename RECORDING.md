@@ -15,6 +15,7 @@ raw, for the mixer to work with.
   - [Recording a block](#recording-a-block)
   - [Levels](#levels)
   - [Takes](#takes)
+  - [Punching in](#punching-in)
   - [Keeping takes in sync](#keeping-takes-in-sync)
   - [Exporting the narration](#exporting-the-narration)
 - [For the mixer](#for-the-mixer)
@@ -65,6 +66,7 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 | Key | Does |
 |---|---|
 | Enter or R | Record the selected block, or stop |
+| Shift+Enter or Shift+R | [Punch in](#punching-in) from the playhead |
 | Esc | Stop recording |
 | V | Hear the block read by text to speech, as a guide |
 | Space | Play or pause |
@@ -92,6 +94,17 @@ Each take is checked by its loudest moment:
 - **Play** plays one take against the video.
 - **Use** picks the take for the export. A new take is picked automatically.
 - **Delete** removes a take for good.
+
+### Punching in
+
+Punch in to redo the end of a take, or to finish one you stopped early.
+
+1. Put the playhead where you want to pick up.
+2. Press Shift+Enter or Shift+R, or click **Punch in**.
+3. The lead-in plays the take so far. Read on from the playhead.
+
+The result is a new take: the old one up to the playhead, then the new reading. The old
+take is kept, so **Use** brings it back.
 
 ### Keeping takes in sync
 
