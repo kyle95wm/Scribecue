@@ -76,7 +76,8 @@ kbd + kbd { margin-left: 2px; }
 .mode-record .transcribe-only, .mode-record .write-only, .mode-record .modesw { display: none; }
 /* Record mode: the script is locked, so nothing offers to change or save it. */
 .mode-record .rowdel, .mode-record .editor, .mode-record #replaceBtn, .mode-record #aiBtn,
-.mode-record nav [data-act=newProject], .mode-record nav [data-act=saveProject], .mode-record .hint:not(.record-only) { display: none; }
+.mode-record nav [data-act=newProject], .mode-record nav [data-act=saveProject],
+.mode-record nav [data-act=exportSrt], .mode-record nav [data-act=exportVtt], .mode-record .hint:not(.record-only) { display: none; }
 /* Where the mode switch was, and shaped like it: the mode, and the way out. */
 .recbadge { align-items: center; flex-shrink: 0; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font: 12px var(--sans); }
 .recbadge strong { padding: 2px 12px; border-radius: 999px; background: var(--play); color: #fff; font-weight: 600; }

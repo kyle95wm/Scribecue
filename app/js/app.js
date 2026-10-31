@@ -3288,20 +3288,27 @@ async function enterRecording(r, name) {
   // Takes live in the browser's storage, so ask it not to clear them to free up space.
   keepStorage();
 }
+// The script stays locked: it closes with the recording, and neither undo nor a reload
+// brings it back to edit. The video stays open.
 async function endRecording() {
   if (S.mode !== 'record') return;
   try { localStorage.removeItem(REC_OPEN); } catch { /* ignore */ }
   await recorder.close();
+  undoStack.length = 0;
+  redoStack.length = 0;
+  S.cues = [];
+  S.subName = 'untitled.srt';
+  S.projectMedia = null;
   setMode('write', true);
+  changed();
+  select(null);
+  S.dirty = false;
+  showDocName();
+  save();
 }
 async function leaveRecord() {
   await endRecording();
-  // What's open now is a copy of the script, not the recording file, and isn't saved yet.
-  S.subName = baseName();
-  S.dirty = true;
-  showDocName();
-  save();
-  toast('Left Record mode. Your takes are kept for next time');
+  toast('Left Record mode. Your takes are kept: open the recording file again to carry on');
 }
 
 // Projects saved before 0.62 have none of these, and leave the settings as they are.
@@ -3411,6 +3418,7 @@ function fileKeys(e) {
 }
 
 function exportSubs(fmt) {
+  if (S.mode === 'record') return toast('The script is locked in Record mode');
   if (!S.cues.length) return toast('Nothing to export yet');
   const text = fmt === 'vtt' ? toVTT(S.cues) : toSRT(S.cues);
   const name = `${baseName()}.${fmt}`;

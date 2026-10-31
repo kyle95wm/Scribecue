@@ -45,6 +45,8 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 
 - **Open the recording file and the video.** Scribecue opens in Record mode. Reloading
   the page keeps you there.
+- **Leave** closes the recording, and the script with it. Your takes are kept: open the
+  recording file again to carry on.
 - **Use wired headphones.** You hear the video's sound 30 dB down, to follow the scene.
   You don't hear yourself through Scribecue: use your audio interface for that.
 - **Choose your microphone** under **Microphone, lead-in and sync**. Pick the lead-in
