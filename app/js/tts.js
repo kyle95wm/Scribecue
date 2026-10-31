@@ -101,12 +101,16 @@ export function nextFitSpeed(points, secs, guess, near = 0) {
   return best;
 }
 // Of the speeds read, the one whose reading fills secs best without running over by more
-// than near, or the one with the shortest reading if none fits.
+// than near, or the one with the shortest reading if none fits. Always a speed that was
+// read: one in 1% steps comes back without the rounding left by the base speed, but one
+// that isn't stays as it is, as rounding it would give a speed with no reading, whose
+// length is only an estimate.
 export function bestFit(points, secs, near = 0) {
   if (!points.length) return null;
   const fits = points.filter((p) => p.secs <= secs + near);
   const p = fits.length ? fits.reduce((a, q) => (q.secs > a.secs ? q : a)) : points.reduce((a, q) => (q.secs < a.secs ? q : a));
-  return Math.round(p.speed * 100) / 100;
+  const step = Math.round(p.speed * 100) / 100;
+  return Math.abs(step - p.speed) < 1e-6 ? step : p.speed;
 }
 
 // Piper's readings: about a quarter of a reading at normal speed (the pauses, and the

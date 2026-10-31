@@ -1673,9 +1673,11 @@ function fitSpeed(c) {
   return true;
 }
 
+// Speeds aren't moved here: Fit speeds to timings sets them itself, each to one it has
+// read, and moving one as other blocks' readings arrive left it at a speed with no reading.
 function fitAllAuto() {
   let any = false;
-  for (const c of S.cues) any = (fitAuto(c) || (c.fit && measuring && fitSpeed(c))) || any;
+  for (const c of S.cues) any = fitAuto(c) || any;
   if (any) changed();
 }
 

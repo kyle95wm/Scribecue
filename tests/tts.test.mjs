@@ -387,6 +387,9 @@ test('fitting settles on the reading that fills the block best without running o
   assert.equal(bestFit(readHeart(1, 1.3), 4, 0.03), 1.3); // none fits: the shortest
   // Speeds before the base speed come back to the block's own 1% steps.
   assert.equal(bestFit([{ speed: 1.155 / 1.05, secs: 3 }], 3.1), 1.1);
+  // Read at a speed between the steps, such as with another base speed: that speed, as
+  // the nearest step has no reading, and its length would only be an estimate.
+  assert.equal(bestFit([{ speed: 0.82 / 0.9, secs: 5.3 }], 5.5), 0.82 / 0.9);
   assert.equal(bestFit([], 3), null);
 });
 
