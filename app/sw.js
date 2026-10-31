@@ -24,6 +24,7 @@ const GUIDES = [
   'guides/SHORTCUTS.md',
   'guides/TRANSCRIBING.md',
   'guides/RECORDING.md',
+  'guides/QC.md',
   'guides/AI.md',
   'guides/GOOGLE-VOICES.md',
   'guides/INSTALL.md',

@@ -31,6 +31,8 @@ test('knows links to the guides, on GitHub or between them', () => {
   assert.deepEqual(guideLink('GOOGLE-VOICES.md#never-being-billed'), { file: 'GOOGLE-VOICES.md', hash: 'never-being-billed' });
   // Guides live in Guides/, and the README at the top: links between them either way.
   assert.deepEqual(guideLink('https://github.com/kyle95wm/Scribecue/blob/main/Guides/AI.md#costs'), { file: 'AI.md', hash: 'costs' });
+  assert.deepEqual(guideLink('Guides/QC.md#add-useful-comments'), { file: 'QC.md', hash: 'add-useful-comments' });
+  assert.deepEqual(guideLink('https://github.com/kyle95wm/Scribecue/blob/main/Guides/QC.md'), { file: 'QC.md', hash: '' });
   assert.deepEqual(guideLink('Guides/RECORDING.md#punching-in'), { file: 'RECORDING.md', hash: 'punching-in' });
   assert.deepEqual(guideLink('../README.md'), { file: 'README.md', hash: '' });
   assert.equal(guideLink('../docker-compose.yml'), null);

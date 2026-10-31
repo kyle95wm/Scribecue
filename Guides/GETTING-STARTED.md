@@ -134,18 +134,11 @@ download a copy each time you save, and you open the video yourself.
 
 ## Comments for QC
 
-Click **Comment** in an open block to comment on it. For a comment at the playhead,
-open **Comments** at the top and choose **Timeline time**. You can also right-click
-the timeline or type a time.
-Add your name if you like, write the comment, then click **Post comment**.
+Click **Comment** in an open block to comment on it. Open **Comments** at the top to
+comment at the playhead, or right-click the timeline. Add your name if you like, write
+the comment, then click **Post comment**. Save the `.scribecue` project to hand it over.
 
-- Add as many comments as you need. Click a comment's block or time to jump there.
-- Block comments move with the block. When you split a block, they stay on the first half.
-- **Resolve** hides a finished comment. **Show resolved** lets you find and reopen it.
-- **Edit** or **Delete** changes a comment. `Ctrl/Cmd+Z` in the editor undoes comment changes.
-- Save the `.scribecue` project and send it with the video for review. The reviewer saves
-  a copy to send back. Both people need a version with Comments.
-  Comments are kept in projects, not SRT, VTT or recording files.
+The [QC guide](QC.md) covers reviewing, resolving comments and returning the project.
 
 ## Exporting
 

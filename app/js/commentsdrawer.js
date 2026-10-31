@@ -5,29 +5,35 @@ const PAGE_SIZE = 50;
 const button = (label, action) => {
   const b = document.createElement('button'); b.textContent = label; b.addEventListener('click', action); return b;
 };
-export function toggleComments(open = $('commentsDrawer').hidden, time = null) {
-  $('commentsDrawer').hidden = !open;
-  $('commentsBtn').setAttribute('aria-pressed', String(open));
-  if (!open) { $('commentsBtn').focus(); return; }
+function showComments() {
+  $('commentsDrawer').hidden = false;
+  $('commentsBtn').setAttribute('aria-pressed', 'true');
   hooks.closeAi();
-  if (time != null) { timeline = true; $('commentAt').value = hooks.tc(time); }
-  else if (!$('commentAt').value) $('commentAt').value = hooks.tc(hooks.now());
   page = 0; refreshComments(); $('commentText').focus();
+}
+// The header and shortcut start a comment at the playhead; right-click supplies a time.
+export function toggleComments(open = $('commentsDrawer').hidden, time = null) {
+  if (!open) {
+    $('commentsDrawer').hidden = true;
+    $('commentsBtn').setAttribute('aria-pressed', 'false');
+    $('commentsBtn').focus();
+    return;
+  }
+  timeline = true;
+  $('commentAt').value = hooks.tc(time ?? hooks.now());
+  showComments();
 }
 // The editor button always targets its block, including after a timeline comment.
 export function openBlockComments() {
   if (!hooks.selected()) return;
   timeline = false;
-  toggleComments(true);
+  showComments();
 }
 export function refreshComments() {
   if (!hooks || $('commentsDrawer').hidden) return;
   const block = hooks.selected();
-  $('commentBlock').disabled = !block;
-  $('commentBlock').setAttribute('aria-pressed', String(!timeline));
-  $('commentTime').setAttribute('aria-pressed', String(timeline));
   $('commentTimeLabel').hidden = !timeline;
-  $('commentTarget').textContent = timeline ? 'Comment at a fixed time' : block ? `Comment on block #${hooks.blocks().indexOf(block) + 1} · ${hooks.tc(block.start)}` : 'Select a block, or choose Timeline time';
+  $('commentTarget').textContent = timeline ? 'Comment at a fixed time' : block ? `Comment on block #${hooks.blocks().indexOf(block) + 1} · ${hooks.tc(block.start)}` : 'Click Comment in an open block';
   $('commentPost').disabled = !timeline && !block;
   const entries = commentEntries(hooks.blocks(), hooks.comments()).filter((e) => showResolved || !e.comment.resolved);
   page = Math.min(page, Math.max(0, Math.ceil(entries.length / PAGE_SIZE) - 1));
@@ -59,8 +65,6 @@ export function initComments(h) {
   hooks = h;
   try { $('commentAuthor').value = localStorage.getItem('scribecue.reviewer') || ''; } catch { /* optional */ }
   $('commentsClose').onclick = () => toggleComments(false);
-  $('commentBlock').onclick = () => { timeline = false; refreshComments(); };
-  $('commentTime').onclick = () => { timeline = true; $('commentAt').value = hooks.tc(hooks.now()); refreshComments(); };
   $('commentsResolved').onclick = () => { showResolved = !showResolved; page = 0; $('commentsResolved').setAttribute('aria-pressed', String(showResolved)); refreshComments(); };
   $('commentsPrev').onclick = () => { page--; refreshComments(); };
   $('commentsNext').onclick = () => { page++; refreshComments(); };

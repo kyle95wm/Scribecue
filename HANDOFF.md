@@ -20,8 +20,11 @@ screenshots and releases. This file only adds what isn't there.
   no dropped video frames and no long tasks. Typing took about 0.1 ms; the reported JS heap
   was about 3.3 MB. Only 50 comments are rendered at once.
 - Not measured: full two-hour playback, TTS onset timing, and long export jobs.
+- Since 0.65.0: the redundant comment target buttons have been removed. A block’s
+  Comment button targets that block; the header targets the playhead. Right-click targets
+  the chosen time. `Guides/QC.md` covers the full review workflow and opens in the app.
 - Main files: `app/js/comments.js`, `app/js/commentsdrawer.js`, `tests/comments.test.mjs`
-  and `scripts/comments-smoke.mjs`. The getting started guide covers the QC workflow.
+  and `scripts/comments-smoke.mjs`.
 
 ## Last change: Mac voices (0.64.2)
 

@@ -49,6 +49,7 @@ The guides also open inside Scribecue: press `?` and click **Guides**.
 - [Writing with text to speech](Guides/WRITING.md): hearing your lines, speeds and timing.
 - [Voices](Guides/VOICES.md): the voices on your computer, Piper, Kokoro and Google.
 - [Transcribing](Guides/TRANSCRIBING.md): marking existing audio description, and speech to text.
+- [QC review](Guides/QC.md): checking scripts and audio, comments, and review handoffs.
 - [Recording narration](Guides/RECORDING.md): the recording file, Record mode and the narration WAV.
 - [AI help](Guides/AI.md): drafting descriptions with an AI model.
 - [Keyboard shortcuts](Guides/SHORTCUTS.md): every key, and how to change them.

@@ -26,9 +26,10 @@ try {
   await js(`localStorage.clear(); localStorage.setItem('scribecue.welcome','1'); localStorage.setItem('scribecue.seenVersion','999.0.0'); localStorage.setItem('scribecue.updates','0'); localStorage.setItem('scribecue.mode','transcribe'); localStorage.setItem('scribecue.v1',JSON.stringify({cues:[{start:3,end:6,text:'First block'},{start:10,end:14,text:'Second block'}],dirty:false})); location.reload(); true`);
   await sleep(1300);
   await js(`window.__errors=[]; addEventListener('error',e=>__errors.push(e.message)); window.__long=[]; new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'}); document.querySelector('#list .row').click(); true`);
+  assert.equal(await js(`document.querySelector('#commentBlock, #commentTime')`), null);
   await click('edComment');
   assert.equal(await js(`document.activeElement.id`), 'commentText');
-  assert.equal(await js(`document.getElementById('commentBlock').getAttribute('aria-pressed')`), 'true');
+  assert.equal(await js(`document.getElementById('commentTimeLabel').hidden`), true);
   await js(`document.getElementById('commentAuthor').value='QC reviewer'; true`);
   await post('First note <b>plain text</b>'); await post('Second note');
   assert.equal(await count(), 2);
@@ -39,12 +40,14 @@ try {
   await action('Edit');
   await js(`document.querySelector('#commentsLog textarea').value='Updated QC note'; true`);
   await action('Save');
-  // The block button overrides a previous timeline target, even with the drawer open.
-  await click('commentTime');
+  // The header targets the playhead even with a block selected.
+  await click('commentsClose'); await click('commentsBtn');
+  assert.equal(await js(`document.getElementById('commentTimeLabel').hidden`), false);
+  assert.equal(await js(`document.getElementById('commentAt').value`), '00:00:03:00');
   await js(`document.querySelectorAll('#list .row')[1].click(); true`);
   await click('edComment');
   assert.equal(await js(`document.getElementById('commentsDrawer').hidden`), false);
-  assert.equal(await js(`document.getElementById('commentBlock').getAttribute('aria-pressed')`), 'true');
+  assert.equal(await js(`document.getElementById('commentTimeLabel').hidden`), true);
   assert.match(await js(`document.getElementById('commentTarget').textContent`), /block #2/);
   assert.equal(await js(`document.activeElement.id`), 'commentText');
   await post('Note for the second block');
@@ -57,7 +60,8 @@ try {
   await js(`document.querySelector('#list .row').click(); true`);
   await click('edComment');
   assert.match(await js(`document.getElementById('commentTarget').textContent`), /block #1/);
-  await click('commentTime');
+  await click('commentsClose'); await click('commentsBtn');
+  assert.equal(await js(`document.getElementById('commentTimeLabel').hidden`), false);
   await js(`document.getElementById('commentAt').value='nonsense'; true`);
   await post('Invalid time'); assert.equal(await count(), 2);
   await js(`document.getElementById('commentAt').value='00:00:20:00'; true`);
@@ -74,7 +78,7 @@ try {
   assert.equal(await js(`document.getElementById('commentsDrawer').hidden`), true);
   await js(`const r=document.getElementById('ruler').getBoundingClientRect(); document.getElementById('ruler').dispatchEvent(new MouseEvent('contextmenu',{clientX:r.left+50,bubbles:true,cancelable:true})); true`);
   assert.equal(await js(`document.getElementById('aiDrawer').hidden`), true);
-  assert.equal(await js(`document.getElementById('commentTime').getAttribute('aria-pressed')`), 'true');
+  assert.equal(await js(`document.getElementById('commentTimeLabel').hidden`), false);
   // Save through the real project path, then import that JSON through a file drop.
   await js(`window.showSaveFilePicker=async()=>({name:'qc.scribecue',queryPermission:async()=>'granted',createWritable:async()=>({write:async t=>{window.__saved=t},close:async()=>{}})}); document.getElementById('commentText').dispatchEvent(new KeyboardEvent('keydown',{code:'KeyS',key:'s',metaKey:true,bubbles:true,cancelable:true})); true`);
   await sleep(300);
