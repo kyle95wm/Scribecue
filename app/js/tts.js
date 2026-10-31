@@ -954,6 +954,14 @@ export function stop() {
   if (c) { tts.speaking = null; if (!c.silent) hooks.duck(false); c.done(null); }
 }
 
+// A reading that's been asked for but isn't playing yet: being made, or the browser still
+// starting it. Playing without a video, the clock waits for it (see app.js).
+export function readingStarting() {
+  if (!current?.piper || current.silent) return false;
+  const a = readingEl;
+  return current.at == null || !a || a.paused || a.currentTime <= current.at + 0.005;
+}
+
 function speakAudio(text, voice, { id, manual, silent, speed, from, done }) {
   stop();
   const token = {};
@@ -982,6 +990,7 @@ function speakAudio(text, voice, { id, manual, silent, speed, from, done }) {
     const at = from?.() || 0;
     if (at >= w.secs - 0.05) return finish(null);
     a.currentTime = at;
+    current.at = at;
     a.volume = mixLevels(tts.mix).reading;
     hooks.duck(true);
     a.play().catch(() => finish(null));

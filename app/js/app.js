@@ -19,7 +19,7 @@ import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } fr
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
-import { FIT_MIN, MAX_SPEED } from './tts.js';
+import { FIT_MIN, MAX_SPEED, writeWav, readingStarting } from './tts.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
@@ -2994,6 +2994,38 @@ function loadVideoFile(file) {
 // the worker and played in step with the muted video. Each track's waveform
 // and copy are cached, so switching back and forth is instant.
 
+// Playing without a video, there's no sound to keep time by. Firefox only turns the sound
+// output on when a reading starts, which takes up to half a second, and a reading can
+// take a moment to make, so readings started and ended late. So while playing with text
+// to speech on, silence plays, and the clock waits for it to start, as a video's does,
+// and for each reading to start, for up to a second and a half.
+const silence = new Audio();
+silence.loop = true;
+let silenceAt = 0, silenceOn = false, silenceFailed = false, waitingSince = 0;
+function soundStarted(ts) {
+  if (!ttsOn()) return true;
+  if (!silenceOn && !silenceFailed) {
+    if (silence.paused) {
+      silence.src ||= URL.createObjectURL(writeWav(new Int16Array(8000), 8000));
+      silenceAt = ts;
+      silence.play().catch(() => { silenceFailed = true; });
+      return false;
+    }
+    silenceOn = silence.currentTime > 0 || ts - silenceAt > 1000;
+    if (!silenceOn) return false;
+  }
+  if (!readingStarting()) { waitingSince = 0; return true; }
+  waitingSince ||= ts;
+  return ts - waitingSince > 1500;
+}
+function stopSilence() {
+  waitingSince = 0;
+  if (silence.paused) return;
+  silence.pause();
+  silence.currentTime = 0;
+  silenceOn = false;
+}
+
 const altAudio = new Audio();
 altAudio.preload = 'auto';
 altAudio.hidden = true;
@@ -3607,7 +3639,8 @@ let lastTs = 0, lastT = -1, lastPlaying = false, lastSync = 0;
 function tick(ts) {
   const dt = lastTs ? Math.min(0.1, (ts - lastTs) / 1000) : 0;
   lastTs = ts;
-  if (!S.hasVideo && S.vplaying) {
+  if (S.hasVideo || !S.vplaying) stopSilence();
+  else if (soundStarted(ts)) {
     S.vt += dt * S.rate;
     if (S.vt >= duration()) { S.vt = duration(); S.vplaying = false; }
   }
