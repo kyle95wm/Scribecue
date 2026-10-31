@@ -28,6 +28,10 @@ export function chromium(ua = '', brands = []) {
     (/\b(Chrome|Chromium|HeadlessChrome)\//.test(ua) && !/Firefox\//.test(ua));
 }
 
+// The notice's title. A browser that doesn't give its name, such as plain Chromium, isn't
+// called anything.
+export const noticeTitle = (name) => (name === 'this browser' ? 'This browser is missing some features' : `You're using ${name}`);
+
 // Whether to show the notice: only with something to say.
 export const needsNotice = (items) => items.length > 0;
 

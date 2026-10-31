@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { browserName, chromium, needsNotice, missingFeatures, knownIssues, noticeItems, isMobile } from '../app/js/browser.js';
+import { browserName, chromium, needsNotice, missingFeatures, knownIssues, noticeItems, noticeTitle, isMobile } from '../app/js/browser.js';
 
 const brands = (...b) => b.map((brand) => ({ brand, version: '1' }));
 
@@ -82,4 +82,9 @@ test('the notice shows only when there’s something to say, whatever the browse
   assert.match(brave[0], /autosave/);
   // Firefox has the features but known problems, so it's still told.
   assert.ok(needsNotice(noticeItems('Firefox', everything)));
+});
+
+test('the notice names the browser, or says what is wrong when it has no name', () => {
+  assert.equal(noticeTitle('Firefox'), "You're using Firefox");
+  assert.equal(noticeTitle('this browser'), 'This browser is missing some features');
 });

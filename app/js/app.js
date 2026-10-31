@@ -4,7 +4,7 @@ import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
-import { browserName, noticeItems, needsNotice, isMobile } from './browser.js';
+import { browserName, noticeItems, needsNotice, noticeTitle, isMobile } from './browser.js';
 import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
@@ -4297,7 +4297,7 @@ function whenClear(fn, tries = 120) {
   let never = false;
   try { never = localStorage.getItem('scribecue.browserNotice') === seen; } catch { /* ignore */ }
   if (!needsNotice(missing) || never) return;
-  $('browserAlertTitle').textContent = `You're using ${name}`;
+  $('browserAlertTitle').textContent = noticeTitle(name);
   $('browserMissing').textContent = missing.length ? ', including:' : '.';
   $('browserList').replaceChildren(...missing.map((m) => Object.assign(document.createElement('li'), { textContent: m })));
   $('browserList').hidden = !missing.length;
