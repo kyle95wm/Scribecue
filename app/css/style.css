@@ -663,7 +663,8 @@ body.blocked > :not(.blocker) { display: none !important; }
 .guidebox:not([open]) { display: none; }
 .guidehead { display: flex; align-items: center; gap: 8px; padding: 14px 20px 8px; }
 .guidehead h2 { margin: 0; }
-.guidetabs { display: flex; gap: 6px; padding: 0 20px 10px; border-bottom: 1px solid var(--line); margin: 0; }
+.guidetabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 10px; border-bottom: 1px solid var(--line); margin: 0; }
+.guidetabs button { white-space: nowrap; }
 .guidetabs button.on { border-color: var(--accent); color: var(--accent); }
 .guide { flex: 1; overflow: auto; padding: 8px 24px 24px; line-height: 1.55; }
 .guide h2 { font-size: 20px; margin: 22px 0 8px; }

@@ -15,7 +15,7 @@ This guide covers the whole job, from opening the file to handing over the scrip
   - [Transcribe mode](#transcribe-mode)
   - [Opening the programme](#opening-the-programme)
   - [Choosing the description track](#choosing-the-description-track)
-- [The transcribing loop](#the-transcribing-loop)
+- [The transcribing loop](GETTING-STARTED.md#the-transcribing-loop)
 - [Marking lines with H](#marking-lines-with-h)
   - [The reaction offset](#the-reaction-offset)
   - [Starting from pause](#starting-from-pause)
@@ -33,7 +33,7 @@ This guide covers the whole job, from opening the file to handing over the scrip
   - [A last pass](#a-last-pass)
 - [Saving and handing it over](#saving-and-handing-it-over)
 - [Keys for transcribing](#keys-for-transcribing)
-- [Privacy](#privacy)
+- [Privacy](README.md#privacy)
 - [If something goes wrong](#if-something-goes-wrong)
 
 ## Before you start

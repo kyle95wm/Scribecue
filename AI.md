@@ -21,9 +21,9 @@ the frames but hasn't watched the programme. You're still the describer.
   - [Online models](#online-models)
   - [Ollama models, by computer](#ollama-models-by-computer)
 - [Getting the best descriptions](#getting-the-best-descriptions)
-- [Privacy](#privacy)
+- [Privacy](README.md#privacy)
 - [Costs](#costs)
-- [If something goes wrong](#if-something-goes-wrong)
+- [If something goes wrong](TRANSCRIBING.md#if-something-goes-wrong)
 
 ## What it does
 

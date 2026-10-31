@@ -18,6 +18,10 @@ const FILES = [
 // .github/workflows/pages.yml). Kept too if they're there, but the app works without them.
 const GUIDES = [
   'guides/README.md',
+  'guides/GETTING-STARTED.md',
+  'guides/WRITING.md',
+  'guides/VOICES.md',
+  'guides/SHORTCUTS.md',
   'guides/TRANSCRIBING.md',
   'guides/AI.md',
   'guides/GOOGLE-VOICES.md',

@@ -28,8 +28,8 @@ the nearest equivalent, or Google's own guide,
   - [7. Test it](#7-test-it)
   - [8. Turn billing back on](#8-turn-billing-back-on)
 - [What happens from then on](#what-happens-from-then-on)
-- [Privacy](#privacy)
-- [If something goes wrong](#if-something-goes-wrong)
+- [Privacy](README.md#privacy)
+- [If something goes wrong](TRANSCRIBING.md#if-something-goes-wrong)
 
 ## Setting up the key
 

@@ -17,9 +17,9 @@ it.
 - [More lifelike voices (Kokoro)](#more-lifelike-voices-kokoro)
 - [Speech to text (Whisper)](#speech-to-text-whisper)
 - [Ollama in Docker](#ollama-in-docker)
-- [Updating](#updating)
-- [If something goes wrong](#if-something-goes-wrong)
-- [Development](#development)
+- [Updating](README.md#updating)
+- [If something goes wrong](TRANSCRIBING.md#if-something-goes-wrong)
+- [Development](README.md#development)
 
 ## What you need
 
@@ -97,7 +97,7 @@ settings.
 [Piper](https://github.com/OHF-Voice/piper1-gpl) can run in a second container next to the
 editor. Its voices run on your computer, so your script never leaves it, and they work
 offline. (The web version can download Piper voices into the browser instead; see the
-README's [Piper voices](README.md#piper-voices).)
+README's [Piper voices](VOICES.md#piper-voices).)
 
 Until you add it, the text to speech settings ends with a short note about it:
 

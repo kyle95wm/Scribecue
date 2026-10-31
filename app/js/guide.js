@@ -1,9 +1,10 @@
-// The guides (README, TRANSCRIBING, AI and INSTALL) inside Scribecue, so they open
+// The guides (the README and the guides it lists) inside Scribecue, so they open
 // without a connection. The build copies them next to the app, under guides/, with their
 // screenshots, and the offline copy keeps them. Links to them on GitHub open here instead,
 // when they're available; otherwise they open on GitHub as before.
 
-export const GUIDES = { 'README.md': 'Scribecue', 'TRANSCRIBING.md': 'Transcribing', 'AI.md': 'AI help', 'GOOGLE-VOICES.md': 'Google voices', 'INSTALL.md': 'Running Scribecue yourself' };
+export const GUIDES = { 'README.md': 'Scribecue', 'GETTING-STARTED.md': 'Getting started', 'WRITING.md': 'Writing',
+  'VOICES.md': 'Voices', 'TRANSCRIBING.md': 'Transcribing', 'SHORTCUTS.md': 'Shortcuts', 'AI.md': 'AI help', 'GOOGLE-VOICES.md': 'Google voices', 'INSTALL.md': 'Running it yourself' };
 export const REPO = 'https://github.com/kyle95wm/Scribecue/blob/main/';
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
