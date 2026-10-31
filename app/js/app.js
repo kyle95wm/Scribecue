@@ -6,7 +6,8 @@ import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
 import { browserName, noticeItems, needsNotice, isMobile } from './browser.js';
 import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom } from './nav.js';
-import { initTour, startTour, showLoop, maybeShowLoop } from './tour.js';
+import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
+import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
 import { initSettings, addSection, adopt, place, openSettings, closeSettings } from './settings.js';
 import { initReminder } from './reminder.js';
@@ -3767,6 +3768,12 @@ adopt($('offlineDlg'), 'storage', { skip: ['.updbtns:has(#offlineClose)'] });
 $('setWhatsNew').addEventListener('click', () => openWhatsNew(VERSION));
 $('setSetup').addEventListener('click', () => { closeSettings(); openWelcome(); });
 $('setTour').addEventListener('click', () => { closeSettings(); startTour(S.mode); });
+$('setDocker').addEventListener('click', () => { closeSettings(); openGuide('INSTALL.md'); });
+// Once setup and the first loop card are done, the web version mentions running it with
+// Docker, once: now, or when the tour or loop card ends.
+const dockerTip = initDockerTip({ hosted: HOSTED, welcomed, loopSeen: () => loopSeen(S.mode), guide: () => openGuide('INSTALL.md') });
+document.addEventListener('tourend', () => setTimeout(() => whenClear(dockerTip), 300));
+whenClear(dockerTip);
 $('setReplay').addEventListener('change', (e) => setReplay(e.target.checked, true));
 $('setOffset').addEventListener('change', (e) => setOffset(+e.target.value));
 

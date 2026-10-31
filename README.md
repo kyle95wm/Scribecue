@@ -60,7 +60,8 @@ providers and online voices say they're unavailable rather than failing. The gui
 
 To keep everything, the app included, on your own computer, or to run Piper voices,
 Whisper or Ollama in containers next to it, run Scribecue with Docker. [INSTALL.md](INSTALL.md) walks
-you through it, and covers updating and troubleshooting.
+you through it, and covers updating and troubleshooting. The web version mentions this once, after setup, and
+**Run it on your computer** in Settings, under General, opens the guide any time.
 
 ## Contents
 

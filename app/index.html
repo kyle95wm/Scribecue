@@ -245,6 +245,23 @@ docker compose up -d --build</code></pre>
     </div>
   </dialog>
 
+  <dialog id="dockerTip" class="updbox dockertip" aria-labelledby="dockerTipTitle">
+    <h2 id="dockerTipTitle">Scribecue can run on your computer too</h2>
+    <p>You're using the web version, which has almost everything. Run Scribecue yourself with Docker and
+      you also get:</p>
+    <ul>
+      <li><strong>Kokoro voices</strong>, which sound closer to a person reading. They're only available with Docker.</li>
+      <li><strong>Faster</strong> Piper voices and speech to text, running next to Scribecue instead of in your browser.</li>
+      <li><strong>Everything on your own computer</strong>, the app included. Nothing comes from the web.</li>
+    </ul>
+    <p class="dim small">Your work stays where it is: save a project here and open it there.</p>
+    <div class="updbtns">
+      <span class="grow"></span>
+      <button id="dockerTipLater">Not now</button>
+      <button id="dockerTipHow" class="hl">How to set it up</button>
+    </div>
+  </dialog>
+
   <dialog id="newDlg" class="updbox wizard" aria-labelledby="newTitle">
     <h2 id="newTitle">Start again</h2>
     <p id="newWhat"></p>
@@ -772,8 +789,10 @@ docker compose up -d --build</code></pre>
         the block, to hear it again. If it was playing, it carries on from there.
         <kbd>⇧</kbd><kbd>L</kbd> turns it on or off.</p>
       <h3>Getting started</h3>
-      <p class="updstatus"><button id="setSetup">Run setup again</button> <button id="setTour">Take the tour</button></p>
-      <p class="dim small">Setup asks what you're working on and sets up its tools. The tour shows you round the screen.</p>
+      <p class="updstatus"><button id="setSetup">Run setup again</button> <button id="setTour">Take the tour</button>
+        <button id="setDocker" class="hosted-only">Run it on your computer</button></p>
+      <p class="dim small">Setup asks what you're working on and sets up its tools. The tour shows you round the screen.
+        <span class="hosted-only">Running Scribecue on your computer with Docker adds Kokoro voices, and keeps everything there.</span></p>
       <h3 class="docker-only">Updates</h3>
     </div>
     <div id="setMarking" hidden>

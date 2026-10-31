@@ -164,6 +164,7 @@ export function endTour() {
   $('tour').hidden = true;
   removeEventListener('resize', place);
   then?.();
+  document.dispatchEvent(new Event('tourend'));
 }
 
 // mode: 'write' or 'transcribe'. then: what follows when the tour ends, finished or not;
