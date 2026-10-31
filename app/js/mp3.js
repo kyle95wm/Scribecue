@@ -12,12 +12,16 @@ export const TRACK_FORMATS = {
 export const trackFormat = (k) => TRACK_FORMATS[k] || TRACK_FORMATS.wav;
 
 // The same for the full mix, which is stereo at the programme's rate (usually 48 kHz),
-// so it takes higher bitrates.
+// so it takes higher bitrates. With ffmpeg in Docker (ffmpeg/server.py), it can also be
+// AAC, AC-3 or E-AC-3: the mix is made as a WAV, and ffmpeg turns it into those.
 export const MIX_FORMATS = {
   wav: { ext: 'wav' },
   'mp3-320': { ext: 'mp3', kbps: 320 },
   'mp3-192': { ext: 'mp3', kbps: 192 },
   'mp3-128': { ext: 'mp3', kbps: 128 },
+  aac: { ext: 'm4a', ffmpeg: 'aac' },
+  ac3: { ext: 'ac3', ffmpeg: 'ac3' },
+  eac3: { ext: 'eac3', ffmpeg: 'eac3' },
 };
 export const mixFormat = (k) => MIX_FORMATS[k] || MIX_FORMATS.wav;
 

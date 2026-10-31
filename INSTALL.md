@@ -14,6 +14,7 @@ included, or to run Piper, Kokoro, Whisper or Ollama in containers next to it.
 - [Natural-sounding voices (Piper)](#natural-sounding-voices-piper)
 - [More lifelike voices (Kokoro)](#more-lifelike-voices-kokoro)
 - [Speech to text (Whisper)](#speech-to-text-whisper)
+- [The full mix in the video (ffmpeg)](#the-full-mix-in-the-video-ffmpeg)
 - [Ollama in Docker](#ollama-in-docker)
 - [Updating](#updating)
 - [If something goes wrong](#if-something-goes-wrong)
@@ -194,6 +195,33 @@ WHISPER_MODEL=medium.en
 several times slower. Models without `.en`, such as `small` or `large-v3`, understand other
 languages too.
 
+## The full mix in the video (ffmpeg)
+
+The [full mix](WRITING.md#exporting-the-full-mix) can go straight into the video, as an
+extra audio description track or in place of its sound, and be saved as AAC, AC-3 (Dolby
+Digital) or E-AC-3 (Dolby Digital Plus) as well as WAV or MP3. This uses
+[ffmpeg](https://ffmpeg.org) in a container next to the editor, which has no internet access
+and only Scribecue's own server can reach. Add `ffmpeg` to the profiles in `.env`, for
+example:
+
+```
+COMPOSE_PROFILES=piper,ffmpeg
+```
+
+Then build and start it:
+
+```bash
+docker compose up -d --build
+```
+
+The container takes about 240 MB. Reload Scribecue, and the new choices appear under
+**Export full mix** in the text to speech settings.
+
+To put the mix in the video, Scribecue sends the video to the container, on your own
+computer, which needs room in Docker for a copy of it and the finished file while it works.
+They're deleted as soon as the file is saved, or if you stop. The picture, subtitles and
+other audio tracks are copied as they are, so it takes about as long as copying the file.
+
 ## Ollama in Docker
 
 [AI help](AI.md) can use Ollama, which runs AI models on your own computer.
@@ -280,6 +308,11 @@ and port as before.
   `COMPOSE_PROFILES` in `.env` includes `kokoro`, then run `docker compose up -d --build`.
 - **"The Whisper container isn't running":** check that `COMPOSE_PROFILES` in `.env`
   includes `whisper`, then run `docker compose up -d --build`.
+- **No AAC, AC-3 or "In the video" choices for the full mix:** check that
+  `COMPOSE_PROFILES` in `.env` includes `ffmpeg`, then run `docker compose up -d --build`
+  and reload.
+- **"Docker has too little disk space":** free some space in Docker Desktop's settings
+  (**Resources**), or delete images you no longer use with `docker image prune`.
 
 ## Development
 

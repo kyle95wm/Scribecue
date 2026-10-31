@@ -5,25 +5,25 @@ import { toProject, fromProject, sameMedia, PROJECT_FORMAT } from '../app/js/pro
 const state = {
   app: '0.10.0',
   blocks: [
-    { id: 7, start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, pinned: true },
+    { id: 7, start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, pinned: true, dip: 0 },
     { id: 8, start: 11.5, end: 14, text: 'The colours fold.', voice: 'kokoro:bf_emma', auto: true, say: [['colours', 'kul-ers']] },
-    { id: 9, start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true },
+    { id: 9, start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true, dip: 15 },
   ],
   media: { name: 'lights.mkv', size: 2376368, duration: 60.02 },
   settings: { mode: 'write', offset: 0.2, ttsSpeed: 1, ttsBase: 1.05, ttsVoice: 'piper:en_US-lessac-medium' },
   view: { playhead: 21.6, selected: 1 },
 };
 
-test('a project keeps blocks, their speeds, voices and auto ends, settings, view and media', () => {
+test('a project keeps blocks, their speeds, voices, dips and auto ends, settings, view and media', () => {
   const saved = JSON.parse(JSON.stringify(toProject(state)));
   assert.equal(saved.scribecue, PROJECT_FORMAT);
   assert.equal(saved.app, '0.10.0');
   assert.ok(!('id' in saved.blocks[0]), 'block ids are internal and not saved');
   const p = fromProject(saved);
   assert.deepEqual(p.blocks, [
-    { start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, pinned: true },
+    { start: 3, end: 6.2, text: 'Bands of teal.', speed: 1.15, dip: 0, pinned: true },
     { start: 11.5, end: 14, text: 'The colours fold.', voice: 'kokoro:bf_emma', auto: true, say: [['colours', 'kul-ers']] },
-    { start: 20, end: 23, text: 'Fitted.', speed: 0.83, fit: true },
+    { start: 20, end: 23, text: 'Fitted.', speed: 0.83, dip: 15, fit: true },
   ]);
   assert.deepEqual(p.settings, state.settings);
   assert.deepEqual(p.view, state.view);

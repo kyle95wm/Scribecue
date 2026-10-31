@@ -26,8 +26,8 @@ import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
-  usingAudioVoice, measure, prefetch, readAhead, renderTrack, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel,
-  savedReadings, clearSavedReadings } from './tts.js';
+  usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIPS, isDip,
+  savedReadings, clearSavedReadings, checkFfmpeg } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -167,10 +167,11 @@ let nextId = 1;
 // speed: the block's own text to speech speed, if it has one.
 const mk = (start, end, text = '', speed) => ({ id: nextId++, start, end, text, ...(isBlockSpeed(speed) ? { speed } : {}) });
 // A saved block back as a block: voice (its own text to speech voice), auto (end follows
-// the reading), fit (speed follows the length) and pinned (speed picked by hand, so
-// resizing leaves it alone).
+// the reading), fit (speed follows the length), pinned (speed picked by hand, so
+// resizing leaves it alone) and dip (how far the programme goes down under it).
 const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
   typeof b.voice === 'string' && b.voice ? { voice: b.voice } : {},
+  isDip(b.dip) ? { dip: b.dip } : {},
   b.auto ? { auto: true } : {}, b.fit ? { fit: true } : {}, b.pinned ? { pinned: true } : {},
   b.say?.length ? { say: b.say } : {});
 // What text to speech reads for a block: its text, with its "sounds like" words.
@@ -633,6 +634,7 @@ function updateEditor() {
   if (!c) {
     edSpeedWrap.hidden = true;
     edVoiceWrap.hidden = true;
+    edDipWrap.hidden = true;
     edAuto.hidden = true;
     edIdx.textContent = '#–';
     if (document.activeElement !== edStart) edStart.value = '';
@@ -654,6 +656,8 @@ function updateEditor() {
   edSpeedWrap.hidden = !ttsOn();
   edVoiceWrap.hidden = !ttsOn();
   if (ttsOn() && document.activeElement !== edVoice) fillEdVoice(c);
+  edDipWrap.hidden = !(ttsOn() && tts.duck);
+  if (!edDipWrap.hidden && document.activeElement !== edDip) fillEdDip(c);
   const custom = c.speed && !isSpeed(c.speed);
   edSpeedCustom.hidden = !custom;
   edSpeedCustom.textContent = custom ? speedName(c.speed) + (c.fit ? ', fits the block' : '') : 'custom';
@@ -2063,13 +2067,60 @@ ttsExport.addEventListener('click', async () => {
 const ttsMixExport = $('ttsMixExport'), ttsMixStatus = $('ttsMixStatus'), ttsMixBar = $('ttsMixBar'), ttsMixStop = $('ttsMixStop');
 let mixWorker = null, mixStopped = false;
 const stopped = () => Object.assign(new Error('stopped'), { stopped: true });
+// With ffmpeg in Docker: the mix, a WAV, goes to it with the video, if it's going in the
+// video, and comes back in the format chosen. See ffmpeg/server.py.
+const FF_VIDEOS = ['mp4', 'm4v', 'mov', 'mkv', 'webm'];
+let ffJob = null, ffXhr = null;
+async function ffCall(method, path, body) {
+  const r = await fetch(`ffmpeg/${path}`, { method, cache: 'no-store', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body && JSON.stringify(body) });
+  const m = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(m.error || `ffmpeg answered ${r.status}`);
+  return m;
+}
+// PUT with XHR, which shows how much has gone.
+function ffPut(path, blob, progress) {
+  return new Promise((resolve, reject) => {
+    const x = ffXhr = new XMLHttpRequest();
+    x.open('PUT', `ffmpeg/${path}`);
+    x.upload.onprogress = (e) => e.lengthComputable && progress(e.loaded / e.total);
+    x.onload = () => { ffXhr = null; x.status < 300 ? resolve() : reject(new Error(JSON.parse(x.responseText || '{}').error || `ffmpeg answered ${x.status}`)); };
+    x.onerror = () => { ffXhr = null; reject(new Error('couldn’t reach ffmpeg')); };
+    x.onabort = () => { ffXhr = null; reject(stopped()); };
+    x.send(blob);
+  });
+}
+async function ffmpegMix(mix, video, codec, name, show) {
+  const ext = video && video.name.split('.').pop().toLowerCase();
+  const { id } = await ffCall('POST', 'jobs', { codec, video: video ? ext : null, replace: tts.mixInto === 'replace', name });
+  ffJob = id;
+  const total = mix.size + (video?.size || 0);
+  const gb = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.round(n / 1e6)} MB`);
+  const sending = (sent) => show(0.7 + 0.15 * sent / total, `Sending to ffmpeg: ${gb(sent)} of ${gb(total)}`);
+  await ffPut(`jobs/${id}/mix`, mix, (f) => sending(f * mix.size));
+  if (video) await ffPut(`jobs/${id}/video`, video, (f) => sending(mix.size + f * video.size));
+  await ffCall('POST', `jobs/${id}/start`);
+  for (;;) {
+    const j = await ffCall('GET', `jobs/${id}`);
+    if (j.state === 'failed') throw new Error(`ffmpeg: ${j.error}`);
+    show(0.85 + 0.15 * j.done, `${video ? 'Putting it in the video' : 'Making the file'}: ${Math.round(j.done * 100)}%`);
+    if (j.state === 'done') break;
+    await new Promise((ok) => setTimeout(ok, 500));
+  }
+  // ffmpeg sends the file with its name, and deletes it once it has gone.
+  const a = document.createElement('a');
+  a.href = `ffmpeg/jobs/${id}/result`;
+  a.download = '';
+  a.click();
+  ffJob = null;
+  return name + '.' + (video ? ext : mixFormat(tts.mixAs).ext);
+}
 function runMix(job, transfer, progress) {
   return new Promise((resolve, reject) => {
     const w = mixWorker = new Worker('js/mix-worker.js');
     const end = (f, v) => { w.terminate(); if (mixWorker === w) mixWorker = null; f(v); };
     w.onmessage = ({ data: m }) => {
       if (m.type === 'progress') progress(m.done);
-      else if (m.type === 'mix') end(resolve, m.blob);
+      else if (m.type === 'mix') end(resolve, m);
       else end(reject, Object.assign(new Error(m.message), { unsupported: m.type === 'unsupported' }));
     };
     w.onerror = (e) => { e.preventDefault(); end(reject, new Error(e.message || 'the mixer didn’t load')); };
@@ -2086,42 +2137,68 @@ async function wholeProgramme(file) {
 ttsMixExport.addEventListener('click', async () => {
   const file = S.videoFile;
   if (!file) return (ttsMixStatus.textContent = 'Open the programme’s video or audio first.');
-  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice }));
+  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice, dip: blockDip(c) }));
   if (!blocks.length) return (ttsMixStatus.textContent = 'There are no blocks with text yet.');
   pause();
   busy(ttsMixExport, ttsMixBar, true);
   ttsMixStop.hidden = false;
-  const as = mixFormat(tts.mixAs);
+  // ffmpeg's choices only count while it's running, as the settings show them.
+  if (!HOSTED && (mixFormat(tts.mixAs).ffmpeg || tts.mixInto)) await checkFfmpeg();
+  const as = mixFormat(tts.ffmpeg || !mixFormat(tts.mixAs).ffmpeg ? tts.mixAs : 'wav');
+  // In the video, if it's a video ffmpeg can put it in.
+  const ext = file.name.split('.').pop().toLowerCase();
+  const into = tts.ffmpeg && tts.mixInto && FF_VIDEOS.includes(ext);
+  if (tts.ffmpeg && tts.mixInto && !into) return (ttsMixStatus.textContent = `ffmpeg can put the mix in an MP4, MOV, MKV or WebM video, not a .${ext} file.`);
+  const ff = !!(tts.ffmpeg && (as.ffmpeg || into));
   mixStopped = false;
+  // With ffmpeg, mixing ends at 70%, and sending and making the file take the rest.
+  const share = ff ? 0.7 : 1;
   const show = (f, text) => { if (mixStopped) throw stopped(); ttsMixBar.value = f; ttsMixStatus.textContent = text; };
   try {
-    // Making the readings is the first 20% of the bar, and mixing the rest.
-    const { samples, rate, spans } = await renderTrack(blocks, 0,
-      (k, n) => show(0.2 * k / n, `Making readings: ${k} of ${n}`), [null, null]);
-    const levels = mixLevels(tts.mix);
-    const job = { desc: samples, descRate: rate, spans, dipDb: tts.duck ? tts.dipDb : 0, fade: tts.dipFade,
-      video: levels.video, reading: levels.reading, kbps: as.kbps || 0 };
-    const mixing = (f) => show(0.2 + 0.8 * f, `Mixing: ${Math.round(f * 100)}%`);
+    // Making the readings is the first 20% of the bar, and mixing the rest. Each reading
+    // goes to the mixer as it is, at the level the voice gives it, as it plays.
+    const made = await makeReadings(blocks, (k, n) => show(0.2 * k / n, `Making readings: ${k} of ${n}`));
+    const readings = made.map(({ start, w }, k) => ({ start, samples: w.samples, rate: w.rate, dip: blocks[k].dip }));
+    const levels = mixLevels(tts.mix), loud = LOUDNESS[tts.loudness] || LOUDNESS[''];
+    const job = { readings, fade: tts.dipFade, video: levels.video, reading: levels.reading,
+      kbps: as.kbps || 0, wavMix: ff, target: loud.lufs ?? null, ceiling: loud.ceiling, stems: !!tts.stems };
+    // Meeting a loudness target mixes twice: measuring, then mixing.
+    const mixing = (f) => show(0.2 + (share - 0.2) * f, loud.lufs == null || f >= 0.5 ? `Mixing: ${Math.round(f * 100)}%` : `Measuring loudness: ${Math.round(f * 200)}%`);
     mixing(0);
-    let blob;
+    let done;
     try {
-      blob = await runMix({ ...job, cmd: 'mix', file, track: S.track }, [], mixing);
+      done = await runMix({ ...job, cmd: 'mix', file, track: S.track }, [], mixing);
     } catch (e) {
       if (!e.unsupported || file.size > LEGACY_LIMIT || S.track) throw e;
       ttsMixStatus.textContent = 'Reading the programme’s audio…';
       const whole = await wholeProgramme(file);
       if (mixStopped) throw stopped();
-      blob = await runMix({ ...job, cmd: 'mixPlanes', ...whole }, [], mixing);
+      done = await runMix({ ...job, cmd: 'mixPlanes', ...whole }, [], mixing);
     }
-    const name = `${baseName()} - full mix.${as.ext}`;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-    report(ttsMixStatus, `Saved ${name}.`);
+    const names = { mix: 'full mix', programme: 'programme (lowered)', readings: 'readings' };
+    const saved = [];
+    for (const { part, blob } of done.files) {
+      if (part === 'mix' && ff) {
+        const name = `${baseName()} - ${into ? 'with audio description' : names.mix}`;
+        saved.push(await ffmpegMix(blob, into ? file : null, as.ffmpeg || 'aac', name, show));
+        await new Promise((ok) => setTimeout(ok, 300));
+        continue;
+      }
+      // Stems from an ffmpeg format are WAVs.
+      const name = `${baseName()} - ${names[part]}.${as.ffmpeg ? 'wav' : as.ext}`;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      saved.push(name);
+      await new Promise((ok) => setTimeout(ok, 300)); // browsers can drop downloads started together
+    }
+    const lufs = (v) => (Number.isFinite(v) ? `${v.toFixed(1)} LUFS` : 'silent');
+    report(ttsMixStatus, `Saved ${saved.join(', ')}. Loudness: ${lufs(done.loudness)}` + (done.was != null ? `, from ${lufs(done.was)}.` : '.'));
   } catch (e) {
-    if (e.stopped) ttsMixStatus.textContent = 'Stopped.';
+    if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
+    if (e.stopped || mixStopped) ttsMixStatus.textContent = 'Stopped.'; // ffmpeg may answer first
     else report(ttsMixStatus, `Couldn’t export the full mix: ${e.message}`);
   } finally {
     busy(ttsMixExport, ttsMixBar, false);
@@ -2129,7 +2206,12 @@ ttsMixExport.addEventListener('click', async () => {
     ttsMixExport.disabled = !usingAudioVoice();
   }
 });
-ttsMixStop.addEventListener('click', () => { mixStopped = true; mixWorker?.stop(); });
+ttsMixStop.addEventListener('click', () => {
+  mixStopped = true;
+  mixWorker?.stop();
+  ffXhr?.abort();
+  if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
+});
 ttsAllStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
 // A job carries on when the settings close: it shows in the bottom bar.
 $('ttsDlg').addEventListener('close', () => { if (!jobActive) { ttsAllStatus.textContent = ''; ttsFitStatus.textContent = ''; ttsMakeStatus.textContent = ''; } });
@@ -2183,6 +2265,26 @@ function setBlockVoice(c, uri) {
   tlDirty = true;
   schedulePrefetch(c);
   toast(c.voice ? `Block #${idx(c.id) + 1} reads with ${blockVoiceName(c.voice)}` : `Block #${idx(c.id) + 1} reads with the voice in Settings`);
+}
+
+// A block's own dip: how far the programme goes down under its reading, instead of the
+// setting, such as not at all under music, or further under a loud scene.
+const edDip = $('edDip'), edDipWrap = $('edDipWrap');
+function fillEdDip(c) {
+  const opts = [['', `Dip as set`], ['0', 'No dip'], ...DIPS.map((d) => [String(d), `Dip ${d} dB`])];
+  if (edDip.options.length !== opts.length || edDip.options[0].text !== opts[0][1]) edDip.replaceChildren(...opts.map(([v, t]) => new Option(t, v)));
+  edDip.value = isDip(c.dip) ? String(c.dip) : '';
+}
+edDip.addEventListener('change', () => {
+  const c = selCue();
+  if (c) setBlockDip(c, edDip.value === '' ? null : +edDip.value);
+  edDip.blur();
+});
+function setBlockDip(c, db) {
+  pushUndo(undefined, 'dip-' + c.id);
+  if (isDip(db)) c.dip = db; else delete c.dip;
+  changed(c.id);
+  toast(!isDip(c.dip) ? `Block #${idx(c.id) + 1}: the programme is lowered as set` : c.dip ? `Block #${idx(c.id) + 1}: the programme is lowered ${c.dip} dB` : `Block #${idx(c.id) + 1}: the programme isn’t lowered`);
 }
 
 // Replace all voices: every block reads with the voice chosen in Settings again.
@@ -2388,14 +2490,19 @@ function readAheadOf(t) {
 // Lower the original audio while a block is read, as far and as quickly as the text to
 // speech settings say, just as the full mix does, and as the mix slider says. tick()
 // moves it along.
-let ducked = false, dip = 0, volumeWas = -1;
+let ducked = false, dip = 0, dipTo = 0, dipFrom = 0, volumeWas = -1;
+// How far the programme goes down under a block's reading, in dB: its own, or the setting.
+const blockDip = (c) => (!tts.duck ? 0 : isDip(c?.dip) ? c.dip : tts.dipDb);
 function duckAudio(on = ducked) {
   ducked = on;
   applyDuck(0);
 }
 function applyDuck(dt) {
-  dip = stepDip(dip, ducked && tts.duck ? 1 : 0, dt, tts.dipFade);
-  const v = dipLevel(dip, tts.dipDb) * (writing() && tts.on ? mixLevels(tts.mix).video : 1);
+  const c = tts.speaking && S.cues.find((x) => x.id === tts.speaking.id);
+  const target = ducked ? blockDip(c) : 0;
+  if (target !== dipTo) { dipTo = target; dipFrom = dip; }
+  dip = stepDip(dip, target, dt, tts.dipFade, dipFrom);
+  const v = dipLevel(dip) * (writing() && tts.on ? mixLevels(tts.mix).video : 1);
   if (v === volumeWas) return;
   volumeWas = v;
   video.volume = v;
@@ -3086,7 +3193,7 @@ async function loadSubsFile(file) {
   if (!okToReplace(`Open ${file.name}`)) return;
   await stopJob();
   pushUndo();
-  S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.voice ? { voice: c.voice } : {}, c.say ? { say: c.say } : {}));
+  S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.voice ? { voice: c.voice } : {}, isDip(c.dip) ? { dip: c.dip } : {}, c.say ? { say: c.say } : {}));
   S.subName = file.name;
   S.handle = null; // saving makes a project next to it, rather than overwriting the script
   handleStore.set(null);

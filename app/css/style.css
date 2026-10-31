@@ -724,7 +724,7 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .autotag[hidden] { display: none; }
 #list .over { color: var(--bad); }
 #list .ready { color: var(--accent); }
-#ttsWeb[hidden], #ttsWebGet[hidden], #ttsAllStop[hidden], #ttsAllExactRow[hidden], #ttsAll[hidden], #ttsExport[hidden], #ttsFitAll[hidden], #ttsFitStop[hidden], .jobbar[hidden] { display: none; }
+.ffonly[hidden], #ttsWeb[hidden], #ttsWebGet[hidden], #ttsAllStop[hidden], #ttsAllExactRow[hidden], #ttsAll[hidden], #ttsExport[hidden], #ttsFitAll[hidden], #ttsFitStop[hidden], .jobbar[hidden] { display: none; }
 .jobbar { width: 220px; height: 10px; vertical-align: middle; accent-color: var(--accent); }
 #ttsPiperNote:empty, #ttsExportNote:empty { display: none; }
 .edspeed { display: inline-flex; align-items: center; gap: 4px; }
@@ -739,6 +739,7 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .sayrows .missing[hidden] { display: none; }
 .edspeed[hidden] { display: none; }
 .edspeed #edVoice { max-width: 180px; }
+.edspeed #edDip { max-width: 120px; }
 .edspeed select {
   max-width: 115px;
   font: 12px var(--mono);

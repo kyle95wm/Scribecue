@@ -90,6 +90,28 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
+  # Optional: ffmpeg, for the full mix as AAC, AC-3 or E-AC-3, and to put it into a copy of
+  # the video. Turn it on by adding ffmpeg to COMPOSE_PROFILES in .env (see INSTALL.md).
+  ffmpeg:
+    build: ./ffmpeg
+    image: scribecue-ffmpeg:latest
+    container_name: scribecue-ffmpeg
+    profiles: [ffmpeg]
+    # Like Piper: only on the internal network, with no internet and no port on this
+    # computer. Scribecue's server is the only thing that can reach it.
+    networks: [voices]
+    read_only: true
+    volumes:
+      # The video and mix it's working on, while it works: too big for memory.
+      - ffmpeg-work:/work
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
   # Optional AI models that run on this computer, for AI help (see INSTALL.md). Turn it on
   # by adding ollama to COMPOSE_PROFILES in .env, then download a model that can see
   # images: docker compose exec ollama ollama pull gemma3:4b
@@ -123,3 +145,5 @@ networks:
 volumes:
   # Downloaded models, kept when the container is rebuilt.
   ollama-models:
+  # ffmpeg's files while it works; emptied after each one.
+  ffmpeg-work:

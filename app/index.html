@@ -95,6 +95,8 @@
               <select id="edSpeed" aria-label="Speed"></select></label>
             <label id="edVoiceWrap" class="edspeed" hidden data-tip="Text to speech voice for this block, such as a second voice for translated dialogue. Same as Settings follows the voice chosen there">
               <select id="edVoice" aria-label="Voice"></select></label>
+            <label id="edDipWrap" class="edspeed" hidden data-tip="Dip: how far the programme is lowered under this block's reading, when playing and in the full mix. As set follows the text to speech settings">
+              <select id="edDip" aria-label="Programme lowered by"></select></label>
             <span class="grow"></span>
             <span id="edStats"></span>
           </div>
@@ -628,9 +630,10 @@ docker compose up -d --build</code></pre>
       <p id="ttsExportNote" class="dim small"></p>
       <h3>Export full mix</h3>
       <p class="small">Save the programme's sound and the readings together in one stereo file, as you
-        hear them when you play: the programme is lowered under each reading as set above, and the levels
-        follow the mix slider under the video. It uses the audio track that's playing, and keeps peaks
-        under −1 dBFS.</p>
+        hear them when you play: the programme is lowered under each reading as set above, or as the block
+        says, and the levels follow the mix slider under the video. It uses the audio track that's
+        playing. A loudness target brings the whole mix to that level; either way, peaks stay under
+        −1 dBFS (−2 for ATSC).</p>
       <div class="ttsgrid">
         <label for="ttsMixAs">Save as</label>
         <select id="ttsMixAs">
@@ -638,8 +641,30 @@ docker compose up -d --build</code></pre>
           <option value="mp3-320">MP3, 320 kbps: about 144 MB an hour</option>
           <option value="mp3-192">MP3, 192 kbps: about 86 MB an hour</option>
           <option value="mp3-128">MP3, 128 kbps: about 58 MB an hour</option>
+          <option value="aac" class="ffonly" hidden>AAC (.m4a), 256 kbps: about 115 MB an hour</option>
+          <option value="ac3" class="ffonly" hidden>AC-3 (Dolby Digital), 384 kbps: about 173 MB an hour</option>
+          <option value="eac3" class="ffonly" hidden>E-AC-3 (Dolby Digital Plus), 256 kbps: about 115 MB an hour</option>
+        </select>
+        <label for="ttsMixInto" class="ffonly" hidden>In the video</label>
+        <select id="ttsMixInto" class="ffonly" hidden>
+          <option value="">No, just the audio</option>
+          <option value="add">Yes, as an extra audio description track</option>
+          <option value="replace">Yes, in place of its sound</option>
+        </select>
+        <label for="ttsLoudness">Loudness</label>
+        <select id="ttsLoudness">
+          <option value="">As it comes</option>
+          <option value="ebu">−23 LUFS: broadcast in Europe (EBU R 128)</option>
+          <option value="atsc">−24 LUFS: broadcast in North America (ATSC A/85)</option>
+          <option value="online">−16 LUFS: podcasts and the web</option>
+          <option value="streaming">−14 LUFS: streaming services</option>
         </select>
       </div>
+      <p class="dim small ffonly">With ffmpeg: in the video, the mix is AAC, or AC-3 or E-AC-3 if chosen
+        above (Opus in a WebM). The picture and other tracks are copied as they are. The video is sent to
+        ffmpeg on this computer, so Docker needs room for a copy while it works.</p>
+      <label class="updopt"><input type="checkbox" id="ttsStems"> Also save the programme and the readings
+        as separate files (stems), to mix again in an editor</label>
       <p class="updstatus"><button id="ttsMixExport">Export full mix</button>
         <progress id="ttsMixBar" class="jobbar" max="1" value="0" hidden aria-label="Exporting the full mix"></progress>
         <button id="ttsMixStop" hidden>Stop</button> <span id="ttsMixStatus" class="dim"></span></p>

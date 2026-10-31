@@ -11,11 +11,12 @@ for f in app/js/*.js app/sw.js tests/*.mjs scripts/*.mjs; do node --check "$f"; 
 
 echo '== Unit tests'
 node --test 'tests/*.test.mjs'
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py'
 
 [ "${1:-}" = "--no-docker" ] && { echo 'Skipped Docker checks'; exit 0; }
 
 echo '== Docker Compose file'
-COMPOSE_PROFILES=piper,whisper,kokoro,ollama docker compose config --quiet
+COMPOSE_PROFILES=piper,whisper,kokoro,ollama,ffmpeg docker compose config --quiet
 COMPOSE_PROFILES=ollama docker compose -f docker-compose.yml -f ollama-gpu.yml config --quiet
 
 echo '== Docker build and smoke test'

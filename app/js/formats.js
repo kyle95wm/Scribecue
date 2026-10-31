@@ -49,12 +49,13 @@ export function parseTC(str, fps = 25) {
   return n / fps;
 }
 
-// A block's text to speech speed, voice and "sounds like" words are kept in exported VTT
-// files as notes just before the block. Other programs ignore notes.
+// A block's text to speech speed, voice, dip and "sounds like" words are kept in exported
+// VTT files as notes just before the block. Other programs ignore notes.
 const SPEED_NOTE = 'NOTE Scribecue text to speech speed:';
 const VOICE_NOTE = 'NOTE Scribecue text to speech voice:';
+const DIP_NOTE = 'NOTE Scribecue programme lowered by (dB):';
 const SAY_NOTE = 'NOTE Scribecue sounds like:';
-// What a note says about the block after it: { speed }, { voice } or
+// What a note says about the block after it: { speed }, { voice }, { dip } or
 // { say: [[written, said], …] }.
 function readNote(block) {
   block = block.trim();
@@ -62,6 +63,8 @@ function readNote(block) {
   if (m) return { speed: +m[1] };
   const v = block.match(/^NOTE Scribecue text to speech voice: (\S.*)$/);
   if (v) return { voice: v[1].trim() };
+  const d = block.match(/^NOTE Scribecue programme lowered by \(dB\): (\d+(?:\.\d+)?)$/);
+  if (d) return { dip: +d[1] };
   if (block.startsWith(SAY_NOTE)) {
     const say = block.split('\n').slice(1).map((l) => l.split(' = ')).filter((p) => p.length >= 2 && p[0].trim())
       .map(([w, ...s]) => [w.trim(), s.join(' = ').trim()]).filter(([, s]) => s);
@@ -85,6 +88,7 @@ export function parseSubs(text) {
     const cue = { start, end: Math.max(end, start), text: lines.slice(i + 1).join('\n').trim() };
     if (notes.speed) cue.speed = notes.speed;
     if (notes.voice) cue.voice = notes.voice;
+    if (notes.dip != null) cue.dip = notes.dip;
     if (notes.say) cue.say = notes.say;
     notes = {};
     cues.push(cue);
@@ -101,7 +105,7 @@ export function toSRT(cues) {
 
 export function toVTT(cues) {
   const say = (c) => (c.say?.length ? `${SAY_NOTE}\n${c.say.map(([w, s]) => `${w} = ${s}`).join('\n')}\n\n` : '');
-  return 'WEBVTT\n\n' + cues.map((c, i) => (c.speed ? `${SPEED_NOTE} ${c.speed}\n\n` : '') + (c.voice ? `${VOICE_NOTE} ${c.voice}\n\n` : '') + say(c) +
+  return 'WEBVTT\n\n' + cues.map((c, i) => (c.speed ? `${SPEED_NOTE} ${c.speed}\n\n` : '') + (c.voice ? `${VOICE_NOTE} ${c.voice}\n\n` : '') + (c.dip != null ? `${DIP_NOTE} ${c.dip}\n\n` : '') + say(c) +
     `${i + 1}\n${fmtTime(c.start, '.')} --> ${fmtTime(c.end, '.')}\n${clean(c.text)}`).join('\n\n') + '\n';
 }
 

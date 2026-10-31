@@ -4,7 +4,8 @@
 
 - **Write** new audio description, and hear each line read aloud to check it fits before
   the next piece of dialogue. Export the readings as an audio track, or as a full mix with
-  the programme.
+  the programme, which [ffmpeg in Docker](INSTALL.md#the-full-mix-in-the-video-ffmpeg) can
+  put into the video.
 - **Transcribe** existing audio description: hold a key while the narrator speaks, and a
   block appears at that time. Speech to text can type the line for you.
 - **Private:** your video, audio and scripts are never uploaded.
@@ -81,9 +82,7 @@ If you run it yourself, see [Updating](INSTALL.md#updating).
 - [ ] **Recording narration:** a narrator records each line against the video, in the
   slots you've timed, and the mixer gets one timestamped WAV. The plan is in
   [RECORDING.md](RECORDING.md).
-- [ ] **More for the full mix:** a loudness target, per-block settings and separate
-  stems. With Docker, an ffmpeg container could also handle 5.1, AC-3 and DTS, and put
-  the mix back into the video.
+- [ ] **More for the full mix:** 5.1 and DTS, with the ffmpeg container.
 
 ## Development
 
@@ -111,7 +110,8 @@ its container:
 
 MP3 exports use [lamejs](https://github.com/zhuker/lamejs) by Alex Zhukov, a JavaScript
 version of the [LAME](https://lame.sourceforge.io/) MP3 encoder (LGPL), unchanged, in
-`app/vendor`.
+`app/vendor`. The ffmpeg container installs [FFmpeg](https://ffmpeg.org) (LGPL and GPL)
+from Alpine Linux's packages when it's built.
 
 Scribecue is an independent project. It is not affiliated with, endorsed by or connected
 to Frazier or videotovoice. Frazier is their product name, used here only to describe
