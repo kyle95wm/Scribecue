@@ -22,6 +22,7 @@ import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, writeWav, readingStarting } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands } from './ffcmd.js';
+import { videoName, missing, advice, copyKind } from './codecs.js';
 import { waveKey, loadWave, saveWave } from './wavestore.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
@@ -3433,9 +3434,12 @@ async function loadTracks(file) {
   resetTracks();
   resetWaveform();
   S.waveStatus = 'Reading audio tracks…';
-  const { tracks, fps } = await probeTracks(file);
+  const { tracks, fps, video: codec } = await probeTracks(file);
   if (S.videoFile !== file) return;
   if (fps) setFps(fps);
+  S.videoCodec = videoName(codec);
+  const gone = missing([S.videoCodec, ...tracks.map((t) => t.codec)], (t) => video.canPlayType(t));
+  if (gone.length) showCodecAlert(file, gone);
   S.tracks = tracks;
   renderTrackPicker();
   if (tracks.length < 2) return buildWaveform(file, 0, false);
@@ -3448,6 +3452,87 @@ async function loadTracks(file) {
   }
   selectTrack(pick);
 }
+
+// When the browser can't play a file, as with Chromium builds without H.264 or AAC: say
+// what's missing and, with ffmpeg in Docker, offer to make a copy that plays.
+let codecFor = null, codecGone = [], codecJob = false;
+function showCodecAlert(file, gone) {
+  if (codecJob) return;
+  codecFor = file;
+  codecGone = gone.length ? gone : codecGone;
+  const box = $('codecAlert');
+  const fresh = box.hidden;
+  $('codecAlertText').textContent = advice(codecGone, { file: file.name, ffmpeg: !!tts.ffmpeg });
+  if (fresh) $('codecStatus').textContent = '';
+  box.hidden = false;
+  if (fresh) announce(box.querySelector('h2').textContent + '. ' + $('codecAlertText').textContent, IS_MAC);
+  if (!HOSTED && !tts.ffmpeg) checkFfmpeg().then((v) => v && !box.hidden && ($('codecAlertText').textContent = advice(codecGone, { file: file.name, ffmpeg: true })));
+}
+$('codecOk').addEventListener('click', () => {
+  if (codecJob) $('codecStop').click();
+  $('codecAlert').hidden = true;
+  codecGone = [];
+});
+$('codecStop').addEventListener('click', () => {
+  mixStopped = true;
+  ffXhr?.abort();
+  if (ffJob) ffCall('DELETE', `jobs/${ffJob}`).catch(() => {});
+});
+$('codecCopy').addEventListener('click', async () => {
+  const file = codecFor, ext = file?.name.split('.').pop().toLowerCase();
+  const status = $('codecStatus'), bar = $('codecBar');
+  if (!file || !FF_VIDEOS.includes(ext)) return (status.textContent = `ffmpeg can copy an MP4, MOV, MKV or WebM video, not a .${ext} file.`);
+  const copy = copyKind(S.videoCodec, codecGone);
+  const name = file.name.replace(/\.[^.]+$/, '') + ' (copy)';
+  const show = (f, msg) => { bar.value = f; status.textContent = msg; };
+  codecJob = true;
+  mixStopped = false;
+  busy($('codecCopy'), bar, true);
+  $('codecStop').hidden = false;
+  try {
+    const { id } = await ffCall('POST', 'jobs', { copy, video: ext, name });
+    ffJob = id;
+    const gb = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.round(n / 1e6)} MB`);
+    await ffPut(`jobs/${id}/video`, file, (f) => show(0.1 * f, `Sending to ffmpeg: ${gb(f * file.size)} of ${gb(file.size)}`));
+    if (mixStopped) throw stopped();
+    await ffCall('POST', `jobs/${id}/start`);
+    for (;;) {
+      if (mixStopped) throw stopped();
+      const j = await ffCall('GET', `jobs/${id}`);
+      if (j.state === 'failed') throw new Error(`ffmpeg: ${j.error}`);
+      show(0.1 + 0.85 * j.done, `Making the copy: ${Math.round(j.done * 100)}%`);
+      if (j.state === 'done') break;
+      await new Promise((ok) => setTimeout(ok, 1000));
+    }
+    show(0.95, 'Opening the copy…');
+    // ffmpeg deletes the copy once it has sent it, so it's kept here, opened, and downloaded.
+    const r = await fetch(`ffmpeg/jobs/${id}/result`, { cache: 'no-store' });
+    if (!r.ok) throw new Error(`ffmpeg answered ${r.status}`);
+    ffJob = null;
+    const out = new File([await r.blob()], `${name}.${copy}`, { type: `video/${copy}` });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(out), download: out.name });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    // The project carries on with the copy, once saved.
+    if (S.projectMedia && sameMedia(S.projectMedia, file)) {
+      S.projectMedia = { ...S.projectMedia, name: out.name, size: out.size };
+      S.dirty = true;
+    }
+    $('codecAlert').hidden = true;
+    codecGone = [];
+    loadVideoFile(out);
+    toast(`Opened ${out.name}, and downloaded it so you keep it`);
+  } catch (e) {
+    if (ffJob) ffCall('DELETE', `jobs/${ffJob}`).catch(() => {});
+    ffJob = null;
+    status.textContent = e.stopped ? 'Stopped.' : `Couldn’t make the copy: ${e.message}`;
+  } finally {
+    codecJob = false;
+    busy($('codecCopy'), bar, false);
+    $('codecCopy').hidden = !tts.ffmpeg;
+    $('codecStop').hidden = true;
+  }
+});
 
 // Safari can switch tracks itself; everywhere else we copy the track out.
 const nativeSwitching = () => video.audioTracks && video.audioTracks.length === S.tracks.length;
@@ -3694,7 +3779,7 @@ video.addEventListener('loadedmetadata', () => {
   } else toast(`Loaded ${f?.name || 'media'}`);
   if (f && S.pendingPlayhead != null && sameMedia(S.projectMedia, f)) { seek(S.pendingPlayhead); S.pendingPlayhead = null; }
 });
-video.addEventListener('error', () => toast('This browser cannot play that file (try MP4/H.264 or WebM)'));
+video.addEventListener('error', () => { if (S.videoFile && video.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) showCodecAlert(S.videoFile, []); else toast('This file couldn’t be played'); });
 video.addEventListener('play', updateInd);
 video.addEventListener('pause', updateInd);
 video.addEventListener('click', togglePlay);

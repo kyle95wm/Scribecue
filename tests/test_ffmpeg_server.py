@@ -11,8 +11,8 @@ import server  # noqa: E402
 ENG = [{"codec_type": "audio", "tags": {"language": "fre"}}, {"codec_type": "audio"}]
 
 
-def command(codec, video=None, replace=False, audio=ENG):
-    job = {"dir": "/work/j", "codec": codec, "video": video, "replace": replace}
+def command(codec, video=None, replace=False, audio=ENG, copy=None):
+    job = {"dir": "/work/j", "codec": codec, "video": video, "replace": replace, "copy": copy}
     with mock.patch.object(server, "probe", return_value=(audio, 60.0)):
         return server.command(job)
 
@@ -53,7 +53,30 @@ class Commands(unittest.TestCase):
         self.assertEqual(after(args, "-c:a:0"), ["libopus"])
         self.assertIn("language=und", after(args, "-metadata:s:a:0"))
 
+    def test_a_webm_copy_makes_the_picture_vp9_and_every_track_opus(self):
+        args, secs = command(None, "mp4", copy="webm")
+        self.assertEqual(after(args, "-i"), ["/work/j/video.mp4"])
+        self.assertEqual(after(args, "-map"), ["0:v:0", "0:a?"])  # no subtitles: WebM can't hold most
+        self.assertEqual(after(args, "-c:v"), ["libvpx-vp9"])
+        self.assertEqual(after(args, "-deadline"), ["realtime"])
+        self.assertEqual(after(args, "-vf"), [server.SCALE])
+        self.assertEqual(after(args, "-c:a"), ["libopus"])
+        self.assertEqual(after(args, "-ac"), ["2"])
+        self.assertEqual(args[-1], "/work/j/out.webm")
+        self.assertEqual(secs, 60.0)
+
+    def test_an_mp4_copy_keeps_the_picture(self):
+        args, _ = command(None, "mkv", copy="mp4")
+        self.assertEqual(after(args, "-c:v"), ["copy"])
+        self.assertNotIn("-vf", args)
+        self.assertEqual(after(args, "-c:a"), ["libopus"])
+        self.assertEqual(args[-1], "/work/j/out.mp4")
+
+    def test_the_picture_is_at_most_720_lines_and_even(self):
+        self.assertEqual(server.SCALE, "scale=-2:min(720\\,trunc(ih/2)*2)")
+
     def test_every_format_the_page_offers_is_known(self):
+        self.assertEqual(server.COPIES, {"webm", "mp4"})
         self.assertEqual(set(server.CODECS), {"aac", "ac3", "eac3"})
         self.assertEqual(server.VIDEOS, {"mp4", "m4v", "mov", "mkv", "webm"})
 

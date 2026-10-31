@@ -1,10 +1,12 @@
-# A small HTTP server for Scribecue's full mix, in front of ffmpeg. It makes one file at a
-# time, from a mix (a WAV) and, to put the mix into the video, the video:
+# A small HTTP server for Scribecue in front of ffmpeg. It makes one file at a time: the
+# full mix, from a mix (a WAV) and, to put the mix into the video, the video; or a copy
+# of a video that a browser without H.264 or AAC can play:
 #
 #   GET    /status              -> {"ffmpeg": "6.1.1"}
 #   POST   /jobs                {"codec": "aac" | "ac3" | "eac3", "video": "mp4" | null,
 #                                "replace": false, "name": "Film - full mix"} -> {"id": "..."}
-#   PUT    /jobs/<id>/mix       the mix, a WAV
+#                                or {"copy": "webm" | "mp4", "video": "mp4", "name": "Film"}
+#   PUT    /jobs/<id>/mix       the mix, a WAV, for the full mix
 #   PUT    /jobs/<id>/video     the video, with video set
 #   POST   /jobs/<id>/start
 #   GET    /jobs/<id>           -> {"state": "waiting" | "running" | "done" | "failed",
@@ -33,6 +35,11 @@ CODECS = {
     "eac3": (["-c:a", "eac3", "-b:a", "256k"], "eac3"),
 }
 VIDEOS = {"mp4", "m4v", "mov", "mkv", "webm"}
+# A playable copy: "webm" makes the picture VP9, at most 720 lines high, fast rather than
+# small, since it's for working on; "mp4" keeps the picture as it is, for a browser that
+# plays it but not its sound. Either way the sound becomes Opus, in stereo.
+COPIES = {"webm", "mp4"}
+SCALE = "scale=-2:min(720\\,trunc(ih/2)*2)"
 CHUNK = 1 << 20
 
 jobs = {}
@@ -70,6 +77,16 @@ def probe(path):
 def command(job):
     """The ffmpeg arguments for a job, and the duration to measure progress against."""
     folder, codec = job["dir"], job["codec"]
+    if job.get("copy"):
+        video = os.path.join(folder, "video." + job["video"])
+        picture = (["-c:v", "copy"] if job["copy"] == "mp4" else
+                   ["-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8", "-row-mt", "1",
+                    "-b:v", "0", "-crf", "36", "-vf", SCALE])
+        return [
+            "-i", video, "-map", "0:v:0", "-map", "0:a?", *picture,
+            "-c:a", "libopus", "-b:a", "128k", "-ac", "2", "-map_metadata", "0",
+            os.path.join(folder, "out." + job["copy"]),
+        ], probe(video)[1]
     mix = os.path.join(folder, "mix.wav")
     args, ext = CODECS[codec]
     if not job["video"]:
@@ -161,21 +178,21 @@ class Handler(BaseHTTPRequestHandler):
                 body = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length") or 0), 4096)) or "{}")
             except ValueError:
                 return self.reply(400, {"error": "not JSON"})
-            codec, video = body.get("codec"), body.get("video")
-            if codec not in CODECS or (video and video not in VIDEOS):
+            codec, video, copy = body.get("codec"), body.get("video"), body.get("copy")
+            if (copy not in COPIES or video not in VIDEOS) if copy else (codec not in CODECS or (video and video not in VIDEOS)):
                 return self.reply(400, {"error": "unknown format"})
             name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", str(body.get("name") or "full mix"))[:200]
             id = secrets.token_hex(8)
             with lock:
                 clear()
                 os.makedirs(os.path.join(WORK, id))
-                jobs[id] = {"dir": os.path.join(WORK, id), "codec": codec, "video": video or None,
+                jobs[id] = {"dir": os.path.join(WORK, id), "codec": codec, "video": video or None, "copy": copy or None,
                             "replace": bool(body.get("replace")), "name": name, "state": "waiting", "done": 0, "error": None}
             return self.reply(200, {"id": id})
         job, part = self.job()
         if not job or part != "/start":
             return self.reply(404, {"error": "no such job"})
-        need = ["mix.wav"] + (["video." + job["video"]] if job["video"] else [])
+        need = ([] if job["copy"] else ["mix.wav"]) + (["video." + job["video"]] if job["video"] else [])
         if job["state"] != "waiting" or not all(os.path.exists(os.path.join(job["dir"], f)) for f in need):
             return self.reply(409, {"error": "the files haven't all arrived"})
         job["state"] = "running"
@@ -184,7 +201,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         job, part = self.job()
-        if not job or part not in ("/mix", "/video") or (part == "/video" and not job["video"]):
+        if not job or part not in ("/mix", "/video") or (part == "/video" and not job["video"]) or (part == "/mix" and job["copy"]):
             return self.reply(404, {"error": "no such job"})
         size = int(self.headers.get("Content-Length") or 0)
         if size <= 0:

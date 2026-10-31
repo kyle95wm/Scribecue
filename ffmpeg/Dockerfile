@@ -1,4 +1,5 @@
-# ffmpeg for Scribecue: turns the full mix into AAC, AC-3 or E-AC-3, and puts it into a
+# ffmpeg for Scribecue: makes copies of videos a browser can play, and turns the full mix
+# into AAC, AC-3 or E-AC-3, and puts it into a
 # copy of the video. At run time the container has no internet access (see
 # docker-compose.yml) and is only reachable through Scribecue's own server. The video
 # and the mix it's given are kept in the scribecue-ffmpeg volume only while it works.

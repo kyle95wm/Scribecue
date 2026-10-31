@@ -22,6 +22,7 @@ class Unsupported extends Error {}
 class Enough extends Error {} // a clip has all the audio it needs
 
 let videoFps = 0; // the video's frame rate, found while probing
+let videoCodec = ''; // and its codec, as the file names it (avc1, V_VP9…)
 
 self.onmessage = async ({ data: job }) => {
   const clip = job.cmd === 'clip';
@@ -31,7 +32,7 @@ self.onmessage = async ({ data: job }) => {
     let out;
     try { out = await parseMedia(job.file, peaks, job); } catch (err) { if (!(clip && err instanceof Enough)) throw err; }
     if (clip) { closeDecoders(); postMessage({ type: 'clip', audio: peaks.out }, [peaks.out.buffer]); return; }
-    if (job.cmd === 'probe') { postMessage({ type: 'tracks', tracks: out, fps: videoFps }); return; }
+    if (job.cmd === 'probe') { postMessage({ type: 'tracks', tracks: out, fps: videoFps, video: videoCodec }); return; }
     peaks.progress = 1;
     peaks.post();
     if (job.mux) postMessage({ type: 'audio', ...(out || { reason: 'nothing to play' }) });
@@ -57,6 +58,7 @@ async function parseMedia(file, sink, job) {
   else if (/^(RIFF|RF64)$/.test(ascii(head, 0, 4)) && ascii(head, 8, 12) === 'WAVE') parse = wav;
   else throw new Unsupported('this file type is not streamed');
   videoFps = 0;
+  videoCodec = '';
   return parse(file, sink, job);
 }
 
@@ -421,6 +423,7 @@ async function matroska(file, peaks, job) {
     // The video's frame rate, from its frame length, for timecode.
     const v = tracks.find((t) => t.type === 1 && t.frameNs > 0);
     if (v) videoFps = 1e9 / v.frameNs;
+    videoCodec = tracks.find((t) => t.type === 1)?.codec || '';
     return listAudio();
   };
   const listAudio = () => audioTracks().map((t) => describe(mkvInfo(t), {
@@ -698,6 +701,8 @@ async function mp4(file, peaks, job) {
     const hdlr = child(moov, mdia, 'hdlr'), mdhd = child(moov, mdia, 'mdhd');
     const stts = child(moov, path(moov, mdia, 'minf', 'stbl'), 'stts');
     if (!hdlr || !mdhd || !stts || fourcc(moov, hdlr.start + 8) !== 'vide') continue;
+    const stsd = child(moov, path(moov, mdia, 'minf', 'stbl'), 'stsd');
+    if (stsd && !videoCodec) videoCodec = [...boxes(moov, stsd.start + 8, stsd.end)][0]?.type || '';
     const scale = moov.getUint32(mdhd.start + (moov.getUint8(mdhd.start) === 1 ? 20 : 12));
     let most = 0, delta = 0;
     for (let i = 0, n = moov.getUint32(stts.start + 4); i < n; i++) {

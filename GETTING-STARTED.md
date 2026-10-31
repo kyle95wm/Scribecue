@@ -194,7 +194,7 @@ If the video is slow to start, or stutters:
 - **Use a smaller copy of the video to write with,** such as 720p instead of 1080p or 4K.
   The timings are the same, so the script works with the full-size video too.
 - **Use Chrome or Edge.** Chromium, especially on Linux, often can't use the computer's
-  graphics chip to play video, and some builds can't play MP4 (H.264) at all.
+  graphics chip to play video, and some builds [can't play MP4](#if-a-video-wont-play).
 - **Prefer a file with only the description mix,** if you have one. With several audio
   tracks, Scribecue plays the chosen track alongside the video, which is more work.
 - **Press play once.** **Loading…** next to the clock means it's getting ready.
@@ -208,3 +208,15 @@ If the video is slow to start, or stutters:
 | **Video and audio** | MP4, MOV, M4A, MKV, WebM and WAV |
 | **Very large files** | Fine for MP4, MOV, M4A, MKV, WebM and WAV. Other formats need to be under 2 GB |
 | **AC-3, E-AC-3, DTS, TrueHD audio** | Play, but with no waveform |
+
+### If a video won't play
+
+Some builds of Chromium, mostly on Linux, can't play H.264 video or AAC sound, which most
+MP4 files use. Scribecue tells you when it starts, and again when you open a file it
+can't play.
+
+- **Use Chrome or Edge,** which play them.
+- **Or open a WebM copy,** which every browser plays. If you run Scribecue with
+  [ffmpeg in Docker](INSTALL.md#the-full-mix-in-the-video-ffmpeg), choose
+  **Make a copy that plays** and Scribecue makes one, opens it and downloads it for you.
+- **Keep the copy with the project.** Your timings work with the original video too.

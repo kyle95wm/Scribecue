@@ -1,3 +1,5 @@
+import { missing, COMMON } from './codecs.js';
+
 // Scribecue is built for Chrome and Edge. Other browsers on the same engine, such as Brave,
 // Opera, Vivaldi or Arc, usually work just as well, so what decides the notice is what a
 // browser can do, not its name: people are told only when something is missing or known
@@ -44,6 +46,9 @@ export function missingFeatures(w = globalThis) {
   if (!w.showSaveFilePicker) out.push('autosave, and saving a project straight back to its file (you get a download each time you save instead)');
   if (!('onbeforeinstallprompt' in w)) out.push('the Install app button');
   if (!('speechSynthesis' in w)) out.push('text to speech with your computer’s voices');
+  const video = w.document?.createElement?.('video');
+  const gone = video ? missing(COMMON, (t) => video.canPlayType(t)) : [];
+  if (gone.length) out.push(`playing most MP4 videos, which use ${gone.join(' and ')}. Use a WebM copy instead`);
   return out;
 }
 

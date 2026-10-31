@@ -200,6 +200,21 @@
     </div>
   </div>
 
+  <div id="codecAlert" class="updalert" role="alertdialog" aria-labelledby="codecAlertTitle" hidden>
+    <h2 id="codecAlertTitle">This file may not play here</h2>
+    <p id="codecAlertText"></p>
+    <p class="ffonly" hidden>ffmpeg can make a copy that plays here, and download it so you keep it.
+      Your work stays with the copy.</p>
+    <progress id="codecBar" class="jobbar" max="1" value="0" hidden aria-label="Making a copy"></progress>
+    <p id="codecStatus" class="dim small" aria-live="polite"></p>
+    <div class="updbtns">
+      <button id="codecCopy" class="ffonly" hidden>Make a copy that plays</button>
+      <button id="codecStop" hidden>Stop</button>
+      <span class="grow"></span>
+      <button id="codecOk" class="hl">OK</button>
+    </div>
+  </div>
+
   <div id="saveAlert" class="updalert" role="alertdialog" aria-labelledby="saveAlertTitle" hidden>
     <h2 id="saveAlertTitle"></h2>
     <p id="saveAlertText"></p>
