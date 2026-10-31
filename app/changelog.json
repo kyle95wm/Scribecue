@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.61.0",
+  "date": "2026-10-31",
+  "notes": "## Volume for each block\n\n- The open block has a **Vol** slider, from 25% to 200%, to make its reading quieter or louder than the rest. Type an exact percentage in the box beside it and press Enter, or double-click the slider for 100%.\n- It works with the **Video / TTS** slider: move that, and every block moves with it, keeping its difference.\n- It’s used while playing, in the full mix and in the description track, and kept in projects and WebVTT exports.\n- Readings are already close to full volume, so above 100% they sound fuller more than louder, and are kept from distorting. The browser’s own voices go no louder than 100%.\n\n## Dips that follow the setting\n\n- A block’s dip is now more or less than the one in the text to speech settings: **5 dB more**, **10 dB more**, **5 dB less**, or **Custom** to type any amount, such as +7 or -3. **No dip** is still there.\n- Change the setting later, and every block’s dip moves with it.\n- Blocks given an exact dip in 0.59 or 0.60 sound the same as before: they become the difference from your setting.\n\n## Fixes\n\n- A block’s own dip is no longer lost when the page is reloaded."
+ },
+ {
   "version": "0.60.0",
   "date": "2026-10-31",
   "notes": "## Custom dips\n\n- **Lower it by**, in the text to speech settings, has a new **Custom** choice: type any amount from 1 to 40 dB, for when 6, 10, 15 or 20 dB isn’t quite right.\n- A block’s dip menu has **Custom** too: type 0 to 40 dB, then press Enter. Escape leaves it as it was.\n- Custom dips work everywhere the others do: while playing, in the full mix, and in projects and WebVTT exports.\n- A block’s own dip replaces the setting for that block; the two never add up."
