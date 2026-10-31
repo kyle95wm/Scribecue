@@ -135,8 +135,8 @@ export const runsOver = (take, slot) => (take.start ?? slot.start) + take.durati
 // Editing a take. The narrator can split it into parts, at points in the recording, then
 // move each part (`shift`, in seconds, later if positive) and trim `head` and `tail` seconds
 // off its ends. The audio itself is never changed, so Reset brings it all back.
-// edit: { splits: [seconds into the recording], parts: [{ shift, head, tail }] }, with one
-// part more than splits. Takes saved before splitting existed have { shift, head, tail }.
+// edit: { splits: [seconds into the recording], parts: [{ shift, head, tail, cut? }] }, with
+// one part more than splits. A part with `cut` set is deleted: not heard or exported. Takes saved before splitting existed have { shift, head, tail }.
 export const EDIT_MIN = 0.1; // seconds of sound a part keeps, at least
 const NO_EDIT = { shift: 0, head: 0, tail: 0 };
 export function fullEdit(t) {
@@ -151,9 +151,10 @@ const bounds = (t, splits) => [0, ...splits, t.duration];
 // part, key }, where head is how far into the recording the part's sound begins.
 export function pieces(t) {
   const { splits, parts } = fullEdit(t), b = bounds(t, splits);
-  return parts.map((p, k) => {
+  return parts.flatMap((p, k) => {
+    if (p.cut) return [];
     const head = b[k] + p.head;
-    return { ...t, start: t.start + head + p.shift, duration: Math.max(0, b[k + 1] - p.tail - head), head, part: k, key: `${t.id}:${k}` };
+    return [{ ...t, start: t.start + head + p.shift, duration: Math.max(0, b[k + 1] - p.tail - head), head, part: k, key: `${t.id}:${k}` }];
   });
 }
 
@@ -177,12 +178,20 @@ export function clampEdit(t, edit, prevEnd = 0) {
       const head = ms(Math.max(0, Math.min(p.head, len - EDIT_MIN)));
       const tail = ms(Math.max(0, Math.min(p.tail, len - head - EDIT_MIN)));
       let shift = ms(p.shift);
+      if (p.cut) return { shift, head, tail, cut: true }; // deleted: nothing to keep clear of
       const at = t.start + b[k] + head + shift;
       if (at < floor - 1e-9) shift = ms(shift + floor - at);
       floor = t.start + b[k + 1] - tail + shift;
       return { shift, head, tail };
     }),
   };
+}
+
+// Deletes part k, unless it's the only one left: the new edit, or null.
+export function cutPart(t, k) {
+  const { splits, parts } = fullEdit(t);
+  if (!parts[k] || parts[k].cut || parts.filter((p) => !p.cut).length < 2) return null;
+  return { splits, parts: parts.map((p, j) => (j === k ? { ...p, cut: true } : p)) };
 }
 
 // Splits the take at `time` on the video, inside one of its parts: the new edit, or null if
@@ -221,7 +230,7 @@ export function trimSilence(t, pcm, rate = RATE) {
 export function fitSlot(t, slot, prevEnd = 0) {
   const e = fullEdit(t), p = placed(t);
   if (p.start > slot.end - EDIT_MIN) e.parts = e.parts.map((x) => ({ ...x, shift: x.shift + slot.start - p.start }));
-  const q = placed({ ...t, edit: e }), last = e.parts[e.parts.length - 1];
+  const q = placed({ ...t, edit: e }), last = e.parts.filter((x) => !x.cut).pop();
   // Rounded up to the millisecond, so rounding the edit can't leave it a hair over.
   if (q.start + q.duration > slot.end) last.tail += Math.ceil((q.start + q.duration - slot.end) * 1000 - 1e-6) / 1000;
   return clampEdit(t, e, prevEnd);

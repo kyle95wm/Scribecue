@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, silenceEnds, trimSilence, fitSlot, flatten, wavePeaks, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, flatten, wavePeaks, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -289,4 +289,21 @@ test('a split take flattens to one stretch, silent between its parts', () => {
 test('the waveform has the loudest sample of each column', () => {
   const pcm = Float32Array.from([0, 0.5, -0.8, 0.1, 0, 0.2]);
   assert.deepEqual([...wavePeaks(pcm, 3)].map((v) => +v.toFixed(2)), [0.5, 0.8, 0.2]);
+});
+
+test('a deleted part is gone from the take, and the rest stays put', () => {
+  const t = { id: 'a', start: 10, duration: 4 };
+  const split = splitAt(t, 12); // parts: 10–12 s and 12–14 s
+  const right = cutPart({ ...t, edit: split }, 1);
+  assert.deepEqual(pieces({ ...t, edit: right }).map((p) => [p.start, p.duration, p.part]), [[10, 2, 0]]);
+  assert.equal(placed({ ...t, edit: right }).duration, 2);
+  const left = clampEdit(t, cutPart({ ...t, edit: split }, 0));
+  assert.deepEqual(pieces({ ...t, edit: left }).map((p) => [p.start, p.duration, p.head]), [[12, 2, 2]]);
+  assert.equal(cutPart({ ...t, edit: right }, 0), null, 'the last part stays');
+  assert.equal(cutPart({ ...t, edit: right }, 1), null, 'already gone');
+  // Fit in slot trims the last part that's left, and a deleted part leaves nothing to clear.
+  const fit = fitSlot({ ...t, edit: right }, { start: 10, end: 11.5 });
+  assert.ok(Math.abs(placed({ ...t, edit: fit }).duration - 1.5) < 0.002);
+  const pushed = clampEdit(t, { splits: [2], parts: [{ shift: 0, head: 0, tail: 0, cut: true }, { shift: -2, head: 0, tail: 0 }] });
+  assert.equal(pieces({ ...t, edit: pushed })[0].start, 10, 'the part after a deleted one can move into its place');
 });

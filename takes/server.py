@@ -9,7 +9,8 @@
 #   GET    /r/<rec>/<id>            the take's WAV
 #   POST   /r/<rec>/<id>/choose     makes it the one chosen for its block
 #   POST   /r/<rec>/<id>/edit       splits, moves and trims it: {"splits": [s], "parts": [{"shift",
-#                                   "head", "tail"}]}, in seconds, with a part more than splits
+#                                   "head", "tail", "cut"?}]}, in seconds, with a part more than
+#                                   splits; "cut" deletes a part
 #   DELETE /r/<rec>/<id>
 #   DELETE /all                     every take of every recording
 #
@@ -85,7 +86,11 @@ def edit(raw):
     for p in parts:
         if not isinstance(p, dict) or not all(ok(p.get(k)) for k in ("shift", "head", "tail")) or p["head"] < 0 or p["tail"] < 0:
             return None
-    return {"splits": splits, "parts": [{k: p[k] for k in ("shift", "head", "tail")} for p in parts]}
+        if p.get("cut") not in (None, True):
+            return None
+    if all(p.get("cut") for p in parts):
+        return None  # a take keeps one part at least
+    return {"splits": splits, "parts": [{**{k: p[k] for k in ("shift", "head", "tail")}, **({"cut": True} if p.get("cut") else {})} for p in parts]}
 
 
 def choose(index, id):

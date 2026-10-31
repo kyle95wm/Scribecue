@@ -2,7 +2,7 @@
 // exports the chosen ones as one WAV for the mixer. The script is locked (app.js sees to
 // that); this file does the recording. The plan is in RECORDING.md.
 
-import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, fullEdit, clampEdit, splitAt, trimSilence, fitSlot, flatten, wavePeaks, DRIFT, PREROLL, RATE } from './recording.js';
+import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, trimSilence, fitSlot, flatten, wavePeaks, DRIFT, PREROLL, RATE } from './recording.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takesWhere } from './takestore.js';
 
@@ -115,8 +115,10 @@ export function initRecord(h) {
     li.className = 'takeedit';
     const slot = sl()[i], prevEnd = i ? sl()[i - 1].end : 0;
     let e = clampEdit(t, t.edit, prevEnd);
-    let sel = Math.min(editing.part || 0, e.parts.length - 1); // the part the fields change
     const cur = () => ({ ...t, edit: e });
+    // The part the fields change: the one last clicked, or the nearest one left.
+    const near = (k) => pieces(cur()).reduce((a, p) => (Math.abs(p.part - k) < Math.abs(a - k) ? p.part : a), Infinity);
+    let sel = near(Math.min(editing.part || 0, e.parts.length - 1));
     const setPart = (k, patch) => ({ splits: e.splits, parts: e.parts.map((p, j) => (j === k ? { ...p, ...patch } : p)) });
     // Where each part's stretch of the recording sits, trimmed ends and all.
     const raw = () => { const b = [0, ...e.splits, t.duration]; return e.parts.map((p, k) => [t.start + b[k] + p.shift, t.start + b[k + 1] + p.shift]); };
@@ -156,14 +158,23 @@ export function initRecord(h) {
     const split = () => {
       const n = splitAt(cur(), video.currentTime);
       if (!n) return h.toast('Put the playhead inside the take, away from the ends of its parts, to split it');
-      const k = pieces(cur()).findIndex((p) => video.currentTime > p.start && video.currentTime < p.start + p.duration);
-      sel = editing.part = k + 1;
+      const p = pieces(cur()).find((q) => video.currentTime > q.start && video.currentTime < q.start + q.duration);
+      sel = editing.part = p.part + 1;
       commit(n);
     };
+    const cut = () => {
+      const n = cutPart(cur(), sel);
+      if (!n) return h.toast('A take keeps one part at least. Delete the take instead');
+      e = n;
+      sel = editing.part = near(sel);
+      commit(n);
+    };
+    const cutBtn = btn('Delete part', 'Delete the part you last clicked. Reset brings it back (Delete)', cut);
+    cutBtn.disabled = pieces(cur()).length < 2;
     const row = document.createElement('div');
     row.className = 'recrow';
     row.append(which, lMove, lHead, lTail,
-      btn('Split', 'Split the take at the playhead, to move its parts apart or closer together (X)', split), silenceBtn,
+      btn('Split', 'Split the take at the playhead, to move its parts apart or closer together (X)', split), cutBtn, silenceBtn,
       btn('Fit in slot', 'Trim the end so the take stops where its slot does', () => commit(fitSlot(cur(), slot, prevEnd))),
       btn('Reset', 'Undo the splits, moves and trims: the take as recorded', () => { sel = editing.part = 0; commit({ splits: [], parts: [{}] }); }));
     li.append(cv, row, say);
@@ -179,8 +190,8 @@ export function initRecord(h) {
       const cols = Math.max(1, Math.round(x(v0 + t.duration) - x(v0)));
       if (editing?.pcm && editing.peaks?.length !== cols) editing.peaks = wavePeaks(editing.pcm, cols);
       const pk = editing?.pcm ? editing.peaks : null, mid = cv.height / 2;
-      ps.forEach((p, k) => {
-        const kept = (s) => s >= p.start && s < p.start + p.duration;
+      ps.forEach((p) => {
+        const k = p.part, kept = (s) => s >= p.start && s < p.start + p.duration;
         if (!pk) {
           g.fillStyle = tk('--faint');
           g.fillRect(x(r[k][0]), mid - 1, x(r[k][1]) - x(r[k][0]), 2);
@@ -196,8 +207,8 @@ export function initRecord(h) {
           g.fillRect(x(r[k][0]) + (c - c0), mid - hh, 1, hh * 2);
         }
       });
-      for (const [k, p] of ps.entries()) {
-        g.fillStyle = k === sel ? tk('--text') : tk('--dim');
+      for (const p of ps) {
+        g.fillStyle = p.part === sel ? tk('--text') : tk('--dim');
         for (const s of [p.start, p.start + p.duration]) g.fillRect(x(s) - 1, 4, 2, cv.height - 8);
       }
       const now = video.currentTime;
@@ -205,7 +216,7 @@ export function initRecord(h) {
       const end = placed(cur());
       say.textContent = over ? `Ends ${(end.start + end.duration - slot.end).toFixed(2)} s past its slot` : 'Fits its slot';
       say.className = 'num ' + (over ? 'lvl loud' : 'dim');
-      which.textContent = ps.length > 1 ? `Part ${sel + 1} of ${ps.length}:` : '';
+      which.textContent = ps.length > 1 ? `Part ${ps.findIndex((p) => p.part === sel) + 1} of ${ps.length}:` : '';
       cv.setAttribute('aria-label', `Take from ${end.start.toFixed(2)} s to ${(end.start + end.duration).toFixed(2)} s${ps.length > 1 ? `, in ${ps.length} parts` : ''}. ${say.textContent}`);
       const q = e.parts[sel];
       fMove.value = MS(q.shift); fHead.value = MS(q.head); fTail.value = MS(q.tail);
@@ -268,6 +279,7 @@ export function initRecord(h) {
     }
     editing.draw = draw;
     editing.split = split;
+    editing.cut = cut;
     draw();
     return li;
   }
@@ -674,6 +686,8 @@ export function initRecord(h) {
     toggle, punch, exportWav, finish, render,
     // Splits the take open in the editor at the playhead: false if none is open.
     splitTake() { if (!editing?.split || state !== 'idle') return false; editing.split(); return true; },
+    // Deletes the part picked in the editor: false if no take is open there.
+    cutPart() { if (!editing?.cut || state !== 'idle') return false; editing.cut(); return true; },
     refresh: () => reload(),
     get hearing() { return hear; },
     setHearing,

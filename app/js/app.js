@@ -4178,6 +4178,7 @@ document.addEventListener('keydown', (e) => {
   if (id) {
     e.preventDefault();
     if (S.mode === 'record' && id === 'split' && recorder.splitTake()) return; // splits the take being edited
+    if (S.mode === 'record' && id === 'deleteNow' && recorder.cutPart()) return; // deletes a part of it
     if (S.mode === 'record' && REC_LOCKED.has(id)) return toast('The script is locked in Record mode');
     RUN[id](e);
     return;
