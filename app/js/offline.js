@@ -26,7 +26,8 @@ export function offlineLabel({ hosted, offline, ready }) {
 // much the site is used, and nothing can make it agree, so the row says what keeps work
 // safe anyway.
 // readings: Piper, Kokoro and Google readings kept in this browser, { count, bytes }.
-export function checklist({ hosted, appKept, guides, voices, whisper, persisted, usage, refused = false, readings = null }) {
+// takes: a narrator's recorded takes, likewise.
+export function checklist({ hosted, appKept, guides, voices, whisper, persisted, usage, refused = false, readings = null, takes = null }) {
   const rows = [];
   if (hosted) rows.push(...offlineRows({ appKept, guides, voices, whisper }));
   if (persisted !== null) {
@@ -39,6 +40,10 @@ export function checklist({ hosted, appKept, guides, voices, whisper, persisted,
   if (readings?.count) {
     rows.push([null, 'Saved readings', `${readings.count} line${readings.count === 1 ? '' : 's'}, ${mb(readings.bytes)}. `
       + 'They play straight away and offline, and Google ones aren’t sent to Google again.', 'readings']);
+  }
+  if (takes?.count) {
+    rows.push([null, 'Recorded takes', `${takes.count} take${takes.count === 1 ? '' : 's'}, ${mb(takes.bytes)}. `
+      + 'They’re only in this browser: clearing its data for Scribecue loses them. Export the narration WAV to keep them.']);
   }
   if (usage) rows.push([null, 'Space used', `${usage < 1e6 ? 'Less than 1' : Math.round(usage / 1e6)} MB in this browser.`]);
   return rows;
@@ -66,14 +71,15 @@ export async function keepStorage({ ask = false } = {}) {
   return ask || chromium(navigator.userAgent, navigator.userAgentData?.brands || []) ? s.persist() : false;
 }
 
-let hooks = { toast: () => {}, voices: () => [], whisper: () => false, readings: async () => null, clearReadings: async () => {}, openTts: () => {}, openStt: () => {}, guides: async () => false,
+let hooks = { toast: () => {}, voices: () => [], whisper: () => false, readings: async () => null, takes: async () => null, clearReadings: async () => {}, openTts: () => {}, openStt: () => {}, guides: async () => false,
   unsaved: () => 0, save: async () => {} };
 
 // The warning before removing everything, from what would be lost.
-export function wipeWarning({ unsaved, offline, hosted }) {
+export function wipeWarning({ unsaved, offline, hosted, takes = 0 }) {
   return [
     'This can’t be undone.',
     unsaved ? `${unsaved} block${unsaved === 1 ? ' isn’t' : 's aren’t'} saved in a project file and will be lost.` : '',
+    takes ? `${takes} recorded take${takes === 1 ? '' : 's'} will be lost. Export the narration WAV first to keep them.` : '',
     offline && hosted ? 'You’re offline, so Scribecue won’t open again until you’re back online.' : '',
     'Afterwards Scribecue opens as if for the first time.',
   ].filter(Boolean).join(' ');
@@ -88,7 +94,7 @@ export async function removeAllData() {
   const gone = (name) => new Promise((ok) => { const q = indexedDB.deleteDatabase(name); q.onsuccess = q.onerror = q.onblocked = () => ok(); });
   try {
     const dbs = indexedDB.databases ? (await indexedDB.databases()).map((d) => d.name) : [];
-    for (const name of new Set([...dbs, 'scribecue', 'scribecue-readings', 'scribecue-waves'])) if (name) await gone(name);
+    for (const name of new Set([...dbs, 'scribecue', 'scribecue-readings', 'scribecue-waves', 'scribecue-takes'])) if (name) await gone(name);
   } catch { /* none */ }
   try {
     const root = await navigator.storage.getDirectory();
@@ -103,7 +109,7 @@ async function survey() {
   const persisted = navigator.storage?.persisted ? await navigator.storage.persisted() : null;
   const usage = (await navigator.storage?.estimate?.().catch(() => null))?.usage || 0;
   return { hosted: HOSTED, appKept, guides: await hooks.guides(), voices: hooks.voices(), whisper: hooks.whisper(), persisted, usage, refused,
-    readings: await hooks.readings() };
+    readings: await hooks.readings(), takes: await hooks.takes() };
 }
 
 async function render() {
@@ -161,12 +167,13 @@ export function openOffline() {
   render();
 }
 
-function askWipe(show) {
+async function askWipe(show) {
   $('wipeAsk').hidden = show;
   $('wipeConfirm').hidden = !show;
   if (!show) return;
   const unsaved = hooks.unsaved();
-  $('wipeWarn').textContent = wipeWarning({ unsaved, offline: !online(), hosted: HOSTED });
+  const takes = (await hooks.takes())?.count || 0;
+  $('wipeWarn').textContent = wipeWarning({ unsaved, offline: !online(), hosted: HOSTED, takes });
   $('wipeSave').hidden = !unsaved;
   $('wipeCancel').focus();
 }

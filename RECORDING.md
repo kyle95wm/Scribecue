@@ -1,7 +1,10 @@
 # Recording narration: a planned feature
 
-> **Not built yet.** This is the outline of an idea, kept here so it can be picked up
-> later. Nothing below is in Scribecue today, and the details may change.
+> **Under construction.** Built and working in Chrome, not yet released: exporting the
+> recording file, Record mode, capturing and keeping takes in the browser, the sync test,
+> and the narration WAV. Still to do: keeping takes on disk in the Docker version, testing
+> with real microphones and Bluetooth headphones, Safari, and a guide for narrators.
+> The details may change.
 
 Once a script is written and timed, someone has to voice it. The idea is that you'd hand
 the narrator a **recording file**: the script, locked, which they open in Scribecue and
@@ -23,6 +26,7 @@ fit their slots, at the right level, to the mixer.
 - [Levels](#levels)
 - [Keeping takes in sync](#keeping-takes-in-sync)
 - [Exporting for the mixer](#exporting-for-the-mixer)
+- [Checking the narration](#checking-the-narration)
 - [Where takes are kept](#where-takes-are-kept)
 - [Technical notes](#technical-notes)
 
@@ -36,6 +40,8 @@ fit their slots, at the right level, to the mixer.
 4. **The narrator** exports one WAV file and sends it to the mixer.
 5. **The mixer** imports it into their DAW. It's timestamped, so it lands at the right
    timecode, and each line is marked.
+6. **You** can open the WAV in Scribecue, with your script, to check it was recorded
+   against the script you sent.
 
 ## The recording file
 
@@ -138,6 +144,19 @@ Before exporting, Scribecue checks every block:
 - **Stops the export:** any chosen take that peaks above −6 dBFS.
 - **Warns, but exports:** blocks with no take, takes that run past their slot, and takes
   that are too quiet. These go in a short report the narrator can send with the WAV.
+
+## Checking the narration
+
+The recording file is plain text, so a narrator could change the script in a text
+editor. Scribecue can't stop that, but it can show you.
+
+- **When the narrator opens it,** Scribecue checks the file's fingerprint. If the script
+  was changed outside Scribecue, it says so.
+- **The WAV carries the script** it was recorded against. DAWs ignore it.
+- **Open the WAV in Scribecue** with your script open. It lists any line whose text or
+  timing differs, and says if the recording file was changed.
+
+If you've changed your script since sending the file, those lines show up too.
 
 ## Where takes are kept
 

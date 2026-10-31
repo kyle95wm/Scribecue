@@ -36,6 +36,10 @@
       <button role="radio" data-mode="transcribe" data-tip="Transcribe existing audio description at its original timing, with hold-to-mark (H)">Transcribe</button>
       <button role="radio" data-mode="write" data-tip="Write new audio description, with text to speech, reading times and block speeds">Write</button>
     </div>
+    <div class="recbadge record-only">
+      <strong>Record mode</strong>
+      <button data-tip="Leave Record mode. The script unlocks; your takes stay kept for next time">Leave</button>
+    </div>
     <div class="files">
       <span id="subName" title="Script file">untitled.srt</span>
       <span class="sep">/</span>
@@ -53,6 +57,8 @@
           <button role="menuitem" data-act="exportSrt"><span><strong>Script as SRT</strong><span class="dim">to hand off, or for the final output</span></span><kbd><span class="mod"></span>E</kbd></button>
           <button role="menuitem" data-act="exportVtt"><span><strong>Script as WebVTT</strong><span class="dim">also keeps block speeds and sounds-like words</span></span><kbd><span class="mod"></span>⇧E</kbd></button>
           <button role="menuitem" data-act="exportTrack" class="write-only"><span><strong>Description track</strong><span class="dim">every reading in one WAV or MP3 file, with a Piper or Google voice</span></span></button>
+          <button role="menuitem" data-act="exportRecording" class="write-only"><span><strong>Recording file</strong><span class="dim">the locked script and timings, for a narrator to record against</span></span></button>
+          <button role="menuitem" data-act="exportNarration" class="record-only"><span><strong>Narration WAV</strong><span class="dim">the chosen takes in one timestamped file, for the mixer</span></span></button>
           <button role="menuitem" data-act="exportMix" class="write-only"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></button>
         </div>
       </span>
@@ -153,6 +159,27 @@
           TTS</label>
         <span id="ind"></span>
       </div>
+      <section class="recbar record-only" id="recBar" aria-label="Recording">
+        <div class="recrow">
+          <button id="recGo" class="recgo" data-tip="Record the selected line (Enter or R). Press again to stop">● Record</button>
+          <canvas id="recMeter" width="220" height="16" role="img" aria-label="Microphone level. Aim for the green zone"></canvas>
+          <div class="recslot" id="recSlot" data-tip="How much of the line's slot is left"><div id="recSlotFill"></div></div>
+          <span id="recStatus" role="status"></span>
+          <span class="grow"></span>
+          <span id="recCount" class="dim"></span>
+        </div>
+        <details class="recopts">
+          <summary>Microphone, lead-in and sync</summary>
+          <div class="recrow">
+            <label>Microphone <select id="recDev"><option value="">Default microphone</option></select></label>
+            <label>Lead-in <select id="recLead"><option value="3">3 s</option><option value="4">4 s</option><option value="5">5 s</option></select></label>
+            <label data-tip="Raise this until the flash and the beep happen together. Empty uses the browser's own figure. Wired headphones need little or none">Sync <input type="number" id="recSync" step="10" min="-500" max="1000" placeholder="auto"> ms</label>
+            <button id="recTest">Sync test</button>
+            <span id="recFlash" class="recflash" hidden></span>
+          </div>
+        </details>
+        <ol id="recTakes" class="rectakes" aria-label="Takes of the selected line"></ol>
+      </section>
     </section>
   </main>
 
@@ -285,6 +312,28 @@ docker compose up -d --build</code></pre>
       <button id="dockerTipLater">Not now</button>
       <button id="dockerTipHow" class="hl">How to set it up</button>
     </div>
+  </dialog>
+
+  <dialog id="recExportDlg" class="updbox wizard" aria-labelledby="recExportTitle">
+    <h2 id="recExportTitle">Export the narration</h2>
+    <pre id="recReport" class="recreport"></pre>
+    <div class="updbtns"><button id="recExportCancel">Cancel</button><button id="recExportGo" class="hl">Export anyway</button></div>
+  </dialog>
+
+  <dialog id="recFileDlg" class="updbox wizard" aria-labelledby="recFileTitle">
+    <h2 id="recFileTitle">Recording file</h2>
+    <p>A narrator opens this in Scribecue to record each line. The script and timings are locked.</p>
+    <label class="recfield">Programme starts at
+      <input id="recFileStart" value="01:00:00:00" spellcheck="false" autocomplete="off" aria-describedby="recFileNote"></label>
+    <p class="dim small" id="recFileNote">Timecode at the video's first frame, at <span id="recFileFps"></span> fps. The mixer's software uses it to place the narration.</p>
+    <div class="updbtns"><button id="recFileCancel">Cancel</button><button id="recFileGo" class="hl">Save the file</button></div>
+  </dialog>
+
+  <dialog id="narrDlg" class="updbox wizard" aria-labelledby="narrTitle">
+    <h2 id="narrTitle">Check the narration</h2>
+    <p id="narrWhat"></p>
+    <pre id="narrList" class="recreport"></pre>
+    <div class="updbtns"><button id="narrClose" class="hl">Close</button></div>
   </dialog>
 
   <dialog id="newDlg" class="updbox wizard" aria-labelledby="newTitle">
@@ -778,12 +827,12 @@ docker compose up -d --build</code></pre>
       <li class="docker-only">Checking for updates, if you've turned that on.</li>
     </ul>
     <h3>Remove all data</h3>
-    <p class="small hosted-only">Removes everything Scribecue keeps in this browser: unsaved blocks, settings and
-      shortcuts, AI and Google keys, downloaded Piper voices and Whisper, and its offline copy. Project and script
+    <p class="small hosted-only">Removes everything Scribecue keeps in this browser: unsaved blocks, recorded takes,
+      settings and shortcuts, AI and Google keys, downloaded Piper voices and Whisper, and its offline copy. Project and script
       files on your computer aren't touched, and neither is anything in Docker, such as Piper, Whisper
       or Ollama models.</p>
     <p class="small docker-only">Removes everything Scribecue keeps in this browser: unsaved blocks,
-      settings and shortcuts, and AI and Google keys. Project and script files on your computer aren't touched,
+      recorded takes, settings and shortcuts, and AI and Google keys. Project and script files on your computer aren't touched,
       and neither are the containers or anything in them, such as Piper voices, Whisper or Ollama
       models.</p>
     <p id="wipeAsk"><button id="wipeBtn">Remove all data…</button></p>
@@ -1038,7 +1087,7 @@ docker compose up -d --build</code></pre>
     </div>
   </div>
 
-  <input type="file" id="fileSubs" accept=".scribecue,.srt,.vtt,.txt,.adc,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
+  <input type="file" id="fileSubs" accept=".scribecue,.scribecue-rec,.srt,.vtt,.txt,.adc,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
   <input type="file" id="fileVideo" accept="video/*,audio/*,.mkv,.mov,.m4a" hidden>
   <!-- pops up under a selection in the block text; at the top level so it's placed by the window -->
   <button id="selSay" class="selsay" tabindex="-1" hidden>Sounds Like</button>

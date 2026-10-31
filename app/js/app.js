@@ -4,6 +4,10 @@ import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
+import { RECORDING_EXT, toRecordingFile, fromRecordingFile, sameVideo, compareScript } from './recording.js';
+import { readNote } from './bwf.js';
+import { initRecord } from './record.js';
+import { takesInfo } from './takestore.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile } from './browser.js';
 import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
@@ -12,7 +16,7 @@ import { initWhatsNew, openWhatsNew } from './whatsnew.js';
 import { initSettings, addSection, adopt, place, openSettings, closeSettings } from './settings.js';
 import { initReminder } from './reminder.js';
 import { announce, speakable, blockLabel } from './a11y.js';
-import { initOffline, openOffline } from './offline.js';
+import { initOffline, openOffline, keepStorage } from './offline.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
@@ -633,6 +637,7 @@ let edOpen = false;
 
 function updateEditor() {
   const c = selCue();
+  if (S.mode === 'record') recorder?.render();
   edTts.hidden = !(c && ttsOn());
   if (!c) {
     edSpeedWrap.hidden = true;
@@ -1073,6 +1078,7 @@ function placeEditor() {
 list.addEventListener('click', (e) => {
   const r = e.target.closest('.row');
   if (!r) return;
+  if (S.mode === 'record') { select(+r.dataset.id, { toTop: false }); return; } // the script is locked
   if (e.target.closest('.rowdel')) { e.target.blur(); del(S.cues[idx(+r.dataset.id)]); return; }
   // One click opens the block, ready to type, as in Frazier.
   select(+r.dataset.id, { toTop: false });
@@ -1334,6 +1340,7 @@ lane.addEventListener('pointerdown', (e) => {
     const id = +el.dataset.id, i = idx(id), c = S.cues[i];
     if (!c) return;
     if (S.sel !== id) select(id, { seek: false, reveal: false });
+    if (S.mode === 'record') return; // the script is locked
     const mode = following(c) ? 'move' : e.target.closest('.hl') ? 'start' : e.target.closest('.hr') ? 'end' : 'move';
     drag = { mode, id, x0: e.clientX, s0: c.start, e0: c.end, ...bounds(i), snap: snapshot(), moved: false };
   } else {
@@ -1412,7 +1419,7 @@ lane.addEventListener('pointerup', endDrag);
 lane.addEventListener('pointercancel', endDrag);
 lane.addEventListener('dblclick', (e) => {
   const el = e.target.closest('.cue');
-  if (el) { select(+el.dataset.id, { seek: false, reveal: false }); editText(); }
+  if (el) { select(+el.dataset.id, { seek: false, reveal: false }); if (S.mode !== 'record') editText(); }
 });
 
 let scrubbing = false;
@@ -1521,7 +1528,7 @@ const CTL = {
   prevBlock: () => playheadBlock(-1),
   back3: () => seekBy(-3),
   backFrame: () => seekBy(-frame()),
-  play: () => togglePlay(),
+  play: () => (recorder?.active ? recorder.finish() : togglePlay()),
   fwdFrame: () => seekBy(frame()),
   fwd3: () => seekBy(3),
   nextBlock: () => playheadBlock(1),
@@ -1619,8 +1626,9 @@ function stopLoop() {
 // video playing alongside. Playback stops at the block's end, or where the reading
 // ends if it runs over. ⇧V then sets the block's end to where the reading finished.
 function speakBlock(fit) {
-  if (!writing()) return modeOnly('Text to speech', 'write');
-  if (!tts.on) { openTts(); return toast('Turn on text to speech to hear blocks read aloud'); }
+  const guide = S.mode === 'record'; // a guide reading of the line, before taking it
+  if (!writing() && !guide) return modeOnly('Text to speech', 'write');
+  if (!tts.on && !guide) { openTts(); return toast('Turn on text to speech to hear blocks read aloud'); }
   const c = cueAt(now()) || selCue();
   if (!c) return toast('No text block here — move the playhead into one or select one');
   if (!spoken(c.text)) return toast(onlyNotes(c.text) ? 'This block only has notes in [brackets], which aren’t read' : 'This block has no text to read yet');
@@ -1637,6 +1645,7 @@ function speakBlock(fit) {
       if (fit) { pause(); fitToSpeech(cur, secs); return; }
       const room = cur.end - cur.start;
       if (now() >= cur.end) pause(); else S.playUntil = cur.end;
+      if (guide) return;
       // An auto block has just been refitted to this reading.
       if (cur.auto && room + 0.0005 >= secs) return toast(`Reading takes ${secs.toFixed(1)} s. The block now ends where the reading finishes`);
       toast(secs > room + 0.05
@@ -2585,6 +2594,8 @@ let ducked = false, dip = 0, dipTo = 0, dipFrom = 0, volumeWas = -1;
 // How far the programme goes down under a block's reading, in dB: the setting, or more or
 // less with the block's own, or not at all.
 const blockDip = (c) => (!tts.duck ? 0 : dipFor(c, tts.dipDb));
+let recVol = 1; // the video's level while recording, lowered so the narrator can follow the scene
+let recorder = null;
 function duckAudio(on = ducked) {
   ducked = on;
   applyDuck(0);
@@ -2594,7 +2605,7 @@ function applyDuck(dt) {
   const target = ducked ? blockDip(c) : 0;
   if (target !== dipTo) { dipTo = target; dipFrom = dip; }
   dip = stepDip(dip, target, dt, tts.dipFade, dipFrom);
-  const v = dipLevel(dip) * (writing() && tts.on ? mixLevels(tts.mix).video : 1);
+  const v = dipLevel(dip) * (writing() && tts.on ? mixLevels(tts.mix).video : 1) * recVol;
   if (v === volumeWas) return;
   volumeWas = v;
   video.volume = v;
@@ -2623,14 +2634,16 @@ mixEl.addEventListener('dblclick', () => { setMix(0); duckAudio(); showMix(); })
 
 // ---------------------------------------------------------------- modes
 
-const MODE_NAMES = { transcribe: 'Transcribe', write: 'Write' };
+const MODE_NAMES = { transcribe: 'Transcribe', write: 'Write', record: 'Record' };
 function modeOnly(feature, mode) {
   toast(`${feature} is part of ${MODE_NAMES[mode]} mode. Switch modes at the top`);
 }
 function setMode(m, quiet = false) {
   if (!MODE_NAMES[m]) return;
   S.mode = m;
-  try { localStorage.setItem('scribecue.mode', m); } catch { /* ignore */ }
+  // Record mode belongs to an open recording file, so it isn't what the next visit starts in.
+  if (m !== 'record') try { localStorage.setItem('scribecue.mode', m); } catch { /* ignore */ }
+  document.body.classList.toggle('mode-record', m === 'record');
   document.body.classList.toggle('mode-write', m === 'write');
   document.body.classList.toggle('mode-transcribe', m === 'transcribe');
   for (const b of document.querySelectorAll('#modeSw button')) {
@@ -2638,7 +2651,7 @@ function setMode(m, quiet = false) {
     b.classList.toggle('on', on);
     b.setAttribute('aria-checked', on);
   }
-  if (m === 'write') { holdEnd(); fitAllAuto(); } else { stopSpeech(); if (stt.on) warmStt(); }
+  if (m === 'record') { holdEnd(); stopSpeech(); } else if (m === 'write') { holdEnd(); fitAllAuto(); } else { stopSpeech(); if (stt.on) warmStt(); }
   renderList();
   updateEditor();
   updateInd();
@@ -2990,6 +3003,7 @@ async function openVideoPicker() {
   }
 }
 
+const isDoc = (name) => /\.scribecue(-rec)?$/i.test(name); // a project or a recording file
 const PROJECT_TYPES = [{ description: 'Scribecue project', accept: { 'application/json': [PROJECT_EXT] } }];
 
 function projectData() {
@@ -3015,6 +3029,7 @@ function projectSaved(name) {
 // Ctrl/Cmd+S saves in place once the project has a file; Ctrl/Cmd+Shift+S always asks.
 // Browsers that can't save in place download a copy instead.
 async function saveProject(as = false) {
+  if (S.mode === 'record') return toast('Takes are kept as you record them. Export the narration WAV when you’re done');
   if (!S.cues.length) return toast('Nothing to save yet');
   const text = JSON.stringify(projectData(), null, 1);
   const name = `${baseName()}${PROJECT_EXT}`;
@@ -3127,11 +3142,13 @@ function okToReplace(what) {
 }
 
 async function openProject(file, handle = null) {
+  if (file.name.toLowerCase().endsWith(RECORDING_EXT)) return openRecording(file);
   let p;
   try { p = fromProject(JSON.parse(await file.text())); }
   catch (e) { return toast(`Couldn’t open ${file.name}: ${e instanceof SyntaxError ? 'the file is damaged' : e.message}`); }
   if (!okToReplace(`Open ${file.name}`)) return;
   await stopJob();
+  await endRecording();
   pushUndo();
   // The project's dip and Video / TTS slider first, as its blocks' dips and volumes build
   // on them, and exact dips from older projects become the difference from its dip.
@@ -3148,7 +3165,7 @@ async function openProject(file, handle = null) {
   S.notes = p.notes;
   aiNotesChanged();
   const { mode, offset, ttsSpeed, ttsBase, ttsVoice } = p.settings;
-  if (mode) setMode(mode, true);
+  if (mode && mode !== 'record') setMode(mode, true);
   if (offset != null) setOffset(offset);
   // Projects saved before there was a base speed were read at 100%, with an overall
   // speed for blocks without their own, which becomes the base speed.
@@ -3166,6 +3183,113 @@ async function openProject(file, handle = null) {
   // A different video is open: this project's one replaces it, if it's remembered.
   if (p.media && !ready && S.videoFile && await handleStore.get(mediaKey(p.media))) closeVideo();
   if (p.media && !ready) reopenVideo(p.media, { ask: true }).then((ok) => { if (ok) toast(`Opened ${file.name} and its video, ${p.media.name}`); });
+}
+
+// ---- recording files (see record.js and RECORDING.md)
+
+const recFileDlg = $('recFileDlg');
+function askRecordingFile() {
+  if (!S.cues.some((c) => c.text.trim())) return toast('Write some blocks first: the recording file holds the script');
+  let last = '01:00:00:00';
+  try { last = localStorage.getItem('scribecue.recStart') || last; } catch { /* ignore */ }
+  $('recFileStart').value = last;
+  $('recFileFps').textContent = String(S.fps);
+  recFileDlg.showModal();
+  $('recFileStart').select();
+}
+function saveRecordingFile() {
+  const start = readTime($('recFileStart').value.trim());
+  if (start == null || !(start >= 0)) return toast('That isn’t a timecode. Type it like 01:00:00:00');
+  try { localStorage.setItem('scribecue.recStart', $('recFileStart').value.trim()); } catch { /* ignore */ }
+  const m = S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size, duration: S.hasVideo ? duration() : null } : S.projectMedia;
+  const file = toRecordingFile({ app: VERSION, blocks: S.cues, media: m, start, fps: S.fps });
+  const name = `${baseName()}${RECORDING_EXT}`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(file, null, 1)], { type: 'application/json' }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  recFileDlg.close();
+  toast(`Saved ${name} (${file.blocks.length} lines)` + (m ? '' : '. Open the video first next time, so it can check the narrator has the right copy'));
+}
+$('recFileGo').addEventListener('click', saveRecordingFile);
+$('recFileStart').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveRecordingFile(); } });
+$('recFileCancel').addEventListener('click', () => recFileDlg.close());
+document.addEventListener('keydown', (e) => { if (recFileDlg.open || $('recExportDlg').open || $('narrDlg').open) e.stopPropagation(); }, true);
+
+// A narration WAV opened here is checked against the script that's open, rather than
+// opened as audio: it says whether the narrator recorded the lines as they were sent.
+function checkNarration(note, name) {
+  if (!S.cues.some((c) => c.text.trim())) return toast(`${name} is a narration. Open the script it was recorded from to check it against`);
+  const r = compareScript(note, S.cues);
+  const out = [];
+  if (r.edited) out.push('The recording file was changed outside Scribecue before this was recorded.');
+  out.push(r.same ? `All ${note.blocks.length} lines match this script.`
+    : 'These lines differ from the script open now. If you haven’t changed them since you sent the recording file, the narrator’s copy was changed.');
+  const list = r.lines.map((x) => `Line ${x.line} ${x.why}`).concat(r.more ? [`and ${r.more} more`] : []);
+  $('narrTitle').textContent = r.same && !r.edited ? 'The narration matches' : 'The narration doesn’t match';
+  $('narrWhat').textContent = out.join(' ');
+  $('narrList').textContent = list.join('\n');
+  $('narrList').hidden = !list.length;
+  $('narrDlg').showModal();
+}
+$('narrClose').addEventListener('click', () => $('narrDlg').close());
+
+recorder = initRecord({
+  video, toast,
+  blocks: () => S.cues,
+  selIdx, hasVideo: () => S.hasVideo,
+  duration: () => (S.hasVideo ? duration() : 0),
+  seek: (t) => seek(t),
+  baseName: () => baseName().replace(/\.[^.]+$/, ''),
+  volume: (on, db = 0) => { recVol = on ? 10 ** (db / 20) : 1; applyDuck(0); },
+});
+
+// Opens a recording file in Record mode: the script, locked, ready to record against.
+async function openRecording(file) {
+  let r;
+  try { r = fromRecordingFile(JSON.parse(await file.text())); }
+  catch (e) { return toast(`Couldn’t open ${file.name}: ${e instanceof SyntaxError ? 'the file is damaged' : e.message}`); }
+  if (!okToReplace(`Open ${file.name}`)) return;
+  await stopJob();
+  await recorder.close();
+  pushUndo();
+  await enterRecording(r, file.name);
+  const ready = S.videoFile && sameVideo(r.media, { name: S.videoFile.name, duration: S.hasVideo ? video.duration : null });
+  if (r.edited) toast(`${file.name} was changed outside Scribecue. Whoever sent it will see that when they check the narration`);
+  else toast(`Record mode: ${file.name} (${S.cues.length} lines). ` + (ready || !r.media ? 'Select a line and press Enter to record it'
+    : `Now open the video, ${r.media.name}, with ${IS_MAC ? '⌘⇧O' : 'Ctrl+Shift+O'}`));
+  if (r.media && !ready) reopenVideo(r.media, { ask: true });
+}
+// The recording that's open is remembered, so a reload comes back to it, still locked.
+const REC_OPEN = 'scribecue.recOpen';
+async function enterRecording(r, name) {
+  try { localStorage.setItem(REC_OPEN, JSON.stringify({ ...r, name })); } catch { /* storage full or blocked */ }
+  S.cues = r.blocks.map(revive);
+  S.handle = null;
+  handleStore.set(null);
+  showAutosave();
+  S.projectMedia = r.media;
+  S.notes = '';
+  aiNotesChanged();
+  setFps(r.fps);
+  setMode('record', true);
+  changed();
+  select(S.cues[0]?.id ?? null, { seek: false });
+  projectSaved(name);
+  await recorder.open(r);
+  // Takes live in the browser's storage, so ask it not to clear them to free up space.
+  keepStorage();
+}
+async function endRecording() {
+  if (S.mode !== 'record') return;
+  try { localStorage.removeItem(REC_OPEN); } catch { /* ignore */ }
+  await recorder.close();
+  setMode('write', true);
+}
+async function leaveRecord() {
+  await endRecording();
+  toast('Left Record mode. Your takes are kept for next time');
 }
 
 // Projects saved before 0.62 have none of these, and leave the settings as they are.
@@ -3186,14 +3310,14 @@ async function openAny() {
       multiple: true,
       types: [
         { description: 'Scribecue project, script, video or audio', accept: {
-          'application/json': [PROJECT_EXT], 'text/plain': ['.srt', '.vtt', '.txt', '.adc'],
+          'application/json': [PROJECT_EXT, RECORDING_EXT], 'text/plain': ['.srt', '.vtt', '.txt', '.adc'],
           'video/*': ['.mp4', '.m4v', '.mov', '.mkv', '.webm'], 'audio/*': ['.wav', '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.opus'],
         } },
       ],
     });
     // Videos first, so a project picked with its video finds it already open.
     const files = await Promise.all(handles.map(async (h) => [h, await h.getFile()]));
-    const isProject = ([, f]) => f.name.toLowerCase().endsWith(PROJECT_EXT);
+    const isProject = ([, f]) => isDoc(f.name);
     for (const [h, file] of files.filter((x) => !isProject(x))) {
       openFiles([file]);
       if (!SCRIPT.test(file.name)) rememberVideo(h, file);
@@ -3296,6 +3420,7 @@ async function loadSubsFile(file) {
   if (!parsed.length) return toast(`No cues found in ${file.name}`);
   if (!okToReplace(`Open ${file.name}`)) return;
   await stopJob();
+  await endRecording();
   pushUndo();
   S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.voice ? { voice: c.voice } : {}, blockDipOf(c), isVol(c.vol) ? { vol: c.vol } : {}, c.say ? { say: c.say } : {}));
   S.subName = file.name;
@@ -3774,7 +3899,9 @@ video.addEventListener('loadedmetadata', () => {
   if (S.pps * duration() < tl.clientWidth) fitAll();
   tlDirty = true;
   const f = S.videoFile;
-  if (f && S.projectMedia && !sameMedia(S.projectMedia, f)) {
+  if (f && S.mode === 'record' && S.projectMedia && !sameVideo(S.projectMedia, { name: f.name, duration: video.duration })) {
+    toast(`This recording was timed to ${S.projectMedia.name}${S.projectMedia.duration ? `, ${tc(S.projectMedia.duration)} long` : ''}. ${f.name} may be a different copy: check with whoever sent it`);
+  } else if (f && S.projectMedia && !sameMedia(S.projectMedia, f)) {
     toast(`Loaded ${f.name}, but this project was saved with ${S.projectMedia.name}. Check it's the right video`);
   } else toast(`Loaded ${f?.name || 'media'}`);
   if (f && S.pendingPlayhead != null && sameMedia(S.projectMedia, f)) { seek(S.pendingPlayhead); S.pendingPlayhead = null; }
@@ -3786,8 +3913,9 @@ video.addEventListener('click', togglePlay);
 
 function openFiles(files) {
   for (const f of files) {
-    if (f.name.toLowerCase().endsWith(PROJECT_EXT)) openProject(f);
+    if (isDoc(f.name)) openProject(f);
     else if (SCRIPT.test(f.name)) loadSubsFile(f);
+    else if (/\.wav$/i.test(f.name)) readNote(f).then((n) => (n ? checkNarration(n, f.name) : loadVideoFile(f)));
     else loadVideoFile(f);
   }
 }
@@ -3804,7 +3932,7 @@ window.addEventListener('drop', (e) => {
   const files = [...e.dataTransfer.files];
   openFiles(files);
   Promise.all(links).then((hs) => hs.forEach((h, i) => {
-    if (files[i] && !SCRIPT.test(files[i].name) && !files[i].name.toLowerCase().endsWith(PROJECT_EXT)) rememberVideo(h, files[i]);
+    if (files[i] && !SCRIPT.test(files[i].name) && !isDoc(files[i].name)) rememberVideo(h, files[i]);
   })).catch(() => {});
 });
 
@@ -3827,6 +3955,8 @@ const actions = {
     ttsMixExport.scrollIntoView({ block: 'center' });
     if (!ttsMixExport.disabled) ttsMixExport.click();
   },
+  exportRecording: () => askRecordingFile(),
+  exportNarration: () => recorder.exportWav(),
   exportMenu: () => toggleMenu(exportMenu),
   help: () => toggleHelp(),
   settings: () => showGeneral(),
@@ -3869,6 +3999,8 @@ document.querySelector('nav').addEventListener('click', (e) => {
   if (b.getAttribute('role') === 'menuitem') closeMenus();
   actions[b.dataset.act]?.();
 });
+
+document.querySelector('.recbadge button').addEventListener('click', (e) => { e.currentTarget.blur(); leaveRecord(); });
 
 // Header menus, such as Export: open on click, close on a choice, a click elsewhere or Esc.
 const exportMenu = $('exportMenu');
@@ -3996,12 +4128,19 @@ document.addEventListener('keydown', (e) => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
   // Undo and redo follow the letter on the key, like other apps, so ⌘Z is still Z on AZERTY.
   const letter = e.key.length === 1 ? e.key.toLowerCase() : '';
+  if (S.mode === 'record' && mod && (letter === 'z' || letter === 'y')) { e.preventDefault(); return; }
   if (mod && letter === 'z') { e.preventDefault(); e.shiftKey ? doRedo() : doUndo(); return; }
   if (mod && letter === 'y') { e.preventDefault(); doRedo(); return; }
   if (mod) return; // leave other browser shortcuts (zoom, find, reload…) alone
   if (isHelpKey(e)) { e.preventDefault(); toggleHelp(); return; }
   if (e.key === '/' && !e.altKey) { e.preventDefault(); listSearch.focus(); listSearch.select(); return; }
 
+  // Record mode: Enter or R records the selected line, and Esc stops. [ ] change a block's speed, which is locked.
+  if (S.mode === 'record') {
+    if (e.code === 'Escape' && recorder.active) { e.preventDefault(); recorder.finish(); return; }
+    if (!e.altKey && !e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.toggle(); return; }
+    if (e.key === '[' || e.key === ']') { e.preventDefault(); return; }
+  }
   // [ ] by the character typed, since some layouts need ⌥ or AltGr for them.
   if (e.key === '[' || e.key === ']') { e.preventDefault(); stepBlockSpeed(e.key === '[' ? -1 : 1); return; }
   if (e.code === 'Escape' && !e.altKey && !e.shiftKey) {
@@ -4015,13 +4154,23 @@ document.addEventListener('keydown', (e) => {
   }
   // Everything else is in the keymap, which people can change (see keymap.js).
   const id = keyLookup.get(comboOf(e));
-  if (id) { e.preventDefault(); RUN[id](e); return; }
+  if (id) {
+    e.preventDefault();
+    if (S.mode === 'record' && REC_LOCKED.has(id)) return toast('The script is locked in Record mode');
+    RUN[id](e);
+    return;
+  }
   if (!e.altKey && isPlus(e)) { e.preventDefault(); setRate(S.rate + 0.25); return; }
   if (!e.altKey && isMinus(e)) { e.preventDefault(); setRate(S.rate - 0.25); return; }
   // Frazier keys for features this editor doesn't have, unless they've been given a job.
   const frazier = e.altKey && e.shiftKey ? { KeyM: 'Markers', KeyC: 'Comments' }[e.code] : e.shiftKey && !e.altKey ? FRAZIER_ONLY[e.code] : null;
   if (frazier) { e.preventDefault(); toast(`${frazier} are not part of this editor`); }
 });
+
+// Keys that change the script, or help with writing it: off in Record mode.
+const REC_LOCKED = new Set(['createEdit', 'newBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'findReplace', 'setStart', 'setEnd',
+  'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10',
+  'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'aiHelp', 'offset']);
 
 // What each keymap action does.
 const RUN = {
@@ -4157,7 +4306,13 @@ handleStore.get().then((h) => { if (h && h.name === S.subName) { S.handle = h; c
 updateInd();
 setMode(S.mode, true);
 showDur();
-if (restored) {
+let reRec = null;
+try { reRec = JSON.parse(localStorage.getItem(REC_OPEN)); } catch { /* ignore */ }
+if (reRec) {
+  enterRecording(reRec, reRec.name);
+  toast(`Back in Record mode: ${reRec.name}`);
+  if (reRec.media) reopenVideo(reRec.media).then((ok) => { if (ok) toast(`Back in Record mode: ${reRec.name}, with ${reRec.media.name}`); });
+} else if (restored) {
   select(S.cues[0].id, { seek: false });
   toast(`Restored ${restored} cues from autosave`);
   // Its video too, straight away if the browser still allows it, or with one click.
@@ -4212,6 +4367,7 @@ initOffline({
   voices: () => tts.piper.map((v) => v.name),
   whisper: () => stt.ready,
   readings: () => savedReadings(),
+  takes: () => takesInfo(),
   clearReadings: () => clearSavedReadings(),
   openTts: () => openTts(),
   openStt: () => openStt(),
