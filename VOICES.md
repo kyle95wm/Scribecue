@@ -2,7 +2,7 @@
 
 The voices Scribecue can read with, and how to add more natural ones.
 
-| Voice | Sounds | Stays on your computer | Exact lengths and WAV export | Where |
+| Voice | Sounds | Stays on your computer | Exact lengths and audio export | Where |
 | --- | --- | --- | --- | --- |
 | [Your computer's voices](#voices-on-your-computer) | Basic | ✓ | | Everywhere |
 | [Piper](#piper-voices) (recommended) | Natural | ✓ | ✓ | Web version and Docker |
@@ -23,7 +23,7 @@ Scribecue:
 - **Linux:** install speech-dispatcher and a voice such as espeak-ng from your
   distribution's packages.
 
-These voices can only be heard, not recorded, so they can't be exported as a WAV.
+These voices can only be heard, not recorded, so they can't be exported as an audio file.
 
 ## Online voices
 
@@ -39,8 +39,10 @@ natural-sounding voices. It's the one we recommend: your script never leaves you
 computer, and it works offline.
 
 - **Lengths are exact straight away,** and each line always takes the same time.
-- **You can export a description track:** every reading as one WAV file, ready to mix
-  with the programme. It's in the **Export** menu.
+- **You can export a description track:** every reading as one audio file, ready to mix
+  with the programme. It's in the **Export** menu. Choose WAV or MP3 under **Save as**
+  in the text to speech settings. An MP3 is much smaller, about 43 MB an hour at 96 kbps
+  against 160 MB for a WAV. For the final mix, a WAV keeps full quality.
 
 There are four English voices: Lessac and Ryan (US), and Alba and Alan (UK).
 
@@ -87,4 +89,5 @@ sent: the block is read when you close it.
   running, Scribecue says which voice is reading instead. The project keeps its own voice
   for when it's back.
 - **Description tracks** are levelled: every reading peaks at −8 dBFS, and overlapping
-  readings never go past −6 dBFS.
+  readings never go past −6 dBFS. The [full mix](WRITING.md#exporting-the-full-mix)
+  keeps each voice's own level instead, as you hear it when playing.

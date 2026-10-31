@@ -140,9 +140,11 @@ use the **Export** menu at the top:
 - **Script as SRT** (`Ctrl/Cmd+E`).
 - **Script as WebVTT** (`Ctrl/Cmd+Shift+E`). This also keeps each block's speed, voice and
   sounds-like words.
-- **Description track (WAV):** all the readings as one audio file, in Write mode with a
+- **Description track:** all the readings as one WAV or MP3 file, in Write mode with a
   [Piper](VOICES.md#piper-voices), [Kokoro](VOICES.md#kokoro-voices) or
   [Google](VOICES.md#google-cloud-voices) voice.
+- **Full mix:** the programme's sound with the readings, the programme lowered under each
+  one, as one WAV or MP3 file. See [Exporting the full mix](WRITING.md#exporting-the-full-mix).
 
 `Ctrl/Cmd+O` opens SRT and WebVTT scripts too, and Frazier's `.adc` scripts.
 

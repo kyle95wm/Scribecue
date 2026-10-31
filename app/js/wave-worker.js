@@ -28,17 +28,8 @@ self.onmessage = async ({ data: job }) => {
   const peaks = clip ? new Clip(job.from, job.to) : new Peaks(job.rate || 200);
   const ticker = job.cmd === 'build' ? setInterval(() => peaks.post(), 250) : 0;
   try {
-    const { file } = job;
-    const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-    const tag = ascii(head, 4, 8);
-    let parse;
-    if (head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3) parse = matroska;
-    else if (['ftyp', 'moov', 'mdat', 'free', 'skip', 'wide', 'pnot'].includes(tag)) parse = mp4;
-    else if (/^(RIFF|RF64)$/.test(ascii(head, 0, 4)) && ascii(head, 8, 12) === 'WAVE') parse = wav;
-    else throw new Unsupported('this file type is not streamed');
-    videoFps = 0;
     let out;
-    try { out = await parse(file, peaks, job); } catch (err) { if (!(clip && err instanceof Enough)) throw err; }
+    try { out = await parseMedia(job.file, peaks, job); } catch (err) { if (!(clip && err instanceof Enough)) throw err; }
     if (clip) { closeDecoders(); postMessage({ type: 'clip', audio: peaks.out }, [peaks.out.buffer]); return; }
     if (job.cmd === 'probe') { postMessage({ type: 'tracks', tracks: out, fps: videoFps }); return; }
     peaks.progress = 1;
@@ -54,6 +45,20 @@ self.onmessage = async ({ data: job }) => {
   }
 };
 
+// Streams a file's audio into sink (Peaks, Clip, or the mixer in mix-worker.js), by its
+// container. Returns what the parser does: the track list when probing, or the copied
+// track with job.mux.
+async function parseMedia(file, sink, job) {
+  const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const tag = ascii(head, 4, 8);
+  let parse;
+  if (head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3) parse = matroska;
+  else if (['ftyp', 'moov', 'mdat', 'free', 'skip', 'wide', 'pnot'].includes(tag)) parse = mp4;
+  else if (/^(RIFF|RF64)$/.test(ascii(head, 0, 4)) && ascii(head, 8, 12) === 'WAVE') parse = wav;
+  else throw new Unsupported('this file type is not streamed');
+  videoFps = 0;
+  return parse(file, sink, job);
+}
 
 // ---------------------------------------------------------------- peak accumulation
 

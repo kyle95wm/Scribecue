@@ -1,0 +1,22 @@
+lame.min.js is lamejs 1.2.1 by Alex Zhukov, a JavaScript version of the LAME MP3
+encoder, unmodified, from https://www.npmjs.com/package/lamejs.
+
+Source: https://github.com/zhuker/lamejs
+LAME: https://lame.sourceforge.io/
+
+It's licensed under the GNU Lesser General Public License, version 3
+(https://www.gnu.org/licenses/lgpl-3.0.html). Scribecue uses it as a separate file,
+which can be swapped for another build. Its own licence note follows.
+
+Can I use LAME in my commercial program?  
+
+Yes, you can, under the restrictions of the LGPL.  The easiest
+way to do this is to:
+
+1. Link to LAME as separate jar (lame.min.js or lame.all.js)
+
+2. Fully acknowledge that you are using LAME, and give a link
+   to our web site, lame.sourceforge.net
+
+3. If you make modifications to LAME, you *must* release these
+   these modifications back to the LAME project, under the LGPL.

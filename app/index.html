@@ -52,7 +52,8 @@
         <div class="navmenu" id="exportMenu" role="menu" aria-labelledby="exportBtn" hidden>
           <button role="menuitem" data-act="exportSrt"><span><strong>Script as SRT</strong><span class="dim">to hand off, or for the final output</span></span><kbd><span class="mod"></span>E</kbd></button>
           <button role="menuitem" data-act="exportVtt"><span><strong>Script as WebVTT</strong><span class="dim">also keeps block speeds and sounds-like words</span></span><kbd><span class="mod"></span>⇧E</kbd></button>
-          <button role="menuitem" data-act="exportTrack" class="write-only"><span><strong>Description track (WAV)</strong><span class="dim">every reading in one audio file, with a Piper or Google voice</span></span></button>
+          <button role="menuitem" data-act="exportTrack" class="write-only"><span><strong>Description track</strong><span class="dim">every reading in one WAV or MP3 file, with a Piper or Google voice</span></span></button>
+          <button role="menuitem" data-act="exportMix" class="write-only"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></button>
         </div>
       </span>
       <button data-act="ai" id="aiBtn" class="tip-end" data-tip="AI help: chat about the scene and draft descriptions (⌥⇧A)">AI</button>
@@ -549,6 +550,21 @@ docker compose up -d --build</code></pre>
       </section>
       <label class="updopt"><input type="checkbox" id="ttsLive"> Read blocks aloud while playing</label>
       <label class="updopt"><input type="checkbox" id="ttsDuck"> Lower the original audio while a block is read</label>
+      <div class="ttsgrid ttsdip">
+        <label for="ttsDipDb">Lower it by</label>
+        <select id="ttsDipDb">
+          <option value="6">6 dB: a little</option>
+          <option value="10">10 dB</option>
+          <option value="15">15 dB</option>
+          <option value="20">20 dB: a lot</option>
+        </select>
+        <label for="ttsDipFade">Fading down and back up over</label>
+        <select id="ttsDipFade">
+          <option value="0.1">0.1 seconds: quickly</option>
+          <option value="0.25">0.25 seconds</option>
+          <option value="0.5">0.5 seconds: gently</option>
+        </select>
+      </div>
       <label class="updopt"><input type="checkbox" id="ttsNotes"> Don't read notes in [square brackets]</label>
       <p class="dim small">Each block ends where its reading ends. To make a block longer or shorter, change its speed.
         Blocks opened from a file keep their timing until you edit them.</p>
@@ -593,13 +609,41 @@ docker compose up -d --build</code></pre>
         <progress id="ttsFitBar" class="jobbar" max="1" value="0" hidden aria-label="Fitting speeds"></progress>
         <button id="ttsFitStop" hidden>Stop</button> <span id="ttsFitStatus" class="dim"></span></p>
       <h3>Export description track</h3>
-      <p class="small">Save every block's reading as one WAV file, each starting at its block's start
+      <p class="small">Save every block's reading as one audio file, each starting at its block's start
         time, ready to mix with the programme. Readings peak at −8 dBFS, leaving headroom for
-        processing and mastering.</p>
+        processing and mastering. An MP3 is much smaller than a WAV, and fine for sharing or
+        checking; for the final mix, a WAV keeps everything.</p>
+      <div class="ttsgrid">
+        <label for="ttsTrackAs">Save as</label>
+        <select id="ttsTrackAs">
+          <option value="wav">WAV: full quality, about 160 MB an hour</option>
+          <option value="mp3-160">MP3, 160 kbps: about 72 MB an hour</option>
+          <option value="mp3-96">MP3, 96 kbps: about 43 MB an hour</option>
+          <option value="mp3-64">MP3, 64 kbps: about 29 MB an hour</option>
+        </select>
+      </div>
       <p class="updstatus"><button id="ttsExport">Export description track</button>
         <progress id="ttsExportBar" class="jobbar" max="1" value="0" hidden aria-label="Exporting the description track"></progress>
         <span id="ttsExportStatus" class="dim"></span></p>
       <p id="ttsExportNote" class="dim small"></p>
+      <h3>Export full mix</h3>
+      <p class="small">Save the programme's sound and the readings together in one stereo file, as you
+        hear them when you play: the programme is lowered under each reading as set above, and the levels
+        follow the mix slider under the video. It uses the audio track that's playing, and keeps peaks
+        under −1 dBFS.</p>
+      <div class="ttsgrid">
+        <label for="ttsMixAs">Save as</label>
+        <select id="ttsMixAs">
+          <option value="wav">WAV: full quality, about 690 MB an hour</option>
+          <option value="mp3-320">MP3, 320 kbps: about 144 MB an hour</option>
+          <option value="mp3-192">MP3, 192 kbps: about 86 MB an hour</option>
+          <option value="mp3-128">MP3, 128 kbps: about 58 MB an hour</option>
+        </select>
+      </div>
+      <p class="updstatus"><button id="ttsMixExport">Export full mix</button>
+        <progress id="ttsMixBar" class="jobbar" max="1" value="0" hidden aria-label="Exporting the full mix"></progress>
+        <button id="ttsMixStop" hidden>Stop</button> <span id="ttsMixStatus" class="dim"></span></p>
+      <p id="ttsMixNote" class="dim small"></p>
       <h3>Google Cloud voices</h3>
       <p class="small">Google's Standard voices, with your own Google Cloud key. Like Piper voices, they give
         exact lengths and can be exported as a description track. Each reading sends the block's text to
@@ -634,7 +678,7 @@ docker compose up -d --build</code></pre>
       <strong>Did you know?</strong> <span class="rec">Recommended</span>
       <p>Scribecue can use <strong>Piper</strong>, a free, open-source speech engine that runs next to it in Docker.
         Its voices sound much more natural, stay on your computer, and work offline. With a Piper voice, reading
-        lengths are exact straight away, and you can export a description track as a WAV file.</p>
+        lengths are exact straight away, and you can export a description track as a WAV or MP3 file.</p>
       <p>To add it, put <code>COMPOSE_PROFILES=piper</code> in a file called <code>.env</code> in the Scribecue folder, then
         run <code>docker compose up -d --build</code> and reload this page.
         <a href="https://github.com/kyle95wm/Scribecue/blob/main/INSTALL.md#natural-sounding-voices-piper" target="_blank" rel="noopener noreferrer">More about Piper</a></p>

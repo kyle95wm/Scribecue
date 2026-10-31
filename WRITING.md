@@ -65,6 +65,28 @@ turned down. Start partway through a block and the reading picks up from there.
 The **Video / TTS** slider under the video sets how loud the readings are against the
 video. Double-click it to put it back in the middle.
 
+In the text to speech settings, choose how far the video's sound goes down (6 to 20 dB)
+and how quickly it fades down and back up. The [full mix](#exporting-the-full-mix) uses
+the same settings, so it sounds like what you hear.
+
+## Exporting the full mix
+
+**Export → Full mix** saves the programme's sound and the readings together in one stereo
+file, ready to listen to or share. It needs a Piper, Kokoro or Google voice.
+
+- **It sounds as it does when you play:** the programme goes down under each reading, as
+  far and as quickly as set in the text to speech settings, and the levels follow the
+  **Video / TTS** slider.
+- **It uses the audio track that's playing,** for a video with several.
+- **Peaks are kept under −1 dBFS,** so the mix never clips.
+- **WAV or MP3:** choose under **Save as** in the text to speech settings. A WAV of a
+  two-hour film is about 1.4 GB; an MP3 at 192 kbps is about 170 MB. An MP3 takes a few
+  minutes longer to make.
+- **Stop** cancels it.
+
+For your own mix, export the [description track](VOICES.md#piper-voices) instead and mix it
+in your editor.
+
 ## Sounds like
 
 When a voice says a word wrong, tell it how to say it, without changing your text.

@@ -87,7 +87,7 @@ export const STEPS = [
   {
     target: 'nav',
     title: 'Projects and exports',
-    text: () => 'Save keeps everything as a Scribecue project, so you can pick up where you left off. Export gives you the script as SRT or WebVTT to hand off, or the description track as a WAV file. New starts again.',
+    text: () => 'Save keeps everything as a Scribecue project, so you can pick up where you left off. Export gives you the script as SRT or WebVTT to hand off, or the description track as a WAV or MP3 file. New starts again.',
   },
   {
     title: 'Your work stays yours',

@@ -12,6 +12,7 @@
 //   separate opt-in.
 
 import { HOSTED } from './config.js';
+import { TRACK_FORMATS, MIX_FORMATS } from './mp3.js';
 
 export const SPEEDS = [
   [0.7, 'very slow (−30%)'],
@@ -310,18 +311,20 @@ export function resample(samples, from, to) {
 // never take the track past TRACK_MAX_DB.
 export const TRACK_PEAK_DB = -8, TRACK_MAX_DB = -6;
 const dbToLevel = (db) => 32767 * 10 ** (db / 20);
+// With peakDb null, readings keep the level the voice gives them, as they're heard when
+// playing; with maxDb null, the track isn't turned down as a whole.
 export function mixTrack(items, rate, secs, peakDb = TRACK_PEAK_DB, maxDb = TRACK_MAX_DB) {
   const mix = new Float32Array(Math.max(1, Math.ceil(secs * rate)));
   for (const { start, samples } of items) {
     let peak = 0;
-    for (const s of samples) peak = Math.max(peak, Math.abs(s));
-    const g = peak ? dbToLevel(peakDb) / peak : 0;
+    if (peakDb != null) for (const s of samples) peak = Math.max(peak, Math.abs(s));
+    const g = peakDb == null ? 1 : peak ? dbToLevel(peakDb) / peak : 0;
     const at = Math.round(start * rate);
     for (let i = Math.max(0, -at); i < samples.length && at + i < mix.length; i++) mix[at + i] += samples[i] * g;
   }
   let top = 0;
   for (const s of mix) top = Math.max(top, Math.abs(s));
-  const g = top > dbToLevel(maxDb) ? dbToLevel(maxDb) / top : 1;
+  const g = maxDb != null && top > dbToLevel(maxDb) ? dbToLevel(maxDb) / top : 1;
   const out = new Int16Array(mix.length);
   for (let i = 0; i < mix.length; i++) out[i] = Math.max(-32768, Math.min(32767, Math.round(mix[i] * g)));
   return out;
@@ -371,7 +374,17 @@ export function mergeSay(say = [], add = []) {
 export const hasWord = (text, word) => !!word.trim() && sayPattern([word.trim()]).test(text);
 
 const KEY = 'scribecue.tts';
-const DEFAULTS = { on: false, voice: '', base: 1, live: true, duck: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [], sample: null };
+// While a block is read, the programme goes down by one of DIPS (dB), over one of FADES
+// (seconds), and back up the same way after. Playback and the full mix share these.
+export const DIPS = [6, 10, 15, 20], FADES = [0.1, 0.25, 0.5];
+// How far down the programme is, 0..1, dt seconds on: towards 1 while a reading plays
+// (target 1), towards 0 after, at the pace the fade sets.
+export function stepDip(f, target, dt, fade) {
+  const step = fade > 0 ? dt / fade : 1;
+  return target > f ? Math.min(target, f + step) : Math.max(target, f - step);
+}
+export const dipLevel = (f, db) => 10 ** (-db * f / 20);
+const DEFAULTS = { on: false, voice: '', base: 1, live: true, duck: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [], sample: null, trackAs: 'wav', mixAs: 'wav', dipDb: 10, dipFade: 0.25 };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -398,11 +411,13 @@ tts.base = toBase(tts.base);
 if (isSpeed(tts.speed) && tts.speed !== 1) tts.base = baseFromSpeed(tts.speed, tts.base);
 delete tts.speed;
 if (!['ask', 'ends', 'leave'].includes(tts.onChange)) tts.onChange = 'ask';
+if (!DIPS.includes(tts.dipDb)) tts.dipDb = DEFAULTS.dipDb;
+if (!FADES.includes(tts.dipFade)) tts.dipFade = DEFAULTS.dipFade;
 const rate = (speed) => atBase(speed, tts.base);
 
 const save = () => {
-  const { on, voice, base, live, duck, skipNotes, onImport, onChange, online, cps, mix, favourites, sample } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, base, live, duck, skipNotes, onImport, onChange, online, cps, mix, favourites, sample })); } catch { /* ignore */ }
+  const { on, voice, base, live, duck, skipNotes, onImport, onChange, online, cps, mix, favourites, sample, trackAs, mixAs, dipDb, dipFade } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, base, live, duck, skipNotes, onImport, onChange, online, cps, mix, favourites, sample, trackAs, mixAs, dipDb, dipFade })); } catch { /* ignore */ }
 };
 
 // The mix between the video's sound and the readings, from −1 (only the video) to 1
@@ -921,8 +936,10 @@ export function readAhead(text, speed = 1, uri) {
 
 // The whole script as one audio file: each block's reading starts at the block's start.
 // blocks [{ start, text, speed, voice }], secs: total length. progress(done, total) as it
-// goes. Returns { blob, overlaps }, where overlaps counts readings that run into the next one.
-export async function renderTrack(blocks, secs, progress = () => {}) {
+// goes. Returns { samples, rate, overlaps, spans }: mono 16-bit samples, how many readings
+// run into the next one, and [start, end] of each reading. levels: mixTrack's peakDb and
+// maxDb.
+export async function renderTrack(blocks, secs, progress = () => {}, levels = [TRACK_PEAK_DB, TRACK_MAX_DB]) {
   const missing = blocks.find((b) => !usingAudioVoice(b.voice));
   if (missing) throw new Error(`Exporting needs a Piper, Kokoro or Google voice for every block, and ${voiceOf(missing.voice)?.name || 'a block’s voice'} isn’t one`);
   const made = [];
@@ -939,7 +956,8 @@ export async function renderTrack(blocks, secs, progress = () => {}) {
   for (let k = 0; k + 1 < items.length; k++) if (items[k].start + items[k].secs > items[k + 1].start + 0.0005) overlaps++;
   const end = Math.max(secs, ...items.map((i) => i.start + i.secs));
   hooks.changed();
-  return { blob: writeWav(mixTrack(items, rate || 22050, end), rate || 22050), overlaps };
+  const spans = items.map((i) => [i.start, i.start + i.secs]);
+  return { samples: mixTrack(items, rate || 22050, end, ...levels), rate: rate || 22050, overlaps, spans };
 }
 
 // ---- reading aloud
@@ -1236,6 +1254,13 @@ function render(googleError = '') {
   $('ttsNotes').checked = tts.skipNotes;
   $('ttsImport').value = tts.onImport;
   $('ttsOnChange').value = tts.onChange;
+  $('ttsTrackAs').value = TRACK_FORMATS[tts.trackAs] ? tts.trackAs : 'wav';
+  $('ttsMixAs').value = MIX_FORMATS[tts.mixAs] ? tts.mixAs : 'wav';
+  $('ttsDipDb').value = String(tts.dipDb);
+  $('ttsDipFade').value = String(tts.dipFade);
+  $('ttsDipDb').disabled = $('ttsDipFade').disabled = !tts.duck;
+  $('ttsMixExport').disabled = !piper;
+  $('ttsMixNote').textContent = piper ? '' : 'Needs a Piper, Kokoro or Google voice: the browser\'s own voices can\'t be recorded.';
   $('ttsOnline').checked = tts.online;
   if (document.activeElement !== $('ttsSample')) $('ttsSample').value = testLine();
   $('ttsTest').disabled = !testLine().trim();
@@ -1292,6 +1317,10 @@ export function initTts(h) {
   $('ttsNotes').addEventListener('change', (e) => set('skipNotes', e.target.checked));
   $('ttsImport').addEventListener('change', (e) => set('onImport', e.target.value));
   $('ttsOnChange').addEventListener('change', (e) => set('onChange', e.target.value));
+  $('ttsTrackAs').addEventListener('change', (e) => set('trackAs', e.target.value));
+  $('ttsMixAs').addEventListener('change', (e) => set('mixAs', e.target.value));
+  $('ttsDipDb').addEventListener('change', (e) => set('dipDb', +e.target.value));
+  $('ttsDipFade').addEventListener('change', (e) => set('dipFade', +e.target.value));
   $('ttsOnline').addEventListener('change', (e) => {
     // Turning online voices off also drops an online voice that was chosen.
     if (!e.target.checked && currentVoice() && !currentVoice().localService && !currentVoice().google) { stop(); tts.voice = ''; }

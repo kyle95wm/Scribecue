@@ -20,12 +20,13 @@ import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, writeWav, readingStarting } from './tts.js';
+import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { waveKey, loadWave, saveWave } from './wavestore.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
-  usingAudioVoice, measure, prefetch, readAhead, renderTrack, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix,
+  usingAudioVoice, measure, prefetch, readAhead, renderTrack, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel,
   savedReadings, clearSavedReadings } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -2024,8 +2025,8 @@ changeDlg.addEventListener('click', (e) => { if (e.target === changeDlg) changeD
 document.addEventListener('keydown', (e) => { if (changeDlg.open) e.stopPropagation(); }, true);
 ttsFitStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
 
-// Export description track: every block's Piper or Google reading in one WAV file, each at its
-// block's start, as long as the video (or the last reading, without one).
+// Export description track: every block's Piper or Google reading in one WAV or MP3 file, each
+// at its block's start, as long as the video (or the last reading, without one).
 const ttsExport = $('ttsExport'), ttsExportStatus = $('ttsExportStatus'), ttsExportBar = $('ttsExportBar');
 ttsExport.addEventListener('click', async () => {
   const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice }));
@@ -2033,9 +2034,15 @@ ttsExport.addEventListener('click', async () => {
   pause();
   busy(ttsExport, ttsExportBar, true);
   try {
-    const { blob, overlaps } = await renderTrack(blocks, S.hasVideo ? duration() : 0,
-      (k, n) => { ttsExportBar.value = k / n; ttsExportStatus.textContent = `Making readings: ${k} of ${n}`; });
-    const name = `${baseName()} - audio description.wav`;
+    const as = trackFormat(tts.trackAs);
+    // With an MP3, making the readings is the first 80% of the bar and encoding the rest.
+    const part = as.kbps ? 0.8 : 1;
+    const { samples, rate, overlaps } = await renderTrack(blocks, S.hasVideo ? duration() : 0,
+      (k, n) => { ttsExportBar.value = part * k / n; ttsExportStatus.textContent = `Making readings: ${k} of ${n}`; });
+    const blob = as.kbps
+      ? await encodeMp3(samples, rate, as.kbps, (f) => { ttsExportBar.value = part + (1 - part) * f; ttsExportStatus.textContent = `Making the MP3: ${Math.round(f * 100)}%`; })
+      : writeWav(samples, rate);
+    const name = `${baseName()} - audio description.${as.ext}`;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = name;
@@ -2051,6 +2058,78 @@ ttsExport.addEventListener('click', async () => {
     ttsExport.disabled = !usingAudioVoice();
   }
 });
+// Export full mix: the programme with the readings, mixed in mix-worker.js as playback
+// sounds. The readings are made first, at the level the voice gives them, as they play.
+const ttsMixExport = $('ttsMixExport'), ttsMixStatus = $('ttsMixStatus'), ttsMixBar = $('ttsMixBar'), ttsMixStop = $('ttsMixStop');
+let mixWorker = null, mixStopped = false;
+const stopped = () => Object.assign(new Error('stopped'), { stopped: true });
+function runMix(job, transfer, progress) {
+  return new Promise((resolve, reject) => {
+    const w = mixWorker = new Worker('js/mix-worker.js');
+    const end = (f, v) => { w.terminate(); if (mixWorker === w) mixWorker = null; f(v); };
+    w.onmessage = ({ data: m }) => {
+      if (m.type === 'progress') progress(m.done);
+      else if (m.type === 'mix') end(resolve, m.blob);
+      else end(reject, Object.assign(new Error(m.message), { unsupported: m.type === 'unsupported' }));
+    };
+    w.onerror = (e) => { e.preventDefault(); end(reject, new Error(e.message || 'the mixer didn’t load')); };
+    w.stop = () => end(reject, stopped());
+    w.postMessage(job, transfer);
+  });
+}
+// The programme decoded by the browser all at once, for files the mixer can't stream,
+// such as an MP3. Only works for files that fit in memory.
+async function wholeProgramme(file) {
+  const buf = await new OfflineAudioContext(2, 1, 48000).decodeAudioData(await file.arrayBuffer());
+  return { planes: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c)), rate: buf.sampleRate };
+}
+ttsMixExport.addEventListener('click', async () => {
+  const file = S.videoFile;
+  if (!file) return (ttsMixStatus.textContent = 'Open the programme’s video or audio first.');
+  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice }));
+  if (!blocks.length) return (ttsMixStatus.textContent = 'There are no blocks with text yet.');
+  pause();
+  busy(ttsMixExport, ttsMixBar, true);
+  ttsMixStop.hidden = false;
+  const as = mixFormat(tts.mixAs);
+  mixStopped = false;
+  const show = (f, text) => { if (mixStopped) throw stopped(); ttsMixBar.value = f; ttsMixStatus.textContent = text; };
+  try {
+    // Making the readings is the first 20% of the bar, and mixing the rest.
+    const { samples, rate, spans } = await renderTrack(blocks, 0,
+      (k, n) => show(0.2 * k / n, `Making readings: ${k} of ${n}`), [null, null]);
+    const levels = mixLevels(tts.mix);
+    const job = { desc: samples, descRate: rate, spans, dipDb: tts.duck ? tts.dipDb : 0, fade: tts.dipFade,
+      video: levels.video, reading: levels.reading, kbps: as.kbps || 0 };
+    const mixing = (f) => show(0.2 + 0.8 * f, `Mixing: ${Math.round(f * 100)}%`);
+    mixing(0);
+    let blob;
+    try {
+      blob = await runMix({ ...job, cmd: 'mix', file, track: S.track }, [], mixing);
+    } catch (e) {
+      if (!e.unsupported || file.size > LEGACY_LIMIT || S.track) throw e;
+      ttsMixStatus.textContent = 'Reading the programme’s audio…';
+      const whole = await wholeProgramme(file);
+      if (mixStopped) throw stopped();
+      blob = await runMix({ ...job, cmd: 'mixPlanes', ...whole }, [], mixing);
+    }
+    const name = `${baseName()} - full mix.${as.ext}`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    report(ttsMixStatus, `Saved ${name}.`);
+  } catch (e) {
+    if (e.stopped) ttsMixStatus.textContent = 'Stopped.';
+    else report(ttsMixStatus, `Couldn’t export the full mix: ${e.message}`);
+  } finally {
+    busy(ttsMixExport, ttsMixBar, false);
+    ttsMixStop.hidden = true;
+    ttsMixExport.disabled = !usingAudioVoice();
+  }
+});
+ttsMixStop.addEventListener('click', () => { mixStopped = true; mixWorker?.stop(); });
 ttsAllStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
 // A job carries on when the settings close: it shows in the bottom bar.
 $('ttsDlg').addEventListener('close', () => { if (!jobActive) { ttsAllStatus.textContent = ''; ttsFitStatus.textContent = ''; ttsMakeStatus.textContent = ''; } });
@@ -2306,11 +2385,19 @@ function readAheadOf(t) {
   for (const c of next) readAhead(said(c), c.speed, c.voice);
 }
 
-// Lower the original audio while a block is read, and as the mix slider says.
-let ducked = false;
+// Lower the original audio while a block is read, as far and as quickly as the text to
+// speech settings say, just as the full mix does, and as the mix slider says. tick()
+// moves it along.
+let ducked = false, dip = 0, volumeWas = -1;
 function duckAudio(on = ducked) {
   ducked = on;
-  const v = (on && tts.duck ? 0.3 : 1) * (writing() && tts.on ? mixLevels(tts.mix).video : 1);
+  applyDuck(0);
+}
+function applyDuck(dt) {
+  dip = stepDip(dip, ducked && tts.duck ? 1 : 0, dt, tts.dipFade);
+  const v = dipLevel(dip, tts.dipDb) * (writing() && tts.on ? mixLevels(tts.mix).video : 1);
+  if (v === volumeWas) return;
+  volumeWas = v;
   video.volume = v;
   altAudio.volume = v;
 }
@@ -3439,6 +3526,12 @@ const actions = {
     ttsExport.scrollIntoView({ block: 'center' });
     if (!ttsExport.disabled) ttsExport.click();
   },
+  exportMix: () => {
+    if (!writing()) return modeOnly('The full mix', 'write');
+    openTts();
+    ttsMixExport.scrollIntoView({ block: 'center' });
+    if (!ttsMixExport.disabled) ttsMixExport.click();
+  },
   exportMenu: () => toggleMenu(exportMenu),
   help: () => toggleHelp(),
   settings: () => showGeneral(),
@@ -3707,6 +3800,7 @@ let lastTs = 0, lastT = -1, lastPlaying = false, lastSync = 0;
 function tick(ts) {
   const dt = lastTs ? Math.min(0.1, (ts - lastTs) / 1000) : 0;
   lastTs = ts;
+  applyDuck(dt);
   if (S.hasVideo || !S.vplaying) stopSilence();
   else if (soundStarted(ts)) {
     S.vt += dt * S.rate;

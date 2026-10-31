@@ -3,7 +3,8 @@
 **A keyboard-first editor for audio description scripts.**
 
 - **Write** new audio description, and hear each line read aloud to check it fits before
-  the next piece of dialogue.
+  the next piece of dialogue. Export the readings as an audio track, or as a full mix with
+  the programme.
 - **Transcribe** existing audio description: hold a key while the narrator speaks, and a
   block appears at that time. Speech to text can type the line for you.
 - **Private:** your video, audio and scripts are never uploaded.
@@ -80,12 +81,9 @@ If you run it yourself, see [Updating](INSTALL.md#updating).
 - [ ] **Recording narration:** a narrator records each line against the video, in the
   slots you've timed, and the mixer gets one timestamped WAV. The plan is in
   [RECORDING.md](RECORDING.md).
-- [ ] **Export a full AD mix:** the programme's sound with the readings, the programme
-  dipping under each one, as a stereo WAV, or an MP3 for a much smaller file. The
-  description track on its own could be saved as MP3 too. Settings for how far and how
-  quickly it dips, and the levels, with playback sounding the same as the export. Later,
-  a loudness target, per-block settings and separate stems. With Docker, an ffmpeg
-  container could also handle 5.1, AC-3 and DTS, and put the mix back into the video.
+- [ ] **More for the full mix:** a loudness target, per-block settings and separate
+  stems. With Docker, an ffmpeg container could also handle 5.1, AC-3 and DTS, and put
+  the mix back into the video.
 
 ## Development
 
@@ -110,6 +108,10 @@ its container:
 - [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) by hexgrad (Apache 2.0), run with
   [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) by thewh1teagle (MIT) and
   espeak-ng (GPL).
+
+MP3 exports use [lamejs](https://github.com/zhuker/lamejs) by Alex Zhukov, a JavaScript
+version of the [LAME](https://lame.sourceforge.io/) MP3 encoder (LGPL), unchanged, in
+`app/vendor`.
 
 Scribecue is an independent project. It is not affiliated with, endorsed by or connected
 to Frazier or videotovoice. Frazier is their product name, used here only to describe
