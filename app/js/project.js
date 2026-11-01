@@ -8,6 +8,39 @@ import { cleanComments } from './comments.js';
 export const PROJECT_EXT = '.scribecue';
 export const PROJECT_FORMAT = 1;
 
+// Persistent identities are separate from the editor's temporary numeric ids.
+export const validIdentity = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id);
+export const newIdentity = () => crypto.randomUUID();
+
+// Checkpoint payloads are immutable JSON strings. Keeping them opaque here avoids
+// parsing every old script during autosave. The comparison worker verifies their hashes.
+export const HISTORY_LIMIT = 4, HISTORY_CHARS = 1024 * 1024;
+export const validRevision = (id) => typeof id === 'string' && /^[a-f0-9]{64}$/.test(id);
+export function cleanReviewHistory(value) {
+  if (value == null) return null;
+  if (value.version !== 1 || !Array.isArray(value.checkpoints) || !value.checkpoints.length || value.checkpoints.length > HISTORY_LIMIT) {
+    throw new Error('This QC package has unsupported revision history');
+  }
+  let size = 0; const seen = new Set();
+  const checkpoints = value.checkpoints.map((c) => {
+    if (!c || !validRevision(c.id) || seen.has(c.id) || typeof c.snapshot !== 'string' ||
+      !Array.isArray(c.parents) || c.parents.length > 2 || c.parents.some((id) => !validRevision(id) || id === c.id)) {
+      throw new Error('The QC review history is damaged');
+    }
+    seen.add(c.id); size += c.snapshot.length;
+    if (size > HISTORY_CHARS) throw new Error('The QC review history is too large');
+    return { id: c.id, parents: [...c.parents], snapshot: c.snapshot };
+  });
+  return { version: 1, checkpoints };
+}
+
+// A reference to verified original readings, never an editing permission.
+export function cleanReviewAudio(value) {
+  if (value == null) return null;
+  if (!validRevision(value.baselineId)) throw new Error('The original readings reference is damaged');
+  return { baselineId: value.baselineId };
+}
+
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 // A block's "sounds like" words, [[written, said], …], with anything malformed dropped.
 export const cleanSay = (say) => (Array.isArray(say) ? say : [])
@@ -16,9 +49,12 @@ export const cleanSay = (say) => (Array.isArray(say) ? say : [])
 
 // state: { blocks, media, settings, view, app, notes }. Returns the object to save as JSON.
 // notes: what the writer tells AI help about the programme (characters, setting, style).
-export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', comments = [], recording = null }) {
+export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', comments = [], recording = null, projectId = null, reviewHistory = null, reviewAudio = null }) {
   return {
     scribecue: PROJECT_FORMAT,
+    ...(validIdentity(projectId) ? { projectId } : {}),
+    ...(reviewHistory != null ? { reviewHistory: cleanReviewHistory(reviewHistory) } : {}),
+    ...(reviewAudio != null ? { reviewAudio: cleanReviewAudio(reviewAudio) } : {}),
     app,
     saved: new Date().toISOString(),
     ...(notes.trim() ? { notes } : {}),
@@ -27,7 +63,8 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     ...(cleanRecording(recording) ? { recording: cleanRecording(recording) } : {}),
     settings,
     view,
-    blocks: blocks.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup }) => ({
+    blocks: blocks.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup }) => ({
+      ...(validIdentity(uid) ? { uid } : {}),
       start, end, text,
       ...(cleanPickup(pickup) ? { pickup: cleanPickup(pickup) } : {}),
       ...(Number.isSafeInteger(qcReading) && qcReading >= 8 ? { qcReading } : {}),
@@ -53,10 +90,15 @@ export function fromProject(json) {
     throw new Error('it was saved by a newer version of Scribecue. Update Scribecue to open it');
   }
   if (!Array.isArray(json.blocks)) throw new Error('it has no blocks');
-  const blocks = [];
+  const blocks = [], identities = new Set();
   for (const b of json.blocks) {
     if (!b || !num(b.start) || !num(b.end)) continue;
+    if (validIdentity(b.uid)) {
+      if (identities.has(b.uid)) throw new Error('two blocks have the same identity');
+      identities.add(b.uid);
+    }
     blocks.push({
+      ...(validIdentity(b.uid) ? { uid: b.uid } : {}),
       ...(cleanComments(b.comments).length ? { comments: cleanComments(b.comments) } : {}),
       ...(Number.isSafeInteger(b.qcReading) && b.qcReading >= 8 ? { qcReading: b.qcReading } : {}),
       start: Math.max(0, b.start),
@@ -81,6 +123,9 @@ export function fromProject(json) {
   const v = json.view && typeof json.view === 'object' ? json.view : {};
   return {
     blocks,
+    ...(validIdentity(json.projectId) ? { projectId: json.projectId } : {}),
+    ...(json.reviewHistory != null ? { reviewHistory: cleanReviewHistory(json.reviewHistory) } : {}),
+    ...(json.reviewAudio != null ? { reviewAudio: cleanReviewAudio(json.reviewAudio) } : {}),
     recording: cleanRecording(json.recording),
     comments: cleanComments(json.comments, true),
     notes: typeof json.notes === 'string' ? json.notes : '',

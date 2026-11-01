@@ -367,6 +367,28 @@ docker compose up -d --build</code></pre>
     <div class="updbtns"><button id="narrClear" hidden></button><button id="narrClose" class="hl">Close</button></div>
   </dialog>
 
+  <dialog id="reviewCompareDlg" class="updbox wizard" aria-labelledby="reviewCompareHeading">
+    <h2 id="reviewCompareHeading">Compare returned review</h2>
+    <p id="reviewCompareIntro">Combine returned comments and permitted corrections with your work. The package’s original
+      readings and editing permission stay with the review. Nothing is uploaded.</p>
+    <button id="reviewComparePick">Choose returned review</button>
+    <input id="reviewCompareFile" type="file" accept=".scribecueqc" hidden>
+    <p id="reviewCompareStatus" role="status"></p>
+    <progress id="reviewCompareProgress" class="jobbar" max="1" value="0" hidden aria-label="Comparing returned review"></progress>
+    <button id="reviewCompareStop" hidden>Stop</button>
+    <section id="reviewCompareConflicts" hidden>
+      <div class="wzhead"><strong id="reviewCompareTitle"></strong><span id="reviewCompareCount" class="dim"></span></div>
+      <div class="reviewCompare-versions">
+        <section><h3>This review</h3><p id="reviewCompareLocalTime" class="reviewCompare-time"></p><pre id="reviewCompareLocalText"></pre>
+          <button id="reviewCompareUseLocal" aria-pressed="false">Keep this version</button></section>
+        <section><h3>Returned review</h3><p id="reviewCompareRemoteTime" class="reviewCompare-time"></p><pre id="reviewCompareRemoteText"></pre>
+          <button id="reviewCompareUseRemote" aria-pressed="false">Use returned version</button></section>
+      </div>
+      <div class="updbtns"><button id="reviewComparePrevious">Previous conflict</button><button id="reviewCompareNext">Next conflict</button></div>
+    </section>
+    <div class="updbtns"><button id="reviewCompareSave" class="hl" hidden>Save combined review</button><button id="reviewCompareClose">Close</button></div>
+  </dialog>
+
   <dialog id="newDlg" class="updbox wizard" aria-labelledby="newTitle">
     <h2 id="newTitle">Start again</h2>
     <p id="newWhat"></p>
@@ -500,21 +522,23 @@ docker compose up -d --build</code></pre>
   </dialog>
 
   <dialog id="qcPlaybackDlg" class="updbox" aria-labelledby="qcPlaybackTitle">
-    <h2 id="qcPlaybackTitle">QC playback</h2>
+    <h2 id="qcPlaybackTitle">QC review</h2>
     <p id="qcPermissionInfo"></p>
     <p id="qcPackageInfo" role="status"></p>
+    <button id="qcAttachReadings" hidden>Locate original readings</button>
+    <input id="qcReadingsFile" type="file" accept=".scribecueqc" hidden>
     <div class="airow"><button id="qcSourceVideo" aria-pressed="true">Programme sound</button><button id="qcSourcePackage" aria-pressed="false">Original readings</button><button id="qcSourcePreview" aria-pressed="false">Approximate TTS preview</button></div>
     <p id="qcPreviewNote" class="dim small"></p>
     <label for="qcPreviewVoice">Voice for missing readings</label> <select id="qcPreviewVoice"></select>
     <h3>Project voices</h3><ul id="qcVoiceList"></ul>
-    <div class="updbtns"><button id="qcPlaybackClose">Close</button></div>
+    <div class="updbtns"><button id="qcCompareReturned">Compare returned review</button><button id="qcPlaybackClose">Close</button></div>
   </dialog>
   <dialog id="qcExportDlg" class="updbox" aria-labelledby="qcExportTitle">
     <h2 id="qcExportTitle">Make a QC package</h2>
     <p>Includes the project, comments and each original reading. Send the matching video separately. The reviewer needs no voice installation or key to play the included audio.</p>
     <p>Piper, Kokoro and Google Cloud voices can be packaged. Built-in and browser-provided online voices cannot: choose an exportable voice in Write mode, or supply a recorded review video.</p>
     <button id="qcExportAllowEdits" aria-pressed="false" aria-describedby="qcExportPermissionInfo">Allow reviewers to edit blocks</button>
-    <p id="qcExportPermissionInfo" class="dim small">Off: comments only. On: reviewers may correct text, timings, voices and speeds. This choice stays with the package; reviewers cannot change it in QC.</p>
+    <p id="qcExportPermissionInfo" class="dim small">Off: comments only. On: reviewers may correct text, timings, voices and speeds. This choice stays with the package; reviewers cannot change it in QC. The package also keeps a starting point for comparing the returned review.</p>
     <ul id="qcExportVoices"></ul>
     <p id="qcExportCost" class="warnbox" hidden>Making Google Cloud readings sends the text to Google and uses your allowance. Uncached readings may cost money.</p>
     <p id="qcExportStatus" class="dim small" role="status"></p>

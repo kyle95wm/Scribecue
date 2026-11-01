@@ -325,3 +325,13 @@ await check(JSON.stringify({ ...JSON.parse(producer), cues: v2.map((c, i) => (i 
 await js(`caches.delete('shots')`);
 await closeDialogs();
 ws.close();
+
+// QC returned-review comparison also checks save failures and original audio.
+const { spawnSync } = await import('node:child_process');
+const reviewRun = spawnSync(process.execPath, [new URL('./qc-review-smoke.mjs', import.meta.url).pathname,
+  port, site, `${outDir}/qc-compare.png`], { stdio: 'inherit' });
+if (reviewRun.status !== 0) throw new Error('QC comparison screenshot checks failed');
+
+const authorRun = spawnSync(process.execPath, [new URL('./author-review-smoke.mjs', import.meta.url).pathname,
+  port, site, `${outDir}/qc-accept.png`], { stdio: 'inherit' });
+if (authorRun.status !== 0) throw new Error('Author review acceptance screenshot checks failed');

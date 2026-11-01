@@ -1,4 +1,4 @@
-import { buildReview, hasReviewText, reviewReading, reviewSink, voiceReport, REVIEW_EXT } from './qc.js';
+import { buildReview, openReview, hasReviewText, reviewReading, reviewSink, voiceReport, REVIEW_EXT } from './qc.js';
 import { reviewVoices, reviewAudio, voiceLabel, chosenVoice, usingGoogle } from './tts.js';
 const $ = (id) => document.getElementById(id);
 let h, controller = null;
@@ -21,6 +21,8 @@ export function refreshQc() {
   for (const [id, source] of [['qcSourceVideo', 'video'], ['qcSourcePackage', 'package'], ['qcSourcePreview', 'preview']]) {
     $(id).setAttribute('aria-pressed', String(h.source() === source));
   }
+  $('qcAttachReadings').hidden = !h.audioReference?.() || !!review;
+  if (!review && h.audioReference?.()) $('qcPackageInfo').textContent = 'Original readings are not available in this browser. Locate the matching QC package to hear them again.';
   $('qcSourcePackage').disabled = !review;
   const select = $('qcPreviewVoice'), selected = select.value;
   select.replaceChildren(...reviewVoices().map((v) => new Option(v.name, v.id)));
@@ -41,6 +43,15 @@ export function initQc(hooks) {
     $(id).onclick = () => { h.setSource(source, $('qcPreviewVoice').value); refreshQc(); };
   }
   $('qcPreviewVoice').onchange = () => { if (h.source() === 'preview') h.setSource('preview', $('qcPreviewVoice').value); };
+  $('qcCompareReturned').onclick = () => { $('qcPlaybackDlg').close(); h.compare(); };
+  $('qcAttachReadings').onclick = () => $('qcReadingsFile').click();
+  $('qcReadingsFile').onchange = async () => {
+    const file = $('qcReadingsFile').files[0]; $('qcReadingsFile').value = ''; if (!file) return;
+    $('qcAttachReadings').disabled = true; $('qcPackageInfo').textContent = 'Checking original readings…';
+    try { await h.attachAudio(file); refreshQc(); }
+    catch (error) { $('qcPackageInfo').textContent = error.message; }
+    finally { $('qcAttachReadings').disabled = false; }
+  };
   $('qcPlaybackClose').onclick = () => $('qcPlaybackDlg').close();
   $('qcExportClose').onclick = () => { controller?.abort(); $('qcExportDlg').close(); };
   $('qcExportStop').onclick = () => controller?.abort();
@@ -60,14 +71,17 @@ export function initQc(hooks) {
       sink = await reviewSink();
       if (!sink) throw new Error('Making a QC package needs browser disk storage. Use a current Chrome or Edge browser');
       const blob = await buildReview(project, (b) => reviewAudio(h.said(b), b.speed || 1, b.voice || project.settings.ttsVoice), {
-        sink, signal: controller.signal, allowEdits, progress: (done, total) => {
+        sink, signal: controller.signal, allowEdits, handoff: true, progress: (done, total) => {
           $('qcExportProgress').value = total ? done / total : 0;
           $('qcExportStatus').textContent = `Making readings: ${done} of ${total}`;
         },
       });
       if (controller.signal.aborted) throw new Error('QC export stopped');
+      const prepared = await openReview(blob);
+      if (controller.signal.aborted) throw new Error('QC export stopped');
       const a = document.createElement('a'), url = URL.createObjectURL(blob);
       a.href = url; a.download = h.baseName() + REVIEW_EXT; a.click();
+      h.rememberReview(prepared.parsed.reviewHistory, project.projectId);
       setTimeout(() => { URL.revokeObjectURL(url); sink.clean(); }, 60000);
       $('qcExportStatus').textContent = 'QC package saved. Send it with the matching video. The video is not included.';
     } catch (e) { await sink?.clean(); $('qcExportStatus').textContent = e.message; }

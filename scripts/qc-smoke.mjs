@@ -39,11 +39,12 @@ try {
  await wait(`(async()=>{const t=await import('./js/tts.js');return t.reviewVoices().some(v=>v.exportable&&v.id.startsWith('piper:'));})()`);
  await js(`(async()=>{const t=await import('./js/tts.js');const v=t.reviewVoices().find(v=>v.exportable&&v.id.startsWith('piper:'));t.setTtsOption('voice',v.id);window.__anchorClick=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){if(this.download.endsWith('.scribecueqc'))window.__download=this.href;else __anchorClick.call(this);};document.querySelector('[data-act=exportQc]').click();return true;})()`);
  await click('qcExportStart');await wait(`!!window.__download`);
- const real=await js(`(async()=>{const q=await import('./js/qc.js');window.__realFile=await fetch(__download).then(r=>r.blob());const r=await q.openReview(__realFile);return {readings:r.readings.length,secs:r.readings.map(x=>x.secs),allowEdits:q.reviewAllowsEdits(r)};})()`);
+ const real=await js(`(async()=>{const q=await import('./js/qc.js');window.__realFile=await fetch(__download).then(r=>r.blob());const r=await q.openReview(__realFile);return {readings:r.readings.length,secs:r.readings.map(x=>x.secs),allowEdits:q.reviewAllowsEdits(r),baseline:r.baselineId};})()`);
  assert.equal(real.allowEdits,false);
  assert.equal(real.readings,2);assert.ok(real.secs.every(n=>n>0));
  console.log('Piper package exported:',JSON.stringify(real));
  await click('qcExportClose');
+ assert.ok((await save()).reviewHistory.checkpoints.some(c=>c.id===real.baseline),'writer project keeps the QC starting point');
  await js(`window.__download=null;document.querySelector('[data-act=exportQc]').click();true`);
  assert.equal(await js(`document.getElementById('qcExportAllowEdits').getAttribute('aria-pressed')`),'false');
  await click('qcExportAllowEdits');await click('qcExportStart');await wait(`!!window.__download`);

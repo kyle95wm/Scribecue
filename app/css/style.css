@@ -1125,6 +1125,7 @@ body:not(.mode-qc) #edComment, body:not(.mode-qc) #qcCommentRow { display: none;
 .mode-qc:not(.qc-editing) .rowdel, .mode-qc:not(.qc-editing) .edmove, .mode-qc #edAuto, .mode-qc #replaceBtn, .mode-qc #aiBtn,
 .mode-qc .hint:not(.qc-only), .mode-qc #help .cols,
 .mode-qc #helpTour, .mode-qc #helpLoop { display: none; }
+#qcPermission { white-space: nowrap; flex-shrink: 0; }
 #qcPlaybackDlg { max-width: 720px; }
 #qcExportDlg { max-width: 680px; }
 #qcVoiceList, #qcExportVoices { font: 13px/1.5 var(--sans); max-height: 200px; overflow-y: auto; }
@@ -1136,3 +1137,14 @@ body:not(.mode-qc) #edComment, body:not(.mode-qc) #qcCommentRow { display: none;
 .mode-qc.qc-editing .qc-edit-only { display: revert; }
 
 .qc-review-only .qc-export { display: none; }
+
+/* Returned QC reviews reuse the dialog and pressed-button controls. */
+#reviewCompareDlg { width: min(820px, 92vw); }
+#reviewCompareConflicts { margin-top: 20px; }
+#reviewCompareCount, #reviewCompareDlg .reviewCompare-time { font: 12px var(--mono); }
+.reviewCompare-versions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.reviewCompare-versions > section { min-width: 0; }
+#reviewCompareDlg pre { font: 13px/1.5 var(--sans); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; }
+#reviewCompareDlg button:disabled { color: var(--dim); border-color: var(--line); cursor: default; }
+#reviewCompareDlg button[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+@media (max-width: 680px) { .reviewCompare-versions { grid-template-columns: 1fr; } }

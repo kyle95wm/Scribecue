@@ -1,6 +1,8 @@
 // Portable QC files contain a project and individually sliced WAV readings. No video
 // or voice credentials are included. The manifest is at the end, so export can stream.
-import { fromProject } from './project.js';
+import { collaborationJob } from './collaboration.js';
+import { hashReading, prepareReviewBaseline } from './qcreview.js';
+import { fromProject, validIdentity, validRevision } from './project.js';
 export const REVIEW_EXT = '.scribecueqc';
 const MAGIC = 'SCQC0001', FOOTER = 12, MAX_MANIFEST = 16 * 1024 * 1024;
 const bytes = (s) => new TextEncoder().encode(s);
@@ -43,13 +45,14 @@ function trailer(length) {
   const out = new Uint8Array(FOOTER);
   new DataView(out.buffer).setUint32(0, length, true); out.set(bytes(MAGIC), 4); return out;
 }
-function manifestParts(project, readings, allowEdits = false) {
-  const json = bytes(JSON.stringify({ review: 2, permissions: { allowEdits: allowEdits === true }, project, readings }));
+function manifestParts(project, readings, allowEdits = false, baselineId = null) {
+  const { reviewAudio, ...packageProject } = project;
+  const json = bytes(JSON.stringify({ review: 2, ...(baselineId ? { reviewBaseline: baselineId } : {}), permissions: { allowEdits: allowEdits === true }, project: packageProject, readings }));
   if (json.byteLength > MAX_MANIFEST) throw new Error('This review has too much project information');
   return [json, trailer(json.byteLength)];
 }
 export function resaveReview(review, project) {
-  return new Blob([review.file.slice(0, review.audioEnd), ...manifestParts(project, review.readings, reviewAllowsEdits(review))], { type: 'application/octet-stream' });
+  return new Blob([review.file.slice(0, review.audioEnd), ...manifestParts(project, review.readings, reviewAllowsEdits(review), review.baselineId)], { type: 'application/octet-stream' });
 }
 export async function readReview(file) {
   if (file.size < 20) throw new Error('This isn’t a Scribecue QC package');
@@ -60,6 +63,7 @@ export async function readReview(file) {
   const audioEnd = end - length;
   let m; try { m = JSON.parse(await file.slice(audioEnd, end).text()); } catch { throw new Error('The QC package is damaged'); }
   if (m.review !== 1 && m.review !== 2) throw new Error('This QC package needs a newer Scribecue version');
+  if (m.reviewBaseline != null && !validRevision(m.reviewBaseline)) throw new Error('The QC starting point is damaged');
   const parsed = fromProject(m.project); // Check the script before exposing any audio.
   if (!Array.isArray(m.readings) || m.readings.length > 100000) throw new Error('The QC readings are damaged');
   let at = 8;
@@ -70,7 +74,7 @@ export async function readReview(file) {
     index.set(audioKey(r.key), r); byOffset.set(r.offset, r); at += r.bytes;
   }
   if (at !== audioEnd) throw new Error('The QC readings are damaged');
-  return { file, project: m.project, parsed, readings: m.readings, audioEnd, index, byOffset, permissions: { allowEdits: m.review === 2 && m.permissions?.allowEdits === true } };
+  return { file, baselineId: m.reviewBaseline || null, project: m.project, parsed, readings: m.readings, audioEnd, index, byOffset, permissions: { allowEdits: m.review === 2 && m.permissions?.allowEdits === true } };
 }
 // Package metadata is parsed and checked off the page for long reviews.
 export async function openReview(file) {
@@ -84,9 +88,11 @@ export async function openReview(file) {
 }
 // sink: optional disk writer with write/close/abort/file. Without one, Blob parts are
 // still individual readings, never a decoded full-film track.
-export async function buildReview(project, make, { sink = null, progress = () => {}, signal, allowEdits = false } = {}) {
+export async function buildReview(project, make, { sink = null, progress = () => {}, signal, allowEdits = false, handoff = false } = {}) {
   project = { ...project, blocks: project.blocks.map(({ qcReading, ...b }) => b) };
+  if (handoff && (!validIdentity(project.projectId) || project.blocks.some((b) => !validIdentity(b.uid)))) throw new Error('Save the project in this version before making a QC package');
   const parts = [], readings = [];
+  let baselineId = null;
   const write = async (part) => { if (sink) await sink.write(part); else parts.push(part); };
   let offset = 8;
   try {
@@ -100,7 +106,8 @@ export async function buildReview(project, make, { sink = null, progress = () =>
         if (!made) throw new Error('A reading could not be packaged');
         if (made) {
           if (typeof made.voice !== 'string' || !(made.blob instanceof Blob) || made.blob.size < 44 || !finite(made.secs) || made.secs <= 0) throw new Error('A reading could not be packaged');
-          readings.push({ key: readingKey(b, project.settings), offset, bytes: made.blob.size, secs: made.secs, voice: made.voice });
+          readings.push({ key: readingKey(b, project.settings), offset, bytes: made.blob.size, secs: made.secs, voice: made.voice,
+            ...(handoff ? { blockUid: b.uid, sha: await hashReading(made.blob) } : {}) });
           await write(made.blob); offset += made.blob.size;
         }
       }
@@ -108,7 +115,12 @@ export async function buildReview(project, make, { sink = null, progress = () =>
       await new Promise((r) => setTimeout(r, 0));
     }
     if (signal?.aborted) throw new Error('QC export stopped');
-    for (const part of manifestParts(project, readings, allowEdits)) await write(part);
+    if (handoff) {
+      const prepared = typeof Worker === 'undefined' ? await prepareReviewBaseline(project, readings, allowEdits)
+        : await collaborationJob({ task: 'prepareReview', project, readings, allowEdits }, { signal });
+      project = prepared.project; baselineId = prepared.baselineId;
+    }
+    for (const part of manifestParts(project, readings, allowEdits, baselineId)) await write(part);
     if (signal?.aborted) throw new Error('QC export stopped');
     progress(project.blocks.length, project.blocks.length);
     if (sink) { await sink.close(); return sink.file(); }
@@ -146,3 +158,7 @@ export async function reviewSink() {
     abort: async () => { try { await writer.abort(); } finally { await root.removeEntry(name).catch(() => {}); } },
     file: () => handle.getFile(), clean: () => root.removeEntry(name).catch(() => {}) };
 }
+
+// Original readings attached to an authoring project use their own recovery entry.
+// The baseline id is a content reference, not an ownership or permission flag.
+export const reviewAudioKey = (projectId, baselineId) => `audio:${projectId}:${baselineId}`;

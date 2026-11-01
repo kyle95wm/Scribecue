@@ -12,6 +12,7 @@ one project with your findings. You don't need an AI provider or a paid voice to
 - [Add useful comments](#add-useful-comments)
 - [Check fixes and resolve comments](#check-fixes-and-resolve-comments)
 - [Save and return the review](#save-and-return-the-review)
+- [Compare a returned review](#compare-a-returned-review)
 - [QC keys](#qc-keys)
 - [Common problems](#common-problems)
 
@@ -29,8 +30,8 @@ Ask the person sending the review for:
 
 Use a current version of Scribecue on both computers so both can read and save comments.
 
-For several reviewers, name each copy and agree who combines the findings. Scribecue
-uses file handoffs. It has no live shared review or automatic merge of project copies.
+For several reviewers, name each copy and agree who combines the findings. New QC
+packages keep a starting point for comparing returned reviews. There is no live shared review.
 
 ## Open a review copy
 
@@ -51,7 +52,9 @@ correct text, timings, pronunciation, block voices and speeds while keeping Comm
 Timings never adjust from a reading automatically in QC. Saving or reloading keeps the
 creator’s choice. Ask for a new package if you need permission to make corrections.
 
-Plain `.scribecue` projects are read-only in QC; use Write or Transcribe to edit those.
+Plain projects start read-only in QC; use Write or Transcribe to edit them. After you
+accept a review into your authoring project, you can edit it in QC too. The header says
+**Authoring project**. The reviewer’s permission does not restrict your project.
 Older QC packages without a saved permission open as comments-only. New packages need
 an updated Scribecue on both computers so the creator’s choice is respected.
 
@@ -94,7 +97,8 @@ over a track that already contains description. `T` and `Shift+T` change audio t
 3. Choose **Allow reviewers to edit blocks** if corrections are part of the brief.
    Leave it off for comments-only review. This choice is saved in the package.
 4. Click **Make QC package** and wait for the readings. Progress is shown; **Stop** cancels.
-5. Send the `.scribecueqc` file with the matching video and review brief.
+5. Save your working project too, so it keeps the review’s starting point.
+6. Send the `.scribecueqc` file with the matching video and review brief.
 
 ![QC package export with its voice check](../docs/screenshots/qc-package.png)
 
@@ -214,7 +218,7 @@ comment on the same block or time and identify the issue you're answering.
 
 ### Make corrections in QC
 
-1. Check that the header says **Edits allowed**. Otherwise, return comments or ask the
+1. Check that the header says **Edits allowed** or **Authoring project**. Otherwise, return comments or ask the
    writer for a package that permits corrections.
 2. Click a block and make the agreed correction. Change its times directly or drag it.
 3. Check the reading status. A new voice or corrected text needs fresh audio before
@@ -253,15 +257,53 @@ Chrome and Edge can save back to a chosen file. Other browsers download a copy o
 save; return the newest download. Browser recovery alone doesn't give the next person a file.
 [Saving](GETTING-STARTED.md#saving) has the details.
 
-For several reviewers, keep the returned files separate until the review owner has
-combined the findings. Opening another project replaces the current one; it doesn't add
-its comments to the project already open. Keep the earlier round until the next one is agreed.
+Keep each returned package until the findings are combined. Use
+[Compare a returned review](#compare-a-returned-review) to bring changes together.
+Opening a file normally replaces the current review.
 
 Files and comments stay on your computer until you share them. A person receiving a
 project can read its resolved comments and any saved programme notes too. Online voices
 send text to their provider, and AI help can send text and frames when you use it. Follow
 the programme's sharing rules; use local voices when needed. [Privacy](../README.md#privacy)
 explains what each optional service sends.
+
+## Compare a returned review
+
+1. Open your saved authoring `.scribecue` project, then switch to **QC**.
+2. Click **QC** under the video, then **Compare returned review**.
+3. Choose the returned `.scribecueqc` package.
+4. Independent corrections and comments combine automatically. For conflicting block
+   versions or comment lists, choose **Keep this version** or **Use returned version**.
+   Check the wording and timings.
+5. Use **Next conflict** for further choices, then **Accept review**.
+
+Accepting saves the comments and permitted corrections into your authoring project.
+The header says **Authoring project**: you can make fixes in QC with the comments open,
+or switch to Write. The reviewer’s package keeps its original permission.
+
+![Accepting returned feedback into the authoring project](../docs/screenshots/qc-accept.png)
+
+Original readings stay available in QC on this computer. Changed wording keeps its
+previous reading until you make fresh audio. Save and Save As keep the readings reference.
+Keep the returned QC package: the authoring file does not contain its audio.
+
+If you reopen the project elsewhere, click **QC → Locate original readings** and choose
+that package. This restores the readings without replacing your current script or comments.
+The reference does not depend on the package’s filename.
+
+![An editable authoring project with the reviewer’s comments](../docs/screenshots/qc-authoring.png)
+
+For combining two QC packages, open the original package instead. The final button is
+**Save combined review**. The result remains a QC package with its existing permission.
+
+Cancelling or a failed save leaves your current work unchanged. In a browser that
+downloads files, open the accepted project or combined package yourself after saving.
+The reviewer’s listening preferences do not replace the writer’s settings.
+
+Both files need the same saved starting point. For an older package, or a review whose
+starting point is no longer kept in the working project, export a new QC package.
+Changed permission or original audio is refused. Comments-only returns can bring back
+comments, not script or timing changes. This checks the file handoff, not reviewer identity.
 
 ## QC keys
 

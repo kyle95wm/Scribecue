@@ -95,3 +95,38 @@ test('a project keeps its pickup marks and its recording files’ id, version an
   assert.equal(fromProject({ scribecue: 1, blocks: [], recording: { id: 'nope' } }).recording, null);
   assert.equal(fromProject({ scribecue: 1, blocks: [] }).recording, null, 'projects from before recording files');
 });
+
+test('persistent project and block identities survive file and QC round trips', async () => {
+  const { newIdentity, validIdentity } = await import('../app/js/project.js');
+  const { resaveReview, openReview } = await import('../app/js/qc.js');
+  const projectId = newIdentity(), uid = newIdentity();
+  assert.ok(validIdentity(uid));
+  assert.notEqual(uid, projectId);
+  const saved = toProject({ ...state, projectId, blocks: [{ ...state.blocks[0], uid }] });
+  const p = fromProject(JSON.parse(JSON.stringify(saved)));
+  assert.equal(p.projectId, projectId);
+  assert.equal(p.blocks[0].uid, uid);
+  const packaged = resaveReview({ file: new Blob(['SCQC0001']), audioEnd: 8, readings: [], permissions: { allowEdits: true } }, saved);
+  const review = await openReview(packaged);
+  assert.equal(review.parsed.projectId, projectId);
+  assert.equal(review.parsed.blocks[0].uid, uid);
+  assert.ok(!('id' in saved.blocks[0]), 'temporary editor ids remain private to the session');
+});
+
+test('legacy files stay readable; invalid identities are dropped and duplicates refused', async () => {
+  const { newIdentity } = await import('../app/js/project.js');
+  const uid = newIdentity();
+  const block = { uid, start: 1, end: 2, text: 'A' };
+  assert.throws(() => fromProject({ scribecue: 1, blocks: [block, block] }), /same identity/);
+  const p = fromProject({ scribecue: 1, projectId: 'wrong', blocks: [{ ...block, uid: 'wrong' }] });
+  assert.ok(!('projectId' in p));
+  assert.ok(!('uid' in p.blocks[0]));
+  assert.ok(!('projectId' in fromProject(toProject(state))));
+});
+
+test('authoring projects keep only a valid original-readings reference, never permission flags', () => {
+  const baselineId='a'.repeat(64);
+  const saved=toProject({...state,reviewAudio:{baselineId,allowEdits:true,owner:true}});
+  assert.deepEqual(fromProject(saved).reviewAudio,{baselineId});
+  assert.throws(()=>fromProject({...saved,reviewAudio:{baselineId:'bad'}}),/reference is damaged/);
+});
