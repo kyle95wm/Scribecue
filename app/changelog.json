@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.66.4",
+  "date": "2026-10-31",
+  "notes": "## Fixed\n\n- Piper voice samples in the voices guide now play in every browser when you run Scribecue in Docker. Before, some browsers wouldn’t play them."
+ },
+ {
   "version": "0.66.3",
   "date": "2026-10-31",
   "notes": "## Hear the Piper voices\n\n- The voices guide has a short sample of each Piper voice. Click a name to hear it before you download it.\n- Samples play inside the guide window. Click the name again to stop."
