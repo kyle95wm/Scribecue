@@ -6,10 +6,11 @@
 import { tts, SPEEDS, MAX_BASE, toBase, fillVoiceSelect, chosenVoice, setTtsOption, loadPiper, webPiper, webVoiceChoices, downloadVoice, megabytes } from './tts.js';
 import { updateChoice, setUpdateChoice } from './update.js';
 import { HOSTED } from './config.js';
+import { savedName, saveName, cleanName } from './profile.js';
 
 const $ = (id) => document.getElementById(id);
 const KEY = 'scribecue.welcome';
-let hooks = { getMode: () => 'transcribe', setMode: () => {}, getOffset: () => 0.2, setOffset: () => {}, getReplay: () => false, setReplay: () => {}, offsets: [], toast: () => {} };
+let hooks = { getMode: () => 'transcribe', setMode: () => {}, getOffset: () => 0.2, setOffset: () => {}, getReplay: () => false, setReplay: () => {}, nameChanged: () => {}, offsets: [], toast: () => {} };
 let step = 0;
 let finished = false;
 
@@ -33,6 +34,10 @@ function show() {
 function summarise() {
   const m = mode();
   const lines = [m === 'qc' ? 'QC mode, with comments and editing permission set by the package creator' : m === 'write' ? 'Write mode, for new audio description' : 'Transcribe mode, for existing audio description'];
+  if (m === 'qc') {
+    const name = cleanName($('wzName').value);
+    lines.push(name ? `Comments are signed ${name}` : 'Comments carry no name. You can add one in Settings, under General');
+  }
   if (m === 'transcribe') {
     lines.push(`Hold-to-mark reaction offset: ${Math.round(+$('wzOffset').value * 1000)} ms`);
     if ($('wzReplay').checked) lines.push('Goes back to each block’s start after you edit it');
@@ -69,6 +74,7 @@ function finish() {
       setTtsOption('skipNotes', $('wzNotes').checked);
     }
   }
+  if (m === 'qc') { saveName($('wzName').value); hooks.nameChanged(); }
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
   if (u === '1' || u === '0') setUpdateChoice(u === '1');
   const piper = $('wzTts').checked && !$('wzWebPiper').hidden && $('wzPiperGet').checked ? $('wzPiperVoice').value : '';
@@ -89,6 +95,7 @@ export function openWelcome() {
   step = 0;
   for (const r of document.querySelectorAll('input[name=wzMode]')) r.checked = r.value === hooks.getMode();
   $('wzOffset').value = String(hooks.getOffset());
+  $('wzName').value = savedName();
   $('wzReplay').checked = $('wzReplayWrite').checked = hooks.getReplay();
   // New users who pick Write most likely want text to speech, so it starts ticked for them.
   $('wzTts').checked = tts.on || !welcomed();

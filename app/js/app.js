@@ -4,7 +4,7 @@ import { REVIEW_EXT, isReview, openReview, resaveReview, reviewAllowsEdits, revi
 import { reviewedRewrite, speechKey } from './qcspeech.js';
 import { initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments } from './comments.js';
-import { initComments, toggleComments, refreshComments, openBlockComments } from './commentsdrawer.js';
+import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
 import { parseSubs, parseAdc, toSRT, toVTT, fmtTC, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
@@ -4879,6 +4879,7 @@ initWelcome({
   setOffset,
   getReplay: () => S.replay,
   setReplay: (on) => setReplay(on, true),
+  nameChanged: () => showName(),
   offsets: OFFSETS,
   toast,
 }, (finished) => {

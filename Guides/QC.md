@@ -35,7 +35,7 @@ packages keep a starting point for comparing returned reviews. There is no live 
 
 ## Open a review copy
 
-1. Use Chrome or Edge on a computer. Open Scribecue. On a first visit, choose **QC review** in setup.
+1. Use Chrome or Edge on a computer. Open Scribecue. On a first visit, choose **QC review** in setup. Add your name there if you want it on your comments.
 2. Drag the project and its video onto Scribecue together. Or press `Ctrl/Cmd+O` for the
    project, then `Ctrl/Cmd+Shift+O` for its media. **Reopen** works too, if it offers the right video.
 3. Save a separate copy with `Ctrl/Cmd+Shift+S` before making changes. For example,
@@ -187,12 +187,14 @@ shortcuts. Finish with a pass at normal speed, even if you slowed down difficult
 
 1. Pause and click the block to open it.
 2. Click **Comment** beneath its text. The drawer names the block and its start time.
-3. Enter **Your name** if you want it on the comment.
+3. Check **Your name**. It fills in if you saved one. Leave it blank to post without a name.
 4. Write the comment and click **Post comment**. Repeat for separate issues.
 
-The name is remembered in this browser after you post. Each comment keeps the name used
-when it was posted; changing the field affects future comments. A blank name displays
-as **Reviewer**. Names are labels, not verified accounts.
+To save your name, or forget it, open **Settings**, under **General**. It stays in this
+browser. A name typed only in the drawer isn't saved.
+
+Each comment keeps the name it was posted with. A blank name displays as **Reviewer**.
+Names are labels, not verified accounts.
 
 ### At a time on the timeline
 

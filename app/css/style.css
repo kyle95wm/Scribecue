@@ -1084,7 +1084,7 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .setpane .aisetup { padding: 0; border: 0; max-height: none; overflow: visible; }
 .setpane .keyslist { max-height: none; }
 #setTmdb .updstatus { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-#setTmdbKey { flex: 1; min-width: 12em; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+#setTmdbKey, #setName, #wzName { flex: 1; min-width: 12em; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
 /* Settings under the video only show while on, and open their section. */
 #ind .setlabel { cursor: pointer; }
 @media (max-width: 640px) {

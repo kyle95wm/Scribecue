@@ -27,6 +27,8 @@ section.
 **Run setup again**, under **General**, asks the first-time questions again. Nothing
 changes until you press **Finish**.
 
+**Your name**, under **General**, is optional. It fills in your name on comments.
+
 ![Settings, with its sections down the left and General showing](../docs/screenshots/settings.png)
 
 ## The loop

@@ -459,6 +459,8 @@ docker compose up -d --build</code></pre>
       <p>Open the project or QC package and its matching video. The package creator decides whether block edits are allowed. Timings never adjust automatically in QC.</p>
       <p>Click QC under the video to choose programme sound, original readings or an approximate TTS preview. Packaged readings need no voice installation or key.</p>
       <p>Click Comment in a block, or right-click the timeline to leave a note. Save and return the reviewed file.</p>
+      <div class="ttsgrid"><label for="wzName">Your name</label><input id="wzName" autocomplete="name" maxlength="100" spellcheck="false" placeholder="optional"></div>
+      <p class="dim small">Fills in your name on comments. Leave it blank if you'd rather not. It stays in this browser, and you can change it in Settings, under General.</p>
     </section>
     <section data-step="transcribe" hidden>
       <h2>Hold-to-mark</h2>
@@ -558,7 +560,7 @@ docker compose up -d --build</code></pre>
   <aside id="commentsDrawer" class="aidrawer" hidden aria-label="Comments">
     <header class="aihead"><strong class="grow">Comments</strong><button id="commentsClose" aria-label="Close Comments (Esc)">×</button></header>
     <div class="aicompose">
-      <label class="airow" for="commentAuthor">Your name <input id="commentAuthor" autocomplete="name" maxlength="100" placeholder="optional"></label>
+      <label class="airow" for="commentAuthor">Your name <input id="commentAuthor" autocomplete="name" maxlength="100" placeholder="optional" data-tip="Keep your name in Settings, under General, to fill this in each time"></label>
       <label id="commentTarget" for="commentText"></label>
       <label id="commentTimeLabel" hidden>Time <input id="commentAt" spellcheck="false" aria-label="Comment time"></label>
       <textarea id="commentText" rows="2" placeholder="Add a comment…"></textarea>
@@ -1049,6 +1051,11 @@ docker compose up -d --build</code></pre>
       <p>Scribecue <span id="setVersion"></span> <button id="setWhatsNew" class="link">What's new</button></p>
       <p class="hosted-only small">The web version updates itself. When a new version is ready, the version
         number in the bottom right says so.</p>
+      <h3>Your name</h3>
+      <p class="updstatus"><label for="setName" class="small">Name</label>
+        <input id="setName" autocomplete="name" maxlength="100" spellcheck="false" placeholder="optional">
+        <button id="setNameForget">Forget</button> <span id="setNameStatus" class="dim small" role="status"></span></p>
+      <p class="dim small">Fills in your name on comments, so you don't type it each time. It stays in this browser.</p>
       <h3>Editing</h3>
       <label class="updopt"><input type="checkbox" id="setReplay"> Replay: after editing a block, go back to its start</label>
       <p class="dim small">When you press <kbd>Esc</kbd> or <kbd>↵</kbd>, the playhead goes back to the start of

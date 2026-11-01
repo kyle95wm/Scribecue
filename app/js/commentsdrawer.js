@@ -1,4 +1,5 @@
 import { commentEntries } from './comments.js';
+import { savedName, saveName } from './profile.js';
 const $ = (id) => document.getElementById(id);
 let hooks, timeline = false, page = 0, showResolved = false;
 const PAGE_SIZE = 50;
@@ -62,9 +63,17 @@ export function refreshComments() {
     row.append(location, meta, body, acts); log.append(row);
   }
 }
+// The saved name fills the comment field. A name typed there is for this session only.
+export function showName(status = '') {
+  const name = savedName();
+  $('setName').value = name; $('commentAuthor').value = name;
+  $('setNameForget').hidden = !name; $('setNameStatus').textContent = status;
+}
 export function initComments(h) {
   hooks = h;
-  try { $('commentAuthor').value = localStorage.getItem('scribecue.reviewer') || ''; } catch { /* optional */ }
+  showName();
+  $('setName').addEventListener('change', (e) => showName(saveName(e.target.value) ? 'Saved.' : 'Forgotten.'));
+  $('setNameForget').addEventListener('click', () => { saveName(''); showName('Forgotten.'); });
   $('commentsClose').onclick = () => toggleComments(false);
   $('commentsResolved').onclick = () => { showResolved = !showResolved; page = 0; $('commentsResolved').setAttribute('aria-pressed', String(showResolved)); refreshComments(); };
   $('commentsPrev').onclick = () => { page--; refreshComments(); };
@@ -80,7 +89,6 @@ export function initComments(h) {
       const comments = timeline ? hooks.comments() : (block.comments ||= []);
       comments.push({ text, author, created: new Date().toISOString(), resolved: false, ...(timeline ? { time } : {}) });
     });
-    try { localStorage.setItem('scribecue.reviewer', author); } catch { /* optional */ }
     $('commentText').value = ''; $('commentStatus').textContent = 'Comment posted'; $('commentText').focus();
   };
   $('commentsDrawer').addEventListener('keydown', (e) => {
