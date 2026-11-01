@@ -5,7 +5,7 @@ import { reviewedRewrite, speechKey } from './qcspeech.js';
 import { initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments } from './comments.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
-import { parseSubs, toSRT, toVTT, fmtTC, parseTC } from './formats.js';
+import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
@@ -18,7 +18,7 @@ import { readNote } from './bwf.js';
 import { initRecord } from './record.js';
 import { takesInfo, clearTakes } from './takestore.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
-import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom, playFrom } from './nav.js';
+import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom, stopAt } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
@@ -32,7 +32,7 @@ import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } fr
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
-import { FIT_MIN, MAX_SPEED, writeWav, readingStarting, reviewGoogleKey } from './tts.js';
+import { FIT_MIN, MAX_SPEED, writeWav, readingStarting, reviewGoogleKey, missingVoiceAdvice, hasGoogleKey } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands } from './ffcmd.js';
 import { videoName, missing, advice, copyKind } from './codecs.js';
@@ -120,7 +120,7 @@ const S = {
   offset: (() => { try { const v = parseFloat(localStorage.getItem('scribecue.offset')); return OFFSETS.includes(v) ? v : 0.2; } catch { return 0.2; } })(),
   // After editing a block, go back to its start, to hear it again. On unless turned off.
   replay: (() => { try { return localStorage.getItem('scribecue.replay') !== '0'; } catch { return true; } })(),
-  // Return to start: play after a stop starts again where that playback began. Off unless turned on.
+  // Return to start: stopping puts the playhead back where that playback began. Off unless turned on.
   returnToStart: (() => { try { return localStorage.getItem('scribecue.returnToStart') === '1'; } catch { return false; } })(),
   // The total length shows the time remaining instead.
   remaining: (() => { try { return localStorage.getItem('scribecue.remaining') === '1'; } catch { return false; } })(),
@@ -225,9 +225,8 @@ function duration() {
 const now = () => (S.hasVideo ? video.currentTime : S.vt);
 const qcPlayer = createQcPlayer({ now, duck: (on) => duckAudio(on), error: (message) => toast(message) });
 const isPlaying = () => (S.hasVideo ? !video.paused && !video.ended : S.vplaying);
-// For return to start: where playback began, moved along by any jump while playing, and
-// what the last stop left ({ from, at }, see playFrom).
-let playStart = null, stopMark = null;
+// For return to start: where playback began, moved along by any jump while playing.
+let playStart = null;
 
 function setTime(t) {
   stopPreviousReading();
@@ -269,7 +268,7 @@ video.addEventListener('waiting', () => videoWaiting(true));
 for (const ev of ['playing', 'pause', 'emptied']) video.addEventListener(ev, () => videoWaiting(false));
 // Record mode plays the video itself, so where playback began is taken from the video.
 video.addEventListener('play', () => { playStart = video.currentTime; });
-video.addEventListener('ended', () => { stopMark = playStart == null ? null : { from: playStart, at: now() }; });
+video.addEventListener('ended', () => { const t = stopAt(S.returnToStart, playStart, now()); if (t !== now()) seek(t); });
 function pause() {
   stopPreviousReading();
   qcPlayer.stop();
@@ -283,14 +282,11 @@ function pause() {
 function togglePlay() {
   S.playUntil = null;
   if (isPlaying()) {
-    stopMark = playStart == null ? null : { from: playStart, at: now() };
-    return pause();
-  }
-  if (S.returnToStart) {
-    const t = playFrom(stopMark, now());
+    const t = stopAt(S.returnToStart, playStart, now());
+    pause();
     if (t !== now()) seek(t);
+    return;
   }
-  stopMark = null;
   play();
 }
 function playCue() {
@@ -1742,7 +1738,7 @@ const IND_TIPS = {
   speed: 'Playback speed. + and - change it; click or press \\ to reset to 1×',
   follow: 'Follow: keep the playhead in view and select each block as it plays (F)',
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
-  returnToStart: 'Return to start is on: play after a stop starts again where playback began. Click for its settings',
+  returnToStart: 'Return to start is on: stopping puts the playhead back where playback began. Click for its settings',
   replay: 'Replay is on: Esc or ↵ after editing a block puts the playhead back at its start (⇧L). Click for its settings',
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H changes it; click for its settings',
   tts: 'Text to speech is on: hear blocks read aloud (V). Click for its settings, such as the voice and speed (⌥⇧V)',
@@ -3742,7 +3738,7 @@ function projectSound({ ttsDuck, ttsDipDb, ttsDipFade, ttsMix }) {
   if (ttsMix != null && ttsMix !== tts.mix) { setMix(ttsMix); showMix(); duckAudio(); }
 }
 
-// Ctrl/Cmd+O: a project, or a script saved as SRT or VTT.
+// Ctrl/Cmd+O: a project, or a script saved as SRT, VTT or .adc.
 // Open: a project, a script, a video or audio file, or several at once, each opened as
 // what it is. A project opened this way can be saved back to its own file.
 async function openAny() {
@@ -3752,7 +3748,7 @@ async function openAny() {
       multiple: true,
       types: [
         { description: 'Scribecue project, script, video or audio', accept: {
-          'application/json': [PROJECT_EXT, REVIEW_EXT, RECORDING_EXT], 'text/plain': ['.srt', '.vtt', '.txt'],
+          'application/json': [PROJECT_EXT, REVIEW_EXT, RECORDING_EXT], 'text/plain': ['.srt', '.vtt', '.txt', '.adc'],
           'video/*': ['.mp4', '.m4v', '.mov', '.mkv', '.webm'], 'audio/*': ['.wav', '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.opus'],
         } },
       ],
@@ -3881,12 +3877,13 @@ function exportSubs(fmt) {
   toast(`Exported ${name} (${S.cues.length} cues)` + (speeds ? '. SRT can’t store block speeds: export VTT to keep them' : ''));
 }
 
-// Scripts Scribecue opens: SRT, VTT and plain text.
-const SCRIPT = /\.(srt|vtt|txt)$/i;
+// Scripts Scribecue opens: SRT, VTT, plain text, and Frazier's .adc files.
+const SCRIPT = /\.(srt|vtt|txt|adc)$/i;
 async function loadSubsFile(file) {
   let text;
   try { text = await file.text(); } catch (e) { return toast(`Couldn’t read ${file.name}${readProblem(e)}`); }
-  const parsed = parseSubs(text);
+  const adc = /\.adc$/i.test(file.name) ? parseAdc(text) : null;
+  const parsed = adc ? adc.cues : parseSubs(text);
   if (!parsed.length) return toast(`No cues found in ${file.name}`);
   if (!okToReplace(`Open ${file.name}`)) return;
   await stopJob();
@@ -3907,9 +3904,89 @@ async function loadSubsFile(file) {
   S.dirty = true;
   showDocName();
   select(S.cues[0].id);
-  toast(`Loaded ${parsed.length} cues from ${file.name}${undoStack.length > 1 ? ' — undo restores previous' : ''}`);
+  // A Frazier script's base speed comes with it.
+  const base = adc && adc.base !== tts.base ? adc.base : null;
+  if (base) setTtsOption('base', base);
+  toast(`Loaded ${parsed.length} cues from ${file.name}${base ? `, at a base speed of ${Math.round(base * 100)}%` : ''}${undoStack.length > 1 ? ' — undo restores previous' : ''}`);
+  await askVoices(adc, file.name);
   afterImport(file.name);
 }
+
+// A Frazier script names a Google voice for itself, and maybe others for some blocks: ask
+// whether to read with them, or with others. Closing the question, or with text to speech
+// off, keeps the voice in Settings, and blocks keep their own.
+const voiceDlg = $('voiceDlg');
+let voiceList = [], voiceDone = null;
+const andList = (a) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} and ${a.at(-1)}` : a[0]);
+const blocksOf = (n) => `${n} block${n === 1 ? '' : 's'}`;
+function askVoices(adc, name) {
+  voiceList = adc ? scriptVoices({ cues: S.cues, voice: adc.voice }) : [];
+  if (!ttsOn() || !voiceList.length || (voiceList.length === 1 && voiceList[0].main && [tts.voice, chosenVoice()].includes(voiceList[0].uri))) return Promise.resolve();
+  const main = voiceList.find((v) => v.main), own = voiceList.filter((v) => !v.main);
+  $('voiceWhat').textContent = main
+    ? `${name} reads with ${voiceLabel(main.uri)}${own.length ? `, and ${andList(own.map((v) => `${blocksOf(v.blocks)} with ${voiceLabel(v.uri)}`))}` : ''}.`
+    : `In ${name}, ${andList(own.map((v) => `${blocksOf(v.blocks)} ${v.blocks === 1 ? 'reads' : 'read'} with ${voiceLabel(v.uri)}`))}.`;
+  const one = voiceList.length === 1;
+  $('voiceTitle').textContent = one ? 'Use the script’s voice?' : 'Use the script’s voices?';
+  $('voiceScript').textContent = one ? 'Use the script’s voice' : 'Use the script’s voices';
+  $('voiceOther').textContent = one ? 'Choose another voice' : 'Choose other voices';
+  const here = reviewVoices().map((v) => v.id);
+  const away = voiceList.filter((v) => !here.includes(v.uri));
+  $('voiceScriptNote').textContent = away.length
+    ? `${andList(away.map((v) => voiceLabel(v.uri)))} ${away.length === 1 ? 'isn’t' : 'aren’t'} available here. ${missingVoiceAdvice(away[0].uri, { googleKey: hasGoogleKey(), hosted: HOSTED }).replace(/\bit\b/, away.length === 1 ? 'it' : 'them')} Until then, blocks are read with ${chosenVoiceName()}.`
+    : (main ? `The project reads with ${voiceLabel(main.uri)}${own.length ? ', and blocks keep their own voices' : ''}.` : 'Blocks keep their own voices.')
+      + (voiceList.some((v) => usingGoogle(v.uri)) ? ' Each reading sends the block’s text to Google.' : '');
+  $('voiceAsk').hidden = false;
+  $('voicePick').hidden = true;
+  voiceDlg.showModal();
+  voiceDlg.querySelector('.wzchoice').focus();
+  return new Promise((resolve) => { voiceDone = resolve; });
+}
+// One menu for each of the script's voices: the project's voice starts at the one in
+// Settings, and a block voice at itself, or the project's voice.
+function fillVoiceRows() {
+  $('voiceRows').replaceChildren(...voiceList.map((v) => {
+    const label = document.createElement('label'), sel = document.createElement('select');
+    label.className = 'recfield';
+    label.textContent = v.main ? `The project’s voice, instead of ${voiceLabel(v.uri)}` : `${blocksOf(v.blocks)}, instead of ${voiceLabel(v.uri)}`;
+    fillVoiceSelect(sel, v.main ? chosenVoice() : v.uri);
+    if (!v.main) sel.prepend(new Option('Same as the project’s voice', ''));
+    if (![...sel.options].some((o) => o.value === v.uri)) sel.add(new Option(`${voiceLabel(v.uri)}: not available here`, v.uri), v.main ? 0 : 1);
+    sel.value = v.main ? chosenVoice() : v.uri;
+    sel.dataset.uri = v.uri;
+    sel.dataset.main = v.main ? '1' : '';
+    label.append(sel);
+    return label;
+  }));
+}
+function useVoices(picks) {
+  const main = picks.find((p) => p.main);
+  if (main && main.to && main.to !== tts.voice) setTtsOption('voice', main.to);
+  const swaps = Object.fromEntries(picks.filter((p) => !p.main).map((p) => [p.uri, p.to]));
+  swapVoices(S.cues, swaps, main?.to || chosenVoice());
+  changed();
+  voiceDlg.close();
+}
+for (const b of voiceDlg.querySelectorAll('.wzchoice')) {
+  b.addEventListener('click', () => {
+    if (b.dataset.choice === 'script') return useVoices(voiceList.map((v) => ({ ...v, to: v.uri })));
+    fillVoiceRows();
+    $('voiceAsk').hidden = true;
+    $('voicePick').hidden = false;
+    $('voiceRows').querySelector('select')?.focus();
+  });
+}
+$('voiceBack').addEventListener('click', () => {
+  $('voicePick').hidden = true;
+  $('voiceAsk').hidden = false;
+  voiceDlg.querySelector('[data-choice="other"]').focus();
+});
+$('voiceUse').addEventListener('click', () => {
+  useVoices([...$('voiceRows').querySelectorAll('select')].map((sel) => ({ uri: sel.dataset.uri, main: !!sel.dataset.main, to: sel.value })));
+});
+voiceDlg.addEventListener('close', () => { voiceDone?.(); voiceDone = null; });
+voiceDlg.addEventListener('click', (e) => { if (e.target === voiceDlg) voiceDlg.close(); });
+document.addEventListener('keydown', (e) => { if (voiceDlg.open) e.stopPropagation(); }, true);
 
 let videoURL = null;
 function loadVideoFile(file) {
@@ -4387,7 +4464,6 @@ video.addEventListener('click', togglePlay);
 function openFiles(files) {
   for (const f of files) {
     if (isDoc(f.name)) openProject(f);
-    else if (/\.adc$/i.test(f.name)) toast(`Scribecue doesn’t open .adc scripts. Export ${f.name} as SRT or WebVTT, then open that`);
     else if (SCRIPT.test(f.name)) loadSubsFile(f).catch((e) => { console.error(e); toast(`Couldn’t open ${f.name}${readProblem(e)}`); });
     else if (/\.wav$/i.test(f.name)) readNote(f).then((n) => (n ? checkNarration(n, f.name) : loadVideoFile(f)));
     else loadVideoFile(f);

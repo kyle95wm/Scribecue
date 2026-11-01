@@ -36,11 +36,7 @@ export function nudgeFor(drift, nudging) {
 // back to redo the rest), and from the block's start otherwise.
 export const takeFrom = (t, start, end) => (t > start + 0.01 && t <= end + 0.01 ? t : start);
 
-// Return to start (a setting), as in a sound editor: play after a stop starts again from
-// where that playback began. Moving the playhead while stopped (clicking the timeline,
-// selecting a block, a frame step) sets a new start instead.
-export const MOVED = 0.01; // seconds: further than this from the stop counts as moved
-
-// mark: { from, at }, left by the last stop (where playback began and where it stopped),
-// or null. t: the playhead now. Returns where to play from.
-export const playFrom = (mark, t) => (mark && Math.abs(t - mark.at) <= MOVED ? mark.from : t);
+// Return to start (a setting), as in a sound editor: stopping puts the playhead back where
+// that playback began, so play starts there again. on: the setting. start: where playback
+// began, or null. t: the playhead now. Returns where the playhead goes on stopping.
+export const stopAt = (on, start, t) => (on && start != null ? start : t);

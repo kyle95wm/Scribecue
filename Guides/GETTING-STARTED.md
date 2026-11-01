@@ -112,9 +112,9 @@ across empty space to draw a new block.
 You can also click the timeline, or the bar under the video, to jump anywhere. Scroll the
 timeline to pan, and `Ctrl/Cmd`+scroll or pinch to zoom.
 
-**Return to start**, under **Settings → General**, makes play go back to where you last
-started playing, to hear a part again. Move the playhead while stopped to start somewhere
-else. It's off at first. `RETURN` shows under the video while it's on.
+**Return to start**, under **Settings → General**, puts the playhead back where you started
+playing when you stop, to hear a part again. Move it to start somewhere else. It's off at
+first. `RETURN` shows under the video while it's on.
 
 ## Saving
 
@@ -159,7 +159,7 @@ use the **Export** menu at the top:
 - **Full mix:** the programme's sound with the readings, the programme lowered under each
   one, as one WAV or MP3 file. See [Exporting the full mix](WRITING.md#exporting-the-full-mix).
 
-`Ctrl/Cmd+O` opens SRT and WebVTT scripts too.
+`Ctrl/Cmd+O` opens SRT and WebVTT scripts too, and Frazier's `.adc` scripts.
 
 ## Files with several audio tracks
 
@@ -217,7 +217,7 @@ If the video is slow to start, or stutters:
 | | Supported |
 | --- | --- |
 | **Projects** | `.scribecue` and `.scribecueqc`, to open and save |
-| **Scripts** | SRT and WebVTT, to open and export |
+| **Scripts** | SRT and WebVTT, to open and export; Frazier's `.adc`, to open |
 | **Video and audio** | MP4, MOV, M4A, MKV, WebM and WAV |
 | **Very large files** | Fine for MP4, MOV, M4A, MKV, WebM and WAV. Other formats need to be under 2 GB |
 | **AC-3, E-AC-3, DTS, TrueHD audio** | Play, but with no waveform |

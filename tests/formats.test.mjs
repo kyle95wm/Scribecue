@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseTime, fmtTime, fmtTC, parseTC, isDropFrame, parseSubs, toSRT, toVTT } from '../app/js/formats.js';
+import { parseTime, fmtTime, fmtTC, parseTC, isDropFrame, parseSubs, parseAdc, scriptVoices, swapVoices, adcText, toSRT, toVTT } from '../app/js/formats.js';
 
 test('timecode counts frames at the video’s rate', () => {
   assert.equal(fmtTC(0, 25), '00:00:00:00');
@@ -123,6 +123,44 @@ test('sounds like words are kept in VTT as notes, alongside a speed, and read ba
   assert.doesNotMatch(toSRT(cues), /NOTE|shiv/);
 });
 
+test('adcText turns HTML into plain text, and speech marks into sounds-like words', () => {
+  assert.deepEqual(adcText('<p>Vee nods.&nbsp;</p>'), { text: 'Vee nods.', say: [] });
+  assert.deepEqual(adcText('<p>Text reads "<abbr class="speech" title="far far away">Far, far away</abbr> from Wilson Hall."</p>'),
+    { text: 'Text reads "Far, far away from Wilson Hall."', say: [['Far, far away', 'far far away']] });
+  assert.deepEqual(adcText('<p>One &amp; <strong>two</strong></p><p>Three&#39;s<br>four &#x2014; five</p>'),
+    { text: "One & two\nThree's\nfour — five", say: [] });
+  // A word marked twice is said one way; other abbreviations are only text.
+  assert.deepEqual(adcText('<abbr class="speech" title="a">X</abbr> <abbr class="speech" title="b">X</abbr> <abbr title="Doctor">Dr.</abbr>'),
+    { text: 'X X Dr.', say: [['X', 'a']] });
+  assert.deepEqual(adcText(null), { text: '', say: [] });
+});
+
+test('parseAdc reads Frazier speed codes and the base speed', () => {
+  const adc = (base, speeds) => JSON.stringify({ base_speed: base, cue_points: speeds.map((speed, i) => ({ start: i * 1000, end: i * 1000 + 500, text: 'x', speed })) });
+  const { cues, base } = parseAdc(adc(100, [0, 1, 2, 99, 98, 3, 4, 7]));
+  assert.deepEqual(cues.map((c) => c.speed), [undefined, 1.15, 1.3, 0.85, 0.7, 1.5, 2, undefined]);
+  assert.equal(base, 1);
+  assert.equal(parseAdc(adc(105, [1])).base, 1.05);
+  assert.equal(parseAdc(adc(105, [1])).cues[0].speed, 1.15);
+  for (const odd of [undefined, 0, 49, 151, 'x']) assert.equal(parseAdc(adc(odd, [0])).base, 1);
+});
+
+test('parseAdc reads Frazier cue points in milliseconds, sorted, skipping broken ones', () => {
+  const adc = JSON.stringify({ title: 'T', cue_points: [
+    { start: 56855, end: 59239, text: '<p>Second <abbr class="speech" title="matthew">Mathieu</abbr></p>', speed: 0 },
+    { start: 6804, end: 8718, text: '<p>First.&nbsp;</p>' },
+    { start: 'x', end: 1, text: '<p>Broken</p>' },
+    { start: 9000, end: 8000, text: '<p>Backwards</p>' },
+  ] });
+  assert.deepEqual(parseAdc('﻿' + adc).cues, [
+    { start: 6.804, end: 8.718, text: 'First.' },
+    { start: 9, end: 9, text: 'Backwards' },
+    { start: 56.855, end: 59.239, text: 'Second Mathieu', say: [['Mathieu', 'matthew']] },
+  ]);
+  assert.deepEqual(parseAdc('not json'), { cues: [], base: 1 });
+  assert.deepEqual(parseAdc('{"cue_points": null}'), { cues: [], base: 1 });
+});
+
 test('block voices are kept in VTT as notes and read back', () => {
   const cues = [{ start: 1, end: 2, text: 'Subtitle', speed: 1.15, voice: 'kokoro:bf_emma' }, { start: 3, end: 4, text: 'Description' }];
   const vtt = toVTT(cues);
@@ -145,4 +183,42 @@ test('dips more or less than set, and reading volumes, are kept in VTT too', () 
   assert.match(vtt, /NOTE Scribecue programme lowered more than set by \(dB\): \+7\n/);
   assert.match(vtt, /NOTE Scribecue reading volume \(%\): 150\n/);
   assert.deepEqual(parseSubs(vtt), cues);
+});
+
+test('parseAdc gives a block a voice of its own only when it differs from the document’s', () => {
+  const doc = JSON.stringify({ voice: 'en-US-Standard-J', cue_points: [
+    { start: 0, end: 500, text: 'a', voice: 'en-US-Standard-J' },
+    { start: 1000, end: 1500, text: 'b', voice: 'en-GB-Standard-A' },
+    { start: 2000, end: 2500, text: 'c', voice: '' },
+    { start: 3000, end: 3500, text: 'd', voice: 'not a voice' },
+  ] });
+  assert.deepEqual(parseAdc(doc).cues.map((c) => c.voice), [undefined, 'google:en-GB-Standard-A', undefined, undefined]);
+});
+
+test('parseAdc gives the document’s voice, and scriptVoices lists every voice the script brings', () => {
+  const doc = JSON.stringify({ voice: 'en-US-Standard-J', cue_points: [
+    { start: 0, end: 500, text: 'a', voice: 'en-US-Standard-J' },
+    { start: 1000, end: 1500, text: 'b', voice: 'en-GB-Standard-A' },
+    { start: 2000, end: 2500, text: 'c', voice: 'en-GB-Standard-A' },
+    { start: 3000, end: 3500, text: 'd', voice: 'fr-CA-Standard-B' },
+  ] });
+  const adc = parseAdc(doc);
+  assert.equal(adc.voice, 'google:en-US-Standard-J');
+  assert.deepEqual(scriptVoices(adc), [
+    { uri: 'google:en-US-Standard-J', main: true, blocks: 1 },
+    { uri: 'google:en-GB-Standard-A', main: false, blocks: 2 },
+    { uri: 'google:fr-CA-Standard-B', main: false, blocks: 1 },
+  ]);
+  assert.equal(parseAdc(JSON.stringify({ voice: 'nope', cue_points: [] })).voice, '');
+  assert.deepEqual(scriptVoices(parseAdc(JSON.stringify({ cue_points: [{ start: 0, end: 1, text: 'a' }] }))), []);
+  assert.deepEqual(scriptVoices(parseAdc(JSON.stringify({ cue_points: [{ start: 0, end: 1, text: 'a', voice: 'en-GB-Standard-A' }] }))),
+    [{ uri: 'google:en-GB-Standard-A', main: false, blocks: 1 }]);
+});
+
+test('swapVoices replaces block voices, and drops one that becomes the project’s voice', () => {
+  const cues = () => [{ voice: 'google:a' }, { voice: 'google:b' }, { voice: 'google:c' }, {}];
+  const voices = (cs) => cs.map((c) => c.voice);
+  assert.deepEqual(voices(swapVoices(cues(), { 'google:a': 'piper:x', 'google:b': '' }, 'piper:main')), ['piper:x', undefined, 'google:c', undefined]);
+  assert.deepEqual(voices(swapVoices(cues(), { 'google:a': 'piper:main' }, 'piper:main')), [undefined, 'google:b', 'google:c', undefined]);
+  assert.deepEqual(voices(swapVoices(cues(), { 'google:a': 'google:a' }, 'google:z')), ['google:a', 'google:b', 'google:c', undefined]);
 });

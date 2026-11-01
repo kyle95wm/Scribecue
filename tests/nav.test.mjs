@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockFromPlayhead, BACK_GRACE, nudgeFor, NUDGE_START, takeFrom, playFrom, MOVED } from '../app/js/nav.js';
+import { blockFromPlayhead, BACK_GRACE, nudgeFor, NUDGE_START, takeFrom, stopAt } from '../app/js/nav.js';
 
 const cues = [{ start: 2, end: 5 }, { start: 10, end: 14 }, { start: 20, end: 22 }];
 
@@ -56,11 +56,9 @@ test('a take of your own read starts from the playhead inside the block, like pu
   assert.equal(takeFrom(9, 5, 8), 5);
 });
 
-test('return to start: play after a stop goes back to where playback began', () => {
-  const mark = { from: 5, at: 15 };
-  assert.equal(playFrom(mark, 15), 5); // stopped at 15, not moved
-  assert.equal(playFrom(mark, 15 + MOVED / 2), 5); // the video settles a hair off
-  assert.equal(playFrom(mark, 20), 20); // moved on purpose: a new start
-  assert.equal(playFrom(mark, 15 - 1 / 25), 15 - 1 / 25); // a frame step counts as moved
-  assert.equal(playFrom(null, 15), 15); // nothing to go back to
+test('return to start: stopping goes back to where playback began', () => {
+  assert.equal(stopAt(true, 5, 15), 5); // played from 5, stopped at 15
+  assert.equal(stopAt(true, 0, 15), 0); // from the very start
+  assert.equal(stopAt(false, 5, 15), 15); // the setting is off: stays where it stopped
+  assert.equal(stopAt(true, null, 15), 15); // nothing to go back to
 });
