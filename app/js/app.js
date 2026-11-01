@@ -1,6 +1,6 @@
 import { startNewProject } from './newproject.js';
 import { createQcPlayer } from './qcplayer.js';
-import { REVIEW_EXT, isReview, openReview, resaveReview, reviewAllowsEdits, reviewReading, playbackReading, rewriteSpec, appendRewrite, previousReading, storedReview, voiceReport, reviewAudioKey } from './qc.js';
+import { REVIEW_EXT, isReview, openReview, resaveReview, reviewAllowsEdits, reviewReading, playbackReading, rewriteSpec, readingVoiceChanged, appendRewrite, previousReading, storedReview, voiceReport, reviewAudioKey } from './qc.js';
 import { reviewedRewrite, speechKey } from './qcspeech.js';
 import { initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments } from './comments.js';
@@ -862,7 +862,10 @@ function updateEditor() {
     const playingRewrite = S.previousAudio?.kind === 'rewrite';
     $('qcRewrite').textContent = makingRewrite ? 'Making reading…' : playingRewrite ? 'Stop rewrite' : 'Hear rewrite';
     $('qcRewrite').setAttribute('aria-pressed', String(playingRewrite));
-    $('qcBlockInfo').textContent = !r && previous ? 'Original reading out of date'
+    const newVoice = !r && !!previous && readingVoiceChanged(S.review, c, reviewSettings());
+    if (newVoice) $('qcBlockInfo').dataset.tip = 'A different voice can’t make new audio in QC. Ask the writer for a fresh package to hear it, or change the voice back';
+    else delete $('qcBlockInfo').dataset.tip;
+    $('qcBlockInfo').textContent = newVoice ? 'New voice · needs a fresh package' : !r && previous ? 'Original reading out of date'
       : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'Saved rewrite'} ${r.secs.toFixed(1)} s${r.secs > c.end - c.start + 0.05 ? ' · runs past block' : ''}` : 'Original reading missing')
         : S.qcSource === 'preview' ? 'Approximate TTS preview' : 'Programme sound';
   }

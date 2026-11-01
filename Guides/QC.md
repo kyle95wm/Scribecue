@@ -132,8 +132,8 @@ is never filled in. Anyone with the package can read the included key. Delete it
 Google Cloud when the review is done. See [Google keys](GOOGLE-VOICES.md#keys-for-qc-reviews).
 
 New readings send the changed text to Google and need internet. Playing saved audio,
-moving a block, or changing its volume makes no request. Changing to another voice needs
-a fresh package from the writer. Other voice providers still need fresh packaged audio
+moving a block, or changing its volume makes no request. A block changed to another voice
+says **New voice · needs a fresh package**. To hear it, ask the writer for a fresh package; the review key isn't used for it. Other voice providers still need fresh packaged audio
 or an explicitly chosen approximate preview after wording or speed changes.
 
 Use **Save** to keep working, including the separate review key. When finished, open

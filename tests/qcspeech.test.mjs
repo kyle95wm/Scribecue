@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { toProject, newIdentity } from '../app/js/project.js';
-import { buildReview, readReview, resaveReview, appendRewrite, playbackReading, rewriteSpec, previousReading } from '../app/js/qc.js';
+import { buildReview, readReview, resaveReview, appendRewrite, playbackReading, rewriteSpec, readingVoiceChanged, previousReading } from '../app/js/qc.js';
 import { speechSpec, reviewedRewrite, makeGoogleRewrite } from '../app/js/qcspeech.js';
 import { compareReturnedReview } from '../app/js/qcreview.js';
 import { writeWav, isPersonalGoogleKey, reviewGoogleKey } from '../app/js/tts.js';
@@ -28,6 +28,16 @@ test('only spoken wording or effective speed changes qualify for a Google rewrit
   assert.ok(rewriteSpec(r, b, { ...s, ttsBase: 1.1 }));
   assert.equal(rewriteSpec(r, { ...b, voice: 'google:en-US-Standard-B', text: 'Different' }, s), null);
   assert.equal(rewriteSpec(await setup(false), { ...b, text: 'Different' }, s), null);
+});
+test('a new block voice is flagged, never offered as a rewrite, and the bundled key is not used for it', async () => {
+  const r = await setup(), b = r.project.blocks[0], s = r.project.settings;
+  for (const next of [{ ...b, voice: 'google:en-US-Standard-B' }, { ...b, voice: 'piper:en_US-lessac-medium', text: 'Mara leaves.' }]) {
+    assert.equal(readingVoiceChanged(r, next, s), true);
+    assert.equal(rewriteSpec(r, next, s), null);
+    assert.equal(playbackReading(r, next, s), null);
+  }
+  for (const next of [b, { ...b, voice }, { ...b, text: 'Mara leaves.' }, { ...b, speed: 1.15 }]) assert.equal(readingVoiceChanged(r, next, s), false);
+  assert.equal(readingVoiceChanged(r, { ...b, uid: newIdentity(), qcReading: undefined }, s), false, 'a block without an original reading');
 });
 test('review keys stay outside project/baseline, survive working saves, and are stripped from return copies', async () => {
   const r = await setup();

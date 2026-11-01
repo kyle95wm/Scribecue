@@ -46,6 +46,12 @@ export function playbackReading(review, block, settings) {
   if (rewrite) return review.proposalIndex?.get(JSON.stringify([original.offset, speechKey(rewrite)])) || null;
   return reviewReading(review, block, settings);
 }
+// A reviewer chose another voice. Its audio can only come from a fresh package.
+export function readingVoiceChanged(review, block, settings) {
+  const original = previousReading(review, block);
+  const before = speechSpec(original?.key)?.voice ?? original?.voice, after = speechSpec(readingKey(block, settings))?.voice;
+  return !!original && !!before && !!after && before !== after;
+}
 export function rewriteSpec(review, block, settings) {
   return reviewAllowsEdits(review) ? googleRewrite(previousReading(review, block), readingKey(block, settings)) : null;
 }
