@@ -121,7 +121,7 @@
             <button id="edPickup" aria-pressed="false" data-tip="Pickup: ask the narrator to record this block again, in the next recording file. Lines you reword are asked for anyway">Pickup</button>
             <input id="edPickupNote" type="text" maxlength="500" spellcheck="true" autocomplete="off" hidden
               placeholder="Note for the narrator, such as how to say a name" aria-label="Note for the narrator"></div>
-          <div class="edtts" id="qcCommentRow"><button id="edComment" aria-controls="commentsDrawer" data-tip="Add a comment to this block">Comment</button><span id="qcBlockInfo" class="dim qc-only"></span><button id="qcPrevious" aria-pressed="false" hidden data-tip="Hear the old audio alone. It does not match the edited block">Hear previous reading</button></div>
+          <div class="edtts" id="qcCommentRow"><button id="edComment" aria-controls="commentsDrawer" data-tip="Add a comment to this block">Comment</button><span id="qcBlockInfo" class="dim qc-only"></span><button id="qcRewrite" aria-pressed="false" hidden data-tip="Hear changed wording or speed with the original Google voice. New readings need internet">Hear rewrite</button><button id="qcPrevious" aria-pressed="false" hidden data-tip="Hear the old audio alone. It does not match the edited block">Hear previous reading</button></div>
         </div>
       </div>
     </aside>
@@ -525,6 +525,8 @@ docker compose up -d --build</code></pre>
     <h2 id="qcPlaybackTitle">QC review</h2>
     <p id="qcPermissionInfo"></p>
     <p id="qcPackageInfo" role="status"></p>
+    <p id="qcKeyInfo" class="dim small" hidden></p>
+    <button id="qcReturn" hidden>Save return package</button>
     <button id="qcAttachReadings" hidden>Locate original readings</button>
     <input id="qcReadingsFile" type="file" accept=".scribecueqc" hidden>
     <div class="airow"><button id="qcSourceVideo" aria-pressed="true">Programme sound</button><button id="qcSourcePackage" aria-pressed="false">Original readings</button><button id="qcSourcePreview" aria-pressed="false">Approximate TTS preview</button></div>
@@ -540,6 +542,13 @@ docker compose up -d --build</code></pre>
     <button id="qcExportAllowEdits" aria-pressed="false" aria-describedby="qcExportPermissionInfo">Allow reviewers to edit blocks</button>
     <p id="qcExportPermissionInfo" class="dim small">Off: comments only. On: reviewers may correct text, timings, voices and speeds. This choice stays with the package; reviewers cannot change it in QC. The package also keeps a starting point for comparing the returned review.</p>
     <ul id="qcExportVoices"></ul>
+    <div id="qcGoogleAccess" hidden>
+      <button id="qcExportGoogle" aria-pressed="false">Include a separate Google review key</button>
+      <div id="qcGoogleKeyRow" hidden>
+        <p class="dim small">Create a separate key for this review, then paste it below. Reviewers use their own key first. New wording or speed needs internet; placement uses saved audio. Anyone with this package can read this key. Delete it in Google Cloud when the review is done.</p>
+        <label for="qcGoogleKey">Separate review key</label> <input id="qcGoogleKey" type="password" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
     <p id="qcExportCost" class="warnbox" hidden>Making Google Cloud readings sends the text to Google and uses your allowance. Uncached readings may cost money.</p>
     <p id="qcExportStatus" class="dim small" role="status"></p>
     <progress id="qcExportProgress" max="1" value="0" hidden aria-label="QC package progress"></progress>

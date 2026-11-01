@@ -14,6 +14,7 @@ equivalent, or Google's own guide,
 ## Contents
 
 - [Setting up the key](#setting-up-the-key)
+- [Keys for QC reviews](#keys-for-qc-reviews)
 - [Never being billed](#never-being-billed)
   - [Why a budget alone isn't enough](#why-a-budget-alone-isnt-enough)
   - [1. Turn on the APIs](#1-turn-on-the-apis)
@@ -53,6 +54,21 @@ everything in the project, so nothing else should live there.
 The Standard voices in your languages appear in the voice list, under **Google Cloud**.
 The first is chosen for you if you weren't using a Piper voice. **Forget** removes the key
 and its voices.
+
+## Keys for QC reviews
+
+An editable QC package can include a separate key for hearing corrections with the
+original Google voice. Create a new key using the restrictions above, including the
+address where the reviewer opens Scribecue. In **Export → QC package**, allow edits,
+then choose **Include a separate Google review key** and paste it. Keep your main key private.
+
+The reviewer’s own key takes priority. If it fails, Scribecue offers to retry that
+reading with the bundled key. New wording or speed needs internet; saved recordings
+play offline. **Save return package**, under **QC**, leaves out the bundled key.
+
+Anyone with a working package can read its included key. Delete the review key in
+Google Cloud when it is no longer needed. A separate key in the same Google project
+uses that project’s allowance.
 
 ## Never being billed
 

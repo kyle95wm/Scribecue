@@ -19,7 +19,8 @@ self.onmessage = async ({ data }) => {
       }
     } else if (data.task === 'reviewAudio') {
       const review = await readReview(data.file);
-      result = { review: await verifyReviewAttachment(data.project, review, progress) };
+      await verifyReviewAttachment(data.project, review, progress);
+      result = { review: await readReview(resaveReview(review, review.project)) };
     } else if (data.task === 'compare') result = mergeProjects(data.base, data.local, data.remote, progress);
     else throw new Error('Unknown review comparison');
     self.postMessage({ type: 'result', result });

@@ -32,8 +32,7 @@ a combined QC package. There is no separate project-copy interface or file type.
   recording state and project settings stay with the local project. Listening preferences
   in the return do not change the writer's settings.
 - Audio references are rebuilt from the trusted block-to-reading map, not incoming
-  offsets. Moving a block reuses its original clip. Changed text keeps a stale previous
-  clip, so existing QC playback rules still apply.
+  offsets. Moving a block reuses its saved clip. Changed text keeps the original for comparison.
 - An author accepts into the existing `.scribecue` file (or chooses one if no writable
   handle is available). A `reviewAudio.baselineId` reference retains the original readings.
   Original package audio is kept under a separate IndexedDB key by project and baseline.
@@ -65,6 +64,27 @@ resaving; both people should use a current Scribecue.
 Hashes check a file against a locally retained baseline. They do not authenticate a
 reviewer, provide account permissions or make the file format tamper-proof. Someone
 with a plain exported script can still edit that script outside the review workflow.
+
+## Optional Google review access
+
+- Version 3 manifests may hold `reviewAccess.googleKey`, supplied separately at export.
+  It is outside the project, baseline and global TTS settings. Comments-only exports
+  cannot include a key. The export form rejects the writer's configured main key.
+- `qcspeech.js` compares spoken words, effective speed and exact original Google voice.
+  Placement, formatting, gain and dip changes reuse recordings. Synthesis is explicit
+  through Hear rewrite; playback and seeking never synthesize.
+- The reviewer's configured key takes priority. On failure, an explicit offer can retry
+  that reading with the bundled key. Each new reading starts with the personal key again.
+  Request errors redact keys. An in-flight map prevents duplicate synthesis requests.
+- Proposed WAVs append after immutable original clips. A separate descriptor table binds
+  each to an original offset, spoken wording and speed. Playback selects matching saved
+  audio; changing the voice cannot use delegated access. Originals remain comparable.
+- Comparison verifies original descriptors against the trusted baseline and hashes each
+  clip. Proposed clips must have valid bindings and hashes too. Audio stays sliced;
+  package parsing and comparison run in workers.
+- Working saves and recovery keep the review key. `resaveReview` strips it by default;
+  only working saves opt in. Save return package, combined packages and author audio
+  attachments leave it out. Neither returned projects nor author JSON hold the key.
 
 ## Next: optional sharing service
 
@@ -98,5 +118,8 @@ Before adding that service:
   reviewer restrictions at 6× slowdown.
 - `scripts/collaboration-smoke.mjs <port> <site URL> [test-video.mp4]` checks identity
   persistence, split/merge/undo and worker comparison of 1,500 blocks covering two hours.
+- `scripts/qcspeech-smoke.mjs <port> <site URL> [screenshot path]` checks personal-key
+  priority, accepted/declined fallback, cached replay, recovery and key-free returns at 6×.
+  It stubs Google responses; no live credentials or paid requests are used.
 - `scripts/screenshots.sh` captures the QC comparison and runs the existing comments
   and QC playback/export smoke checks with Piper available.

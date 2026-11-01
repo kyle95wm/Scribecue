@@ -78,6 +78,10 @@ async function verifyOriginalAudio(baseline, returned, progress) {
     }
   }
   progress(baseline.readings.length, baseline.readings.length, 'readings');
+  for (let i = 0; i < (returned.proposals?.length || 0); i++) {
+    const r = returned.proposals[i]; progress(i, returned.proposals.length, 'rewrites');
+    if (await hashReading(returned.file.slice(r.offset, r.offset + r.bytes)) !== r.sha) throw new Error('A saved QC rewrite is damaged');
+  }
 }
 export async function verifyReviewAttachment(project, returned, progress = () => {}) {
   const id = project.reviewAudio?.baselineId;

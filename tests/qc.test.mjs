@@ -152,5 +152,5 @@ test('permission-aware packages require a reader that understands their review v
     return new Blob([r.file.slice(0,r.audioEnd),json,footer]);
   };
   assert.equal(reviewAllowsEdits(await readReview(repack(1))),false);
-  await assert.rejects(readReview(repack(3)),/newer Scribecue/);
+  await assert.rejects(readReview(repack(4)),/newer Scribecue/);
 });

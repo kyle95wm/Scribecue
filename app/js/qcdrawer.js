@@ -1,5 +1,5 @@
-import { buildReview, openReview, hasReviewText, reviewReading, reviewSink, voiceReport, REVIEW_EXT } from './qc.js';
-import { reviewVoices, reviewAudio, voiceLabel, chosenVoice, usingGoogle } from './tts.js';
+import { buildReview, openReview, hasReviewText, playbackReading, reviewSink, voiceReport, REVIEW_EXT } from './qc.js';
+import { reviewVoices, reviewAudio, voiceLabel, chosenVoice, usingGoogle, hasGoogleKey, isPersonalGoogleKey } from './tts.js';
 const $ = (id) => document.getElementById(id);
 let h, controller = null;
 export function qcReport() { const p = h.project(); return voiceReport(p.blocks, p.settings, reviewVoices()); }
@@ -16,14 +16,19 @@ export function refreshQc() {
     }
   }
   const review = h.review(), spoken = p.blocks.filter((b) => hasReviewText(b, p.settings));
-  const valid = spoken.filter((b) => reviewReading(review, b, p.settings)).length;
-  $('qcPackageInfo').textContent = review ? `${valid} of ${spoken.length} blocks have matching original readings. ${valid < spoken.length ? 'Missing or changed readings need a new package from the writer. They will not be replaced automatically.' : 'The included audio plays without installing these voices or adding a key.'}` : 'No original readings are included. Use the programme sound, ask for a QC package, or explicitly choose an approximate TTS preview.';
+  const valid = spoken.filter((b) => playbackReading(review, b, p.settings)).length;
+  $('qcPackageInfo').textContent = review ? `${valid} of ${spoken.length} blocks have matching saved readings. ${valid < spoken.length ? 'For changed Google readings, choose Hear rewrite. Other missing readings need a new package from the writer.' : 'The included audio plays without installing these voices or adding a key.'}` : 'No original readings are included. Use the programme sound, ask for a QC package, or explicitly choose an approximate TTS preview.';
   for (const [id, source] of [['qcSourceVideo', 'video'], ['qcSourcePackage', 'package'], ['qcSourcePreview', 'preview']]) {
     $(id).setAttribute('aria-pressed', String(h.source() === source));
   }
   $('qcAttachReadings').hidden = !h.audioReference?.() || !!review;
   if (!review && h.audioReference?.()) $('qcPackageInfo').textContent = 'Original readings are not available in this browser. Locate the matching QC package to hear them again.';
   $('qcSourcePackage').disabled = !review;
+  $('qcSourcePackage').textContent = review?.proposals.length ? 'Saved readings' : 'Original readings';
+  const googleReview = h.package() && review?.permissions.allowEdits && review.readings.some((r) => r.voice.startsWith('google:'));
+  $('qcKeyInfo').hidden = !googleReview;
+  $('qcKeyInfo').textContent = `${hasGoogleKey() ? 'Your Google key is used for new readings.' : review?.reviewAccess ? 'The separate key in this package is used for new readings.' : 'Add your Google key in Text to speech settings to hear rewrites.'} Only changed wording or speed needs Google. Saved readings play offline. Save keeps the review key for continued work; Save return package leaves it out.`;
+  $('qcReturn').hidden = !h.package();
   const select = $('qcPreviewVoice'), selected = select.value;
   select.replaceChildren(...reviewVoices().map((v) => new Option(v.name, v.id)));
   select.value = reviewVoices().some((v) => v.id === selected) ? selected : chosenVoice();
@@ -31,14 +36,26 @@ export function refreshQc() {
   $('qcPreviewNote').textContent = 'Approximate preview: missing voices use the voice selected below. Automatic timing changes stay off. This is not the writer’s original reading. Online voices send text to their provider.';
   if (!controller) $('qcExportStart').disabled = !spoken.length || report.some((v) => !v.available || !v.exportable);
   $('qcExportCost').hidden = !report.some((v) => usingGoogle(v.id));
+  const googleAccess = $('qcExportAllowEdits').getAttribute('aria-pressed') === 'true' && report.some((v) => v.id.startsWith('google:'));
+  $('qcGoogleAccess').hidden = !googleAccess;
+  if (!googleAccess) { $('qcExportGoogle').setAttribute('aria-pressed', 'false'); $('qcGoogleKey').value = ''; }
+  $('qcGoogleKeyRow').hidden = $('qcExportGoogle').getAttribute('aria-pressed') !== 'true';
 }
 export function openQcPlayback() { if (!h.qc()) return; refreshQc(); $('qcPlaybackDlg').showModal(); refreshQc(); }
 export function openQcExport() {
   if (!h.canCreate()) return h.toast('This QC package allows comments only. Open the writer’s project to create a new package');
-  $('qcExportAllowEdits').setAttribute('aria-pressed', 'false'); $('qcExportStatus').textContent = ''; $('qcExportDlg').showModal(); refreshQc(); }
+  $('qcExportAllowEdits').setAttribute('aria-pressed', 'false'); $('qcExportGoogle').setAttribute('aria-pressed', 'false'); $('qcGoogleKey').value = ''; $('qcExportStatus').textContent = ''; $('qcExportDlg').showModal(); refreshQc(); }
 export function initQc(hooks) {
   h = hooks;
-  $('qcExportAllowEdits').onclick = () => { if (!controller) $('qcExportAllowEdits').setAttribute('aria-pressed', String($('qcExportAllowEdits').getAttribute('aria-pressed') !== 'true')); };
+  $('qcExportAllowEdits').onclick = () => { if (!controller) { $('qcExportAllowEdits').setAttribute('aria-pressed', String($('qcExportAllowEdits').getAttribute('aria-pressed') !== 'true')); refreshQc(); } };
+  $('qcExportGoogle').onclick = () => {
+    if (controller) return;
+    const on = $('qcExportGoogle').getAttribute('aria-pressed') !== 'true';
+    $('qcExportGoogle').setAttribute('aria-pressed', String(on));
+    if (!on) $('qcGoogleKey').value = '';
+    refreshQc(); if (on) $('qcGoogleKey').focus();
+  };
+  $('qcReturn').onclick = () => { $('qcPlaybackDlg').close(); h.returnReview(); };
   for (const [id, source] of [['qcSourceVideo', 'video'], ['qcSourcePackage', 'package'], ['qcSourcePreview', 'preview']]) {
     $(id).onclick = () => { h.setSource(source, $('qcPreviewVoice').value); refreshQc(); };
   }
@@ -56,22 +73,26 @@ export function initQc(hooks) {
   $('qcExportClose').onclick = () => { controller?.abort(); $('qcExportDlg').close(); };
   $('qcExportStop').onclick = () => controller?.abort();
   $('qcExportDlg').addEventListener('cancel', () => controller?.abort());
+  $('qcExportDlg').addEventListener('close', () => { $('qcGoogleKey').value = ''; });
   for (const id of ['qcPlaybackDlg', 'qcExportDlg']) document.addEventListener('keydown', (e) => { if ($(id).open) e.stopPropagation(); }, true);
   $('qcExportStart').onclick = async () => {
     if (controller || !h.canCreate()) return;
     const allowEdits = $('qcExportAllowEdits').getAttribute('aria-pressed') === 'true';
+    const googleReviewKey = $('qcExportGoogle').getAttribute('aria-pressed') === 'true' ? $('qcGoogleKey').value.trim() : '';
+    if ($('qcExportGoogle').getAttribute('aria-pressed') === 'true' && !googleReviewKey) { $('qcExportStatus').textContent = 'Paste the separate review key first'; return; }
+    if (isPersonalGoogleKey(googleReviewKey)) { $('qcExportStatus').textContent = 'Use a separate review key. This is your main Google key'; return; }
     const project = h.project();
     project.settings.mode = 'qc';
     const report = voiceReport(project.blocks, project.settings, reviewVoices());
     if (report.some((v) => !v.available || !v.exportable)) return refreshQc();
-    controller = new AbortController(); h.busy(true); $('qcExportAllowEdits').disabled = true;
+    controller = new AbortController(); h.busy(true); $('qcExportAllowEdits').disabled = true; $('qcExportGoogle').disabled = true; $('qcGoogleKey').disabled = true;
     $('qcExportStart').disabled = true; $('qcExportStop').hidden = false; $('qcExportProgress').hidden = false;
     let sink;
     try {
       sink = await reviewSink();
       if (!sink) throw new Error('Making a QC package needs browser disk storage. Use a current Chrome or Edge browser');
       const blob = await buildReview(project, (b) => reviewAudio(h.said(b), b.speed || 1, b.voice || project.settings.ttsVoice), {
-        sink, signal: controller.signal, allowEdits, handoff: true, progress: (done, total) => {
+        sink, signal: controller.signal, allowEdits, handoff: true, googleReviewKey, progress: (done, total) => {
           $('qcExportProgress').value = total ? done / total : 0;
           $('qcExportStatus').textContent = `Making readings: ${done} of ${total}`;
         },
@@ -85,6 +106,6 @@ export function initQc(hooks) {
       setTimeout(() => { URL.revokeObjectURL(url); sink.clean(); }, 60000);
       $('qcExportStatus').textContent = 'QC package saved. Send it with the matching video. The video is not included.';
     } catch (e) { await sink?.clean(); $('qcExportStatus').textContent = e.message; }
-    finally { controller = null; h.busy(false); $('qcExportAllowEdits').disabled = false; $('qcExportStop').hidden = true; $('qcExportProgress').hidden = true; refreshQc(); }
+    finally { controller = null; h.busy(false); $('qcExportAllowEdits').disabled = false; $('qcExportGoogle').disabled = false; $('qcGoogleKey').disabled = false; $('qcExportStop').hidden = true; $('qcExportProgress').hidden = true; refreshQc(); }
   };
 }

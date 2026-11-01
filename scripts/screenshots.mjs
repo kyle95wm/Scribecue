@@ -335,3 +335,7 @@ if (reviewRun.status !== 0) throw new Error('QC comparison screenshot checks fai
 const authorRun = spawnSync(process.execPath, [new URL('./author-review-smoke.mjs', import.meta.url).pathname,
   port, site, `${outDir}/qc-accept.png`], { stdio: 'inherit' });
 if (authorRun.status !== 0) throw new Error('Author review acceptance screenshot checks failed');
+
+const speechRun = spawnSync(process.execPath, [new URL('./qcspeech-smoke.mjs', import.meta.url).pathname,
+  port, site, `${outDir}/qc-google-rewrite.png`], { stdio: 'inherit' });
+if (speechRun.status !== 0) throw new Error('Google QC review screenshot checks failed');

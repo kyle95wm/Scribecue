@@ -1,8 +1,9 @@
 // Portable QC files contain a project and individually sliced WAV readings. No video
-// or voice credentials are included. The manifest is at the end, so export can stream.
+// is included. An optional review key stays outside the project and its baseline.
 import { collaborationJob } from './collaboration.js';
 import { hashReading, prepareReviewBaseline } from './qcreview.js';
 import { fromProject, validIdentity, validRevision } from './project.js';
+import { speechSpec, speechKey, sameSpeech, googleRewrite } from './qcspeech.js';
 export const REVIEW_EXT = '.scribecueqc';
 const MAGIC = 'SCQC0001', FOOTER = 12, MAX_MANIFEST = 16 * 1024 * 1024;
 const bytes = (s) => new TextEncoder().encode(s);
@@ -33,7 +34,20 @@ const audioKey = (key) => {
   catch { return key; }
 };
 export function previousReading(review, block) {
-  return review?.byOffset?.get(block.qcReading) || null;
+  return review?.byOffset?.get(block.qcReading) || review?.byUid?.get(block.uid) || null;
+}
+// Google readings compare the words actually spoken and the effective speed. A
+// placement, gain, dip or formatting change cannot create a synthesis request.
+export function playbackReading(review, block, settings) {
+  const original = previousReading(review, block), key = readingKey(block, settings);
+  const before = speechSpec(original?.key), after = speechSpec(key);
+  if (before?.voice.startsWith('google:') && sameSpeech(before, after)) return original;
+  const rewrite = googleRewrite(original, key);
+  if (rewrite) return review.proposalIndex?.get(JSON.stringify([original.offset, speechKey(rewrite)])) || null;
+  return reviewReading(review, block, settings);
+}
+export function rewriteSpec(review, block, settings) {
+  return reviewAllowsEdits(review) ? googleRewrite(previousReading(review, block), readingKey(block, settings)) : null;
 }
 export function reviewReading(review, block, settings) {
   if (!review) return null;
@@ -45,14 +59,25 @@ function trailer(length) {
   const out = new Uint8Array(FOOTER);
   new DataView(out.buffer).setUint32(0, length, true); out.set(bytes(MAGIC), 4); return out;
 }
-function manifestParts(project, readings, allowEdits = false, baselineId = null) {
+function manifestParts(project, readings, allowEdits = false, baselineId = null, proposals = [], googleKey = '') {
   const { reviewAudio, ...packageProject } = project;
-  const json = bytes(JSON.stringify({ review: 2, ...(baselineId ? { reviewBaseline: baselineId } : {}), permissions: { allowEdits: allowEdits === true }, project: packageProject, readings }));
+  const json = bytes(JSON.stringify({ review: proposals.length || googleKey ? 3 : 2, ...(baselineId ? { reviewBaseline: baselineId } : {}), permissions: { allowEdits: allowEdits === true }, project: packageProject, readings,
+    ...(proposals.length ? { proposals } : {}), ...(googleKey && allowEdits ? { reviewAccess: { googleKey } } : {}) }));
   if (json.byteLength > MAX_MANIFEST) throw new Error('This review has too much project information');
   return [json, trailer(json.byteLength)];
 }
-export function resaveReview(review, project) {
-  return new Blob([review.file.slice(0, review.audioEnd), ...manifestParts(project, review.readings, reviewAllowsEdits(review), review.baselineId)], { type: 'application/octet-stream' });
+export function resaveReview(review, project, { includeReviewKey = false } = {}) {
+  return new Blob([review.file.slice(0, review.audioEnd), ...manifestParts(project, review.readings, reviewAllowsEdits(review), review.baselineId, review.proposals, includeReviewKey ? review.reviewAccess?.googleKey : '')], { type: 'application/octet-stream' });
+}
+export async function appendRewrite(review, project, block, made) {
+  const spec = rewriteSpec(review, block, project.settings), original = previousReading(review, block);
+  if (!spec || made.voice !== spec.voice || !(made.blob instanceof Blob) || made.blob.size < 44 || !(made.secs > 0)) throw new Error('This block cannot use a Google rewrite');
+  if (playbackReading(review, block, project.settings)) return review;
+  const proposal = { originalOffset: original.offset, key: readingKey(block, project.settings), offset: review.audioEnd,
+    bytes: made.blob.size, secs: made.secs, voice: spec.voice, sha: await hashReading(made.blob) };
+  const file = new Blob([review.file.slice(0, review.audioEnd), made.blob,
+    ...manifestParts(project, review.readings, true, review.baselineId, [...review.proposals, proposal], review.reviewAccess?.googleKey)], { type: 'application/octet-stream' });
+  return openReview(file);
 }
 export async function readReview(file) {
   if (file.size < 20) throw new Error('This isn’t a Scribecue QC package');
@@ -62,19 +87,35 @@ export async function readReview(file) {
   if (!length || length > MAX_MANIFEST || end - length < 8) throw new Error('The QC package is damaged');
   const audioEnd = end - length;
   let m; try { m = JSON.parse(await file.slice(audioEnd, end).text()); } catch { throw new Error('The QC package is damaged'); }
-  if (m.review !== 1 && m.review !== 2) throw new Error('This QC package needs a newer Scribecue version');
+  if (![1, 2, 3].includes(m.review)) throw new Error('This QC package needs a newer Scribecue version');
   if (m.reviewBaseline != null && !validRevision(m.reviewBaseline)) throw new Error('The QC starting point is damaged');
   const parsed = fromProject(m.project); // Check the script before exposing any audio.
   if (!Array.isArray(m.readings) || m.readings.length > 100000) throw new Error('The QC readings are damaged');
   let at = 8;
-  const index = new Map(), byOffset = new Map();
+  const index = new Map(), byOffset = new Map(), byUid = new Map();
   for (const r of m.readings) {
     if (!r || typeof r.key !== 'string' || !Number.isSafeInteger(r.offset) || !Number.isSafeInteger(r.bytes) ||
       r.offset !== at || r.bytes < 44 || r.offset + r.bytes > audioEnd || !finite(r.secs) || r.secs <= 0 || typeof r.voice !== 'string') throw new Error('The QC readings are damaged');
-    index.set(audioKey(r.key), r); byOffset.set(r.offset, r); at += r.bytes;
+    index.set(audioKey(r.key), r); byOffset.set(r.offset, r); if (r.blockUid) byUid.set(r.blockUid, r); at += r.bytes;
+  }
+  const proposals = m.review === 3 ? m.proposals || [] : [], proposalIndex = new Map();
+  if (!Array.isArray(proposals) || proposals.length > 100000) throw new Error('The QC rewrites are damaged');
+  for (const r of proposals) {
+    const spec = r && googleRewrite(byOffset.get(r.originalOffset), r.key);
+    if (!spec || r.voice !== spec.voice || r.offset !== at || !Number.isSafeInteger(r.bytes) || r.bytes < 44 ||
+      at + r.bytes > audioEnd || !finite(r.secs) || r.secs <= 0 || !validRevision(r.sha) || m.permissions?.allowEdits !== true) throw new Error('The QC rewrites are damaged');
+    const key = JSON.stringify([r.originalOffset, speechKey(spec)]);
+    if (proposalIndex.has(key)) throw new Error('The QC rewrites are damaged');
+    proposalIndex.set(key, r); at += r.bytes;
   }
   if (at !== audioEnd) throw new Error('The QC readings are damaged');
-  return { file, baselineId: m.reviewBaseline || null, project: m.project, parsed, readings: m.readings, audioEnd, index, byOffset, permissions: { allowEdits: m.review === 2 && m.permissions?.allowEdits === true } };
+  let reviewAccess = null;
+  if (m.review === 3 && m.reviewAccess != null) {
+    const key = m.reviewAccess.googleKey;
+    if (m.permissions?.allowEdits !== true || typeof key !== 'string' || !key.trim() || key.length > 512 || /\s/.test(key)) throw new Error('The QC review key is damaged');
+    reviewAccess = { googleKey: key };
+  }
+  return { file, baselineId: m.reviewBaseline || null, project: m.project, parsed, readings: m.readings, proposals, proposalIndex, reviewAccess, audioEnd, index, byOffset, byUid, permissions: { allowEdits: m.review >= 2 && m.permissions?.allowEdits === true } };
 }
 // Package metadata is parsed and checked off the page for long reviews.
 export async function openReview(file) {
@@ -88,7 +129,8 @@ export async function openReview(file) {
 }
 // sink: optional disk writer with write/close/abort/file. Without one, Blob parts are
 // still individual readings, never a decoded full-film track.
-export async function buildReview(project, make, { sink = null, progress = () => {}, signal, allowEdits = false, handoff = false } = {}) {
+export async function buildReview(project, make, { sink = null, progress = () => {}, signal, allowEdits = false, handoff = false, googleReviewKey = '' } = {}) {
+  if (googleReviewKey && (allowEdits !== true || typeof googleReviewKey !== 'string' || googleReviewKey.length > 512 || /\s/.test(googleReviewKey))) throw new Error('A review key needs an editable QC package and a valid key');
   project = { ...project, blocks: project.blocks.map(({ qcReading, ...b }) => b) };
   if (handoff && (!validIdentity(project.projectId) || project.blocks.some((b) => !validIdentity(b.uid)))) throw new Error('Save the project in this version before making a QC package');
   const parts = [], readings = [];
@@ -120,7 +162,7 @@ export async function buildReview(project, make, { sink = null, progress = () =>
         : await collaborationJob({ task: 'prepareReview', project, readings, allowEdits }, { signal });
       project = prepared.project; baselineId = prepared.baselineId;
     }
-    for (const part of manifestParts(project, readings, allowEdits, baselineId)) await write(part);
+    for (const part of manifestParts(project, readings, allowEdits, baselineId, [], googleReviewKey)) await write(part);
     if (signal?.aborted) throw new Error('QC export stopped');
     progress(project.blocks.length, project.blocks.length);
     if (sink) { await sink.close(); return sink.file(); }

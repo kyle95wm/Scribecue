@@ -1,6 +1,7 @@
 import { startNewProject } from './newproject.js';
 import { createQcPlayer } from './qcplayer.js';
-import { REVIEW_EXT, isReview, openReview, resaveReview, reviewAllowsEdits, reviewReading, previousReading, storedReview, voiceReport, reviewAudioKey } from './qc.js';
+import { REVIEW_EXT, isReview, openReview, resaveReview, reviewAllowsEdits, reviewReading, playbackReading, rewriteSpec, appendRewrite, previousReading, storedReview, voiceReport, reviewAudioKey } from './qc.js';
+import { reviewedRewrite, speechKey } from './qcspeech.js';
 import { initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments } from './comments.js';
 import { initComments, toggleComments, refreshComments, openBlockComments } from './commentsdrawer.js';
@@ -613,14 +614,57 @@ function stopPreviousReading() {
   S.previousAudio.audio.pause(); URL.revokeObjectURL(S.previousAudio.url); S.previousAudio = null;
   $('qcPrevious').textContent = 'Hear previous reading';
   $('qcPrevious').setAttribute('aria-pressed', 'false');
+  $('qcRewrite').textContent = 'Hear rewrite'; $('qcRewrite').setAttribute('aria-pressed', 'false');
 }
+let makingRewrite = false;
+$('qcRewrite').addEventListener('click', async () => {
+  const block = selCue(), review = S.review, reviewId = S.reviewId;
+  if (makingRewrite || !qc() || !reviewId || !qcEditable() || !block) return;
+  if (S.previousAudio?.kind === 'rewrite') { stopPreviousReading(); return; }
+  const spec = rewriteSpec(review, block, reviewSettings());
+  if (!spec) return;
+  const captured = { ...block, say: block.say?.map((p) => [...p]) }, project = projectData();
+  let r = playbackReading(review, block, project.settings);
+  makingRewrite = true; updateEditor();
+  try {
+    if (!r) {
+      pause();
+      toast('Making a Google reading…');
+      const bundled = review.reviewAccess?.googleKey || '';
+      const made = await reviewedRewrite(spec, bundled, (message) => {
+        const current = S.cues.find((b) => b.id === block.id), currentSpec = current && rewriteSpec(S.review, current, reviewSettings());
+        return qc() && S.review === review && S.reviewId === reviewId && currentSpec && speechKey(currentSpec) === speechKey(spec) &&
+          window.confirm(`${message}\n\nRetry this reading with the separate key included by the writer? This uses their Google allowance.`);
+      });
+      if (S.review !== review || S.reviewId !== reviewId) return;
+      const next = await appendRewrite(review, project, captured, made);
+      if (S.review !== review || S.reviewId !== reviewId) return;
+      S.review = next;
+      const kept = await storedReview({ id: reviewId, file: next.file });
+      if (S.review !== next || S.reviewId !== reviewId) return;
+      changed();
+      if (!kept) toast('Reading ready. Save the QC package to keep it');
+      const current = selCue(), currentSpec = current && rewriteSpec(next, current, reviewSettings());
+      if (!currentSpec || current.id !== block.id || speechKey(currentSpec) !== speechKey(spec)) return;
+      r = playbackReading(next, current, reviewSettings());
+    }
+    if (!r) return;
+    pause(); stopSpeech(); stopPreviousReading();
+    const url = URL.createObjectURL(S.review.file.slice(r.offset, r.offset + r.bytes, 'audio/wav'));
+    const audio = new Audio(url); S.previousAudio = { audio, url, kind: 'rewrite' };
+    audio.onended = () => { if (S.previousAudio?.audio === audio) stopPreviousReading(); };
+    audio.onerror = () => { stopPreviousReading(); toast('The saved rewrite could not play'); };
+    await audio.play();
+  } catch (error) { if (S.reviewId === reviewId) toast(error.message); }
+  finally { makingRewrite = false; updateEditor(); refreshQc(); }
+});
 $('qcPrevious').addEventListener('click', () => {
   const c = selCue(), r = c && previousReading(S.review, c);
   if (!qc() || !r) return;
-  if (S.previousAudio) { stopPreviousReading(); return; }
+  if (S.previousAudio?.kind === 'original') { stopPreviousReading(); return; }
   pause(); stopSpeech(); stopPreviousReading();
   const url = URL.createObjectURL(S.review.file.slice(r.offset, r.offset + r.bytes, 'audio/wav'));
-  const audio = new Audio(url); S.previousAudio = { audio, url };
+  const audio = new Audio(url); S.previousAudio = { audio, url, kind: 'original' };
   $('qcPrevious').textContent = 'Stop previous reading'; $('qcPrevious').setAttribute('aria-pressed', 'true');
   audio.onended = () => { if (S.previousAudio?.audio === audio) stopPreviousReading(); };
   audio.onerror = () => { if (S.previousAudio?.audio === audio) { stopPreviousReading(); toast('The previous reading could not play'); } };
@@ -788,12 +832,18 @@ function updateEditor() {
   if (!edit || edit.id !== c.id) edText.value = c.text;
   edStats.textContent = '';
   $('qcPrevious').hidden = true;
+  $('qcRewrite').hidden = true;
   $('qcBlockInfo').textContent = '';
   if (qc()) {
-    const r = reviewReading(S.review, c, reviewSettings()), previous = previousReading(S.review, c);
-    $('qcPrevious').hidden = !!r || !previous;
+    const r = playbackReading(S.review, c, reviewSettings()), previous = previousReading(S.review, c);
+    $('qcPrevious').hidden = r === previous || !previous;
+    $('qcRewrite').hidden = !S.reviewId || !qcEditable() || !rewriteSpec(S.review, c, reviewSettings());
+    $('qcRewrite').disabled = makingRewrite;
+    const playingRewrite = S.previousAudio?.kind === 'rewrite';
+    $('qcRewrite').textContent = makingRewrite ? 'Making reading…' : playingRewrite ? 'Stop rewrite' : 'Hear rewrite';
+    $('qcRewrite').setAttribute('aria-pressed', String(playingRewrite));
     $('qcBlockInfo').textContent = !r && previous ? 'Original reading out of date'
-      : S.qcSource === 'package' ? (r ? `Original ${r.secs.toFixed(1)} s${r.secs > c.end - c.start + 0.05 ? ' · runs past block' : ''}` : 'Original reading missing')
+      : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'Saved rewrite'} ${r.secs.toFixed(1)} s${r.secs > c.end - c.start + 0.05 ? ' · runs past block' : ''}` : 'Original reading missing')
         : S.qcSource === 'preview' ? 'Approximate TTS preview' : 'Programme sound';
   }
   if (ttsOn() && spoken(c.text)) {
@@ -1642,7 +1692,7 @@ function updateInd() {
     ['follow', 'FOLLOW', S.follow],
     ['loop', 'LOOP', S.loop],
     ...(!qc() ? [['offset', `H −${Math.round(S.offset * 1000)}ms`, false]] : []),
-    ...(qc() ? [['qc', S.qcSource === 'package' ? 'QC · ORIGINAL READINGS' : S.qcSource === 'preview' ? 'QC · APPROXIMATE TTS' : 'QC · PROGRAMME SOUND', true]] : []),
+    ...(qc() ? [['qc', S.qcSource === 'package' ? (S.review?.proposals.length ? 'QC · SAVED READINGS' : 'QC · ORIGINAL READINGS') : S.qcSource === 'preview' ? 'QC · APPROXIMATE TTS' : 'QC · PROGRAMME SOUND', true]] : []),
     // Settings show only while they're on, and open their section of Settings.
     ...(S.replay ? [['replay', 'REPLAY', true]] : []),
     ...(S.mode === 'transcribe' && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
@@ -3220,7 +3270,7 @@ function readingSettings() {
   return { ttsVoice: tts.voice || chosenVoice(), ttsBase: tts.base, ttsSkipNotes: tts.skipNotes };
 }
 function reviewSettings() { return qc() && S.qcSettings ? S.qcSettings : readingSettings(); }
-function projectFileData() { const p = projectData(); return S.reviewId ? resaveReview(S.review, p) : JSON.stringify(p, null, 1); }
+function projectFileData() { const p = projectData(); return S.reviewId ? resaveReview(S.review, p, { includeReviewKey: true }) : JSON.stringify(p, null, 1); }
 function clearReview() { stopPreviousReading(); S.review = null; S.reviewId = ''; S.reviewAudio = null; S.qcSource = 'video'; storedReview(null); syncQcPermission(); }
 function projectData() {
   const m = S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size, duration: S.hasVideo ? duration() : null } : S.projectMedia;
@@ -3259,7 +3309,7 @@ async function attachAuthorAudio(file) {
   if (S.reviewId || !S.reviewAudio || !qc()) throw new Error('Open the authoring project in QC to locate its original readings');
   const projectId = S.projectId, reference = S.reviewAudio;
   if (!await restoreAuthorAudio(file)) throw new Error('The open project changed. Choose its original readings again');
-  const kept = await storedReview({ id: reference.baselineId, file }, reviewAudioKey(projectId, reference.baselineId));
+  const kept = await storedReview({ id: reference.baselineId, file: S.review.file }, reviewAudioKey(projectId, reference.baselineId));
   if (!kept) toast('Original readings opened. Keep the QC package to reopen them next time');
 }
 
@@ -4331,7 +4381,7 @@ function configureQcAudio() {
   if (!S.review) return qcPlayer.configure(null, []);
   const entries = [];
   for (const c of S.cues) {
-    const r = reviewReading(S.review, c, reviewSettings());
+    const r = playbackReading(S.review, c, reviewSettings());
     if (r) entries.push({ ...r, start: c.start, gain: volGain(c), ...blockDipOf(c), id: entries.length });
   }
   qcPlayer.configure(S.review.file, entries);
@@ -4341,8 +4391,8 @@ function qcRead(c, manual = false) {
   S.qcLast = c.id;
   const from = () => Math.max(0, now() - c.start);
   if (S.qcSource === 'package') {
-    const r = reviewReading(S.review, c, reviewSettings());
-    if (!r) return toast('No matching original reading for this block. Ask the writer to regenerate the QC package');
+    const r = playbackReading(S.review, c, reviewSettings());
+    if (!r) return toast(rewriteSpec(S.review, c, reviewSettings()) ? 'Choose Hear rewrite to make a reading for the changed wording or speed' : 'No matching original reading for this block. Ask the writer to regenerate the QC package');
     if (manual) S.playUntil = Math.max(c.end, c.start + r.secs);
     return;
   }
@@ -4366,6 +4416,15 @@ function qcSpeech(prevT, t, started) {
   if (jumped || (prevT <= c.start && t > c.start)) qcRead(c);
 }
 initQc({
+  package: () => !!S.reviewId,
+  returnReview: () => {
+    if (!S.reviewId || !S.review) return;
+    const file = resaveReview(S.review, projectData());
+    const a = document.createElement('a'), url = URL.createObjectURL(file);
+    a.href = url; a.download = baseName() + '-returned' + REVIEW_EXT; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    toast('Return package saved without the review key. Your working copy keeps it');
+  },
   compare: openReviewCompare,
   audioReference: () => !S.reviewId && S.reviewAudio, attachAudio: attachAuthorAudio,
   rememberReview: (history, projectId) => { if (S.projectId === projectId) { S.reviewHistory = retainHistory([...(S.reviewHistory?.checkpoints || []), ...history.checkpoints]); changed(); } },

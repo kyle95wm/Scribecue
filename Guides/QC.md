@@ -106,24 +106,40 @@ Packaging needs available **Piper, Kokoro or Google Cloud** voices. Built-in com
 voices and the browser’s online voices cannot supply audio for a package. Choose an
 exportable voice and check its readings and timings first, or supply a recorded review
 mix. Google Cloud packaging sends text to Google and can use your quota or incur charges.
-Voice credentials and the video are never included in the package.
+The video is sent separately. Keys stay private unless you explicitly include a separate Google review key.
 
 Original readings keep their full length, including overlapping tails. Moving a block
-moves its reading with it. Resizing keeps the same audio; the inspector warns when it
-runs past the block’s end.
+reuses its saved audio. Resizing also reuses it unless you change the reading speed;
+the inspector warns when a reading runs past the block’s end.
 
-Changing text, pronunciation, voice or speed marks the reading **out of date**. It stays
-silent during original playback. **Hear previous reading** plays the old clip alone,
-with the programme paused; it does not represent your correction. An approximate
-preview must still be chosen explicitly. Undoing a correction can restore matching audio.
+### Hear Google rewrites
 
-Make a fresh package after fixes to replace old readings. Until then, saving keeps the
-previous audio too. Reviewers without the right voices should return their corrections
-to the writer for new audio.
+For an editable package with Google voices, the reviewer can change wording or speed,
+then click **Hear rewrite**. This uses the block’s original Google voice. It saves the
+new recording for replay, including after moving the block or reopening a saved package.
+**Hear previous reading** plays the original alone for comparison. Undoing the correction
+restores the original audio.
 
-Saving comments to a package keeps its original readings. Reviewers do not need to
-regenerate them. Keep the package file: if browser recovery cannot restore its audio,
-reopen the package before saving. Packaging needs disk storage in a current Chrome or Edge.
+![A saved rewrite beside the original reading](../docs/screenshots/qc-google-rewrite.png)
+
+The reviewer’s Google key is used first. If it fails and a separate key is bundled,
+Scribecue offers to retry that reading with the writer’s key. Nothing switches without
+agreement. The next new reading tries the reviewer’s key first again.
+
+To supply a key, turn on **Allow reviewers to edit blocks**, then **Include a separate
+Google review key** during export. Paste a new key made for this review; your main key
+is never filled in. Anyone with the package can read the included key. Delete it in
+Google Cloud when the review is done. See [Google keys](GOOGLE-VOICES.md#keys-for-qc-reviews).
+
+New readings send the changed text to Google and need internet. Playing saved audio,
+moving a block, or changing its volume makes no request. Changing to another voice needs
+a fresh package from the writer. Other voice providers still need fresh packaged audio
+or an explicitly chosen approximate preview after wording or speed changes.
+
+Use **Save** to keep working, including the separate review key. When finished, open
+**QC** under the video and choose **Save return package**. It keeps the comments and saved
+recordings but leaves out the bundled key. Keep your working package: if browser recovery
+cannot restore its audio, reopen it before saving.
 
 ### Checking a narration WAV
 
@@ -248,7 +264,8 @@ Agree who resolves issues and who approves the finished programme.
 
 1. Press `Ctrl/Cmd+S`. Check the project no longer has an unsaved-changes dot beside its name.
    If it says **autosave paused**, click it to allow saving, or save a new copy.
-2. Send the reviewed `.scribecueqc` package or `.scribecue` project. Include changed media only if you've agreed to
+2. For a QC package, choose **QC → Save return package** to leave out any bundled key.
+   Send that `.scribecueqc` file, or your reviewed `.scribecue` project. Include changed media only if you've agreed to
    supply it. Comments aren't included in SRT, WebVTT, recording files or audio exports.
 3. Say which source project and picture cut you reviewed. State whether you changed
    the script or timings, and whether any checks remain unfinished.
@@ -339,7 +356,7 @@ while typing, see [Keyboard shortcuts](SHORTCUTS.md).
 | No Comment button | Select QC, then open a block. Comments are hidden in all other modes. |
 | The note is on the wrong target | Check the target above the comment box. Use the block's Comment button for a block, or right-click the timeline for a time. Delete and repost a misplaced note. |
 | Two voices speak at once | Choose Programme sound for a recorded description mix, or choose the original soundtrack when playing packaged readings. |
-| No narration | Check Audio, volume and the QC playback source. Missing or changed original readings need a fresh package from the writer. |
+| No narration | Check Audio, volume and the QC playback source. For changed Google wording or speed, choose Hear rewrite. Other missing recordings need a fresh package from the writer. |
 | “No open comments” | Try Show resolved. Also check you're opening the returned project, rather than the original file or an SRT export. |
 | All notes don't fit in the drawer | Scroll its comment list and use Previous / Next for further pages. |
 | Timing differs between copies | Confirm the picture cut and lead-in. Use original readings; substitute voices can have different lengths. |

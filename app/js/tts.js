@@ -422,6 +422,10 @@ try { Object.assign(tts, JSON.parse(localStorage.getItem(KEY)) || {}); } catch {
 const GKEY = 'scribecue.googleTts';
 const googleStore = () => { try { return JSON.parse(localStorage.getItem(GKEY)) || {}; } catch { return {}; } };
 const googleKey = () => googleStore().key || '';
+export const hasGoogleKey = () => !!googleKey();
+export const isPersonalGoogleKey = (key) => !!key && key === googleKey();
+// A review key belongs to its package. It never replaces the reviewer's setting.
+export const reviewGoogleKey = (bundled = '') => googleKey() || bundled;
 const langs = () => [...new Set([...(navigator.languages || []), navigator.language || 'en'])];
 tts.google = googleKey() ? googleVoiceList({ voices: googleStore().voices }, langs()) : [];
 tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
