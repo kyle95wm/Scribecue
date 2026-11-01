@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.73.1",
+  "date": "2026-11-01",
+  "notes": "## Fixes\n\n- **Return to start** now puts the playhead back as soon as you stop, so play starts right where it sits. Before, it jumped back when you pressed play.\n- If Scribecue can’t read a script you open, it now says why, rather than doing nothing."
+ },
+ {
   "version": "0.73.0",
   "date": "2026-11-01",
   "notes": "## Voices from Frazier scripts\n\n- Opening an `.adc` script that names voices now asks whether to use them.\n- Choose other voices to pick one in place of each: one for the project, and one for each set of blocks with their own voice.\n- It only asks while text to speech is on."
