@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReview, readReview, resaveReview, reviewReading, readingKey, voiceReport, hasReviewText, previousReading } from '../app/js/qc.js';
+import { buildReview, readReview, resaveReview, reviewReading, readingKey, voiceReport, hasReviewText, previousReading, reviewAllowsEdits } from '../app/js/qc.js';
 import { toProject, fromProject } from '../app/js/project.js';
 const block = { start: 3, end: 6, text: 'Mara arrives.', speed: 1, say: [['Mara', 'Mah-ra']] };
 const project = () => toProject({ blocks: [block, { start: 10, end: 12, text: 'Another block.', voice: 'kokoro:af_heart' }], settings: { mode: 'qc', ttsBase: 1, ttsVoice: 'piper:en_US-lessac-medium', ttsSkipNotes: true } });
@@ -109,4 +109,48 @@ test('early packages with timing keys can move their readings too', async () => 
   r.readings[0].key=JSON.stringify([p.blocks[0].start,p.blocks[0].end,...JSON.parse(r.readings[0].key)]);
   const legacy=await readReview(resaveReview(r,p));
   assert.equal(reviewReading(legacy,{...p.blocks[0],start:15,end:16},p.settings).secs,3);
+});
+
+
+test('QC package creation defaults to comments only and accepts explicit editing permission', async () => {
+  for (const allowEdits of [undefined, false, true, 'true']) {
+    const r=await readReview(await buildReview(project(),make,{allowEdits}));
+    assert.equal(reviewAllowsEdits(r),allowEdits===true);
+  }
+});
+test('resaving comments and corrected blocks preserves the source package permission', async () => {
+  for (const allowEdits of [false,true]) {
+    const r=await readReview(await buildReview(project(),make,{allowEdits}));
+    const edited=structuredClone(r.project);
+    edited.settings.allowEdits=!allowEdits;
+    edited.permissions={allowEdits:!allowEdits};
+    edited.blocks[0].comments=[{text:'Review note',author:'Sam'}];
+    const next=await readReview(resaveReview(r,edited));
+    assert.equal(reviewAllowsEdits(next),allowEdits);
+    assert.equal(next.parsed.blocks[0].comments.length,1);
+  }
+});
+test('older packages without a permission remain comments only, including after saving', async () => {
+  const r=await readReview(await buildReview(project(),make,{allowEdits:true}));
+  const json=new TextEncoder().encode(JSON.stringify({review:1,project:r.project,readings:r.readings}));
+  const footer=new Uint8Array(12);new DataView(footer.buffer).setUint32(0,json.length,true);footer.set(new TextEncoder().encode('SCQC0001'),4);
+  const older=await readReview(new Blob([r.file.slice(0,r.audioEnd),json,footer]));
+  assert.equal(reviewAllowsEdits(older),false);
+  assert.equal(reviewAllowsEdits(await readReview(resaveReview(older,older.project))),false);
+});
+
+
+test('permission-aware packages require a reader that understands their review version', async () => {
+  const r=await readReview(await buildReview(project(),make,{allowEdits:true}));
+  const footerBytes=new Uint8Array(await r.file.slice(-12).arrayBuffer());
+  const length=new DataView(footerBytes.buffer).getUint32(0,true);
+  const manifest=JSON.parse(await r.file.slice(r.audioEnd,r.audioEnd+length).text());
+  assert.equal(manifest.review,2);
+  const repack=(version)=>{
+    const json=new TextEncoder().encode(JSON.stringify({...manifest,review:version}));
+    const footer=new Uint8Array(footerBytes);new DataView(footer.buffer).setUint32(0,json.length,true);
+    return new Blob([r.file.slice(0,r.audioEnd),json,footer]);
+  };
+  assert.equal(reviewAllowsEdits(await readReview(repack(1))),false);
+  await assert.rejects(readReview(repack(3)),/newer Scribecue/);
 });

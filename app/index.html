@@ -64,7 +64,7 @@
           <button role="menuitem" data-act="exportMix" class="write-only"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></button>
         </div>
       </span>
-      <button id="qcAllowEdits" class="qc-only" aria-pressed="false" data-tip="Allow block edits in QC. Timings change only when you edit them">Allow edits</button>
+      <span id="qcPermission" class="autotag qc-only" aria-live="polite">Comments only</span>
       <button data-act="comments" id="commentsBtn" aria-pressed="false" aria-controls="commentsDrawer" data-tip="Comments on blocks and timeline times, saved with the project (⌥⇧C)">Comments</button>
       <button data-act="ai" id="aiBtn" class="tip-end" data-tip="AI help: chat about the scene and draft descriptions (⌥⇧A)">AI</button>
       <button data-act="settings" class="tip-end" data-tip="Settings: text to speech, speech to text, AI help, shortcuts, storage and more (⌥⇧S)">Settings</button>
@@ -406,12 +406,12 @@ docker compose up -d --build</code></pre>
         <span><strong>Writing new audio description</strong>
           <span class="dim">Hear your lines read aloud, and check each one fits before the next piece of dialogue.</span></span></label>
       <label class="wzcard"><input type="radio" name="wzMode" value="qc">
-        <span><strong>QC review</strong><span class="dim">Listen, leave comments and choose whether to allow corrections. Original packaged readings work without installing voices.</span></span></label>
+        <span><strong>QC review</strong><span class="dim">Listen and leave comments. The package creator decides whether corrections are allowed. Original packaged readings work without installing voices.</span></span></label>
       <p class="dim small">Use the mode switch at the top to change tasks at any time.</p>
     </section>
     <section data-step="qc" hidden>
       <h2>Review in QC</h2>
-      <p>Open the project or QC package and its matching video. Editing starts off. Use Allow edits for corrections; timings never adjust automatically.</p>
+      <p>Open the project or QC package and its matching video. The package creator decides whether block edits are allowed. Timings never adjust automatically in QC.</p>
       <p>Click QC under the video to choose programme sound, original readings or an approximate TTS preview. Packaged readings need no voice installation or key.</p>
       <p>Click Comment in a block, or right-click the timeline to leave a note. Save and return the reviewed file.</p>
     </section>
@@ -478,7 +478,7 @@ docker compose up -d --build</code></pre>
 
   <dialog id="qcPlaybackDlg" class="updbox" aria-labelledby="qcPlaybackTitle">
     <h2 id="qcPlaybackTitle">QC playback</h2>
-    <p>QC starts with editing off. Allow edits at the top to correct blocks. Timings change only when you edit them. Changed readings are marked out of date.</p>
+    <p id="qcPermissionInfo"></p>
     <p id="qcPackageInfo" role="status"></p>
     <div class="airow"><button id="qcSourceVideo" aria-pressed="true">Programme sound</button><button id="qcSourcePackage" aria-pressed="false">Original readings</button><button id="qcSourcePreview" aria-pressed="false">Approximate TTS preview</button></div>
     <p id="qcPreviewNote" class="dim small"></p>
@@ -490,6 +490,8 @@ docker compose up -d --build</code></pre>
     <h2 id="qcExportTitle">Make a QC package</h2>
     <p>Includes the project, comments and each original reading. Send the matching video separately. The reviewer needs no voice installation or key to play the included audio.</p>
     <p>Piper, Kokoro and Google Cloud voices can be packaged. Built-in and browser-provided online voices cannot: choose an exportable voice in Write mode, or supply a recorded review video.</p>
+    <button id="qcExportAllowEdits" aria-pressed="false" aria-describedby="qcExportPermissionInfo">Allow reviewers to edit blocks</button>
+    <p id="qcExportPermissionInfo" class="dim small">Off: comments only. On: reviewers may correct text, timings, voices and speeds. This choice stays with the package; reviewers cannot change it in QC.</p>
     <ul id="qcExportVoices"></ul>
     <p id="qcExportCost" class="warnbox" hidden>Making Google Cloud readings sends the text to Google and uses your allowance. Uncached readings may cost money.</p>
     <p id="qcExportStatus" class="dim small" role="status"></p>
@@ -1040,7 +1042,7 @@ docker compose up -d --build</code></pre>
         <button id="helpLoop" class="helptour">Show the loop</button>
         <button id="helpKeys" class="helptour">Change shortcuts</button>
         <button id="helpGuides" class="helptour" hidden>Guides</button></h2>
-      <div class="qc-only"><p>QC starts with editing off. Use <strong>Allow edits</strong> to correct blocks without automatic timing changes. Click <strong>Comment</strong> in an open block, or right-click the timeline. Use the QC indicator under the video to choose playback.</p><dl>
+      <div class="qc-only"><p>The package creator decides whether block edits are allowed. Automatic timing changes stay off in QC. Click <strong>Comment</strong> in an open block, or right-click the timeline. Use the QC indicator under the video to choose playback.</p><dl>
         <dt><kbd>Space</kbd></dt><dd>Play / pause</dd><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Previous / next block</dd>
         <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>One frame back / forward</dd><dt><kbd>V</kbd></dt><dd>Hear the selected block with the chosen QC playback source</dd>
         <dt data-keys="comments"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>C</kbd></dt><dd>Comments at the playhead</dd><dt><kbd>Esc</kbd></dt><dd>Close the block or Comments drawer</dd>

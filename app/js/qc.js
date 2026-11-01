@@ -5,6 +5,7 @@ export const REVIEW_EXT = '.scribecueqc';
 const MAGIC = 'SCQC0001', FOOTER = 12, MAX_MANIFEST = 16 * 1024 * 1024;
 const bytes = (s) => new TextEncoder().encode(s);
 const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+export const reviewAllowsEdits = (review) => review?.permissions?.allowEdits === true;
 export const isReview = (name) => String(name).toLowerCase().endsWith(REVIEW_EXT);
 export const readingKey = (b, s = {}) => JSON.stringify([b.text, b.say || [], b.speed || 1,
   b.voice || s.ttsVoice || '', s.ttsBase ?? 1, s.ttsSkipNotes === true]);
@@ -42,13 +43,13 @@ function trailer(length) {
   const out = new Uint8Array(FOOTER);
   new DataView(out.buffer).setUint32(0, length, true); out.set(bytes(MAGIC), 4); return out;
 }
-function manifestParts(project, readings) {
-  const json = bytes(JSON.stringify({ review: 1, project, readings }));
+function manifestParts(project, readings, allowEdits = false) {
+  const json = bytes(JSON.stringify({ review: 2, permissions: { allowEdits: allowEdits === true }, project, readings }));
   if (json.byteLength > MAX_MANIFEST) throw new Error('This review has too much project information');
   return [json, trailer(json.byteLength)];
 }
 export function resaveReview(review, project) {
-  return new Blob([review.file.slice(0, review.audioEnd), ...manifestParts(project, review.readings)], { type: 'application/octet-stream' });
+  return new Blob([review.file.slice(0, review.audioEnd), ...manifestParts(project, review.readings, reviewAllowsEdits(review))], { type: 'application/octet-stream' });
 }
 export async function readReview(file) {
   if (file.size < 20) throw new Error('This isn’t a Scribecue QC package');
@@ -58,7 +59,7 @@ export async function readReview(file) {
   if (!length || length > MAX_MANIFEST || end - length < 8) throw new Error('The QC package is damaged');
   const audioEnd = end - length;
   let m; try { m = JSON.parse(await file.slice(audioEnd, end).text()); } catch { throw new Error('The QC package is damaged'); }
-  if (m.review !== 1) throw new Error('This QC package needs a newer Scribecue version');
+  if (m.review !== 1 && m.review !== 2) throw new Error('This QC package needs a newer Scribecue version');
   const parsed = fromProject(m.project); // Check the script before exposing any audio.
   if (!Array.isArray(m.readings) || m.readings.length > 100000) throw new Error('The QC readings are damaged');
   let at = 8;
@@ -69,7 +70,7 @@ export async function readReview(file) {
     index.set(audioKey(r.key), r); byOffset.set(r.offset, r); at += r.bytes;
   }
   if (at !== audioEnd) throw new Error('The QC readings are damaged');
-  return { file, project: m.project, parsed, readings: m.readings, audioEnd, index, byOffset };
+  return { file, project: m.project, parsed, readings: m.readings, audioEnd, index, byOffset, permissions: { allowEdits: m.review === 2 && m.permissions?.allowEdits === true } };
 }
 // Package metadata is parsed and checked off the page for long reviews.
 export async function openReview(file) {
@@ -83,7 +84,7 @@ export async function openReview(file) {
 }
 // sink: optional disk writer with write/close/abort/file. Without one, Blob parts are
 // still individual readings, never a decoded full-film track.
-export async function buildReview(project, make, { sink = null, progress = () => {}, signal } = {}) {
+export async function buildReview(project, make, { sink = null, progress = () => {}, signal, allowEdits = false } = {}) {
   project = { ...project, blocks: project.blocks.map(({ qcReading, ...b }) => b) };
   const parts = [], readings = [];
   const write = async (part) => { if (sink) await sink.write(part); else parts.push(part); };
@@ -107,7 +108,7 @@ export async function buildReview(project, make, { sink = null, progress = () =>
       await new Promise((r) => setTimeout(r, 0));
     }
     if (signal?.aborted) throw new Error('QC export stopped');
-    for (const part of manifestParts(project, readings)) await write(part);
+    for (const part of manifestParts(project, readings, allowEdits)) await write(part);
     if (signal?.aborted) throw new Error('QC export stopped');
     progress(project.blocks.length, project.blocks.length);
     if (sink) { await sink.close(); return sink.file(); }

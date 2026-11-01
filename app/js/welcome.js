@@ -32,7 +32,7 @@ function show() {
 
 function summarise() {
   const m = mode();
-  const lines = [m === 'qc' ? 'QC mode, with comments and editing off until you choose Allow edits' : m === 'write' ? 'Write mode, for new audio description' : 'Transcribe mode, for existing audio description'];
+  const lines = [m === 'qc' ? 'QC mode, with comments and editing permission set by the package creator' : m === 'write' ? 'Write mode, for new audio description' : 'Transcribe mode, for existing audio description'];
   if (m === 'transcribe') {
     lines.push(`Hold-to-mark reaction offset: ${Math.round(+$('wzOffset').value * 1000)} ms`);
     if ($('wzReplay').checked) lines.push('Goes back to each block’s start after you edit it');

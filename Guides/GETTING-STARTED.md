@@ -10,9 +10,9 @@ The switch next to Scribecue’s name chooses what you’re doing.
 | --- | --- |
 | **Transcribe** | Time existing narration with H. Whisper can type it for you. |
 | **Write** | Write descriptions and hear them with text to speech. |
-| **QC** | Review scripts; turn on Allow edits for corrections. Listen to original readings or programme sound, and leave comments. |
+| **QC** | Review scripts; the package creator decides whether edits are allowed. Listen to original readings or programme sound, and leave comments. |
 
-Switching keeps your work. QC starts with editing off. Allow edits enables corrections without automatic timing changes. Comments appear only in QC.
+Switching keeps your work. QC follows the package’s saved editing permission. Automatic timing changes stay off. Comments appear only in QC.
 [The QC guide](QC.md) explains voice checks and portable review packages.
 
 ## Settings

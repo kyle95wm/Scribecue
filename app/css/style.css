@@ -1093,7 +1093,7 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 
 /* Comments reuse the AI drawer and its message controls. */
 #commentsDrawer input { min-width: 0; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
-#commentsDrawer button[aria-pressed="true"], #commentsBtn[aria-pressed="true"], #qcAllowEdits[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+#commentsDrawer button[aria-pressed="true"], #commentsBtn[aria-pressed="true"], #qcExportAllowEdits[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 #commentAt, .comment-location { font: 12px var(--mono); }
 .comment-body { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .comment-meta { font: 12px var(--sans); color: var(--dim); }
@@ -1125,3 +1125,5 @@ body:not(.mode-qc) #edComment, body:not(.mode-qc) #qcCommentRow { display: none;
 
 .qc-edit-only { display: none; }
 .mode-qc.qc-editing .qc-edit-only { display: revert; }
+
+.qc-review-only .qc-export { display: none; }

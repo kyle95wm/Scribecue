@@ -42,13 +42,18 @@ uses file handoffs. It has no live shared review or automatic merge of project c
 4. Check a familiar scene near the beginning and another later on. Make sure the blocks
    line up with the same picture and sound throughout.
 
-Select **QC** at the top. Editing starts off, and Comments is available only here.
-To make corrections, turn on **Allow edits**. You can change text, timings, pronunciation,
-block voices and speeds without leaving the comments behind. Timings never adjust
-from a reading automatically in QC. Use Write for voice setup or bulk timing tools.
+Select **QC** at the top. Comments are available only here. The package creator decides
+whether you can edit blocks. The header says **Comments only** or **Edits allowed**.
+There is no permission switch for the reviewer.
 
-Turn Allow edits off when you finish. It resets when you change modes, open a project
-or reload. Save a review copy before editing, and agree which fixes you should make.
+A comments-only package keeps its script and timings fixed. An editable package lets you
+correct text, timings, pronunciation, block voices and speeds while keeping Comments open.
+Timings never adjust from a reading automatically in QC. Saving or reloading keeps the
+creator’s choice. Ask for a new package if you need permission to make corrections.
+
+Plain `.scribecue` projects are read-only in QC; use Write or Transcribe to edit those.
+Older QC packages without a saved permission open as comments-only. New packages need
+an updated Scribecue on both computers so the creator’s choice is respected.
 
 A recording file (`.scribecuerec`) opens in Record mode. Click **Leave**, then open the
 project or QC package. [Recording narration](RECORDING.md) covers recording files.
@@ -82,8 +87,10 @@ over a track that already contains description. `T` and `Shift+T` change audio t
 
 1. In Write mode, check the script, voice choices, speeds and timings.
 2. Choose **Export → QC package**. The voice check includes each block’s own voice.
-3. Click **Make QC package** and wait for the readings. Progress is shown; **Stop** cancels.
-4. Send the `.scribecueqc` file with the matching video and review brief.
+3. Choose **Allow reviewers to edit blocks** if corrections are part of the brief.
+   Leave it off for comments-only review. This choice is saved in the package.
+4. Click **Make QC package** and wait for the readings. Progress is shown; **Stop** cancels.
+5. Send the `.scribecueqc` file with the matching video and review brief.
 
 ![QC package export with its voice check](../docs/screenshots/qc-package.png)
 
@@ -203,15 +210,18 @@ comment on the same block or time and identify the issue you're answering.
 
 ### Make corrections in QC
 
-1. Turn on **Allow edits** at the top.
+1. Check that the header says **Edits allowed**. Otherwise, return comments or ask the
+   writer for a package that permits corrections.
 2. Click a block and make the agreed correction. Change its times directly or drag it.
 3. Check the reading status. A new voice or corrected text needs fresh audio before
    original playback can confirm its pacing.
-4. Close the editor and use `Ctrl/Cmd+Z` to undo a block change if needed. Keep Allow edits
-   on for undo or redo of block changes. Comment changes can be undone with editing off.
-5. Turn Allow edits off, save the review, and tell the writer what you changed.
+4. Close the editor and use `Ctrl/Cmd+Z` to undo a block change if needed.
+5. Save the review and tell the writer what you changed. The package keeps its permission.
 
-![QC with block editing enabled and the Comments drawer open](../docs/screenshots/qc-editing.png)
+Comments-only packages stay in QC and cannot be repackaged with different permissions
+through Scribecue. Keep the writer’s project for authoring and creating a new handoff.
+
+![A package that allows block edits, with the Comments drawer open](../docs/screenshots/qc-editing.png)
 
 ## Check fixes and resolve comments
 

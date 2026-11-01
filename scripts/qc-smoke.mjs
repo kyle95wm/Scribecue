@@ -33,15 +33,33 @@ try {
   assert.equal(await js(`getComputedStyle(document.getElementById('edComment')).display`),'none');
  }
  await mode('qc');await click('edComment');assert.equal(await js(`document.getElementById('commentsDrawer').hidden`),false);await mode('write');assert.equal(await js(`document.getElementById('commentsDrawer').hidden`),true);
+ assert.equal(await js(`document.getElementById('qcAllowEdits')`),null);
  // Export actual Piper readings through the UI, then open them with no provider calls.
  await mode('write');
  await wait(`(async()=>{const t=await import('./js/tts.js');return t.reviewVoices().some(v=>v.exportable&&v.id.startsWith('piper:'));})()`);
  await js(`(async()=>{const t=await import('./js/tts.js');const v=t.reviewVoices().find(v=>v.exportable&&v.id.startsWith('piper:'));t.setTtsOption('voice',v.id);window.__anchorClick=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){if(this.download.endsWith('.scribecueqc'))window.__download=this.href;else __anchorClick.call(this);};document.querySelector('[data-act=exportQc]').click();return true;})()`);
  await click('qcExportStart');await wait(`!!window.__download`);
- const real=await js(`(async()=>{const q=await import('./js/qc.js');window.__realFile=await fetch(__download).then(r=>r.blob());const r=await q.openReview(__realFile);return {readings:r.readings.length,secs:r.readings.map(x=>x.secs)};})()`);
+ const real=await js(`(async()=>{const q=await import('./js/qc.js');window.__realFile=await fetch(__download).then(r=>r.blob());const r=await q.openReview(__realFile);return {readings:r.readings.length,secs:r.readings.map(x=>x.secs),allowEdits:q.reviewAllowsEdits(r)};})()`);
+ assert.equal(real.allowEdits,false);
  assert.equal(real.readings,2);assert.ok(real.secs.every(n=>n>0));
  console.log('Piper package exported:',JSON.stringify(real));
  await click('qcExportClose');
+ await js(`window.__download=null;document.querySelector('[data-act=exportQc]').click();true`);
+ assert.equal(await js(`document.getElementById('qcExportAllowEdits').getAttribute('aria-pressed')`),'false');
+ await click('qcExportAllowEdits');await click('qcExportStart');await wait(`!!window.__download`);
+ assert.equal(await js(`(async()=>{const q=await import('./js/qc.js');const r=await q.openReview(await fetch(__download).then(r=>r.blob()));return q.reviewAllowsEdits(r);})()`),true);
+ await click('qcExportClose');
+ // Only the creator's export dialog controls permissions; a default package is read-only.
+ await js(`window.__drop=async file=>{const d=new DataTransfer();d.items.add(file);document.dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}));};__drop(new File([__realFile],'comments-only.scribecueqc'));true`);
+ await wait(`document.getElementById('subName').textContent.includes('comments-only')`);
+ assert.equal(await js(`document.getElementById('edText').readOnly`),true);
+ assert.equal(await js(`document.querySelector('#modeSw [data-mode=write]').disabled`),true);
+ await mode('write');assert.equal(await js(`document.body.classList.contains('mode-qc')`),true);
+ await js(`document.querySelector('[data-act=exportQc]').click();true`);
+ assert.equal(await js(`document.getElementById('qcExportDlg').open`),false);
+ await click('edComment');await js(`document.getElementById('commentText').value='Read-only note';document.getElementById('commentPost').click();document.getElementById('commentsClose').click();true`);
+ await js(`document.body.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyS',key:'s',metaKey:true,bubbles:true,cancelable:true}));true`);await sleep(350);
+ assert.equal(await js(`(async()=>{const q=await import('./js/qc.js');return q.reviewAllowsEdits(await q.openReview(__saved));})()`),false);
  // Importing a project with unavailable default and block voices must preserve timings.
  await js(`window.__drop=async file=>{const d=new DataTransfer();d.items.add(file);document.dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}));};window.__missing={scribecue:1,format:1,blocks:[{start:3,end:3.5,text:'This reading is deliberately much longer than half a second.',auto:true},{start:10,end:11,text:'Override voice',voice:'missing:block'}],settings:{mode:'write',ttsVoice:'missing:main',ttsBase:1}};__drop(new File([JSON.stringify(__missing)],'missing.scribecue'));true`);
  await wait(`document.body.classList.contains('mode-qc') && document.getElementById('qcPlaybackDlg').open`);
@@ -54,7 +72,7 @@ try {
  const samples=new Int16Array(16000*2);for(let i=0;i<samples.length;i++)samples[i]=Math.sin(i/20)*650;
  const wav=new Blob([writeWav(samples,16000)]);const p={...__missing,settings:{mode:'qc',ttsVoice:'portable:voice',ttsBase:1,ttsSkipNotes:false},blocks:Array.from({length:720},(_,i)=>({start:i*10,end:i*10+2,text:'Review '+i,...(i===0?{auto:true}:{})}))};
  const sink=await q.reviewSink();let ticks=0,maxGap=0,last=performance.now(),progress=0;const timer=setInterval(()=>{const n=performance.now();maxGap=Math.max(maxGap,n-last);last=n;ticks++;},16);const start=performance.now();
- const file=await q.buildReview(p,async()=>({blob:wav,secs:2,voice:'portable:voice'}),{sink,progress:()=>progress++});
+ const file=await q.buildReview(p,async()=>({blob:wav,secs:2,voice:'portable:voice'}),{sink,allowEdits:true,progress:()=>progress++});
  window.__reviewFile=file;window.__review=await q.openReview(file);window.__reviewSink=sink;clearInterval(timer);
  const edited=structuredClone(p);edited.comments=[{id:'qc-note',time:5,text:'Check this',author:'Reviewer',created:1}];const again=await q.openReview(q.resaveReview(__review,edited));
  return {ms:Math.round(performance.now()-start),bytes:file.size,ticks,maxGap:Math.round(maxGap),progress,readings:again.readings.length,comments:again.parsed.comments.length};
@@ -91,9 +109,9 @@ try {
  await js(`document.querySelector('#list .row').click();true`);
  await wait(`document.getElementById('qcBlockInfo').textContent.includes('Original 2.0 s')`);
  await click('edComment');assert.match(await js(`document.getElementById('commentsLog').textContent`),/Portable comment/);await click('commentsClose');
- // Editing is opt-in, keeps automatic timing changes off, and retains original clips.
- assert.equal(await js(`document.getElementById('qcAllowEdits').getAttribute('aria-pressed')`),'false');
- await click('qcAllowEdits');
+ // Creator-authorized editing survives recovery and has no reviewer toggle.
+ assert.equal(await js(`document.getElementById('qcAllowEdits')`),null);
+ assert.equal(await js(`document.getElementById('qcPermission').textContent`),'Edits allowed');
  assert.equal(await js(`document.getElementById('edText').readOnly || document.getElementById('edEnd').readOnly`),false);
  assert.equal(await js(`document.getElementById('edSpeedWrap').hidden || document.getElementById('edVoiceWrap').hidden`),false);
  await js(`document.getElementById('edStart').value='1';document.getElementById('edStart').dispatchEvent(new FocusEvent('blur'));document.getElementById('edEnd').value='1.5';document.getElementById('edEnd').dispatchEvent(new FocusEvent('blur'));true`);
@@ -115,10 +133,6 @@ await js(`document.querySelector('#list .row').click();true`);
  await click('qcPrevious');assert.equal(await js(`document.getElementById('video').paused`),true);
  assert.equal(await js(`document.getElementById('qcPrevious').getAttribute('aria-pressed')`),'true');
  await click('qcPrevious');assert.equal(await js(`document.getElementById('qcPrevious').getAttribute('aria-pressed')`),'false');
- await click('qcAllowEdits');
- await js(`document.body.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyZ',key:'z',metaKey:true,bubbles:true,cancelable:true}));true`);
- assert.equal(await js(`document.getElementById('edText').value`),'Revised description');
- await click('qcAllowEdits');
  await js(`document.body.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyZ',key:'z',metaKey:true,bubbles:true,cancelable:true}));true`);
  assert.equal(await js(`document.getElementById('edText').value`),'Review 0');
  assert.match(await js(`document.getElementById('qcBlockInfo').textContent`),/Original 2.0 s/);
@@ -129,17 +143,16 @@ await js(`document.querySelector('#list .row').click();true`);
  assert.equal(await js(`document.getElementById('sayDlg').open`),true);await click('sayTry');
  assert.match(await js(`document.getElementById('toast').textContent`),/Choose Approximate TTS preview/);await click('sayDone');
  await mode('write');await mode('qc');
- assert.equal(await js(`document.getElementById('qcAllowEdits').getAttribute('aria-pressed')`),'false');
- assert.equal(await js(`document.getElementById('edText').readOnly`),true);
+ assert.equal(await js(`document.getElementById('qcPermission').textContent`),'Edits allowed');
+ assert.equal(await js(`document.getElementById('edText').readOnly`),false);
 
-
- // Save/reload retains previous audio and always restores the locked review state.
+ // Save/reload retains previous audio and preserves creator-approved editing.
  await js(`window.showSaveFilePicker=async()=>({name:'edited.scribecueqc',queryPermission:async()=>'granted',createWritable:async()=>({write:async b=>{window.__edited=b},close:async()=>{}})});document.body.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyS',key:'s',metaKey:true,bubbles:true,cancelable:true}));true`);await wait(`!!window.__edited`);
- const edited=await js(`(async()=>{const q=await import('./js/qc.js');const r=await q.openReview(__edited),b=r.parsed.blocks[0];return {valid:!!q.reviewReading(r,b,r.parsed.settings),oldSecs:q.previousReading(r,b)?.secs,comments:b.comments.length};})()`);
- assert.deepEqual(edited,{valid:false,oldSecs:2,comments:1});
+ const edited=await js(`(async()=>{const q=await import('./js/qc.js');const r=await q.openReview(__edited),b=r.parsed.blocks[0];return {valid:!!q.reviewReading(r,b,r.parsed.settings),oldSecs:q.previousReading(r,b)?.secs,comments:b.comments.length,allowEdits:q.reviewAllowsEdits(r)};})()`);
+ assert.deepEqual(edited,{valid:false,oldSecs:2,comments:1,allowEdits:true});
  await js(`location.reload();true`);await sleep(1600);await wait(`document.querySelectorAll('#list .row').length===720`);await js(`document.querySelector('#list .row').click();true`);
  await wait(`document.getElementById('qcPrevious').hidden===false`);
- assert.equal(await js(`document.getElementById('qcAllowEdits').getAttribute('aria-pressed')`),'false');
+ assert.equal(await js(`document.getElementById('qcPermission').textContent`),'Edits allowed');
  // New reviewers can choose QC directly in first-run setup.
  await js(`(async()=>{const w=await import('./js/welcome.js');w.openWelcome();return true;})()`);
  await click('wzNext');await js(`document.querySelector('input[name=wzMode][value=qc]').click();true`);await click('wzNext');
@@ -147,5 +160,5 @@ await js(`document.querySelector('#list .row').click();true`);
  const setupShot=await send('Page.captureScreenshot',{format:'png'});(await import('node:fs')).writeFileSync('/tmp/scribecue-qc-setup.png',Buffer.from(setupShot.result.data,'base64'));
  for(let i=0;i<5 && await js(`document.getElementById('welcome').open`);i++)await click('wzNext');
  assert.equal(await js(`document.body.classList.contains('mode-qc')`),true);
- console.log('QC mode: locks, optional edits, fixed automatic timings, audio reuse, old readings, undo, recovery and package checks passed');
+ console.log('QC mode: creator permissions, comments-only restrictions, authorized edits, fixed timings, audio reuse and recovery passed');
 } finally {await send('Emulation.setCPUThrottlingRate',{rate:1});ws.close();}

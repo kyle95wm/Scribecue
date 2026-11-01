@@ -9,10 +9,14 @@ screenshots and releases. This file only adds what isn't there.
 
 - **Release version:** 0.66.0. QC mode, portable packages and optional edits ship in this release.
   The previous release was 0.65.0.
-- **QC mode:** editing starts off. Allow edits enables manual block corrections, voices,
-  speeds, timing changes and undo. No automatic timing fitting runs in QC. Permission resets
-  when changing modes, opening a project or reloading. Comments, block Comment
-  buttons and timeline comment markers appear only in QC. Write and Transcribe keep editing.
+- **Unreleased correction:** the package creator chooses whether reviewers may edit in
+  Export → QC package. Default is comments only. QC has a status label, not an editing toggle.
+  Permission stays in the package manifest when saving and after browser recovery. Older
+  packages without permission default to comments only. New manifests use review version 2,
+  so older apps request an update instead of ignoring permissions. Plain projects stay read-only in QC.
+- Comments-only packages cannot switch to an editing mode or be re-exported with different
+  permissions through the UI. Editable packages retain the existing manual editing controls.
+  Comments and their timeline markers remain exclusive to QC. Automatic timing fitting stays off.
 - First-run setup offers QC review directly, with its own steps and key hints.
 - Missing main or block voices open a project in QC with saved timings preserved. QC playback
   offers programme sound, original packaged readings, or an explicitly chosen approximate preview.
@@ -26,20 +30,20 @@ screenshots and releases. This file only adds what isn't there.
 - Packaging streams to temporary browser disk storage with progress and cancellation. Metadata
   opens in a worker. Playback slices only active readings, including overlapping tails. Browser
   recovery keeps the source package in IndexedDB; saving is blocked if its audio is unavailable.
-- Full checks passed (263 Node tests, 17 Python tests and Docker). The local Docker app
+- Full checks passed (267 Node tests, 17 Python tests and Docker). The local Docker app
   was rebuilt and verified; all six services remain running. Screenshots include QC playback, editing with comments, and package dialogs.
 - Browser checks at 6× CPU slowdown: 5,000 comments rendered 50 at a time, 60 fps, no dropped
-  video frames or long tasks over five seconds; comment typing 7.4 ms. QC text editing with 720 blocks took 8.8 ms. A synthetic two-hour package
-  (720 two-second readings, 46.2 MB) streamed in 500 ms, timer max gap 17 ms. JS heap after
+  video frames or long tasks over five seconds; comment typing 4.2 ms. QC text editing with 720 blocks took 9.9 ms. A synthetic two-hour package
+  (720 two-second readings, 46.2 MB) streamed in 553 ms, timer max gap 17 ms. JS heap after
   import/comment resave was about 4 MB. Actual Piper packaging and original playback passed
   without synthesis requests during playback. These are short samples, not full-film playback.
-- `scripts/qc-smoke.mjs` covers mode visibility, opt-in editing, fixed automatic timings, missing voices, real Piper
+- `scripts/qc-smoke.mjs` covers mode visibility, creator-selected editing permissions, fixed automatic timings, missing voices, real Piper
   export, worker import, original playback, comment resave, recovery, stale/previous readings and undo.
   `scripts/comments-smoke.mjs` covers comment CRUD, attachments, undo and playback stress.
 - `Guides/QC.md` now covers the dedicated workflow, voice differences and package handoffs.
   Getting started, Writing, Voices, Shortcuts and README were updated. QC guide grew to
   explain packaging restrictions, original versus approximate playback and stale audio.
-  The editing section grew to explain permission, unchanged timing behavior,
+  The editing section grew to explain creation-time permission, unchanged timing behavior,
   old audio and regeneration after corrections.
 - Package blocks keep `qcReading` (audio offset) for old-reading lookup after edits. New
   exports discard old offsets. Older timing-based package keys are normalized on load.

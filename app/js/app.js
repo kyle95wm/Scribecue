@@ -1,5 +1,5 @@
 import { createQcPlayer } from './qcplayer.js';
-import { REVIEW_EXT, isReview, openReview, resaveReview, reviewReading, previousReading, storedReview, voiceReport } from './qc.js';
+import { REVIEW_EXT, isReview, openReview, resaveReview, reviewAllowsEdits, reviewReading, previousReading, storedReview, voiceReport } from './qc.js';
 import { initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments } from './comments.js';
 import { initComments, toggleComments, refreshComments, openBlockComments } from './commentsdrawer.js';
@@ -63,8 +63,9 @@ const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform);
 // Mac key symbols as Windows and Linux users know them: ⌥⇧← becomes Alt+Shift+←.
 const writing = () => S.mode === 'write';
 const qc = () => S.mode === 'qc';
-const qcLocked = () => qc() && !S.qcEdits;
-const readingControls = () => ttsOn() || (qc() && S.qcEdits);
+const qcEditable = () => reviewAllowsEdits(S.review);
+const qcLocked = () => qc() && !qcEditable();
+const readingControls = () => ttsOn() || (qc() && qcEditable());
 const ttsOn = () => tts.on && writing();
 const pcKeys = (s) => (IS_MAC ? s : s
   .replace(/⌘(?=\S)/g, 'Ctrl+').replace(/⌘/g, 'Ctrl')
@@ -135,7 +136,7 @@ const S = {
   handle: null, // where the project saves to, when the browser allows saving in place
   projectMedia: null, // { name, size } of the video the open project belongs to
   pendingPlayhead: null, // where to put the playhead once that video is open
-  qcEdits: false, previousAudio: null, review: null, reviewId: '', qcSource: 'video', qcPreviewVoice: '', qcSettings: null, loadingProject: false, makingReview: false,
+  previousAudio: null, review: null, reviewId: '', qcSource: 'video', qcPreviewVoice: '', qcSettings: null, loadingProject: false, makingReview: false,
   comments: [], // comments at fixed timeline times
   notes: '', // the writer's notes about the programme, for AI help
 };
@@ -361,7 +362,7 @@ function qcUndoAllowed(snap) {
   if (!qcLocked()) return true;
   const script = (cues) => JSON.stringify(cues.map(({ comments, ...b }) => b));
   if (script(JSON.parse(snap).cues) === script(S.cues)) return true;
-  toast('Turn on Allow edits to undo or redo block changes'); return false;
+  toast('This review allows comments only. Block changes cannot be undone here'); return false;
 }
 function doUndo() {
   if (!undoStack.length) return toast('Nothing to undo');
@@ -579,16 +580,6 @@ function stopPreviousReading() {
   $('qcPrevious').textContent = 'Hear previous reading';
   $('qcPrevious').setAttribute('aria-pressed', 'false');
 }
-$('qcAllowEdits').addEventListener('click', () => {
-  if (!qc()) return;
-  document.activeElement?.blur();
-  S.qcEdits = !S.qcEdits;
-  drag = null;
-  document.body.classList.toggle('qc-editing', S.qcEdits);
-  $('qcAllowEdits').setAttribute('aria-pressed', String(S.qcEdits));
-  renderList(); updateEditor();
-  toast(S.qcEdits ? 'QC edits on: timings change only when you edit them. Changed readings need new audio' : 'QC edits off: the script and timings are fixed');
-});
 $('qcPrevious').addEventListener('click', () => {
   const c = selCue(), r = c && previousReading(S.review, c);
   if (!qc() || !r) return;
@@ -2535,7 +2526,7 @@ $('ttsReplaceVoices').addEventListener('click', () => {
 
 // [ and ]: one speed step slower or faster for the selected block.
 function stepBlockSpeed(d) {
-  if (qcLocked()) return toast('Turn on Allow edits to change block speed');
+  if (qcLocked()) return toast('This review allows comments only');
   if (!writing() && !qc()) return modeOnly('Text to speech', 'write');
   if (!readingControls()) return toast('Turn on text to speech first (⌥⇧V)');
   const c = needSel(); if (!c) return;
@@ -2781,12 +2772,28 @@ mixEl.addEventListener('dblclick', () => { setMix(0); duckAudio(); showMix(); })
 
 // ---------------------------------------------------------------- modes
 
+// Package permissions are read from the source file, including after browser recovery.
+function syncQcPermission() {
+  const lockedPackage = !!S.reviewId && !qcEditable();
+  document.body.classList.toggle('qc-editing', qc() && qcEditable());
+  document.body.classList.toggle('qc-review-only', lockedPackage);
+  $('qcPermission').textContent = qcEditable() ? 'Edits allowed' : 'Comments only';
+  $('qcPermission').dataset.tip = S.reviewId ? 'Chosen when the QC package was created' : 'Use Write or Transcribe to edit a plain project';
+  $('qcPermissionInfo').textContent = qcEditable()
+    ? 'The package creator allows block edits. Timings change only when you edit them. Changed readings are marked out of date.'
+    : S.reviewId ? 'The package creator allows comments only. The script and timings stay fixed.'
+      : 'This project is read-only in QC. Use Write or Transcribe to edit, or ask for a QC package that allows edits.';
+  for (const b of document.querySelectorAll('#modeSw button')) b.disabled = lockedPackage && b.dataset.mode !== 'qc';
+  for (const b of document.querySelectorAll('input[name=wzMode]')) b.disabled = lockedPackage && b.value !== 'qc';
+}
+
 const MODE_NAMES = { transcribe: 'Transcribe', write: 'Write', qc: 'QC', record: 'Record' };
 function modeOnly(feature, mode) {
   toast(`${feature} is part of ${MODE_NAMES[mode]} mode. Switch modes at the top`);
 }
 function setMode(m, quiet = false) {
   if (!MODE_NAMES[m]) return;
+  if (m !== 'qc' && S.reviewId && !qcEditable()) return toast('This QC package allows comments only. Open the writer’s project to edit');
   document.activeElement?.blur();
   stopSpeech();
   S.playUntil = null;
@@ -2796,13 +2803,11 @@ function setMode(m, quiet = false) {
   if (m === 'qc' && !$('aiDrawer').hidden) toggleAi(false);
   stopPreviousReading();
   qcPlayer.stop();
-  S.qcEdits = false;
-  document.body.classList.remove('qc-editing');
-  $('qcAllowEdits').setAttribute('aria-pressed', 'false');
   S.mode = m;
   if (qc() && !S.qcSettings) S.qcSettings = readingSettings();
   $('edText').readOnly = $('edStart').readOnly = $('edEnd').readOnly = qcLocked();
   document.body.classList.toggle('mode-qc', qc());
+  syncQcPermission();
   // Record mode belongs to an open recording file, so it isn't what the next visit starts in.
   if (m !== 'record') try { localStorage.setItem('scribecue.mode', m); } catch { /* ignore */ }
   document.body.classList.toggle('mode-record', m === 'record');
@@ -2822,7 +2827,7 @@ function setMode(m, quiet = false) {
   updateInd();
   tlDirty = true;
   if (!quiet) {
-    toast(m === 'qc' ? 'QC mode: fixed script and timings. Click a block’s Comment button to add a note' : m === 'write'
+    toast(m === 'qc' ? (qcEditable() ? 'QC mode: the package allows block edits. Timings change only when you edit them' : 'QC mode: comments only. Click a block’s Comment button to add a note') : m === 'write'
       ? `Write mode: text to speech${tts.on ? '' : ' (turn it on in Settings, or with ⌥⇧V)'}, reading times and block speeds`
       : 'Transcribe mode: hold H while the narrator speaks to mark each line');
   }
@@ -3175,7 +3180,7 @@ function readingSettings() {
 }
 function reviewSettings() { return qc() && S.qcSettings ? S.qcSettings : readingSettings(); }
 function projectFileData() { const p = projectData(); return S.review ? resaveReview(S.review, p) : JSON.stringify(p, null, 1); }
-function clearReview() { stopPreviousReading(); S.review = null; S.reviewId = ''; S.qcSource = 'video'; storedReview(null); }
+function clearReview() { stopPreviousReading(); S.review = null; S.reviewId = ''; S.qcSource = 'video'; storedReview(null); syncQcPermission(); }
 function projectData() {
   const m = S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size, duration: S.hasVideo ? duration() : null } : S.projectMedia;
   return toProject({
@@ -3352,6 +3357,7 @@ async function openProject(file, handle = null) {
   S.qcSettings = readingSettings();
   if (review) for (const c of S.cues) { const r = reviewReading(review, c, S.qcSettings); if (r && c.qcReading == null) c.qcReading = r.offset; }
   S.review = review; S.reviewId = review ? crypto.randomUUID() : ''; S.qcSource = review ? 'package' : 'video';
+  syncQcPermission();
   if (review) { const wanted = S.reviewId; storedReview({ id: wanted, file }).then((saved) => { if (!saved && S.reviewId === wanted) toast('The QC audio could not be kept for recovery. Reopen the package after reloading'); }); } else storedReview(null);
   const missing = voiceReport(S.cues, p.settings, reviewVoices()).some((v) => v.id && !v.available);
   if (!review && !missing && mode && mode !== 'qc') setMode(mode, true);
@@ -4210,7 +4216,7 @@ function qcSpeech(prevT, t, started) {
   if (jumped || (prevT <= c.start && t > c.start)) qcRead(c);
 }
 initQc({
-  project: projectData, review: () => S.review, source: () => S.qcSource, qc,
+  project: projectData, review: () => S.review, canCreate: () => !S.reviewId || qcEditable(), toast, source: () => S.qcSource, qc,
   setSource(source, voice) { qcPlayer.stop(); stopSpeech(); S.qcLast = null; S.qcSource = source; S.qcPreviewVoice = voice; updateEditor(); updateInd(); },
   baseName, said, busy: (on) => { S.makingReview = on; },
 });
@@ -4424,7 +4430,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (S.mode === 'record' && id === 'split' && recorder.splitTake()) return; // splits the take being edited
     if (S.mode === 'record' && id === 'deleteNow' && recorder.cutPart()) return; // deletes a part of it
-    if (qc() && REC_LOCKED.has(id) && !['createEdit', 'comments'].includes(id) && (!S.qcEdits || !QC_EDIT_KEYS.has(id))) return toast('The script and timings are fixed in QC mode');
+    if (qc() && REC_LOCKED.has(id) && !['createEdit', 'comments'].includes(id) && (!qcEditable() || !QC_EDIT_KEYS.has(id))) return toast('The script and timings are fixed in QC mode');
     if (S.mode === 'record' && REC_LOCKED.has(id)) return toast('The script is locked in Record mode');
     RUN[id](e);
     return;
@@ -4567,7 +4573,7 @@ if (!IS_MAC) {
 }
 const restored = loadSaved();
 aiNotesChanged();
-if (S.reviewId) { const wanted = S.reviewId; storedReview().then(async (saved) => { if (saved?.id !== wanted || S.reviewId !== wanted) return; try { const review = await openReview(saved.file); if (S.reviewId !== wanted) return; S.review = review; S.qcSource = 'package'; configureQcAudio(); updateEditor(); if (S.dirty) scheduleAutosave(); updateInd(); refreshQc(); } catch { toast('Reopen the QC package to restore its original readings'); } }); }
+if (S.reviewId) { const wanted = S.reviewId; storedReview().then(async (saved) => { if (saved?.id !== wanted || S.reviewId !== wanted) return; try { const review = await openReview(saved.file); if (S.reviewId !== wanted) return; S.review = review; S.qcSource = 'package'; syncQcPermission(); configureQcAudio(); updateEditor(); if (S.dirty) scheduleAutosave(); updateInd(); refreshQc(); } catch { toast('Reopen the QC package to restore its original readings'); } }); }
 S.dirty = false;
 showDocName();
 S.pps = Math.max(20, tl.clientWidth / 20);
@@ -4577,7 +4583,7 @@ showDocName();
 // Keep saving in place to the project that was open before the reload.
 handleStore.get().then((h) => { if (h && h.name === S.subName) { S.handle = h; checkWrite(); } });
 updateInd();
-setMode(S.mode, true);
+setMode(S.reviewId ? 'qc' : S.mode, true);
 showDur();
 let reRec = null;
 try { reRec = JSON.parse(localStorage.getItem(REC_OPEN)); } catch { /* ignore */ }

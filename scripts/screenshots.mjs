@@ -148,8 +148,16 @@ await js(`document.getElementById('aiClose').click(); 1`); await sleep(300);
 await js(`document.querySelector('#modeSw [data-mode=qc]').click(); 1`); await sleep(300);
 await js(`document.getElementById('edComment').click(); document.getElementById('commentAuthor').value = 'Sam'; document.getElementById('commentText').value = 'Could we describe the direction of the light here?'; document.getElementById('commentPost').click(); document.getElementById('commentsClose').click(); document.getElementById('commentsBtn').click(); document.getElementById('commentAt').value = '00:00:26:00'; document.getElementById('commentText').value = 'Check the pause before the next reading.'; document.getElementById('commentPost').click(); document.getElementById('toast').classList.add('fade'); document.activeElement?.blur(); 1`);
 await sleep(400); await shot('comments');
-await js(`document.getElementById('qcAllowEdits').click(); document.getElementById('toast').classList.add('fade'); 1`); await sleep(300); await shot('qc-editing');
-await js(`document.getElementById('qcAllowEdits').click(); 1`);
+// This package's creator permits edits; reviewers have no permission switch.
+await js(`(async()=>{
+ const q=await import('./js/qc.js'),t=await import('./js/tts.js'),p=await import('./js/project.js');
+ const saved=JSON.parse(localStorage.getItem('scribecue.v1'));
+ const project=p.toProject({blocks:saved.cues,comments:saved.comments,settings:{mode:'qc',ttsVoice:t.tts.voice||t.chosenVoice(),ttsBase:t.tts.base,ttsSkipNotes:t.tts.skipNotes}});
+ const file=await q.buildReview(project,b=>t.reviewAudio(t.soundsLike(b.text,b.say),b.speed||1,b.voice||project.settings.ttsVoice),{allowEdits:true});
+ window.confirm=()=>true;const d=new DataTransfer();d.items.add(new File([file],'lights-qc.scribecueqc'));window.dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}));
+ for(let i=0;i<100&&!document.body.classList.contains('qc-editing');i++)await new Promise(r=>setTimeout(r,50));
+ document.querySelectorAll('#list .row')[1].click();if(document.getElementById('commentsDrawer').hidden)document.getElementById('commentsBtn').click();document.getElementById('toast').classList.add('fade');return 1;
+})()`); await sleep(300); await shot('qc-editing');
 await js(`document.getElementById('commentsClose').click(); document.querySelector('#ind [data-key=qc]').click(); 1`); await sleep(300);
 await shot('qc-playback', '#qcPlaybackDlg', 0);
 await js(`document.getElementById('qcPlaybackClose').click(); document.querySelector('#modeSw [data-mode=write]').click(); document.querySelector('[data-act=exportQc]').click(); 1`); await sleep(300);

@@ -20,7 +20,7 @@ export function loop(mode, key = keyFor) {
   if (mode === 'qc') return [
     '1. Open the project or QC package and its matching video.',
     '2. Click QC under the video to choose original readings, programme sound or an approximate preview.',
-    '3. Play and check each block in context. The script and timings stay fixed until you turn on Allow edits.',
+    '3. Play and check each block in context. The script and timings stay fixed in comments-only packages. The creator can allow edits when making a package.',
     '4. Click Comment on a block, or right-click the timeline. Save and return the reviewed file.',
   ].join('\n');
   return mode === 'write'
@@ -51,7 +51,7 @@ export const STEPS = [
   {
     target: '.modesw',
     title: 'Choose your mode',
-    text: () => 'Transcribe is for timing a narration that’s already recorded: hold H while the narrator speaks to mark each line. Write is for writing new descriptions, with text to speech to hear whether they fit. QC is for listening and comments, with Allow edits for corrections. Switch at any time.',
+    text: () => 'Transcribe is for timing a narration that’s already recorded: hold H while the narrator speaks to mark each line. Write is for writing new descriptions, with text to speech to hear whether they fit. QC is for listening and comments, with editing permission chosen when the package is made. Switch at any time.',
   },
   {
     target: '#stage',
@@ -61,12 +61,12 @@ export const STEPS = [
   {
     target: '#tl',
     title: 'The timeline',
-    text: (mode) => mode === 'qc' ? 'Each box is a block. Click one to inspect it. Click the ruler to seek, or right-click it to comment at a time. Turn on Allow edits to move or resize blocks; reading lengths never change timings automatically.' : `Each box is a block: one description. Drag a block to move it, or drag across the empty lane to draw one. ${mode === 'write' ? 'Enter makes a block at the playhead, ready to type. With text to speech on, a block ends where its reading does: change its speed to make it longer or shorter.' : 'Drag its edges to resize it. Holding H marks a block from when you press to when you let go.'}`,
+    text: (mode) => mode === 'qc' ? 'Each box is a block. Click one to inspect it. Click the ruler to seek, or right-click it to comment at a time. If the package allows edits, move or resize blocks; reading lengths never change timings automatically.' : `Each box is a block: one description. Drag a block to move it, or drag across the empty lane to draw one. ${mode === 'write' ? 'Enter makes a block at the playhead, ready to type. With text to speech on, a block ends where its reading does: change its speed to make it longer or shorter.' : 'Drag its edges to resize it. Holding H marks a block from when you press to when you let go.'}`,
   },
   {
     target: '#list',
     title: 'All your blocks',
-    text: (mode) => mode === 'qc' ? 'Select a block to inspect its text and timings. Allow edits enables corrections. Comment opens the drawer ready to post a note on that block. Use search to find text or a block number.' : `Every block in order. The selected one opens right here to edit, as in Frazier: its start and end, buttons to move it a frame back, to the playhead or a frame forward, and its text. ${mode === 'write' ? 'With text to speech on, it also shows the speed, the voice and how long the reading takes, in red if it doesn’t fit. ' : 'Type in it once a block is marked; Enter or Esc carries on with the video. '}Press / to search, and Ctrl/Cmd+Z undoes almost anything.`,
+    text: (mode) => mode === 'qc' ? 'Select a block to inspect its text and timings. The package creator decides whether corrections are allowed. Comment opens the drawer ready to post a note on that block. Use search to find text or a block number.' : `Every block in order. The selected one opens right here to edit, as in Frazier: its start and end, buttons to move it a frame back, to the playhead or a frame forward, and its text. ${mode === 'write' ? 'With text to speech on, it also shows the speed, the voice and how long the reading takes, in red if it doesn’t fit. ' : 'Type in it once a block is marked; Enter or Esc carries on with the video. '}Press / to search, and Ctrl/Cmd+Z undoes almost anything.`,
   },
   {
     target: '.transport',
