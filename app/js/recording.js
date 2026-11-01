@@ -248,6 +248,9 @@ export const runsOver = (take, slot) => (take.start ?? slot.start) + take.durati
 // off its ends. The audio itself is never changed, so Reset brings it all back.
 // edit: { splits: [seconds into the recording], parts: [{ shift, head, tail, cut? }] }, with
 // one part more than splits. A part with `cut` set is deleted: not heard or exported. Takes saved before splitting existed have { shift, head, tail }.
+// As in REAPER, a part is a window onto the whole recording: a negative head or tail
+// reaches past its split points, so trimming an end back out brings back what a split, a
+// trim or a deleted part took away.
 export const EDIT_MIN = 0.1; // seconds of sound a part keeps, at least
 const NO_EDIT = { shift: 0, head: 0, tail: 0 };
 export function fullEdit(t) {
@@ -275,25 +278,37 @@ export function placed(t) {
   return { ...t, start: a.start, duration: z.start + z.duration - a.start };
 }
 
-// An edit kept within bounds: each part keeps some sound, none starts before 0 or before the
-// previous block's slot ends, and none overlaps the part before it (a later part is pushed
-// along instead). Rounded to the millisecond.
+// An edit kept within bounds: each part keeps some sound from inside the recording, none
+// starts before 0 or before the previous block's slot ends, and none overlaps the part
+// before it. An end reaching past its split point stops at the part beside it; otherwise a
+// later part is pushed along. Rounded to the millisecond.
 export function clampEdit(t, edit, prevEnd = 0) {
   const ms = (v) => Math.round(v * 1000) / 1000;
   const { splits, parts } = fullEdit({ ...t, edit }), b = bounds(t, splits);
+  // Where each part's sound begins and ends in the recording, before parts are kept apart.
+  const win = parts.map((p, k) => {
+    const a = Math.max(0, Math.min(b[k] + p.head, t.duration - EDIT_MIN));
+    return [a, Math.max(a + EDIT_MIN, Math.min(b[k + 1] - p.tail, t.duration))];
+  });
   let floor = Math.max(0, prevEnd);
   return {
     splits: splits.map(ms),
     parts: parts.map((p, k) => {
-      const len = b[k + 1] - b[k];
-      const head = ms(Math.max(0, Math.min(p.head, len - EDIT_MIN)));
-      const tail = ms(Math.max(0, Math.min(p.tail, len - head - EDIT_MIN)));
-      let shift = ms(p.shift);
-      if (p.cut) return { shift, head, tail, cut: true }; // deleted: nothing to keep clear of
-      const at = t.start + b[k] + head + shift;
-      if (at < floor - 1e-9) shift = ms(shift + floor - at);
-      floor = t.start + b[k + 1] - tail + shift;
-      return { shift, head, tail };
+      let [a, z] = win[k], shift = ms(p.shift);
+      const done = () => ({ shift, head: ms(a - b[k]), tail: ms(b[k + 1] - z) });
+      if (p.cut) return { ...done(), cut: true }; // deleted: nothing to keep clear of
+      const off = t.start + shift; // where the recording's 0 is on the video
+      if (off + a < floor - 1e-9) {
+        if (a < b[k]) a = Math.min(Math.max(a, floor - off), b[k], z - EDIT_MIN);
+        if (off + a < floor - 1e-9) shift = ms(shift + floor - off - a);
+      }
+      const j = parts.findIndex((q, n) => n > k && !q.cut);
+      if (z > b[k + 1] && j >= 0) {
+        const next = parts[j].shift + win[j][0] - shift; // the next part's start, in this part's terms
+        if (z > next) z = Math.max(next, Math.min(z, b[k + 1]), a + EDIT_MIN);
+      }
+      floor = t.start + shift + z;
+      return done();
     }),
   };
 }
@@ -311,10 +326,13 @@ export function splitAt(t, time) {
   const { splits, parts } = fullEdit(t);
   const p = pieces(t).find((x) => time > x.start + EDIT_MIN && time < x.start + x.duration - EDIT_MIN);
   if (!p) return null;
-  const at = Math.round((p.head + time - p.start) * 1000) / 1000, k = p.part, old = parts[k];
+  const at = Math.round((p.head + time - p.start) * 1000) / 1000, k = p.part, old = parts[k], b = bounds(t, splits);
+  // The split point stays between its neighbours, so a split where the part reaches past
+  // them is kept by the halves' head and tail instead.
+  const s = Math.min(Math.max(at, b[k]), b[k + 1]), ms = (v) => Math.round(v * 1000) / 1000;
   return {
-    splits: [...splits.slice(0, k), at, ...splits.slice(k)],
-    parts: [...parts.slice(0, k), { ...old, tail: 0 }, { ...old, head: 0 }, ...parts.slice(k + 1)],
+    splits: [...splits.slice(0, k), s, ...splits.slice(k)],
+    parts: [...parts.slice(0, k), { ...old, tail: ms(s - at) }, { ...old, head: ms(at - s) }, ...parts.slice(k + 1)],
   };
 }
 
@@ -330,10 +348,15 @@ export function silenceEnds(pcm, rate = RATE, { floorDb = -45, pad = 0.05 } = {}
   return { head: Math.max(0, a - p) / rate, tail: Math.max(0, pcm.length - 1 - z - p) / rate };
 }
 
-// Trim silence: the quiet cut off both ends of every part. pcm: the whole recording.
+// Trim silence: the quiet cut off both ends of every part, looking at its stretch between
+// split points and anything it reaches past them. pcm: the whole recording.
 export function trimSilence(t, pcm, rate = RATE) {
   const { splits, parts } = fullEdit(t), b = bounds(t, splits);
-  return { splits, parts: parts.map((p, k) => ({ ...p, ...silenceEnds(pcm.subarray(Math.round(b[k] * rate), Math.round(b[k + 1] * rate)), rate) })) };
+  return { splits, parts: parts.map((p, k) => {
+    const a = b[k] + Math.min(0, p.head), z = b[k + 1] - Math.min(0, p.tail);
+    const s = silenceEnds(pcm.subarray(Math.round(a * rate), Math.round(z * rate)), rate);
+    return { ...p, head: a + s.head - b[k], tail: b[k + 1] - (z - s.tail) };
+  }) };
 }
 
 // Trimmed to end where its slot does, and moved to the slot's start first if it begins too

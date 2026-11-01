@@ -122,7 +122,7 @@ def edit(raw):
     if len(splits) > 200 or len(parts) != len(splits) + 1 or not all(ok(s) and s > 0 for s in splits):
         return None
     for p in parts:
-        if not isinstance(p, dict) or not all(ok(p.get(k)) for k in ("shift", "head", "tail")) or p["head"] < 0 or p["tail"] < 0:
+        if not isinstance(p, dict) or not all(ok(p.get(k)) for k in ("shift", "head", "tail")):
             return None
         if p.get("cut") not in (None, True):
             return None

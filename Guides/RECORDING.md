@@ -125,7 +125,7 @@ Each block's slot is shaded green. Any part of a take past its slot is red.
 | To | Do |
 |---|---|
 | Move a take, or one part of it | Drag the clip |
-| Trim it | Drag either end |
+| Trim it | Drag either end in |
 | Split it | Put the playhead in it, then press X |
 | Delete a part | Click it, then press Delete |
 | Play it against the video | Double-click it |
@@ -146,7 +146,11 @@ silence**. Then use **Start at block**.
 To close up a pause, split the take in it, use **Trim silence**, then drag the second
 part back. Parts can't overlap.
 
-The recording itself isn't changed, so nothing is lost.
+The recording itself isn't changed, so nothing is lost:
+
+- To bring back sound you trimmed, split off or deleted, drag the end of the part beside it back out.
+- It stops at the next part, or at the start or end of the recording.
+- In **Fine-tune**, a trim below 0 does the same.
 
 ### Keeping takes in sync
 

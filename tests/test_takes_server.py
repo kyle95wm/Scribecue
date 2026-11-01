@@ -100,10 +100,12 @@ class Takes(unittest.TestCase):
         self.assertEqual(self.call("GET", f"/r/{REC}/{A}"), (200, WAV))  # the sound itself is untouched
         part = {"shift": 0, "head": 0, "tail": 0}
         for bad in (b"", b"[]", json.dumps({"splits": [], "parts": []}).encode(), json.dumps({"splits": [1], "parts": [part]}).encode(),
-                    json.dumps({"splits": [], "parts": [{**part, "head": -1}]}).encode(), json.dumps({"splits": ["x"], "parts": [part, part]}).encode()):
+                    json.dumps({"splits": [], "parts": [{**part, "head": "x"}]}).encode(), json.dumps({"splits": ["x"], "parts": [part, part]}).encode()):
             self.assertEqual(self.call("POST", f"/r/{REC}/{A}/edit", bad)[0], 400, bad)
         self.assertEqual(self.call("POST", f"/r/{REC}/{B}/edit", json.dumps(edit).encode())[0], 404)
         self.assertEqual(self.listing()[A]["edit"], edit, "a bad edit leaves the last good one")
+        reach = {"splits": [1.2], "parts": [{"shift": 0, "head": 0, "tail": -0.3}, {"shift": 0, "head": -0.2, "tail": 0}]}
+        self.assertEqual(self.call("POST", f"/r/{REC}/{A}/edit", json.dumps(reach).encode())[0], 200, "a part may reach past its split")
         cut = {"splits": [1.2], "parts": [{"shift": 0, "head": 0, "tail": 0}, {"shift": 0, "head": 0, "tail": 0, "cut": True}]}
         self.assertEqual(self.call("POST", f"/r/{REC}/{A}/edit", json.dumps(cut).encode())[0], 200)
         self.assertEqual(self.listing()[A]["edit"], cut)

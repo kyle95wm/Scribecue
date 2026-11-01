@@ -308,6 +308,33 @@ test('a deleted part is gone from the take, and the rest stays put', () => {
   assert.equal(pieces({ ...t, edit: pushed })[0].start, 10, 'the part after a deleted one can move into its place');
 });
 
+test('trimming a part back out brings back sound a split took away', () => {
+  const t = { id: 'a', start: 10, duration: 4 };
+  // Split at 12 s and 12.5 s, and the middle deleted by mistake: the start of a word with it.
+  const two = splitAt(t, 12), three = splitAt({ ...t, edit: two }, 12.5);
+  const gap = cutPart({ ...t, edit: three }, 1);
+  const at = (e) => pieces({ ...t, edit: clampEdit(t, e) }).map((p) => [+p.start.toFixed(3), +p.duration.toFixed(3), +p.head.toFixed(3)]);
+  assert.deepEqual(at(gap), [[10, 2, 0], [12.5, 1.5, 2.5]]);
+  const head = (v) => ({ ...gap, parts: gap.parts.map((p, k) => (k === 2 ? { ...p, head: v } : p)) });
+  assert.deepEqual(at(head(-0.3)), [[10, 2, 0], [12.2, 1.8, 2.2]], 'the start of the word is back');
+  assert.deepEqual(at(head(-2)), [[10, 2, 0], [12, 2, 2]], 'no further than the part before it');
+  const tail = (v) => ({ ...gap, parts: gap.parts.map((p, k) => (k === 0 ? { ...p, tail: v } : p)) });
+  assert.deepEqual(at(tail(-0.3)), [[10, 2.3, 0], [12.5, 1.5, 2.5]], 'the end of the first part reaches in too');
+  assert.deepEqual(at(tail(-1)), [[10, 2.5, 0], [12.5, 1.5, 2.5]], 'no further than the part after it');
+  assert.deepEqual(at({ splits: [], parts: [{ head: -1, tail: -1 }] }), [[10, 4, 0]], 'nothing from before or after the recording');
+  // Split where a part reaches past its split point: the halves keep the sound either side.
+  const reach = clampEdit(t, head(-0.3)), again = splitAt({ ...t, edit: reach }, 12.35);
+  assert.deepEqual(at(again), [[10, 2, 0], [12.2, 0.15, 2.2], [12.35, 1.65, 2.35]]);
+});
+
+test('Trim silence keeps sound a part reaches back for', () => {
+  const R = 1000, pcm = new Float32Array(4 * R);
+  pcm.fill(0.3, 1.5 * R, 1.7 * R); pcm.fill(0.3, 2.4 * R, 4 * R); // a word starting before the split at 2 s
+  const t = { start: 0, duration: 4, edit: { splits: [2], parts: [{ shift: 0, head: 0, tail: 0, cut: true }, { shift: 0, head: -0.8, tail: 0 }] } };
+  const e = trimSilence(t, pcm, R);
+  assert.ok(Math.abs(e.parts[1].head + 0.55) < 0.002, JSON.stringify(e));
+});
+
 test('Start at block puts a trimmed take’s sound at the block’s start', () => {
   const slot = { start: 10, end: 13 };
   // Recorded from 9.8 s, a late reaction: 0.6 s trimmed off the front leaves it starting at 10.4 s.

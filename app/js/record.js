@@ -252,7 +252,6 @@ export function initRecord(h) {
       l.dataset.tip = tip;
       const inp = document.createElement('input');
       inp.type = 'number'; inp.step = '10'; inp.dataset.edit = key; inp.value = MS(q[key]);
-      if (key !== 'shift') inp.min = '0';
       inp.addEventListener('change', async () => {
         const n = parseFloat(inp.value);
         await applyEdit(t, { splits: e.splits, parts: e.parts.map((p, j) => (j === k ? { ...p, [key]: Number.isFinite(n) ? n / 1000 : 0 } : p)) });
@@ -271,11 +270,11 @@ export function initRecord(h) {
       which.textContent = `Part ${at + 1} of ${ps.length}:`;
       row.append(which, btn('Next part', 'Work on the next part of the take', () => { pick = { id: t.id, part: ps[(at + 1) % ps.length].part }; render(); }));
     }
-    const cutBtn = btn('Delete part', 'Delete this part. Reset brings it back (Delete)', () => doEdit(t, 'cut'));
+    const cutBtn = btn('Delete part', 'Delete this part (Delete). Drag the end of the part beside it to bring its sound back', () => doEdit(t, 'cut'));
     cutBtn.disabled = ps.length < 2;
     row.append(field('Move', 'shift', 'Move this part: below 0 earlier, above 0 later'),
-      field('Trim start', 'head', 'Cut this much off the start of this part'),
-      field('Trim end', 'tail', 'Cut this much off the end of this part'),
+      field('Trim start', 'head', 'Cut this much off the start of this part. Below 0 brings back the sound before it'),
+      field('Trim end', 'tail', 'Cut this much off the end of this part. Below 0 brings back the sound after it'),
       btn('Split', 'Split the take at the playhead, to move its parts apart or closer together (X)', () => doEdit(t, 'split')), cutBtn,
       btn('Trim silence', 'Cut the quiet off both ends of every part, keeping a moment of it', () => doEdit(t, 'silence')),
       btn('Start at block', 'Move the take so its sound starts where the block does', () => doEdit(t, 'start')),
