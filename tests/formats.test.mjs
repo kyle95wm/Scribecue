@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseTime, fmtTime, fmtTC, parseTC, isDropFrame, parseSubs, parseAdc, adcText, toSRT, toVTT } from '../app/js/formats.js';
+import { parseTime, fmtTime, fmtTC, parseTC, isDropFrame, parseSubs, parseAdc, scriptVoices, swapVoices, adcText, toSRT, toVTT } from '../app/js/formats.js';
 
 test('timecode counts frames at the video’s rate', () => {
   assert.equal(fmtTC(0, 25), '00:00:00:00');
@@ -193,4 +193,32 @@ test('parseAdc gives a block a voice of its own only when it differs from the do
     { start: 3000, end: 3500, text: 'd', voice: 'not a voice' },
   ] });
   assert.deepEqual(parseAdc(doc).cues.map((c) => c.voice), [undefined, 'google:en-GB-Standard-A', undefined, undefined]);
+});
+
+test('parseAdc gives the document’s voice, and scriptVoices lists every voice the script brings', () => {
+  const doc = JSON.stringify({ voice: 'en-US-Standard-J', cue_points: [
+    { start: 0, end: 500, text: 'a', voice: 'en-US-Standard-J' },
+    { start: 1000, end: 1500, text: 'b', voice: 'en-GB-Standard-A' },
+    { start: 2000, end: 2500, text: 'c', voice: 'en-GB-Standard-A' },
+    { start: 3000, end: 3500, text: 'd', voice: 'fr-CA-Standard-B' },
+  ] });
+  const adc = parseAdc(doc);
+  assert.equal(adc.voice, 'google:en-US-Standard-J');
+  assert.deepEqual(scriptVoices(adc), [
+    { uri: 'google:en-US-Standard-J', main: true, blocks: 1 },
+    { uri: 'google:en-GB-Standard-A', main: false, blocks: 2 },
+    { uri: 'google:fr-CA-Standard-B', main: false, blocks: 1 },
+  ]);
+  assert.equal(parseAdc(JSON.stringify({ voice: 'nope', cue_points: [] })).voice, '');
+  assert.deepEqual(scriptVoices(parseAdc(JSON.stringify({ cue_points: [{ start: 0, end: 1, text: 'a' }] }))), []);
+  assert.deepEqual(scriptVoices(parseAdc(JSON.stringify({ cue_points: [{ start: 0, end: 1, text: 'a', voice: 'en-GB-Standard-A' }] }))),
+    [{ uri: 'google:en-GB-Standard-A', main: false, blocks: 1 }]);
+});
+
+test('swapVoices replaces block voices, and drops one that becomes the project’s voice', () => {
+  const cues = () => [{ voice: 'google:a' }, { voice: 'google:b' }, { voice: 'google:c' }, {}];
+  const voices = (cs) => cs.map((c) => c.voice);
+  assert.deepEqual(voices(swapVoices(cues(), { 'google:a': 'piper:x', 'google:b': '' }, 'piper:main')), ['piper:x', undefined, 'google:c', undefined]);
+  assert.deepEqual(voices(swapVoices(cues(), { 'google:a': 'piper:main' }, 'piper:main')), [undefined, 'google:b', 'google:c', undefined]);
+  assert.deepEqual(voices(swapVoices(cues(), { 'google:a': 'google:a' }, 'google:z')), ['google:a', 'google:b', 'google:c', undefined]);
 });

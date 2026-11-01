@@ -124,7 +124,8 @@ export function toVTT(cues) {
 // milliseconds and its text as HTML. A word marked <abbr class="speech" title="…"> is
 // said as its title, which becomes one of the block's "sounds like" words. A block's speed
 // is a code for one of Frazier's speeds, the same as Scribecue's, and the project's
-// base_speed is a percentage (100 is normal): { cues, base }, with base as a fraction.
+// base_speed is a percentage (100 is normal): { cues, base, voice }, with base as a
+// fraction and voice the document's Google voice, as a Scribecue voice id ('' if none).
 const ADC_SPEEDS = { 0: 1, 1: 1.15, 2: 1.3, 3: 1.5, 4: 2, 99: 0.85, 98: 0.7 };
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
 const decode = (s) => s.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (m, e) => {
@@ -152,6 +153,7 @@ export function parseAdc(text) {
   try { doc = JSON.parse(text.replace(/^﻿/, '')); } catch { return { cues: [], base: 1 }; }
   if (!Array.isArray(doc?.cue_points)) return { cues: [], base: 1 };
   const base = doc.base_speed >= 50 && doc.base_speed <= 150 ? Math.round(doc.base_speed) / 100 : 1;
+  const voice = isAdcVoice(doc.voice) ? 'google:' + doc.voice : '';
   const cues = doc.cue_points.filter((c) => Number.isFinite(c?.start) && Number.isFinite(c?.end)).map((c) => {
     const { text: t, say } = adcText(c.text);
     const start = Math.max(0, c.start) / 1000;
@@ -160,9 +162,32 @@ export function parseAdc(text) {
     if (speed !== 1) cue.speed = speed;
     // Frazier names a Google voice for every block; one other than the document's is the
     // block's own, such as a second voice for translated dialogue.
-    if (typeof c.voice === 'string' && /^[a-z]{2,3}-[A-Z]{2}-\w+-\w+$/.test(c.voice) && c.voice !== doc.voice) cue.voice = 'google:' + c.voice;
+    if (isAdcVoice(c.voice) && c.voice !== doc.voice) cue.voice = 'google:' + c.voice;
     if (say.length) cue.say = say;
     return cue;
   }).sort((x, y) => x.start - y.start);
-  return { cues, base };
+  return { cues, base, voice };
+}
+const isAdcVoice = (v) => typeof v === 'string' && /^[a-z]{2,3}-[A-Z]{2}-\w+-\w+$/.test(v);
+
+// The voices a script brings, to ask whether to use them: the document's (main), then
+// each block voice, with how many blocks read with it.
+export function scriptVoices({ cues, voice }) {
+  const out = voice ? [{ uri: voice, main: true, blocks: cues.filter((c) => !c.voice).length }] : [];
+  for (const c of cues) {
+    if (!c.voice) continue;
+    const v = out.find((o) => !o.main && o.uri === c.voice);
+    if (v) v.blocks++; else out.push({ uri: c.voice, main: false, blocks: 1 });
+  }
+  return out;
+}
+// Each block voice swapped for the one picked: swaps maps a voice to another, or to '' for
+// the project's voice (main). A block left with the project's voice has none of its own.
+export function swapVoices(cues, swaps, main) {
+  for (const c of cues) {
+    if (!c.voice || !(c.voice in swaps)) continue;
+    const to = swaps[c.voice];
+    if (to && to !== main) c.voice = to; else delete c.voice;
+  }
+  return cues;
 }

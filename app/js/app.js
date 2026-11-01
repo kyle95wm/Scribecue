@@ -5,7 +5,7 @@ import { reviewedRewrite, speechKey } from './qcspeech.js';
 import { initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments } from './comments.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
-import { parseSubs, parseAdc, toSRT, toVTT, fmtTC, parseTC } from './formats.js';
+import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
@@ -32,7 +32,7 @@ import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } fr
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
-import { FIT_MIN, MAX_SPEED, writeWav, readingStarting, reviewGoogleKey } from './tts.js';
+import { FIT_MIN, MAX_SPEED, writeWav, readingStarting, reviewGoogleKey, missingVoiceAdvice, hasGoogleKey } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands } from './ffcmd.js';
 import { videoName, missing, advice, copyKind } from './codecs.js';
@@ -3911,8 +3911,85 @@ async function loadSubsFile(file) {
   const base = adc && adc.base !== tts.base ? adc.base : null;
   if (base) setTtsOption('base', base);
   toast(`Loaded ${parsed.length} cues from ${file.name}${base ? `, at a base speed of ${Math.round(base * 100)}%` : ''}${undoStack.length > 1 ? ' — undo restores previous' : ''}`);
+  await askVoices(adc, file.name);
   afterImport(file.name);
 }
+
+// A Frazier script names a Google voice for itself, and maybe others for some blocks: ask
+// whether to read with them, or with others. Closing the question, or with text to speech
+// off, keeps the voice in Settings, and blocks keep their own.
+const voiceDlg = $('voiceDlg');
+let voiceList = [], voiceDone = null;
+const andList = (a) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} and ${a.at(-1)}` : a[0]);
+const blocksOf = (n) => `${n} block${n === 1 ? '' : 's'}`;
+function askVoices(adc, name) {
+  voiceList = adc ? scriptVoices({ cues: S.cues, voice: adc.voice }) : [];
+  if (!ttsOn() || !voiceList.length || (voiceList.length === 1 && voiceList[0].main && [tts.voice, chosenVoice()].includes(voiceList[0].uri))) return Promise.resolve();
+  const main = voiceList.find((v) => v.main), own = voiceList.filter((v) => !v.main);
+  $('voiceWhat').textContent = main
+    ? `${name} reads with ${voiceLabel(main.uri)}${own.length ? `, and ${andList(own.map((v) => `${blocksOf(v.blocks)} with ${voiceLabel(v.uri)}`))}` : ''}.`
+    : `In ${name}, ${andList(own.map((v) => `${blocksOf(v.blocks)} ${v.blocks === 1 ? 'reads' : 'read'} with ${voiceLabel(v.uri)}`))}.`;
+  const one = voiceList.length === 1;
+  $('voiceTitle').textContent = one ? 'Use the script’s voice?' : 'Use the script’s voices?';
+  $('voiceScript').textContent = one ? 'Use the script’s voice' : 'Use the script’s voices';
+  $('voiceOther').textContent = one ? 'Choose another voice' : 'Choose other voices';
+  const here = reviewVoices().map((v) => v.id);
+  const away = voiceList.filter((v) => !here.includes(v.uri));
+  $('voiceScriptNote').textContent = away.length
+    ? `${andList(away.map((v) => voiceLabel(v.uri)))} ${away.length === 1 ? 'isn’t' : 'aren’t'} available here. ${missingVoiceAdvice(away[0].uri, { googleKey: hasGoogleKey(), hosted: HOSTED }).replace(/\bit\b/, away.length === 1 ? 'it' : 'them')} Until then, blocks are read with ${chosenVoiceName()}.`
+    : (main ? `The project reads with ${voiceLabel(main.uri)}${own.length ? ', and blocks keep their own voices' : ''}.` : 'Blocks keep their own voices.')
+      + (voiceList.some((v) => usingGoogle(v.uri)) ? ' Each reading sends the block’s text to Google.' : '');
+  $('voiceAsk').hidden = false;
+  $('voicePick').hidden = true;
+  voiceDlg.showModal();
+  voiceDlg.querySelector('.wzchoice').focus();
+  return new Promise((resolve) => { voiceDone = resolve; });
+}
+// One menu for each of the script's voices: the project's voice starts at the one in
+// Settings, and a block voice at itself, or the project's voice.
+function fillVoiceRows() {
+  $('voiceRows').replaceChildren(...voiceList.map((v) => {
+    const label = document.createElement('label'), sel = document.createElement('select');
+    label.className = 'recfield';
+    label.textContent = v.main ? `The project’s voice, instead of ${voiceLabel(v.uri)}` : `${blocksOf(v.blocks)}, instead of ${voiceLabel(v.uri)}`;
+    fillVoiceSelect(sel, v.main ? chosenVoice() : v.uri);
+    if (!v.main) sel.prepend(new Option('Same as the project’s voice', ''));
+    if (![...sel.options].some((o) => o.value === v.uri)) sel.add(new Option(`${voiceLabel(v.uri)}: not available here`, v.uri), v.main ? 0 : 1);
+    sel.value = v.main ? chosenVoice() : v.uri;
+    sel.dataset.uri = v.uri;
+    sel.dataset.main = v.main ? '1' : '';
+    label.append(sel);
+    return label;
+  }));
+}
+function useVoices(picks) {
+  const main = picks.find((p) => p.main);
+  if (main && main.to && main.to !== tts.voice) setTtsOption('voice', main.to);
+  const swaps = Object.fromEntries(picks.filter((p) => !p.main).map((p) => [p.uri, p.to]));
+  swapVoices(S.cues, swaps, main?.to || chosenVoice());
+  changed();
+  voiceDlg.close();
+}
+for (const b of voiceDlg.querySelectorAll('.wzchoice')) {
+  b.addEventListener('click', () => {
+    if (b.dataset.choice === 'script') return useVoices(voiceList.map((v) => ({ ...v, to: v.uri })));
+    fillVoiceRows();
+    $('voiceAsk').hidden = true;
+    $('voicePick').hidden = false;
+    $('voiceRows').querySelector('select')?.focus();
+  });
+}
+$('voiceBack').addEventListener('click', () => {
+  $('voicePick').hidden = true;
+  $('voiceAsk').hidden = false;
+  voiceDlg.querySelector('[data-choice="other"]').focus();
+});
+$('voiceUse').addEventListener('click', () => {
+  useVoices([...$('voiceRows').querySelectorAll('select')].map((sel) => ({ uri: sel.dataset.uri, main: !!sel.dataset.main, to: sel.value })));
+});
+voiceDlg.addEventListener('close', () => { voiceDone?.(); voiceDone = null; });
+voiceDlg.addEventListener('click', (e) => { if (e.target === voiceDlg) voiceDlg.close(); });
+document.addEventListener('keydown', (e) => { if (voiceDlg.open) e.stopPropagation(); }, true);
 
 let videoURL = null;
 function loadVideoFile(file) {
