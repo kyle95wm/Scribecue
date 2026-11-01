@@ -1,6 +1,9 @@
 # Scribecue
 
-**A keyboard-first editor for audio description scripts.**
+**A keyboard-first workspace for audio description.**
+
+Write and time scripts, review descriptions, and record narration against your video.
+Handle pickups, work with text to speech, or transcribe existing description.
 
 - **Write** new audio description, and hear each line read aloud to check it fits before
   the next piece of dialogue. Export the readings as an audio track, or as a full mix with

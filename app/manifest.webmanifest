@@ -1,7 +1,7 @@
 {
   "name": "Scribecue",
   "short_name": "Scribecue",
-  "description": "A keyboard-first editor for audio description scripts. Your files stay on your computer.",
+  "description": "A keyboard-first workspace for audio description. Write and time scripts, review descriptions, and record narration. Your files stay on your computer.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
