@@ -193,6 +193,7 @@ Once the whole programme is marked:
 ## Saving and handing it over
 
 - **Save** a project with `Ctrl/Cmd+S`, and open it next time with `Ctrl/Cmd+O`.
+  Or drag the project and its video onto Scribecue together.
   [Saving](GETTING-STARTED.md#saving) has the details.
 - **Hand it over** with the **Export** menu: **Script as SRT** (`Ctrl/Cmd+E`) or **Script
   as WebVTT** (`Ctrl/Cmd+Shift+E`).

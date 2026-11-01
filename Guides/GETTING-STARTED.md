@@ -121,6 +121,8 @@ programme. `Ctrl/Cmd+O` opens it again.
   again.
 - **A dot after the project name** means there are changes you haven't saved.
 - **Save a copy** with `Ctrl/Cmd+Shift+S`, for example before a big change.
+- **Open several files at once** by dragging them onto Scribecue together, such as a
+  project and its video.
 - **The video reopens with the project.** If you're asked, click **Reopen**. If the video
   has moved, open it again with `Ctrl/Cmd+Shift+O`.
 - **New**, at the top left, either clears the blocks and keeps the video, or starts a

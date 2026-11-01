@@ -50,8 +50,8 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 
 ### Before you start
 
-- **Open the recording file and the video.** Scribecue opens in Record mode. Reloading
-  the page keeps you there.
+- **Open the recording file and the video.** Drag both onto Scribecue together.
+  Scribecue opens in Record mode. Reloading the page keeps you there.
 - **Leave** closes the recording, and the script with it. Your takes are kept: open the
   recording file again to carry on.
 - **Use wired headphones.** You hear the video's sound 30 dB down, to follow the scene.

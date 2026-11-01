@@ -36,8 +36,8 @@ packages keep a starting point for comparing returned reviews. There is no live 
 ## Open a review copy
 
 1. Use Chrome or Edge on a computer. Open Scribecue. On a first visit, choose **QC review** in setup.
-2. Press `Ctrl/Cmd+O` and open the project. Open its media with `Ctrl/Cmd+Shift+O`.
-   If **Reopen** is offered for the right video, you can use that instead.
+2. Drag the project and its video onto Scribecue together. Or press `Ctrl/Cmd+O` for the
+   project, then `Ctrl/Cmd+Shift+O` for its media. **Reopen** works too, if it offers the right video.
 3. Save a separate copy with `Ctrl/Cmd+Shift+S` before making changes. For example,
    `episode-03-qc-sam-round1.scribecueqc` (keep the original extension). If your browser downloads a copy, rename that file.
 4. Check a familiar scene near the beginning and another later on. Make sure the blocks
