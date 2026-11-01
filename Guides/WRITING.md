@@ -145,13 +145,10 @@ These are in the text to speech settings. Each asks first, runs in the backgroun
 **When you change the voice or base speed,** every reading's length changes. Scribecue
 asks whether to update the blocks' ends to match, or leave them.
 
-**When you open a script** (SRT, WebVTT or `.adc`), Scribecue asks whether to keep its
+**When you open a script** (SRT or WebVTT), Scribecue asks whether to keep its
 timings and fit the speeds, change the ends to match the readings, or leave it as it is.
 
-**When a Frazier `.adc` script names voices,** Scribecue first asks whether to use them.
-Choose other voices to pick one in place of each.
-
-Tick **Always do this** on the timings questions to stop them asking. You can change your answer
+Tick **Always do this** on either question to stop it asking. You can change your answer
 later in the text to speech settings.
 
 ![The question when a script is opened: fit the reading speeds, change the ends, or leave it](../docs/screenshots/import-timings.png)
@@ -159,8 +156,7 @@ later in the text to speech settings.
 ## Good to know
 
 - **Saving:** block speeds, voices and sounds-like words are saved in projects and WebVTT
-  exports. SRT files can't hold them. Frazier `.adc` scripts bring their speeds and base
-  speed with them.
+  exports. SRT files can't hold them.
 - **Stored readings:** Piper, Kokoro and Google readings are kept in your browser, up to
   250 MB, so they play straight away next time and Google isn't asked again. The **Storage** section
   of Settings shows them and can clear them.

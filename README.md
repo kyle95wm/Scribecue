@@ -15,7 +15,7 @@ Handle pickups, work with text to speech, or transcribe existing description.
   gets one timestamped WAV.
 - **Private:** your video, audio and scripts are never uploaded.
 - **Familiar keys** if you've used Frazier.
-- Opens and saves SRT and WebVTT scripts, and opens Frazier's `.adc` scripts.
+- Opens and saves SRT and WebVTT scripts.
 
 ![Scribecue with a video, its audio description track and five text blocks on the timeline](docs/screenshots/main.png)
 

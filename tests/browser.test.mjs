@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { browserName, chromium, needsNotice, missingFeatures, knownIssues, noticeItems, noticeTitle, isMobile } from '../app/js/browser.js';
+import { browserName, chromium, needsNotice, missingFeatures, knownIssues, noticeItems, noticeTitle, isMobile, readProblem } from '../app/js/browser.js';
 
 const brands = (...b) => b.map((brand) => ({ brand, version: '1' }));
 
@@ -87,4 +87,13 @@ test('the notice shows only when there’s something to say, whatever the browse
 test('the notice names the browser, or says what is wrong when it has no name', () => {
   assert.equal(noticeTitle('Firefox'), "You're using Firefox");
   assert.equal(noticeTitle('this browser'), 'This browser is missing some features');
+});
+
+test('readProblem says why a file couldn’t be read', () => {
+  const err = (name, message = '') => Object.assign(new Error(message), { name });
+  assert.equal(readProblem(err('NotFoundError')), ': it has been moved or deleted');
+  assert.match(readProblem(err('NotReadableError')), /^\. If it’s in a synced folder, download it first/);
+  assert.equal(readProblem(err('TypeError', 'bad thing')), ': bad thing');
+  assert.equal(readProblem(err('Error')), '');
+  assert.equal(readProblem(undefined), '');
 });

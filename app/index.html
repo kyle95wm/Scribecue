@@ -432,22 +432,6 @@ docker compose up -d --build</code></pre>
       Settings, under Text to speech.</p>
   </dialog>
 
-  <dialog id="voiceDlg" class="updbox wizard" aria-labelledby="voiceTitle">
-    <h2 id="voiceTitle">Use the script's voices?</h2>
-    <p id="voiceWhat"></p>
-    <section id="voiceAsk">
-      <button class="wzcard wzchoice" data-choice="script"><span><strong id="voiceScript">Use the script's voices</strong>
-        <span class="dim" id="voiceScriptNote"></span></span></button>
-      <button class="wzcard wzchoice" data-choice="other"><span><strong id="voiceOther">Choose other voices</strong>
-        <span class="dim">Pick a voice to read in place of each of the script's.</span></span></button>
-    </section>
-    <section id="voicePick" hidden>
-      <div id="voiceRows"></div>
-      <div class="updbtns"><button id="voiceBack">Back</button><button id="voiceUse" class="hl">Use these voices</button></div>
-    </section>
-    <p class="dim small">You can change the voices later in Settings, under Text to speech, and each block's in the editor.</p>
-  </dialog>
-
   <dialog id="welcome" class="updbox wizard" aria-labelledby="wzTitle">
     <div class="wzhead"><span id="wzStep" class="dim small"></span><button id="wzSkip" class="link">Skip setup</button></div>
     <section data-step="welcome">
@@ -1246,7 +1230,7 @@ docker compose up -d --build</code></pre>
     </div>
   </div>
 
-  <input type="file" id="fileSubs" accept=".scribecueqc,.scribecue,.scribecuerec,.scribecue-rec,.srt,.vtt,.txt,.adc,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
+  <input type="file" id="fileSubs" accept=".scribecueqc,.scribecue,.scribecuerec,.scribecue-rec,.srt,.vtt,.txt,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
   <input type="file" id="fileVideo" accept="video/*,audio/*,.mkv,.mov,.m4a" hidden>
   <!-- pops up under a selection in the block text; at the top level so it's placed by the window -->
   <button id="selSay" class="selsay" tabindex="-1" hidden>Sounds Like</button>

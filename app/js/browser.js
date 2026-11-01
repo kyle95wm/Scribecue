@@ -68,3 +68,10 @@ export const knownIssues = (name) => ISSUES[name] || [];
 
 // What the notice lists: what's missing, then what doesn't work well.
 export const noticeItems = (name, w = globalThis) => [...missingFeatures(w), ...knownIssues(name)];
+
+// Why the browser couldn't read a file, to follow its name in a message. A file in a synced
+// folder, such as iCloud Drive's, may not be on this computer yet, and the system may not
+// let the browser into a folder.
+export const readProblem = (e) => (e?.name === 'NotFoundError' ? ': it has been moved or deleted'
+  : e?.name === 'NotReadableError' ? '. If it’s in a synced folder, download it first, or check that your browser may open files in that folder'
+    : e?.message ? `: ${e.message}` : '');
