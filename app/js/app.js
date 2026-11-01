@@ -18,7 +18,7 @@ import { readNote } from './bwf.js';
 import { initRecord } from './record.js';
 import { takesInfo, clearTakes } from './takestore.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile } from './browser.js';
-import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom } from './nav.js';
+import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom, playFrom } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
@@ -118,6 +118,8 @@ const S = {
   offset: (() => { try { const v = parseFloat(localStorage.getItem('scribecue.offset')); return OFFSETS.includes(v) ? v : 0.2; } catch { return 0.2; } })(),
   // After editing a block, go back to its start, to hear it again. On unless turned off.
   replay: (() => { try { return localStorage.getItem('scribecue.replay') !== '0'; } catch { return true; } })(),
+  // Return to start: play after a stop starts again where that playback began. Off unless turned on.
+  returnToStart: (() => { try { return localStorage.getItem('scribecue.returnToStart') === '1'; } catch { return false; } })(),
   // The total length shows the time remaining instead.
   remaining: (() => { try { return localStorage.getItem('scribecue.remaining') === '1'; } catch { return false; } })(),
   resumeAfterEdit: false, // hold-to-mark paused playback; closing the editor resumes it
@@ -221,6 +223,9 @@ function duration() {
 const now = () => (S.hasVideo ? video.currentTime : S.vt);
 const qcPlayer = createQcPlayer({ now, duck: (on) => duckAudio(on), error: (message) => toast(message) });
 const isPlaying = () => (S.hasVideo ? !video.paused && !video.ended : S.vplaying);
+// For return to start: where playback began, moved along by any jump while playing, and
+// what the last stop left ({ from, at }, see playFrom).
+let playStart = null, stopMark = null;
 
 function setTime(t) {
   stopPreviousReading();
@@ -229,6 +234,7 @@ function setTime(t) {
   if (tts.speaking && Math.abs(t - now()) > 0.05) stopSpeech(); // a jump ends the reading
   if (S.hasVideo) video.currentTime = t;
   else S.vt = t;
+  if (isPlaying()) playStart = t;
 }
 function seek(t, reveal = true) {
   setTime(t);
@@ -245,7 +251,7 @@ function play() {
     // Pausing before the video has started cancels the play: that's no failure.
     video.play().catch((e) => { if (e.name !== 'AbortError') toast('Playback failed: ' + e.message); });
     if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) videoWaiting(true);
-  } else S.vplaying = true;
+  } else { S.vplaying = true; playStart = now(); }
   updateInd();
 }
 // A slow computer can take a moment to start the video, or to carry on after a jump, so
@@ -259,6 +265,9 @@ function videoWaiting(on) {
 }
 video.addEventListener('waiting', () => videoWaiting(true));
 for (const ev of ['playing', 'pause', 'emptied']) video.addEventListener(ev, () => videoWaiting(false));
+// Record mode plays the video itself, so where playback began is taken from the video.
+video.addEventListener('play', () => { playStart = video.currentTime; });
+video.addEventListener('ended', () => { stopMark = playStart == null ? null : { from: playStart, at: now() }; });
 function pause() {
   stopPreviousReading();
   qcPlayer.stop();
@@ -267,9 +276,20 @@ function pause() {
   else S.vplaying = false;
   updateInd();
 }
+// Only play and stop by hand go back to the start: not a block that stops at its end, nor
+// a pause for editing.
 function togglePlay() {
   S.playUntil = null;
-  isPlaying() ? pause() : play();
+  if (isPlaying()) {
+    stopMark = playStart == null ? null : { from: playStart, at: now() };
+    return pause();
+  }
+  if (S.returnToStart) {
+    const t = playFrom(stopMark, now());
+    if (t !== now()) seek(t);
+  }
+  stopMark = null;
+  play();
 }
 function playCue() {
   const c = selCue();
@@ -902,6 +922,13 @@ function closeEditor(finished = false) {
     S.resumeAfterEdit = false;
     play();
   }
+}
+
+function setReturnToStart(on) {
+  S.returnToStart = on;
+  try { localStorage.setItem('scribecue.returnToStart', on ? '1' : '0'); } catch { /* ignore */ }
+  $('setReturn').setAttribute('aria-pressed', String(on));
+  updateInd();
 }
 
 function setReplay(on, quiet = false) {
@@ -1679,6 +1706,7 @@ const IND_TIPS = {
   speed: 'Playback speed. + and - change it; click or press \\ to reset to 1×',
   follow: 'Follow: keep the playhead in view and select each block as it plays (F)',
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
+  returnToStart: 'Return to start is on: play after a stop starts again where playback began. Click for its settings',
   replay: 'Replay is on: Esc or ↵ after editing a block puts the playhead back at its start (⇧L). Click for its settings',
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H changes it; click for its settings',
   tts: 'Text to speech is on: hear blocks read aloud (V). Click for its settings, such as the voice and speed (⌥⇧V)',
@@ -1695,6 +1723,7 @@ function updateInd() {
     ...(qc() ? [['qc', S.qcSource === 'package' ? (S.review?.proposals.length ? 'QC · SAVED READINGS' : 'QC · ORIGINAL READINGS') : S.qcSource === 'preview' ? 'QC · APPROXIMATE TTS' : 'QC · PROGRAMME SOUND', true]] : []),
     // Settings show only while they're on, and open their section of Settings.
     ...(S.replay ? [['replay', 'REPLAY', true]] : []),
+    ...(S.returnToStart ? [['returnToStart', 'RETURN', true]] : []),
     ...(S.mode === 'transcribe' && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
     ...(S.mode === 'record' ? [['takes', 'TAKES', !!recorder?.hearing]] : []),
     ...(writing() && tts.on ? [['tts', tts.base !== 1 ? `TTS ${Math.round(tts.base * 100)}%` : 'TTS', true]] : []),
@@ -1789,7 +1818,7 @@ ind.addEventListener('click', (e) => {
   else if (k === 'offset' || k === 'stt') showMarking();
   else if (k === 'tts') openTts();
   else if (k === 'qc') openQcPlayback();
-  else if (k === 'replay') showGeneral();
+  else if (k === 'replay' || k === 'returnToStart') showGeneral();
   else if (k === 'takes') {
     recorder.setHearing(!recorder.hearing);
     updateInd();
@@ -4898,6 +4927,7 @@ initSettings();
 const showGeneral = () => {
   $('setVersion').textContent = VERSION;
   $('setReplay').checked = S.replay;
+  $('setReturn').setAttribute('aria-pressed', String(S.returnToStart));
   renderUpdates();
   openSettings('general');
 };
@@ -4932,6 +4962,7 @@ const dockerTip = initDockerTip({ hosted: HOSTED, welcomed, loopSeen: () => loop
 document.addEventListener('tourend', () => setTimeout(() => whenClear(dockerTip), 300));
 whenClear(dockerTip);
 $('setReplay').addEventListener('change', (e) => setReplay(e.target.checked, true));
+$('setReturn').addEventListener('click', () => setReturnToStart(!S.returnToStart));
 $('setOffset').addEventListener('change', (e) => setOffset(+e.target.value));
 
 // Runs fn once no dialog, notice or tour is showing, checking for up to a minute.

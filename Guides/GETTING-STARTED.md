@@ -112,6 +112,10 @@ across empty space to draw a new block.
 You can also click the timeline, or the bar under the video, to jump anywhere. Scroll the
 timeline to pan, and `Ctrl/Cmd`+scroll or pinch to zoom.
 
+**Return to start**, under **Settings → General**, makes play go back to where you last
+started playing, to hear a part again. Move the playhead while stopped to start somewhere
+else. It's off at first. `RETURN` shows under the video while it's on.
+
 ## Saving
 
 Press `Ctrl/Cmd+S` to save a **project** (`.scribecue`). It keeps everything: the blocks,
