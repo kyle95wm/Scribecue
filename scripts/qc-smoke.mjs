@@ -160,5 +160,36 @@ await js(`document.querySelector('#list .row').click();true`);
  const setupShot=await send('Page.captureScreenshot',{format:'png'});(await import('node:fs')).writeFileSync('/tmp/scribecue-qc-setup.png',Buffer.from(setupShot.result.data,'base64'));
  for(let i=0;i<5 && await js(`document.getElementById('welcome').open`);i++)await click('wzNext');
  assert.equal(await js(`document.body.classList.contains('mode-qc')`),true);
+ // New is available for both kinds of package, with cancellation and save protection.
+ for (const allowEdits of [false,true]) {
+  await js(`(async()=>{const q=await import('./js/qc.js');const {writeWav}=await import('./js/audio.js');const p={scribecue:1,blocks:[{start:1,end:2,text:'Keep this review'}],settings:{mode:'qc'}};const file=await q.buildReview(p,async()=>({blob:new Blob([writeWav(new Int16Array(16000),16000)]),secs:1,voice:'portable:voice'}),{allowEdits:${allowEdits}});const d=new DataTransfer();d.items.add(new File([file],'new-project-test.scribecueqc'));document.dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}));return true;})()`);
+  await wait(`document.getElementById('subName').textContent.includes('new-project-test')`);
+  await click('qcPlaybackClose');
+  assert.notEqual(await js(`getComputedStyle(document.querySelector('[data-act=newProject]')).display`),'none');
+  await js(`document.querySelector('[data-act=newProject]').click();true`);
+  assert.equal(await js(`document.querySelector('#newDlg [data-choice=blocks]').hidden`),true);
+  await click('newCancel');assert.equal(await js(`document.body.classList.contains('mode-qc')`),true);
+  await js(`document.querySelector('#list .row').click();document.getElementById('edComment').click();document.getElementById('commentText').value='Unsaved review note';document.getElementById('commentPost').click();true`);
+  await js(`document.querySelector('[data-act=newProject]').click();window.showSaveFilePicker=async()=>{throw new DOMException('Cancelled','AbortError')};true`);
+  assert.equal(await js(`document.getElementById('newUnsaved').hidden`),false);
+  if (!allowEdits) { const shot=await send('Page.captureScreenshot',{format:'png'});(await import('node:fs')).writeFileSync('/tmp/scribecue-qc-new-project.png',Buffer.from(shot.result.data,'base64')); }
+  await click('newSave');await sleep(300);
+  assert.equal(await js(`document.getElementById('newDlg').open && document.body.classList.contains('mode-qc')`),true);
+  await js(`window.showSaveFilePicker=async()=>({name:'returned-review.scribecueqc',queryPermission:async()=>'granted',createWritable:async()=>({write:async b=>{window.__newSaved=b},close:async()=>{}})});true`);
+  if (allowEdits) await js(`document.querySelector('#newDlg [data-choice=project]').click();true`);
+  else {
+   await click('newSave');await wait(`document.body.classList.contains('mode-write')`);
+   assert.equal(await js(`(async()=>{const q=await import('./js/qc.js');const r=await q.openReview(__newSaved);return r.parsed.blocks[0].comments[0].text;})()`),'Unsaved review note');
+  }
+  assert.equal(await js(`document.querySelectorAll('#list .row').length`),0);
+  assert.equal(await js(`document.querySelector('#modeSw [data-mode=transcribe]').disabled`),false);
+  assert.equal(await js(`document.getElementById('commentsDrawer').hidden`),true);
+  await js(`document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'z',code:'KeyZ',metaKey:true,bubbles:true,cancelable:true}));true`);
+  assert.equal(await js(`document.querySelectorAll('#list .row').length`),0);
+  await mode('transcribe');await mode('write');
+  await js(`location.reload();true`);await sleep(1400);
+  assert.equal(await js(`document.body.classList.contains('mode-write') && !document.querySelector('#modeSw [data-mode=transcribe]').disabled`),true);
+ }
+ console.log('QC New project: save, cancelled save, discard, package cleanup, mode switching and recovery passed');
  console.log('QC mode: creator permissions, comments-only restrictions, authorized edits, fixed timings, audio reuse and recovery passed');
 } finally {await send('Emulation.setCPUThrottlingRate',{rate:1});ws.close();}

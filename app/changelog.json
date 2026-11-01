@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.66.2",
+  "date": "2026-10-31",
+  "notes": "## Start fresh after QC\n\n- **New** is available while reviewing a QC package. Start a blank project in Write mode without opening another file first.\n- Unsaved reviews offer **Save and start new project**, **Start without saving**, or **Cancel**. A cancelled or failed save keeps your review open.\n- Starting fresh closes the review and video, and clears the package’s restrictions and undo history. Reopen your saved package to return to the review."
+ },
+ {
   "version": "0.66.1",
   "date": "2026-10-31",
   "notes": "## QC editing permissions\n\n- Choose **Allow reviewers to edit blocks** when creating a QC package. It starts off for comments-only reviews.\n- QC shows whether edits are allowed. Reviewers can’t change this choice, and it stays with the package when saving or recovering a review.\n- Comments-only packages stay in QC. Packages from before this change also open as comments only.\n- Update Scribecue before opening a new QC package."

@@ -1114,7 +1114,7 @@ body:not(.mode-qc) #commentsBtn, body:not(.mode-qc) #commentsDrawer,
 body:not(.mode-qc) #edComment, body:not(.mode-qc) #qcCommentRow { display: none; }
 .mode-qc .transcribe-only, .mode-qc .write-only, .mode-transcribe .qc-export, .mode-record .qc-export,
 .mode-qc:not(.qc-editing) .rowdel, .mode-qc:not(.qc-editing) .edmove, .mode-qc #edAuto, .mode-qc #replaceBtn, .mode-qc #aiBtn,
-.mode-qc nav [data-act=newProject], .mode-qc .hint:not(.qc-only), .mode-qc #help .cols,
+.mode-qc .hint:not(.qc-only), .mode-qc #help .cols,
 .mode-qc #helpTour, .mode-qc #helpLoop { display: none; }
 #qcPlaybackDlg { max-width: 720px; }
 #qcExportDlg { max-width: 680px; }

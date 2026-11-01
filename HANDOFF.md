@@ -7,8 +7,17 @@ screenshots and releases. This file only adds what isn't there.
 
 ## Where things stand
 
-- **Release version:** 0.66.1. Editing permissions are chosen when creating a QC package.
-  The previous release was 0.66.0, which added QC mode and portable packages.
+- **Release version:** 0.66.2. New is available in QC, with a save choice before starting fresh.
+  The previous release was 0.66.1, which moved editing permission to package creation.
+- **Leaving QC:** New is available in QC. It offers a fresh project, with Save and start
+  or explicit Start without saving for unsaved changes. Cancelled/failed saves keep the review
+  open. New closes the video, clears package state and undo history, and enters Write mode.
+  The guide and screenshots cover leaving a review. Tests cover both package permissions,
+  save cancellation, comment preservation, fresh mode switching and browser recovery.
+  Full checks passed (270 Node tests, 17 Python tests and Docker). Browser checks at 6× CPU
+  slowdown passed: 60 fps, no dropped frames or long tasks, 720-reading package export
+  in 538 ms with a 17 ms maximum timer gap, about 5 MB JS heap after import/save.
+  Local Docker includes the fix. Full-film playback was not tested.
 - **QC editing permissions:** the package creator chooses whether reviewers may edit in
   Export → QC package. Default is comments only. QC has a status label, not an editing toggle.
   Permission stays in the package manifest when saving and after browser recovery. Older

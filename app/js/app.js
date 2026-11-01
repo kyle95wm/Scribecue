@@ -1,3 +1,4 @@
+import { startNewProject } from './newproject.js';
 import { createQcPlayer } from './qcplayer.js';
 import { REVIEW_EXT, isReview, openReview, resaveReview, reviewAllowsEdits, reviewReading, previousReading, storedReview, voiceReport } from './qc.js';
 import { initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
@@ -3538,12 +3539,17 @@ async function openAny() {
 const newDlg = $('newDlg');
 function startAgain() {
   const blocks = S.cues.length, media = S.videoFile?.name;
-  if (!blocks && !media && !S.comments.length) return newProject(false);
+  if (!blocks && !media && !S.comments.length && !S.dirty && !S.reviewId) return newProject(false);
   const n = blocks === 1 ? '1 block' : `${blocks} blocks`;
-  $('newWhat').textContent = S.comments.length && !blocks && !media ? `This project has ${S.comments.length} timeline comments.` : blocks ? `This project has ${n}${media ? `, with ${media} open` : ''}.` : `${media} is open, with no blocks yet.`;
-  newDlg.querySelector('[data-choice="blocks"]').hidden = !blocks;
+  $('newWhat').textContent = S.comments.length && !blocks && !media ? `This project has ${S.comments.length} timeline comments.` : blocks ? `This project has ${n}${media ? `, with ${media} open` : ''}.` : media ? `${media} is open, with no blocks yet.` : 'This project has no blocks yet.';
+  newDlg.querySelector('[data-choice="blocks"]').hidden = !blocks || qc();
+  $('newUnsaved').hidden = !S.dirty;
+  $('newSave').hidden = !S.dirty;
+  $('newProjectLabel').textContent = S.dirty ? 'Start without saving' : 'New project';
+  $('newProjectNote').textContent = qc() ? 'Closes this review and the video, then opens a blank project in Write mode.' : 'Clears the blocks and notes, and closes the video, for different work.';
+  $('newUndo').hidden = !!S.reviewId;
   newDlg.showModal();
-  newDlg.querySelector(`[data-choice="${blocks ? 'blocks' : 'project'}"]`).focus();
+  newDlg.querySelector(`[data-choice="${blocks && !qc() ? 'blocks' : 'project'}"]`).focus();
 }
 for (const b of newDlg.querySelectorAll('.wzchoice')) {
   b.addEventListener('click', () => {
@@ -3551,6 +3557,18 @@ for (const b of newDlg.querySelectorAll('.wzchoice')) {
     if (b.dataset.choice === 'blocks') clearBlocks(); else newProject(false);
   });
 }
+$('newSave').addEventListener('click', async () => {
+  const b = $('newSave');
+  if (b.disabled) return;
+  b.disabled = true;
+  for (const choice of newDlg.querySelectorAll('.wzchoice')) choice.disabled = true;
+  try {
+    await startNewProject({ saveFirst: true, save: () => saveProject(), isDirty: () => S.dirty, start: () => { if (newDlg.open) { newDlg.close(); newProject(false); } } });
+  } finally {
+    b.disabled = false;
+    for (const choice of newDlg.querySelectorAll('.wzchoice')) choice.disabled = false;
+  }
+});
 $('newCancel').addEventListener('click', () => newDlg.close());
 newDlg.addEventListener('click', (e) => { if (e.target === newDlg) newDlg.close(); });
 document.addEventListener('keydown', (e) => { if (newDlg.open) e.stopPropagation(); }, true);
@@ -3569,6 +3587,7 @@ function clearBlocks() {
 
 // ask: false when the choice was already made in the Start again dialog.
 function newProject(ask = true) {
+  const leavingQc = qc(), leavingPackage = !!S.reviewId;
   const blocks = S.cues.length, media = S.videoFile?.name;
   if (ask && (blocks || media)) {
     const what = [blocks && `removes ${blocks === 1 ? 'the 1 block' : `all ${blocks} blocks`}`, media && `closes ${media}`].filter(Boolean).join(' and ');
@@ -3586,8 +3605,12 @@ function newProject(ask = true) {
   S.projectMedia = null;
   S.pendingPlayhead = null;
   clearReview();
+  S.qcSettings = null;
+  S.qcPreviewVoice = '';
   S.comments = [];
   S.notes = '';
+  if (leavingPackage) { undoStack.length = 0; redoStack.length = 0; }
+  if (leavingQc) setMode('write', true);
   aiNotesChanged();
   changed();
   select(null);

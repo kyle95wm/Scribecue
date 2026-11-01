@@ -148,6 +148,9 @@ await js(`document.getElementById('aiClose').click(); 1`); await sleep(300);
 await js(`document.querySelector('#modeSw [data-mode=qc]').click(); 1`); await sleep(300);
 await js(`document.getElementById('edComment').click(); document.getElementById('commentAuthor').value = 'Sam'; document.getElementById('commentText').value = 'Could we describe the direction of the light here?'; document.getElementById('commentPost').click(); document.getElementById('commentsClose').click(); document.getElementById('commentsBtn').click(); document.getElementById('commentAt').value = '00:00:26:00'; document.getElementById('commentText').value = 'Check the pause before the next reading.'; document.getElementById('commentPost').click(); document.getElementById('toast').classList.add('fade'); document.activeElement?.blur(); 1`);
 await sleep(400); await shot('comments');
+await js(`document.querySelector('[data-act=newProject]').click(); 1`); await sleep(200);
+await shot('qc-new-project', '#newDlg', 0);
+await js(`document.getElementById('newCancel').click(); 1`);
 // This package's creator permits edits; reviewers have no permission switch.
 await js(`(async()=>{
  const q=await import('./js/qc.js'),t=await import('./js/tts.js'),p=await import('./js/project.js');

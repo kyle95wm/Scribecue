@@ -352,10 +352,11 @@ docker compose up -d --build</code></pre>
     <button class="wzcard wzchoice" data-choice="blocks"><span><strong>Clear the blocks</strong>
       <span class="dim" id="newBlocksNote">Removes every block and keeps everything else: the video, the project file and
         your notes. Ready to write from scratch, or to open a script.</span></span></button>
-    <button class="wzcard wzchoice" data-choice="project"><span><strong>New project</strong>
+    <button class="wzcard wzchoice" data-choice="project"><span><strong id="newProjectLabel">New project</strong>
       <span class="dim" id="newProjectNote">Clears the blocks and notes, and closes the video, for different work.</span></span></button>
-    <p class="dim small">Either way, <kbd><span class="mod"></span>Z</kbd> brings the blocks back.</p>
-    <div class="updbtns"><button id="newCancel">Cancel</button></div>
+    <p id="newUnsaved" class="dim" hidden>Your changes aren’t saved. Save before starting a new project, or choose Start without saving.</p>
+    <p id="newUndo" class="dim small">Either way, <kbd><span class="mod"></span>Z</kbd> brings the blocks back.</p>
+    <div class="updbtns"><button id="newSave" class="hl" hidden>Save and start new project</button><button id="newCancel">Cancel</button></div>
   </dialog>
 
   <dialog id="changeDlg" class="updbox wizard" aria-labelledby="chgTitle">
