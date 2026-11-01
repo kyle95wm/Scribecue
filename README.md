@@ -56,6 +56,7 @@ The guides also open inside Scribecue: press `?` and click **Guides**.
 - [Keyboard shortcuts](Guides/SHORTCUTS.md): every key, and how to change them.
 - [Google voices](Guides/GOOGLE-VOICES.md): setting up Google Cloud voices without being billed.
 - [Running it yourself](Guides/INSTALL.md): Docker, Piper, Kokoro, Whisper and Ollama.
+- [Troubleshooting](Guides/TROUBLESHOOTING.md): common problems, and what to do.
 
 ## Privacy
 

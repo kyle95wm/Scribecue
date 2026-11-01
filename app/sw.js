@@ -28,6 +28,7 @@ const GUIDES = [
   'guides/AI.md',
   'guides/GOOGLE-VOICES.md',
   'guides/INSTALL.md',
+  'guides/TROUBLESHOOTING.md',
   'guides/docs/screenshots/ai-help.png',
   'guides/docs/screenshots/comments.png',
   'guides/docs/screenshots/qc-playback.png',
