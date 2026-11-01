@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.66.3",
+  "date": "2026-10-31",
+  "notes": "## Hear the Piper voices\n\n- The voices guide has a short sample of each Piper voice. Click a name to hear it before you download it.\n- Samples play inside the guide window. Click the name again to stop."
+ },
+ {
   "version": "0.66.2",
   "date": "2026-10-31",
   "notes": "## Start fresh after QC\n\n- **New** is available while reviewing a QC package. Start a blank project in Write mode without opening another file first.\n- Unsaved reviews offer **Save and start new project**, **Start without saving**, or **Cancel**. A cancelled or failed save keeps your review open.\n- Starting fresh closes the review and video, and clears the package’s restrictions and undo history. Reopen your saved package to return to the review."
