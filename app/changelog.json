@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.69.0",
+  "date": "2026-11-01",
+  "notes": "## Bring QC feedback back into your project\n\n- Open **QC → Compare returned review** to combine a reviewer’s findings with your work. Independent changes combine; conflicting block corrections need your choice.\n- **Accept review** keeps your authoring project editable in QC and Write, with the original recordings available for comparison.\n- Use **Locate original readings** to restore the matching audio on another computer.\n\n## Hear Google rewrites\n\n- Editable QC packages can include a separate Google review key. Your main key is never filled in.\n- **Hear rewrite** reads changed wording or speed with the original Google voice and saves the recording for replay. Moving a block reuses saved audio.\n- The reviewer’s own key is used first. If it fails, Scribecue offers to retry that reading with the bundled key.\n- **Save** keeps the review key for continued work. **Save return package** leaves it out. New readings need internet; saved recordings play offline."
+ },
+ {
   "version": "0.68.0",
   "date": "2026-11-01",
   "notes": "## Pickups\n\n- In Write mode, click **Pickup** on a block to ask the narrator to record it again. Add a note, such as how to say a name.\n- Each recording file you export is a new version. It asks for the blocks you marked and the lines you reworded.\n- Takes carry over to the new version, so the narrator records only the pickups.\n- In Record mode, P goes to the next pickup. **Compare** plays the original take, then the pickup.\n- **Export → Pickups WAV** holds only the new takes, each where it belongs. Its markers carry your notes.\n- Opening a returned WAV shows which pickups are recorded, and can clear their marks.\n- Started recording before 0.68.0? Open the new recording file, then bring in the earlier takes under **Microphone, lead-in and sync**."
