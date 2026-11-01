@@ -2,7 +2,7 @@
 // exports the chosen ones as one WAV for the mixer. The script is locked (app.js sees to
 // that); this file does the recording. The guide is Guides/RECORDING.md.
 
-import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, DRIFT, PREROLL, RATE } from './recording.js';
+import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, DRIFT, PREROLL, RATE } from './recording.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takesWhere } from './takestore.js';
 
@@ -30,7 +30,7 @@ export function initRecord(h) {
   let syncMs = get('sync') != null ? +get('sync') : null; // null: use the browser's figure
   let wasPlaying = false;
   let where = 'browser';     // where takes are kept: 'docker' or 'browser'
-  let editing = null;        // the take being moved or trimmed: { id, pcm }
+  let editing = null;        // the take open in the list to move or trim: { id }
 
   el.lead.value = leadSecs;
   el.sync.value = syncMs ?? '';
@@ -41,6 +41,7 @@ export function initRecord(h) {
   // ---- panel
   function status(msg) { el.status.textContent = msg; }
   function render() {
+    h.redraw();
     const busy = state !== 'idle';
     el.go.textContent = busy ? '■ Stop' : '● Record';
     el.go.classList.toggle('on', busy);
@@ -105,198 +106,283 @@ export function initRecord(h) {
   }
   async function reload() {
     takes = rec ? await listTakes(rec.id).catch(() => []) : [];
+    for (const id of peakCache.keys()) if (!takeOf(id)) peakCache.delete(id);
+    if (pick && !takeOf(pick.id)) pick = null;
     render();
   }
 
-  // ---- editing a take: split it, move the parts and trim their ends, against the slot
+  // ---- editing a take: split it, move the parts and trim their ends, against the slot.
+  // The chosen takes are clips on the take track, under the timeline's lane (see drawTrack);
+  // Edit in the list does the same in milliseconds, from the keyboard.
+  const prevEndOf = (i) => (i ? sl()[i - 1].end : 0);
+  const takeOf = (id) => takes.find((t) => t.id === id) || null;
+  let pick = null;           // the part of a take last clicked: { id, part }
+  // Keeps an edit and shows it everywhere: false if it couldn't be kept.
+  async function applyEdit(t, next) {
+    const e = clampEdit(t, next, prevEndOf(t.block)), was = t.edit;
+    t.edit = e; // shown straight away, so a dropped clip stays where it was dropped
+    h.redraw();
+    try { await editTake(rec.id, t.id, e); } catch (err) {
+      t.edit = was; render();
+      h.toast(`Couldn’t keep the edit: ${err.message}`);
+      return false;
+    }
+    silence();
+    render();
+    return true;
+  }
+  // The recording itself, for Trim silence: only the last take asked for is kept.
+  let held = null;           // { id, pcm }
+  async function pcmOf(t) {
+    if (held?.id !== t.id) held = { id: t.id, pcm: from24(new Uint8Array(await (await takeAudio(t)).arrayBuffer()).subarray(WAV24_HEADER)) };
+    return held.pcm;
+  }
+  // The part still there nearest part k, since parts can be deleted.
+  const nearPart = (t, k) => pieces(t).reduce((a, p) => (Math.abs(p.part - k) < Math.abs(a - k) ? p.part : a), Infinity);
+  const pickedPart = (t) => nearPart(t, pick?.id === t.id ? pick.part : 0);
+  // What the take menu, the keys and the editor's buttons do. Each gives the new edit, or null.
+  const edits = {
+    split(t) {
+      const n = splitAt(t, video.currentTime);
+      if (!n) { h.toast('Put the playhead inside the take, away from the ends of its parts, to split it'); return null; }
+      const p = pieces(t).find((q) => video.currentTime > q.start && video.currentTime < q.start + q.duration);
+      pick = { id: t.id, part: p.part + 1 };
+      return n;
+    },
+    cut(t) {
+      const n = cutPart(t, pickedPart(t));
+      if (!n) { h.toast('A take keeps one part at least. Delete the take instead'); return null; }
+      pick = { id: t.id, part: nearPart({ ...t, edit: n }, pickedPart(t)) };
+      return n;
+    },
+    async silence(t) {
+      try { return trimSilence(t, await pcmOf(t)); } catch (err) { h.toast(`Couldn’t read the take: ${err.message}`); return null; }
+    },
+    start: (t) => startAtBlock(t, sl()[t.block], prevEndOf(t.block)),
+    fit: (t) => fitSlot(t, sl()[t.block], prevEndOf(t.block)),
+    reset(t) { pick = { id: t.id, part: 0 }; return { splits: [], parts: [{}] }; },
+  };
+  async function doEdit(t, what) {
+    const n = await edits[what](t);
+    if (n) await applyEdit(t, n);
+  }
+  // The take X and Delete work on: the one open in the editor, else the one last clicked,
+  // else the block's chosen take.
+  function keyTake() {
+    const i = h.selIdx(), mine = (t) => (t?.block === i ? t : null);
+    return mine(editing && takeOf(editing.id)) || mine(pick && takeOf(pick.id)) || chosenFor(i);
+  }
+
   const MS = (v) => String(Math.round(v * 1000));
   function editor(t, i) {
     const li = document.createElement('li');
     li.className = 'takeedit';
-    const slot = sl()[i], prevEnd = i ? sl()[i - 1].end : 0;
-    let e = clampEdit(t, t.edit, prevEnd);
-    const cur = () => ({ ...t, edit: e });
-    // The part the fields change: the one last clicked, or the nearest one left.
-    const near = (k) => pieces(cur()).reduce((a, p) => (Math.abs(p.part - k) < Math.abs(a - k) ? p.part : a), Infinity);
-    let sel = near(Math.min(editing.part || 0, e.parts.length - 1));
-    const setPart = (k, patch) => ({ splits: e.splits, parts: e.parts.map((p, j) => (j === k ? { ...p, ...patch } : p)) });
-    // Where each part's stretch of the recording sits, trimmed ends and all.
-    const raw = () => { const b = [0, ...e.splits, t.duration]; return e.parts.map((p, k) => [t.start + b[k] + p.shift, t.start + b[k + 1] + p.shift]); };
-    // The view stays put while dragging, so the parts move and not the scale.
-    const r0 = raw();
-    const v0 = Math.min(slot.start, ...r0.map((r) => r[0])) - 0.3, v1 = Math.max(slot.end, ...r0.map((r) => r[1])) + 0.3;
-    const cv = document.createElement('canvas');
-    cv.width = 640; cv.height = 56;
-    cv.setAttribute('role', 'img');
-    const g = cv.getContext('2d');
-    const x = (s) => (s - v0) / (v1 - v0) * cv.width;
-    const tAt = (px) => v0 + px / cv.width * (v1 - v0);
+    const slot = sl()[i], e = clampEdit(t, t.edit, prevEndOf(i)), ps = pieces(t), k = pickedPart(t), q = e.parts[k];
     const field = (label, key, tip) => {
       const l = document.createElement('label');
       l.dataset.tip = tip;
       const inp = document.createElement('input');
-      inp.type = 'number'; inp.step = '10'; inp.dataset.edit = key;
+      inp.type = 'number'; inp.step = '10'; inp.dataset.edit = key; inp.value = MS(q[key]);
       if (key !== 'shift') inp.min = '0';
-      inp.addEventListener('change', () => {
+      inp.addEventListener('change', async () => {
         const n = parseFloat(inp.value);
-        commit(setPart(sel, { [key]: Number.isFinite(n) ? n / 1000 : 0 }));
+        await applyEdit(t, { splits: e.splits, parts: e.parts.map((p, j) => (j === k ? { ...p, [key]: Number.isFinite(n) ? n / 1000 : 0 } : p)) });
+        el.takes.querySelector(`[data-edit="${key}"]`)?.focus();
       });
       l.append(`${label} `, inp, ' ms');
-      return [l, inp];
+      return l;
     };
+    const btn = (text, tip, fn) => { const b = document.createElement('button'); b.textContent = text; b.dataset.tip = tip; b.addEventListener('click', fn); return b; };
     const which = document.createElement('span');
     which.className = 'num';
-    const [lMove, fMove] = field('Move', 'shift', 'Move this part: below 0 earlier, above 0 later');
-    const [lHead, fHead] = field('Trim start', 'head', 'Cut this much off the start of this part');
-    const [lTail, fTail] = field('Trim end', 'tail', 'Cut this much off the end of this part');
-    const btn = (text, tip, fn) => { const b = document.createElement('button'); b.textContent = text; b.dataset.tip = tip; b.addEventListener('click', fn); return b; };
-    const say = document.createElement('span');
-    const silenceBtn = btn('Trim silence', 'Cut the quiet off both ends of every part, keeping a moment of it', () => {
-      if (editing?.pcm) commit(trimSilence(cur(), editing.pcm));
-    });
-    silenceBtn.disabled = !editing?.pcm;
-    const split = () => {
-      const n = splitAt(cur(), video.currentTime);
-      if (!n) return h.toast('Put the playhead inside the take, away from the ends of its parts, to split it');
-      const p = pieces(cur()).find((q) => video.currentTime > q.start && video.currentTime < q.start + q.duration);
-      sel = editing.part = p.part + 1;
-      commit(n);
-    };
-    const cut = () => {
-      const n = cutPart(cur(), sel);
-      if (!n) return h.toast('A take keeps one part at least. Delete the take instead');
-      e = n;
-      sel = editing.part = near(sel);
-      commit(n);
-    };
-    const cutBtn = btn('Delete part', 'Delete the part you last clicked. Reset brings it back (Delete)', cut);
-    cutBtn.disabled = pieces(cur()).length < 2;
     const row = document.createElement('div');
     row.className = 'recrow';
-    row.append(which, lMove, lHead, lTail,
-      btn('Split', 'Split the take at the playhead, to move its parts apart or closer together (X)', split), cutBtn, silenceBtn,
-      btn('Start at block', 'Move the take so its sound starts where the block does', () => commit(startAtBlock(cur(), slot, prevEnd))),
-      btn('Fit in slot', 'Trim the end so the take stops where its slot does', () => commit(fitSlot(cur(), slot, prevEnd))),
-      btn('Reset', 'Undo the splits, moves and trims: the take as recorded', () => { sel = editing.part = 0; commit({ splits: [], parts: [{}] }); }));
-    li.append(cv, row, say);
-
-    function draw() {
-      const css = getComputedStyle(document.documentElement), tk = (n) => css.getPropertyValue(n).trim();
-      const ps = pieces(cur()), over = runsOver(placed(cur()), slot), r = raw();
-      g.clearRect(0, 0, cv.width, cv.height);
-      g.fillStyle = `color-mix(in srgb, ${tk('--ok')} 18%, transparent)`;
-      g.fillRect(x(slot.start), 0, x(slot.end) - x(slot.start), cv.height);
-      g.fillStyle = over ? tk('--bad') : tk('--ok');
-      g.fillRect(x(slot.end) - 1, 0, 2, cv.height);
-      const cols = Math.max(1, Math.round(x(v0 + t.duration) - x(v0)));
-      if (editing?.pcm && editing.peaks?.length !== cols) editing.peaks = wavePeaks(editing.pcm, cols);
-      const pk = editing?.pcm ? editing.peaks : null, mid = cv.height / 2;
-      ps.forEach((p) => {
-        const k = p.part, kept = (s) => s >= p.start && s < p.start + p.duration;
-        if (!pk) {
-          g.fillStyle = tk('--faint');
-          g.fillRect(x(r[k][0]), mid - 1, x(r[k][1]) - x(r[k][0]), 2);
-          return;
-        }
-        // This part's columns of the recording's waveform, drawn where the part sits now.
-        const c0 = Math.round((r[k][0] - t.start - e.parts[k].shift) / t.duration * cols);
-        const c1 = Math.round((r[k][1] - t.start - e.parts[k].shift) / t.duration * cols);
-        for (let c = c0; c < c1; c++) {
-          const s = r[k][0] + (c - c0) / cols * t.duration;
-          g.fillStyle = !kept(s) ? tk('--faint') : over && s > slot.end ? tk('--bad') : k === sel ? tk('--accent') : tk('--dim');
-          const hh = Math.max(1, Math.min(1, pk[c] * 2) * (mid - 2));
-          g.fillRect(x(r[k][0]) + (c - c0), mid - hh, 1, hh * 2);
-        }
-      });
-      for (const p of ps) {
-        g.fillStyle = p.part === sel ? tk('--text') : tk('--dim');
-        for (const s of [p.start, p.start + p.duration]) g.fillRect(x(s) - 1, 4, 2, cv.height - 8);
-      }
-      const now = video.currentTime;
-      if (now > v0 && now < v1) { g.fillStyle = tk('--play'); g.fillRect(x(now) - 0.5, 0, 1, cv.height); }
-      // What a dragged edge has snapped to.
-      if (drag?.snapped != null) { g.fillStyle = tk('--text'); g.fillRect(x(drag.snapped) - 1, 0, 2, cv.height); }
-      const end = placed(cur());
-      say.textContent = over ? `Ends ${(end.start + end.duration - slot.end).toFixed(2)} s past its slot` : 'Fits its slot';
-      say.className = 'num ' + (over ? 'lvl loud' : 'dim');
-      which.textContent = ps.length > 1 ? `Part ${ps.findIndex((p) => p.part === sel) + 1} of ${ps.length}:` : '';
-      cv.setAttribute('aria-label', `Take from ${end.start.toFixed(2)} s to ${(end.start + end.duration).toFixed(2)} s${ps.length > 1 ? `, in ${ps.length} parts` : ''}. ${say.textContent}`);
-      const q = e.parts[sel];
-      fMove.value = MS(q.shift); fHead.value = MS(q.head); fTail.value = MS(q.tail);
+    if (ps.length > 1) {
+      const at = ps.findIndex((p) => p.part === k);
+      which.textContent = `Part ${at + 1} of ${ps.length}:`;
+      row.append(which, btn('Next part', 'Work on the next part of the take', () => { pick = { id: t.id, part: ps[(at + 1) % ps.length].part }; render(); }));
     }
-    async function commit(next) {
-      e = clampEdit(t, next, prevEnd);
-      draw();
-      try { await editTake(rec.id, t.id, e); } catch (err) { return h.toast(`Couldn’t keep the edit: ${err.message}`); }
-      t.edit = e;
-      silence();
-      const f = document.activeElement?.dataset.edit;
-      render();
-      if (f) el.takes.querySelector(`[data-edit="${f}"]`)?.focus();
-    }
-
-    // Drag a part's end to trim it, or its middle to move it. Clicking a part picks it for the fields.
-    const hit = (px) => {
-      const ps = pieces(cur());
-      for (const p of ps) {
-        if (Math.abs(px - x(p.start)) < 6) return { k: p.part, mode: 'head' };
-        if (Math.abs(px - x(p.start + p.duration)) < 6) return { k: p.part, mode: 'tail' };
-      }
-      const p = ps.find((q) => px > x(q.start) && px < x(q.start + q.duration));
-      return p ? { k: p.part, mode: 'shift' } : null;
-    };
-    const pxOf = (ev) => { const r = cv.getBoundingClientRect(); return (ev.clientX - r.left) / r.width * cv.width; };
-    let drag = null;
-    cv.addEventListener('pointerdown', (ev) => {
-      const px = pxOf(ev), on = hit(px);
-      if (!on) return;
-      sel = editing.part = on.k;
-      drag = { ...on, t0: tAt(px), e0: e };
-      cv.setPointerCapture(ev.pointerId);
-      draw();
-    });
-    cv.addEventListener('pointermove', (ev) => {
-      const px = pxOf(ev);
-      if (!drag) {
-        const on = hit(px);
-        cv.style.cursor = !on ? '' : on.mode === 'shift' ? 'grab' : 'ew-resize';
-        return;
-      }
-      let d = tAt(px) - drag.t0;
-      const o = drag.e0.parts[drag.k];
-      // Edges snap to the block's start and the slot's end, the playhead, and the other parts.
-      const all = pieces({ ...t, edit: drag.e0 }), p0 = all.find((p) => p.part === drag.k);
-      const a0 = p0.start, z0 = p0.start + p0.duration, tol = 8 / cv.width * (v1 - v0);
-      const targets = [slot.start, slot.end, video.currentTime, ...all.filter((p) => p !== p0).flatMap((p) => [p.start, p.start + p.duration])];
-      drag.snapped = null;
-      const pull = (edge) => { const s = snap(edge + d, targets, tol); if (s !== edge + d) { d = s - edge; drag.snapped = s; } return drag.snapped != null; };
-      if (drag.mode === 'head') pull(a0);
-      else if (drag.mode === 'tail') pull(z0);
-      else if (!pull(a0)) pull(z0);
-      const patch = drag.mode === 'head' ? { head: o.head + d } : drag.mode === 'tail' ? { tail: o.tail - d } : { shift: o.shift + d };
-      e = clampEdit(t, { splits: drag.e0.splits, parts: drag.e0.parts.map((p, j) => (j === drag.k ? { ...p, ...patch } : p)) }, prevEnd);
-      draw();
-    });
-    const drop = () => { if (drag) { drag = null; commit(e); } };
-    cv.addEventListener('pointerup', drop);
-    cv.addEventListener('pointercancel', drop);
-
-    // The sound, for the waveform and Trim silence: only this take's, while it's open.
-    if (!editing.pcm && !editing.loading) {
-      editing.loading = true;
-      takeAudio(t).then((w) => w.arrayBuffer()).then((b) => {
-        if (editing?.id !== t.id) return;
-        editing.pcm = from24(new Uint8Array(b).subarray(WAV24_HEADER));
-        render();
-      }, (err) => h.toast(`Couldn’t read the take: ${err.message}`));
-    }
-    editing.draw = draw;
-    editing.split = split;
-    editing.cut = cut;
-    draw();
+    const cutBtn = btn('Delete part', 'Delete this part. Reset brings it back (Delete)', () => doEdit(t, 'cut'));
+    cutBtn.disabled = ps.length < 2;
+    row.append(field('Move', 'shift', 'Move this part: below 0 earlier, above 0 later'),
+      field('Trim start', 'head', 'Cut this much off the start of this part'),
+      field('Trim end', 'tail', 'Cut this much off the end of this part'),
+      btn('Split', 'Split the take at the playhead, to move its parts apart or closer together (X)', () => doEdit(t, 'split')), cutBtn,
+      btn('Trim silence', 'Cut the quiet off both ends of every part, keeping a moment of it', () => doEdit(t, 'silence')),
+      btn('Start at block', 'Move the take so its sound starts where the block does', () => doEdit(t, 'start')),
+      btn('Fit in slot', 'Trim the end so the take stops where its slot does', () => doEdit(t, 'fit')),
+      btn('Reset', 'Undo the splits, moves and trims: the take as recorded', () => doEdit(t, 'reset')));
+    const end = placed(t), over = runsOver(end, slot);
+    const say = document.createElement('span');
+    say.textContent = over ? `Ends ${(end.start + end.duration - slot.end).toFixed(2)} s past its slot` : 'Fits its slot';
+    say.className = 'num ' + (over ? 'lvl loud' : 'dim');
+    li.append(row, say);
     return li;
   }
-  for (const ev of ['timeupdate', 'seeked']) video.addEventListener(ev, () => editing?.draw?.());
+
+  // ---- the take track: each block's chosen take as clips, under the video's lane. Drag a
+  // clip to move it and its ends to trim it; double-click plays it; right-click for the rest.
+  const PR = 200;            // waveform columns per second of a take
+  const SHOW_WAVE = 12;      // pixels per second, at least, to draw takes' waveforms
+  const track = $('takeTrack'), menu = $('clipMenu');
+  const peakCache = new Map(); // take id → Float32Array, PR a second; null if unreadable
+  const peakWant = new Set();  // takes on screen whose waveform isn't read yet
+  let peakBusy = false;
+  let view = { t0: 0, pps: 100 }; // as last drawn
+  let tdrag = null;          // { t, k, mode, x0, e0, e, moved, snapped }
+  // One take at a time, and only those on screen, so a long film's takes aren't all read.
+  function loadPeaks() {
+    if (peakBusy) return;
+    const id = peakWant.values().next().value, t = id && takeOf(id);
+    if (!t) return;
+    peakWant.delete(id);
+    peakBusy = true;
+    takeAudio(t).then((w) => w.arrayBuffer()).then((b) => {
+      const pcm = from24(new Uint8Array(b).subarray(WAV24_HEADER));
+      peakCache.set(id, wavePeaks(pcm, Math.max(1, Math.round(pcm.length / RATE * PR))));
+    }, () => peakCache.set(id, null)).finally(() => { peakBusy = false; h.redraw(); });
+  }
+  let TK = null;
+  // g: the track's canvas, already sized; t0 and pps: the timeline's view.
+  function drawTrack(g, W, H, t0, pps) {
+    view = { t0, pps };
+    peakWant.clear();
+    if (!rec) return;
+    TK ||= Object.fromEntries(['ok', 'bad', 'line', 'dim', 'faint', 'accent', 'accent-bg', 'cue', 'cue-bg', 'text', 'mono'].map((n) => [n, tok('--' + n)]));
+    const t1 = t0 + W / pps, x = (s) => (s - t0) * pps, mid = H / 2, sel = h.selIdx(), amp = mid - 9;
+    g.fillStyle = TK.line;
+    g.fillRect(0, Math.round(mid), W, 1);
+    g.font = `10px ${TK.mono}`;
+    if (!takes.length) { g.fillStyle = TK.dim; g.fillText('Takes show here as you record them', 8, 16); return; }
+    sl().forEach((slot, i) => {
+      const raw = chosenFor(i), slotIn = slot.end > t0 && slot.start < t1;
+      const t = raw && tdrag?.t.id === raw.id ? { ...raw, edit: tdrag.e } : raw;
+      const whole = t && placed(t), over = t && runsOver(whole, slot);
+      if (slotIn) {
+        g.fillStyle = `color-mix(in srgb, ${TK.ok} 10%, transparent)`;
+        g.fillRect(x(slot.start), 0, x(slot.end) - x(slot.start), H);
+        g.fillStyle = over ? TK.bad : TK.ok;
+        g.fillRect(x(slot.end) - 1, 0, 2, H);
+      }
+      if (!t || whole.start > t1 || whole.start + whole.duration < t0) return;
+      const wave = pps >= SHOW_WAVE;
+      if (wave && !peakCache.has(t.id)) peakWant.add(t.id);
+      const pk = wave ? peakCache.get(t.id) : null, on = i === sel, ps = pieces(t);
+      const n = blockTakes(i).findIndex((q) => q.id === t.id) + 1;
+      ps.forEach((p, j) => {
+        const a = x(p.start), z = x(p.start + p.duration);
+        if (z < 0 || a > W) return;
+        const picked = pick?.id === t.id && pick.part === p.part;
+        g.beginPath();
+        g.roundRect(a, 6, z - a, H - 12, 4);
+        g.fillStyle = on ? TK['accent-bg'] : TK['cue-bg'];
+        g.fill();
+        g.strokeStyle = on ? TK.accent : TK.cue;
+        g.lineWidth = picked ? 2 : 1;
+        g.stroke();
+        const from = Math.max(0, Math.floor(a)), to = Math.min(W, Math.ceil(z));
+        if (!pk) { g.fillStyle = TK.faint; g.fillRect(from, mid - 0.5, to - from, 1); }
+        else {
+          let last = '';
+          for (let px = from; px < to; px++) {
+            const s = t0 + px / pps, off = p.head + s - p.start;
+            const i0 = Math.max(0, Math.floor(off * PR)), i1 = Math.min(pk.length, Math.max(i0 + 1, Math.floor((off + 1 / pps) * PR)));
+            let m = 0;
+            for (let k = i0; k < i1; k++) if (pk[k] > m) m = pk[k];
+            const fill = s > slot.end ? TK.bad : on ? TK.accent : TK.dim;
+            if (fill !== last) g.fillStyle = last = fill;
+            const hh = Math.max(0.5, Math.min(1, m * 2) * amp);
+            g.fillRect(px, mid - hh, 1, hh * 2);
+          }
+        }
+        if (z - a > 52) {
+          g.fillStyle = on ? TK.accent : TK.cue;
+          g.fillText(ps.length > 1 ? `Take ${n} · ${j + 1}/${ps.length}` : `Take ${n}`, Math.max(a, 0) + 6, 17);
+        }
+      });
+    });
+    if (tdrag?.snapped != null) { g.fillStyle = TK.text; g.fillRect(x(tdrag.snapped) - 1, 0, 2, H); }
+    loadPeaks();
+  }
+
+  const hitAt = (px) => clipAt(takes.filter((t) => t.chosen), view.t0 + px / view.pps, view.pps);
+  const pxOf = (ev) => ev.clientX - track.getBoundingClientRect().left;
+  const grab = (on) => { h.select(on.t.block); pick = { id: on.t.id, part: on.k }; render(); };
+  track.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0 || !rec) return;
+    ev.preventDefault();
+    const px = pxOf(ev), on = state === 'idle' ? hitAt(px) : null;
+    if (!on) { pick = null; h.seek(view.t0 + px / view.pps); render(); return; }
+    grab(on);
+    const e0 = clampEdit(on.t, on.t.edit, prevEndOf(on.t.block));
+    tdrag = { ...on, x0: ev.clientX, e0, e: e0, moved: false, snapped: null };
+    track.setPointerCapture(ev.pointerId);
+  });
+  track.addEventListener('pointermove', (ev) => {
+    if (!tdrag) {
+      const on = rec && state === 'idle' ? hitAt(pxOf(ev)) : null;
+      track.style.cursor = !on ? '' : on.mode === 'shift' ? 'grab' : 'ew-resize';
+      return;
+    }
+    const dx = ev.clientX - tdrag.x0;
+    if (!tdrag.moved && Math.abs(dx) < 3) return;
+    if (!tdrag.moved) {
+      tdrag.moved = true;
+      document.body.classList.add('dragging');
+      if (tdrag.mode !== 'shift') document.body.classList.add('resize');
+    }
+    const { t, k, e0, mode } = tdrag, slot = sl()[t.block];
+    // Edges snap to the block's start and the slot's end, the playhead, and the other parts.
+    const all = pieces({ ...t, edit: e0 }), p0 = all.find((p) => p.part === k);
+    const a0 = p0.start, z0 = p0.start + p0.duration, tol = 8 / view.pps;
+    const targets = [slot.start, slot.end, video.currentTime, ...all.filter((p) => p !== p0).flatMap((p) => [p.start, p.start + p.duration])];
+    let d = dx / view.pps;
+    tdrag.snapped = null;
+    const pull = (edge) => { const s = snap(edge + d, targets, tol); if (s !== edge + d) { d = s - edge; tdrag.snapped = s; } return tdrag.snapped != null; };
+    if (mode === 'head') pull(a0);
+    else if (mode === 'tail') pull(z0);
+    else if (!pull(a0)) pull(z0);
+    const o = e0.parts[k];
+    const patch = mode === 'head' ? { head: o.head + d } : mode === 'tail' ? { tail: o.tail - d } : { shift: o.shift + d };
+    tdrag.e = clampEdit(t, { splits: e0.splits, parts: e0.parts.map((p, j) => (j === k ? { ...p, ...patch } : p)) }, prevEndOf(t.block));
+    const w = placed({ ...t, edit: tdrag.e });
+    status(runsOver(w, slot) ? `Ends ${(w.start + w.duration - slot.end).toFixed(2)} s past its slot` : 'Fits its slot');
+    h.redraw();
+  });
+  const drop = async () => {
+    const d = tdrag;
+    if (!d) return;
+    tdrag = null;
+    document.body.classList.remove('dragging', 'resize');
+    if (d.moved) await applyEdit(d.t, d.e);
+    h.redraw();
+  };
+  track.addEventListener('pointerup', drop);
+  track.addEventListener('pointercancel', drop);
+  track.addEventListener('dblclick', (ev) => {
+    const on = rec && state === 'idle' ? hitAt(pxOf(ev)) : null;
+    if (on) playTake(on.t);
+  });
+  track.addEventListener('contextmenu', (ev) => {
+    ev.preventDefault();
+    const on = rec && state === 'idle' ? hitAt(pxOf(ev)) : null;
+    if (!on) return;
+    grab(on);
+    menu.querySelector('[data-clip=cut]').disabled = pieces(on.t).length < 2;
+    menu.hidden = false;
+    // Above the pointer, since the track is at the bottom of the window.
+    const r = menu.getBoundingClientRect();
+    menu.style.left = Math.max(8, Math.min(ev.clientX, innerWidth - r.width - 8)) + 'px';
+    menu.style.top = Math.max(8, ev.clientY - r.height) + 'px';
+    menu.querySelector('[role=menuitem]:not(:disabled)').focus();
+  });
+  menu.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-clip]'), t = pick && takeOf(pick.id);
+    if (!b) return;
+    menu.hidden = true;
+    if (!t) return;
+    if (b.dataset.clip === 'play') playTake(t); else doEdit(t, b.dataset.clip);
+  });
 
   // ---- devices
   async function devices() {
@@ -697,10 +783,21 @@ export function initRecord(h) {
     get active() { return state !== 'idle'; },
     get open() { return !!rec; },
     toggle, punch, exportWav, finish, render,
-    // Splits the take open in the editor at the playhead: false if none is open.
-    splitTake() { if (!editing?.split || state !== 'idle') return false; editing.split(); return true; },
-    // Deletes the part picked in the editor: false if no take is open there.
-    cutPart() { if (!editing?.cut || state !== 'idle') return false; editing.cut(); return true; },
+    // Splits the selected block's take at the playhead (see keyTake): false if no block is selected.
+    splitTake() {
+      if (!rec || state !== 'idle' || h.selIdx() < 0) return false;
+      const t = keyTake();
+      if (t) doEdit(t, 'split'); else h.toast(`Block ${h.selIdx() + 1} has no take to split`);
+      return true;
+    },
+    // Deletes the part of a take last clicked, or the one open in the editor.
+    cutPart() {
+      if (!rec || state !== 'idle') return false;
+      const t = keyTake();
+      if (t && (pick?.id === t.id || editing?.id === t.id)) doEdit(t, 'cut'); else h.toast('Click a part of a take on the timeline to delete it');
+      return true;
+    },
+    drawTrack,
     refresh: () => reload(),
     get hearing() { return hear; },
     setHearing,
@@ -718,7 +815,7 @@ export function initRecord(h) {
       silence(); pb.bufs.clear();
       if (test) syncTest();
       h.volume(false);
-      rec = null; takes = []; editing = null; render();
+      rec = null; takes = []; editing = null; pick = null; held = null; peakCache.clear(); menu.hidden = true; render();
     },
   };
 }

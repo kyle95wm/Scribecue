@@ -68,8 +68,8 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 |---|---|
 | Enter or R | Record the selected block, or stop |
 | Shift+Enter or Shift+R | [Punch in](#punching-in) from the playhead |
-| X | Split the take being edited at the playhead |
-| Delete | Delete the part of that take you last clicked |
+| X | Split the block's take at the playhead |
+| Delete | Delete the part of a take you last clicked |
 | Esc | Stop recording |
 | V | Hear the block read by text to speech, as a guide |
 | Space | Play or pause |
@@ -92,11 +92,12 @@ Each take is checked by its loudest moment:
 ### Takes
 
 - Every take is kept, under the video in Record mode.
+- The take picked for each block shows on the timeline, under the video's waveform.
 - **While the video plays,** you hear the take picked for each block, where it was read.
   Click **TAKES** under the video to turn that off.
 - **Play** plays one take against the video.
 - **Use** picks the take for the export. A new take is picked automatically.
-- **Edit** moves, trims or splits a take.
+- **Edit** moves, trims or splits a take by the millisecond.
 - **Delete** removes a take for good.
 
 ### Punching in
@@ -112,24 +113,29 @@ take is kept, so **Use** brings it back.
 
 ### Editing a take
 
-Click **Edit** on a take. Its waveform shows over the block's slot, in green.
+The picked takes show as clips on the timeline, in a track under the video's waveform.
+Each block's slot is shaded green. Any part of a take past its slot is red.
 
-- **Drag the middle** to move the take, for a late start.
-- **Drag either end** to trim it.
-- **Split**, or X, cuts the take in two at the playhead. Each part moves and trims on its own.
-- **Delete part**, or Delete, removes the part you last clicked.
-- **Move**, **Trim start** and **Trim end** do the same in milliseconds, for the part you last clicked.
+| To | Do |
+|---|---|
+| Move a take, or one part of it | Drag the clip |
+| Trim it | Drag either end |
+| Split it | Put the playhead in it, then press X |
+| Delete a part | Click it, then press Delete |
+| Play it against the video | Double-click it |
+| Trim silence, start at block, fit in slot or reset | Right-click it |
+
+- Dragged edges snap to the block's start, the slot's end, the playhead and the other parts.
 - **Trim silence** cuts the quiet off both ends of every part.
 - **Start at block** moves the take so its sound starts where the block does.
 - **Fit in slot** trims the end to where the slot stops.
 - **Reset** brings back the take as recorded, deleted parts too.
+- **Edit** in the list does the same by the millisecond, from the keyboard.
 
-Dragged edges snap to the block's start and end, the playhead and the other parts.
+To cut a late start, drag the take's start in to where the sound begins, or use **Trim
+silence**. Then use **Start at block**.
 
-To cut a late start, drag the take's start in to where the sound begins, or click **Trim
-silence**. Then click **Start at block**.
-
-To close up a pause, split the take in it, click **Trim silence**, then drag the second
+To close up a pause, split the take in it, use **Trim silence**, then drag the second
 part back. Parts can't overlap.
 
 The recording itself isn't changed, so nothing is lost.

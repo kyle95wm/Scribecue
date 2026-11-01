@@ -249,6 +249,22 @@ export function snap(v, targets, tol) {
   return best;
 }
 
+// The clip under the pointer on the take track, at `time` on a timeline of `pps` pixels a
+// second: { t, k, mode }, where k is the part and mode what dragging does ('head' and
+// 'tail' trim an end, 'shift' moves it), or null. takes: the chosen ones. Ends are 6 px wide,
+// reaching just outside the clip, but a narrow clip keeps a middle to grab.
+export function clipAt(takes, time, pps) {
+  const tol = 6 / pps;
+  for (const t of takes) {
+    for (const p of pieces(t)) {
+      if (time < p.start - tol || time > p.start + p.duration + tol) continue;
+      const edge = Math.min(6, p.duration * pps / 3) / pps;
+      return { t, k: p.part, mode: time < p.start + edge ? 'head' : time > p.start + p.duration - edge ? 'tail' : 'shift' };
+    }
+  }
+  return null;
+}
+
 // The take as edited, in one stretch from its first sound to its last, with silence between
 // parts: { start, pcm }. pcm: the whole recording.
 export function flatten(t, pcm, rate = RATE) {

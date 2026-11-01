@@ -52,7 +52,7 @@ if (isMobile({ ua: navigator.userAgent, mobile: navigator.userAgentData?.mobile,
 }
 
 const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('list');
-const tl = $('tl'), ruler = $('ruler'), lane = $('lane'), wave = $('wave'), cuesLayer = $('cues');
+const tl = $('tl'), ruler = $('ruler'), lane = $('lane'), wave = $('wave'), cuesLayer = $('cues'), takeWave = $('takeWave');
 const playheadEl = $('playhead'), dragtip = $('dragtip'), overview = $('overview'), ovWin = $('ovWin');
 const edText = $('edText'), edStart = $('edStart'), edEnd = $('edEnd');
 const editor = $('editor'), edTts = $('edTts');
@@ -1319,6 +1319,7 @@ function drawTimeline() {
   }
 
   drawCues(ww);
+  if (S.mode === 'record' && recorder) recorder.drawTrack(...fitCanvas(takeWave), t0, pps);
   drawOverview();
 }
 
@@ -3431,6 +3432,8 @@ recorder = initRecord({
   video, toast,
   blocks: () => S.cues,
   selIdx, hasVideo: () => S.hasVideo,
+  select: (i) => { if (S.cues[i] && S.cues[i].id !== S.sel) select(S.cues[i].id, { seek: false }); },
+  redraw: () => { tlDirty = true; },
   duration: () => (S.hasVideo ? duration() : 0),
   seek: (t) => seek(t),
   baseName: () => baseName().replace(/\.[^.]+$/, ''),
@@ -4305,20 +4308,22 @@ function toggleMenu(menu, open = menu.hidden) {
   menu.previousElementSibling.setAttribute('aria-expanded', 'true');
   menu.querySelector('[role="menuitem"]:not([hidden])')?.focus();
 }
+// A menu's button is just before it. The take menu on the timeline has none.
+const menuBtn = (m) => (m.previousElementSibling?.hasAttribute('aria-haspopup') ? m.previousElementSibling : null);
 function closeMenus() {
   for (const m of document.querySelectorAll('.navmenu')) {
     m.hidden = true;
-    m.previousElementSibling.setAttribute('aria-expanded', 'false');
+    menuBtn(m)?.setAttribute('aria-expanded', 'false');
   }
 }
-document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.navwrap')) closeMenus(); });
+document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.navwrap, .navmenu')) closeMenus(); });
 document.addEventListener('keydown', (e) => {
   const menu = e.target.closest?.('.navmenu');
   if (!menu) return;
   e.stopPropagation();
   const items = [...menu.querySelectorAll('[role="menuitem"]')].filter((b) => b.offsetParent);
   const k = items.indexOf(e.target);
-  if (e.key === 'Escape') { e.preventDefault(); closeMenus(); menu.previousElementSibling.focus(); }
+  if (e.key === 'Escape') { e.preventDefault(); closeMenus(); menuBtn(menu)?.focus(); }
   else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
     items[(k + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();

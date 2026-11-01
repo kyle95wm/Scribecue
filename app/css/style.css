@@ -118,9 +118,8 @@ kbd + kbd { margin-left: 2px; }
 .rectakes .lvl.note { color: var(--dim); }
 .rectakes .lvl.quiet { color: var(--warn); }
 .rectakes .lvl.loud, .rectakes .over { color: var(--bad); }
-.rectakes:has(.takeedit) { max-height: 260px; }
+.rectakes:has(.takeedit) { max-height: 200px; }
 .rectakes .takeedit { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 0 8px; }
-.rectakes .takeedit canvas { width: 100%; height: 56px; touch-action: none; border: 1px solid var(--line); border-radius: 4px; }
 .rectakes .takeedit input { width: 72px; }
 .rectakes .takeedit label { font-size: 12px; color: var(--dim); }
 .recreport { max-height: 40vh; overflow: auto; white-space: pre-wrap; font: 12px var(--mono); }
@@ -466,6 +465,12 @@ textarea:disabled { opacity: 0.5; }
 .lane { position: relative; flex: 1; overflow: hidden; cursor: crosshair; border-top: 1px solid var(--line); }
 #wave { position: absolute; inset: 0; width: 100%; height: 100%; }
 #cues { position: absolute; inset: 0; }
+/* Record mode: the chosen takes as clips, on a track of their own under the video's. */
+body.mode-record { grid-template-rows: 44px minmax(0, 1fr) 290px 28px; }
+.taketrack { position: relative; height: 84px; flex: none; border-top: 1px solid var(--line); touch-action: none; }
+#takeWave { position: absolute; inset: 0; width: 100%; height: 100%; }
+.clipmenu { position: fixed; top: auto; right: auto; min-width: 220px; }
+.clipmenu kbd { margin-left: 16px; }
 .cue {
   position: absolute;
   top: 12px;

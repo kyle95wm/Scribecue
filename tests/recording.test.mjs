@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -329,4 +329,23 @@ test('a dragged edge snaps to the nearest target in reach', () => {
   assert.equal(snap(10.1, [10, 12], 0.05), 10.1, 'out of reach');
   assert.equal(snap(11.98, [10, 11.97, 12], 0.05), 11.97, 'the nearest wins');
   assert.equal(snap(5, [NaN, undefined], 1), 5);
+});
+
+test('on the take track, a clip is grabbed by its ends to trim it and by its middle to move it', () => {
+  const t = { id: 'a', start: 10, duration: 2 }, pps = 100; // a 200 px clip
+  assert.deepEqual(clipAt([t], 10.02, pps), { t, k: 0, mode: 'head' });
+  assert.equal(clipAt([t], 9.96, pps).mode, 'head', 'just outside the start still grabs it');
+  assert.equal(clipAt([t], 11, pps).mode, 'shift');
+  assert.equal(clipAt([t], 11.99, pps).mode, 'tail');
+  assert.equal(clipAt([t], 9.9, pps), null);
+  assert.equal(clipAt([t], 11, 6).mode, 'shift', 'a narrow clip keeps a middle');
+});
+
+test('on the take track, each part of a split take is its own clip', () => {
+  const t = { id: 'a', start: 10, duration: 4, edit: { splits: [2], parts: [{}, { shift: 1 }] } };
+  assert.equal(clipAt([t], 11, 100).k, 0);
+  assert.equal(clipAt([t], 13.5, 100).k, 1);
+  assert.equal(clipAt([t], 12.5, 100), null, 'the gap between the parts');
+  const cut = { ...t, edit: { splits: [2], parts: [{}, { shift: 1, cut: true }] } };
+  assert.equal(clipAt([cut], 13.5, 100), null, 'a deleted part is not there');
 });
