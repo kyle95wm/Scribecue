@@ -99,7 +99,7 @@ Each take is checked by its loudest moment:
   Click **TAKES** under the video to turn that off.
 - **Play** plays one take against the video.
 - **Use** picks the take for the export. A new take is picked automatically.
-- **Edit** moves, trims or splits a take by the millisecond.
+- **Fine-tune** moves, trims or splits the take in the export by the millisecond.
 - **Delete** removes a take for good.
 
 ### Punching in
@@ -132,7 +132,7 @@ Each block's slot is shaded green. Any part of a take past its slot is red.
 - **Start at block** moves the take so its sound starts where the block does.
 - **Fit in slot** trims the end to where the slot stops.
 - **Reset** brings back the take as recorded, deleted parts too.
-- **Edit** in the list does the same by the millisecond, from the keyboard.
+- **Fine-tune** in the list does the same by the millisecond, from the keyboard.
 
 ![Right-clicking a take that runs past its slot](../docs/screenshots/recording-menu.png)
 

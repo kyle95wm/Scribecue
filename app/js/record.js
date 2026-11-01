@@ -30,7 +30,7 @@ export function initRecord(h) {
   let syncMs = get('sync') != null ? +get('sync') : null; // null: use the browser's figure
   let wasPlaying = false;
   let where = 'browser';     // where takes are kept: 'docker' or 'browser'
-  let editing = null;        // the take open in the list to move or trim: { id }
+  let editing = null;        // the take open in the list to fine-tune, always the chosen one: { id }
 
   el.lead.value = leadSecs;
   el.sync.value = syncMs ?? '';
@@ -42,6 +42,7 @@ export function initRecord(h) {
   function status(msg) { el.status.textContent = msg; }
   function render() {
     h.redraw();
+    if (editing && !takeOf(editing.id)?.chosen) editing = null; // another take was picked
     const busy = state !== 'idle';
     el.go.textContent = busy ? '■ Stop' : '● Record';
     el.go.classList.toggle('on', busy);
@@ -83,10 +84,13 @@ export function initRecord(h) {
       const play = document.createElement('button');
       play.textContent = playing?.t.id === t.id ? 'Stop' : 'Play';
       play.addEventListener('click', () => (playing?.t.id === t.id ? stopPlay() : playTake(t)));
+      // Only the take in the export, as on the timeline: the same edits, by the millisecond.
       const ed = document.createElement('button');
-      ed.textContent = 'Edit';
+      ed.textContent = 'Fine-tune';
+      ed.dataset.tip = 'Move, trim or split this take by the millisecond, from the keyboard';
       ed.setAttribute('aria-expanded', String(editing?.id === t.id));
-      ed.setAttribute('aria-label', `Move or trim take ${k + 1}`);
+      ed.setAttribute('aria-label', `Fine-tune take ${k + 1}`);
+      ed.hidden = !t.chosen;
       ed.addEventListener('click', () => { editing = editing?.id === t.id ? null : { id: t.id }; render(); });
       const del = document.createElement('button');
       del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete take ${k + 1}`);
@@ -113,7 +117,7 @@ export function initRecord(h) {
 
   // ---- editing a take: split it, move the parts and trim their ends, against the slot.
   // The chosen takes are clips on the take track, under the timeline's lane (see drawTrack);
-  // Edit in the list does the same in milliseconds, from the keyboard.
+  // Fine-tune in the list does the same in milliseconds, from the keyboard.
   const prevEndOf = (i) => (i ? sl()[i - 1].end : 0);
   const takeOf = (id) => takes.find((t) => t.id === id) || null;
   let pick = null;           // the part of a take last clicked: { id, part }
