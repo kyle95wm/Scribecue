@@ -67,14 +67,21 @@ with a plain exported script can still edit that script outside the review workf
 
 ## Optional Google review access
 
+- Version 4 manifests add readings for blocks added in review: a proposal with `blockUid`
+  and no `originalOffset`. Readers allow it only in handoff packages, for a uid with no
+  original reading, in a Google Standard voice that the original readings already use.
+  Version 3 is still written when every proposal has an original.
 - Version 3 manifests may hold `reviewAccess.googleKey`, supplied separately at export.
   It is outside the project, baseline and global TTS settings. Comments-only exports
   cannot include a key. The export form rejects the writer's configured main key.
 - `qcspeech.js` compares spoken words, effective speed and exact original Google voice.
-  Placement, formatting, gain and dip changes reuse recordings. Synthesis is explicit
-  through Hear rewrite; playback and seeking never synthesize.
-- The reviewer's configured key takes priority. On failure, an explicit offer can retry
-  that reading with the bundled key. Each new reading starts with the personal key again.
+  Placement, formatting, gain and dip changes reuse recordings. Playback and seeking
+  never synthesize. A block's changed speech is read 500 ms after its edit ends
+  (`autoRewrite` in `app.js`) when the reviewer or the package has a Google key, and its
+  end follows that reading once. V retries a block left unread. The voice list is hidden
+  for blocks with an original Google reading (`voiceFixed`), unless the voice already changed.
+- The reviewer's configured key takes priority. On failure, that reading is retried with
+  the bundled key, and a toast says so. Each new reading starts with the personal key again.
   Request errors redact keys. An in-flight map prevents duplicate synthesis requests.
 - Proposed WAVs append after immutable original clips. A separate descriptor table binds
   each to an original offset, spoken wording and speed. Playback selects matching saved

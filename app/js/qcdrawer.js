@@ -17,7 +17,7 @@ export function refreshQc() {
   }
   const review = h.review(), spoken = p.blocks.filter((b) => hasReviewText(b, p.settings));
   const valid = spoken.filter((b) => playbackReading(review, b, p.settings)).length;
-  $('qcPackageInfo').textContent = review ? `${valid} of ${spoken.length} blocks have matching saved readings. ${valid < spoken.length ? 'For changed Google readings, choose Hear rewrite. Other missing readings need a new package from the writer.' : 'The included audio plays without installing these voices or adding a key.'}` : 'No original readings are included. Use the programme sound, ask for a QC package, or explicitly choose an approximate TTS preview.';
+  $('qcPackageInfo').textContent = review ? `${valid} of ${spoken.length} blocks have matching saved readings. ${valid < spoken.length ? 'Changed Google blocks are read when you finish editing them. Other missing readings need a new package from the writer.' : 'The included audio plays without installing these voices or adding a key.'}` : 'No original readings are included. Use the programme sound, ask for a QC package, or explicitly choose an approximate TTS preview.';
   for (const [id, source] of [['qcSourceVideo', 'video'], ['qcSourcePackage', 'package'], ['qcSourcePreview', 'preview']]) {
     $(id).setAttribute('aria-pressed', String(h.source() === source));
   }
@@ -27,7 +27,7 @@ export function refreshQc() {
   $('qcSourcePackage').textContent = review?.proposals.length ? 'Saved readings' : 'Original readings';
   const googleReview = h.package() && review?.permissions.allowEdits && review.readings.some((r) => r.voice.startsWith('google:'));
   $('qcKeyInfo').hidden = !googleReview;
-  $('qcKeyInfo').textContent = `${hasGoogleKey() ? 'Your Google key is used for new readings.' : review?.reviewAccess ? 'The separate key in this package is used for new readings.' : 'Add your Google key in Text to speech settings to hear rewrites.'} Only changed wording or speed needs Google. Saved readings play offline. Save keeps the review key for continued work; Save return package leaves it out.`;
+  $('qcKeyInfo').textContent = `${hasGoogleKey() ? `Your Google key reads changed blocks when you finish editing them${review?.reviewAccess ? '. If it fails, the separate key in this package is used' : ''}.` : review?.reviewAccess ? 'The separate key in this package reads changed blocks when you finish editing them.' : 'Add your Google key in Text to speech settings to read changed blocks.'} Only changed wording or speed needs Google. Saved readings play offline. Save keeps the review key for continued work; Save return package leaves it out.`;
   $('qcReturn').hidden = !h.package();
   const select = $('qcPreviewVoice'), selected = select.value;
   select.replaceChildren(...reviewVoices().map((v) => new Option(v.name, v.id)));

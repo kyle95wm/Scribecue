@@ -32,7 +32,7 @@ import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } fr
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
-import { FIT_MIN, MAX_SPEED, writeWav, readingStarting } from './tts.js';
+import { FIT_MIN, MAX_SPEED, writeWav, readingStarting, reviewGoogleKey } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands } from './ffcmd.js';
 import { videoName, missing, advice, copyKind } from './codecs.js';
@@ -70,6 +70,8 @@ const qc = () => S.mode === 'qc';
 const qcEditable = () => S.reviewId ? reviewAllowsEdits(S.review) : !!S.reviewAudio;
 const qcLocked = () => qc() && !qcEditable();
 const readingControls = () => ttsOn() || (qc() && qcEditable());
+// QC blocks whose Google reading is being made on its own, and what that has set (see autoRewrite).
+const autoMaking = new Set(), autoAgain = new Set(), autoTimers = new Map(), followed = new Map();
 const ttsOn = () => tts.on && writing();
 const pcKeys = (s) => (IS_MAC ? s : s
   .replace(/⌘(?=\S)/g, 'Ctrl+').replace(/⌘/g, 'Ctrl')
@@ -443,6 +445,7 @@ function changed(id = null) {
   updateEditor();
   refreshComments();
   configureQcAudio();
+  if (id != null) scheduleAutoRewrite(id);
   S.activeId = undefined; // force overlay/active refresh
   tlDirty = true;
   clearTimeout(saveTimer);
@@ -634,50 +637,82 @@ function stopPreviousReading() {
   S.previousAudio.audio.pause(); URL.revokeObjectURL(S.previousAudio.url); S.previousAudio = null;
   $('qcPrevious').textContent = 'Hear previous reading';
   $('qcPrevious').setAttribute('aria-pressed', 'false');
-  $('qcRewrite').textContent = 'Hear rewrite'; $('qcRewrite').setAttribute('aria-pressed', 'false');
 }
-let makingRewrite = false;
-$('qcRewrite').addEventListener('click', async () => {
-  const block = selCue(), review = S.review, reviewId = S.reviewId;
-  if (makingRewrite || !qc() || !reviewId || !qcEditable() || !block) return;
-  if (S.previousAudio?.kind === 'rewrite') { stopPreviousReading(); return; }
+// Makes the Google reading of a QC block's changed wording or speed and saves it in the
+// package. Returns it, or null when the block changed again meanwhile. The reviewer's own
+// key goes first; if it fails, the writer's key in the package reads it instead.
+async function makeRewrite(block) {
+  const review = S.review, reviewId = S.reviewId;
   const spec = rewriteSpec(review, block, reviewSettings());
-  if (!spec) return;
+  if (!spec) return null;
   const captured = { ...block, say: block.say?.map((p) => [...p]) }, project = projectData();
-  let r = playbackReading(review, block, project.settings);
-  makingRewrite = true; updateEditor();
-  try {
-    if (!r) {
-      pause();
-      toast('Making a Google reading…');
-      const bundled = review.reviewAccess?.googleKey || '';
-      const made = await reviewedRewrite(spec, bundled, (message) => {
-        const current = S.cues.find((b) => b.id === block.id), currentSpec = current && rewriteSpec(S.review, current, reviewSettings());
-        return qc() && S.review === review && S.reviewId === reviewId && currentSpec && speechKey(currentSpec) === speechKey(spec) &&
-          window.confirm(`${message}\n\nRetry this reading with the separate key included by the writer? This uses their Google allowance.`);
-      });
-      if (S.review !== review || S.reviewId !== reviewId) return;
-      const next = await appendRewrite(review, project, captured, made);
-      if (S.review !== review || S.reviewId !== reviewId) return;
-      S.review = next;
-      const kept = await storedReview({ id: reviewId, file: next.file });
-      if (S.review !== next || S.reviewId !== reviewId) return;
-      changed();
-      if (!kept) toast('Reading ready. Save the QC package to keep it');
-      const current = selCue(), currentSpec = current && rewriteSpec(next, current, reviewSettings());
-      if (!currentSpec || current.id !== block.id || speechKey(currentSpec) !== speechKey(spec)) return;
-      r = playbackReading(next, current, reviewSettings());
+  let fellBack = false;
+  const made = await reviewedRewrite(spec, review.reviewAccess?.googleKey || '', () => {
+    const current = S.cues.find((b) => b.id === block.id), currentSpec = current && rewriteSpec(S.review, current, reviewSettings());
+    fellBack = qc() && S.review === review && S.reviewId === reviewId && !!currentSpec && speechKey(currentSpec) === speechKey(spec);
+    return fellBack;
+  });
+  if (S.review !== review || S.reviewId !== reviewId) return null;
+  const next = await appendRewrite(review, project, captured, made);
+  if (S.review !== review || S.reviewId !== reviewId) return null;
+  S.review = next;
+  const kept = await storedReview({ id: reviewId, file: next.file });
+  if (S.review !== next || S.reviewId !== reviewId) return null;
+  changed();
+  if (fellBack) toast(`Your Google key didn’t work, so the writer’s key read block #${idx(block.id) + 1}`);
+  else if (!kept) toast('Reading ready. Save the QC package to keep it');
+  const current = S.cues.find((b) => b.id === block.id), currentSpec = current && rewriteSpec(next, current, reviewSettings());
+  if (!currentSpec || speechKey(currentSpec) !== speechKey(spec)) return null;
+  return playbackReading(next, current, reviewSettings());
+}
+// A changed Google block is read once the edit ends, as in Write mode, and its end moves to
+// where the new reading finishes. It needs a Google key: the reviewer's own, or the writer's
+// in the package. The end can still
+// be set by hand afterwards: it only follows a reading the first time it's heard.
+// Such a block keeps its Google voice, since a new one would need a fresh package. The list
+// stays for a block whose voice was already changed, so it can be changed back. A block
+// added in review reads with the package's voice, so it has no list either.
+function voiceFixed(c) {
+  if (!autoRewrites()) return false;
+  const previous = previousReading(S.review, c);
+  if (previous) return !!previous.voice?.startsWith('google:') && !readingVoiceChanged(S.review, c, reviewSettings());
+  return !!S.review.byUid?.size && !!S.review.googleVoices?.has(c.voice || reviewSettings().ttsVoice);
+}
+function autoRewrites() { return qc() && !!S.reviewId && qcEditable() && !!reviewGoogleKey(S.review?.reviewAccess?.googleKey || ''); }
+function scheduleAutoRewrite(id) {
+  if (!autoRewrites()) return;
+  if (autoMaking.has(id)) { autoAgain.add(id); return; }
+  clearTimeout(autoTimers.get(id));
+  autoTimers.set(id, setTimeout(() => { autoTimers.delete(id); autoRewrite(id); }, 500));
+}
+async function autoRewrite(id) {
+  const block = S.cues.find((b) => b.id === id), reviewId = S.reviewId;
+  // A block being typed in is read when the typing ends, since Google counts every reading.
+  if (!autoRewrites() || !block || edit?.id === id || autoMaking.has(id) || !rewriteSpec(S.review, block, reviewSettings())) return;
+  let r = playbackReading(S.review, block, reviewSettings());
+  if (!r) {
+    autoMaking.add(id); updateEditor();
+    try { r = await makeRewrite(block); }
+    catch (error) { if (S.reviewId === reviewId) toast(`Block #${idx(id) + 1}: ${error.message}`); }
+    finally {
+      autoMaking.delete(id); updateEditor(); refreshQc();
+      // Changed again while it was being read: read the latest.
+      if (autoAgain.delete(id)) scheduleAutoRewrite(id);
     }
-    if (!r) return;
-    pause(); stopSpeech(); stopPreviousReading();
-    const url = URL.createObjectURL(S.review.file.slice(r.offset, r.offset + r.bytes, 'audio/wav'));
-    const audio = new Audio(url); S.previousAudio = { audio, url, kind: 'rewrite' };
-    audio.onended = () => { if (S.previousAudio?.audio === audio) stopPreviousReading(); };
-    audio.onerror = () => { stopPreviousReading(); toast('The saved rewrite could not play'); };
-    await audio.play();
-  } catch (error) { if (S.reviewId === reviewId) toast(error.message); }
-  finally { makingRewrite = false; updateEditor(); refreshQc(); }
-});
+  }
+  if (r) followReading(id, r);
+}
+function followReading(id, r) {
+  const i = idx(id), c = S.cues[i], key = r && readingSpeechKey(c);
+  if (!c || !key || followed.get(id) === key) return;
+  followed.set(id, key);
+  const { hi } = bounds(i);
+  const end = clamp(c.start + r.secs, c.start + MIN_DUR, Math.max(hi, c.start + MIN_DUR));
+  if (Math.abs(end - c.end) < 0.0005) return;
+  c.end = end;
+  changed(c.id);
+}
+const readingSpeechKey = (c) => { const spec = c && rewriteSpec(S.review, c, reviewSettings()); return spec ? speechKey(spec) : ''; };
 $('qcPrevious').addEventListener('click', () => {
   const c = selCue(), r = c && previousReading(S.review, c);
   if (!qc() || !r) return;
@@ -839,7 +874,7 @@ function updateEditor() {
   edAuto.hidden = !(c.auto && ttsOn());
   edDur.textContent = `${(c.end - c.start).toFixed(3)} s`;
   edSpeedWrap.hidden = !readingControls();
-  edVoiceWrap.hidden = !readingControls();
+  edVoiceWrap.hidden = !readingControls() || voiceFixed(c);
   if (readingControls() && document.activeElement !== edVoice) fillEdVoice(c);
   edDipWrap.hidden = !(ttsOn() && tts.duck);
   if (!edDipWrap.hidden && document.activeElement !== edDip && document.activeElement !== edDipCustom) fillEdDip(c);
@@ -852,21 +887,18 @@ function updateEditor() {
   if (!edit || edit.id !== c.id) edText.value = c.text;
   edStats.textContent = '';
   $('qcPrevious').hidden = true;
-  $('qcRewrite').hidden = true;
   $('qcBlockInfo').textContent = '';
   if (qc()) {
     const r = playbackReading(S.review, c, reviewSettings()), previous = previousReading(S.review, c);
     $('qcPrevious').hidden = r === previous || !previous;
-    $('qcRewrite').hidden = !S.reviewId || !qcEditable() || !rewriteSpec(S.review, c, reviewSettings());
-    $('qcRewrite').disabled = makingRewrite;
-    const playingRewrite = S.previousAudio?.kind === 'rewrite';
-    $('qcRewrite').textContent = makingRewrite ? 'Making reading…' : playingRewrite ? 'Stop rewrite' : 'Hear rewrite';
-    $('qcRewrite').setAttribute('aria-pressed', String(playingRewrite));
     const newVoice = !r && !!previous && readingVoiceChanged(S.review, c, reviewSettings());
     if (newVoice) $('qcBlockInfo').dataset.tip = 'A different voice can’t make new audio in QC. Ask the writer for a fresh package to hear it, or change the voice back';
     else delete $('qcBlockInfo').dataset.tip;
-    $('qcBlockInfo').textContent = newVoice ? 'New voice · needs a fresh package' : !r && previous ? 'Original reading out of date'
-      : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'Saved rewrite'} ${r.secs.toFixed(1)} s${r.secs > c.end - c.start + 0.05 ? ' · runs past block' : ''}` : 'Original reading missing')
+    const unread = !r && !!rewriteSpec(S.review, c, reviewSettings());
+    $('qcBlockInfo').textContent = newVoice ? 'New voice · needs a fresh package' : autoMaking.has(c.id) ? 'Making reading…'
+      : unread && !autoRewrites() ? 'Needs a Google key' : !r && previous ? 'Original reading out of date'
+      : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'New reading'} ${r.secs.toFixed(1)} s${r.secs > c.end - c.start + 0.05 ? ' · runs past block' : ''}`
+          : previous || !S.review?.byUid?.size ? 'Original reading missing' : rewriteSpec(S.review, c, reviewSettings()) ? 'New block · not read yet' : 'New block · no reading')
         : S.qcSource === 'preview' ? 'Approximate TTS preview' : 'Programme sound';
   }
   if (ttsOn() && spoken(c.text)) {
@@ -1038,6 +1070,7 @@ edText.addEventListener('blur', () => {
   // The block just edited, even when another one is now selected: with a Google voice,
   // this is when it's read.
   if (was && ttsOn() && spoken(was.text)) prefetch(said(was), was.speed, was.voice);
+  if (was) scheduleAutoRewrite(was.id);
 });
 edText.addEventListener('keydown', (e) => {
   e.stopPropagation();
@@ -2903,7 +2936,8 @@ function syncQcPermission() {
   $('qcPermission').textContent = authoring ? 'Authoring project' : qcEditable() ? 'Edits allowed' : 'Comments only';
   $('qcPermission').dataset.tip = authoring ? 'Your authoring project: edit in QC or Write, with the original readings kept for reference' : S.reviewId ? 'Chosen when the QC package was created' : 'Use Write or Transcribe to edit a plain project';
   $('qcPermissionInfo').textContent = authoring ? 'This is your authoring project. You can edit in QC or Write. Changed readings stay available as previous readings.' : qcEditable()
-    ? 'The package creator allows block edits. Timings change only when you edit them. Changed readings are marked out of date.'
+    ? (reviewGoogleKey(S.review?.reviewAccess?.googleKey || '') ? 'The package creator allows block edits. A changed Google block gets a new reading, and its end moves to fit.'
+      : 'The package creator allows block edits. Timings change only when you edit them. Changed readings are marked out of date.')
     : S.reviewId ? 'The package creator allows comments only. The script and timings stay fixed.'
       : 'This project is read-only in QC. Use Write or Transcribe to edit, or ask for a QC package that allows edits.';
   for (const b of document.querySelectorAll('#modeSw button')) b.disabled = lockedPackage && b.dataset.mode !== 'qc';
@@ -2950,7 +2984,7 @@ function setMode(m, quiet = false) {
   updateInd();
   tlDirty = true;
   if (!quiet) {
-    toast(m === 'qc' ? (qcEditable() ? (S.reviewId ? 'QC mode: the package allows block edits. Timings change only when you edit them' : 'QC mode: your authoring project is editable. Timings change only when you edit them') : 'QC mode: comments only. Click a block’s Comment button to add a note') : m === 'write'
+    toast(m === 'qc' ? (qcEditable() ? (S.reviewId ? `QC mode: the package allows block edits. ${reviewGoogleKey(S.review?.reviewAccess?.googleKey || '') ? 'Changed Google blocks get a new reading' : 'Timings change only when you edit them'}` : 'QC mode: your authoring project is editable. Timings change only when you edit them') : 'QC mode: comments only. Click a block’s Comment button to add a note') : m === 'write'
       ? `Write mode: text to speech${tts.on ? '' : ' (turn it on in Settings, or with ⌥⇧V)'}, reading times and block speeds`
       : 'Transcribe mode: hold H while the narrator speaks to mark each line');
   }
@@ -4424,7 +4458,13 @@ function qcRead(c, manual = false) {
   const from = () => Math.max(0, now() - c.start);
   if (S.qcSource === 'package') {
     const r = playbackReading(S.review, c, reviewSettings());
-    if (!r) return toast(rewriteSpec(S.review, c, reviewSettings()) ? 'Choose Hear rewrite to make a reading for the changed wording or speed' : 'No matching original reading for this block. Ask the writer to regenerate the QC package');
+    if (!r && rewriteSpec(S.review, c, reviewSettings())) {
+      // Not read yet, such as after a failed request: read it now.
+      if (!autoRewrites()) return toast('Add your Google key in Text to speech settings to read changed blocks');
+      if (!autoMaking.has(c.id)) autoRewrite(c.id);
+      return toast('Making the new reading. Play the block again when it’s ready');
+    }
+    if (!r) return toast('No matching original reading for this block. Ask the writer to regenerate the QC package');
     if (manual) S.playUntil = Math.max(c.end, c.start + r.secs);
     return;
   }

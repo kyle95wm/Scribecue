@@ -53,29 +53,52 @@ try {
   await wait(`document.getElementById('subName').textContent.includes('review')&&document.querySelectorAll('#list .row').length===1`);
   await js(`document.querySelectorAll('dialog[open]').forEach(d=>d.close());document.querySelector('#list .row').click();true`);
   assert.equal(await js('__calls.length'),0,'opening does not synthesize');
+  assert.equal(await js(`document.getElementById('edVoiceWrap').hidden`),true,'a Google block keeps its voice with a key in the package');
+  assert.equal(await js(`document.getElementById('edSpeedWrap').hidden`),false);
   await js(`(()=>{const f=document.getElementById('edEnd');f.focus();f.value='00:00:05.500';f.dispatchEvent(new Event('change',{bubbles:true}));f.blur()})()`);
   assert.equal(await js('__calls.length'),0,'placement/slot changes do not synthesize');
   const edit=async text=>js(`(()=>{const f=document.getElementById('edText');f.focus();f.value=${JSON.stringify(text)};f.dispatchEvent(new Event('input',{bubbles:true}));f.blur()})()`);
   await js(`window.__longTasks=[];window.__frames=[];window.__lastFrame=performance.now();window.__observer=new PerformanceObserver(l=>__longTasks.push(...l.getEntries().map(e=>e.duration)));__observer.observe({type:'longtask'});window.__tick=t=>{__frames.push(t-__lastFrame);__lastFrame=t;window.__raf=requestAnimationFrame(__tick)};__raf=requestAnimationFrame(__tick);true`);
+  // A changed block is read when the edit ends, and its end follows the reading.
+  const settled=n=>wait(`__calls.length===${n}&&!document.getElementById('qcBlockInfo').textContent.startsWith('Making')`);
+  const length=()=>js(`document.getElementById('edDur').textContent`);
+  const hear=()=>key('KeyV','v',{ctrlKey:false});
+  assert.equal(await js(`!!document.getElementById('qcRewrite')`),false,'no Hear rewrite button');
+  await js(`(()=>{const f=document.getElementById('edText');f.focus();f.value='Mara opens the green';f.dispatchEvent(new Event('input',{bubbles:true}));return true})()`);
+  await sleep(1200);assert.equal(await js('__calls.length'),0,'typing alone does not synthesize');
   await edit('Mara opens the green door.');
-  await wait(`!document.getElementById('qcRewrite').hidden`);
-  assert.equal(await js('__calls.length'),0,'editing alone does not synthesize');
-  await click('qcRewrite');await wait(`!document.getElementById('qcRewrite').disabled`);
+  await settled(1);
   assert.deepEqual(await js('__calls'),['personal-test-key']);
-  await click('qcRewrite');assert.equal(await js('__calls.length'),1,'replaying is offline');
-  await js(`__fail=true;__accept=false;true`);await edit('Mara opens the red door.');
-  await click('qcRewrite');await wait(`!document.getElementById('qcRewrite').disabled`);
-  assert.equal(await js('__offers'),1);assert.deepEqual(await js('__calls'),['personal-test-key','personal-test-key']);
-  await js(`__accept=true;true`);await click('qcRewrite');await wait(`!document.getElementById('qcRewrite').disabled`);
-  assert.equal(await js('__offers'),2);assert.deepEqual(await js('__calls'),['personal-test-key','personal-test-key','personal-test-key','bundled-test-key']);
+  await wait(`document.getElementById('edDur').textContent==='1.000 s'`);
+  await hear();await sleep(300);await hear();assert.equal(await js('__calls.length'),1,'replaying is offline');
+  await js(`(()=>{const f=document.getElementById('edEnd');f.focus();f.value='00:00:05.500';f.dispatchEvent(new Event('change',{bubbles:true}));f.blur()})()`);
+  await sleep(1200);assert.equal(await length(),'2.500 s','an end set by hand stays');assert.equal(await js('__calls.length'),1);
+  // The reviewer's key fails: the writer's key reads it, without asking.
+  await js(`__fail=true;true`);await edit('Mara opens the red door.');
+  await settled(3);
+  assert.equal(await js('__offers'),0,'no question');assert.deepEqual((await js('__calls')).slice(-2),['personal-test-key','bundled-test-key']);
+  await wait(`document.getElementById('toast').textContent.includes('the writer’s key read block #1')`);
+  await wait(`document.getElementById('edDur').textContent==='1.000 s'`);
   await js(`document.getElementById('edSpeed').value='1.15';document.getElementById('edSpeed').dispatchEvent(new Event('change'));true`);
-  await click('qcRewrite');await wait(`!document.getElementById('qcRewrite').disabled`);
-  assert.deepEqual((await js('__calls')).slice(-2),['personal-test-key','bundled-test-key'],'each new speed starts with personal key');
-  await js(`__offline=true;true`);await click('qcRewrite');await click('qcPrevious');
+  await settled(5);
+  assert.deepEqual((await js('__calls')).slice(-2),['personal-test-key','bundled-test-key'],'each new reading starts with the personal key');
+  // A block added in review reads in the package's Google voice, as soon as it's written.
+  await js(`__fail=false;document.activeElement?.blur();true`);
+  for(const type of ['mousePressed','mouseReleased'])await send('Input.dispatchMouseEvent',{type,x:720,y:676,button:'left',clickCount:1});
+  await key('Enter','Enter',{ctrlKey:false});
+  await wait(`document.querySelectorAll('#list .row').length===2&&document.activeElement===document.getElementById('edText')`);
+  assert.equal(await js(`document.getElementById('edVoiceWrap').hidden`),true,'an added block keeps the package voice');
+  assert.equal(await js(`document.getElementById('qcBlockInfo').textContent`),'New block · no reading');
+  await edit('A door slams.');
+  await settled(6);
+  assert.equal(await js('__calls.at(-1)'),'personal-test-key');
+  await wait(`document.getElementById('edDur').textContent==='1.000 s'&&document.getElementById('qcBlockInfo').textContent.startsWith('New reading')`);
+  await js(`document.querySelector('#list .row').click();true`);
+  await js(`__offline=true;true`);await hear();await click('qcPrevious');
   const calls=await js('__calls.length');
   await key('KeyS','s');await wait(`!!__saved`);
   const persisted=await js(`(async()=>{const r=await(await import('./js/qc.js')).readReview(__saved);return{key:r.reviewAccess.googleKey,proposals:r.proposals.length}})()`);
-  assert.equal(persisted.key,'bundled-test-key');assert.equal(persisted.proposals,3);
+  assert.equal(persisted.key,'bundled-test-key');assert.equal(persisted.proposals,4);
   const responsiveness=await js(`(()=>{cancelAnimationFrame(__raf);__observer.disconnect();return{longTasks:__longTasks,maxFrameGapMs:Math.max(...__frames),frames:__frames.length,heapMiB:Math.round(performance.memory.usedJSHeapSize/1048576)}})()`);
   if(screenshot){
     await js(`document.activeElement?.blur();document.getElementById('toast').classList.add('fade');true`);await sleep(400);
@@ -84,11 +107,11 @@ try {
   await openQC();assert.ok((await js(`document.getElementById('qcKeyInfo').textContent`)).startsWith('Your Google key'));
   await click('qcReturn');
   const returned=await js(`(async()=>{const r=await(await import('./js/qc.js')).readReview(await __download);return{key:r.reviewAccess,proposals:r.proposals.length}})()`);
-  assert.equal(returned.key,null);assert.equal(returned.proposals,3);
+  assert.equal(returned.key,null);assert.equal(returned.proposals,4);
   assert.equal(await js('__calls.length'),calls);
   // Restore the working package, then replay with no network and no lost key setting.
-  await send('Page.reload');await wait(`document.querySelectorAll('#list .row').length===1`);await sleep(700);
-  await js(`__offline=true;document.querySelectorAll('dialog[open]').forEach(d=>d.close());document.querySelector('#list .row').click();true`);await click('qcRewrite');
+  await send('Page.reload');await wait(`document.querySelectorAll('#list .row').length===2`);await sleep(700);
+  await js(`__offline=true;document.querySelectorAll('dialog[open]').forEach(d=>d.close());document.querySelector('#list .row').click();true`);await hear();
   assert.equal(await js('__calls.length'),0,'browser recovery replays cached rewrite without Google');
   assert.equal(await js(`JSON.parse(localStorage.getItem('scribecue.googleTts')).key`),'personal-test-key');
   // Check the writer's explicit opt-in and prevent bundling their main key.
@@ -100,5 +123,5 @@ try {
   await js(`document.querySelectorAll('dialog[open]').forEach(d=>{if(d.id!=='qcExportDlg')d.close()});document.getElementById('toast').classList.add('fade');true`);
   if(screenshot){const shot=await send('Page.captureScreenshot',{format:'png'});writeFileSync(join(dirname(screenshot),'qc-google-package.png'),Buffer.from(shot.result.data,'base64'));}
   await click('qcExportAllowEdits');assert.equal(await js(`document.getElementById('qcGoogleKey').value`),'');
-  console.log(JSON.stringify({cpuSlowdown:6,synthesisRequests:calls,recordings:persisted.proposals,personalKeyPriority:true,declinedFallback:true,acceptedFallback:true,offlineReplay:true,returnKeyRemoved:true,responsiveness}));
+  console.log(JSON.stringify({cpuSlowdown:6,synthesisRequests:calls,recordings:persisted.proposals,personalKeyPriority:true,automaticReadings:true,endFollowsReading:true,addedBlockReading:true,automaticFallback:true,offlineReplay:true,returnKeyRemoved:true,responsiveness}));
 } finally {if(preload?.result?.identifier)await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:preload.result.identifier});ws.close();}

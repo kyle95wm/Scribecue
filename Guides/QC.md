@@ -112,19 +112,24 @@ Original readings keep their full length, including overlapping tails. Moving a 
 reuses its saved audio. Resizing also reuses it unless you change the reading speed;
 the inspector warns when a reading runs past the block’s end.
 
-### Hear Google rewrites
+### New Google readings
 
-For an editable package with Google voices, the reviewer can change wording or speed,
-then click **Hear rewrite**. This uses the block’s original Google voice. It saves the
-new recording for replay, including after moving the block or reopening a saved package.
-**Hear previous reading** plays the original alone for comparison. Undoing the correction
-restores the original audio.
+For an editable package with Google voices, a changed block is read when you finish
+editing it, as in Write mode. This covers new wording, a new speed, and blocks you add.
 
-![A saved rewrite beside the original reading](../docs/screenshots/qc-google-rewrite.png)
+- The new reading uses the block’s original Google voice. Added blocks use the package’s.
+- The block’s end moves to where the new reading finishes. You can still set it by hand.
+- The voice list is hidden for these blocks, since a new voice would need a fresh package.
+- Readings are saved, so they replay offline, after moving a block, or after reopening.
+- Deleting a block makes no request. Undo restores the original audio.
 
-The reviewer’s Google key is used first. If it fails and a separate key is bundled,
-Scribecue offers to retry that reading with the writer’s key. Nothing switches without
-agreement. The next new reading tries the reviewer’s key first again.
+Press V to hear a block. **Hear previous reading** plays the original alone.
+
+![A new reading beside the original reading](../docs/screenshots/qc-google-rewrite.png)
+
+Readings use the reviewer’s Google key first. If it fails, or there isn’t one, the
+writer’s separate key in the package is used. Without either, the block says
+**Needs a Google key**. Packages with readings for added blocks need Scribecue 0.72 or later.
 
 To supply a key, turn on **Allow reviewers to edit blocks**, then **Include a separate
 Google review key** during export. Paste a new key made for this review; your main key
@@ -358,7 +363,7 @@ while typing, see [Keyboard shortcuts](SHORTCUTS.md).
 | No Comment button | Select QC, then open a block. Comments are hidden in all other modes. |
 | The note is on the wrong target | Check the target above the comment box. Use the block's Comment button for a block, or right-click the timeline for a time. Delete and repost a misplaced note. |
 | Two voices speak at once | Choose Programme sound for a recorded description mix, or choose the original soundtrack when playing packaged readings. |
-| No narration | Check Audio, volume and the QC playback source. For changed Google wording or speed, choose Hear rewrite. Other missing recordings need a fresh package from the writer. |
+| No narration | Check Audio, volume and the QC playback source. Changed Google blocks need a Google key and internet. Other missing recordings need a fresh package from the writer. |
 | “No open comments” | Try Show resolved. Also check you're opening the returned project, rather than the original file or an SRT export. |
 | All notes don't fit in the drawer | Scroll its comment list and use Previous / Next for further pages. |
 | Timing differs between copies | Confirm the picture cut and lead-in. Use original readings; substitute voices can have different lengths. |

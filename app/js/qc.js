@@ -3,7 +3,7 @@
 import { collaborationJob } from './collaboration.js';
 import { hashReading, prepareReviewBaseline } from './qcreview.js';
 import { fromProject, validIdentity, validRevision } from './project.js';
-import { speechSpec, speechKey, sameSpeech, googleRewrite } from './qcspeech.js';
+import { speechSpec, speechKey, sameSpeech, googleRewrite, googleAddition, isGoogleStandard } from './qcspeech.js';
 export const REVIEW_EXT = '.scribecueqc';
 const MAGIC = 'SCQC0001', FOOTER = 12, MAX_MANIFEST = 16 * 1024 * 1024;
 const bytes = (s) => new TextEncoder().encode(s);
@@ -44,7 +44,14 @@ export function playbackReading(review, block, settings) {
   if (before?.voice.startsWith('google:') && sameSpeech(before, after)) return original;
   const rewrite = googleRewrite(original, key);
   if (rewrite) return review.proposalIndex?.get(JSON.stringify([original.offset, speechKey(rewrite)])) || null;
-  return reviewReading(review, block, settings);
+  const found = reviewReading(review, block, settings), added = !original && !found && addedSpec(review, block, settings);
+  return found || (added && review.proposalIndex?.get(JSON.stringify([block.uid, speechKey(added)]))) || null;
+}
+// A block added during review, in a package made for handoff: it can be read in one of the
+// package's own Google voices.
+export function addedSpec(review, block, settings) {
+  if (!reviewAllowsEdits(review) || !review.byUid?.size || !validIdentity(block?.uid) || previousReading(review, block)) return null;
+  return googleAddition(review.googleVoices, readingKey(block, settings));
 }
 // A reviewer chose another voice. Its audio can only come from a fresh package.
 export function readingVoiceChanged(review, block, settings) {
@@ -53,7 +60,9 @@ export function readingVoiceChanged(review, block, settings) {
   return !!original && !!before && !!after && before !== after;
 }
 export function rewriteSpec(review, block, settings) {
-  return reviewAllowsEdits(review) ? googleRewrite(previousReading(review, block), readingKey(block, settings)) : null;
+  if (!reviewAllowsEdits(review)) return null;
+  const original = previousReading(review, block);
+  return original ? googleRewrite(original, readingKey(block, settings)) : addedSpec(review, block, settings);
 }
 export function reviewReading(review, block, settings) {
   if (!review) return null;
@@ -67,7 +76,9 @@ function trailer(length) {
 }
 function manifestParts(project, readings, allowEdits = false, baselineId = null, proposals = [], googleKey = '') {
   const { reviewAudio, ...packageProject } = project;
-  const json = bytes(JSON.stringify({ review: proposals.length || googleKey ? 3 : 2, ...(baselineId ? { reviewBaseline: baselineId } : {}), permissions: { allowEdits: allowEdits === true }, project: packageProject, readings,
+  // Readings for added blocks need version 4, so older versions say to update rather than fail.
+  const version = proposals.some((r) => r.originalOffset == null) ? 4 : proposals.length || googleKey ? 3 : 2;
+  const json = bytes(JSON.stringify({ review: version, ...(baselineId ? { reviewBaseline: baselineId } : {}), permissions: { allowEdits: allowEdits === true }, project: packageProject, readings,
     ...(proposals.length ? { proposals } : {}), ...(googleKey && allowEdits ? { reviewAccess: { googleKey } } : {}) }));
   if (json.byteLength > MAX_MANIFEST) throw new Error('This review has too much project information');
   return [json, trailer(json.byteLength)];
@@ -79,7 +90,7 @@ export async function appendRewrite(review, project, block, made) {
   const spec = rewriteSpec(review, block, project.settings), original = previousReading(review, block);
   if (!spec || made.voice !== spec.voice || !(made.blob instanceof Blob) || made.blob.size < 44 || !(made.secs > 0)) throw new Error('This block cannot use a Google rewrite');
   if (playbackReading(review, block, project.settings)) return review;
-  const proposal = { originalOffset: original.offset, key: readingKey(block, project.settings), offset: review.audioEnd,
+  const proposal = { ...(original ? { originalOffset: original.offset } : { blockUid: block.uid }), key: readingKey(block, project.settings), offset: review.audioEnd,
     bytes: made.blob.size, secs: made.secs, voice: spec.voice, sha: await hashReading(made.blob) };
   const file = new Blob([review.file.slice(0, review.audioEnd), made.blob,
     ...manifestParts(project, review.readings, true, review.baselineId, [...review.proposals, proposal], review.reviewAccess?.googleKey)], { type: 'application/octet-stream' });
@@ -93,7 +104,7 @@ export async function readReview(file) {
   if (!length || length > MAX_MANIFEST || end - length < 8) throw new Error('The QC package is damaged');
   const audioEnd = end - length;
   let m; try { m = JSON.parse(await file.slice(audioEnd, end).text()); } catch { throw new Error('The QC package is damaged'); }
-  if (![1, 2, 3].includes(m.review)) throw new Error('This QC package needs a newer Scribecue version');
+  if (![1, 2, 3, 4].includes(m.review)) throw new Error('This QC package needs a newer Scribecue version');
   if (m.reviewBaseline != null && !validRevision(m.reviewBaseline)) throw new Error('The QC starting point is damaged');
   const parsed = fromProject(m.project); // Check the script before exposing any audio.
   if (!Array.isArray(m.readings) || m.readings.length > 100000) throw new Error('The QC readings are damaged');
@@ -104,24 +115,27 @@ export async function readReview(file) {
       r.offset !== at || r.bytes < 44 || r.offset + r.bytes > audioEnd || !finite(r.secs) || r.secs <= 0 || typeof r.voice !== 'string') throw new Error('The QC readings are damaged');
     index.set(audioKey(r.key), r); byOffset.set(r.offset, r); if (r.blockUid) byUid.set(r.blockUid, r); at += r.bytes;
   }
-  const proposals = m.review === 3 ? m.proposals || [] : [], proposalIndex = new Map();
+  const proposals = m.review >= 3 ? m.proposals || [] : [], proposalIndex = new Map();
+  const googleVoices = new Set(m.readings.map((r) => r.voice).filter(isGoogleStandard));
   if (!Array.isArray(proposals) || proposals.length > 100000) throw new Error('The QC rewrites are damaged');
   for (const r of proposals) {
-    const spec = r && googleRewrite(byOffset.get(r.originalOffset), r.key);
+    const added = r?.originalOffset == null;
+    const spec = !r ? null : !added ? googleRewrite(byOffset.get(r.originalOffset), r.key)
+      : m.review >= 4 && byUid.size && validIdentity(r.blockUid) && !byUid.has(r.blockUid) ? googleAddition(googleVoices, r.key) : null;
     if (!spec || r.voice !== spec.voice || r.offset !== at || !Number.isSafeInteger(r.bytes) || r.bytes < 44 ||
       at + r.bytes > audioEnd || !finite(r.secs) || r.secs <= 0 || !validRevision(r.sha) || m.permissions?.allowEdits !== true) throw new Error('The QC rewrites are damaged');
-    const key = JSON.stringify([r.originalOffset, speechKey(spec)]);
+    const key = JSON.stringify([added ? r.blockUid : r.originalOffset, speechKey(spec)]);
     if (proposalIndex.has(key)) throw new Error('The QC rewrites are damaged');
     proposalIndex.set(key, r); at += r.bytes;
   }
   if (at !== audioEnd) throw new Error('The QC readings are damaged');
   let reviewAccess = null;
-  if (m.review === 3 && m.reviewAccess != null) {
+  if (m.review >= 3 && m.reviewAccess != null) {
     const key = m.reviewAccess.googleKey;
     if (m.permissions?.allowEdits !== true || typeof key !== 'string' || !key.trim() || key.length > 512 || /\s/.test(key)) throw new Error('The QC review key is damaged');
     reviewAccess = { googleKey: key };
   }
-  return { file, baselineId: m.reviewBaseline || null, project: m.project, parsed, readings: m.readings, proposals, proposalIndex, reviewAccess, audioEnd, index, byOffset, byUid, permissions: { allowEdits: m.review >= 2 && m.permissions?.allowEdits === true } };
+  return { file, baselineId: m.reviewBaseline || null, project: m.project, parsed, readings: m.readings, proposals, proposalIndex, googleVoices, reviewAccess, audioEnd, index, byOffset, byUid, permissions: { allowEdits: m.review >= 2 && m.permissions?.allowEdits === true } };
 }
 // Package metadata is parsed and checked off the page for long reviews.
 export async function openReview(file) {

@@ -13,11 +13,18 @@ export function speechSpec(key) {
 }
 export const speechKey = (s) => JSON.stringify([s.voice, s.rate, s.words]);
 export const sameSpeech = (a, b) => !!a && !!b && speechKey(a) === speechKey(b);
+export const isGoogleStandard = (voice) => /^google:[a-z]{2,3}-[A-Z]{2}-Standard-[A-Z]$/.test(voice);
 export function googleRewrite(original, key) {
   const before = speechSpec(original?.key), after = speechSpec(key);
-  if (!before || !after || !/^google:[a-z]{2,3}-[A-Z]{2}-Standard-[A-Z]$/.test(before.voice) ||
+  if (!before || !after || !isGoogleStandard(before.voice) ||
     original.voice !== before.voice || after.voice !== before.voice || !after.words || after.rate < .25 || after.rate > 4 || sameSpeech(before, after)) return null;
   return after;
+}
+// A block the reviewer added has no original. It can only use a Google voice the package
+// already reads with (voices: a Set of them).
+export function googleAddition(voices, key) {
+  const spec = speechSpec(key);
+  return spec && isGoogleStandard(spec.voice) && voices?.has(spec.voice) && spec.words && spec.rate >= .25 && spec.rate <= 4 ? spec : null;
 }
 // One explicit request at a time per reading. Fallback needs the reviewer's consent.
 const pending = new Map();

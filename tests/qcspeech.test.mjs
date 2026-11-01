@@ -77,6 +77,44 @@ test('malformed rewrite metadata cannot be saved or played as a matching reading
   assert.equal(speechSpec('garbage'), null);
 });
 
+test('a block added in review can be read in one of the package’s Google voices', async () => {
+  const r = await setup(), s = r.project.settings;
+  const added = { uid: newIdentity(), start: 6, end: 8, text: 'A door slams.' };
+  const p = structuredClone(r.project); p.blocks.push(added);
+  assert.ok(rewriteSpec(r, added, s));
+  assert.equal(playbackReading(r, added, s), null);
+  for (const no of [{ ...added, text: '' }, { ...added, voice: 'google:en-US-Standard-B' }, { ...added, voice: 'piper:en_US-lessac-medium' }, { ...added, uid: undefined }]) assert.equal(rewriteSpec(r, no, s), null);
+  assert.equal(rewriteSpec(await setup(false), added, s), null, 'comments-only packages');
+  const next = await appendRewrite(r, p, added, made());
+  assert.equal(next.proposals[0].blockUid, added.uid);
+  assert.equal(next.proposals[0].originalOffset, undefined);
+  assert.equal(playbackReading(next, added, s).offset, r.audioEnd);
+  assert.equal(playbackReading(next, { ...added, start: 30, end: 31 }, s).offset, r.audioEnd, 'moving reuses it');
+  assert.equal(playbackReading(next, { ...added, text: 'A door creaks.' }, s), null);
+  assert.equal(playbackReading(next, r.project.blocks[0], s).offset, 8, 'originals are untouched');
+  const returned = await readReview(resaveReview(next, p));
+  assert.equal(JSON.parse(await returned.file.slice(returned.audioEnd, -12).text()).review, 4);
+  assert.equal(playbackReading(returned, added, s).offset, r.audioEnd);
+  assert.ok((await compareReturnedReview(r.project, returned)).project.blocks.some((b) => b.uid === added.uid));
+});
+test('readings for added blocks cannot claim an original block, another voice, or an old version', async () => {
+  const r = await setup(), s = r.project.settings, added = { uid: newIdentity(), start: 6, end: 8, text: 'A door slams.' };
+  const p = structuredClone(r.project); p.blocks.push(added);
+  const next = await appendRewrite(r, p, added, made());
+  const tamper = async (change, version) => {
+    const file = resaveReview(next, p), text = await file.slice(next.audioEnd, file.size - 12).text(), m = JSON.parse(text);
+    change(m); if (version) m.review = version;
+    const json = new TextEncoder().encode(JSON.stringify(m)), footer = new Uint8Array(12);
+    new DataView(footer.buffer).setUint32(0, json.length, true); footer.set(new TextEncoder().encode('SCQC0001'), 4);
+    return readReview(new Blob([next.file.slice(0, next.audioEnd), json, footer]));
+  };
+  assert.ok(await tamper(() => {}));
+  await assert.rejects(tamper((m) => { m.proposals[0].blockUid = r.project.blocks[0].uid; }), /rewrites are damaged/);
+  await assert.rejects(tamper((m) => { m.proposals[0].key = m.proposals[0].key.replace('Standard-A', 'Standard-B'); m.proposals[0].voice = 'google:en-US-Standard-B'; }), /rewrites are damaged/);
+  await assert.rejects(tamper(() => {}, 3), /rewrites are damaged/);
+  await assert.rejects(tamper((m) => { m.review = 5; }), /newer Scribecue/);
+});
+
 test('personal key first; bundled fallback is offered and requires agreement for each failed reading', async () => {
   const oldFetch = globalThis.fetch, oldStorage = globalThis.localStorage;
   let personal = '', calls = [], offers = 0, fail = false, accept = false;
