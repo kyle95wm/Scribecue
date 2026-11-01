@@ -7,7 +7,8 @@ screenshots and releases. This file only adds what isn't there.
 
 ## Where things stand
 
-- **Release version:** 0.65.0. QC mode, portable packages and optional edits are unreleased.
+- **Release version:** 0.66.0. QC mode, portable packages and optional edits ship in this release.
+  The previous release was 0.65.0.
 - **QC mode:** editing starts off. Allow edits enables manual block corrections, voices,
   speeds, timing changes and undo. No automatic timing fitting runs in QC. Permission resets
   when changing modes, opening a project or reloading. Comments, block Comment
