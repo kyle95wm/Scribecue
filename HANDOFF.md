@@ -7,24 +7,43 @@ screenshots and releases. This file only adds what isn't there.
 
 ## Where things stand
 
-- **Release version:** 0.65.0. The release commit is `Release 0.65.0`.
-  The previous release was 0.64.2 (commit `180a483`).
-- **QC comments (0.65.0):** Comments on blocks and timeline times, with a
-  dedicated Comments drawer. Each open block has a Comment button. Reviewer names are
-  optional and remembered in the browser. Projects keep the comments for handoff.
-- Comments can be edited, deleted, resolved and reopened. Block comments follow timing
-  changes; merging keeps both blocks' comments. Splitting leaves comments on the first half.
-- Checks passed: `scripts/check.sh`, including Docker, and `scripts/screenshots.sh`,
-  including the browser regression checks. Screenshots were refreshed with Piper.
-- At 6× CPU slowdown, a five-second playback sample with 5,000 comments measured 60 fps,
-  no dropped video frames and no long tasks. Typing took about 0.1 ms; the reported JS heap
-  was about 3.3 MB. Only 50 comments are rendered at once.
-- Not measured: full two-hour playback, TTS onset timing, and long export jobs.
-- Since 0.65.0: the redundant comment target buttons have been removed. A block’s
-  Comment button targets that block; the header targets the playhead. Right-click targets
-  the chosen time. `Guides/QC.md` covers the full review workflow and opens in the app.
-- Main files: `app/js/comments.js`, `app/js/commentsdrawer.js`, `tests/comments.test.mjs`
-  and `scripts/comments-smoke.mjs`.
+- **Release version:** 0.65.0. QC mode, portable packages and optional edits are unreleased.
+- **QC mode:** editing starts off. Allow edits enables manual block corrections, voices,
+  speeds, timing changes and undo. No automatic timing fitting runs in QC. Permission resets
+  when changing modes, opening a project or reloading. Comments, block Comment
+  buttons and timeline comment markers appear only in QC. Write and Transcribe keep editing.
+- First-run setup offers QC review directly, with its own steps and key hints.
+- Missing main or block voices open a project in QC with saved timings preserved. QC playback
+  offers programme sound, original packaged readings, or an explicitly chosen approximate preview.
+- **QC packages:** Export → QC package creates `.scribecueqc` with the project and individual
+  original WAV readings. Piper, Kokoro and Google Cloud support packaging; browser voices do not.
+  Reviewers need no voices or keys. Send the matching video separately.
+- Saving comments keeps original audio. Moving/resizing blocks reuses the audio
+  and flags overruns. Text, pronunciation, speed, voice or note-reading changes invalidate it.
+  Hear previous reading plays stale audio alone, with programme playback paused.
+  QC never silently substitutes it.
+- Packaging streams to temporary browser disk storage with progress and cancellation. Metadata
+  opens in a worker. Playback slices only active readings, including overlapping tails. Browser
+  recovery keeps the source package in IndexedDB; saving is blocked if its audio is unavailable.
+- Full checks passed (263 Node tests, 17 Python tests and Docker). The local Docker app
+  was rebuilt and verified; all six services remain running. Screenshots include QC playback, editing with comments, and package dialogs.
+- Browser checks at 6× CPU slowdown: 5,000 comments rendered 50 at a time, 60 fps, no dropped
+  video frames or long tasks over five seconds; comment typing 7.4 ms. QC text editing with 720 blocks took 8.8 ms. A synthetic two-hour package
+  (720 two-second readings, 46.2 MB) streamed in 500 ms, timer max gap 17 ms. JS heap after
+  import/comment resave was about 4 MB. Actual Piper packaging and original playback passed
+  without synthesis requests during playback. These are short samples, not full-film playback.
+- `scripts/qc-smoke.mjs` covers mode visibility, opt-in editing, fixed automatic timings, missing voices, real Piper
+  export, worker import, original playback, comment resave, recovery, stale/previous readings and undo.
+  `scripts/comments-smoke.mjs` covers comment CRUD, attachments, undo and playback stress.
+- `Guides/QC.md` now covers the dedicated workflow, voice differences and package handoffs.
+  Getting started, Writing, Voices, Shortcuts and README were updated. QC guide grew to
+  explain packaging restrictions, original versus approximate playback and stale audio.
+  The editing section grew to explain permission, unchanged timing behavior,
+  old audio and regeneration after corrections.
+- Package blocks keep `qcReading` (audio offset) for old-reading lookup after edits. New
+  exports discard old offsets. Older timing-based package keys are normalized on load.
+- Main modules: `qc.js` (package/voice/recovery helpers), `qc-worker.js`, `qcplayer.js`,
+  `qcdrawer.js`, `comments.js` and `commentsdrawer.js`. Pure tests are in `tests/qc*.test.mjs`.
 
 ## Last change: Mac voices (0.64.2)
 

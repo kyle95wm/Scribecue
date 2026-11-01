@@ -48,3 +48,11 @@ test('the loop for each mode, in the keys the person uses, has a card of its own
   // a changed key shows in the loop
   assert.match(loop('transcribe', (id) => (id === 'hold' ? 'Y' : keys[id])), /Hold Y while/);
 });
+
+
+test('the QC loop explains fixed timings and commenting without editing instructions', () => {
+  const text = loop('qc');
+  assert.match(text, /timings stay fixed/);
+  assert.match(text, /Comment/);
+  assert.doesNotMatch(text, /Hold|Drag|Type the line/);
+});

@@ -13,6 +13,7 @@ function showComments() {
 }
 // The header and shortcut start a comment at the playhead; right-click supplies a time.
 export function toggleComments(open = $('commentsDrawer').hidden, time = null) {
+  if (open && !hooks.canComment()) return hooks.toast('Comments are available in QC mode. Switch to QC at the top');
   if (!open) {
     $('commentsDrawer').hidden = true;
     $('commentsBtn').setAttribute('aria-pressed', 'false');
@@ -25,7 +26,7 @@ export function toggleComments(open = $('commentsDrawer').hidden, time = null) {
 }
 // The editor button always targets its block, including after a timeline comment.
 export function openBlockComments() {
-  if (!hooks.selected()) return;
+  if (!hooks.canComment() || !hooks.selected()) return;
   timeline = false;
   showComments();
 }
@@ -69,6 +70,7 @@ export function initComments(h) {
   $('commentsPrev').onclick = () => { page--; refreshComments(); };
   $('commentsNext').onclick = () => { page++; refreshComments(); };
   $('commentPost').onclick = () => {
+    if (!hooks.canComment()) return;
     const text = $('commentText').value.trim(), author = $('commentAuthor').value.trim(), block = hooks.selected();
     if (!text) { $('commentStatus').textContent = 'Write a comment first'; return $('commentText').focus(); }
     const time = timeline ? hooks.readTime($('commentAt').value.trim()) : null;

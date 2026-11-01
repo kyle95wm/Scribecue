@@ -2,21 +2,18 @@
 
 How Scribecue is laid out, the loop you work in, and how to save and export.
 
-## Modes: Transcribe and Write
+## Modes
 
-The switch next to the Scribecue name picks what you're doing, and shows only the features
-for it.
+The switch next to Scribecue’s name chooses what you’re doing.
 
-| | Transcribe | Write |
-| --- | --- | --- |
-| For | Existing audio description, at its original timing | New audio description |
-| [Hold-to-mark](TRANSCRIBING.md#marking-lines-with-h) (`H`) | ✓ | Times your own read of a block |
-| [Speech to text](TRANSCRIBING.md#speech-to-text-with-whisper) | ✓ | |
-| [Text to speech](WRITING.md) (`V`) | | ✓ |
-| Everything else | ✓ | ✓ |
+| Mode | Use it for |
+| --- | --- |
+| **Transcribe** | Time existing narration with H. Whisper can type it for you. |
+| **Write** | Write descriptions and hear them with text to speech. |
+| **QC** | Review scripts; turn on Allow edits for corrections. Listen to original readings or programme sound, and leave comments. |
 
-Switching only hides features, so nothing is lost. If you press a key from the other mode,
-Scribecue tells you which mode it's in.
+Switching keeps your work. QC starts with editing off. Allow edits enables corrections without automatic timing changes. Comments appear only in QC.
+[The QC guide](QC.md) explains voice checks and portable review packages.
 
 ## Settings
 
@@ -134,9 +131,9 @@ download a copy each time you save, and you open the video yourself.
 
 ## Comments for QC
 
-Click **Comment** in an open block to comment on it. Open **Comments** at the top to
+Select **QC**, then click **Comment** in an open block to comment on it. Open **Comments** at the top to
 comment at the playhead, or right-click the timeline. Add your name if you like, write
-the comment, then click **Post comment**. Save the `.scribecue` project to hand it over.
+the comment, then click **Post comment**. Save the project or QC package to hand it over.
 
 The [QC guide](QC.md) covers reviewing, resolving comments and returning the project.
 
@@ -211,7 +208,7 @@ If the video is slow to start, or stutters:
 
 | | Supported |
 | --- | --- |
-| **Projects** | `.scribecue`, to open and save |
+| **Projects** | `.scribecue` and `.scribecueqc`, to open and save |
 | **Scripts** | SRT and WebVTT, to open and export; Frazier's `.adc`, to open |
 | **Video and audio** | MP4, MOV, M4A, MKV, WebM and WAV |
 | **Very large files** | Fine for MP4, MOV, M4A, MKV, WebM and WAV. Other formats need to be under 2 GB |

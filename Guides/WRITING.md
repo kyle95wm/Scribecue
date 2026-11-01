@@ -162,3 +162,9 @@ later in the text to speech settings.
   250 MB, so they play straight away next time and Google isn't asked again. The **Storage** section
   of Settings shows them and can clear them.
 - **Playback speed:** the voice follows the video's playback speed.
+
+## Hand off for QC
+
+Choose **Export → QC package** to include the original readings with the project.
+Reviewers can listen in QC mode without installing your voices. Built-in computer
+voices cannot be packaged. See [QC review](QC.md#make-a-portable-qc-package).

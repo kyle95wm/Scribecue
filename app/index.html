@@ -35,6 +35,7 @@
     <div class="modesw" id="modeSw" role="radiogroup" aria-label="Mode">
       <button role="radio" data-mode="transcribe" data-tip="Transcribe existing audio description at its original timing, with hold-to-mark (H)">Transcribe</button>
       <button role="radio" data-mode="write" data-tip="Write new audio description, with text to speech, reading times and block speeds">Write</button>
+      <button role="radio" data-mode="qc" data-tip="Review with fixed script and timings, original audio and comments">QC</button>
     </div>
     <div class="recbadge record-only">
       <strong>Record mode</strong>
@@ -57,11 +58,13 @@
           <button role="menuitem" data-act="exportSrt"><span><strong>Script as SRT</strong><span class="dim">to hand off, or for the final output</span></span><kbd><span class="mod"></span>E</kbd></button>
           <button role="menuitem" data-act="exportVtt"><span><strong>Script as WebVTT</strong><span class="dim">also keeps block speeds and sounds-like words</span></span><kbd><span class="mod"></span>⇧E</kbd></button>
           <button role="menuitem" data-act="exportTrack" class="write-only"><span><strong>Description track</strong><span class="dim">every reading in one WAV or MP3 file, with a Piper or Google voice</span></span></button>
+          <button role="menuitem" data-act="exportQc" class="qc-export"><span><strong>QC package</strong><span class="dim">the project and original readings, ready to review on another computer</span></span></button>
           <button role="menuitem" data-act="exportRecording" class="write-only"><span><strong>Recording file</strong><span class="dim">the locked script and timings, for a narrator to record against</span></span></button>
           <button role="menuitem" data-act="exportNarration" class="record-only"><span><strong>Narration WAV</strong><span class="dim">the chosen takes in one timestamped file, for the mixer</span></span></button>
           <button role="menuitem" data-act="exportMix" class="write-only"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></button>
         </div>
       </span>
+      <button id="qcAllowEdits" class="qc-only" aria-pressed="false" data-tip="Allow block edits in QC. Timings change only when you edit them">Allow edits</button>
       <button data-act="comments" id="commentsBtn" aria-pressed="false" aria-controls="commentsDrawer" data-tip="Comments on blocks and timeline times, saved with the project (⌥⇧C)">Comments</button>
       <button data-act="ai" id="aiBtn" class="tip-end" data-tip="AI help: chat about the scene and draft descriptions (⌥⇧A)">AI</button>
       <button data-act="settings" class="tip-end" data-tip="Settings: text to speech, speech to text, AI help, shortcuts, storage and more (⌥⇧S)">Settings</button>
@@ -113,7 +116,7 @@
             <span class="grow"></span>
             <span id="edStats"></span>
           </div>
-          <div class="edtts"><button id="edComment" aria-controls="commentsDrawer" data-tip="Add a comment to this block">Comment</button></div>
+          <div class="edtts" id="qcCommentRow"><button id="edComment" aria-controls="commentsDrawer" data-tip="Add a comment to this block">Comment</button><span id="qcBlockInfo" class="dim qc-only"></span><button id="qcPrevious" aria-pressed="false" hidden data-tip="Hear the old audio alone. It does not match the edited block">Hear previous reading</button></div>
         </div>
       </div>
     </aside>
@@ -208,6 +211,7 @@
       <kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>⌥⇧←</kbd><kbd>⌥⇧→</kbd> block
       <kbd>↵</kbd> create/edit <kbd>⇧F</kbd> find <kbd>⇧O</kbd> all keys
     </span>
+    <span class="hint qc-only"><kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>↑</kbd><kbd>↓</kbd> block <kbd>V</kbd> hear block <span class="qc-edit-only"><kbd>↵</kbd> edit </span><kbd>⌥⇧C</kbd> comments <kbd>⇧O</kbd> all keys</span>
     <span class="hint record-only">
       <kbd>Space</kbd> play <kbd>⌥⇧←</kbd><kbd>⌥⇧→</kbd> block
       <kbd>↵</kbd> record <kbd>⇧↵</kbd> punch in <kbd>Esc</kbd> stop <kbd>V</kbd> hear it read <kbd>⇧O</kbd> all keys
@@ -401,7 +405,15 @@ docker compose up -d --build</code></pre>
       <label class="wzcard"><input type="radio" name="wzMode" value="write">
         <span><strong>Writing new audio description</strong>
           <span class="dim">Hear your lines read aloud, and check each one fits before the next piece of dialogue.</span></span></label>
-      <p class="dim small">You can switch at any time with the Transcribe / Write switch at the top.</p>
+      <label class="wzcard"><input type="radio" name="wzMode" value="qc">
+        <span><strong>QC review</strong><span class="dim">Listen, leave comments and choose whether to allow corrections. Original packaged readings work without installing voices.</span></span></label>
+      <p class="dim small">Use the mode switch at the top to change tasks at any time.</p>
+    </section>
+    <section data-step="qc" hidden>
+      <h2>Review in QC</h2>
+      <p>Open the project or QC package and its matching video. Editing starts off. Use Allow edits for corrections; timings never adjust automatically.</p>
+      <p>Click QC under the video to choose programme sound, original readings or an approximate TTS preview. Packaged readings need no voice installation or key.</p>
+      <p>Click Comment in a block, or right-click the timeline to leave a note. Save and return the reviewed file.</p>
     </section>
     <section data-step="transcribe" hidden>
       <h2>Hold-to-mark</h2>
@@ -454,7 +466,7 @@ docker compose up -d --build</code></pre>
       <dl class="wzkeys">
         <dt><kbd><span class="mod"></span>⇧O</kbd></dt><dd>Open a video or audio file, or drop it on the window</dd>
         <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
-        <dt><kbd>↵</kbd></dt><dd>Create a block at the playhead, or edit the one there</dd>
+        <dt id="wzEditKey"><kbd>↵</kbd></dt><dd id="wzEditDesc">Create a block at the playhead, or edit the one there</dd>
         <dt id="wzModeKey"></dt><dd id="wzModeDesc"></dd>
         <dt><kbd><span class="mod"></span>S</kbd></dt><dd>Save your work as a project</dd>
         <dt><kbd>?</kbd></dt><dd>All keyboard shortcuts</dd>
@@ -462,6 +474,27 @@ docker compose up -d --build</code></pre>
       <p class="dim small">Run this again any time from <strong>Settings</strong> at the top, under General.</p>
     </section>
     <div class="updbtns"><button id="wzBack">Back</button><span class="grow"></span><button id="wzNext" class="hl">Next</button></div>
+  </dialog>
+
+  <dialog id="qcPlaybackDlg" class="updbox" aria-labelledby="qcPlaybackTitle">
+    <h2 id="qcPlaybackTitle">QC playback</h2>
+    <p>QC starts with editing off. Allow edits at the top to correct blocks. Timings change only when you edit them. Changed readings are marked out of date.</p>
+    <p id="qcPackageInfo" role="status"></p>
+    <div class="airow"><button id="qcSourceVideo" aria-pressed="true">Programme sound</button><button id="qcSourcePackage" aria-pressed="false">Original readings</button><button id="qcSourcePreview" aria-pressed="false">Approximate TTS preview</button></div>
+    <p id="qcPreviewNote" class="dim small"></p>
+    <label for="qcPreviewVoice">Voice for missing readings</label> <select id="qcPreviewVoice"></select>
+    <h3>Project voices</h3><ul id="qcVoiceList"></ul>
+    <div class="updbtns"><button id="qcPlaybackClose">Close</button></div>
+  </dialog>
+  <dialog id="qcExportDlg" class="updbox" aria-labelledby="qcExportTitle">
+    <h2 id="qcExportTitle">Make a QC package</h2>
+    <p>Includes the project, comments and each original reading. Send the matching video separately. The reviewer needs no voice installation or key to play the included audio.</p>
+    <p>Piper, Kokoro and Google Cloud voices can be packaged. Built-in and browser-provided online voices cannot: choose an exportable voice in Write mode, or supply a recorded review video.</p>
+    <ul id="qcExportVoices"></ul>
+    <p id="qcExportCost" class="warnbox" hidden>Making Google Cloud readings sends the text to Google and uses your allowance. Uncached readings may cost money.</p>
+    <p id="qcExportStatus" class="dim small" role="status"></p>
+    <progress id="qcExportProgress" max="1" value="0" hidden aria-label="QC package progress"></progress>
+    <div class="updbtns"><button id="qcExportStart" class="hl">Make QC package</button><button id="qcExportStop" hidden>Stop</button><button id="qcExportClose">Close</button></div>
   </dialog>
 
   <aside id="commentsDrawer" class="aidrawer" hidden aria-label="Comments">
@@ -1007,6 +1040,17 @@ docker compose up -d --build</code></pre>
         <button id="helpLoop" class="helptour">Show the loop</button>
         <button id="helpKeys" class="helptour">Change shortcuts</button>
         <button id="helpGuides" class="helptour" hidden>Guides</button></h2>
+      <div class="qc-only"><p>QC starts with editing off. Use <strong>Allow edits</strong> to correct blocks without automatic timing changes. Click <strong>Comment</strong> in an open block, or right-click the timeline. Use the QC indicator under the video to choose playback.</p><dl>
+        <dt><kbd>Space</kbd></dt><dd>Play / pause</dd><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Previous / next block</dd>
+        <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>One frame back / forward</dd><dt><kbd>V</kbd></dt><dd>Hear the selected block with the chosen QC playback source</dd>
+        <dt data-keys="comments"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>C</kbd></dt><dd>Comments at the playhead</dd><dt><kbd>Esc</kbd></dt><dd>Close the block or Comments drawer</dd>
+        <dt><kbd><span class="mod"></span>S</kbd></dt><dd>Save the project or QC package with comments</dd>
+        <dt class="qc-edit-only"><kbd>↵</kbd></dt><dd class="qc-edit-only">Edit the selected block or create one at the playhead</dd>
+        <dt class="qc-edit-only"><kbd>Del</kbd></dt><dd class="qc-edit-only">Delete the selected block</dd>
+        <dt class="qc-edit-only"><kbd><span class="mod"></span>Z</kbd></dt><dd class="qc-edit-only">Undo block or comment changes</dd>
+        <dt class="qc-edit-only"><kbd>[</kbd><kbd>]</kbd></dt><dd class="qc-edit-only">Change the block’s reading speed</dd>
+        <dt class="qc-edit-only"><kbd>Alt</kbd><kbd>Shift</kbd><kbd>P</kbd></dt><dd class="qc-edit-only">Change pronunciation with Sounds like</dd>
+      </dl></div>
       <div class="cols">
         <section>
           <h3>Timeline · navigation</h3>
@@ -1019,7 +1063,6 @@ docker compose up -d --build</code></pre>
             <dt data-keys="jumpTime"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>J</kbd></dt><dd>Jump to a timecode</dd>
             <dt data-keys="quickNav"><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Quick navigation (search blocks)</dd>
             <dt data-keys="help"><kbd>⇧</kbd><kbd>O</kbd></dt><dd>This overlay</dd>
-            <dt class="script-only" data-keys="comments"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>C</kbd></dt><dd class="script-only">Comments on blocks and timeline times</dd>
             <dt data-keys="settings"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>S</kbd></dt><dd>Settings</dd>
             <dt><kbd>+</kbd> <kbd>-</kbd></dt><dd>Increase / reduce speed</dd>
             <dt data-keys="createEdit"><kbd>↵</kbd></dt><dd>Create or edit text block</dd>
@@ -1117,7 +1160,7 @@ docker compose up -d --build</code></pre>
     </div>
   </div>
 
-  <input type="file" id="fileSubs" accept=".scribecue,.scribecuerec,.scribecue-rec,.srt,.vtt,.txt,.adc,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
+  <input type="file" id="fileSubs" accept=".scribecueqc,.scribecue,.scribecuerec,.scribecue-rec,.srt,.vtt,.txt,.adc,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
   <input type="file" id="fileVideo" accept="video/*,audio/*,.mkv,.mov,.m4a" hidden>
   <!-- pops up under a selection in the block text; at the top level so it's placed by the window -->
   <button id="selSay" class="selsay" tabindex="-1" hidden>Sounds Like</button>

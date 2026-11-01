@@ -145,9 +145,16 @@ await shot('ai-help');
 await js(`document.getElementById('aiClose').click(); 1`); await sleep(300);
 
 // QC comments beside the same editor and timeline.
+await js(`document.querySelector('#modeSw [data-mode=qc]').click(); 1`); await sleep(300);
 await js(`document.getElementById('edComment').click(); document.getElementById('commentAuthor').value = 'Sam'; document.getElementById('commentText').value = 'Could we describe the direction of the light here?'; document.getElementById('commentPost').click(); document.getElementById('commentsClose').click(); document.getElementById('commentsBtn').click(); document.getElementById('commentAt').value = '00:00:26:00'; document.getElementById('commentText').value = 'Check the pause before the next reading.'; document.getElementById('commentPost').click(); document.getElementById('toast').classList.add('fade'); document.activeElement?.blur(); 1`);
 await sleep(400); await shot('comments');
-await js(`document.getElementById('commentsClose').click(); 1`); await sleep(300);
+await js(`document.getElementById('qcAllowEdits').click(); document.getElementById('toast').classList.add('fade'); 1`); await sleep(300); await shot('qc-editing');
+await js(`document.getElementById('qcAllowEdits').click(); 1`);
+await js(`document.getElementById('commentsClose').click(); document.querySelector('#ind [data-key=qc]').click(); 1`); await sleep(300);
+await shot('qc-playback', '#qcPlaybackDlg', 0);
+await js(`document.getElementById('qcPlaybackClose').click(); document.querySelector('#modeSw [data-mode=write]').click(); document.querySelector('[data-act=exportQc]').click(); 1`); await sleep(300);
+await shot('qc-package', '#qcExportDlg', 0);
+await js(`document.getElementById('qcExportClose').click(); 1`); await sleep(300);
 
 // the Did you know? box, which only shows without Piper: hide Piper from this page.
 // (A made-up Esc key doesn't close a dialog, so close them directly.)

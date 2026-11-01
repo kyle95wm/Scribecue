@@ -26,8 +26,9 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     media: media && media.name ? { name: media.name, size: media.size ?? null, duration: num(media.duration) ? media.duration : null } : null,
     settings,
     view,
-    blocks: blocks.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments }) => ({
+    blocks: blocks.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading }) => ({
       start, end, text,
+      ...(Number.isSafeInteger(qcReading) && qcReading >= 8 ? { qcReading } : {}),
       ...(cleanComments(comments).length ? { comments: cleanComments(comments) } : {}),
       ...(speed ? { speed } : {}),
       ...(voice ? { voice } : {}),
@@ -55,6 +56,7 @@ export function fromProject(json) {
     if (!b || !num(b.start) || !num(b.end)) continue;
     blocks.push({
       ...(cleanComments(b.comments).length ? { comments: cleanComments(b.comments) } : {}),
+      ...(Number.isSafeInteger(b.qcReading) && b.qcReading >= 8 ? { qcReading: b.qcReading } : {}),
       start: Math.max(0, b.start),
       end: Math.max(b.start, b.end),
       text: typeof b.text === 'string' ? b.text : '',
@@ -80,13 +82,14 @@ export function fromProject(json) {
     notes: typeof json.notes === 'string' ? json.notes : '',
     media: m && typeof m.name === 'string' ? { name: m.name, size: num(m.size) ? m.size : null, duration: num(m.duration) ? m.duration : null } : null,
     settings: {
-      ...(s.mode === 'write' || s.mode === 'transcribe' ? { mode: s.mode } : {}),
+      ...(s.mode === 'write' || s.mode === 'transcribe' || s.mode === 'qc' ? { mode: s.mode } : {}),
       ...(num(s.offset) ? { offset: s.offset } : {}),
       ...(num(s.ttsSpeed) ? { ttsSpeed: s.ttsSpeed } : {}),
       ...(num(s.ttsBase) ? { ttsBase: s.ttsBase } : {}),
       ...(typeof s.ttsVoice === 'string' && s.ttsVoice ? { ttsVoice: s.ttsVoice } : {}),
       // How the programme dips under readings, and the Video / TTS slider, which block
       // dips and volumes build on.
+      ...(typeof s.ttsSkipNotes === 'boolean' ? { ttsSkipNotes: s.ttsSkipNotes } : {}),
       ...(typeof s.ttsDuck === 'boolean' ? { ttsDuck: s.ttsDuck } : {}),
       ...(Number.isInteger(s.ttsDipDb) && s.ttsDipDb >= 1 && s.ttsDipDb <= 40 ? { ttsDipDb: s.ttsDipDb } : {}),
       ...(num(s.ttsDipFade) && s.ttsDipFade >= 0 && s.ttsDipFade <= 2 ? { ttsDipFade: s.ttsDipFade } : {}),

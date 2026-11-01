@@ -95,7 +95,7 @@ export async function removeAllData() {
   const gone = (name) => new Promise((ok) => { const q = indexedDB.deleteDatabase(name); q.onsuccess = q.onerror = q.onblocked = () => ok(); });
   try {
     const dbs = indexedDB.databases ? (await indexedDB.databases()).map((d) => d.name) : [];
-    for (const name of new Set([...dbs, 'scribecue', 'scribecue-readings', 'scribecue-waves', 'scribecue-takes'])) if (name) await gone(name);
+    for (const name of new Set([...dbs, 'scribecue', 'scribecue-readings', 'scribecue-waves', 'scribecue-takes', 'scribecue-qc'])) if (name) await gone(name);
   } catch { /* none */ }
   try {
     const root = await navigator.storage.getDirectory();

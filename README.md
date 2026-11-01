@@ -7,6 +7,7 @@
   the programme, ready to put into the video with ffmpeg.
 - **Transcribe** existing audio description: hold a key while the narrator speaks, and a
   block appears at that time. Speech to text can type the line for you.
+- **QC** scripts with optional corrections, comments and portable original TTS readings.
 - **Record** the narration: a narrator records each block against the video, and the mixer
   gets one timestamped WAV.
 - **Private:** your video, audio and scripts are never uploaded.
@@ -45,7 +46,7 @@ that guide.
 
 The guides also open inside Scribecue: press `?` and click **Guides**.
 
-- [Getting started](Guides/GETTING-STARTED.md): the two modes, the loop you work in, saving and exporting.
+- [Getting started](Guides/GETTING-STARTED.md): modes, the loop you work in, saving and exporting.
 - [Writing with text to speech](Guides/WRITING.md): hearing your lines, speeds and timing.
 - [Voices](Guides/VOICES.md): the voices on your computer, Piper, Kokoro and Google.
 - [Transcribing](Guides/TRANSCRIBING.md): marking existing audio description, and speech to text.

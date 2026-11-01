@@ -1,3 +1,6 @@
+import { createQcPlayer } from './qcplayer.js';
+import { REVIEW_EXT, isReview, openReview, resaveReview, reviewReading, previousReading, storedReview, voiceReport } from './qc.js';
+import { initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments } from './comments.js';
 import { initComments, toggleComments, refreshComments, openBlockComments } from './commentsdrawer.js';
 import { parseSubs, parseAdc, toSRT, toVTT, fmtTC, parseTC } from './formats.js';
@@ -34,7 +37,7 @@ import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
-  usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIP_BYS, isDip, FADES, isDipBy, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain,
+  reviewVoices, usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIP_BYS, isDip, FADES, isDipBy, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain,
   savedReadings, clearSavedReadings, checkFfmpeg } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -59,6 +62,9 @@ const toastEl = $('toast'), helpEl = $('help'), fileSubs = $('fileSubs'), fileVi
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform);
 // Mac key symbols as Windows and Linux users know them: ⌥⇧← becomes Alt+Shift+←.
 const writing = () => S.mode === 'write';
+const qc = () => S.mode === 'qc';
+const qcLocked = () => qc() && !S.qcEdits;
+const readingControls = () => ttsOn() || (qc() && S.qcEdits);
 const ttsOn = () => tts.on && writing();
 const pcKeys = (s) => (IS_MAC ? s : s
   .replace(/⌘(?=\S)/g, 'Ctrl+').replace(/⌘/g, 'Ctrl')
@@ -95,7 +101,7 @@ C.grid = '#1b2028';
 // speech. Someone who already turned text to speech on starts in Write.
 const savedMode = (() => { try { return localStorage.getItem('scribecue.mode'); } catch { return null; } })();
 const S = {
-  mode: savedMode === 'write' || savedMode === 'transcribe' ? savedMode : tts.on ? 'write' : 'transcribe',
+  mode: savedMode === 'write' || savedMode === 'transcribe' || savedMode === 'qc' ? savedMode : tts.on ? 'write' : 'transcribe',
   cues: [],
   sel: null,
   activeId: null,
@@ -129,6 +135,7 @@ const S = {
   handle: null, // where the project saves to, when the browser allows saving in place
   projectMedia: null, // { name, size } of the video the open project belongs to
   pendingPlayhead: null, // where to put the playhead once that video is open
+  qcEdits: false, previousAudio: null, review: null, reviewId: '', qcSource: 'video', qcPreviewVoice: '', qcSettings: null, loadingProject: false, makingReview: false,
   comments: [], // comments at fixed timeline times
   notes: '', // the writer's notes about the programme, for AI help
 };
@@ -180,6 +187,7 @@ const mk = (start, end, text = '', speed) => ({ id: nextId++, start, end, text, 
 // resizing leaves it alone), dip or dipBy (how far the programme goes down under it) and
 // vol (how loud its reading is).
 const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
+  Number.isSafeInteger(b.qcReading) ? { qcReading: b.qcReading } : {},
   typeof b.voice === 'string' && b.voice ? { voice: b.voice } : {},
   blockDipOf(b), isVol(b.vol) ? { vol: b.vol } : {},
   b.auto ? { auto: true } : {}, b.fit ? { fit: true } : {}, b.pinned ? { pinned: true } : {},
@@ -202,9 +210,12 @@ function duration() {
   return d > 0 ? Math.max(d, S.maxEnd) : Math.max(60, S.maxEnd + 30, commentEnd);
 }
 const now = () => (S.hasVideo ? video.currentTime : S.vt);
+const qcPlayer = createQcPlayer({ now, duck: (on) => duckAudio(on), error: (message) => toast(message) });
 const isPlaying = () => (S.hasVideo ? !video.paused && !video.ended : S.vplaying);
 
 function setTime(t) {
+  stopPreviousReading();
+  qcPlayer.stop();
   t = clamp(t, 0, duration());
   if (tts.speaking && Math.abs(t - now()) > 0.05) stopSpeech(); // a jump ends the reading
   if (S.hasVideo) video.currentTime = t;
@@ -219,6 +230,8 @@ function seekBy(d) {
   seek(now() + d);
 }
 function play() {
+  stopPreviousReading();
+  if (qc()) qcPlayer.unlock();
   if (S.hasVideo) {
     // Pausing before the video has started cancels the play: that's no failure.
     video.play().catch((e) => { if (e.name !== 'AbortError') toast('Playback failed: ' + e.message); });
@@ -238,6 +251,8 @@ function videoWaiting(on) {
 video.addEventListener('waiting', () => videoWaiting(true));
 for (const ev of ['playing', 'pause', 'emptied']) video.addEventListener(ev, () => videoWaiting(false));
 function pause() {
+  stopPreviousReading();
+  qcPlayer.stop();
   stopSpeech();
   if (S.hasVideo) video.pause();
   else S.vplaying = false;
@@ -331,14 +346,26 @@ function pushUndo(snap = snapshot(), tag = null) {
 }
 function restore(snap) {
   const o = JSON.parse(snap);
+  if (qcLocked()) {
+    S.comments = o.comments || [];
+    for (const c of S.cues) c.comments = o.cues.find((b) => b.id === c.id)?.comments || [];
+    changed(); return;
+  }
   S.cues = o.cues;
   S.comments = o.comments || [];
   nextId = S.cues.reduce((m, c) => Math.max(m, c.id), 0) + 1;
   changed();
   select(o.sel != null && idx(o.sel) >= 0 ? o.sel : null, { seek: false });
 }
+function qcUndoAllowed(snap) {
+  if (!qcLocked()) return true;
+  const script = (cues) => JSON.stringify(cues.map(({ comments, ...b }) => b));
+  if (script(JSON.parse(snap).cues) === script(S.cues)) return true;
+  toast('Turn on Allow edits to undo or redo block changes'); return false;
+}
 function doUndo() {
   if (!undoStack.length) return toast('Nothing to undo');
+  if (!qcUndoAllowed(undoStack.at(-1))) return;
   redoStack.push(snapshot());
   restore(undoStack.pop());
   lastUndoTag = null;
@@ -346,6 +373,7 @@ function doUndo() {
 }
 function doRedo() {
   if (!redoStack.length) return toast('Nothing to redo');
+  if (!qcUndoAllowed(redoStack.at(-1))) return;
   undoStack.push(snapshot());
   restore(redoStack.pop());
   lastUndoTag = null;
@@ -357,6 +385,7 @@ function doRedo() {
 let saveTimer = 0;
 let commentTimes = [], commentEnd = 0;
 function changed(id = null) {
+  stopPreviousReading();
   S.lastChange = Date.now();
   S.changeGen = (S.changeGen || 0) + 1;
   commentEnd = S.comments.reduce((end, c) => Math.max(end, c.time + 5), 0);
@@ -380,6 +409,7 @@ function changed(id = null) {
   }
   updateEditor();
   refreshComments();
+  configureQcAudio();
   S.activeId = undefined; // force overlay/active refresh
   tlDirty = true;
   clearTimeout(saveTimer);
@@ -396,7 +426,8 @@ function save() {
       projectMedia: S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size } : S.projectMedia,
       notes: S.notes,
       comments: S.comments,
-      cues: S.cues.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments }) => ({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments })),
+      reviewId: S.reviewId, qcSettings: S.qcSettings,
+      cues: S.cues.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading }) => ({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading })),
     }));
   } catch { /* storage full or blocked */ }
 }
@@ -406,6 +437,8 @@ function loadSaved() {
     if (o && (o.cues?.length || o.comments?.length)) {
       S.cues = (o.cues || []).map(revive);
       S.comments = cleanComments(o.comments, true);
+      S.reviewId = typeof o.reviewId === 'string' ? o.reviewId : '';
+      S.qcSettings = o.qcSettings && typeof o.qcSettings === 'object' ? o.qcSettings : null;
       S.subName = o.subName || S.subName;
       S.savedDirty = o.dirty !== false;
       S.projectMedia = o.projectMedia || null;
@@ -491,6 +524,7 @@ function needSel() {
 }
 
 function nudge(what, d) {
+  if (qcLocked()) return toast('The script and timings are fixed in QC mode');
   const c = needSel(); if (!c) return;
   if (what === 'end' && endLocked(c)) return;
   const { lo, hi } = bounds(selIdx());
@@ -506,6 +540,7 @@ function nudge(what, d) {
 }
 
 function setEdge(which) {
+  if (qcLocked()) return;
   const c = needSel(); if (!c) return;
   const t = now(), { lo, hi } = bounds(selIdx());
   if (which === 'start') {
@@ -525,6 +560,7 @@ function setEdge(which) {
 
 // The pencil in the block editor: the block starts at the playhead, keeping its length.
 function moveToPlayhead() {
+  if (qcLocked()) return toast('The script and timings are fixed in QC mode');
   const c = needSel(); if (!c) return;
   const { lo, hi } = bounds(selIdx()), len = c.end - c.start, t = now();
   if (t < lo || t + len > hi) return toast('The block doesn’t fit there without running into another one');
@@ -537,9 +573,39 @@ $('edBack').addEventListener('click', (e) => { e.currentTarget.blur(); nudge('mo
 $('edFwd').addEventListener('click', (e) => { e.currentTarget.blur(); nudge('move', frame()); });
 $('edHere').addEventListener('click', (e) => { e.currentTarget.blur(); moveToPlayhead(); });
 $('edComment').addEventListener('click', () => openBlockComments());
+function stopPreviousReading() {
+  if (!S.previousAudio) return;
+  S.previousAudio.audio.pause(); URL.revokeObjectURL(S.previousAudio.url); S.previousAudio = null;
+  $('qcPrevious').textContent = 'Hear previous reading';
+  $('qcPrevious').setAttribute('aria-pressed', 'false');
+}
+$('qcAllowEdits').addEventListener('click', () => {
+  if (!qc()) return;
+  document.activeElement?.blur();
+  S.qcEdits = !S.qcEdits;
+  drag = null;
+  document.body.classList.toggle('qc-editing', S.qcEdits);
+  $('qcAllowEdits').setAttribute('aria-pressed', String(S.qcEdits));
+  renderList(); updateEditor();
+  toast(S.qcEdits ? 'QC edits on: timings change only when you edit them. Changed readings need new audio' : 'QC edits off: the script and timings are fixed');
+});
+$('qcPrevious').addEventListener('click', () => {
+  const c = selCue(), r = c && previousReading(S.review, c);
+  if (!qc() || !r) return;
+  if (S.previousAudio) { stopPreviousReading(); return; }
+  pause(); stopSpeech(); stopPreviousReading();
+  const url = URL.createObjectURL(S.review.file.slice(r.offset, r.offset + r.bytes, 'audio/wav'));
+  const audio = new Audio(url); S.previousAudio = { audio, url };
+  $('qcPrevious').textContent = 'Stop previous reading'; $('qcPrevious').setAttribute('aria-pressed', 'true');
+  audio.onended = () => { if (S.previousAudio?.audio === audio) stopPreviousReading(); };
+  audio.onerror = () => { if (S.previousAudio?.audio === audio) { stopPreviousReading(); toast('The previous reading could not play'); } };
+  audio.play().catch(() => { stopPreviousReading(); toast('The previous reading could not play'); });
+  toast('Previous reading only: it does not match the edited block. Programme playback is paused');
+});
 $('edDel').addEventListener('click', (e) => { e.currentTarget.blur(); del(); });
 
 function newCue() {
+  if (qcLocked()) return toast('The script and timings are fixed in QC mode');
   const t = now();
   const covering = cueAt(t);
   if (covering) {
@@ -577,6 +643,7 @@ function splitText(s) {
 }
 
 function split() {
+  if (qcLocked()) return toast('The script and timings are fixed in QC mode');
   const c = needSel(); if (!c) return;
   const t = now();
   if (t <= c.start + MIN_DUR || t >= c.end - MIN_DUR) return toast('Move the playhead inside the selected cue to split');
@@ -596,6 +663,7 @@ function split() {
 }
 
 function merge() {
+  if (qcLocked()) return toast('The script and timings are fixed in QC mode');
   const c = needSel(); if (!c) return;
   const i = selIdx(), n = S.cues[i + 1];
   if (!n) return toast('No next cue to merge with');
@@ -617,6 +685,7 @@ function merge() {
 
 // Deletes the selected block, or the one given (the list's × buttons).
 function del(c = needSel()) {
+  if (qcLocked()) return;
   if (!c) return;
   const i = idx(c.id);
   if (i < 0) return;
@@ -651,8 +720,9 @@ let edOpen = false;
 
 function updateEditor() {
   const c = selCue();
+  edText.readOnly = edStart.readOnly = qcLocked();
   if (S.mode === 'record') recorder?.render();
-  edTts.hidden = !(c && ttsOn());
+  edTts.hidden = !(c && readingControls());
   if (!c) {
     edSpeedWrap.hidden = true;
     edVoiceWrap.hidden = true;
@@ -672,13 +742,13 @@ function updateEditor() {
   if (document.activeElement !== edStart) edStart.value = tc(c.start);
   if (document.activeElement !== edEnd) edEnd.value = tc(c.end);
   // The end comes from the reading with text to speech on.
-  edEnd.readOnly = following(c);
-  if (edEnd.readOnly) edEnd.dataset.tip = 'Where the reading ends. Change the block’s speed to move it'; else delete edEnd.dataset.tip;
+  edEnd.readOnly = qcLocked() || following(c);
+  if (edEnd.readOnly) edEnd.dataset.tip = qc() ? 'The script and timings are fixed in QC mode' : 'Where the reading ends. Change the block’s speed to move it'; else delete edEnd.dataset.tip;
   edAuto.hidden = !(c.auto && ttsOn());
   edDur.textContent = `${(c.end - c.start).toFixed(3)} s`;
-  edSpeedWrap.hidden = !ttsOn();
-  edVoiceWrap.hidden = !ttsOn();
-  if (ttsOn() && document.activeElement !== edVoice) fillEdVoice(c);
+  edSpeedWrap.hidden = !readingControls();
+  edVoiceWrap.hidden = !readingControls();
+  if (readingControls() && document.activeElement !== edVoice) fillEdVoice(c);
   edDipWrap.hidden = !(ttsOn() && tts.duck);
   if (!edDipWrap.hidden && document.activeElement !== edDip && document.activeElement !== edDipCustom) fillEdDip(c);
   edVolWrap.hidden = !ttsOn();
@@ -689,6 +759,15 @@ function updateEditor() {
   if (document.activeElement !== edSpeed) edSpeed.value = custom ? 'custom' : String(c.speed || 1);
   if (!edit || edit.id !== c.id) edText.value = c.text;
   edStats.textContent = '';
+  $('qcPrevious').hidden = true;
+  $('qcBlockInfo').textContent = '';
+  if (qc()) {
+    const r = reviewReading(S.review, c, reviewSettings()), previous = previousReading(S.review, c);
+    $('qcPrevious').hidden = !!r || !previous;
+    $('qcBlockInfo').textContent = !r && previous ? 'Original reading out of date'
+      : S.qcSource === 'package' ? (r ? `Original ${r.secs.toFixed(1)} s${r.secs > c.end - c.start + 0.05 ? ' · runs past block' : ''}` : 'Original reading missing')
+        : S.qcSource === 'preview' ? 'Approximate TTS preview' : 'Programme sound';
+  }
   if (ttsOn() && spoken(c.text)) {
     // How long the voice takes to read it: "~" until it has actually been read.
     const { secs, exact } = speechLength(said(c), c.speed, c.voice);
@@ -765,6 +844,7 @@ function confirmDelete() {
 
 // Wrap the textarea selection in <b>/<i>/<u>, or unwrap it if it already is.
 function toggleTag(tag) {
+  if (qcLocked()) return toast('The script and timings are fixed in QC mode');
   const open = `<${tag}>`, close = `</${tag}>`;
   let { selectionStart: a, selectionEnd: b, value: v } = edText;
   const sel = v.slice(a, b);
@@ -792,6 +872,7 @@ function editorKeys(e, field) {
     editText(FIELDS[(i + (e.shiftKey ? FIELDS.length - 1 : 1)) % FIELDS.length]);
     return true;
   }
+  if (qcLocked() && ((os && ['ArrowLeft', 'ArrowRight', 'KeyD'].includes(e.code)) || (mod && ['b','i','u','z','y'].includes(e.key.toLowerCase())))) { e.preventDefault(); return true; }
   if (os && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
     e.preventDefault();
     nudge('move', e.code === 'ArrowLeft' ? -frame() : frame());
@@ -825,11 +906,13 @@ for (const f of [edText, edStart, edEnd]) {
 
 edText.addEventListener('focus', () => {
   const c = selCue();
+  if (qcLocked()) return;
   if (!c) { edText.blur(); return; }
   edit = { id: c.id, orig: c.text, pushed: false };
   document.body.classList.add('editing');
 });
 edText.addEventListener('input', () => {
+  if (qcLocked()) { updateEditor(); return; }
   if (!edit) return;
   const c = S.cues[idx(edit.id)];
   if (!c) return;
@@ -873,6 +956,7 @@ edText.addEventListener('keydown', (e) => {
 
 function bindTimeInput(input, which) {
   const apply = () => {
+    if (qcLocked()) { updateEditorTimes(); return; }
     const c = selCue();
     if (!c) return;
     const t = readTime(input.value);
@@ -1092,6 +1176,7 @@ function placeEditor() {
 list.addEventListener('click', (e) => {
   const r = e.target.closest('.row');
   if (!r) return;
+  if (qcLocked()) { select(+r.dataset.id, { toTop: false }); openEditor(); return; }
   if (S.mode === 'record') { select(+r.dataset.id, { toTop: false }); return; } // the script is locked
   if (e.target.closest('.rowdel')) { e.target.blur(); del(S.cues[idx(+r.dataset.id)]); return; }
   // One click opens the block, ready to type, as in Frazier.
@@ -1130,6 +1215,7 @@ $('frNext').addEventListener('click', () => {
   $('frCount').textContent = `Block #${i + 1}: ${plain(S.cues[i].text).slice(0, 80)}`;
 });
 $('frAll').addEventListener('click', () => {
+  if (qc()) return;
   const re = findRe(), { matches, blocks } = countMatches(S.cues, re);
   if (!matches) return showFindCount();
   pushUndo();
@@ -1200,7 +1286,7 @@ function drawTimeline() {
   // Open comments mark the ruler; nearby comments share a mark.
   rc.fillStyle = C.accent;
   let lastCommentX = -10;
-  for (const time of commentTimes) {
+  for (const time of qc() ? commentTimes : []) {
     if (time < t0) continue;
     const x = Math.round((time - t0) * pps);
     if (x > rw) break;
@@ -1270,7 +1356,7 @@ function drawCues(W) {
     el.classList.toggle('sel', c.id === S.sel);
     el.classList.toggle('active', c.id === S.activeId);
     el.classList.toggle('faded', !matches(c, i));
-    el.children[1].textContent = w > 28 ? '#' + (i + 1) + (ttsOn() && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') + (c.comments?.some((n) => !n.resolved) ? ' · ●' : '') : '';
+    el.children[1].textContent = w > 28 ? '#' + (i + 1) + (ttsOn() && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') + (qc() && c.comments?.some((n) => !n.resolved) ? ' · ●' : '') : '';
     if (el._text !== c.text) { el._text = c.text; el.children[2].textContent = c.text; }
   }
   for (const [id, el] of cueEls) if (!seen.has(id)) { el.remove(); cueEls.delete(id); }
@@ -1360,6 +1446,7 @@ let drag = null;
 
 lane.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
+  if (qcLocked()) { const el = e.target.closest('.cue'); if (el) { select(+el.dataset.id); openEditor(); } else seek(xToT(e.clientX)); return; }
   const el = e.target.closest('.cue');
   if (el) {
     const id = +el.dataset.id, i = idx(id), c = S.cues[i];
@@ -1515,6 +1602,7 @@ const IND_TIPS = {
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H changes it; click for its settings',
   tts: 'Text to speech is on: hear blocks read aloud (V). Click for its settings, such as the voice and speed (⌥⇧V)',
   takes: 'Takes: hear the take chosen for each block as the video plays. Click to turn it off or on',
+  qc: 'QC playback: original readings, programme sound, or an explicitly chosen approximate TTS preview',
   stt: 'Speech to text is on: Whisper types what the narrator says in each block you mark. Click for its settings, or to transcribe empty blocks (⌥⇧H)',
 };
 function updateInd() {
@@ -1522,10 +1610,11 @@ function updateInd() {
     ['speed', `${S.rate.toFixed(2)}×`, S.rate !== 1],
     ['follow', 'FOLLOW', S.follow],
     ['loop', 'LOOP', S.loop],
-    ['offset', `H −${Math.round(S.offset * 1000)}ms`, false],
+    ...(!qc() ? [['offset', `H −${Math.round(S.offset * 1000)}ms`, false]] : []),
+    ...(qc() ? [['qc', S.qcSource === 'package' ? 'QC · ORIGINAL READINGS' : S.qcSource === 'preview' ? 'QC · APPROXIMATE TTS' : 'QC · PROGRAMME SOUND', true]] : []),
     // Settings show only while they're on, and open their section of Settings.
     ...(S.replay ? [['replay', 'REPLAY', true]] : []),
-    ...(!writing() && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
+    ...(S.mode === 'transcribe' && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
     ...(S.mode === 'record' ? [['takes', 'TAKES', !!recorder?.hearing]] : []),
     ...(writing() && tts.on ? [['tts', tts.base !== 1 ? `TTS ${Math.round(tts.base * 100)}%` : 'TTS', true]] : []),
   ];
@@ -1618,6 +1707,7 @@ ind.addEventListener('click', (e) => {
   // The settings' labels open their section of Settings.
   else if (k === 'offset' || k === 'stt') showMarking();
   else if (k === 'tts') openTts();
+  else if (k === 'qc') openQcPlayback();
   else if (k === 'replay') showGeneral();
   else if (k === 'takes') {
     recorder.setHearing(!recorder.hearing);
@@ -1658,6 +1748,7 @@ function stopLoop() {
 // video playing alongside. Playback stops at the block's end, or where the reading
 // ends if it runs over. ⇧V then sets the block's end to where the reading finished.
 function speakBlock(fit) {
+  if (qc()) { const c = selCue() || cueAt(now()); if (!c) return; if (fit) return; seek(c.start); S.playUntil = S.qcSource === 'preview' ? null : c.end; play(); qcRead(c, true); return; }
   const guide = S.mode === 'record'; // a guide reading of the line, before taking it
   if (!writing() && !guide) return modeOnly('Text to speech', 'write');
   if (!tts.on && !guide) { openTts(); return toast('Turn on text to speech to hear blocks read aloud'); }
@@ -1690,6 +1781,7 @@ function speakBlock(fit) {
 }
 
 function fitToSpeech(c, secs) {
+  if (qc()) return;
   const i = idx(c.id), { hi } = bounds(i);
   const end = clamp(c.start + secs, c.start + MIN_DUR, hi);
   pushUndo();
@@ -1707,7 +1799,7 @@ function fitToSpeech(c, secs) {
 // Blocks marked auto take their end from how long the reading takes, until the end is
 // set by hand. It never runs into the next block.
 function fitAuto(c) {
-  if (!c?.auto || !ttsOn() || !spoken(c.text)) return false;
+  if (S.loadingProject || S.makingReview || !c?.auto || !ttsOn() || !spoken(c.text)) return false;
   const i = idx(c.id);
   if (i < 0) return false;
   const { hi } = bounds(i);
@@ -1860,6 +1952,7 @@ async function measureAll(blocks, ui) {
 
 // ask: false when the choice was already made, as when opening a script.
 async function updateAllTimings(ask = true) {
+  if (qc()) return toast('The script and timings are fixed in QC mode');
   const blocks = S.cues.filter((c) => spoken(c.text));
   if (!blocks.length) return (ttsAllStatus.textContent = 'There are no blocks with text yet.');
   // Piper and Google make exact lengths quickly, so it always measures. Browser voices only do
@@ -1870,6 +1963,7 @@ async function updateAllTimings(ask = true) {
       return report(ttsAllStatus, 'Update all timings stopped. No timings were changed.');
     }
   }
+  if (qc()) return;
   const n = blocks.length;
   if (ask && !confirm(`Update the end of ${n} block${n > 1 ? 's' : ''} from the reading? This also changes blocks marked with H or opened from a file. You can undo it.`)) {
     return (ttsAllStatus.textContent = '');
@@ -1966,6 +2060,7 @@ async function fitBlock(c) {
 // picked by hand are left alone. One undo step.
 const ttsFitAll = $('ttsFitAll'), ttsFitStop = $('ttsFitStop'), ttsFitStatus = $('ttsFitStatus'), ttsFitBar = $('ttsFitBar');
 async function fitAllSpeeds(ask = true) {
+  if (qc()) return toast('The script and timings are fixed in QC mode');
   const blocks = S.cues.filter((c) => spoken(c.text) && !c.pinned);
   const kept = S.cues.filter((c) => spoken(c.text) && c.pinned).length;
   if (!blocks.length) {
@@ -1987,6 +2082,7 @@ async function fitAllSpeeds(ask = true) {
   // when asked to.
   if (audio) stopped = !(await fitEach(blocks, ui));
   else if ($('ttsAllExact').checked) { stopped = !(await measureAll(blocks, ui)); fits(); }
+  if (qc()) return;
   // Stopped before the voice reached some blocks: leave those exactly as they were, rather
   // than marked to change speed later when they're next selected or edited.
   let left = 0;
@@ -2006,6 +2102,7 @@ async function fitAllSpeeds(ask = true) {
   const estimated = blocks.filter((c) => !speechLength(said(c), c.speed, c.voice).exact).length;
   // Done: the blocks keep their timing and new speeds. Edited later, a block's end follows
   // its reading at that speed, like any other.
+  if (qc()) return;
   for (const c of blocks) delete c.fit;
   changed();
   const msg = (stopped
@@ -2279,6 +2376,7 @@ $('ttsDlg').addEventListener('close', () => { if (!jobActive) { ttsAllStatus.tex
 
 // A block's own speed. Setting it to normal leaves the block without one.
 function setBlockSpeed(c, v) {
+  if (qcLocked()) return toast('The script and timings are fixed in QC mode');
   pushUndo(undefined, 'speed-' + c.id);
   if (!isBlockSpeed(v) || v === 1) delete c.speed;
   else c.speed = v;
@@ -2287,7 +2385,7 @@ function setBlockSpeed(c, v) {
   delete c.fit;
   if (c.speed) c.pinned = true; else delete c.pinned;
   // The speed was picked, so the end follows the reading instead.
-  c.auto = true;
+  if (!qc()) c.auto = true;
   fitAuto(c);
   changed(c.id);
   tlDirty = true;
@@ -2302,11 +2400,12 @@ let edVoiceFor = '';
 // force: refill even if nothing seems to have changed, as when the list is opened, since
 // voices can arrive at any time.
 function fillEdVoice(c, force = false) {
-  const key = `${c.id}|${c.voice || ''}|${chosenVoice()}`;
+  const mainVoice = qc() ? reviewSettings().ttsVoice : chosenVoice();
+  const key = `${c.id}|${c.voice || ''}|${mainVoice}`;
   if (!force && key === edVoiceFor) return;
   edVoiceFor = key;
   fillVoiceSelect(edVoice, c.voice || '');
-  edVoice.prepend(new Option(`Same as Settings (${chosenVoiceName()})`, ''));
+  edVoice.prepend(new Option(`Same as Settings (${qc() ? voiceLabel(mainVoice) : chosenVoiceName()})`, ''));
   // A voice that isn't here, such as Kokoro's in the web version, stays chosen and says so.
   if (c.voice && ![...edVoice.options].some((o) => o.value === c.voice)) edVoice.add(new Option(`${voiceLabel(c.voice)}: not available here`, c.voice), 1);
   edVoice.value = c.voice || '';
@@ -2319,6 +2418,7 @@ edVoice.addEventListener('change', () => {
   edVoice.blur();
 });
 function setBlockVoice(c, uri) {
+  if (qcLocked()) return;
   pushUndo(undefined, 'voice-' + c.id);
   if (uri) c.voice = uri; else delete c.voice;
   fitAuto(c);
@@ -2372,6 +2472,7 @@ edDipCustom.addEventListener('keydown', (e) => {
 edDipCustom.addEventListener('blur', () => setCustomDip(true));
 // own: { dip: 0 } for none, { dipBy } for more or less than set, or {} to follow it.
 function setBlockDip(c, own) {
+  if (qcLocked()) return;
   pushUndo(undefined, 'dip-' + c.id);
   delete c.dip;
   delete c.dipBy;
@@ -2392,6 +2493,7 @@ function fillEdVol(c) {
   if (document.activeElement !== edVolBox) edVolBox.value = v;
 }
 function setBlockVol(c, v, { quiet = false } = {}) {
+  if (qcLocked()) return;
   if ((isVol(c.vol) ? c.vol : 100) === v) return;
   pushUndo(undefined, 'vol-' + c.id);
   if (isVol(v)) c.vol = v; else delete c.vol;
@@ -2433,8 +2535,9 @@ $('ttsReplaceVoices').addEventListener('click', () => {
 
 // [ and ]: one speed step slower or faster for the selected block.
 function stepBlockSpeed(d) {
-  if (!writing()) return modeOnly('Text to speech', 'write');
-  if (!tts.on) return toast('Turn on text to speech first (⌥⇧V)');
+  if (qcLocked()) return toast('Turn on Allow edits to change block speed');
+  if (!writing() && !qc()) return modeOnly('Text to speech', 'write');
+  if (!readingControls()) return toast('Turn on text to speech first (⌥⇧V)');
   const c = needSel(); if (!c) return;
   // From a custom speed, step to the next set speed in that direction.
   const list = SPEEDS.map(([s]) => s), cur = c.speed ?? 1;
@@ -2494,8 +2597,9 @@ function showSayAll() {
 sayRows.addEventListener('input', showSayAll);
 
 function openSay() {
-  if (!writing()) return modeOnly('Sounds like', 'write');
-  if (!ttsOn()) { openTts(); return toast('Turn on text to speech to set how words sound'); }
+  if (qcLocked()) return;
+  if (!writing() && !qc()) return modeOnly('Sounds like', 'write');
+  if (!readingControls()) { openTts(); return toast('Turn on text to speech to set how words sound'); }
   const c = needSel(); if (!c) return;
   // A word selected in the text box is the one to add.
   const picked = document.activeElement === edText || edit?.id === c.id
@@ -2535,6 +2639,14 @@ sayDlg.addEventListener('close', () => {
 });
 $('sayAdd').addEventListener('click', () => addSayRow().w.focus());
 $('sayTry').addEventListener('click', () => {
+  if (qc()) {
+    if (S.qcSource !== 'preview') return toast('Choose Approximate TTS preview in QC playback to hear pronunciation changes');
+    if (!sayFor) return;
+    const requested = sayFor.voice || reviewSettings().ttsVoice;
+    const voice = reviewVoices().some((v) => v.id === requested) ? requested : S.qcPreviewVoice;
+    if (!voice) return toast('Choose a preview voice in QC playback');
+    return speak(soundsLike(sayFor.text, sayPairs()), { speed: sayFor.speed, voice });
+  }
   if (sayFor) speak(soundsLike(sayFor.text, sayPairs()), { speed: sayFor.speed, voice: sayFor.voice });
 });
 $('sayDone').addEventListener('click', () => sayDlg.close());
@@ -2546,7 +2658,7 @@ document.addEventListener('keydown', (e) => { if (sayDlg.open) e.stopPropagation
 const selSay = $('selSay');
 // What's selected, if it's something Sounds like can take: one line, and not too long.
 const sayable = () => {
-  if (!ttsOn() || document.activeElement !== edText) return '';
+  if (!readingControls() || document.activeElement !== edText) return '';
   const t = edText.value.slice(edText.selectionStart, edText.selectionEnd);
   return t.trim() && !t.includes('\n') && t.trim().length <= 60 ? t.trim() : '';
 };
@@ -2566,6 +2678,7 @@ function caretXY(pos) {
   return [x, y];
 }
 function showSelSay(x, y) {
+  if (qcLocked()) return;
   const word = sayable();
   if (!word) { selSay.hidden = true; return; }
   const said = selCue()?.say?.some(([w]) => w.toLocaleLowerCase() === word.toLocaleLowerCase());
@@ -2593,7 +2706,8 @@ selSay.addEventListener('click', () => { selSay.hidden = true; openSay(); });
 // While playing, read each block as the playhead reaches its start. Played from partway
 // through a block, or jumped into one, its reading picks up from there.
 function liveSpeech(prevT, t, started) {
-  readAheadOf(t);
+  if (!qc()) readAheadOf(t);
+  if (qc()) return qcSpeech(prevT, t, started);
   if (!ttsOn() || !tts.live || tts.speaking?.manual || hold) return; // not over someone reading
   const a = cueAt(t);
   if (!a || tts.speaking?.id === a.id) return;
@@ -2634,10 +2748,11 @@ function duckAudio(on = ducked) {
 }
 function applyDuck(dt) {
   const c = tts.speaking && S.cues.find((x) => x.id === tts.speaking.id);
-  const target = ducked ? blockDip(c) : 0;
+  const target = !ducked ? 0 : qc() && S.qcSource === 'package'
+    ? Math.max(0, ...qcPlayer.activeReadings().map(blockDip)) : blockDip(c);
   if (target !== dipTo) { dipTo = target; dipFrom = dip; }
   dip = stepDip(dip, target, dt, tts.dipFade, dipFrom);
-  const v = dipLevel(dip) * (writing() && tts.on ? mixLevels(tts.mix).video : 1) * recVol;
+  const v = dipLevel(dip) * ((writing() && tts.on) || (qc() && S.qcSource !== 'video') ? mixLevels(tts.mix).video : 1) * recVol;
   if (v === volumeWas) return;
   volumeWas = v;
   video.volume = v;
@@ -2652,7 +2767,7 @@ function mixText(m) {
 }
 function showMix() {
   const mixEl = $('mix'), mixBox = $('mixBox');
-  mixBox.hidden = !(writing() && tts.on);
+  mixBox.hidden = !((writing() && tts.on) || (qc() && S.qcSource !== 'video'));
   mixEl.value = String(Math.round(tts.mix * 100));
   mixEl.setAttribute('aria-valuetext', mixText(tts.mix));
   mixBox.dataset.tip = `Mix: ${mixText(tts.mix)}. Double-click for even`;
@@ -2666,13 +2781,28 @@ mixEl.addEventListener('dblclick', () => { setMix(0); duckAudio(); showMix(); })
 
 // ---------------------------------------------------------------- modes
 
-const MODE_NAMES = { transcribe: 'Transcribe', write: 'Write', record: 'Record' };
+const MODE_NAMES = { transcribe: 'Transcribe', write: 'Write', qc: 'QC', record: 'Record' };
 function modeOnly(feature, mode) {
   toast(`${feature} is part of ${MODE_NAMES[mode]} mode. Switch modes at the top`);
 }
 function setMode(m, quiet = false) {
   if (!MODE_NAMES[m]) return;
+  document.activeElement?.blur();
+  stopSpeech();
+  S.playUntil = null;
+  if (m === 'qc') measuring = false;
+  if (m === 'qc' && S.mode !== 'qc') S.qcSettings = readingSettings();
+  if (m !== 'qc' && !$('commentsDrawer').hidden) toggleComments(false);
+  if (m === 'qc' && !$('aiDrawer').hidden) toggleAi(false);
+  stopPreviousReading();
+  qcPlayer.stop();
+  S.qcEdits = false;
+  document.body.classList.remove('qc-editing');
+  $('qcAllowEdits').setAttribute('aria-pressed', 'false');
   S.mode = m;
+  if (qc() && !S.qcSettings) S.qcSettings = readingSettings();
+  $('edText').readOnly = $('edStart').readOnly = $('edEnd').readOnly = qcLocked();
+  document.body.classList.toggle('mode-qc', qc());
   // Record mode belongs to an open recording file, so it isn't what the next visit starts in.
   if (m !== 'record') try { localStorage.setItem('scribecue.mode', m); } catch { /* ignore */ }
   document.body.classList.toggle('mode-record', m === 'record');
@@ -2683,25 +2813,25 @@ function setMode(m, quiet = false) {
     b.classList.toggle('on', on);
     b.setAttribute('aria-checked', on);
   }
-  if (m === 'record') { if (!$('commentsDrawer').hidden) toggleComments(false); holdEnd(); stopSpeech(); } else if (m === 'write') { holdEnd(); fitAllAuto(); } else { stopSpeech(); if (stt.on) warmStt(); }
+  holdEnd();
+  if (m === 'write') fitAllAuto();
+  else if (m === 'transcribe' && stt.on) warmStt();
+  if (qc()) S.qcLast = null;
   renderList();
   updateEditor();
   updateInd();
   tlDirty = true;
   if (!quiet) {
-    toast(m === 'write'
+    toast(m === 'qc' ? 'QC mode: fixed script and timings. Click a block’s Comment button to add a note' : m === 'write'
       ? `Write mode: text to speech${tts.on ? '' : ' (turn it on in Settings, or with ⌥⇧V)'}, reading times and block speeds`
       : 'Transcribe mode: hold H while the narrator speaks to mark each line');
   }
 }
-// Like a switch: clicking the other side picks it, and clicking the side that's on, or
-// the track around it, flips to the other.
+// Each mode is a complete workspace; clicking the selected mode keeps it selected.
 document.getElementById('modeSw').addEventListener('click', (e) => {
-  const b = e.target.closest('button');
-  b?.blur();
-  const m = b && !b.classList.contains('on') ? b.dataset.mode : (S.mode === 'write' ? 'transcribe' : 'write');
-  setMode(m);
-  maybeShowLoop(m); // the first time in a mode, how to work in it
+  const b = e.target.closest('button'); if (!b) return;
+  b.blur(); setMode(b.dataset.mode);
+  if (!qc()) maybeShowLoop(b.dataset.mode);
 });
 
 // ---------------------------------------------------------------- hold-to-mark
@@ -2773,6 +2903,7 @@ function takeEnd() {
 
 function holdEnd() {
   if (!hold) return;
+  if (qc()) { hold = null; markEl.hidden = true; return; }
   if (hold.take != null) return takeEnd();
   const tUp = now();
   let a = Math.max(0, hold.t0), b = tUp - S.offset * S.rate;
@@ -2861,9 +2992,10 @@ function blockAudio(c) {
 // Transcribes a block and fills in its text. Unless `replace`, a block that has been given
 // text meanwhile is left alone. `undo`: make it an undo step of its own.
 async function transcribeBlock(c, { replace = false, undo = true } = {}) {
+  if (qc()) return toast('The script and timings are fixed in QC mode');
   const text = await transcribe(await blockAudio(c));
   const cur = S.cues[idx(c.id)];
-  if (!text || !cur || (!replace && plain(cur.text).trim())) return false;
+  if (qc() || !text || !cur || (!replace && plain(cur.text).trim())) return false;
   if (edit?.id === cur.id && document.activeElement === edText) {
     // In the editor, as if typed, so its own undo works and typing carries on from it.
     edText.select();
@@ -2906,7 +3038,7 @@ initStt({
   toast: (m) => toast(m),
   cues: () => S.cues,
   changed: () => updateInd(),
-  transcribing: () => !writing(),
+  transcribing: () => S.mode === 'transcribe',
   beforeBatch: () => pushUndo(),
   fill: (c) => {
     if (!S.videoFile) throw new Error('open the video or audio first');
@@ -3035,9 +3167,15 @@ async function openVideoPicker() {
   }
 }
 
-const isDoc = (name) => name.toLowerCase().endsWith(PROJECT_EXT) || isRecordingFile(name);
-const PROJECT_TYPES = [{ description: 'Scribecue project', accept: { 'application/json': [PROJECT_EXT] } }];
+const isDoc = (name) => isReview(name) || name.toLowerCase().endsWith(PROJECT_EXT) || isRecordingFile(name);
+const PROJECT_TYPES = [{ description: 'Scribecue project', accept: { 'application/json': [PROJECT_EXT, REVIEW_EXT] } }];
 
+function readingSettings() {
+  return { ttsVoice: tts.voice || chosenVoice(), ttsBase: tts.base, ttsSkipNotes: tts.skipNotes };
+}
+function reviewSettings() { return qc() && S.qcSettings ? S.qcSettings : readingSettings(); }
+function projectFileData() { const p = projectData(); return S.review ? resaveReview(S.review, p) : JSON.stringify(p, null, 1); }
+function clearReview() { stopPreviousReading(); S.review = null; S.reviewId = ''; S.qcSource = 'video'; storedReview(null); }
 function projectData() {
   const m = S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size, duration: S.hasVideo ? duration() : null } : S.projectMedia;
   return toProject({
@@ -3046,7 +3184,7 @@ function projectData() {
     notes: S.notes,
     comments: S.comments,
     media: m,
-    settings: { mode: S.mode, offset: S.offset, ttsBase: tts.base, ttsVoice: tts.voice || chosenVoice(),
+    settings: { mode: S.mode, offset: S.offset, ...reviewSettings(),
       ttsDuck: tts.duck, ttsDipDb: tts.dipDb, ttsDipFade: tts.dipFade, ttsMix: tts.mix },
     view: { playhead: now(), ...(selIdx() >= 0 ? { selected: selIdx() } : {}) },
   });
@@ -3062,13 +3200,14 @@ function projectSaved(name) {
 // Ctrl/Cmd+S saves in place once the project has a file; Ctrl/Cmd+Shift+S always asks.
 // Browsers that can't save in place download a copy instead.
 async function saveProject(as = false) {
+  if (S.reviewId && !S.review) return toast('Reopen the QC package to restore its audio before saving');
   if (S.mode === 'record') return toast('Takes are kept as you record them. Export the narration WAV when you’re done');
   if (!S.cues.length && !S.comments.length && !S.dirty) return toast('Nothing to save yet');
-  const text = JSON.stringify(projectData(), null, 1);
-  const name = `${baseName()}${PROJECT_EXT}`;
+  const text = projectFileData();
+  const name = `${baseName()}${S.review ? REVIEW_EXT : PROJECT_EXT}`;
   if (!window.showSaveFilePicker) {
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.href = URL.createObjectURL(text instanceof Blob ? text : new Blob([text], { type: 'application/json' }));
     a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -3125,7 +3264,7 @@ async function checkWrite() {
 
 function scheduleAutosave() {
   clearTimeout(AUTO.timer);
-  if (!AUTO.can || !S.handle || AUTO.permission !== 'granted' || AUTO.error) return showAutosave();
+  if ((S.reviewId && !S.review) || !AUTO.can || !S.handle || AUTO.permission !== 'granted' || AUTO.error) return showAutosave();
   const t = Date.now();
   AUTO.first ||= t;
   AUTO.timer = setTimeout(autosave, nextSave(t, S.lastChange || t, AUTO.first));
@@ -3136,13 +3275,13 @@ async function autosave() {
   const h = S.handle;
   if (AUTO.saving) return; // the save running now looks again when it's done
   AUTO.first = 0;
-  if (!AUTO.can || !h || !S.dirty) return showAutosave();
+  if (!AUTO.can || !h || !S.dirty || (S.reviewId && !S.review)) return showAutosave();
   const gen = S.changeGen;
   AUTO.saving = true;
   showAutosave();
   try {
     if ((await h.queryPermission({ mode: 'readwrite' })) !== 'granted') { AUTO.permission = 'prompt'; return; }
-    await writeFile(h, JSON.stringify(projectData(), null, 1));
+    await writeFile(h, projectFileData());
     AUTO.error = '';
     // Only if nothing changed while it was written; otherwise it goes round again.
     if (h === S.handle && gen === S.changeGen) projectSaved(h.name);
@@ -3176,8 +3315,9 @@ function okToReplace(what) {
 
 async function openProject(file, handle = null) {
   if (isRecordingFile(file.name)) return openRecording(file);
-  let p;
-  try { p = fromProject(JSON.parse(await file.text())); }
+  let p, review = null;
+  if (isReview(file.name)) toast('Opening QC package…');
+  try { if (isReview(file.name)) { review = await openReview(file); p = review.parsed; } else p = fromProject(JSON.parse(await file.text())); }
   catch (e) { return toast(`Couldn’t open ${file.name}: ${e instanceof SyntaxError ? 'the file is damaged' : e.message}`); }
   if (!okToReplace(`Open ${file.name}`)) return;
   await stopJob();
@@ -3185,6 +3325,7 @@ async function openProject(file, handle = null) {
   pushUndo();
   // The project's dip and Video / TTS slider first, as its blocks' dips and volumes build
   // on them, and exact dips from older projects become the difference from its dip.
+  S.loadingProject = true;
   projectSound(p.settings);
   S.cues = p.blocks.map(revive);
   S.handle = handle;
@@ -3199,19 +3340,29 @@ async function openProject(file, handle = null) {
   S.notes = p.notes;
   aiNotesChanged();
   const { mode, offset, ttsSpeed, ttsBase, ttsVoice } = p.settings;
-  if (mode && mode !== 'record') setMode(mode, true);
+  // Stay out of Write while applying incoming voices: no intermediate fallback may retime blocks.
+  setMode('qc', true);
   if (offset != null) setOffset(offset);
   // Projects saved before there was a base speed were read at 100%, with an overall
   // speed for blocks without their own, which becomes the base speed.
   const base = isSpeed(ttsSpeed) ? baseFromSpeed(ttsSpeed, toBase(ttsBase)) : toBase(ttsBase);
   if (base !== tts.base) setTtsOption('base', base);
   if (ttsVoice) setTtsOption('voice', ttsVoice);
+  if (typeof p.settings.ttsSkipNotes === 'boolean') setTtsOption('skipNotes', p.settings.ttsSkipNotes);
+  S.qcSettings = readingSettings();
+  if (review) for (const c of S.cues) { const r = reviewReading(review, c, S.qcSettings); if (r && c.qcReading == null) c.qcReading = r.offset; }
+  S.review = review; S.reviewId = review ? crypto.randomUUID() : ''; S.qcSource = review ? 'package' : 'video';
+  if (review) { const wanted = S.reviewId; storedReview({ id: wanted, file }).then((saved) => { if (!saved && S.reviewId === wanted) toast('The QC audio could not be kept for recovery. Reopen the package after reloading'); }); } else storedReview(null);
+  const missing = voiceReport(S.cues, p.settings, reviewVoices()).some((v) => v.id && !v.available);
+  if (!review && !missing && mode && mode !== 'qc') setMode(mode, true);
+  S.loadingProject = false;
   changed();
   select(S.cues[p.view.selected]?.id ?? S.cues[0]?.id ?? null, { seek: false });
   S.pendingPlayhead = p.view.playhead ?? null;
   const ready = S.videoFile && sameMedia(p.media, S.videoFile);
   if (ready && S.pendingPlayhead != null) { seek(S.pendingPlayhead); S.pendingPlayhead = null; }
   projectSaved(file.name);
+  if (missing && !review) openQcPlayback();
   toast(`Opened ${file.name} (${S.cues.length} blocks)` + (p.media && !ready
     ? `. Now open its video, ${p.media.name}, with ${IS_MAC ? '⌘⇧O' : 'Ctrl+Shift+O'}` : ''));
   // A different video is open: this project's one replaces it, if it's remembered.
@@ -3304,6 +3455,7 @@ async function enterRecording(r, name) {
   handleStore.set(null);
   showAutosave();
   S.projectMedia = r.media;
+  clearReview();
   S.comments = [];
   S.notes = '';
   aiNotesChanged();
@@ -3357,7 +3509,7 @@ async function openAny() {
       multiple: true,
       types: [
         { description: 'Scribecue project, script, video or audio', accept: {
-          'application/json': [PROJECT_EXT, RECORDING_EXT], 'text/plain': ['.srt', '.vtt', '.txt', '.adc'],
+          'application/json': [PROJECT_EXT, REVIEW_EXT, RECORDING_EXT], 'text/plain': ['.srt', '.vtt', '.txt', '.adc'],
           'video/*': ['.mp4', '.m4v', '.mov', '.mkv', '.webm'], 'audio/*': ['.wav', '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.opus'],
         } },
       ],
@@ -3427,6 +3579,7 @@ function newProject(ask = true) {
   showAutosave();
   S.projectMedia = null;
   S.pendingPlayhead = null;
+  clearReview();
   S.comments = [];
   S.notes = '';
   aiNotesChanged();
@@ -3471,6 +3624,7 @@ async function loadSubsFile(file) {
   await stopJob();
   await endRecording();
   pushUndo();
+  clearReview();
   S.comments = [];
   S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.voice ? { voice: c.voice } : {}, blockDipOf(c), isVol(c.vol) ? { vol: c.vol } : {}, c.say ? { say: c.say } : {}));
   S.subName = file.name;
@@ -3958,7 +4112,8 @@ video.addEventListener('loadedmetadata', () => {
 });
 video.addEventListener('error', () => { if (S.videoFile && video.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) showCodecAlert(S.videoFile, []); else toast('This file couldn’t be played'); });
 video.addEventListener('play', updateInd);
-video.addEventListener('pause', updateInd);
+video.addEventListener('pause', () => { qcPlayer.stop(); updateInd(); });
+video.addEventListener('seeking', () => qcPlayer.stop());
 video.addEventListener('click', togglePlay);
 
 function openFiles(files) {
@@ -4005,6 +4160,7 @@ const actions = {
     ttsMixExport.scrollIntoView({ block: 'center' });
     if (!ttsMixExport.disabled) ttsMixExport.click();
   },
+  exportQc: () => openQcExport(),
   exportRecording: () => askRecordingFile(),
   exportNarration: () => recorder.exportWav(),
   exportMenu: () => toggleMenu(exportMenu),
@@ -4012,18 +4168,63 @@ const actions = {
   settings: () => showGeneral(),
   newProject: () => startAgain(),
   comments: () => toggleComments(),
-  ai: () => { if (!$('commentsDrawer').hidden) toggleComments(false); toggleAi(); },
+  ai: () => { if (qc()) return; if (!$('commentsDrawer').hidden) toggleComments(false); toggleAi(); },
 };
+
+function configureQcAudio() {
+  if (!S.review) return qcPlayer.configure(null, []);
+  const entries = [];
+  for (const c of S.cues) {
+    const r = reviewReading(S.review, c, reviewSettings());
+    if (r) entries.push({ ...r, start: c.start, gain: volGain(c), ...blockDipOf(c), id: entries.length });
+  }
+  qcPlayer.configure(S.review.file, entries);
+}
+function qcRead(c, manual = false) {
+  if (!qc() || S.qcSource === 'video') return;
+  S.qcLast = c.id;
+  const from = () => Math.max(0, now() - c.start);
+  if (S.qcSource === 'package') {
+    const r = reviewReading(S.review, c, reviewSettings());
+    if (!r) return toast('No matching original reading for this block. Ask the writer to regenerate the QC package');
+    if (manual) S.playUntil = Math.max(c.end, c.start + r.secs);
+    return;
+  }
+  const requested = c.voice || reviewSettings().ttsVoice;
+  const voice = reviewVoices().some((v) => v.id === requested) ? requested : S.qcPreviewVoice;
+  if (!voice) return toast('Choose a preview voice in QC playback');
+  speak(said(c), { id: c.id, speed: c.speed, voice, gain: volGain(c), from,
+    done: (secs) => { if (manual && secs != null && qc() && S.qcLast === c.id) { if (now() >= c.end) pause(); else S.playUntil = c.end; } },
+  });
+}
+function qcSpeech(prevT, t, started) {
+  if (S.qcSource === 'package') {
+    const ready = !S.hasVideo || (!video.seeking && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA);
+    return qcPlayer.sync(t, isPlaying() && ready, S.rate, mixLevels(tts.mix).reading);
+  }
+  if (S.qcSource === 'video') return;
+  const jumped = started || t < prevT || t - prevT >= 0.5;
+  if (jumped) S.qcLast = null;
+  const c = cueAt(t);
+  if (!c || tts.speaking?.id === c.id || S.qcLast === c.id) return;
+  if (jumped || (prevT <= c.start && t > c.start)) qcRead(c);
+}
+initQc({
+  project: projectData, review: () => S.review, source: () => S.qcSource, qc,
+  setSource(source, voice) { qcPlayer.stop(); stopSpeech(); S.qcLast = null; S.qcSource = source; S.qcPreviewVoice = voice; updateEditor(); updateInd(); },
+  baseName, said, busy: (on) => { S.makingReview = on; },
+});
 
 initComments({
   blocks: () => S.cues, selected: selCue, comments: () => S.comments,
+  canComment: qc, toast,
   now, tc, readTime, duration, closeAi: () => { if (!$('aiDrawer').hidden) toggleAi(false); },
   go: ({ block, time }) => { if (block) select(block.id); else { select(null, { seek: false }); seek(time); } },
   change: (apply) => { pushUndo(); apply(); changed(); },
 });
 // Right-click anywhere on the timeline to comment at that time.
 tl.addEventListener('contextmenu', (e) => {
-  if (S.mode === 'record') return;
+  if (!qc()) return;
   e.preventDefault(); toggleComments(true, clamp(xToT(e.clientX), 0, duration()));
 });
 
@@ -4045,6 +4246,7 @@ initAi({
     saveTimer = setTimeout(save, 400);
   },
   apply(id, text) {
+    if (qc()) return false;
     const c = S.cues[idx(id)];
     if (!c) { toast('That block isn’t there any more'); return false; }
     pushUndo();
@@ -4222,6 +4424,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (S.mode === 'record' && id === 'split' && recorder.splitTake()) return; // splits the take being edited
     if (S.mode === 'record' && id === 'deleteNow' && recorder.cutPart()) return; // deletes a part of it
+    if (qc() && REC_LOCKED.has(id) && !['createEdit', 'comments'].includes(id) && (!S.qcEdits || !QC_EDIT_KEYS.has(id))) return toast('The script and timings are fixed in QC mode');
     if (S.mode === 'record' && REC_LOCKED.has(id)) return toast('The script is locked in Record mode');
     RUN[id](e);
     return;
@@ -4232,6 +4435,8 @@ document.addEventListener('keydown', (e) => {
   const frazier = e.altKey && e.shiftKey ? { KeyM: 'Markers' }[e.code] : e.shiftKey && !e.altKey ? FRAZIER_ONLY[e.code] : null;
   if (frazier) { e.preventDefault(); toast(`${frazier} are not part of this editor`); }
 });
+
+const QC_EDIT_KEYS = new Set(['newBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'setStart', 'setEnd', 'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10', 'moveBack10', 'moveFwd10', 'soundsLike']);
 
 // Keys that change the script, or help with writing it: off in Record mode.
 const REC_LOCKED = new Set(['createEdit', 'newBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'findReplace', 'setStart', 'setEnd',
@@ -4297,7 +4502,7 @@ const RUN = {
   ttsPanel: () => openTts(),
   soundsLike: () => openSay(),
   comments: () => toggleComments(),
-  aiHelp: () => toggleAi(),
+  aiHelp: () => { if (!qc()) toggleAi(); },
   help: () => toggleHelp(),
   settings: () => showGeneral(),
   zoomIn: () => zoom(1.5),
@@ -4362,6 +4567,7 @@ if (!IS_MAC) {
 }
 const restored = loadSaved();
 aiNotesChanged();
+if (S.reviewId) { const wanted = S.reviewId; storedReview().then(async (saved) => { if (saved?.id !== wanted || S.reviewId !== wanted) return; try { const review = await openReview(saved.file); if (S.reviewId !== wanted) return; S.review = review; S.qcSource = 'package'; configureQcAudio(); updateEditor(); if (S.dirty) scheduleAutosave(); updateInd(); refreshQc(); } catch { toast('Reopen the QC package to restore its original readings'); } }); }
 S.dirty = false;
 showDocName();
 S.pps = Math.max(20, tl.clientWidth / 20);
@@ -4380,7 +4586,7 @@ if (reRec) {
   toast(`Back in Record mode: ${reRec.name}`);
   if (reRec.media) reopenVideo(reRec.media).then((ok) => { if (ok) toast(`Back in Record mode: ${reRec.name}, with ${reRec.media.name}`); });
 } else if (restored) {
-  select(S.cues[0].id, { seek: false });
+  select(S.cues[0]?.id ?? null, { seek: false });
   toast(`Restored ${restored} cues from autosave`);
   // Its video too, straight away if the browser still allows it, or with one click.
   if (S.projectMedia) reopenVideo(S.projectMedia).then((ok) => { if (ok) toast(`Restored ${restored} cues, and reopened ${S.projectMedia.name}`); });
@@ -4408,7 +4614,7 @@ function readingsChanged() {
   const wait = readingsAt + READINGS_EVERY - performance.now();
   if (wait > 0) { readingsTimer = setTimeout(() => { readingsTimer = 0; readingsChanged(); }, wait); return; }
   readingsAt = performance.now();
-  fitAllAuto(); refreshList(); updateEditor(); updateInd(); tlDirty = true;
+  fitAllAuto(); refreshList(); updateEditor(); updateInd(); refreshQc(); tlDirty = true;
 }
 initTts({
   toast,
@@ -4417,6 +4623,7 @@ initTts({
   sample: () => spoken(selCue() ? said(selCue()) : ''),
   changed: readingsChanged,
   readingChanged,
+  canChangeReading: () => !qc() || S.loadingProject,
   blockVoices: () => S.cues.filter((c) => c.voice).map((c) => c.voice),
 });
 initTour();

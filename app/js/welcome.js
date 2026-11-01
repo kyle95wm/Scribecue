@@ -1,4 +1,4 @@
-// The welcome wizard: a short setup that picks the task (Transcribe or Write), the
+// The welcome wizard: a short setup that picks the task (Transcribe, Write or QC), the
 // tools for it, and update checks. It opens by itself the first time Scribecue is
 // used, and Settings at the top runs it again. Choices take effect only when
 // Finish is pressed, so skipping changes nothing.
@@ -32,7 +32,7 @@ function show() {
 
 function summarise() {
   const m = mode();
-  const lines = [m === 'write' ? 'Write mode, for new audio description' : 'Transcribe mode, for existing audio description'];
+  const lines = [m === 'qc' ? 'QC mode, with comments and editing off until you choose Allow edits' : m === 'write' ? 'Write mode, for new audio description' : 'Transcribe mode, for existing audio description'];
   if (m === 'transcribe') {
     lines.push(`Hold-to-mark reaction offset: ${Math.round(+$('wzOffset').value * 1000)} ms`);
     if ($('wzReplay').checked) lines.push('Goes back to each block’s start after you edit it');
@@ -50,8 +50,9 @@ function summarise() {
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
   if (!HOSTED) lines.push(u === '1' ? 'Checks for updates once a day' : u === '0' ? 'Doesn’t check for updates' : 'Update checks: not chosen yet');
   $('wzSummary').replaceChildren(...lines.map((t) => Object.assign(document.createElement('li'), { textContent: t })));
-  $('wzModeKey').innerHTML = m === 'write' ? '<kbd>V</kbd>' : 'Hold <kbd>H</kbd>';
-  $('wzModeDesc').textContent = m === 'write' ? 'Read the selected block aloud' : 'Mark a block while the narrator speaks';
+  $('wzEditKey').hidden = $('wzEditDesc').hidden = m === 'qc';
+  $('wzModeKey').innerHTML = m === 'qc' ? '<kbd>Alt</kbd><kbd>Shift</kbd><kbd>C</kbd>' : m === 'write' ? '<kbd>V</kbd>' : 'Hold <kbd>H</kbd>';
+  $('wzModeDesc').textContent = m === 'qc' ? 'Open Comments at the playhead' : m === 'write' ? 'Read the selected block aloud' : 'Mark a block while the narrator speaks';
 }
 
 function finish() {
@@ -78,7 +79,7 @@ function finish() {
     hooks.toast(`All set for writing. Downloading the Piper voice; it’s chosen once it’s ready, and you can carry on meanwhile`);
     return;
   }
-  hooks.toast(m === 'write'
+  hooks.toast(m === 'qc' ? 'All set for QC. Open the project or QC package and its matching video' : m === 'write'
     ? `All set for writing.${$('wzTts').checked ? ' Press V to hear a block.' : ''} Settings at the top runs this again`
     : 'All set for transcribing. Hold H while the narrator speaks. Settings at the top runs this again');
 }

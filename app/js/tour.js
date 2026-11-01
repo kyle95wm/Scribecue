@@ -17,6 +17,12 @@ export const keyFor = (id, changes = keyChanges()) => {
 
 // The loop to repeat through a programme, for each mode.
 export function loop(mode, key = keyFor) {
+  if (mode === 'qc') return [
+    '1. Open the project or QC package and its matching video.',
+    '2. Click QC under the video to choose original readings, programme sound or an approximate preview.',
+    '3. Play and check each block in context. The script and timings stay fixed until you turn on Allow edits.',
+    '4. Click Comment on a block, or right-click the timeline. Save and return the reviewed file.',
+  ].join('\n');
   return mode === 'write'
     ? [
       'Most of the work is one loop, repeated through the programme:',
@@ -44,8 +50,8 @@ export const STEPS = [
   },
   {
     target: '.modesw',
-    title: 'Two ways to work',
-    text: () => 'Transcribe is for timing a narration that’s already recorded: hold H while the narrator speaks to mark each line. Write is for writing new descriptions, with text to speech to hear whether they fit. Switch at any time.',
+    title: 'Choose your mode',
+    text: () => 'Transcribe is for timing a narration that’s already recorded: hold H while the narrator speaks to mark each line. Write is for writing new descriptions, with text to speech to hear whether they fit. QC is for listening and comments, with Allow edits for corrections. Switch at any time.',
   },
   {
     target: '#stage',
@@ -55,12 +61,12 @@ export const STEPS = [
   {
     target: '#tl',
     title: 'The timeline',
-    text: (mode) => `Each box is a block: one description. Drag a block to move it, or drag across the empty lane to draw one. ${mode === 'write' ? 'Enter makes a block at the playhead, ready to type. With text to speech on, a block ends where its reading does: change its speed to make it longer or shorter.' : 'Drag its edges to resize it. Holding H marks a block from when you press to when you let go.'}`,
+    text: (mode) => mode === 'qc' ? 'Each box is a block. Click one to inspect it. Click the ruler to seek, or right-click it to comment at a time. Turn on Allow edits to move or resize blocks; reading lengths never change timings automatically.' : `Each box is a block: one description. Drag a block to move it, or drag across the empty lane to draw one. ${mode === 'write' ? 'Enter makes a block at the playhead, ready to type. With text to speech on, a block ends where its reading does: change its speed to make it longer or shorter.' : 'Drag its edges to resize it. Holding H marks a block from when you press to when you let go.'}`,
   },
   {
     target: '#list',
     title: 'All your blocks',
-    text: (mode) => `Every block in order. The selected one opens right here to edit, as in Frazier: its start and end, buttons to move it a frame back, to the playhead or a frame forward, and its text. ${mode === 'write' ? 'With text to speech on, it also shows the speed, the voice and how long the reading takes, in red if it doesn’t fit. ' : 'Type in it once a block is marked; Enter or Esc carries on with the video. '}Press / to search, and Ctrl/Cmd+Z undoes almost anything.`,
+    text: (mode) => mode === 'qc' ? 'Select a block to inspect its text and timings. Allow edits enables corrections. Comment opens the drawer ready to post a note on that block. Use search to find text or a block number.' : `Every block in order. The selected one opens right here to edit, as in Frazier: its start and end, buttons to move it a frame back, to the playhead or a frame forward, and its text. ${mode === 'write' ? 'With text to speech on, it also shows the speed, the voice and how long the reading takes, in red if it doesn’t fit. ' : 'Type in it once a block is marked; Enter or Esc carries on with the video. '}Press / to search, and Ctrl/Cmd+Z undoes almost anything.`,
   },
   {
     target: '.transport',
@@ -80,7 +86,7 @@ export const STEPS = [
   {
     target: 'nav [data-act="settings"]',
     title: 'Settings',
-    text: (mode) => `Everything you set up is in Settings (${keyFor('settings')}). ${mode === 'write'
+    text: (mode) => mode === 'qc' ? 'Click QC under the video to check voice availability and choose what you hear. Original packaged readings work without installing voices. A substitute TTS preview is approximate and must be chosen explicitly.' : `Everything you set up is in Settings (${keyFor('settings')}). ${mode === 'write'
       ? 'Start with Text to speech: turn it on to hear your blocks read aloud, and check each one fits before the next line of dialogue. With a Piper voice, lengths are exact and you can export a description track.'
       : `Start with Transcribing: Whisper can type each line for you. When you let go of ${keyFor('hold')}, it listens to the block and fills in what the narrator said, ready to check. It runs on your computer.`} AI help, your shortcuts and storage are there too, and so are setup and this tour.`,
   },
@@ -106,7 +112,7 @@ export function stepsFor(mode, visible = () => true) {
 }
 
 export const LOOP_STEP = {
-  title: (mode) => (mode === 'write' ? 'The writing loop' : 'The transcribing loop'),
+  title: (mode) => (mode === 'qc' ? 'The QC loop' : mode === 'write' ? 'The writing loop' : 'The transcribing loop'),
   text: (mode) => loop(mode),
 };
 

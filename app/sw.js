@@ -8,7 +8,7 @@ const VERSION = '0.65.0';
 const CACHE = `scribecue-${VERSION}`;
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'changelog.json', 'css/style.css',
-  'js/comments.js', 'js/commentsdrawer.js', 'js/ai.js', 'js/aidrawer.js', 'js/app.js', 'js/browser.js', 'js/nav.js', 'js/tour.js', 'js/keymap.js', 'js/keys.js', 'js/settings.js', 'js/whatsnew.js', 'js/config.js', 'js/formats.js', 'js/piper-engine.js', 'js/piper-worker.js',
+  'js/qc.js', 'js/qcdrawer.js', 'js/qcplayer.js', 'js/qc-worker.js', 'js/comments.js', 'js/commentsdrawer.js', 'js/ai.js', 'js/aidrawer.js', 'js/app.js', 'js/browser.js', 'js/nav.js', 'js/tour.js', 'js/keymap.js', 'js/keys.js', 'js/settings.js', 'js/whatsnew.js', 'js/config.js', 'js/formats.js', 'js/piper-engine.js', 'js/piper-worker.js',
   'js/project.js', 'js/recording.js', 'js/bwf.js', 'js/record.js', 'js/takestore.js', 'js/rec-worklet.js', 'js/old.js', 'js/tmdb.js', 'js/findreplace.js', 'js/guide.js', 'js/offline.js', 'js/autosave.js', 'js/reminder.js', 'js/dockertip.js', 'js/wavestore.js', 'js/spelling.js', 'js/stt.js', 'js/tts.js', 'js/whisper-worker.js',
   'js/update.js', 'js/welcome.js', 'js/wave-worker.js', 'js/mp3.js', 'js/mp3-worker.js', 'js/mix-worker.js', 'js/audio.js', 'js/track-worker.js', 'js/ffcmd.js', 'js/codecs.js', 'vendor/lame.min.js',
   'icons/icon-192.png', 'icons/icon-512.png',
@@ -30,6 +30,9 @@ const GUIDES = [
   'guides/INSTALL.md',
   'guides/docs/screenshots/ai-help.png',
   'guides/docs/screenshots/comments.png',
+  'guides/docs/screenshots/qc-playback.png',
+  'guides/docs/screenshots/qc-editing.png',
+  'guides/docs/screenshots/qc-package.png',
   'guides/docs/screenshots/hold-to-mark.png',
   'guides/docs/screenshots/import-timings.png',
   'guides/docs/screenshots/main.png',

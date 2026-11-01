@@ -95,3 +95,13 @@ sent: the block is read when you close it.
 - **Description tracks** are levelled: every reading comes out at the same level, unless
   you've changed a block's volume. The [full mix](WRITING.md#exporting-the-full-mix)
   keeps each voice's own level instead, as you hear it when playing.
+
+## Voices on another computer
+
+A plain project keeps voice choices, not the voices or their audio. Another voice can
+take a different time to read the same words. Missing voices open a project in QC
+with its saved timings fixed. An approximate preview must be chosen explicitly.
+
+For accurate TTS review, send a [QC package](QC.md#make-a-portable-qc-package).
+It includes original Piper, Kokoro or Google Cloud readings, so the reviewer needs
+no matching voices or keys. For built-in voices, supply a recorded review mix instead.

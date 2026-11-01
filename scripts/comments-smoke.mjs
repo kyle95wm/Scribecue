@@ -23,7 +23,7 @@ const action = (label) => js(`[...document.querySelectorAll('#commentsLog button
 try {
   await send('Emulation.setCPUThrottlingRate', { rate: 6 });
   await send('Page.navigate', { url: site }); await sleep(700);
-  await js(`localStorage.clear(); localStorage.setItem('scribecue.welcome','1'); localStorage.setItem('scribecue.seenVersion','999.0.0'); localStorage.setItem('scribecue.updates','0'); localStorage.setItem('scribecue.mode','transcribe'); localStorage.setItem('scribecue.v1',JSON.stringify({cues:[{start:3,end:6,text:'First block'},{start:10,end:14,text:'Second block'}],dirty:false})); location.reload(); true`);
+  await js(`localStorage.clear(); localStorage.setItem('scribecue.welcome','1'); localStorage.setItem('scribecue.seenVersion','999.0.0'); localStorage.setItem('scribecue.updates','0'); localStorage.setItem('scribecue.mode','qc'); localStorage.setItem('scribecue.loops',JSON.stringify({write:true,transcribe:true,qc:true})); localStorage.setItem('scribecue.v1',JSON.stringify({cues:[{start:3,end:6,text:'First block'},{start:10,end:14,text:'Second block'}],dirty:false})); location.reload(); true`);
   await sleep(1300);
   await js(`window.__errors=[]; addEventListener('error',e=>__errors.push(e.message)); window.__long=[]; new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'}); document.querySelector('#list .row').click(); true`);
   assert.equal(await js(`document.querySelector('#commentBlock, #commentTime')`), null);
@@ -74,7 +74,10 @@ try {
   await key('KeyZ', 'z', { metaKey: true });
   await click('commentsBtn'); assert.equal(await count(), 3);
   // Both drawers share the same space, and timeline right-click starts a timed comment.
+  await click('commentsClose');
+  await js(`document.querySelector('#modeSw [data-mode=write]').click(); true`);
   await click('aiBtn');
+  await js(`document.querySelector('#modeSw [data-mode=qc]').click(); true`);
   assert.equal(await js(`document.getElementById('commentsDrawer').hidden`), true);
   await js(`const r=document.getElementById('ruler').getBoundingClientRect(); document.getElementById('ruler').dispatchEvent(new MouseEvent('contextmenu',{clientX:r.left+50,bubbles:true,cancelable:true})); true`);
   assert.equal(await js(`document.getElementById('aiDrawer').hidden`), true);
@@ -93,11 +96,16 @@ try {
   // Merging keeps both blocks' comments, and undo restores their attachments.
   await click('commentsClose');
   await js(`document.querySelector('#list .row').click(); true`);
+  await js(`document.querySelector('#modeSw [data-mode=write]').click(); true`);
   await key('KeyM', 'm');
   assert.equal(await js(`document.querySelectorAll('#list .row').length`), 1);
+  await js(`document.querySelector('#modeSw [data-mode=qc]').click(); true`);
   await click('commentsBtn'); assert.equal(await count(), 3);
-  await click('commentsClose'); await key('KeyZ', 'z', {metaKey:true});
+  await click('commentsClose');
+  await js(`document.querySelector('#modeSw [data-mode=write]').click(); true`);
+  await key('KeyZ', 'z', {metaKey:true});
   assert.equal(await js(`document.querySelectorAll('#list .row').length`), 2);
+  await js(`document.querySelector('#modeSw [data-mode=qc]').click(); true`);
   await click('commentsBtn');
   // A large QC file must not create thousands of DOM nodes. Its last comment is at two hours.
   const stress = await js(`(async()=>{const p=JSON.parse(localStorage.getItem('scribecue.v1')); p.comments=Array.from({length:5000},(_,i)=>({text:'Review '+i,author:'Sam',time:i*7200/4999,created:'2026-10-31T00:00:00Z'})); const project={scribecue:1,blocks:p.cues,comments:p.comments}; const dt=new DataTransfer();dt.items.add(new File([JSON.stringify(project)],'long-qc.scribecue')); const t=performance.now();window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));await new Promise(r=>setTimeout(r,400));return {loadMs:performance.now()-t,rendered:document.querySelectorAll('#commentsLog article').length,heap:performance.memory?.usedJSHeapSize}})()`);

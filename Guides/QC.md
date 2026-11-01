@@ -19,7 +19,7 @@ one project with your findings. You don't need an AI provider or a paid voice to
 
 Ask the person sending the review for:
 
-- **The `.scribecue` project.** It keeps the blocks, their timings, comments and reading settings.
+- **A `.scribecueqc` package for a TTS review, or a `.scribecue` project for a recorded mix.** Both keep the script, timings and comments. The package also keeps the writer’s original readings.
 - **The matching video or audio.** The project refers to it; it doesn't contain the media.
   Check the cut, lead-in and duration match the writer's copy.
 - **The review brief.** Agree whether you should comment only or make fixes. Confirm the
@@ -34,38 +34,81 @@ uses file handoffs. It has no live shared review or automatic merge of project c
 
 ## Open a review copy
 
-1. Use Chrome or Edge on a computer. Open Scribecue and follow setup if it's your first visit.
+1. Use Chrome or Edge on a computer. Open Scribecue. On a first visit, choose **QC review** in setup.
 2. Press `Ctrl/Cmd+O` and open the project. Open its media with `Ctrl/Cmd+Shift+O`.
    If **Reopen** is offered for the right video, you can use that instead.
 3. Save a separate copy with `Ctrl/Cmd+Shift+S` before making changes. For example,
-   `episode-03-qc-sam-round1.scribecue`. If your browser downloads a copy, rename that file.
+   `episode-03-qc-sam-round1.scribecueqc` (keep the original extension). If your browser downloads a copy, rename that file.
 4. Check a familiar scene near the beginning and another later on. Make sure the blocks
    line up with the same picture and sound throughout.
 
-Comments work in **Write** and **Transcribe**. There is no separate QC mode or script lock
-for a project: typing in a block or dragging it can change the script or its timing.
-If the brief is comments only, use the Comment button and leave the block fields alone.
+Select **QC** at the top. Editing starts off, and Comments is available only here.
+To make corrections, turn on **Allow edits**. You can change text, timings, pronunciation,
+block voices and speeds without leaving the comments behind. Timings never adjust
+from a reading automatically in QC. Use Write for voice setup or bulk timing tools.
 
-A recording file (`.scribecuerec`) opens in **Record** mode, where Comments aren't available.
-Click **Leave**, then open the `.scribecue` project for review. Ask for that project if
-it wasn't supplied. [Recording narration](RECORDING.md) explains the recording workflow.
+Turn Allow edits off when you finish. It resets when you change modes, open a project
+or reload. Save a review copy before editing, and agree which fixes you should make.
+
+A recording file (`.scribecuerec`) opens in Record mode. Click **Leave**, then open the
+project or QC package. [Recording narration](RECORDING.md) covers recording files.
 
 ## Choose what you hear
 
-| Reviewing | Setup |
+Click **QC** under the video to choose the source and check the project’s voices.
+
+| Source | Use it for |
 | --- | --- |
-| A script before recording | Use **Write**. Open **Settings → Text to speech** (`Alt+Shift+V`) and choose a voice. |
-| Recorded description in the video | Use **Transcribe** to hear the file without extra text-to-speech readings. Choose its description mix in **Audio** under the video. |
-| The description against the original sound | Switch tracks with `T` or `Shift+T`, or use **Audio**. Check which track you're listening to before judging a problem. |
+| **Programme sound** | A recorded description mix. Choose its track in Audio. No TTS is added. |
+| **Original readings** | The writer’s audio from a QC package. No matching voices, services or keys are needed. This is the default for packages. |
+| **Approximate TTS preview** | A project without packaged audio. Available project voices are used; missing voices use the preview voice you choose. |
 
-For script previews, the **Video / TTS** slider balances the readings against the video.
-Check the voice and base speed against the brief. A different voice can take a different
-amount of time to read the same words. [Writing](WRITING.md#hearing-it-while-you-play)
-covers readings, levels and dips.
+![QC playback choices and voice availability](../docs/screenshots/qc-playback.png)
 
-A red reading time means the preview doesn't fit its block. A `~` means the length is
-still an estimate. Listen to the whole gap, including the dialogue after it. Synthetic
-speech helps check pacing; it doesn't approve the final narrator's delivery or mix.
+A plain project defaults to programme sound in QC. If a project’s voices are missing,
+Scribecue opens it in QC and shows the voice check. It keeps the saved timings instead
+of fitting them to a substitute voice. Nothing switches to an approximate preview
+without your choice.
+
+Different voices can take different times to say the same words. An approximate
+preview helps check wording, but cannot establish the writer’s pacing. Listen to the
+whole gap, including the dialogue after it. For a timing decision, ask for original
+readings or a recorded review mix. Synthetic speech cannot approve a narrator’s delivery.
+
+The **Video / TTS** slider balances readings against the programme. Avoid playing TTS
+over a track that already contains description. `T` and `Shift+T` change audio tracks.
+
+### Make a portable QC package
+
+1. In Write mode, check the script, voice choices, speeds and timings.
+2. Choose **Export → QC package**. The voice check includes each block’s own voice.
+3. Click **Make QC package** and wait for the readings. Progress is shown; **Stop** cancels.
+4. Send the `.scribecueqc` file with the matching video and review brief.
+
+![QC package export with its voice check](../docs/screenshots/qc-package.png)
+
+Packaging needs available **Piper, Kokoro or Google Cloud** voices. Built-in computer
+voices and the browser’s online voices cannot supply audio for a package. Choose an
+exportable voice and check its readings and timings first, or supply a recorded review
+mix. Google Cloud packaging sends text to Google and can use your quota or incur charges.
+Voice credentials and the video are never included in the package.
+
+Original readings keep their full length, including overlapping tails. Moving a block
+moves its reading with it. Resizing keeps the same audio; the inspector warns when it
+runs past the block’s end.
+
+Changing text, pronunciation, voice or speed marks the reading **out of date**. It stays
+silent during original playback. **Hear previous reading** plays the old clip alone,
+with the programme paused; it does not represent your correction. An approximate
+preview must still be chosen explicitly. Undoing a correction can restore matching audio.
+
+Make a fresh package after fixes to replace old readings. Until then, saving keeps the
+previous audio too. Reviewers without the right voices should return their corrections
+to the writer for new audio.
+
+Saving comments to a package keeps its original readings. Reviewers do not need to
+regenerate them. Keep the package file: if browser recovery cannot restore its audio,
+reopen the package before saving. Packaging needs disk storage in a current Chrome or Edge.
 
 ### Checking a narration WAV
 
@@ -158,6 +201,18 @@ comment on the same block or time and identify the issue you're answering.
 - To undo a posted comment change, close the drawer with `Esc`, then press `Ctrl/Cmd+Z`.
   Inside a text box, that shortcut undoes typing instead.
 
+### Make corrections in QC
+
+1. Turn on **Allow edits** at the top.
+2. Click a block and make the agreed correction. Change its times directly or drag it.
+3. Check the reading status. A new voice or corrected text needs fresh audio before
+   original playback can confirm its pacing.
+4. Close the editor and use `Ctrl/Cmd+Z` to undo a block change if needed. Keep Allow edits
+   on for undo or redo of block changes. Comment changes can be undone with editing off.
+5. Turn Allow edits off, save the review, and tell the writer what you changed.
+
+![QC with block editing enabled and the Comments drawer open](../docs/screenshots/qc-editing.png)
+
 ## Check fixes and resolve comments
 
 1. Open the revised project with the matching media.
@@ -175,7 +230,7 @@ Agree who resolves issues and who approves the finished programme.
 
 1. Press `Ctrl/Cmd+S`. Check the project no longer has an unsaved-changes dot beside its name.
    If it says **autosave paused**, click it to allow saving, or save a new copy.
-2. Send the reviewed `.scribecue` file. Include changed media only if you've agreed to
+2. Send the reviewed `.scribecueqc` package or `.scribecue` project. Include changed media only if you've agreed to
    supply it. Comments aren't included in SRT, WebVTT, recording files or audio exports.
 3. Say which source project and picture cut you reviewed. State whether you changed
    the script or timings, and whether any checks remain unfinished.
@@ -209,6 +264,7 @@ while typing, see [Keyboard shortcuts](SHORTCUTS.md).
 | `Space` | Play or pause |
 | `Shift+Space` | Play the selected block once |
 | `L` | Loop a block |
+| `V` | Hear the selected block with the chosen QC source |
 | `↑` / `↓` | Select the previous / next block |
 | `←` / `→` | Move one frame back / forward |
 | `Shift+←` / `Shift+→` | Move three seconds back / forward |
@@ -224,13 +280,13 @@ while typing, see [Keyboard shortcuts](SHORTCUTS.md).
 
 | Problem | What to do |
 | --- | --- |
-| No Comment button | Open a block. If you're in Record mode, leave it and open the project. Update Scribecue if Comments is missing. |
+| No Comment button | Select QC, then open a block. Comments are hidden in all other modes. |
 | The note is on the wrong target | Check the target above the comment box. Use the block's Comment button for a block, or right-click the timeline for a time. Delete and repost a misplaced note. |
-| Two voices speak at once | You're hearing text to speech over a recorded description mix. Use Transcribe, turn text to speech off, or choose the original soundtrack for a script preview. |
-| No narration | Check Audio, the volume and the selected track. For a script preview, check text to speech is on in Write mode. |
+| Two voices speak at once | Choose Programme sound for a recorded description mix, or choose the original soundtrack when playing packaged readings. |
+| No narration | Check Audio, volume and the QC playback source. Missing or changed original readings need a fresh package from the writer. |
 | “No open comments” | Try Show resolved. Also check you're opening the returned project, rather than the original file or an SRT export. |
 | All notes don't fit in the drawer | Scroll its comment list and use Previous / Next for further pages. |
-| Timing differs between copies | Confirm the picture cut and lead-in. For synthetic speech, check the voice and base speed too. |
+| Timing differs between copies | Confirm the picture cut and lead-in. Use original readings; substitute voices can have different lengths. |
 | Narration “matches”, but sounds wrong | The WAV comparison checks the saved script and timings. Listen to the actual recording to check delivery and the mix. |
 
 If you are also making fixes, [Writing](WRITING.md) covers reading speeds and timings;

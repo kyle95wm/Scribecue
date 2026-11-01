@@ -156,6 +156,19 @@ export function pickVoices(voices, { online = false, lang = 'en' } = {}) {
     .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
 
+// Voice checks use exact IDs, never the playback fallback.
+export const reviewVoices = () => voices.map((v) => ({ id: v.voiceURI, name: voiceTitle(v), exportable: makesAudio(v) }));
+export async function reviewAudio(text, speed, uri) {
+  const v = voices.find((v) => v.voiceURI === uri);
+  if (!v || !makesAudio(v)) throw new Error(`${voiceLabel(uri)} needs to be available as a Piper, Kokoro or Google Cloud voice to package its audio`);
+  const key = `${v.voiceURI}|${rate(speed)}|${spoken(text)}`;
+  if (!spoken(text)) return null;
+  const wav = await readAudio(text, speed, v, 'bulk');
+  const blob = new Blob([wav.buf], { type: 'audio/wav' });
+  audioCache.delete(key); // the export streams to disk rather than retaining decoded readings
+  return { blob, secs: wav.secs, voice: v.voiceURI };
+}
+
 // A voice's name for people to read. Chrome adds the language to Mac voices that come in
 // more than one, as in "Eddy (English (United Kingdom))", and the menu already shows it.
 export const voiceTitle = (v) => (v?.name || '').replace(/\s*\([^()]*\([^()]*\)\)$/, '') || v?.name || '';
@@ -1044,6 +1057,7 @@ function speakAudio(text, voice, { id, manual, silent, speed, gain, from, done }
     if (silent) return finish(w.secs);
     const a = readingAudio();
     if (a.src) URL.revokeObjectURL(a.src);
+    a.onloadedmetadata = null;
     a.src = URL.createObjectURL(new Blob([w.buf], { type: 'audio/wav' }));
     a.playbackRate = playRate; // in step with the video; the length on its clock stays w.secs
     a.preservesPitch = true;
@@ -1327,6 +1341,7 @@ function changeReading(k, v) {
 }
 
 export function setTtsOption(k, v) {
+  if (['voice', 'base', 'skipNotes'].includes(k) && hooks.canChangeReading && !hooks.canChangeReading()) return hooks.toast('Switch to Write mode to change the project’s voice or reading settings');
   if (k === 'voice') picked = null;
   tts[k] = v;
   save();
