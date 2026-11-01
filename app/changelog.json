@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.73.0",
+  "date": "2026-11-01",
+  "notes": "## Voices from Frazier scripts\n\n- Opening an `.adc` script that names voices now asks whether to use them.\n- Choose other voices to pick one in place of each: one for the project, and one for each set of blocks with their own voice.\n- It only asks while text to speech is on."
+ },
+ {
   "version": "0.72.0",
   "date": "2026-11-01",
   "notes": "## New Google readings in QC\n\n- In an editable QC package with Google voices, a changed block is read when you finish editing it, as in Write mode. Its end moves to fit the new reading.\n- Blocks you add in QC are read too, with the package’s Google voice.\n- Your own Google key is used first. If it fails, or you don’t have one, the writer’s key in the package is used.\n- **Hear rewrite** is gone. Press V to hear a block.\n- QC packages with readings for added blocks need this version or later to open."
