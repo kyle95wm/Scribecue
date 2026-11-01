@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.68.0",
+  "date": "2026-11-01",
+  "notes": "## Pickups\n\n- In Write mode, click **Pickup** on a block to ask the narrator to record it again. Add a note, such as how to say a name.\n- Each recording file you export is a new version. It asks for the blocks you marked and the lines you reworded.\n- Takes carry over to the new version, so the narrator records only the pickups.\n- In Record mode, P goes to the next pickup. **Compare** plays the original take, then the pickup.\n- **Export → Pickups WAV** holds only the new takes, each where it belongs. Its markers carry your notes.\n- Opening a returned WAV shows which pickups are recorded, and can clear their marks.\n- Takes from older recording files can be brought in, under **Microphone, lead-in and sync**."
+ },
+ {
   "version": "0.67.1",
   "date": "2026-11-01",
   "notes": "## Fine-tune a take\n\n- In Record mode, a take’s **Edit** button is now called **Fine-tune**. It moves, trims or splits the take by the millisecond, and works from the keyboard.\n- It shows only on the take in the export, as the timeline does."
