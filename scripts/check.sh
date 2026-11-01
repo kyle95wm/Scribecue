@@ -47,5 +47,6 @@ for f in js/app.js js/browser.js js/config.js js/formats.js js/project.js js/tts
   curl -fsS -o /dev/null "$base/$f" || fail "$f not served"
 done
 curl -fsSI "$base/js/app.js" | grep -qi '^content-type: .*javascript' || fail 'app.js has the wrong content type'
+curl -fsSI "$base/guides/docs/voices/lessac.mp3" | grep -qi '^content-type: audio/mpeg' || fail 'voice samples have the wrong content type'
 
 echo 'All checks passed'
