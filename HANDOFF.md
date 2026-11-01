@@ -7,9 +7,9 @@ screenshots and releases. This file only adds what isn't there.
 
 ## Where things stand
 
-- **Release version:** 0.66.0. QC mode, portable packages and optional edits ship in this release.
-  The previous release was 0.65.0.
-- **Unreleased correction:** the package creator chooses whether reviewers may edit in
+- **Release version:** 0.66.1. Editing permissions are chosen when creating a QC package.
+  The previous release was 0.66.0, which added QC mode and portable packages.
+- **QC editing permissions:** the package creator chooses whether reviewers may edit in
   Export → QC package. Default is comments only. QC has a status label, not an editing toggle.
   Permission stays in the package manifest when saving and after browser recovery. Older
   packages without permission default to comments only. New manifests use review version 2,

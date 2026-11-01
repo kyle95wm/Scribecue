@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.66.1",
+  "date": "2026-10-31",
+  "notes": "## QC editing permissions\n\n- Choose **Allow reviewers to edit blocks** when creating a QC package. It starts off for comments-only reviews.\n- QC shows whether edits are allowed. Reviewers can’t change this choice, and it stays with the package when saving or recovering a review.\n- Comments-only packages stay in QC. Packages from before this change also open as comments only.\n- Update Scribecue before opening a new QC package."
+ },
+ {
   "version": "0.66.0",
   "date": "2026-10-31",
   "notes": "## QC review\n\n- Choose **QC** to listen and leave comments. Comments and block Comment buttons now appear only in this mode.\n- **Allow edits** lets you correct blocks while keeping Comments open. It starts off, and timings never adjust automatically in QC.\n- Block comments target the open block. The Comments button targets the playhead; right-click the timeline to choose another time.\n\n## Original readings on another computer\n\n- **Export → QC package** includes the project and its original TTS readings. Send the matching video separately. Reviewers need no matching voices or keys.\n- Package Piper, Kokoro or Google Cloud readings. Built-in and browser-provided voices need a recorded review mix instead.\n- Missing voices open a project in QC with saved timings preserved. An approximate TTS preview must be chosen explicitly.\n- Moving or resizing a block keeps its audio and flags overruns. Text, pronunciation, voice or speed changes mark the reading out of date. **Hear previous reading** plays the old clip alone.\n\n## Guide\n\n- The [QC guide](https://github.com/kyle95wm/Scribecue/blob/main/Guides/QC.md) covers preparing a handoff, listening, comments, corrections and returning the review."
