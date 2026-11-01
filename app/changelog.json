@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.67.1",
+  "date": "2026-11-01",
+  "notes": "## Fine-tune a take\n\n- In Record mode, a take’s **Edit** button is now called **Fine-tune**. It moves, trims or splits the take by the millisecond, and works from the keyboard.\n- It shows only on the take in the export, as the timeline does."
+ },
+ {
   "version": "0.67.0",
   "date": "2026-11-01",
   "notes": "## Takes on the timeline\n\n- In Record mode, each block’s picked take shows as a clip on the timeline, under the video’s waveform.\n- Drag a clip to move it, or drag its ends to trim it. Double-click to play it.\n- Right-click a clip to trim silence, start it at the block, fit it in its slot, or reset it.\n- X splits the selected block’s take at the playhead. You no longer need to open Edit first.\n- Each block’s slot is shaded green, and any part of a take past it shows in red.\n\n## Fixed\n\n- The selected block no longer disappears from the list when Record mode opens.\n\n## Help\n\n- New troubleshooting guide, and screenshots in the recording guide."
