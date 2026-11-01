@@ -72,6 +72,10 @@ reading than Piper's. There are 41 voices in US and UK English, Spanish, French,
 Italian and Brazilian Portuguese. They stay on your computer, work offline, and do
 everything Piper's do.
 
+Hear a few: [Heart](../docs/voices/kokoro-heart.mp3) and
+[Liam](../docs/voices/kokoro-liam.mp3) (US), and [Alice](../docs/voices/kokoro-alice.mp3)
+and [Lewis](../docs/voices/kokoro-lewis.mp3) (UK).
+
 Kokoro needs Docker, because its voices are too big to run well in a browser. See
 [More lifelike voices](INSTALL.md#more-lifelike-voices-kokoro).
 

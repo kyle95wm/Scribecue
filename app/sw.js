@@ -46,6 +46,10 @@ const GUIDES = [
   'guides/docs/voices/ryan.mp3',
   'guides/docs/voices/alba.mp3',
   'guides/docs/voices/alan.mp3',
+  'guides/docs/voices/kokoro-heart.mp3',
+  'guides/docs/voices/kokoro-liam.mp3',
+  'guides/docs/voices/kokoro-alice.mp3',
+  'guides/docs/voices/kokoro-lewis.mp3',
 ];
 
 // Straight from the site, never the browser's own cache: GitHub Pages lets browsers keep
