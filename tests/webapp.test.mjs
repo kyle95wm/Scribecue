@@ -61,9 +61,10 @@ test('hidden buttons stay hidden, such as Install app until the browser offers i
 test('the guides and every screenshot they show are built in and kept offline', () => {
   const sw = read('sw.js');
   const shots = readdirSync(new URL('../docs/screenshots', import.meta.url)).filter((f) => f.endsWith('.png'));
+  const samples = readdirSync(new URL('../docs/voices', import.meta.url)).filter((f) => f.endsWith('.mp3'));
   // Every guide the viewer has tabs for.
   const guides = Object.keys(GUIDES);
-  for (const f of [...guides, ...shots.map((s) => `docs/screenshots/${s}`)]) {
+  for (const f of [...guides, ...shots.map((s) => `docs/screenshots/${s}`), ...samples.map((s) => `docs/voices/${s}`)]) {
     assert.ok(sw.includes(`'guides/${f}'`), `guides/${f} isn't kept offline (add it to GUIDES in app/sw.js)`);
   }
   const pages = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
@@ -74,4 +75,9 @@ test('the guides and every screenshot they show are built in and kept offline', 
   }
   assert.match(pages, /cp README\.md Guides\/\*\.md _site\/guides\//, 'pages.yml copies the README and Guides/ into the guides');
   assert.match(docker, /COPY README\.md Guides\/\*\.md \/usr\/share\/nginx\/html\/guides\//, 'the Dockerfile copies the README and Guides/ into the guides');
+  // The voice samples the voices guide links to.
+  assert.match(pages, /cp -R docs\/screenshots docs\/voices _site\/guides\/docs\//, 'pages.yml copies the voice samples');
+  assert.match(docker, /COPY docs\/voices \/usr\/share\/nginx\/html\/guides\/docs\/voices/, 'the Dockerfile copies the voice samples');
+  const voices = readFileSync(new URL('../Guides/VOICES.md', import.meta.url), 'utf8');
+  for (const s of samples) assert.ok(voices.includes(`(../docs/voices/${s})`), `VOICES.md doesn't link to ${s}`);
 });

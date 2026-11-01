@@ -42,6 +42,10 @@ const GUIDES = [
   'guides/docs/screenshots/shortcuts.png',
   'guides/docs/screenshots/sounds-like.png',
   'guides/docs/screenshots/text-to-speech.png',
+  'guides/docs/voices/lessac.mp3',
+  'guides/docs/voices/ryan.mp3',
+  'guides/docs/voices/alba.mp3',
+  'guides/docs/voices/alan.mp3',
 ];
 
 // Straight from the site, never the browser's own cache: GitHub Pages lets browsers keep

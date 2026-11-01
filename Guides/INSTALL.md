@@ -395,3 +395,6 @@ To release a new version:
 To retake the README screenshots after a visible change, run `scripts/screenshots.sh`. It
 needs ffmpeg, Node, Python 3 and Google Chrome (set `CHROME` to its path if it isn't in
 the usual Mac location), and uses a generated test video, not real programme material.
+
+To remake the Piper voice samples in the voices guide, such as after changing the voices,
+run `scripts/voice-samples.sh` while Scribecue is running with Piper.

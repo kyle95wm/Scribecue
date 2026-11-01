@@ -5,5 +5,6 @@ COPY app/ /usr/share/nginx/html/
 # The guides, so they open inside Scribecue
 COPY README.md Guides/*.md /usr/share/nginx/html/guides/
 COPY docs/screenshots /usr/share/nginx/html/guides/docs/screenshots
+COPY docs/voices /usr/share/nginx/html/guides/docs/voices
 
 EXPOSE 8080

@@ -42,7 +42,7 @@ jobs:
           grep -q '^export const HOSTED = true;' _site/js/config.js
           mkdir -p _site/guides/docs
           cp README.md Guides/*.md _site/guides/
-          cp -R docs/screenshots _site/guides/docs/
+          cp -R docs/screenshots docs/voices _site/guides/docs/
       - name: Piper voices for the browser
         run: scripts/web-piper.sh _site
       - name: Whisper speech to text for the browser

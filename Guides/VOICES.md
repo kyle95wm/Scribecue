@@ -48,7 +48,9 @@ computer, and it works offline.
   in the text to speech settings. An MP3 is much smaller, about 43 MB an hour at 96 kbps
   against 160 MB for a WAV. For the final mix, a WAV keeps full quality.
 
-There are four English voices: Lessac and Ryan (US), and Alba and Alan (UK).
+There are four English voices. Click one to hear it: [Lessac](../docs/voices/lessac.mp3)
+and [Ryan](../docs/voices/ryan.mp3) (US), and [Alba](../docs/voices/alba.mp3) and
+[Alan](../docs/voices/alan.mp3) (UK).
 
 ### In the web version
 

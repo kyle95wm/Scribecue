@@ -137,7 +137,7 @@ export function guideLink(href) {
 // ---------------------------------------------------------------- the window
 
 const $ = (id) => document.getElementById(id);
-let base = 'guides/', current = null;
+let base = 'guides/', current = null, sample = null;
 const back = []; // where Back goes: { file, top }
 const cache = new Map();
 
@@ -194,7 +194,7 @@ export function initGuides({ path = 'guides/' } = {}) {
     await openGuide(prev.file, '', { remember: false });
     body.scrollTop = prev.top;
   });
-  d.addEventListener('close', () => { back.length = 0; });
+  d.addEventListener('close', () => { back.length = 0; sample?.pause(); });
   document.addEventListener('keydown', (e) => { if (d.open) e.stopPropagation(); }, true);
   // Links inside a guide: other guides and anchors stay here; anything else opens outside.
   body.addEventListener('click', (e) => {
@@ -209,6 +209,17 @@ export function initGuides({ path = 'guides/' } = {}) {
     }
     const g = guideLink(href);
     if (g) return openGuide(g.file, g.hash);
+    // Voice samples play here; clicking the one playing stops it.
+    if (/\.mp3$/.test(href) && !/^https?:/.test(href)) {
+      const src = base + href.replace(/^\.\.\//, '');
+      const again = sample && !sample.paused && sample.dataset.src === src;
+      sample?.pause();
+      if (again) return;
+      sample = new Audio(src);
+      sample.dataset.src = src;
+      sample.play().catch(() => {});
+      return;
+    }
     window.open(/^https?:|^mailto:/.test(href) ? href : new URL(href, REPO + repoPath(current)).href, '_blank', 'noopener,noreferrer');
   });
   // Links to the guides on GitHub, anywhere in Scribecue, open here when the guides are.
