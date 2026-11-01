@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.71.1",
+  "date": "2026-11-01",
+  "notes": "## Clearer voice changes in QC\n\n- In an editable QC package, a block changed to another voice now says **New voice · needs a fresh package**.\n- Hover over it to see why: a different voice can’t make new audio in QC. Ask the writer for a fresh package, or change the voice back."
+ },
+ {
   "version": "0.71.0",
   "date": "2026-11-01",
   "notes": "## Return to start\n\n- Turn on **Return to start** under **Settings → General**. Play after a stop then goes back to where you last started playing, to hear a part again.\n- Move the playhead while stopped to start somewhere else.\n- It's off at first. `RETURN` shows under the video while it's on."
