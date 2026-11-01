@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.66.5",
+  "date": "2026-10-31",
+  "notes": "## Hear the Kokoro voices\n\n- The voices guide has samples of four Kokoro voices: Heart, Liam, Alice and Lewis. Click a name to hear it.\n- All the voice samples now play at the same volume, so they’re easier to compare."
+ },
+ {
   "version": "0.66.4",
   "date": "2026-10-31",
   "notes": "## Fixed\n\n- Piper voice samples in the voices guide now play in every browser when you run Scribecue in Docker. Before, some browsers wouldn’t play them."
