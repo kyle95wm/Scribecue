@@ -9,8 +9,8 @@ import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.
 import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
-import { toProject, fromProject, sameMedia, PROJECT_EXT } from './project.js';
-import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, sameVideo, compareScript } from './recording.js';
+import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanRecording } from './project.js';
+import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, sameVideo, compareScript, newProjectId, pickupsFor } from './recording.js';
 import { readNote } from './bwf.js';
 import { initRecord } from './record.js';
 import { takesInfo, clearTakes } from './takestore.js';
@@ -140,6 +140,7 @@ const S = {
   previousAudio: null, review: null, reviewId: '', qcSource: 'video', qcPreviewVoice: '', qcSettings: null, loadingProject: false, makingReview: false,
   comments: [], // comments at fixed timeline times
   notes: '', // the writer's notes about the programme, for AI help
+  recording: null, // this project's recording files: { id, version, sent } (see cleanRecording)
 };
 
 // Times show as SMPTE timecode at the video's frame rate, and typed times can be timecode
@@ -194,7 +195,8 @@ const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
   blockDipOf(b), isVol(b.vol) ? { vol: b.vol } : {},
   b.auto ? { auto: true } : {}, b.fit ? { fit: true } : {}, b.pinned ? { pinned: true } : {},
   cleanComments(b.comments).length ? { comments: cleanComments(b.comments) } : {},
-  b.say?.length ? { say: b.say } : {});
+  b.say?.length ? { say: b.say } : {},
+  cleanPickup(b.pickup) ? { pickup: cleanPickup(b.pickup) } : {});
 // What text to speech reads for a block: its text, with its "sounds like" words.
 const said = (c) => soundsLike(c.text, c.say);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -428,8 +430,8 @@ function save() {
       projectMedia: S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size } : S.projectMedia,
       notes: S.notes,
       comments: S.comments,
-      reviewId: S.reviewId, qcSettings: S.qcSettings,
-      cues: S.cues.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading }) => ({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading })),
+      reviewId: S.reviewId, qcSettings: S.qcSettings, recording: S.recording,
+      cues: S.cues.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup }) => ({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup })),
     }));
   } catch { /* storage full or blocked */ }
 }
@@ -445,6 +447,7 @@ function loadSaved() {
       S.savedDirty = o.dirty !== false;
       S.projectMedia = o.projectMedia || null;
       S.notes = typeof o.notes === 'string' ? o.notes : '';
+      S.recording = cleanRecording(o.recording);
       return S.cues.length || S.comments.length;
     }
   } catch { /* ignore */ }
@@ -575,6 +578,24 @@ $('edBack').addEventListener('click', (e) => { e.currentTarget.blur(); nudge('mo
 $('edFwd').addEventListener('click', (e) => { e.currentTarget.blur(); nudge('move', frame()); });
 $('edHere').addEventListener('click', (e) => { e.currentTarget.blur(); moveToPlayhead(); });
 $('edComment').addEventListener('click', () => openBlockComments());
+// Pickup: the block goes in the next recording file as one to record again, with a note.
+$('edPickup').addEventListener('click', () => {
+  const c = selCue();
+  if (!c) return;
+  pushUndo();
+  if (c.pickup) delete c.pickup; else c.pickup = { note: '' };
+  changed(c.id);
+  updateEditor();
+  if (c.pickup) $('edPickupNote').focus();
+});
+$('edPickupNote').addEventListener('focus', () => pushUndo(snapshot(), 'pickupNote'));
+$('edPickupNote').addEventListener('input', (e) => {
+  const c = selCue();
+  if (!c?.pickup) return;
+  c.pickup.note = e.target.value;
+  changed(c.id);
+});
+$('edPickupNote').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); e.target.blur(); } });
 function stopPreviousReading() {
   if (!S.previousAudio) return;
   S.previousAudio.audio.pause(); URL.revokeObjectURL(S.previousAudio.url); S.previousAudio = null;
@@ -715,6 +736,9 @@ function updateEditor() {
   edText.readOnly = edStart.readOnly = qcLocked();
   if (S.mode === 'record') recorder?.render();
   edTts.hidden = !(c && readingControls());
+  $('edPickup').setAttribute('aria-pressed', String(!!c?.pickup));
+  $('edPickupNote').hidden = !c?.pickup;
+  if (c?.pickup && document.activeElement !== $('edPickupNote')) $('edPickupNote').value = c.pickup.note || '';
   if (!c) {
     edSpeedWrap.hidden = true;
     edVoiceWrap.hidden = true;
@@ -1074,6 +1098,7 @@ function fillRow(r, c, i) {
   const reading = ttsOn() && !!spoken(c.text) ? speechLength(said(c), c.speed, c.voice) : null;
   const over = !!reading && reading.secs > c.end - c.start + 0.05;
   if (over) dur += ' ⚠';
+  if (c.pickup) dur += ' · pickup';
   const ready = !!reading?.exact, shown = matches(c, i);
   // Unchanged rows are left alone: long jobs refresh the list often, and rewriting every
   // row each time made the browser lay it all out again.
@@ -1091,7 +1116,7 @@ function fillRow(r, c, i) {
       title: usingGoogle(c.voice) ? 'Reading kept: plays straight away, and isn\'t sent to Google again'
         : usingAudioVoice(c.voice) ? 'Reading kept: its length is exact, and it plays straight away' : 'Reading made: its length is exact' }));
   }
-  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, ready }));
+  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, ready }) + (c.pickup ? ', pickup' : ''));
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
   r.hidden = !shown;
@@ -3191,6 +3216,7 @@ function projectData() {
     blocks: S.cues,
     notes: S.notes,
     comments: S.comments,
+    recording: S.recording,
     media: m,
     settings: { mode: S.mode, offset: S.offset, ...reviewSettings(),
       ttsDuck: tts.duck, ttsDipDb: tts.dipDb, ttsDipFade: tts.dipFade, ttsMix: tts.mix },
@@ -3346,6 +3372,7 @@ async function openProject(file, handle = null) {
   S.projectMedia = p.media;
   S.comments = p.comments;
   S.notes = p.notes;
+  S.recording = p.recording;
   aiNotesChanged();
   const { mode, offset, ttsSpeed, ttsBase, ttsVoice } = p.settings;
   // Stay out of Write while applying incoming voices: no intermediate fallback may retime blocks.
@@ -3382,12 +3409,22 @@ async function openProject(file, handle = null) {
 // ---- recording files (see record.js and Guides/RECORDING.md)
 
 const recFileDlg = $('recFileDlg');
+// 1, 2 and 3, for block numbers in sentences.
+const listNums = (n) => (n.length < 2 ? String(n[0] ?? '') : `${n.slice(0, -1).join(', ')} and ${n[n.length - 1]}`);
 function askRecordingFile() {
   if (!S.cues.some((c) => c.text.trim())) return toast('Write some blocks first: the recording file holds the script');
   let last = '01:00:00:00';
   try { last = localStorage.getItem('scribecue.recStart') || last; } catch { /* ignore */ }
   $('recFileStart').value = last;
   $('recFileFps').textContent = String(S.fps);
+  // Which version this is, and the lines it asks the narrator for again.
+  const lines = S.cues.filter((c) => c.text.trim()), picks = pickupsFor(lines, S.recording?.sent);
+  const nums = picks.flatMap((p, i) => (p ? [S.cues.indexOf(lines[i]) + 1] : []));
+  const v = (S.recording?.version || 0) + 1;
+  $('recFileVersion').textContent = v > 1
+    ? `Version ${v}. ` + (nums.length ? `It asks for ${nums.length === 1 ? 'a pickup' : `${nums.length} pickups`}: block${nums.length === 1 ? '' : 's'} ${listNums(nums)}. Takes of the other blocks carry over.` : 'It asks for no pickups. Takes carry over.')
+    : nums.length ? `It asks for ${nums.length === 1 ? 'a pickup' : `${nums.length} pickups`}: block${nums.length === 1 ? '' : 's'} ${listNums(nums)}.` : '';
+  $('recFileVersion').hidden = !$('recFileVersion').textContent;
   recFileDlg.showModal();
   $('recFileStart').select();
 }
@@ -3396,7 +3433,10 @@ function saveRecordingFile() {
   if (start == null || !(start >= 0)) return toast('That isn’t a timecode. Type it like 01:00:00:00');
   try { localStorage.setItem('scribecue.recStart', $('recFileStart').value.trim()); } catch { /* ignore */ }
   const m = S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size, duration: S.hasVideo ? duration() : null } : S.projectMedia;
-  const file = toRecordingFile({ app: VERSION, blocks: S.cues, media: m, start, fps: S.fps });
+  const rid = S.recording?.id || newProjectId(), version = (S.recording?.version || 0) + 1;
+  const file = toRecordingFile({ app: VERSION, blocks: S.cues, media: m, start, fps: S.fps, project: rid, version, sent: S.recording?.sent });
+  S.recording = { id: rid, version, sent: file.blocks.map(({ start: s, end, text }) => ({ start: s, end, text })) };
+  changed();
   const name = `${baseName()}${RECORDING_EXT}`;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(file, null, 1)], { type: 'application/json' }));
@@ -3404,7 +3444,8 @@ function saveRecordingFile() {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   recFileDlg.close();
-  toast(`Saved ${name} (${file.blocks.length} blocks)` + (m ? '' : '. Open the video first next time, so it can check the narrator has the right copy'));
+  const asked = file.blocks.filter((b) => b.pickup).length;
+  toast(`Saved ${name}: version ${version}, ${file.blocks.length} blocks${asked ? `, ${asked} pickup${asked === 1 ? '' : 's'}` : ''}` + (m ? '' : '. Open the video first next time, so it can check the narrator has the right copy'));
 }
 $('recFileGo').addEventListener('click', saveRecordingFile);
 $('recFileStart').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveRecordingFile(); } });
@@ -3421,6 +3462,28 @@ function checkNarration(note, name) {
   out.push(r.same ? `All ${note.blocks.length} blocks match this script.`
     : 'These blocks differ from the script open now. If you haven’t changed them since you sent the recording file, the narrator’s copy was changed.');
   const list = r.lines.map((x) => `Block ${x.line} ${x.why}`).concat(r.more ? [`and ${r.more} more`] : []);
+  // Pickups: which were asked for, and which this WAV brings back.
+  const asked = note.blocks.flatMap((b, i) => (b.pickup ? [i + 1] : [])), got = (note.picked || []).filter((n) => asked.includes(n));
+  const left = asked.filter((n) => !got.includes(n));
+  const pick = [];
+  if (note.only) pick.push(`This WAV holds only pickups${note.version ? `, for version ${note.version} of the recording file` : ''}.`);
+  else if (note.version) pick.push(`Recorded against version ${note.version} of the recording file.`);
+  if (got.length) pick.push(`Pickups recorded: block${got.length === 1 ? '' : 's'} ${listNums(got)}.`);
+  if (left.length) pick.push(`Still to record: block${left.length === 1 ? '' : 's'} ${listNums(left)}.`);
+  $('narrPickups').textContent = pick.join(' ');
+  $('narrPickups').hidden = !pick.length;
+  // With the script unchanged, the blocks recorded can be unmarked here.
+  const clear = r.same ? got.map((n) => S.cues.filter((c) => c.text.trim())[n - 1]).filter((c) => c?.pickup) : [];
+  $('narrClear').hidden = !clear.length;
+  $('narrClear').textContent = `Clear ${clear.length === 1 ? 'its pickup mark' : `their ${clear.length} pickup marks`}`;
+  $('narrClear').onclick = () => {
+    pushUndo();
+    for (const c of clear) delete c.pickup;
+    changed();
+    updateEditor();
+    $('narrDlg').close();
+    toast(`Cleared ${clear.length} pickup mark${clear.length === 1 ? '' : 's'}. Undo brings ${clear.length === 1 ? 'it' : 'them'} back`);
+  };
   $('narrTitle').textContent = r.same && !r.edited ? 'The narration matches' : 'The narration doesn’t match';
   $('narrWhat').textContent = out.join(' ');
   $('narrList').textContent = list.join('\n');
@@ -3461,7 +3524,8 @@ async function openRecording(file) {
 const REC_OPEN = 'scribecue.recOpen';
 async function enterRecording(r, name) {
   try { localStorage.setItem(REC_OPEN, JSON.stringify({ ...r, name })); } catch { /* storage full or blocked */ }
-  S.cues = r.blocks.map(revive);
+  // Pickups as the recording file asks for them: { note?, was?, added? }.
+  S.cues = r.blocks.map((b) => Object.assign(revive(b), b.pickup ? { pickup: b.pickup } : {}));
   S.handle = null;
   handleStore.set(null);
   showAutosave();
@@ -3476,6 +3540,7 @@ async function enterRecording(r, name) {
   select(S.cues[0]?.id ?? null, { seek: false });
   projectSaved(name);
   await recorder.open(r);
+  $('exportPickups').hidden = !recorder.pickups;
   // Takes live in the browser's storage, so ask it not to clear them to free up space.
   keepStorage();
 }
@@ -3613,6 +3678,7 @@ function newProject(ask = true) {
   S.qcPreviewVoice = '';
   S.comments = [];
   S.notes = '';
+  S.recording = null;
   if (leavingPackage) { undoStack.length = 0; redoStack.length = 0; }
   if (leavingQc) setMode('write', true);
   aiNotesChanged();
@@ -3661,6 +3727,7 @@ async function loadSubsFile(file) {
   S.comments = [];
   S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.voice ? { voice: c.voice } : {}, blockDipOf(c), isVol(c.vol) ? { vol: c.vol } : {}, c.say ? { say: c.say } : {}));
   S.subName = file.name;
+  S.recording = null; // a different script: recording files from it start again
   S.handle = null; // saving makes a project next to it, rather than overwriting the script
   handleStore.set(null);
   showAutosave();
@@ -4196,6 +4263,7 @@ const actions = {
   exportQc: () => openQcExport(),
   exportRecording: () => askRecordingFile(),
   exportNarration: () => recorder.exportWav(),
+  exportPickups: () => recorder.exportWav(true),
   exportMenu: () => toggleMenu(exportMenu),
   help: () => toggleHelp(),
   settings: () => showGeneral(),
@@ -4440,6 +4508,7 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'Escape' && recorder.active) { e.preventDefault(); recorder.finish(); return; }
     if (!e.altKey && !e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.toggle(); return; }
     if (!e.altKey && e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.punch(); return; }
+    if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyP') { e.preventDefault(); recorder.nextPickup(); return; }
     if (e.key === '[' || e.key === ']') { e.preventDefault(); return; }
   }
   // [ ] by the character typed, since some layouts need ⌥ or AltGr for them.

@@ -22,18 +22,50 @@ const hash = (text) => {
 // edited by hand, though not someone set on hiding it, since the sum is no secret.
 export const scriptPrint = (blocks) => hash(JSON.stringify(blocks.map((b) => [b.start, b.end, b.text]))) + '-' + blocks.length;
 
+// A project's recordings: every version of its recording file shares the project's id, so
+// takes carry over from one to the next. 16 letters and digits.
+const PROJECT_ID = /^[a-z0-9]{16}$/;
+export const newProjectId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => (b % 36).toString(36)).join('');
+// Where a recording's takes are kept: under its project, or for a recording file from before
+// projects, under its script (recordingId). Shaped like the latter, so the takes container takes both.
+export const takesKey = (file) => (file.project ? `${file.project}-0` : recordingId(file));
+
+const words = (text) => text.replace(/\s+/g, ' ').trim();
+
+// Which lines need picking up: those marked in Write mode (block.pickup: { note }, the note
+// maybe empty), and, when an earlier version was sent, those that are new or reworded since.
+// sent: [{ start, end, text }] as last sent, or null. Returns, for each block, null or
+// { note?, was?, added? }: was is the wording it replaces; added, a line with none.
+export function pickupsFor(blocks, sent) {
+  const was = new Set((sent || []).map((x) => words(x.text)));
+  return blocks.map((b) => {
+    const p = {};
+    if (b.pickup) p.note = String(b.pickup.note || '').trim().slice(0, 500);
+    if (was.size && !was.has(words(b.text))) {
+      let best = null, most = 0;
+      for (const x of sent) { const o = Math.min(x.end, b.end) - Math.max(x.start, b.start); if (o > most) { most = o; best = x; } }
+      if (best) p.was = best.text; else p.added = true;
+    }
+    return Object.keys(p).length ? p : null;
+  });
+}
+
 // The recording file: a locked script, the video it belongs to, and where the programme
-// starts. state: { blocks, media, startTC, fps, app }. startTC is in seconds.
-export function toRecordingFile({ blocks, media = null, start = 0, fps = 25, app = '' }) {
-  const lines = blocks.filter((b) => b.text.trim()).map(({ start: s, end, text, voice, speed }) => ({
+// starts. start is in seconds. project and version: see newProjectId; sent: the lines of
+// the version before, for pickupsFor.
+export function toRecordingFile({ blocks, media = null, start = 0, fps = 25, app = '', project = null, version = 0, sent = null }) {
+  const kept = blocks.filter((b) => b.text.trim()), picks = pickupsFor(kept, sent);
+  const lines = kept.map(({ start: s, end, text, voice, speed }, i) => ({
     start: s, end, text,
     ...(voice ? { voice } : {}),
     ...(speed ? { speed } : {}),
+    ...(picks[i] ? { pickup: picks[i] } : {}),
   }));
   return {
     scribecueRecording: RECORDING_FORMAT,
     app,
     saved: new Date().toISOString(),
+    ...(project ? { project, version } : {}),
     media: media && media.name ? { name: media.name, size: media.size ?? null, duration: num(media.duration) ? media.duration : null } : null,
     start: Math.max(0, start),
     fps,
@@ -56,11 +88,14 @@ export function fromRecordingFile(json) {
       start: Math.max(0, b.start), end: Math.max(b.start, b.end), text: b.text,
       ...(typeof b.voice === 'string' && b.voice ? { voice: b.voice.slice(0, 300) } : {}),
       ...(num(b.speed) ? { speed: b.speed } : {}),
+      ...(readPickup(b.pickup) ? { pickup: readPickup(b.pickup) } : {}),
     }))
     .sort((a, z) => a.start - z.start);
   const m = json.media;
+  const project = typeof json.project === 'string' && PROJECT_ID.test(json.project) ? json.project : null;
   return {
     blocks,
+    ...(project ? { project, version: Number.isInteger(json.version) && json.version > 0 ? json.version : 1 } : {}),
     media: m && typeof m.name === 'string' ? { name: m.name, size: num(m.size) ? m.size : null, duration: num(m.duration) ? m.duration : null } : null,
     start: num(json.start) ? Math.max(0, json.start) : 0,
     fps: num(json.fps) && json.fps > 0 ? json.fps : 25,
@@ -68,11 +103,87 @@ export function fromRecordingFile(json) {
   };
 }
 
-// What goes into the narration WAV so the script it was recorded against can be checked.
-export const narrationNote = ({ blocks, edited = false }) => ({
+function readPickup(p) {
+  if (!p || typeof p !== 'object') return null;
+  const out = {
+    ...(typeof p.note === 'string' ? { note: p.note.slice(0, 500) } : {}),
+    ...(typeof p.was === 'string' ? { was: p.was.slice(0, 2000) } : {}),
+    ...(p.added === true ? { added: true } : {}),
+  };
+  return Object.keys(out).length ? out : null;
+}
+
+// What goes into the narration WAV so the script it was recorded against can be checked,
+// with the pickups asked for and their notes. only: a WAV of the pickups alone; picked: the
+// numbers of the blocks whose pickups are in it.
+export const narrationNote = ({ blocks, edited = false, project = null, version = 0, only = false, picked = [] }) => ({
   scribecueNarration: 1, print: scriptPrint(blocks), edited: !!edited,
-  blocks: blocks.map(({ start, end, text }) => ({ start, end, text })),
+  ...(project ? { project, version } : {}),
+  ...(only ? { only: true } : {}),
+  ...(picked.length ? { picked } : {}),
+  blocks: blocks.map(({ start, end, text, pickup }) => ({ start, end, text, ...(pickup ? { pickup } : {}) })),
 });
+
+// A block's marker in the narration WAV, which the mixer's software shows on its timeline.
+// A pickup says so, with its note. b: a block; n: its number.
+export function markerLabel(b, n) {
+  const p = b.pickup, why = p ? p.note || (p.added ? 'new line' : p.was != null ? 'reworded' : '') : '';
+  return `${n}${p ? ` PICKUP${why ? `: ${why}` : ''} |` : ''} ${b.text.replace(/\s+/g, ' ').slice(0, 40)}`.slice(0, 200);
+}
+
+// Matches takes to the blocks of the script open now, by what was read rather than where:
+// each take keeps the line it was read for (line: { start, end, text }). A take moves to the
+// block with the same text nearest where its line was, and moves with it in time. A take
+// whose text is gone belongs to no block (block −1), and isn't chosen. Takes kept before
+// lines were (from 0.67 and earlier) take theirs from `old`, the script their block numbers
+// count in. Returns the changes: [{ id, block, start, line, chosen }].
+export function relink(takes, blocks, old = null) {
+  const out = new Map(), now = [], byText = new Map();
+  blocks.forEach((b, i) => { const w = words(b.text); if (byText.has(w)) byText.get(w).push(i); else byText.set(w, [i]); });
+  for (const t of takes) {
+    const line = t.line || (old?.[t.block] && { start: old[t.block].start, end: old[t.block].end, text: old[t.block].text });
+    if (!line) continue;
+    let k = -1, gap = Infinity;
+    for (const i of byText.get(words(line.text)) || []) if (Math.abs(blocks[i].start - line.start) < gap) { gap = Math.abs(blocks[i].start - line.start); k = i; }
+    const b = blocks[k];
+    const next = b ? { block: k, start: Math.round((t.start + b.start - line.start) * 1e6) / 1e6, line: { start: b.start, end: b.end, text: b.text }, chosen: !!t.chosen }
+      : { block: -1, start: t.start, line, chosen: false };
+    now.push({ t, next });
+    const moved = next.block !== t.block || Math.abs(next.start - t.start) > 1e-9 || next.chosen !== !!t.chosen || !t.line
+      || next.line.start !== t.line.start || next.line.end !== t.line.end || next.line.text !== t.line.text;
+    if (moved) out.set(t.id, { id: t.id, ...next });
+  }
+  // One chosen take a block: if two lines became one, the latest take stays chosen.
+  const kept = new Map();
+  for (const { t, next } of now.filter((x) => x.next.chosen).sort((a, z) => z.t.made - a.t.made)) {
+    if (!kept.has(next.block)) { kept.set(next.block, t.id); continue; }
+    out.set(t.id, { ...(out.get(t.id) || { id: t.id, ...next }), chosen: false });
+  }
+  return [...out.values()];
+}
+
+// Whether a block's pickup is done: its chosen take was read for this version or later.
+export const pickedUp = (take, version) => !!take && (take.ver || 0) >= version;
+
+// The take a pickup is compared with: the block's take from before this version. The one
+// in the export while it's still from then, otherwise the latest; failing that, the latest
+// take of the old wording (old: the takes shown under the block for a reworded line).
+export function originalTake(list, old, version) {
+  const before = list.filter((t) => (t.ver || 0) < version);
+  return before.find((t) => t.chosen) || before.at(-1) || old.filter((t) => (t.ver || 0) < version).at(-1) || null;
+}
+
+// Checks the pickups before a WAV of them alone is exported. Like checkExport, but only for
+// blocks with a pickup, and a chosen take from an earlier version doesn't count.
+export function checkPickups(blocks, chosen, version, grace = GRACE) {
+  const fresh = blocks.map((b, i) => (b.pickup && pickedUp(chosen[i], version) ? chosen[i] : null));
+  const all = checkExport(blocks, fresh.map((t) => t && placed(t)), grace), mine = (x) => !!blocks[x.block - 1].pickup;
+  return {
+    stop: all.stop.filter(mine),
+    warn: all.warn.filter(mine).map((x) => (x.why === 'has no take' && chosen[x.block - 1] ? { ...x, why: 'isn’t recorded again yet' } : x)),
+    takes: fresh,
+  };
+}
 
 // Compares the script a narration was recorded against with the one open now.
 // Returns { same, edited, lines: [{ line, why }], more } (line is 1-based, at most `max`).
@@ -310,7 +421,8 @@ export function exportReport({ stop, warn }) {
   return [...stop.map((x) => `STOPPED: ${line(x)}`), ...warn.map(line)].join('\n');
 }
 
-// Which recording a set of takes belongs to: the same script, starting at the same time.
+// Which recording a set of takes belongs to, for files from before projects: the same
+// script, starting at the same time.
 export const recordingId = ({ blocks, start }) => hash(JSON.stringify([start, blocks.map((b) => [b.start, b.end, b.text])])) + '-' + blocks.length;
 
 // How long recording starts before the block's first moment: a breath of room.

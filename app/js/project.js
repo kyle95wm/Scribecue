@@ -16,7 +16,7 @@ export const cleanSay = (say) => (Array.isArray(say) ? say : [])
 
 // state: { blocks, media, settings, view, app, notes }. Returns the object to save as JSON.
 // notes: what the writer tells AI help about the programme (characters, setting, style).
-export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', comments = [] }) {
+export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', comments = [], recording = null }) {
   return {
     scribecue: PROJECT_FORMAT,
     app,
@@ -24,10 +24,12 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     ...(notes.trim() ? { notes } : {}),
     ...(cleanComments(comments, true).length ? { comments: cleanComments(comments, true) } : {}),
     media: media && media.name ? { name: media.name, size: media.size ?? null, duration: num(media.duration) ? media.duration : null } : null,
+    ...(cleanRecording(recording) ? { recording: cleanRecording(recording) } : {}),
     settings,
     view,
-    blocks: blocks.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading }) => ({
+    blocks: blocks.map(({ start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup }) => ({
       start, end, text,
+      ...(cleanPickup(pickup) ? { pickup: cleanPickup(pickup) } : {}),
       ...(Number.isSafeInteger(qcReading) && qcReading >= 8 ? { qcReading } : {}),
       ...(cleanComments(comments).length ? { comments: cleanComments(comments) } : {}),
       ...(speed ? { speed } : {}),
@@ -70,6 +72,7 @@ export function fromProject(json) {
       ...(b.auto === true ? { auto: true } : {}),
       ...(b.fit === true ? { fit: true } : {}),
       ...(b.pinned === true ? { pinned: true } : {}),
+      ...(cleanPickup(b.pickup) ? { pickup: cleanPickup(b.pickup) } : {}),
     });
   }
   blocks.sort((a, z) => a.start - z.start);
@@ -78,6 +81,7 @@ export function fromProject(json) {
   const v = json.view && typeof json.view === 'object' ? json.view : {};
   return {
     blocks,
+    recording: cleanRecording(json.recording),
     comments: cleanComments(json.comments, true),
     notes: typeof json.notes === 'string' ? json.notes : '',
     media: m && typeof m.name === 'string' ? { name: m.name, size: num(m.size) ? m.size : null, duration: num(m.duration) ? m.duration : null } : null,
@@ -100,6 +104,17 @@ export function fromProject(json) {
       ...(Number.isInteger(v.selected) ? { selected: v.selected } : {}),
     },
   };
+}
+
+// A block marked for the narrator to record again: { note }, the note maybe empty.
+export const cleanPickup = (p) => (p && typeof p === 'object' ? { note: typeof p.note === 'string' ? p.note.slice(0, 500) : '' } : null);
+
+// The project's recording files: { id, version, sent }, where sent is the lines of the last
+// one, so the next can ask for the lines changed since. See toRecordingFile.
+export function cleanRecording(r) {
+  if (!r || typeof r !== 'object' || typeof r.id !== 'string' || !/^[a-z0-9]{16}$/.test(r.id)) return null;
+  const sent = Array.isArray(r.sent) ? r.sent.filter((b) => b && num(b.start) && num(b.end) && typeof b.text === 'string').map(({ start, end, text }) => ({ start, end, text })) : [];
+  return { id: r.id, version: Number.isInteger(r.version) && r.version > 0 ? r.version : 0, sent };
 }
 
 // The video saved with a project matches the one opened when name and size agree.

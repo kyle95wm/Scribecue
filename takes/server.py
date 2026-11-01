@@ -3,14 +3,19 @@
 # a folder, with every take as a WAV file and an index of what each one is:
 #
 #   GET    /status                  -> {"takes": 12, "bytes": 103000000}
-#   GET    /r/<rec>                 -> [{"id", "block", "start", "duration", "peak", "chosen", "made"}]
+#   GET    /r/<rec>                 -> [{"id", "block", "start", "duration", "peak", "chosen", "made",
+#                                   "line", "ver"}]
 #   PUT    /r/<rec>/<id>            the take, a WAV, with X-Take: {"block", "start", "duration",
-#                                   "peak", "made", "punch", "choose"} -> {"bytes": n}
+#                                   "peak", "made", "punch", "line", "ver", "choose"} -> {"bytes": n}.
+#                                   line is the block it was read for: {"start", "end", "text"}
 #   GET    /r/<rec>/<id>            the take's WAV
 #   POST   /r/<rec>/<id>/choose     makes it the one chosen for its block
 #   POST   /r/<rec>/<id>/edit       splits, moves and trims it: {"splits": [s], "parts": [{"shift",
 #                                   "head", "tail", "cut"?}]}, in seconds, with a part more than
 #                                   splits; "cut" deletes a part
+#   POST   /r/<rec>/relink          matches takes to a new version of the script: [{"id", "block",
+#                                   "start", "line", "chosen"}]; block -1 is none
+#   POST   /r/<rec>/move            moves every take to another recording: {"to": <rec>}
 #   DELETE /r/<rec>/<id>
 #   DELETE /all                     every take of every recording
 #
@@ -27,7 +32,8 @@ CHUNK = 1 << 20
 MAX_TAKE = 1 << 30  # a 24-bit mono take at 48 kHz: about two hours
 REC = r"[a-z0-9]{1,16}-\d{1,6}"
 ID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-FIELDS = ("block", "start", "duration", "peak", "made", "punch")
+FIELDS = ("block", "start", "duration", "peak", "made", "punch", "line", "ver")
+MAX_TEXT = 5000
 
 lock = threading.Lock()
 
@@ -55,6 +61,19 @@ def wav(rec, id):
     return os.path.join(folder(rec), id + ".wav")
 
 
+def num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def line(v):
+    """The block a take was read for, or False if it doesn't make sense. None is none."""
+    if v is None:
+        return None
+    if isinstance(v, dict) and num(v.get("start")) and num(v.get("end")) and isinstance(v.get("text"), str) and len(v["text"]) <= MAX_TEXT:
+        return {"start": v["start"], "end": v["end"], "text": v["text"]}
+    return False
+
+
 def meta(raw):
     """A take's details from the X-Take header, or None if they don't make sense."""
     try:
@@ -63,12 +82,31 @@ def meta(raw):
         return None
     if not isinstance(m, dict):
         return None
-    num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)
     if not (isinstance(m.get("block"), int) and m["block"] >= 0 and num(m.get("start")) and num(m.get("duration"))
             and num(m.get("made")) and (m.get("peak") is None or num(m.get("peak")))
-            and (m.get("punch") is None or num(m.get("punch")))):
+            and (m.get("punch") is None or num(m.get("punch")))
+            and line(m.get("line")) is not False
+            and (m.get("ver") is None or (isinstance(m["ver"], int) and not isinstance(m["ver"], bool) and m["ver"] >= 0))):
         return None
-    return {k: m.get(k) for k in FIELDS}
+    return {**{k: m.get(k) for k in FIELDS}, "line": line(m.get("line"))}
+
+
+def relinks(raw):
+    """Takes matched to a new script, from a POST body, or None if they don't make sense."""
+    try:
+        r = json.loads(raw or b"")
+    except ValueError:
+        return None
+    if not isinstance(r, list) or len(r) > 100000:
+        return None
+    out = []
+    for x in r:
+        if not (isinstance(x, dict) and isinstance(x.get("id"), str) and re.fullmatch(ID, x["id"])
+                and isinstance(x.get("block"), int) and not isinstance(x["block"], bool) and x["block"] >= -1
+                and num(x.get("start")) and line(x.get("line")) and isinstance(x.get("chosen"), bool)):
+            return None
+        out.append({"id": x["id"], "block": x["block"], "start": x["start"], "line": line(x["line"]), "chosen": x["chosen"] and x["block"] >= 0})
+    return out
 
 
 def edit(raw):
@@ -121,9 +159,13 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def route(self):
-        """(rec, id, action) from the path, or None."""
-        m = re.fullmatch(rf"/r/({REC})(?:/({ID})(/choose|/edit)?)?", self.path)
-        return (m.group(1), m.group(2), m.group(3)) if m else None
+        """(rec, id, action) from the path, or None. A whole recording's action has no id."""
+        m = re.fullmatch(rf"/r/({REC})(?:/({ID})(/choose|/edit)?|(/relink|/move))?", self.path)
+        return (m.group(1), m.group(2), m.group(3) or m.group(4)) if m else None
+
+    def body(self, limit):
+        size = int(self.headers.get("Content-Length") or 0)
+        return self.rfile.read(size) if 0 < size <= limit else b""
 
     def do_GET(self):
         if self.path == "/status":
@@ -183,13 +225,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         r = self.route()
-        if not r or not r[1] or not r[2]:
+        if not r or not r[2]:
             return self.reply(404, {"error": "not found"})
         rec, id, action = r
+        if action == "/relink":
+            return self.relink(rec)
+        if action == "/move":
+            return self.move(rec)
         e = None
         if action == "/edit":
-            size = int(self.headers.get("Content-Length") or 0)
-            e = edit(self.rfile.read(size) if 0 < size < 4096 else b"")
+            e = edit(self.body(4095))
             if not e:
                 return self.reply(400, {"error": "the edit doesn't make sense"})
         with lock:
@@ -202,6 +247,38 @@ class Handler(BaseHTTPRequestHandler):
                 choose(index, id)
             store(rec, index)
         self.reply(200, {})
+
+    def relink(self, rec):
+        changes = relinks(self.body(32 << 20))
+        if changes is None:
+            return self.reply(400, {"error": "the takes don't make sense"})
+        with lock:
+            index = load(rec)
+            for c in changes:
+                if c["id"] in index:
+                    index[c["id"]].update({k: c[k] for k in ("block", "start", "line", "chosen")})
+            if index:
+                store(rec, index)
+        self.reply(200, {})
+
+    def move(self, rec):
+        try:
+            to = json.loads(self.body(4095) or b"").get("to")
+        except (ValueError, AttributeError):
+            to = None
+        if not isinstance(to, str) or not re.fullmatch(REC, to) or to == rec:
+            return self.reply(400, {"error": "there's nowhere to move the takes"})
+        with lock:
+            index, there = load(rec), load(to)
+            if index:
+                os.makedirs(folder(to), exist_ok=True)
+                for id in index:
+                    if os.path.exists(wav(rec, id)):
+                        os.replace(wav(rec, id), wav(to, id))
+                there.update(index)
+                store(to, there)
+                shutil.rmtree(folder(rec), ignore_errors=True)
+        self.reply(200, {"moved": len(index)})
 
     def do_DELETE(self):
         if self.path == "/all":

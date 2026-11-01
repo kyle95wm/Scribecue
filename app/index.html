@@ -61,6 +61,7 @@
           <button role="menuitem" data-act="exportQc" class="qc-export"><span><strong>QC package</strong><span class="dim">the project and original readings, ready to review on another computer</span></span></button>
           <button role="menuitem" data-act="exportRecording" class="write-only"><span><strong>Recording file</strong><span class="dim">the locked script and timings, for a narrator to record against</span></span></button>
           <button role="menuitem" data-act="exportNarration" class="record-only"><span><strong>Narration WAV</strong><span class="dim">the chosen takes in one timestamped file, for the mixer</span></span></button>
+          <button role="menuitem" data-act="exportPickups" class="record-only" id="exportPickups"><span><strong>Pickups WAV</strong><span class="dim">only the pickups, timestamped to drop into place, with their notes</span></span></button>
           <button role="menuitem" data-act="exportMix" class="write-only"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></button>
         </div>
       </span>
@@ -116,6 +117,10 @@
             <span class="grow"></span>
             <span id="edStats"></span>
           </div>
+          <div class="edtts write-only" id="edPickupRow">
+            <button id="edPickup" aria-pressed="false" data-tip="Pickup: ask the narrator to record this block again, in the next recording file. Lines you reword are asked for anyway">Pickup</button>
+            <input id="edPickupNote" type="text" maxlength="500" spellcheck="true" autocomplete="off" hidden
+              placeholder="Note for the narrator, such as how to say a name" aria-label="Note for the narrator"></div>
           <div class="edtts" id="qcCommentRow"><button id="edComment" aria-controls="commentsDrawer" data-tip="Add a comment to this block">Comment</button><span id="qcBlockInfo" class="dim qc-only"></span><button id="qcPrevious" aria-pressed="false" hidden data-tip="Hear the old audio alone. It does not match the edited block">Hear previous reading</button></div>
         </div>
       </div>
@@ -182,6 +187,10 @@
             <button id="recTest">Sync test</button>
             <span id="recFlash" class="recflash" hidden></span>
           </div>
+          <div class="recrow" id="recLinkRow" hidden>
+            <button id="recLink" data-tip="Takes recorded with Scribecue 0.67 or earlier stay with that version's recording file. Choose it to bring its takes into this one">Bring in takes from an older recording file</button>
+            <input type="file" id="recLinkFile" accept=".scribecuerec,.scribecue-rec" hidden>
+          </div>
         </details>
         <ol id="recTakes" class="rectakes" aria-label="Takes of the selected block"></ol>
       </section>
@@ -224,7 +233,7 @@
     <span class="hint qc-only"><kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>↑</kbd><kbd>↓</kbd> block <kbd>V</kbd> hear block <span class="qc-edit-only"><kbd>↵</kbd> edit </span><kbd>⌥⇧C</kbd> comments <kbd>⇧O</kbd> all keys</span>
     <span class="hint record-only">
       <kbd>Space</kbd> play <kbd>⌥⇧←</kbd><kbd>⌥⇧→</kbd> block
-      <kbd>↵</kbd> record <kbd>⇧↵</kbd> punch in <kbd>Esc</kbd> stop <kbd>X</kbd> split take <kbd>V</kbd> hear it read <kbd>⇧O</kbd> all keys
+      <kbd>↵</kbd> record <kbd>⇧↵</kbd> punch in <kbd>Esc</kbd> stop <kbd>X</kbd> split take <kbd>P</kbd> next pickup <kbd>V</kbd> hear it read <kbd>⇧O</kbd> all keys
     </span>
     <a id="ghLink" class="ghlink tip-end" href="https://github.com/kyle95wm/Scribecue" target="_blank" rel="noopener noreferrer"
       aria-label="Scribecue on GitHub" data-tip="Scribecue on GitHub: the source, releases and issues"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg></a>
@@ -346,6 +355,7 @@ docker compose up -d --build</code></pre>
     <label class="recfield">Programme starts at
       <input id="recFileStart" value="01:00:00:00" spellcheck="false" autocomplete="off" aria-describedby="recFileNote"></label>
     <p class="dim small" id="recFileNote">Timecode at the video's first frame, at <span id="recFileFps"></span> fps. The mixer's software uses it to place the narration.</p>
+    <p id="recFileVersion" hidden></p>
     <div class="updbtns"><button id="recFileCancel">Cancel</button><button id="recFileGo" class="hl">Save the file</button></div>
   </dialog>
 
@@ -353,7 +363,8 @@ docker compose up -d --build</code></pre>
     <h2 id="narrTitle">Check the narration</h2>
     <p id="narrWhat"></p>
     <pre id="narrList" class="recreport"></pre>
-    <div class="updbtns"><button id="narrClose" class="hl">Close</button></div>
+    <p id="narrPickups" hidden></p>
+    <div class="updbtns"><button id="narrClear" hidden></button><button id="narrClose" class="hl">Close</button></div>
   </dialog>
 
   <dialog id="newDlg" class="updbox wizard" aria-labelledby="newTitle">
@@ -1117,6 +1128,7 @@ docker compose up -d --build</code></pre>
             <dt><kbd>⇧</kbd><kbd>↵</kbd> <kbd>⇧</kbd><kbd>R</kbd></dt><dd>Punch in: pick up the block's take from the playhead</dd>
             <dt data-keys="split"><kbd>X</kbd></dt><dd>Split the block's take at the playhead</dd>
             <dt data-keys="deleteNow"><kbd>Delete</kbd></dt><dd>Delete the part of a take you last clicked</dd>
+            <dt><kbd>P</kbd></dt><dd>Go to the next pickup</dd>
             <dt><kbd>Esc</kbd></dt><dd>Stop recording</dd>
             <dt><kbd>V</kbd></dt><dd>Hear the block read by text to speech, as a guide</dd>
           </dl>

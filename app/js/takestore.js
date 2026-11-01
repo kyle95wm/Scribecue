@@ -55,6 +55,23 @@ const browser = {
     tx.objectStore(STORE).delete(id);
     await finish(tx);
   },
+  async relink(rec, changes) {
+    const db = await open();
+    const tx = db.transaction(STORE, 'readwrite'), st = tx.objectStore(STORE);
+    for (const { id, block, start, line, chosen } of changes) {
+      const t = await done(st.get(id));
+      if (t?.rec === rec) st.put({ ...t, block, start, line, chosen: chosen && block >= 0 });
+    }
+    await finish(tx);
+  },
+  async move(rec, to) {
+    const db = await open();
+    const tx = db.transaction(STORE, 'readwrite'), st = tx.objectStore(STORE);
+    const all = await done(st.index('rec').getAll(rec));
+    for (const t of all) st.put({ ...t, rec: to });
+    await finish(tx);
+    return all.length;
+  },
   audio: async (t) => t.wav,
   async clear() {
     const db = await open();
@@ -84,20 +101,24 @@ const answer = async (r) => {
   throw new Error(why || `the takes container answered ${r.status}`);
 };
 const url = (rec, id = '') => `takes/r/${rec}${id ? '/' + id : ''}`;
+// Headers carry only ASCII: anything else in a block's text goes as JSON's \u escapes.
+const ascii = (o) => JSON.stringify(o).replace(/[\u007f-\uffff]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
 
 const docker = {
   where: 'docker',
   async list(rec) {
     const all = await (await answer(await fetch(url(rec), { cache: 'no-store' }))).json();
-    return all.map((t) => ({ ...t, rec, peak: t.peak ?? -Infinity, punch: t.punch ?? undefined, edit: t.edit ?? undefined }));
+    return all.map((t) => ({ ...t, rec, peak: t.peak ?? -Infinity, punch: t.punch ?? undefined, edit: t.edit ?? undefined, line: t.line ?? undefined, ver: t.ver ?? undefined }));
   },
   async save(take, choose) {
-    const { block, start, duration, peak, made, punch } = take;
+    const { block, start, duration, peak, made, punch, line, ver } = take;
     await answer(await fetch(url(take.rec, take.id), {
       method: 'PUT', body: take.wav,
-      headers: { 'X-Take': JSON.stringify({ block, start, duration, peak: Number.isFinite(peak) ? peak : null, made, punch, choose }) },
+      headers: { 'X-Take': ascii({ block, start, duration, peak: Number.isFinite(peak) ? peak : null, made, punch, line, ver, choose }) },
     }));
   },
+  async relink(rec, changes) { await answer(await fetch(url(rec) + '/relink', { method: 'POST', body: JSON.stringify(changes) })); },
+  async move(rec, to) { return (await (await answer(await fetch(url(rec) + '/move', { method: 'POST', body: JSON.stringify({ to }) }))).json()).moved; },
   async choose(rec, id) { await answer(await fetch(url(rec, id) + '/choose', { method: 'POST' })); },
   async edit(rec, id, edit) { await answer(await fetch(url(rec, id) + '/edit', { method: 'POST', body: JSON.stringify(edit) })); },
   async remove(rec, id) { await answer(await fetch(url(rec, id), { method: 'DELETE' })); },
@@ -117,8 +138,10 @@ const store = () => (picked ||= HOSTED ? Promise.resolve(browser)
 // 'docker' or 'browser'.
 export const takesWhere = async () => (await store()).where;
 
-// Every take of a recording: { id, rec, block, start, duration, peak, chosen, made, punch?, edit? }, and
-// in the browser, wav as well. takeAudio() gets the sound either way.
+// Every take of a recording: { id, rec, block, start, duration, peak, chosen, made, punch?,
+// edit?, line?, ver? }, and in the browser, wav as well. takeAudio() gets the sound either
+// way. line is the block it was read for, and ver the recording file's version then; block
+// is −1 for a take whose line isn't in the script any more (see relink in recording.js).
 export const listTakes = async (rec) => (await store()).list(rec);
 
 // Saves a take ({ ..., wav }), and makes it the one chosen for its block when `choose` is set.
@@ -131,6 +154,12 @@ export const chooseTake = async (rec, id) => (await store()).choose(rec, id);
 export const editTake = async (rec, id, edit) => (await store()).edit(rec, id, edit);
 
 export const deleteTake = async (rec, id) => (await store()).remove(rec, id);
+
+// Saves takes matched to a new version of the script: [{ id, block, start, line, chosen }].
+export const relinkTakes = async (rec, changes) => changes.length && (await store()).relink(rec, changes);
+
+// Moves every take of one recording to another, such as its project: how many moved.
+export const moveTakes = async (rec, to) => (await store()).move(rec, to);
 
 // Deletes every take of every recording, with or without its recording file.
 export const clearTakes = async () => (await store()).clear();

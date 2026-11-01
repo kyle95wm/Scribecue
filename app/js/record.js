@@ -2,9 +2,9 @@
 // exports the chosen ones as one WAV for the mixer. The script is locked (app.js sees to
 // that); this file does the recording. The guide is Guides/RECORDING.md.
 
-import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, DRIFT, PREROLL, RATE } from './recording.js';
+import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, markerLabel, fromRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
-import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takesWhere } from './takestore.js';
+import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takesWhere, relinkTakes, moveTakes } from './takestore.js';
 
 const $ = (id) => document.getElementById(id);
 const VIDEO_DB = -30; // the video's sound while recording, so the scene can still be followed
@@ -20,7 +20,7 @@ export function initRecord(h) {
     dev: $('recDev'), lead: $('recLead'), sync: $('recSync'), test: $('recTest'), flash: $('recFlash'), takes: $('recTakes'),
     punch: $('recPunch'), count: $('recCount'), dlg: $('recExportDlg'), report: $('recReport'), go2: $('recExportGo'), title: $('recExportTitle') };
 
-  let rec = null;            // { id, start, fps, media }
+  let rec = null;            // the recording file open: { id, start, fps, media, project?, version? }; id is where its takes are kept
   let takes = [];            // every take of this recording
   let state = 'idle';        // idle | arming | lead | rec | saving
   let cap = null;            // { stream, ctx, node, chunks, t0, slot, prevEnd, block, inLatency, punch }
@@ -37,6 +37,13 @@ export function initRecord(h) {
   const sl = () => slots(h.blocks());
   const blockTakes = (i) => takes.filter((t) => t.block === i).sort((a, z) => a.made - z.made);
   const chosenFor = (i) => takes.find((t) => t.block === i && t.chosen) || null;
+  // Takes of a line that's since been reworded: in no block, shown under the one in their place.
+  const oldTakes = (i) => {
+    const b = h.blocks()[i];
+    return takes.filter((t) => t.block < 0 && t.line && Math.min(t.line.end, b.end) > Math.max(t.line.start, b.start)).sort((a, z) => a.made - z.made);
+  };
+  const version = () => rec?.version || 0;
+  const pickups = () => h.blocks().flatMap((b, i) => (b.pickup ? [i] : []));
 
   // ---- panel
   function status(msg) { el.status.textContent = msg; }
@@ -50,15 +57,38 @@ export function initRecord(h) {
     el.punch.disabled = busy;
     const i = h.selIdx(), n = h.blocks().length;
     const done = h.blocks().filter((_, k) => chosenFor(k)).length;
-    el.count.textContent = rec ? `${done} of ${n} blocks have a take` : '';
+    const pk = pickups(), pd = pk.filter((k) => pickedUp(chosenFor(k), version())).length;
+    el.count.textContent = rec ? `${done} of ${n} blocks have a take` + (pk.length ? ` · ${pd} of ${pk.length} pickups recorded` : '') : '';
+    $('recLinkRow').hidden = !rec?.project;
     el.count.dataset.tip = where === 'docker' ? 'Takes are kept in Docker, on this computer' : 'Takes are kept in this browser. Clearing its data for Scribecue loses them';
     el.takes.replaceChildren();
     const note = (text) => { const li = document.createElement('li'); li.className = 'dim'; li.textContent = text; el.takes.append(li); };
     if (i < 0) return note('Select a block to record it.');
     const slot = sl()[i];
-    const list = blockTakes(i);
+    const list = blockTakes(i), b = h.blocks()[i];
+    const orig = b.pickup ? originalTake(list, oldTakes(i), version()) : null;
+    const origTag = () => { const o = document.createElement('span'); o.className = 'num dim'; o.textContent = 'original'; return o; };
+    if (b.pickup) {
+      // What the script's writer asked for, and whether it's been recorded since.
+      const li = document.createElement('li'), tag = document.createElement('span'), done = pickedUp(chosenFor(i), version());
+      tag.className = 'lvl ' + (done ? 'good' : 'quiet');
+      tag.textContent = done ? 'Pickup recorded' : 'Pickup';
+      li.append(tag);
+      const why = b.pickup.note || (b.pickup.added ? 'A new line' : b.pickup.was != null ? 'Reworded' : '');
+      if (why) li.append(why);
+      // Both, one after the other, each from just before the block.
+      if (done && orig) {
+        const cmp = document.createElement('button');
+        cmp.textContent = playing?.cmp ? 'Stop' : 'Compare';
+        cmp.dataset.tip = 'Play the original take, then the pickup';
+        cmp.addEventListener('click', () => (playing?.cmp ? stopPlay() : compare(orig, chosenFor(i))));
+        li.append(cmp);
+      }
+      el.takes.append(li);
+      if (b.pickup.was != null) { const w = document.createElement('li'); w.className = 'dim'; w.textContent = `Was: “${b.pickup.was}”`; el.takes.append(w); }
+    }
     if (busy && cap?.block === i) note(cap.punch ? `Punching in: take ${list.length + 1} of block ${i + 1}, from take ${list.findIndex((t) => t.id === cap.punch.base.id) + 1}.` : `Recording take ${list.length + 1} of block ${i + 1}.`);
-    else if (!list.length) note(`Block ${i + 1} has no takes yet. Press Enter or R to record it.`);
+    else if (!list.length) note(`Block ${i + 1} has no takes yet. Press Enter or R to record it.` + (rec?.project && !takes.length ? ' Takes from an older recording file can be brought in, under Microphone, lead-in and sync.' : ''));
     list.forEach((t, k) => {
       const li = document.createElement('li');
       const j = judgePeak(t.peak), pt = placed(t), over = runsOver(pt, slot);
@@ -79,6 +109,7 @@ export function initRecord(h) {
       lvl.className = 'lvl ' + j;
       lvl.textContent = `${dbText(t.peak)}, ${LEVEL_WORDS[j]}`;
       li.append(use, name, len, lvl);
+      if (t === orig) li.append(origTag());
       if (t.punch != null) { const j2 = document.createElement('span'); j2.className = 'num dim'; j2.textContent = `joined at ${(t.punch - t.start).toFixed(2)} s`; li.append(j2); }
       if (over) { const o = document.createElement('span'); o.className = 'lvl loud'; o.textContent = 'runs past its slot'; li.append(o); }
       const play = document.createElement('button');
@@ -107,9 +138,43 @@ export function initRecord(h) {
       el.takes.append(li);
       if (editing?.id === t.id) el.takes.append(editor(t, i));
     });
+    oldTakes(i).forEach((t, k) => {
+      const li = document.createElement('li');
+      li.className = 'take';
+      const name = document.createElement('span');
+      name.textContent = `Old take ${k + 1}`;
+      name.dataset.tip = `Read as “${t.line.text}”. It can’t go into the export, since the line has changed`;
+      const tag = document.createElement('span');
+      tag.className = 'num';
+      tag.textContent = 'old wording';
+      const play = document.createElement('button');
+      play.textContent = playing?.t.id === t.id ? 'Stop' : 'Play';
+      play.addEventListener('click', () => (playing?.t.id === t.id ? stopPlay() : playTake(t)));
+      const del = document.createElement('button');
+      del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete old take ${k + 1}`);
+      del.addEventListener('click', async () => {
+        if (!confirm(`Delete old take ${k + 1} of block ${i + 1}? This can’t be undone.`)) return;
+        stopPlay();
+        await deleteTake(rec.id, t.id);
+        await reload();
+      });
+      li.append(name, tag);
+      if (t === orig) li.append(origTag());
+      li.append(play, del);
+      el.takes.append(li);
+    });
   }
-  async function reload() {
+  // match: put takes with the blocks of this version of the script (see relink), as when
+  // it's opened. A recording from before projects has only one script, so its takes just
+  // get their lines.
+  async function reload(match = false) {
     takes = rec ? await listTakes(rec.id).catch(() => []) : [];
+    if (rec && match) {
+      const changes = relink(takes, h.blocks(), rec.project ? null : h.blocks());
+      try { await relinkTakes(rec.id, changes); } catch (e) { h.toast(`Couldn’t match the takes to this script: ${e.message}`); }
+      const by = new Map(changes.map((c) => [c.id, c]));
+      takes = takes.map((t) => (by.has(t.id) ? { ...t, ...by.get(t.id) } : t));
+    }
     for (const id of peakCache.keys()) if (!takeOf(id)) peakCache.delete(id);
     if (pick && !takeOf(pick.id)) pick = null;
     render();
@@ -550,8 +615,10 @@ export function initRecord(h) {
       const whole = from24(new Uint8Array(await c.punch.wav.arrayBuffer()).subarray(WAV24_HEADER));
       ({ start: at, pcm: kept } = punchIn(flatten(c.punch.base, whole), { start, pcm: kept }, c.punch.at));
     }
+    const b = h.blocks()[c.block];
     const take = { id: crypto.randomUUID(), rec: rec.id, block: c.block, start: at, duration: kept.length / RATE,
-      peak: peakDb(kept), made: Date.now(), wav: wav24(to24(kept), RATE), ...(c.punch && { punch: c.punch.at }) };
+      peak: peakDb(kept), made: Date.now(), wav: wav24(to24(kept), RATE), ...(c.punch && { punch: c.punch.at }),
+      line: { start: b.start, end: b.end, text: b.text }, ver: version() };
     try { await saveTake(take, true); } catch (e) {
       state = 'idle'; render();
       return h.toast(`Couldn’t keep the take: ${e.message}` + (where === 'browser' ? '. The browser’s storage may be full' : ''));
@@ -603,13 +670,14 @@ export function initRecord(h) {
     if (!here && on) audio.pause();
     return here ? on : null;
   }
-  async function playTake(raw) {
+  // then: what to do when it plays to the end, rather than stop.
+  async function playTake(raw, then = null, cmp = null) {
     stopPlay();
     const t = placed(raw), ps = pieces(raw);
     let wav;
     try { wav = await takeAudio(t); } catch (e) { return h.toast(`Couldn’t play the take: ${e.message}`); }
     const audio = new Audio(URL.createObjectURL(wav));
-    playing = { t, audio, on: null };
+    playing = { t, audio, on: null, then, cmp };
     h.volume(false);
     h.seek(Math.max(0, t.start - 2));
     video.play().catch(() => {});
@@ -617,11 +685,16 @@ export function initRecord(h) {
     const tick = () => {
       if (!playing) return;
       playing.on = follow(audio, ps, video.currentTime, playing.on);
-      if (video.paused || video.currentTime >= t.start + t.duration) { stopPlay(); return; }
+      if (video.paused || video.currentTime >= t.start + t.duration) {
+        const next = !video.paused && playing.then;
+        if (next) next(); else stopPlay();
+        return;
+      }
       requestAnimationFrame(tick);
     };
     tick();
   }
+  const compare = (orig, pick) => playTake(orig, () => playTake(pick, null, 'pickup'), 'original');
   function stopPlay() {
     if (!playing) return;
     playing.audio.pause();
@@ -737,13 +810,17 @@ export function initRecord(h) {
   el.test.addEventListener('click', syncTest);
 
   // ---- export
-  async function exportWav() {
+  // only: the pickups alone, recorded for this version, in a WAV as long as the rest, so
+  // they land in place in the mixer's session.
+  async function exportWav(only = false) {
     if (!rec) return;
     const blocks = h.blocks();
+    if (only && !pickups().length) return h.toast('This recording file asks for no pickups');
     await reload();
-    const chosen = blocks.map((_, i) => chosenFor(i));
-    const spans = chosen.map((t) => t && placed(t));
-    const check = checkExport(blocks, spans);
+    const all = blocks.map((_, i) => chosenFor(i));
+    const check = only ? checkPickups(blocks, all, version()) : checkExport(blocks, all.map((t) => t && placed(t)));
+    const chosen = only ? check.takes : all, spans = chosen.map((t) => t && placed(t));
+    if (only && !chosen.some(Boolean)) return h.toast('None of the pickups is recorded yet');
     const go = async () => {
       const media = h.duration();
       const parts = [];
@@ -758,15 +835,18 @@ export function initRecord(h) {
         parts.sort((a, z) => a.start - z.start);
       } catch (e) { return h.toast(`Couldn’t get the takes: ${e.message}`); }
       const last = Math.max(0, ...spans.filter(Boolean).map((t) => t.start + t.duration));
+      const marked = blocks.map((b, i) => ({ at: b.start, label: markerLabel(b, i + 1) })).filter((_, i) => !only || chosen[i]);
+      const what = only ? `pickups${version() ? `, version ${version()}` : ''}: blocks ${chosen.flatMap((t, i) => (t ? [i + 1] : [])).join(', ')}` : 'narration';
       const blob = buildBwf({
         takes: parts,
-        markers: blocks.map((b, i) => ({ at: b.start, label: `${i + 1} ${b.text.replace(/\s+/g, ' ').slice(0, 40)}` })),
-        note: narrationNote({ blocks, edited: rec.edited }),
-        secs: Math.max(media, last), rate: RATE, startSecs: rec.start, description: `${h.baseName()} narration`,
+        markers: marked,
+        note: narrationNote({ blocks, edited: rec.edited, project: rec.project, version: version(), only,
+          picked: pickups().filter((k) => chosen[k] && pickedUp(chosen[k], version())).map((k) => k + 1) }),
+        secs: Math.max(media, last), rate: RATE, startSecs: rec.start, description: `${h.baseName()} ${what}`.slice(0, 256),
       });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `${h.baseName()}-narration.wav`;
+      a.download = `${h.baseName()}-${only ? `pickups${version() ? `-v${version()}` : ''}` : 'narration'}.wav`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
       h.toast(`Exported ${a.download}` + (check.warn.length ? `. ${check.warn.length} thing${check.warn.length === 1 ? '' : 's'} to mention to the mixer` : ''));
@@ -781,11 +861,44 @@ export function initRecord(h) {
   }
   $('recExportCancel').addEventListener('click', () => el.dlg.close());
 
+  // ---- pickups: the next block asked for again, after the selected one
+  function nextPickup() {
+    const pk = pickups();
+    if (!pk.length) return h.toast('This recording file asks for no pickups');
+    const i = pk.find((k) => k > h.selIdx()) ?? pk[0];
+    h.select(i);
+    h.seek(h.blocks()[i].start);
+  }
+
+  // ---- takes from a recording file made before projects, kept under its own script
+  $('recLink').addEventListener('click', () => $('recLinkFile').click());
+  $('recLinkFile').addEventListener('change', async (ev) => {
+    const f = ev.target.files[0];
+    ev.target.value = '';
+    if (!f || !rec?.project || state !== 'idle') return;
+    let old;
+    try { old = fromRecordingFile(JSON.parse(await f.text())); } catch (e) { return h.toast(`Couldn’t open ${f.name}: ${e instanceof SyntaxError ? 'the file is damaged' : e.message}`); }
+    const from = takesKey(old);
+    if (from === rec.id) return h.toast(`${f.name} is this recording. Its takes are already here`);
+    try {
+      const theirs = await listTakes(from);
+      if (!theirs.length) return h.toast(`There are no takes for ${f.name} here`);
+      stopPlay(); silence();
+      // Their lines first, from their own script, so they can be matched to this one.
+      await relinkTakes(from, relink(theirs, old.blocks, old.blocks));
+      const n = await moveTakes(from, rec.id);
+      pb.bufs.clear();
+      await reload(true);
+      h.toast(`Brought in ${n} take${n === 1 ? '' : 's'} from ${f.name}. Lines that have changed since need recording again`);
+    } catch (e) { h.toast(`Couldn’t bring in the takes: ${e.message}`); }
+  });
+
   // ---- opening and leaving
   return {
     get active() { return state !== 'idle'; },
     get open() { return !!rec; },
-    toggle, punch, exportWav, finish, render,
+    toggle, punch, exportWav, finish, render, nextPickup,
+    get pickups() { return rec ? pickups().length : 0; },
     // Splits the selected block's take at the playhead (see keyTake): false if no block is selected.
     splitTake() {
       if (!rec || state !== 'idle' || h.selIdx() < 0) return false;
@@ -806,11 +919,11 @@ export function initRecord(h) {
     setHearing,
     stopPlayback: stopPlay,
     async open(file) {
-      rec = { ...file, id: recordingId(file) };
+      rec = { ...file, id: takesKey(file) };
       state = 'idle';
       where = await takesWhere();
       status(''); devices();
-      await reload();
+      await reload(true);
     },
     async close() {
       if (state === 'lead' || state === 'rec') await finish();

@@ -19,6 +19,7 @@ raw, for the mixer to work with.
   - [Editing a take](#editing-a-take)
   - [Keeping takes in sync](#keeping-takes-in-sync)
   - [Exporting the narration](#exporting-the-narration)
+- [Pickups](#pickups)
 - [For the mixer](#for-the-mixer)
 - [Checking the narration](#checking-the-narration)
 - [Where takes are kept](#where-takes-are-kept)
@@ -31,6 +32,8 @@ raw, for the mixer to work with.
 4. **The narrator** exports the narration WAV and sends it to the mixer.
 5. **The mixer** imports it into their DAW.
 6. **You** can open the WAV in Scribecue to [check it](#checking-the-narration).
+7. **For a fix,** you send a new version of the recording file, and the narrator records
+   only the [pickups](#pickups).
 
 ## Making the recording file
 
@@ -74,6 +77,7 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 | Delete | Delete the part of a take you last clicked |
 | Esc | Stop recording |
 | V | Hear the block read by text to speech, as a guide |
+| P | Go to the next [pickup](#pickups) |
 | Space | Play or pause |
 | Alt+Shift+Left / Right | Previous or next block |
 
@@ -166,6 +170,45 @@ Choose **Export → Narration WAV**.
 
 ![The notes to send with the WAV](../docs/screenshots/recording-export.png)
 
+## Pickups
+
+A pickup is a block the narrator records again, such as a misread name or a reworded
+line. Takes carry over from one version of the recording file to the next, so only the
+pickups need recording.
+
+### Asking for pickups
+
+![A block marked as a pickup, with a note for the narrator](../docs/screenshots/pickup-mark.png)
+
+1. In Write mode, select a block and click **Pickup**. Add a note, such as how to say a
+   name.
+2. Reword any lines that need it. They're asked for anyway.
+3. Choose **Export → Recording file** again. Scribecue says which version it is, and
+   which blocks it asks for.
+
+Export from the same script you sent before, so Scribecue knows what changed.
+
+### Recording pickups
+
+![Record mode on a reworded block: the pickup in the export, and the take of the old wording labelled original](../docs/screenshots/recording-pickups.png)
+
+- Open the new recording file. Takes of unchanged lines are already in place, even if
+  the line has moved.
+- The count under the video says how many pickups are recorded.
+- A pickup block shows its note, or the wording it replaces.
+- Press P to go to the next pickup.
+- Takes of a reworded line show as **Old take**. You can play them, but they can't go
+  into the export.
+- The take you had before the pickup is labelled **original**.
+- **Compare** plays the original, then the pickup, each against the video.
+
+Then choose **Export → Pickups WAV**. It holds only the new takes, as long as the
+programme, so each one drops into place. Its markers carry the notes.
+
+Takes recorded with Scribecue 0.67 or earlier stay with their own recording file. To
+carry them over, click **Bring in takes from an older recording file**, under
+**Microphone, lead-in and sync**, and choose that file.
+
 ## For the mixer
 
 The narration is one Broadcast WAV file:
@@ -176,6 +219,10 @@ The narration is one Broadcast WAV file:
   stamp**.
 - Marked at each block, with its number and first words, for DAWs that read markers,
   such as Reaper and Nuendo.
+
+A pickups WAV is the same, with only the pickups in it. Put it on its own track over the
+first narration, and mute the old takes under it. Its markers say `PICKUP`, with the
+note.
 
 ## Checking the narration
 
@@ -188,6 +235,13 @@ can't stop that, but Scribecue shows it.
 Scribecue lists any block whose text or timing differs from yours. It also says if the
 recording file was changed by hand. Blocks you've changed since sending the file show up
 too.
+
+For a pickups WAV, it also says which pickups were recorded and which are still to do.
+A button there clears the **Pickup** marks of the blocks that are done.
+
+![A pickups WAV that matches the script](../docs/screenshots/check-pickups.png)
+
+![A pickups WAV checked after block 5 was changed](../docs/screenshots/check-mismatch.png)
 
 ## Where takes are kept
 

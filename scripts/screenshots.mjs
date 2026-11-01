@@ -246,4 +246,82 @@ await js(`document.getElementById('clipMenu').hidden = true; 1`);
 await js(`document.querySelector('[data-act=exportNarration]').click(); 1`); await sleep(800);
 await shot('recording-export', '#recExportDlg', 0);
 await closeDialogs();
+
+// Pickups. The producer has sent version 1, then rewords block 2 and marks block 4.
+const v1 = cues.map(({ start, end, text }) => ({ start, end, text }));
+const v2 = cues.map((c, i) => (i === 1 ? { ...c, text: 'The colours fold slowly into each other.' } : i === 3 ? { ...c, pickup: { note: 'Softer: the scene is winding down' } } : c));
+const producer = JSON.stringify({ subName: 'lights-ad.scribecue', dirty: false, cues: v2, recording: { id: 'lights0demo00001', version: 1, sent: v1 } });
+const asProducer = async (state) => {
+  await js(`localStorage.setItem('scribecue.v1', ${JSON.stringify(state)}); localStorage.removeItem('scribecue.recOpen'); localStorage.setItem('scribecue.mode', 'write'); location.reload(); 1`);
+  await sleep(1800);
+};
+await asProducer(producer);
+await js(`document.querySelectorAll('#list .row')[3].click(); 1`); await sleep(400);
+await js(`document.activeElement?.blur(); document.getElementById('toast').classList.add('fade'); 1`); await sleep(300);
+await shot('pickup-mark', '#editor', 12);
+
+// The narrator opens version 2: takes from version 1, and the two pickups recorded since.
+await js(`(async () => {
+  window.confirm = () => true;
+  const R = await import('./js/recording.js'), B = await import('./js/bwf.js'), T = await import('./js/takestore.js');
+  const file = R.toRecordingFile({ blocks: ${JSON.stringify(v2)}, fps: 25, project: 'lights0demo00001', version: 2, sent: ${JSON.stringify(v1)} });
+  const rec = R.takesKey(R.fromRecordingFile(JSON.parse(JSON.stringify(file))));
+  let seed = 11;
+  const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
+  const voice = (secs, level) => {
+    const n = Math.round(secs * 48000), pcm = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i / 48000, words = Math.max(0, Math.sin(2 * Math.PI * 4.1 * t) * Math.sin(2 * Math.PI * 1.3 * t + 1));
+      const edge = Math.min(1, Math.max(0, (t - 0.25) * 8), Math.max(0, (secs - 0.3 - t) * 8));
+      pcm[i] = noise() * level * (0.04 + words) * edge;
+    }
+    return pcm;
+  };
+  const v1 = ${JSON.stringify(v1)}, v2 = ${JSON.stringify(v2.map(({ start, end, text }) => ({ start, end, text })))};
+  const takes = [
+    ...v1.map((b, i) => ({ block: i, line: b, ver: 1, start: b.start + 0.1, secs: Math.min(b.end - b.start + 0.3, 3.6), chosen: i !== 1 && i !== 3 })),
+    { block: 1, line: v2[1], ver: 2, start: v2[1].start + 0.05, secs: 2.8, chosen: true },
+    { block: 3, line: v2[3], ver: 2, start: v2[3].start + 0.1, secs: 2.2, chosen: true },
+  ];
+  let made = 1;
+  for (const t of takes) {
+    const pcm = voice(t.secs, 0.3);
+    await T.saveTake({ id: crypto.randomUUID(), rec, block: t.block, start: t.start, duration: pcm.length / 48000, peak: R.peakDb(pcm), made: made++, wav: B.wav24(B.to24(pcm), 48000), line: t.line, ver: t.ver }, t.chosen);
+  }
+  window.__got = {};
+  const click = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () { if (this.download?.endsWith('.wav')) window.__got[this.download] = this.href; else click.call(this); };
+  const dt = new DataTransfer(); dt.items.add(new File([JSON.stringify(file)], 'lights-v2.scribecuerec'));
+  window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+  for (let i = 0; i < 60 && !document.body.classList.contains('mode-record'); i++) await new Promise((r) => setTimeout(r, 100));
+  return 1;
+})()`);
+await sleep(1500);
+await js(`(async()=>{const b=await fetch('/demo.mkv').then(r=>r.blob()); const dt=new DataTransfer(); dt.items.add(new File([b],'lights.mkv',{type:'video/x-matroska'})); window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true})); return 1})()`);
+for (let i = 0; i < 40 && !(await js(`document.getElementById('video').readyState >= 2`)); i++) await sleep(500);
+await sleep(1500);
+await key('Digit0', '0', { altKey: true }); await sleep(200);
+await key('Equal', '=', { altKey: true }); await sleep(200);
+await js(`document.querySelectorAll('#list .row')[1].click(); 1`); await sleep(300);
+await seek(12.4); await sleep(800);
+await js(`document.activeElement?.blur(); document.getElementById('toast').classList.add('fade'); 1`); await sleep(500);
+await shot('recording-pickups');
+
+// The pickups WAV, checked by the producer: first against the script as sent, then after
+// block 5 has changed since.
+await js(`document.querySelector('[data-act=exportPickups]').click(); 1`);
+for (let i = 0; i < 40 && !(await js(`Object.keys(window.__got || {}).length`)); i++) await sleep(250);
+const wav = await js(`(async () => { const b = await fetch(Object.values(__got)[0]).then((r) => r.blob()); await (await caches.open('shots')).put('/pickups.wav', new Response(b)); return b.size })()`);
+console.log('pickups WAV', wav, 'bytes');
+const check = async (state, name) => {
+  await asProducer(state);
+  await js(`(async () => { const b = await (await (await caches.open('shots')).match('/pickups.wav')).blob(); const dt = new DataTransfer(); dt.items.add(new File([b], 'lights-ad-pickups-v2.wav', { type: 'audio/wav' })); window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true })); return 1 })()`);
+  for (let i = 0; i < 40 && !(await js(`document.getElementById('narrDlg').open`)); i++) await sleep(250);
+  await sleep(300);
+  await shot(name, '#narrDlg', 0);
+};
+await check(JSON.stringify({ ...JSON.parse(producer), recording: { id: 'lights0demo00001', version: 2, sent: v2.map(({ start, end, text }) => ({ start, end, text })) } }), 'check-pickups');
+await check(JSON.stringify({ ...JSON.parse(producer), cues: v2.map((c, i) => (i === 4 ? { ...c, text: 'Green light spreads in from the left.', end: 42.4 } : c)) }), 'check-mismatch');
+await js(`caches.delete('shots')`);
+await closeDialogs();
 ws.close();

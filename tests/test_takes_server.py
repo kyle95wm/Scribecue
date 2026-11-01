@@ -123,6 +123,47 @@ class Takes(unittest.TestCase):
         self.assertEqual(self.call("POST", f"/r/{REC}/{A}/choose")[0], 404)  # no such take
         self.assertFalse(os.path.exists(os.path.join(self.dir.name, "etc")))
 
+    def test_a_take_keeps_its_line_and_version(self):
+        line = {"start": 2, "end": 5, "text": "Siobhan waves. “Hello”"}
+        take = {"block": 0, "start": 2.1, "duration": 1.5, "peak": -10, "made": 1, "line": line, "ver": 2, "choose": True}
+        # Sent as ASCII, as headers must be, with the rest escaped.
+        header = json.dumps(take, ensure_ascii=True)
+        self.assertEqual(self.call("PUT", f"/r/{REC}/{A}", WAV, {"X-Take": header})[0], 200)
+        t = self.listing()[A]
+        self.assertEqual((t["line"], t["ver"]), (line, 2))
+        for bad in ({"line": {"start": 2}}, {"line": {"start": 2, "end": 5, "text": "x" * 6000}}, {"ver": -1}, {"ver": "2"}):
+            self.assertEqual(self.call("PUT", f"/r/{REC}/{B}", WAV, {"X-Take": json.dumps({**take, **bad})})[0], 400, bad)
+
+    def test_takes_are_matched_to_a_new_script(self):
+        self.put(A, 0)
+        self.put(B, 1)
+        line = {"start": 9, "end": 13, "text": "B."}
+        changes = [{"id": A, "block": 1, "start": 3.5, "line": line, "chosen": True},
+                   {"id": B, "block": -1, "start": 2.5, "line": line, "chosen": True},
+                   {"id": C, "block": 0, "start": 1, "line": line, "chosen": True}]  # not here: left alone
+        self.assertEqual(self.call("POST", f"/r/{REC}/relink", json.dumps(changes).encode())[0], 200)
+        got = self.listing()
+        self.assertEqual((got[A]["block"], got[A]["start"], got[A]["line"], got[A]["chosen"]), (1, 3.5, line, True))
+        self.assertEqual((got[B]["block"], got[B]["chosen"]), (-1, False), "a take with no block isn't chosen")
+        self.assertNotIn(C, got)
+        for bad in (b"{}", json.dumps([{"id": "x", "block": 0, "start": 0, "line": line, "chosen": True}]).encode(),
+                    json.dumps([{"id": A, "block": -2, "start": 0, "line": line, "chosen": True}]).encode(),
+                    json.dumps([{"id": A, "block": 0, "start": 0, "line": None, "chosen": True}]).encode()):
+            self.assertEqual(self.call("POST", f"/r/{REC}/relink", bad)[0], 400, bad)
+
+    def test_a_recordings_takes_move_to_its_project(self):
+        self.put(A, 0)
+        self.put(B, 1)
+        to = "abcdefgh12345678-0"
+        self.assertEqual(self.call("POST", f"/r/{REC}/move", json.dumps({"to": to}).encode()), (200, b'{"moved": 2}'))
+        self.assertEqual(self.listing(), {})
+        code, body = self.call("GET", f"/r/{to}")
+        self.assertEqual(sorted(t["id"] for t in json.loads(body)), [A, B])
+        self.assertEqual(self.call("GET", f"/r/{to}/{A}"), (200, WAV))
+        self.assertEqual(json.loads(self.call("GET", "/status")[1])["takes"], 2)
+        for bad in (b"", json.dumps({"to": "../x"}).encode(), json.dumps({"to": to}).encode()):
+            self.assertEqual(self.call("POST", f"/r/{to}/move", bad if bad else b"{}")[0], 400, bad)
+
 
 if __name__ == "__main__":
     unittest.main()

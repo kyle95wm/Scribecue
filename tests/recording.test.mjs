@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -348,4 +348,85 @@ test('on the take track, each part of a split take is its own clip', () => {
   assert.equal(clipAt([t], 12.5, 100), null, 'the gap between the parts');
   const cut = { ...t, edit: { splits: [2], parts: [{}, { shift: 1, cut: true }] } };
   assert.equal(clipAt([cut], 13.5, 100), null, 'a deleted part is not there');
+});
+
+const line = (start, end, text) => ({ start, end, text });
+
+test('a new version of a recording file asks for new and reworded lines, and marked ones', () => {
+  const sent = [line(2, 5, 'She opens the door.'), line(9, 13, 'A hallway.'), line(20, 24, 'He turns.')];
+  const now = [line(2, 5, 'She opens the door.'), { ...line(9, 13, 'A long hallway, lit by one bulb.') }, { ...line(20, 24, 'He turns.'), pickup: { note: 'Stress “turns”' } }, line(30, 33, 'Rain.')];
+  assert.deepEqual(pickupsFor(now, sent), [null, { was: 'A hallway.' }, { note: 'Stress “turns”' }, { added: true }]);
+  assert.deepEqual(pickupsFor(now, null), [null, null, { note: 'Stress “turns”' }, null], 'the first version: only marked lines');
+  assert.deepEqual(pickupsFor([line(2, 5, '  She opens  the door. ')], sent), [null], 'spacing doesn’t count as a change');
+});
+
+test('a recording file keeps its project, version and pickups', () => {
+  const blocks = [line(2, 5, 'A.'), { ...line(9, 13, 'B.'), pickup: { note: 'Siobhan: shi-VAWN' } }];
+  const f = fromRecordingFile(JSON.parse(JSON.stringify(toRecordingFile({ blocks, project: 'abcdefgh12345678', version: 2, sent: [line(2, 5, 'A.'), line(9, 13, 'B.')] }))));
+  assert.equal(f.project, 'abcdefgh12345678');
+  assert.equal(f.version, 2);
+  assert.equal(f.edited, false);
+  assert.deepEqual(f.blocks.map((b) => b.pickup || null), [null, { note: 'Siobhan: shi-VAWN' }]);
+  assert.equal(takesKey(f), 'abcdefgh12345678-0');
+  const old = fromRecordingFile(JSON.parse(JSON.stringify(toRecordingFile({ blocks }))));
+  assert.equal(old.project, undefined, 'without a project, as before');
+  assert.equal(takesKey(old), recordingId(old));
+  assert.equal(fromRecordingFile({ scribecueRecording: 1, project: '../../etc', blocks: [] }).project, undefined, 'an id that isn’t one is dropped');
+  assert.match(newProjectId(), /^[a-z0-9]{16}$/);
+});
+
+test('takes follow their lines to a new version of the script', () => {
+  const take = (id, block, l, extra = {}) => ({ id, block, start: l.start + 0.1, line: l, chosen: true, made: 1, ...extra });
+  const a = line(2, 5, 'She opens the door.'), b = line(9, 13, 'A hallway.'), c = line(20, 24, 'He turns.');
+  const takes = [take('a', 0, a), take('b', 1, b), take('c', 2, c)];
+  // Block 2 reworded, a line added before block 1, and block 3 moved 1 s later.
+  const now = [line(1, 1.8, 'Night.'), a, line(9, 13, 'A long hallway.'), line(21, 25, 'He turns.')];
+  const ch = Object.fromEntries(relink(takes, now).map((x) => [x.id, x]));
+  assert.deepEqual([ch.a.block, ch.a.start, ch.a.chosen], [1, 2.1, true], 'renumbered, kept');
+  assert.deepEqual([ch.b.block, ch.b.chosen, ch.b.line.text], [-1, false, 'A hallway.'], 'reworded: kept, out of the export, with its old line');
+  assert.equal(ch.c.block, 3);
+  assert.ok(Math.abs(ch.c.start - 21.1) < 1e-9, 'moved with its block');
+  assert.deepEqual(ch.c.line, line(21, 25, 'He turns.'));
+  assert.deepEqual(relink(takes, [a, b, c]), [], 'nothing changed, nothing to save');
+});
+
+test('takes from before lines were kept take them from their own script', () => {
+  const old = [line(2, 5, 'A.'), line(9, 13, 'B.')];
+  const ch = relink([{ id: 'x', block: 1, start: 9.1, chosen: true, made: 1 }], old, old);
+  assert.deepEqual(ch, [{ id: 'x', block: 1, start: 9.1, line: line(9, 13, 'B.'), chosen: true }]);
+});
+
+test('when two lines become one, one take stays chosen', () => {
+  const a = line(2, 5, 'He nods.'), b = line(9, 12, 'He nods.');
+  const takes = [{ id: 'old', block: 0, start: 2.1, line: a, chosen: true, made: 1 }, { id: 'new', block: 1, start: 9.1, line: b, chosen: true, made: 2 }];
+  const ch = relink(takes, [b]);
+  assert.equal(ch.find((x) => x.id === 'new').chosen, true);
+  assert.equal(ch.find((x) => x.id === 'old').chosen, false);
+});
+
+test('a pickup is done once it is recorded for this version', () => {
+  assert.equal(pickedUp({ ver: 2 }, 2), true);
+  assert.equal(pickedUp({ ver: 1 }, 2), false);
+  assert.equal(pickedUp({}, 1), false, 'takes from before versions');
+  assert.equal(pickedUp(null, 1), false);
+  const blocks = [line(2, 5, 'A.'), { ...line(9, 13, 'B.'), pickup: { note: 'n' } }, { ...line(20, 24, 'C.'), pickup: { was: 'c' } }];
+  const t = (start, ver) => ({ start, duration: 2, peak: -10, ver });
+  const r = checkPickups(blocks, [t(2.1, 1), t(9.1, 1), t(20.1, 2)], 2);
+  assert.deepEqual(r.warn, [{ block: 2, why: 'isn’t recorded again yet' }], 'only pickups are checked');
+  assert.deepEqual(r.takes.map(Boolean), [false, false, true]);
+});
+
+test('a pickup is compared with the take from before it', () => {
+  const t = (id, ver, chosen = false) => ({ id, ver, chosen });
+  assert.equal(originalTake([t('a', 1, true), t('b', 1)], [], 2).id, 'a', 'the one in the export');
+  assert.equal(originalTake([t('a', 1), t('b', 1), t('p', 2, true)], [], 2).id, 'b', 'the latest once the pickup is in');
+  assert.equal(originalTake([t('p', 2, true)], [t('o', 1)], 2).id, 'o', 'the old wording');
+  assert.equal(originalTake([{ id: 'x' }], [], 1).id, 'x', 'takes from before versions');
+  assert.equal(originalTake([t('p', 2, true)], [], 2), null);
+});
+
+test('a pickup’s marker in the WAV carries its note', () => {
+  assert.equal(markerLabel(line(2, 5, 'She opens the door.'), 1), '1 She opens the door.');
+  assert.equal(markerLabel({ ...line(2, 5, 'Siobhan waves.'), pickup: { note: 'Siobhan: shi-VAWN' } }, 3), '3 PICKUP: Siobhan: shi-VAWN | Siobhan waves.');
+  assert.equal(markerLabel({ ...line(2, 5, 'B.'), pickup: { was: 'A.' } }, 4), '4 PICKUP: reworded | B.');
 });

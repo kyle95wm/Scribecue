@@ -86,3 +86,12 @@ test('project notes for AI help are kept, and left out when empty', () => {
   assert.equal(fromProject({ scribecue: 1, blocks: [] }).notes, '');
   assert.equal(fromProject({ scribecue: 1, blocks: [], notes: 42 }).notes, '');
 });
+
+test('a project keeps its pickup marks and its recording files’ id, version and lines sent', () => {
+  const recording = { id: 'abcdefgh12345678', version: 2, sent: [{ start: 1, end: 2, text: 'A.', extra: 1 }] };
+  const p = fromProject(JSON.parse(JSON.stringify(toProject({ blocks: [{ start: 1, end: 2, text: 'A.', pickup: { note: 'Siobhan: shi-VAWN' } }, { start: 3, end: 4, text: 'B.' }], recording }))));
+  assert.deepEqual(p.blocks.map((b) => b.pickup || null), [{ note: 'Siobhan: shi-VAWN' }, null]);
+  assert.deepEqual(p.recording, { id: 'abcdefgh12345678', version: 2, sent: [{ start: 1, end: 2, text: 'A.' }] });
+  assert.equal(fromProject({ scribecue: 1, blocks: [], recording: { id: 'nope' } }).recording, null);
+  assert.equal(fromProject({ scribecue: 1, blocks: [] }).recording, null, 'projects from before recording files');
+});
