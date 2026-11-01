@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.71.0",
+  "date": "2026-11-01",
+  "notes": "## Return to start\n\n- Turn on **Return to start** under **Settings → General**. Play after a stop then goes back to where you last started playing, to hear a part again.\n- Move the playhead while stopped to start somewhere else.\n- It's off at first. `RETURN` shows under the video while it's on."
+ },
+ {
   "version": "0.70.0",
   "date": "2026-11-01",
   "notes": "## Bring back sound you cut from a take\n\n- In Record mode, drag the end of a take's part back out to bring back sound you trimmed, split off or deleted.\n- It stops at the next part, or at the start or end of the recording.\n- In **Fine-tune**, a trim below 0 does the same.\n\n## Your name on comments\n\n- Add your name under **Settings → General**, or in setup's QC step. It fills in your name on comments.\n- It's optional. A name typed only in the Comments drawer is no longer saved."
