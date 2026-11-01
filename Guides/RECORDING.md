@@ -205,9 +205,9 @@ Export from the same script you sent before, so Scribecue knows what changed.
 Then choose **Export → Pickups WAV**. It holds only the new takes, as long as the
 programme, so each one drops into place. Its markers carry the notes.
 
-Takes recorded with Scribecue 0.67 or earlier stay with their own recording file. To
-carry them over, click **Bring in takes from an older recording file**, under
-**Microphone, lead-in and sync**, and choose that file.
+Started recording before Scribecue 0.68.0? Those takes stay with the old recording
+file. To bring them in, open the new file, then click **Bring in takes from an older
+recording file** under **Microphone, lead-in and sync**. Choose the old file.
 
 ## For the mixer
 
