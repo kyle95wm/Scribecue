@@ -43,6 +43,8 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 
 ## Recording
 
+![Record mode: the script, the takes of block 3, and each block's picked take on the timeline under the video's waveform](../docs/screenshots/recording.png)
+
 ### Before you start
 
 - **Open the recording file and the video.** Scribecue opens in Record mode. Reloading
@@ -132,6 +134,8 @@ Each block's slot is shaded green. Any part of a take past its slot is red.
 - **Reset** brings back the take as recorded, deleted parts too.
 - **Edit** in the list does the same by the millisecond, from the keyboard.
 
+![Right-clicking a take that runs past its slot](../docs/screenshots/recording-menu.png)
+
 To cut a late start, drag the take's start in to where the sound begins, or use **Trim
 silence**. Then use **Start at block**.
 
@@ -159,6 +163,8 @@ Choose **Export → Narration WAV**.
 - Any take above −6 dBFS stops the export. Scribecue lists the blocks to retake.
 - Blocks with no take, takes that run long, and quiet takes don't stop it. Scribecue lists
   them: send that list with the WAV.
+
+![The notes to send with the WAV](../docs/screenshots/recording-export.png)
 
 ## For the mixer
 

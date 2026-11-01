@@ -1157,7 +1157,8 @@ function openEditor() {
 }
 function placeEditor() {
   const i = selIdx();
-  editor.hidden = !edOpen || i < 0 || !rowMap.has(S.sel);
+  // Record mode has no editor: the script is locked. An editor left open would hide the selected row.
+  editor.hidden = !edOpen || S.mode === 'record' || i < 0 || !rowMap.has(S.sel);
   if (editor.hidden) return;
   const rows = S.cues.map((c) => rowMap.get(c.id));
   const above = (r) => r.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING;

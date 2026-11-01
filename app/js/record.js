@@ -295,10 +295,9 @@ export function initRecord(h) {
             g.fillRect(px, mid - hh, 1, hh * 2);
           }
         }
-        if (z - a > 52) {
-          g.fillStyle = on ? TK.accent : TK.cue;
-          g.fillText(ps.length > 1 ? `Take ${n} · ${j + 1}/${ps.length}` : `Take ${n}`, Math.max(a, 0) + 6, 17);
-        }
+        // The longest label that fits: "Take 2 · 1/2", "Take 2", or none.
+        const label = [ps.length > 1 ? `Take ${n} · ${j + 1}/${ps.length}` : '', `Take ${n}`].find((s) => s && g.measureText(s).width + 12 <= z - Math.max(a, 0));
+        if (label) { g.fillStyle = on ? TK.accent : TK.cue; g.fillText(label, Math.max(a, 0) + 6, 17); }
       });
     });
     if (tdrag?.snapped != null) { g.fillStyle = TK.text; g.fillRect(x(tdrag.snapped) - 1, 0, 2, H); }

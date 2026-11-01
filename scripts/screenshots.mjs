@@ -188,4 +188,62 @@ await js(`(async () => {
 })()`);
 await sleep(300);
 await shot('import-timings', '#importDlg', 0);
+
+// Record mode: the same script as a recording file, with takes made up from shaped noise,
+// so no real voice is involved. Block 2's take runs past its slot; block 3's is split.
+await closeDialogs(); await sleep(300);
+await js(`(async () => {
+  window.confirm = () => true;
+  const R = await import('./js/recording.js'), B = await import('./js/bwf.js'), T = await import('./js/takestore.js');
+  const file = R.toRecordingFile({ blocks: ${JSON.stringify(cues)}, fps: 25 });
+  const rec = R.recordingId(R.fromRecordingFile(JSON.parse(JSON.stringify(file))));
+  let seed = 7;
+  const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
+  const voice = (secs, level) => {
+    const n = Math.round(secs * 48000), pcm = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i / 48000, words = Math.max(0, Math.sin(2 * Math.PI * 4.3 * t) * Math.sin(2 * Math.PI * 1.1 * t + 1));
+      const edge = Math.min(1, Math.max(0, (t - 0.25) * 8), Math.max(0, (secs - 0.3 - t) * 8));
+      pcm[i] = noise() * level * (0.04 + words) * edge;
+    }
+    return pcm;
+  };
+  const takes = [
+    { block: 0, start: 3.05, secs: 3.4, level: 0.32 },
+    { block: 0, start: 3.1, secs: 3.1, level: 0.3 },
+    { block: 1, start: 11.6, secs: 4.1, level: 0.3 },
+    { block: 2, start: 20.0, secs: 3.9, level: 0.1 },
+    { block: 2, start: 20.1, secs: 4.4, level: 0.31, edit: { splits: [2.1], parts: [{ shift: 0, head: 0.1, tail: 0 }, { shift: -0.3, head: 0.35, tail: 0 }] } },
+    { block: 3, start: 30.3, secs: 2.3, level: 0.29 },
+  ];
+  let made = 1;
+  for (const t of takes) {
+    const pcm = voice(t.secs, t.level);
+    await T.saveTake({ id: crypto.randomUUID(), rec, block: t.block, start: t.start, duration: pcm.length / 48000, peak: R.peakDb(pcm), made: made++, wav: B.wav24(B.to24(pcm), 48000), ...(t.edit && { edit: t.edit }) }, true);
+  }
+  const dt = new DataTransfer(); dt.items.add(new File([JSON.stringify(file)], 'lights.scribecue-rec'));
+  window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+  for (let i = 0; i < 60 && !document.body.classList.contains('mode-record'); i++) await new Promise((r) => setTimeout(r, 100));
+  return 1;
+})()`);
+await sleep(1200);
+await key('Digit0', '0', { altKey: true }); await sleep(200);
+await key('Equal', '=', { altKey: true }); await sleep(200);
+await js(`document.querySelectorAll('#list .row')[2].click(); 1`); await sleep(300);
+await seek(21.2); await sleep(800);
+await js(`document.activeElement?.blur(); document.getElementById('toast').classList.add('fade'); 1`); await sleep(500);
+await shot('recording');
+// The take menu, on block 2's take, with room beside it.
+const at = await js(`(() => { const c = document.querySelector('.cue[data-id="' + document.querySelectorAll('#list .row')[1].dataset.id + '"]').getBoundingClientRect(), t = document.getElementById('takeTrack').getBoundingClientRect(); return [c.left + c.width * 1.6, t.top + t.height / 2]; })()`);
+for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x: at[0], y: at[1], button: 'right', buttons: type === 'mousePressed' ? 2 : 0, clickCount: 1 });
+await sleep(400);
+await js(`document.activeElement?.blur(); 1`); await sleep(200);
+const area = await js(`(() => { const a = document.getElementById('tl').getBoundingClientRect(), m = document.getElementById('clipMenu').getBoundingClientRect(); const top = Math.min(a.top, m.top - 4), left = Math.max(0, m.left - 560); return [left, top, m.right + 16 - left, a.bottom - top]; })()`);
+fs.writeFileSync(`${outDir}/recording-menu.png`, Buffer.from((await send('Page.captureScreenshot', { format: 'png', clip: { x: area[0], y: area[1], width: area[2], height: area[3], scale: 1 } })).result.data, 'base64'));
+console.log('saved recording-menu');
+await js(`document.getElementById('clipMenu').hidden = true; 1`);
+// The notes for the mixer, before exporting.
+await js(`document.querySelector('[data-act=exportNarration]').click(); 1`); await sleep(800);
+await shot('recording-export', '#recExportDlg', 0);
+await closeDialogs();
 ws.close();
