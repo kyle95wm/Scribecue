@@ -61,7 +61,7 @@
           <button role="menuitem" data-act="exportTrack" class="write-only"><span><strong>Description track</strong><span class="dim">every reading in one WAV or MP3 file, with a Piper or Google voice</span></span></button>
           <button role="menuitem" data-act="exportQc" class="qc-export"><span><strong>QC package</strong><span class="dim">the project and original readings, ready to review on another computer</span></span></button>
           <button role="menuitem" data-act="exportRecording" class="write-only"><span><strong>Recording file</strong><span class="dim">the locked script and timings, for a narrator to record against</span></span></button>
-          <button role="menuitem" data-act="exportNarration" class="record-only"><span><strong>Narration WAV</strong><span class="dim">the chosen takes in one timestamped file, for the mixer</span></span></button>
+          <button role="menuitem" data-act="exportNarration" class="record-only" id="exportNarration"><span><strong>Narration WAV</strong><span class="dim">the chosen takes in one timestamped file, for the mixer</span></span></button>
           <button role="menuitem" data-act="exportPickups" class="record-only" id="exportPickups"><span><strong>Pickups WAV</strong><span class="dim">only the pickups, timestamped to drop into place, with their notes</span></span></button>
           <button role="menuitem" data-act="exportMix" class="write-only"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></button>
         </div>
@@ -102,6 +102,10 @@
             <span id="edAuto" class="autotag" hidden data-tip="This block's end follows the reading as you type. Set the end yourself and it stays where you put it">auto</span>
             <span id="edDur" class="dim"></span>
             <span class="grow"></span>
+            <span class="modesw edaltsw" id="edAltSw" role="radiogroup" aria-label="Wording to record">
+              <button role="radio" data-side="orig" aria-checked="true" data-tip="Record the block as written (A)">Original</button>
+              <button role="radio" data-side="alt" aria-checked="false" data-tip="Alt: write and record your own wording for this block, such as “toward” for “towards”. The original and its takes stay as they are (A)">Alt</button>
+            </span>
             <button id="edDel" class="rowdel" aria-label="Delete this block" data-tip="Delete this block (Del). Ctrl/Cmd+Z brings it back">×</button>
           </div>
           <textarea id="edNotes" rows="1" spellcheck="true" maxlength="2000" aria-label="Notes for the narrator"
@@ -249,7 +253,7 @@
     <span class="hint qc-only"><kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>↑</kbd><kbd>↓</kbd> block <kbd>V</kbd> hear block <span class="qc-edit-only"><kbd>↵</kbd> edit </span><kbd>⌥⇧C</kbd> comments <kbd>⇧O</kbd> all keys</span>
     <span class="hint record-only">
       <kbd>Space</kbd> play <kbd>⌥⇧←</kbd><kbd>⌥⇧→</kbd> block
-      <kbd>↵</kbd> record <kbd>⇧↵</kbd> punch in <kbd>Esc</kbd> stop <kbd>X</kbd> split take <kbd>P</kbd> next pickup <kbd>V</kbd> hear it read <kbd>⇧O</kbd> all keys
+      <kbd>↵</kbd> record <kbd>⇧↵</kbd> punch in <kbd>Esc</kbd> stop <kbd>X</kbd> split take <kbd>P</kbd> next pickup <kbd>A</kbd> alt <kbd>V</kbd> hear it read <kbd>⇧O</kbd> all keys
     </span>
     <a id="ghLink" class="ghlink tip-end" href="https://github.com/kyle95wm/Scribecue" target="_blank" rel="noopener noreferrer"
       aria-label="Scribecue on GitHub" data-tip="Scribecue on GitHub: the source, releases and issues"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg></a>
@@ -380,6 +384,7 @@ docker compose up -d --build</code></pre>
     <p id="narrWhat"></p>
     <pre id="narrList" class="recreport"></pre>
     <p id="narrPickups" hidden></p>
+    <div id="narrAlts" hidden><p id="narrAltsWhat"></p><ul id="narrAltList" class="narralts"></ul></div>
     <div class="updbtns"><button id="narrClear" hidden></button><button id="narrClose" class="hl">Close</button></div>
   </dialog>
 
@@ -1230,6 +1235,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="split"><kbd>X</kbd></dt><dd>Split the block's take at the playhead</dd>
             <dt data-keys="deleteNow"><kbd>Delete</kbd></dt><dd>Delete the part of a take you last clicked</dd>
             <dt><kbd>P</kbd></dt><dd>Go to the next pickup</dd>
+            <dt><kbd>A</kbd></dt><dd>Alt: switch between the block and your own wording for it</dd>
             <dt><kbd>Esc</kbd></dt><dd>Stop recording</dd>
             <dt><kbd>V</kbd></dt><dd>Hear the block read by text to speech, as a guide</dd>
           </dl>
@@ -1286,7 +1292,7 @@ docker compose up -d --build</code></pre>
     </div>
   </div>
 
-  <input type="file" id="fileSubs" accept=".scribecueqc,.scribecue,.scribecuerec,.scribecue-rec,.srt,.vtt,.txt,.adc,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
+  <input type="file" id="fileSubs" accept=".scribecueqc,.scribecue,.scribecuerec,.scribecue-rec,.zip,.srt,.vtt,.txt,.adc,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
   <input type="file" id="fileVideo" accept="video/*,audio/*,.mkv,.mov,.m4a" hidden>
   <!-- pops up under a selection in the block text; at the top level so it's placed by the window -->
   <button id="selSay" class="selsay" tabindex="-1" hidden>Sounds Like</button>

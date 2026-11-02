@@ -4,17 +4,19 @@
 #
 #   GET    /status                  -> {"takes": 12, "bytes": 103000000}
 #   GET    /r/<rec>                 -> [{"id", "block", "start", "duration", "peak", "chosen", "made",
-#                                   "line", "ver"}]
+#                                   "line", "ver", "alt"}]
 #   PUT    /r/<rec>/<id>            the take, a WAV, with X-Take: {"block", "start", "duration",
-#                                   "peak", "made", "punch", "line", "ver", "choose"} -> {"bytes": n}.
-#                                   line is the block it was read for: {"start", "end", "text"}
+#                                   "peak", "made", "punch", "line", "ver", "alt", "choose"} -> {"bytes": n}.
+#                                   line is the block it was read for: {"start", "end", "text"};
+#                                   alt, the wording of a take of the block's alt
 #   GET    /r/<rec>/<id>            the take's WAV
-#   POST   /r/<rec>/<id>/choose     makes it the one chosen for its block
+#   POST   /r/<rec>/<id>/choose     makes it the one chosen for its block, or its block's alt
 #   POST   /r/<rec>/<id>/edit       splits, moves and trims it: {"splits": [s], "parts": [{"shift",
 #                                   "head", "tail", "cut"?}]}, in seconds, with a part more than
 #                                   splits; "cut" deletes a part
 #   POST   /r/<rec>/relink          matches takes to a new version of the script: [{"id", "block",
-#                                   "start", "line", "chosen"}]; block -1 is none
+#                                   "start", "line", "chosen", "alt"}]; block -1 is none, and
+#                                   alt null makes it the block's own take again
 #   POST   /r/<rec>/move            moves every take to another recording: {"to": <rec>}
 #   DELETE /r/<rec>/<id>
 #   DELETE /all                     every take of every recording
@@ -32,7 +34,7 @@ CHUNK = 1 << 20
 MAX_TAKE = 1 << 30  # a 24-bit mono take at 48 kHz: about two hours
 REC = r"[a-z0-9]{1,16}-\d{1,6}"
 ID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-FIELDS = ("block", "start", "duration", "peak", "made", "punch", "line", "ver")
+FIELDS = ("block", "start", "duration", "peak", "made", "punch", "line", "ver", "alt")
 MAX_TEXT = 5000
 
 lock = threading.Lock()
@@ -74,6 +76,11 @@ def line(v):
     return False
 
 
+def alt(v):
+    """A take's alt wording, None for none, or False if it doesn't make sense."""
+    return v if v is None or (isinstance(v, str) and len(v) <= MAX_TEXT) else False
+
+
 def meta(raw):
     """A take's details from the X-Take header, or None if they don't make sense."""
     try:
@@ -85,7 +92,7 @@ def meta(raw):
     if not (isinstance(m.get("block"), int) and m["block"] >= 0 and num(m.get("start")) and num(m.get("duration"))
             and num(m.get("made")) and (m.get("peak") is None or num(m.get("peak")))
             and (m.get("punch") is None or num(m.get("punch")))
-            and line(m.get("line")) is not False
+            and line(m.get("line")) is not False and alt(m.get("alt")) is not False
             and (m.get("ver") is None or (isinstance(m["ver"], int) and not isinstance(m["ver"], bool) and m["ver"] >= 0))):
         return None
     return {**{k: m.get(k) for k in FIELDS}, "line": line(m.get("line"))}
@@ -103,9 +110,11 @@ def relinks(raw):
     for x in r:
         if not (isinstance(x, dict) and isinstance(x.get("id"), str) and re.fullmatch(ID, x["id"])
                 and isinstance(x.get("block"), int) and not isinstance(x["block"], bool) and x["block"] >= -1
-                and num(x.get("start")) and line(x.get("line")) and isinstance(x.get("chosen"), bool)):
+                and num(x.get("start")) and line(x.get("line")) and isinstance(x.get("chosen"), bool)
+                and alt(x.get("alt")) is not False):
             return None
-        out.append({"id": x["id"], "block": x["block"], "start": x["start"], "line": line(x["line"]), "chosen": x["chosen"] and x["block"] >= 0})
+        out.append({"id": x["id"], "block": x["block"], "start": x["start"], "line": line(x["line"]), "chosen": x["chosen"] and x["block"] >= 0,
+                    **({"alt": x["alt"]} if "alt" in x else {})})
     return out
 
 
@@ -131,10 +140,15 @@ def edit(raw):
     return {"splits": splits, "parts": [{**{k: p[k] for k in ("shift", "head", "tail")}, **({"cut": True} if p.get("cut") else {})} for p in parts]}
 
 
+def side(t):
+    """Takes of the same block and side (the original, or its alt) have one chosen between them."""
+    return t["block"], t.get("alt") is not None
+
+
 def choose(index, id):
-    block = index[id]["block"]
+    mine = side(index[id])
     for k, t in index.items():
-        if t["block"] == block:
+        if side(t) == mine:
             t["chosen"] = k == id
 
 
@@ -256,7 +270,7 @@ class Handler(BaseHTTPRequestHandler):
             index = load(rec)
             for c in changes:
                 if c["id"] in index:
-                    index[c["id"]].update({k: c[k] for k in ("block", "start", "line", "chosen")})
+                    index[c["id"]].update({k: c[k] for k in ("block", "start", "line", "chosen", "alt") if k in c})
             if index:
                 store(rec, index)
         self.reply(200, {})

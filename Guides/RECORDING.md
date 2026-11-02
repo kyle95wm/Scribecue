@@ -20,6 +20,7 @@ raw, for the mixer to work with.
   - [Keeping takes in sync](#keeping-takes-in-sync)
   - [Exporting the narration](#exporting-the-narration)
 - [Pickups](#pickups)
+- [Alts](#alts)
 - [For the mixer](#for-the-mixer)
 - [Checking the narration](#checking-the-narration)
 - [Where takes are kept](#where-takes-are-kept)
@@ -29,9 +30,10 @@ raw, for the mixer to work with.
 1. **You** export a recording file from your finished script.
 2. **You** send the narrator the recording file and a copy of the video.
 3. **The narrator** opens both in Scribecue and records each block.
-4. **The narrator** exports the narration WAV and sends it to the mixer.
+4. **The narrator** exports the narration WAV and sends it to the mixer. With
+   [alts](#alts), it's a zip.
 5. **The mixer** imports it into their DAW.
-6. **You** can open the WAV in Scribecue to [check it](#checking-the-narration).
+6. **You** can open the WAV or zip in Scribecue to [check it](#checking-the-narration).
 7. **For a fix,** you send a new version of the recording file, and the narrator records
    only the [pickups](#pickups).
 
@@ -65,14 +67,13 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 
 ### Recording a block
 
-1. Select the block.
+1. Select the block. It opens in the list, locked.
 2. Press Enter or R. Allow the microphone the first time.
 3. The video plays from the lead-in. Set your gain on the meter while it does.
 4. Read the line when the picture reaches it. The bar shows how much of the slot is left.
 5. Press Enter, R or Esc to stop. The take is saved straight away.
 
-The writer's notes for a block, such as how to say a name, show under the buttons when
-you select it.
+The writer's notes for a block, such as how to say a name, show above its text.
 
 | Key | Does |
 |---|---|
@@ -83,6 +84,7 @@ you select it.
 | Esc | Stop recording |
 | V | Hear the block read by text to speech, as a guide |
 | P | Go to the next [pickup](#pickups) |
+| A | Switch to the block's [alt](#alts), or back |
 | Space | Play or pause |
 | Alt+Shift+Left / Right | Previous or next block |
 
@@ -174,11 +176,13 @@ Play a take back to check it sits where you read it.
 
 ### Exporting the narration
 
-Choose **Export → Narration WAV**.
+Choose **Export → Narration WAV**. With [alts](#alts) recorded, it's **Narration
+package** instead.
 
-- Any take above −6 dBFS stops the export. Scribecue lists the blocks to retake.
+- Any take above −6 dBFS stops the export, alts included. Scribecue lists the blocks to
+  retake.
 - Blocks with no take, takes that run long, and quiet takes don't stop it. Scribecue lists
-  them: send that list with the WAV.
+  them: send that list with the WAV. A package has it inside.
 
 ![The notes to send with the WAV](../docs/screenshots/recording-export.png)
 
@@ -221,6 +225,28 @@ Started recording before Scribecue 0.68.0? Those takes stay with the old recordi
 file. To bring them in, open the new file, then click **Bring in takes from an older
 recording file** under **Microphone, lead-in and sync**. Choose the old file.
 
+## Alts
+
+An alt is your own wording for a block, recorded beside the script's, such as "toward"
+for "towards". The block and its takes stay as they are.
+
+1. Select the block and press `A`, or click **Alt** in the open block.
+2. Change the wording in the block's text box, then press `Enter`.
+3. Press `Enter` or `R` to record it.
+4. Press `A` to go back to the original.
+
+- With Alt on, the video shows the alt's wording. Its takes are dashed on the timeline.
+- The alt keeps the block's slot. The block doesn't get longer.
+- A block has one alt, with takes of its own. **In export** picks one, as for the block.
+
+With an alt recorded, **Export → Narration package** saves a zip:
+
+| File | Holds |
+| --- | --- |
+| `…-narration.wav` | The narration, as without alts |
+| `…-alts.wav` | Only the alts, as long as the programme |
+| `…-notes.txt` | Each alt's wording, and the notes for the mixer |
+
 ## For the mixer
 
 The narration is one Broadcast WAV file:
@@ -236,13 +262,16 @@ A pickups WAV is the same, with only the pickups in it. Put it on its own track 
 first narration, and mute the old takes under it. Its markers say `PICKUP`, with the
 note.
 
+An alts WAV is the same, with only the alts in it. Put it on its own track. To use an
+alt, mute the narration under it. Its markers say `ALT`, with the wording.
+
 ## Checking the narration
 
 The recording file is plain text, so a narrator could change it in a text editor. You
 can't stop that, but Scribecue shows it.
 
 1. Open your script.
-2. Open the narration WAV, as you'd open a video.
+2. Open the narration WAV or package, as you'd open a video.
 
 Scribecue lists any block whose text or timing differs from yours. It also says if the
 recording file was changed by hand. Blocks you've changed since sending the file show up
@@ -250,6 +279,9 @@ too.
 
 For a pickups WAV, it also says which pickups were recorded and which are still to do.
 A button there clears the **Pickup** marks of the blocks that are done.
+
+With alts, it lists each one. In Write mode, **Use** makes an alt the block's text. The
+block keeps its timing, since the alt was read in its slot.
 
 ![A pickups WAV that matches the script](../docs/screenshots/check-pickups.png)
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -423,7 +423,7 @@ test('takes follow their lines to a new version of the script', () => {
 test('takes from before lines were kept take them from their own script', () => {
   const old = [line(2, 5, 'A.'), line(9, 13, 'B.')];
   const ch = relink([{ id: 'x', block: 1, start: 9.1, chosen: true, made: 1 }], old, old);
-  assert.deepEqual(ch, [{ id: 'x', block: 1, start: 9.1, line: line(9, 13, 'B.'), chosen: true }]);
+  assert.deepEqual(ch, [{ id: 'x', block: 1, start: 9.1, line: line(9, 13, 'B.'), chosen: true, alt: null }]);
 });
 
 test('when two lines become one, one take stays chosen', () => {
@@ -469,4 +469,38 @@ test('a recording file carries each block’s notes, which leave the script’s 
   const r = fromRecordingFile(file);
   assert.deepEqual(r.blocks.map((b) => b.notes ?? null), [null, 'Siobhan: shi-VAWN']);
   assert.equal(r.edited, false);
+});
+
+test('an alt take follows its block, and has a chosen take of its own beside the original’s', () => {
+  const a = line(2, 5, 'He walks towards the door.'), b = line(9, 12, 'Rain.');
+  const takes = [{ id: 'o', block: 0, start: 2.1, line: a, chosen: true, made: 1 }, { id: 'x', block: 0, start: 2.2, line: a, chosen: true, made: 2, alt: 'He walks toward the door.' }];
+  assert.ok(isAlt(takes[1]) && !isAlt(takes[0]));
+  const moved = [line(3, 6, a.text), b];
+  const ch = Object.fromEntries(relink(takes, moved).map((x) => [x.id, x]));
+  assert.equal(ch.x.block, 0);
+  assert.equal(ch.x.start, 3.2, 'it moves with its block');
+  assert.equal(ch.x.alt, 'He walks toward the door.');
+  assert.equal(ch.x.chosen, true, 'both stay chosen: one is the original, one the alt');
+  assert.equal(ch.o.chosen, true);
+});
+
+test('once the writer uses an alt, its takes become the block’s own', () => {
+  const was = line(2, 5, 'He walks towards the door.');
+  const takes = [{ id: 'o', block: 0, start: 2.1, line: was, chosen: true, made: 1 }, { id: 'x', block: 0, start: 2.2, line: was, chosen: true, made: 2, alt: 'He walks toward the door.' }];
+  const ch = Object.fromEntries(relink(takes, [line(2, 5, 'He walks toward the door.')]).map((x) => [x.id, x]));
+  assert.deepEqual({ block: ch.x.block, alt: ch.x.alt, chosen: ch.x.chosen }, { block: 0, alt: null, chosen: true });
+  assert.equal(ch.o.block, -1, 'the old wording’s take belongs to no block');
+});
+
+test('an alt goes in the narration note and the alts WAV’s markers, and is checked like a take', () => {
+  const blocks = [line(2, 5, 'He walks towards the door.'), line(9, 12, 'Rain.')];
+  const note = narrationNote({ blocks, alts: ['He walks toward the door.', null], altOnly: true });
+  assert.equal(note.altOnly, true);
+  assert.deepEqual(note.blocks.map((b) => b.alt ?? null), ['He walks toward the door.', null]);
+  assert.equal(markerLabel(blocks[0], 1, 'He walks toward the door.'), '1 ALT | He walks toward the door.');
+  const loud = { start: 2.1, duration: 2, peak: -3 };
+  const c = checkAlts(blocks, [loud, null]);
+  assert.equal(c.stop.length, 1);
+  assert.match(c.stop[0].why, /^\(alt\) peaks/);
+  assert.deepEqual(c.warn, [], 'a block without an alt isn’t mentioned');
 });

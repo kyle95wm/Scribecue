@@ -16,6 +16,9 @@ const open = () => new Promise((ok, fail) => {
 const done = (q) => new Promise((ok, fail) => { q.onsuccess = () => ok(q.result); q.onerror = () => fail(q.error); });
 const finish = (tx) => new Promise((ok, fail) => { tx.oncomplete = () => ok(); tx.onerror = tx.onabort = () => fail(tx.error); });
 
+// Takes of the same block and side (the original, or its alt) have one chosen between them.
+const sameSide = (a, z) => a.block === z.block && (typeof a.alt === 'string') === (typeof z.alt === 'string');
+
 const browser = {
   where: 'browser',
   async list(rec) {
@@ -27,7 +30,7 @@ const browser = {
     const tx = db.transaction(STORE, 'readwrite'), st = tx.objectStore(STORE);
     if (choose) {
       for (const t of await done(st.index('rec').getAll(take.rec))) {
-        if (t.block === take.block && t.chosen) { t.chosen = false; st.put(t); }
+        if (sameSide(t, take) && t.chosen) { t.chosen = false; st.put(t); }
       }
     }
     st.put({ ...take, chosen: choose || !!take.chosen });
@@ -39,7 +42,7 @@ const browser = {
     const all = await done(st.index('rec').getAll(rec));
     const pick = all.find((t) => t.id === id);
     if (!pick) return;
-    for (const t of all) if (t.block === pick.block && t.chosen !== (t.id === id)) { t.chosen = t.id === id; st.put(t); }
+    for (const t of all) if (sameSide(t, pick) && t.chosen !== (t.id === id)) { t.chosen = t.id === id; st.put(t); }
     await finish(tx);
   },
   async edit(rec, id, edit) {
@@ -58,9 +61,12 @@ const browser = {
   async relink(rec, changes) {
     const db = await open();
     const tx = db.transaction(STORE, 'readwrite'), st = tx.objectStore(STORE);
-    for (const { id, block, start, line, chosen } of changes) {
+    for (const { id, block, start, line, chosen, alt } of changes) {
       const t = await done(st.get(id));
-      if (t?.rec === rec) st.put({ ...t, block, start, line, chosen: chosen && block >= 0 });
+      if (t?.rec !== rec) continue;
+      const { alt: was, ...rest } = t;
+      const keep = alt === undefined ? was : alt;
+      st.put({ ...rest, block, start, line, chosen: chosen && block >= 0, ...(typeof keep === 'string' ? { alt: keep } : {}) });
     }
     await finish(tx);
   },
@@ -108,13 +114,13 @@ const docker = {
   where: 'docker',
   async list(rec) {
     const all = await (await answer(await fetch(url(rec), { cache: 'no-store' }))).json();
-    return all.map((t) => ({ ...t, rec, peak: t.peak ?? -Infinity, punch: t.punch ?? undefined, edit: t.edit ?? undefined, line: t.line ?? undefined, ver: t.ver ?? undefined }));
+    return all.map((t) => ({ ...t, rec, peak: t.peak ?? -Infinity, punch: t.punch ?? undefined, edit: t.edit ?? undefined, line: t.line ?? undefined, ver: t.ver ?? undefined, alt: t.alt ?? undefined }));
   },
   async save(take, choose) {
-    const { block, start, duration, peak, made, punch, line, ver } = take;
+    const { block, start, duration, peak, made, punch, line, ver, alt } = take;
     await answer(await fetch(url(take.rec, take.id), {
       method: 'PUT', body: take.wav,
-      headers: { 'X-Take': ascii({ block, start, duration, peak: Number.isFinite(peak) ? peak : null, made, punch, line, ver, choose }) },
+      headers: { 'X-Take': ascii({ block, start, duration, peak: Number.isFinite(peak) ? peak : null, made, punch, line, ver, alt, choose }) },
     }));
   },
   async relink(rec, changes) { await answer(await fetch(url(rec) + '/relink', { method: 'POST', body: JSON.stringify(changes) })); },
@@ -139,15 +145,17 @@ const store = () => (picked ||= HOSTED ? Promise.resolve(browser)
 export const takesWhere = async () => (await store()).where;
 
 // Every take of a recording: { id, rec, block, start, duration, peak, chosen, made, punch?,
-// edit?, line?, ver? }, and in the browser, wav as well. takeAudio() gets the sound either
+// edit?, line?, ver?, alt? }, and in the browser, wav as well. alt is the wording of a take of
+// the block's alt (see isAlt in recording.js). takeAudio() gets the sound either
 // way. line is the block it was read for, and ver the recording file's version then; block
 // is −1 for a take whose line isn't in the script any more (see relink in recording.js).
 export const listTakes = async (rec) => (await store()).list(rec);
 
-// Saves a take ({ ..., wav }), and makes it the one chosen for its block when `choose` is set.
+// Saves a take ({ ..., wav }), and makes it the one chosen for its block, or its block's
+// alt, when `choose` is set.
 export const saveTake = async (take, choose = true) => (await store()).save(take, choose);
 
-// Chooses one take for its block, so the others aren't.
+// Chooses one take for its block, or its block's alt, so the others there aren't.
 export const chooseTake = async (rec, id) => (await store()).choose(rec, id);
 
 // Moves and trims a take: edit is { shift, head, tail } (see placed() in recording.js).
@@ -155,7 +163,7 @@ export const editTake = async (rec, id, edit) => (await store()).edit(rec, id, e
 
 export const deleteTake = async (rec, id) => (await store()).remove(rec, id);
 
-// Saves takes matched to a new version of the script: [{ id, block, start, line, chosen }].
+// Saves takes matched to a new version of the script: [{ id, block, start, line, chosen, alt }].
 export const relinkTakes = async (rec, changes) => changes.length && (await store()).relink(rec, changes);
 
 // Moves every take of one recording to another, such as its project: how many moved.

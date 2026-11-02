@@ -3,7 +3,8 @@
 // that); this file does the recording. The guide is Guides/RECORDING.md.
 
 import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
-import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, markerLabel, fromRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
+import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, fromRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
+import { storeZip } from './zip.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takesWhere, relinkTakes, moveTakes } from './takestore.js';
 
@@ -19,7 +20,8 @@ export function initRecord(h) {
   const { video } = h;
   const el = { go: $('recGo'), status: $('recStatus'), meter: $('recMeter'), fill: $('recSlotFill'), slot: $('recSlot'),
     dev: $('recDev'), lead: $('recLead'), sync: $('recSync'), test: $('recTest'), flash: $('recFlash'), takes: $('recTakes'),
-    punch: $('recPunch'), count: $('recCount'), dlg: $('recExportDlg'), report: $('recReport'), go2: $('recExportGo'), title: $('recExportTitle') };
+    punch: $('recPunch'), count: $('recCount'), dlg: $('recExportDlg'), report: $('recReport'), go2: $('recExportGo'), title: $('recExportTitle'),
+    sw: $('edAltSw') };
 
   let rec = null;            // the recording file open: { id, start, fps, media, project?, version? }; id is where its takes are kept
   let takes = [];            // every take of this recording
@@ -33,17 +35,40 @@ export function initRecord(h) {
   let wasPlaying = false;
   let where = 'browser';     // where takes are kept: 'docker' or 'browser'
   let editing = null;        // the take open in the list to fine-tune, always the chosen one: { id }
+  let side = false;          // the Alt switch: true works on the selected block's alt, its wording and takes
+  let drafts = {};           // alt wording typed for each block of this recording, by altKey; kept in the browser
 
   el.lead.value = leadSecs;
   el.sync.value = syncMs ?? '';
   const sl = () => slots(h.blocks());
-  const blockTakes = (i) => takes.filter((t) => t.block === i).sort((a, z) => a.made - z.made);
-  const chosenFor = (i) => takes.find((t) => t.block === i && t.chosen) || null;
+  // a: the block's alt rather than the original.
+  const blockTakes = (i, a = false) => takes.filter((t) => t.block === i && isAlt(t) === a).sort((x, z) => x.made - z.made);
+  const chosenFor = (i, a = false) => takes.find((t) => t.block === i && t.chosen && isAlt(t) === a) || null;
   // Takes of a line that's since been reworded: in no block, shown under the one in their place.
-  const oldTakes = (i) => {
+  const oldTakes = (i, a = false) => {
     const b = h.blocks()[i];
-    return takes.filter((t) => t.block < 0 && t.line && Math.min(t.line.end, b.end) > Math.max(t.line.start, b.start)).sort((a, z) => a.made - z.made);
+    return takes.filter((t) => t.block < 0 && isAlt(t) === a && t.line && Math.min(t.line.end, b.end) > Math.max(t.line.start, b.start)).sort((x, z) => x.made - z.made);
   };
+  // The take heard, shown and edited on the timeline for each block: with Alt on, its alt's
+  // where it has one.
+  const shownFor = (i) => (side && chosenFor(i, true)) || chosenFor(i);
+  // All of them, in one pass over the takes: it's asked for on every frame while playing.
+  const shownTakes = () => {
+    const alt = side ? new Set(takes.filter((t) => t.chosen && isAlt(t)).map((t) => t.block)) : null;
+    return takes.filter((t) => t.chosen && (isAlt(t) ? side : !alt?.has(t.block)));
+  };
+  // The alt's wording: as typed, else as last recorded, else the block's own to start from.
+  const altKey = (b) => `${b.start}|${b.text.replace(/\s+/g, ' ').trim()}`;
+  const altText = (i) => {
+    const b = h.blocks()[i];
+    return drafts[altKey(b)] ?? blockTakes(i, true).at(-1)?.alt ?? b.text;
+  };
+  // The wording to show over the video for block i: its alt's, with Alt on and one written.
+  const altWording = (i) => {
+    const b = h.blocks()[i];
+    return side && b && (chosenFor(i, true) || altText(i) !== b.text) ? altText(i) : null;
+  };
+  const altCount = () => h.blocks().filter((_, i) => chosenFor(i, true)).length;
   const version = () => rec?.version || 0;
   const pickups = () => h.blocks().flatMap((b, i) => (b.pickup ? [i] : []));
 
@@ -60,26 +85,26 @@ export function initRecord(h) {
     const i = h.selIdx(), n = h.blocks().length;
     const done = h.blocks().filter((_, k) => chosenFor(k)).length;
     const pk = pickups(), pd = pk.filter((k) => pickedUp(chosenFor(k), version())).length;
-    el.count.textContent = rec ? `${done} of ${n} blocks have a take` + (pk.length ? ` · ${pd} of ${pk.length} pickups recorded` : '') : '';
+    const alts = altCount();
+    el.count.textContent = rec ? `${done} of ${n} blocks have a take` + (pk.length ? ` · ${pd} of ${pk.length} pickups recorded` : '') + (alts ? ` · ${alts} alt${alts === 1 ? '' : 's'}` : '') : '';
+    // Original | Alt, in the block editor: not while recording.
+    el.sw.classList.toggle('alt', side);
+    for (const b of el.sw.children) {
+      const on = (b.dataset.side === 'alt') === side;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', String(on));
+      b.disabled = busy;
+    }
     $('recLinkRow').hidden = !rec?.project;
     el.count.dataset.tip = where === 'docker' ? 'Takes are kept in Docker, on this computer' : 'Takes are kept in this browser. Clearing its data for Scribecue loses them';
     el.takes.replaceChildren();
     const note = (text) => { const li = document.createElement('li'); li.className = 'dim'; li.textContent = text; el.takes.append(li); };
     if (i < 0) return note('Select a block to record it.');
     const slot = sl()[i];
-    const list = blockTakes(i), b = h.blocks()[i];
-    const orig = b.pickup ? originalTake(list, oldTakes(i), version()) : null;
+    const list = blockTakes(i, side), b = h.blocks()[i];
+    const orig = b.pickup && !side ? originalTake(list, oldTakes(i), version()) : null;
     const origTag = () => { const o = document.createElement('span'); o.className = 'num dim'; o.textContent = 'original'; return o; };
-    // The writer's notes for this block, such as how to say a name.
-    if (b.notes) {
-      const li = document.createElement('li'), tag = document.createElement('span');
-      tag.className = 'lvl note';
-      tag.textContent = 'Notes';
-      li.className = 'recnotes';
-      li.append(tag, b.notes);
-      el.takes.append(li);
-    }
-    if (b.pickup) {
+    if (b.pickup && !side) {
       // What the script's writer asked for, and whether it's been recorded since.
       const li = document.createElement('li'), tag = document.createElement('span'), done = pickedUp(chosenFor(i), version());
       tag.className = 'lvl ' + (done ? 'good' : 'quiet');
@@ -98,7 +123,12 @@ export function initRecord(h) {
       el.takes.append(li);
       if (b.pickup.was != null) { const w = document.createElement('li'); w.className = 'dim'; w.textContent = `Was: “${b.pickup.was}”`; el.takes.append(w); }
     }
-    if (busy && cap?.block === i) note(cap.punch ? `Punching in: take ${list.length + 1} of block ${i + 1}, from take ${list.findIndex((t) => t.id === cap.punch.base.id) + 1}.` : `Recording take ${list.length + 1} of block ${i + 1}.`);
+    // An alt read before its wording was changed again: the take says what it was read as.
+    const read = side && chosenFor(i, true);
+    if (read && read.alt !== altText(i)) note(`The alt in the export was read as “${read.alt}”. Record it again to match the new wording.`);
+    const what = side ? 'alt take' : 'take';
+    if (busy && cap?.block === i) note(cap.punch ? `Punching in: ${what} ${list.length + 1} of block ${i + 1}, from ${what} ${list.findIndex((t) => t.id === cap.punch.base.id) + 1}.` : `Recording ${what} ${list.length + 1} of block ${i + 1}.`);
+    else if (!list.length && side) note(`Block ${i + 1} has no alt yet. Type your wording in the block and press Enter, then Enter or R to record it. Press A to go back to the original.`);
     else if (!list.length) note(`Block ${i + 1} has no takes yet. Press Enter or R to record it.` + (rec?.project && !takes.length ? ' Takes from an older recording file can be brought in, under Microphone, lead-in and sync.' : ''));
     list.forEach((t, k) => {
       const li = document.createElement('li');
@@ -109,10 +139,11 @@ export function initRecord(h) {
       use.className = 'use';
       use.textContent = t.chosen ? 'In export' : 'Use';
       use.setAttribute('aria-pressed', String(!!t.chosen));
-      use.setAttribute('aria-label', `Use take ${k + 1} in the export`);
+      use.setAttribute('aria-label', `Use ${what} ${k + 1} in the export`);
       use.addEventListener('click', async () => { if (!t.chosen) { await chooseTake(rec.id, t.id); await reload(); } });
       const name = document.createElement('span');
-      name.textContent = `Take ${k + 1}`;
+      name.textContent = `${side ? 'Alt take' : 'Take'} ${k + 1}`;
+      if (side && t.alt !== altText(i)) name.dataset.tip = `Read as “${t.alt}”`;
       const len = document.createElement('span');
       len.className = 'num';
       len.textContent = `${pt.duration.toFixed(2)} s`;
@@ -135,13 +166,13 @@ export function initRecord(h) {
       ed.hidden = !t.chosen;
       ed.addEventListener('click', () => { editing = editing?.id === t.id ? null : { id: t.id }; render(); });
       const del = document.createElement('button');
-      del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete take ${k + 1}`);
+      del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete ${what} ${k + 1}`);
       del.addEventListener('click', async () => {
-        if (!confirm(`Delete take ${k + 1} of block ${i + 1}? This can’t be undone.`)) return;
+        if (!confirm(`Delete ${what} ${k + 1} of block ${i + 1}? This can’t be undone.`)) return;
         stopPlay();
         await deleteTake(rec.id, t.id);
         // Another take takes its place in the export, if this one was chosen.
-        const left = blockTakes(i).filter((x) => x.id !== t.id);
+        const left = blockTakes(i, isAlt(t)).filter((x) => x.id !== t.id);
         if (t.chosen && left.length) await chooseTake(rec.id, left[left.length - 1].id);
         await reload();
       });
@@ -149,7 +180,7 @@ export function initRecord(h) {
       el.takes.append(li);
       if (editing?.id === t.id) el.takes.append(editor(t, i));
     });
-    oldTakes(i).forEach((t, k) => {
+    oldTakes(i, side).forEach((t, k) => {
       const li = document.createElement('li');
       li.className = 'take';
       const name = document.createElement('span');
@@ -250,7 +281,7 @@ export function initRecord(h) {
   // else the block's chosen take.
   function keyTake() {
     const i = h.selIdx(), mine = (t) => (t?.block === i ? t : null);
-    return mine(editing && takeOf(editing.id)) || mine(pick && takeOf(pick.id)) || chosenFor(i);
+    return mine(editing && takeOf(editing.id)) || mine(pick && takeOf(pick.id)) || shownFor(i);
   }
 
   const MS = (v) => String(Math.round(v * 1000));
@@ -334,7 +365,7 @@ export function initRecord(h) {
     g.font = `10px ${TK.mono}`;
     if (!takes.length) { g.fillStyle = TK.dim; g.fillText('Takes show here as you record them', 8, 16); return; }
     sl().forEach((slot, i) => {
-      const raw = chosenFor(i), slotIn = slot.end > t0 && slot.start < t1;
+      const raw = shownFor(i), slotIn = slot.end > t0 && slot.start < t1;
       const t = raw && tdrag?.t.id === raw.id ? { ...raw, edit: tdrag.e } : raw;
       const whole = t && placed(t), over = t && runsOver(whole, slot);
       if (slotIn) {
@@ -347,7 +378,7 @@ export function initRecord(h) {
       const wave = pps >= SHOW_WAVE;
       if (wave && !peakCache.has(t.id)) peakWant.add(t.id);
       const pk = wave ? peakCache.get(t.id) : null, on = i === sel, ps = pieces(t);
-      const n = blockTakes(i).findIndex((q) => q.id === t.id) + 1;
+      const n = blockTakes(i, isAlt(t)).findIndex((q) => q.id === t.id) + 1, word = isAlt(t) ? 'Alt' : 'Take';
       ps.forEach((p, j) => {
         const a = x(p.start), z = x(p.start + p.duration);
         if (z < 0 || a > W) return;
@@ -358,7 +389,9 @@ export function initRecord(h) {
         g.fill();
         g.strokeStyle = on ? TK.accent : TK.cue;
         g.lineWidth = picked ? 2 : 1;
+        g.setLineDash(isAlt(t) ? [4, 3] : []); // an alt's clips are dashed
         g.stroke();
+        g.setLineDash([]);
         const from = Math.max(0, Math.floor(a)), to = Math.min(W, Math.ceil(z));
         if (!pk) { g.fillStyle = TK.faint; g.fillRect(from, mid - 0.5, to - from, 1); }
         else {
@@ -374,8 +407,8 @@ export function initRecord(h) {
             g.fillRect(px, mid - hh, 1, hh * 2);
           }
         }
-        // The longest label that fits: "Take 2 · 1/2", "Take 2", or none.
-        const label = [ps.length > 1 ? `Take ${n} · ${j + 1}/${ps.length}` : '', `Take ${n}`].find((s) => s && g.measureText(s).width + 12 <= z - Math.max(a, 0));
+        // The longest label that fits: "Take 2 · 1/2", "Take 2", or none ("Alt 2" for an alt's).
+        const label = [ps.length > 1 ? `${word} ${n} · ${j + 1}/${ps.length}` : '', `${word} ${n}`].find((s) => s && g.measureText(s).width + 12 <= z - Math.max(a, 0));
         if (label) { g.fillStyle = on ? TK.accent : TK.cue; g.fillText(label, Math.max(a, 0) + 6, 17); }
       });
     });
@@ -383,7 +416,7 @@ export function initRecord(h) {
     loadPeaks();
   }
 
-  const hitAt = (px) => clipAt(takes.filter((t) => t.chosen), view.t0 + px / view.pps, view.pps);
+  const hitAt = (px) => clipAt(shownTakes(), view.t0 + px / view.pps, view.pps);
   const pxOf = (ev) => ev.clientX - track.getBoundingClientRect().left;
   const grab = (on) => { h.select(on.t.block); pick = { id: on.t.id, part: on.k }; render(); };
   track.addEventListener('pointerdown', (ev) => {
@@ -548,10 +581,17 @@ export function initRecord(h) {
     if (i < 0) return h.toast('Select a block, then record it');
     if (!h.hasVideo()) return h.toast('Open the video first');
     const s = sl()[i];
+    // An alt needs wording of its own first.
+    const alt = side ? altText(i).trim() : null, b = h.blocks()[i];
+    if (side && (!alt || alt.replace(/\s+/g, ' ') === b.text.replace(/\s+/g, ' ').trim())) {
+      h.altChanged(true);
+      return h.toast('Write the alt’s wording first: it needs to differ from the block');
+    }
     let p = null;
     if (punch) {
-      const base = chosenFor(i), at = video.currentTime;
-      if (!base) return h.toast(`Block ${i + 1} has no take to pick up from. Press Enter to record it`);
+      const base = chosenFor(i, side), at = video.currentTime;
+      if (!base) return h.toast(`Block ${i + 1} has no ${side ? 'alt take' : 'take'} to pick up from. Press Enter to record it`);
+      if (side && base.alt !== alt) return h.toast('The alt’s wording has changed since that take. Press Enter to record it again');
       if (at < placed(base).start + PUNCH_MIN || at >= s.end) return h.toast(`Put the playhead where you want to pick up, inside block ${i + 1}’s take, then press Shift+Enter`);
       p = { base, at, ps: pieces(base), on: null };
     }
@@ -570,7 +610,7 @@ export function initRecord(h) {
       }
       p.audio = new Audio(URL.createObjectURL(p.wav));
     }
-    cap.block = i; cap.slot = s; cap.prevEnd = i ? sl()[i - 1].end : 0; cap.punch = p;
+    cap.block = i; cap.slot = s; cap.prevEnd = i ? sl()[i - 1].end : 0; cap.punch = p; cap.alt = alt;
     cap.t0 = Math.max(0, (p ? p.at : s.start) - PREROLL);
     h.seek(Math.max(0, cap.t0 - leadSecs));
     h.volume(true, VIDEO_DB);
@@ -637,7 +677,7 @@ export function initRecord(h) {
     const b = h.blocks()[c.block];
     const take = { id: crypto.randomUUID(), rec: rec.id, block: c.block, start: at, duration: kept.length / RATE,
       peak: peakDb(kept), made: Date.now(), wav: wav24(to24(kept), RATE), ...(c.punch && { punch: c.punch.at }),
-      line: { start: b.start, end: b.end, text: b.text }, ver: version() };
+      line: { start: b.start, end: b.end, text: b.text }, ver: version(), ...(c.alt != null && { alt: c.alt }) };
     try { await saveTake(take, true); } catch (e) {
       state = 'idle'; render();
       return h.toast(`Couldn’t keep the take: ${e.message}` + (where === 'browser' ? '. The browser’s storage may be full' : ''));
@@ -645,7 +685,7 @@ export function initRecord(h) {
     state = 'idle';
     await reload();
     const j = judgePeak(take.peak);
-    status(`Saved take ${blockTakes(c.block).length}: ${dbText(take.peak)}, ${LEVEL_WORDS[j]}`);
+    status(`Saved ${c.alt != null ? 'alt take' : 'take'} ${blockTakes(c.block, c.alt != null).length}: ${dbText(take.peak)}, ${LEVEL_WORDS[j]}`);
     if (j === 'loud') h.toast('That take is too loud. Lower your gain and record it again: the export won’t go ahead with it');
   }
 
@@ -657,6 +697,27 @@ export function initRecord(h) {
     if (!rec) return;
     if (state === 'idle') begin(true); else finish();
   };
+  // ---- Original | Alt in the block editor: the selected block's alt, with wording of the
+  // narrator's own, typed in the block's text box (app.js sees to that).
+  function setSide(on) {
+    if (!rec || state !== 'idle' || on === side) return;
+    side = on;
+    editing = null; pick = null;
+    silence();
+    render();
+    h.retext();
+    h.altChanged(side);
+  }
+  el.sw.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { b.blur(); setSide(b.dataset.side === 'alt'); } });
+  function setAltText(i, text) {
+    const b = h.blocks()[i];
+    if (!rec || !b) return;
+    drafts[altKey(b)] = text;
+    put(`alts.${rec.id}`, JSON.stringify(drafts));
+    render();
+    h.retext();
+  }
+
   el.go.addEventListener('click', toggle);
   el.punch.addEventListener('click', punch);
 
@@ -721,7 +782,7 @@ export function initRecord(h) {
   let hear = get('hear') !== '0';
   // id: the part playing (its key); tid: its take's; queued: the next part, already started on the audio clock.
   const pb = { ctx: null, gain: null, src: null, id: null, tid: null, queued: null, at: 0, from: 0, rate: 1, raf: 0, bufs: new Map() };
-  const chosenList = () => takes.filter((t) => t.chosen).flatMap(pieces).sort((a, z) => a.start - z.start);
+  const chosenList = () => shownTakes().flatMap(pieces).sort((a, z) => a.start - z.start);
   // Made on a key press or click: Safari won't play sound otherwise.
   const wake = () => {
     if (!rec || !hear) return;
@@ -873,49 +934,80 @@ export function initRecord(h) {
   // ---- export
   // only: the pickups alone, recorded for this version, in a WAV as long as the rest, so
   // they land in place in the mixer's session.
+  // With alts chosen, the narration is a package instead: a zip of the narration WAV, a WAV
+  // of the alts alone as long as it, and the notes for the mixer.
   async function exportWav(only = false) {
     if (!rec) return;
     const blocks = h.blocks();
     if (only && !pickups().length) return h.toast('This recording file asks for no pickups');
     await reload();
-    const all = blocks.map((_, i) => chosenFor(i));
+    const all = blocks.map((_, i) => chosenFor(i)), altTakes = only ? [] : blocks.map((_, i) => chosenFor(i, true));
+    const pack = altTakes.some(Boolean);
     const check = only ? checkPickups(blocks, all, version()) : checkExport(blocks, all.map((t) => t && placed(t)));
-    const chosen = only ? check.takes : all, spans = chosen.map((t) => t && placed(t));
+    if (pack) { const a = checkAlts(blocks, altTakes); check.stop.push(...a.stop); check.warn.push(...a.warn); }
+    const chosen = only ? check.takes : all;
     if (only && !chosen.some(Boolean)) return h.toast('None of the pickups is recorded yet');
-    const go = async () => {
-      const media = h.duration();
+    const alts = altTakes.map((t) => t?.alt ?? null);
+    // One WAV of the takes given, each in place, on a timeline as long as the programme.
+    const wavOf = async (list, { markers, what, ...note }) => {
       const parts = [];
-      try {
-        for (const t of chosen.filter(Boolean)) {
-          const wav = await takeAudio(t);
-          for (const p of pieces(t)) {
-            const from = WAV24_HEADER + Math.round(p.head * RATE) * 3;
-            parts.push({ start: p.start, pcm: wav.slice(from, from + Math.round(p.duration * RATE) * 3) });
-          }
+      for (const t of list.filter(Boolean)) {
+        const wav = await takeAudio(t);
+        for (const p of pieces(t)) {
+          const from = WAV24_HEADER + Math.round(p.head * RATE) * 3;
+          parts.push({ start: p.start, pcm: wav.slice(from, from + Math.round(p.duration * RATE) * 3) });
         }
-        parts.sort((a, z) => a.start - z.start);
-      } catch (e) { return h.toast(`Couldn’t get the takes: ${e.message}`); }
-      const last = Math.max(0, ...spans.filter(Boolean).map((t) => t.start + t.duration));
-      const marked = blocks.map((b, i) => ({ at: b.start, label: markerLabel(b, i + 1) })).filter((_, i) => !only || chosen[i]);
-      const what = only ? `pickups${version() ? `, version ${version()}` : ''}: blocks ${chosen.flatMap((t, i) => (t ? [i + 1] : [])).join(', ')}` : 'narration';
-      const blob = buildBwf({
-        takes: parts,
-        markers: marked,
-        note: narrationNote({ blocks, edited: rec.edited, project: rec.project, version: version(), only,
-          picked: pickups().filter((k) => chosen[k] && pickedUp(chosen[k], version())).map((k) => k + 1) }),
-        secs: Math.max(media, last), rate: RATE, startSecs: rec.start, description: `${h.baseName()} ${what}`.slice(0, 256),
+      }
+      parts.sort((a, z) => a.start - z.start);
+      const last = Math.max(0, ...list.filter(Boolean).map((t) => { const s = placed(t); return s.start + s.duration; }));
+      return buildBwf({
+        takes: parts, markers,
+        note: narrationNote({ blocks, edited: rec.edited, project: rec.project, version: version(), alts, ...note }),
+        secs: Math.max(h.duration(), last), rate: RATE, startSecs: rec.start, description: `${h.baseName()} ${what}`.slice(0, 256),
       });
+    };
+    const save = (blob, name) => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `${h.baseName()}-${only ? `pickups${version() ? `-v${version()}` : ''}` : 'narration'}.wav`;
+      a.download = name;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-      h.toast(`Exported ${a.download}` + (check.warn.length ? `. ${check.warn.length} thing${check.warn.length === 1 ? '' : 's'} to mention to the mixer` : ''));
+    };
+    const mention = check.warn.length ? `. ${check.warn.length} thing${check.warn.length === 1 ? '' : 's'} to mention to the mixer` : '';
+    const go = async () => {
+      const base = h.baseName();
+      const markers = blocks.map((b, i) => ({ at: b.start, label: markerLabel(b, i + 1) })).filter((_, i) => !only || chosen[i]);
+      const what = only ? `pickups${version() ? `, version ${version()}` : ''}: blocks ${chosen.flatMap((t, i) => (t ? [i + 1] : [])).join(', ')}` : 'narration';
+      let main;
+      try {
+        main = await wavOf(chosen, { markers, what, only, picked: pickups().filter((k) => chosen[k] && pickedUp(chosen[k], version())).map((k) => k + 1) });
+      } catch (e) { return h.toast(`Couldn’t get the takes: ${e.message}`); }
+      if (!pack) {
+        const name = `${base}-${only ? `pickups${version() ? `-v${version()}` : ''}` : 'narration'}.wav`;
+        save(main, name);
+        return h.toast(`Exported ${name}${mention}`);
+      }
+      let zip;
+      try {
+        const altMarkers = blocks.flatMap((b, i) => (alts[i] != null ? [{ at: b.start, label: markerLabel(b, i + 1, alts[i]) }] : []));
+        const alt = await wavOf(altTakes, { markers: altMarkers, what: 'alts', altOnly: true });
+        const report = exportReport(check), list = alts.flatMap((a, i) => (a != null ? [`Block ${i + 1}: “${a}” (was “${blocks[i].text}”)`] : []));
+        const notes = [`Alts: ${list.length}`, ...list, ...(report ? ['', report] : [])].join('\n') + '\n';
+        let shown = -1;
+        zip = await storeZip([{ name: `${base}-narration.wav`, blob: main }, { name: `${base}-alts.wav`, blob: alt },
+          { name: `${base}-notes.txt`, blob: new Blob([notes], { type: 'text/plain' }) }], {
+          progress: (done, total) => { const pc = Math.floor((done / total) * 100); if (pc !== shown) status(`Packing the narration: ${(shown = pc)}%`); },
+        });
+      } catch (e) { status(''); return h.toast(`Couldn’t make the package: ${e.message}`); }
+      status('');
+      const name = `${base}-narration-package.zip`;
+      save(zip, name);
+      h.toast(`Exported ${name}: the narration, ${altCount()} alt${altCount() === 1 ? '' : 's'} and the notes${mention}`);
     };
     if (!check.stop.length && !check.warn.length) return go();
     const stopped = check.stop.length > 0;
     el.title.textContent = stopped ? 'Retake these blocks first' : 'Export with these notes?';
-    el.report.textContent = exportReport(check) + (stopped ? '\n\nThe export won’t go ahead until the blocks marked STOPPED are retaken.' : '\n\nSend this with the WAV.');
+    el.report.textContent = exportReport(check) + (stopped ? '\n\nThe export won’t go ahead until the blocks marked STOPPED are retaken.' : pack ? '\n\nThese notes go in the package.' : '\n\nSend this with the WAV.');
     el.go2.hidden = stopped;
     el.go2.onclick = () => { el.dlg.close(); go(); };
     el.dlg.showModal();
@@ -960,6 +1052,13 @@ export function initRecord(h) {
     get open() { return !!rec; },
     toggle, punch, exportWav, finish, render, nextPickup,
     get pickups() { return rec ? pickups().length : 0; },
+    // How many blocks have an alt in the export, and the Alt switch (A).
+    get alts() { return rec ? altCount() : 0; },
+    toggleAlt() { setSide(!side); },
+    get side() { return !!rec && side; },
+    altText: (i) => (rec && h.blocks()[i] ? altText(i) : ''),
+    setAltText,
+    altWording: (i) => (rec ? altWording(i) : null),
     // Splits the selected block's take at the playhead (see keyTake): false if no block is selected.
     splitTake() {
       if (!rec || state !== 'idle' || h.selIdx() < 0) return false;
@@ -988,6 +1087,8 @@ export function initRecord(h) {
     async open(file) {
       rec = { ...file, id: takesKey(file) };
       state = 'idle';
+      side = false;
+      try { drafts = JSON.parse(get(`alts.${rec.id}`)) || {}; } catch { drafts = {}; }
       where = await takesWhere();
       status(''); devices();
       await reload(true);

@@ -151,7 +151,7 @@ cannot restore its audio, reopen it before saving.
 
 ### Checking a narration WAV
 
-With the script open, open a narration WAV exported by Scribecue. Scribecue compares the
+With the script open, open a narration WAV or package exported by Scribecue. Scribecue compares the
 script and timings stored with the recording against the project you have open. It lists
 differences and says if the recording file was changed outside Scribecue.
 

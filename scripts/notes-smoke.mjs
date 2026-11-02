@@ -18,6 +18,7 @@ const active=()=>js(`document.activeElement.id`);
 const saved=()=>js(`JSON.parse(localStorage.getItem('scribecue.v1')).cues.map(c=>({end:c.end,text:c.text,notes:c.notes||null}))`);
 const row=n=>js(`[...document.querySelectorAll('#list .row')][${n}].getAttribute('aria-label')`);
 try {
+ await send('Network.enable');await send('Network.setBypassServiceWorker',{bypass:true});
  await send('Emulation.setCPUThrottlingRate',{rate:6});
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
  await send('Page.navigate',{url:site});await sleep(800);
@@ -76,7 +77,8 @@ try {
  await wait(`document.body.classList.contains('mode-record')`);await sleep(800);
  await js(`document.querySelectorAll('#list .row')[1].click();true`);await sleep(500);
  assert.match(await row(1),/has notes/);
- assert.equal(await js(`document.querySelector('#recTakes .recnotes')?.textContent`),'NotesSiobhan: shi-VAWN.\nWarm.');
+ assert.equal(await js(`document.getElementById('edNotes').value`),'Siobhan: shi-VAWN.\nWarm.');
+ assert.equal(await js(`document.getElementById('edNotes').readOnly&&!document.getElementById('edNotes').hidden`),true);
  if(shot){const s=await send('Page.captureScreenshot',{format:'png'});writeFileSync(shot.replace(/\.png$/,'-record.png'),Buffer.from(s.result.data,'base64'));}
 
  const long=await js(`__long`);

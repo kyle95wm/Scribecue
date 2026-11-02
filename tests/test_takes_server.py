@@ -40,8 +40,8 @@ class Takes(unittest.TestCase):
         except urllib.error.HTTPError as e:
             return e.code, e.read()
 
-    def put(self, id, block, choose=True, peak=-10.0):
-        take = {"block": block, "start": 2.5, "duration": 1.5, "peak": peak, "made": 1, "choose": choose}
+    def put(self, id, block, choose=True, peak=-10.0, alt=None):
+        take = {"block": block, "start": 2.5, "duration": 1.5, "peak": peak, "made": 1, "choose": choose, **({"alt": alt} if alt is not None else {})}
         return self.call("PUT", f"/r/{REC}/{id}", WAV, {"X-Take": json.dumps(take)})
 
     def listing(self):
@@ -135,6 +135,22 @@ class Takes(unittest.TestCase):
         self.assertEqual((t["line"], t["ver"]), (line, 2))
         for bad in ({"line": {"start": 2}}, {"line": {"start": 2, "end": 5, "text": "x" * 6000}}, {"ver": -1}, {"ver": "2"}):
             self.assertEqual(self.call("PUT", f"/r/{REC}/{B}", WAV, {"X-Take": json.dumps({**take, **bad})})[0], 400, bad)
+
+    def test_a_blocks_alt_has_a_chosen_take_of_its_own(self):
+        self.put(A, 0)
+        self.put(B, 0, alt="He walks toward the door.")
+        self.put(C, 0, alt="He walks toward the door.")
+        got = self.listing()
+        self.assertEqual({k: t["chosen"] for k, t in got.items()}, {A: True, B: False, C: True})
+        self.assertEqual((got[A]["alt"], got[C]["alt"]), (None, "He walks toward the door."))
+        self.assertEqual(self.call("POST", f"/r/{REC}/{B}/choose")[0], 200)
+        self.assertEqual({k: t["chosen"] for k, t in self.listing().items()}, {A: True, B: True, C: False}, "the original stays chosen")
+        # Once the writer uses the alt, a relink makes it one of the block's own takes.
+        line = {"start": 2, "end": 5, "text": "He walks toward the door."}
+        changes = [{"id": B, "block": 0, "start": 2.5, "line": line, "chosen": True, "alt": None}]
+        self.assertEqual(self.call("POST", f"/r/{REC}/relink", json.dumps(changes).encode())[0], 200)
+        self.assertIsNone(self.listing()[B]["alt"])
+        self.assertEqual(self.put(A, 0, alt=["not", "text"])[0], 400)
 
     def test_takes_are_matched_to_a_new_script(self):
         self.put(A, 0)

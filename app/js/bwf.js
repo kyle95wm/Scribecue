@@ -3,7 +3,7 @@
 // marker per block. The file is put together from small pieces and a shared run of
 // silence, so a two-hour programme never has to sit in memory as one array.
 
-const SILENCE = 1 << 16; // bytes in the shared silent piece
+const SILENCE = 1 << 24; // bytes in the shared silent piece: big, so a long WAV is few pieces
 const NOTE = 'scbc'; // Scribecue's chunk: the script a narration was recorded against
 
 const ascii = (view, o, t, max = t.length) => { for (let i = 0; i < Math.min(t.length, max); i++) view.setUint8(o + i, t.charCodeAt(i) & 0x7f); };
@@ -75,8 +75,10 @@ export function buildBwf({ takes, markers = [], note = null, secs, rate = 48000,
   ascii(bext, 602, history);
 
   const data = [];
-  const silence = new Uint8Array(Math.min(SILENCE, Math.max(bytes, 1)));
-  const gap = (n) => { for (; n > 0; n -= silence.length) data.push(n >= silence.length ? silence : silence.subarray(0, n)); };
+  // A Blob of silence, so the WAV refers to it for every gap rather than copying it: a
+  // long programme's silence would otherwise be copied, the page waiting, as the WAV is made.
+  const silence = new Blob([new Uint8Array(Math.min(SILENCE, Math.max(bytes, 1)))]);
+  const gap = (n) => { for (; n > 0; n -= silence.size) data.push(n >= silence.size ? silence : silence.slice(0, n)); };
   let at = 0; // sample position
   for (const t of takes) {
     const from = Math.max(at, Math.round(t.start * rate));

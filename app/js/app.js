@@ -16,6 +16,7 @@ import { initPending, startPending, addPending, endPending, pendingGhost } from 
 import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanNotes, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
 import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, sameVideo, compareScript, newProjectId, pickupsFor } from './recording.js';
 import { readNote } from './bwf.js';
+import { readZip } from './zip.js';
 import { initRecord } from './record.js';
 import { takesInfo, clearTakes } from './takestore.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
@@ -58,6 +59,7 @@ if (isMobile({ ua: navigator.userAgent, mobile: navigator.userAgentData?.mobile,
 const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('list');
 const tl = $('tl'), ruler = $('ruler'), lane = $('lane'), wave = $('wave'), cuesLayer = $('cues'), takeWave = $('takeWave');
 const playheadEl = $('playhead'), dragtip = $('dragtip'), overview = $('overview'), ovWin = $('ovWin');
+const TEXT_HINT = $('edText').placeholder;
 const edText = $('edText'), edStart = $('edStart'), edEnd = $('edEnd'), edNotes = $('edNotes');
 const editor = $('editor'), edTts = $('edTts');
 const edIdx = $('edIdx'), edDur = $('edDur'), edStats = $('edStats'), edSpeed = $('edSpeed'), edSpeedWrap = $('edSpeedWrap'), edAuto = $('edAuto');
@@ -903,16 +905,21 @@ let edOpen = false;
 
 function updateEditor() {
   const c = selCue();
-  edText.readOnly = edStart.readOnly = qcLocked();
-  if (S.mode === 'record') recorder?.render();
+  // Record mode: the block is locked, but with Alt on its text box holds the narrator's wording.
+  const rec = S.mode === 'record', alt = rec && !!recorder?.side;
+  edText.readOnly = rec ? !alt : qcLocked();
+  edStart.readOnly = rec || qcLocked();
+  edText.placeholder = alt ? 'Your wording for this block. ↵ when done, then ↵ or R to record it' : TEXT_HINT;
+  edText.setAttribute('aria-label', alt ? 'Alt wording' : 'Block text');
+  if (rec) recorder?.render();
   edTts.hidden = !(c && readingControls());
   $('edPickup').setAttribute('aria-pressed', String(!!c?.pickup));
   $('edPickupNote').hidden = !c?.pickup;
   if (c?.pickup && document.activeElement !== $('edPickupNote')) $('edPickupNote').value = c.pickup.note || '';
-  edNotes.readOnly = qcLocked();
+  edNotes.readOnly = qcLocked() || rec;
   if (document.activeElement !== edNotes) edNotes.value = c?.notes || '';
-  // QC can read the notes but not change them, so an empty box would only be in the way.
-  edNotes.hidden = qcLocked() && !c?.notes;
+  // QC and Record can read the notes but not change them, so an empty box would only be in the way.
+  edNotes.hidden = (qcLocked() || rec) && !c?.notes;
   if (!c) {
     edSpeedWrap.hidden = true;
     edVoiceWrap.hidden = true;
@@ -932,8 +939,8 @@ function updateEditor() {
   if (document.activeElement !== edStart) edStart.value = tc(c.start);
   if (document.activeElement !== edEnd) edEnd.value = tc(c.end);
   // The end comes from the reading with text to speech on.
-  edEnd.readOnly = qcLocked() || following(c);
-  if (edEnd.readOnly) edEnd.dataset.tip = qc() ? 'The script and timings are fixed in QC mode' : 'Where the reading ends. Change the block’s speed to move it'; else delete edEnd.dataset.tip;
+  edEnd.readOnly = rec || qcLocked() || following(c);
+  if (edEnd.readOnly) edEnd.dataset.tip = rec ? 'The script is locked in Record mode' : qc() ? 'The script and timings are fixed in QC mode' : 'Where the reading ends. Change the block’s speed to move it'; else delete edEnd.dataset.tip;
   edAuto.hidden = !(c.auto && ttsOn());
   edDur.textContent = `${(c.end - c.start).toFixed(3)} s`;
   edSpeedWrap.hidden = !readingControls();
@@ -947,7 +954,8 @@ function updateEditor() {
   edSpeedCustom.hidden = !custom;
   edSpeedCustom.textContent = custom ? speedName(c.speed) + (c.fit ? ', fits the block' : '') : 'custom';
   if (document.activeElement !== edSpeed) edSpeed.value = custom ? 'custom' : String(c.speed || 1);
-  if (!edit || edit.id !== c.id) edText.value = c.text;
+  if (rec) { if (document.activeElement !== edText) edText.value = alt ? recorder.altText(i) : c.text; }
+  else if (!edit || edit.id !== c.id) edText.value = c.text;
   edStats.textContent = '';
   $('qcPrevious').hidden = true;
   $('qcBlockInfo').textContent = '';
@@ -1107,14 +1115,17 @@ for (const f of FIELDS) {
   }));
 }
 
+// In Record mode a locked field gives the focus straight back, so Enter and R still record.
+for (const f of [edText, edStart, edEnd, edNotes]) f.addEventListener('focus', () => { if (S.mode === 'record' && f.readOnly) f.blur(); });
 edText.addEventListener('focus', () => {
   const c = selCue();
-  if (qcLocked()) return;
+  if (qcLocked() || S.mode === 'record') return;
   if (!c) { edText.blur(); return; }
   edit = { id: c.id, orig: c.text, pushed: false };
   document.body.classList.add('editing');
 });
 edText.addEventListener('input', () => {
+  if (S.mode === 'record') { if (recorder.side) recorder.setAltText(selIdx(), edText.value); return; }
   if (qcLocked()) { updateEditor(); return; }
   if (!edit) return;
   const c = S.cues[idx(edit.id)];
@@ -1137,6 +1148,12 @@ edText.addEventListener('blur', () => {
 });
 edText.addEventListener('keydown', (e) => {
   e.stopPropagation();
+  // The alt's wording: Enter and Esc go back to the keys, so Enter records it next.
+  if (S.mode === 'record') {
+    if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); edText.blur(); }
+    else if (e.key === 'Tab') e.preventDefault();
+    return;
+  }
   if (e.altKey && e.shiftKey && !e.metaKey && !e.ctrlKey && e.code === 'KeyP') { e.preventDefault(); openSay(); return; }
   if (editorKeys(e, edText)) return;
   const mod = e.metaKey || e.ctrlKey;
@@ -1371,8 +1388,8 @@ function openEditor() {
 }
 function placeEditor() {
   const i = selIdx();
-  // Record mode has no editor: the script is locked. An editor left open would hide the selected row.
-  editor.hidden = !edOpen || S.mode === 'record' || i < 0 || !rowMap.has(S.sel);
+  // Record mode always shows the selected block open, locked, with its Original | Alt switch.
+  editor.hidden = !(edOpen || S.mode === 'record') || i < 0 || !rowMap.has(S.sel);
   if (editor.hidden) return;
   const rows = S.cues.map((c) => rowMap.get(c.id));
   const above = (r) => r.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING;
@@ -1795,8 +1812,10 @@ function renderOverlay(c) {
   overlay.textContent = '';
   if (!c || !c.text) return;
   const span = document.createElement('span');
+  // With Alt on in Record mode, the narrator reads the alt's wording.
+  const text = (S.mode === 'record' && recorder?.altWording(idx(c.id))) || c.text;
   // allow basic <i>/<b>/<u> markup, strip everything else
-  span.innerHTML = esc(c.text.replace(/\{[^}]*\}/g, '')).replace(/&lt;(\/?)([ibu])&gt;/gi, '<$1$2>');
+  span.innerHTML = esc(text.replace(/\{[^}]*\}/g, '')).replace(/&lt;(\/?)([ibu])&gt;/gi, '<$1$2>');
   overlay.append(span);
 }
 
@@ -3481,7 +3500,7 @@ function projectSaved(name) {
 // Browsers that can't save in place download a copy instead.
 async function saveProject(as = false) {
   if (S.reviewId && !S.review) return toast('Reopen the QC package to restore its audio before saving');
-  if (S.mode === 'record') return toast('Takes are kept as you record them. Export the narration WAV when you’re done');
+  if (S.mode === 'record') return toast('Takes are kept as you record them. Export the narration when you’re done');
   if (!S.cues.length && !S.comments.length && !S.dirty) return toast('Nothing to save yet');
   const text = projectFileData();
   const name = `${baseName()}${S.reviewId ? REVIEW_EXT : PROJECT_EXT}`;
@@ -3708,6 +3727,15 @@ $('recFileStart').addEventListener('keydown', (e) => { if (e.key === 'Enter') { 
 $('recFileCancel').addEventListener('click', () => recFileDlg.close());
 document.addEventListener('keydown', (e) => { if (recFileDlg.open || $('recExportDlg').open || $('narrDlg').open) e.stopPropagation(); }, true);
 
+// A narration package (a zip from Record mode) is checked by the narration WAV inside it.
+async function openPackage(f) {
+  const files = (await readZip(f)) || [];
+  const notes = (await Promise.all(files.filter((x) => /\.wav$/i.test(x.name)).map((x) => readNote(x.blob)))).filter(Boolean);
+  const note = notes.find((n) => !n.altOnly) || notes[0];
+  if (!note) return toast(`${f.name} isn’t a narration package from Scribecue`);
+  checkNarration(note, f.name);
+}
+
 // A narration WAV opened here is checked against the script that's open, rather than
 // opened as audio: it says whether the narrator recorded the lines as they were sent.
 function checkNarration(note, name) {
@@ -3723,6 +3751,7 @@ function checkNarration(note, name) {
   const left = asked.filter((n) => !got.includes(n));
   const pick = [];
   if (note.only) pick.push(`This WAV holds only pickups${note.version ? `, for version ${note.version} of the recording file` : ''}.`);
+  else if (note.altOnly) pick.push('This WAV holds only the narrator’s alts.');
   else if (note.version) pick.push(`Recorded against version ${note.version} of the recording file.`);
   if (got.length) pick.push(`Pickups recorded: block${got.length === 1 ? '' : 's'} ${listNums(got)}.`);
   if (left.length) pick.push(`Still to record: block${left.length === 1 ? '' : 's'} ${listNums(left)}.`);
@@ -3740,6 +3769,7 @@ function checkNarration(note, name) {
     $('narrDlg').close();
     toast(`Cleared ${clear.length} pickup mark${clear.length === 1 ? '' : 's'}. Undo brings ${clear.length === 1 ? 'it' : 'them'} back`);
   };
+  showAlts(note, r.same);
   $('narrTitle').textContent = r.same && !r.edited ? 'The narration matches' : 'The narration doesn’t match';
   $('narrWhat').textContent = out.join(' ');
   $('narrList').textContent = list.join('\n');
@@ -3747,6 +3777,40 @@ function checkNarration(note, name) {
   $('narrDlg').showModal();
 }
 $('narrClose').addEventListener('click', () => $('narrDlg').close());
+// Alts: wording the narrator recorded as well as the block's own. With the script as sent,
+// each can become the block's text. Its timing stays, since the alt was read in its slot.
+function showAlts(note, same) {
+  const alts = note.blocks.flatMap((b, i) => (typeof b.alt === 'string' ? [{ n: i + 1, was: b.text, alt: b.alt }] : []));
+  $('narrAlts').hidden = !alts.length;
+  if (!alts.length) return;
+  const lines = S.cues.filter((c) => c.text.trim()), can = same && S.mode === 'write';
+  $('narrAltsWhat').textContent = `The narrator recorded ${alts.length === 1 ? 'an alt' : `${alts.length} alts`}: wording of their own, as well as the script’s.`
+    + (can ? ' Use one to make it the block’s text.' : same ? ' Switch to Write mode to use one.' : ' Open the script as it was sent to use them.');
+  $('narrAltList').replaceChildren(...alts.map(({ n, was, alt }) => {
+    const li = document.createElement('li');
+    const text = document.createElement('span');
+    text.append(Object.assign(document.createElement('span'), { className: 'num', textContent: `Block ${n}` }), ` “${alt}”`,
+      Object.assign(document.createElement('span'), { className: 'dim', textContent: ` was “${was}”` }));
+    li.append(text);
+    if (can) {
+      const use = Object.assign(document.createElement('button'), { textContent: 'Use' });
+      use.setAttribute('aria-label', `Use the alt for block ${n}`);
+      use.addEventListener('click', () => {
+        const c = lines[n - 1];
+        if (!c || c.text !== was) return toast(`Block ${n} has changed since. Edit it yourself`);
+        pushUndo();
+        c.text = alt;
+        delete c.auto; // the alt was read in the block's slot, so the block keeps its timing
+        changed(c.id);
+        updateEditor();
+        use.replaceWith(Object.assign(document.createElement('span'), { className: 'dim', textContent: 'Used' }));
+        toast(`Block ${n} now reads as the alt. Undo brings back the old wording`);
+      });
+      li.append(use);
+    }
+    return li;
+  }));
+}
 
 recorder = initRecord({
   video, toast,
@@ -3754,6 +3818,13 @@ recorder = initRecord({
   selIdx, hasVideo: () => S.hasVideo,
   select: (i) => { if (S.cues[i] && S.cues[i].id !== S.sel) select(S.cues[i].id, { seek: false }); },
   redraw: () => { tlDirty = true; },
+  retext: () => { S.activeId = undefined; updateActive(now()); },
+  // The Alt switch moved: the block's text box shows the alt's wording, ready to type.
+  altChanged: (focus) => {
+    updateEditor();
+    if (focus && selCue()) { edText.focus(); edText.setSelectionRange(edText.value.length, edText.value.length); }
+    else if (document.activeElement === edText) edText.blur();
+  },
   duration: () => (S.hasVideo ? duration() : 0),
   seek: (t) => seek(t),
   baseName: () => baseName().replace(/\.[^.]+$/, ''),
@@ -4564,6 +4635,7 @@ function openFiles(files) {
     if (isDoc(f.name)) openProject(f);
     else if (SCRIPT.test(f.name)) loadSubsFile(f).catch((e) => { console.error(e); toast(`Couldn’t open ${f.name}${readProblem(e)}`); });
     else if (/\.wav$/i.test(f.name)) readNote(f).then((n) => (n ? checkNarration(n, f.name) : loadVideoFile(f)));
+    else if (/\.zip$/i.test(f.name)) openPackage(f);
     else loadVideoFile(f);
   }
 }
@@ -4744,6 +4816,13 @@ const exportMenu = $('exportMenu');
 function toggleMenu(menu, open = menu.hidden) {
   closeMenus();
   if (!open) return;
+  // With alts recorded, the narration goes out as a package.
+  if (menu === exportMenu && S.mode === 'record') {
+    const [name, what] = $('exportNarration').firstElementChild.children;
+    name.textContent = recorder.alts ? 'Narration package' : 'Narration WAV';
+    what.textContent = recorder.alts ? 'a zip of the narration WAV, a WAV of the alts alone and the notes, for the mixer'
+      : 'the chosen takes in one timestamped file, for the mixer';
+  }
   menu.hidden = false;
   menu.previousElementSibling.setAttribute('aria-expanded', 'true');
   menu.querySelector('[role="menuitem"]:not([hidden])')?.focus();
@@ -4880,6 +4959,7 @@ document.addEventListener('keydown', (e) => {
     if (!e.altKey && !e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.toggle(); return; }
     if (!e.altKey && e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.punch(); return; }
     if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyP') { e.preventDefault(); recorder.nextPickup(); return; }
+    if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyA') { e.preventDefault(); recorder.toggleAlt(); return; }
     if (e.key === '[' || e.key === ']') { e.preventDefault(); return; }
   }
   // [ ] by the character typed, since some layouts need ⌥ or AltGr for them.

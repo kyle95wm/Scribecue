@@ -118,17 +118,26 @@ function readPickup(p) {
 // What goes into the narration WAV so the script it was recorded against can be checked,
 // with the pickups asked for and their notes. only: a WAV of the pickups alone; picked: the
 // numbers of the blocks whose pickups are in it.
-export const narrationNote = ({ blocks, edited = false, project = null, version = 0, only = false, picked = [] }) => ({
+// alts: for each block, the wording of its alt in the package, or null; altOnly: the WAV of
+// the alts alone.
+export const narrationNote = ({ blocks, edited = false, project = null, version = 0, only = false, picked = [], alts = [], altOnly = false }) => ({
   scribecueNarration: 1, print: scriptPrint(blocks), edited: !!edited,
   ...(project ? { project, version } : {}),
   ...(only ? { only: true } : {}),
+  ...(altOnly ? { altOnly: true } : {}),
   ...(picked.length ? { picked } : {}),
-  blocks: blocks.map(({ start, end, text, pickup }) => ({ start, end, text, ...(pickup ? { pickup } : {}) })),
+  blocks: blocks.map(({ start, end, text, pickup }, i) => ({ start, end, text, ...(pickup ? { pickup } : {}), ...(typeof alts[i] === 'string' ? { alt: alts[i] } : {}) })),
 });
+
+// Whether a take is of a block's alt: the narrator's own wording, kept as alt. A block has
+// one alt, with takes of its own and one of them chosen, beside the original's.
+export const isAlt = (t) => typeof t?.alt === 'string';
 
 // A block's marker in the narration WAV, which the mixer's software shows on its timeline.
 // A pickup says so, with its note. b: a block; n: its number.
-export function markerLabel(b, n) {
+// alt: the wording of the block's alt, for its marker in the alts WAV.
+export function markerLabel(b, n, alt = null) {
+  if (alt != null) return `${n} ALT | ${alt.replace(/\s+/g, ' ').slice(0, 40)}`.slice(0, 200);
   const p = b.pickup, why = p ? p.note || (p.added ? 'new line' : p.was != null ? 'reworded' : '') : '';
   return `${n}${p ? ` PICKUP${why ? `: ${why}` : ''} |` : ''} ${b.text.replace(/\s+/g, ' ').slice(0, 40)}`.slice(0, 200);
 }
@@ -138,27 +147,35 @@ export function markerLabel(b, n) {
 // block with the same text nearest where its line was, and moves with it in time. A take
 // whose text is gone belongs to no block (block −1), and isn't chosen. Takes kept before
 // lines were (from 0.67 and earlier) take theirs from `old`, the script their block numbers
-// count in. Returns the changes: [{ id, block, start, line, chosen }].
+// count in. An alt take whose wording is now a block's text becomes one of that block's
+// takes, as when the writer used the alt. Returns the changes: [{ id, block, start, line,
+// chosen, alt }], where alt is null once a take isn't an alt any more.
 export function relink(takes, blocks, old = null) {
   const out = new Map(), now = [], byText = new Map();
   blocks.forEach((b, i) => { const w = words(b.text); if (byText.has(w)) byText.get(w).push(i); else byText.set(w, [i]); });
   for (const t of takes) {
     const line = t.line || (old?.[t.block] && { start: old[t.block].start, end: old[t.block].end, text: old[t.block].text });
     if (!line) continue;
-    let k = -1, gap = Infinity;
-    for (const i of byText.get(words(line.text)) || []) if (Math.abs(blocks[i].start - line.start) < gap) { gap = Math.abs(blocks[i].start - line.start); k = i; }
-    const b = blocks[k];
-    const next = b ? { block: k, start: Math.round((t.start + b.start - line.start) * 1e6) / 1e6, line: { start: b.start, end: b.end, text: b.text }, chosen: !!t.chosen }
-      : { block: -1, start: t.start, line, chosen: false };
+    const nearest = (text) => {
+      let k = -1, gap = Infinity;
+      for (const i of byText.get(words(text)) || []) if (Math.abs(blocks[i].start - line.start) < gap) { gap = Math.abs(blocks[i].start - line.start); k = i; }
+      return k;
+    };
+    const used = isAlt(t) && words(t.alt) !== words(line.text) ? nearest(t.alt) : -1;
+    const k = used >= 0 ? used : nearest(line.text), b = blocks[k], alt = used >= 0 || !isAlt(t) ? null : t.alt;
+    const next = b ? { block: k, start: Math.round((t.start + b.start - line.start) * 1e6) / 1e6, line: { start: b.start, end: b.end, text: b.text }, chosen: !!t.chosen, alt }
+      : { block: -1, start: t.start, line, chosen: false, alt };
     now.push({ t, next });
     const moved = next.block !== t.block || Math.abs(next.start - t.start) > 1e-9 || next.chosen !== !!t.chosen || !t.line
-      || next.line.start !== t.line.start || next.line.end !== t.line.end || next.line.text !== t.line.text;
+      || next.line.start !== t.line.start || next.line.end !== t.line.end || next.line.text !== t.line.text || next.alt !== (isAlt(t) ? t.alt : null);
     if (moved) out.set(t.id, { id: t.id, ...next });
   }
-  // One chosen take a block: if two lines became one, the latest take stays chosen.
+  // One chosen take a block, and one of its alt: if two lines became one, or an alt became
+  // the line, the latest take stays chosen.
   const kept = new Map();
   for (const { t, next } of now.filter((x) => x.next.chosen).sort((a, z) => z.t.made - a.t.made)) {
-    if (!kept.has(next.block)) { kept.set(next.block, t.id); continue; }
+    const side = `${next.block}|${next.alt != null}`;
+    if (!kept.has(side)) { kept.set(side, t.id); continue; }
     out.set(t.id, { ...(out.get(t.id) || { id: t.id, ...next }), chosen: false });
   }
   return [...out.values()];
@@ -185,6 +202,14 @@ export function checkPickups(blocks, chosen, version, grace = GRACE) {
     warn: all.warn.filter(mine).map((x) => (x.why === 'has no take' && chosen[x.block - 1] ? { ...x, why: 'isn’t recorded again yet' } : x)),
     takes: fresh,
   };
+}
+
+// Checks the alts before a package with them is exported. Like checkExport, but only for
+// blocks with an alt chosen, and each said to be the alt. alts: each block's chosen alt take, or null.
+export function checkAlts(blocks, alts, grace = GRACE) {
+  const all = checkExport(blocks, alts.map((t) => t && placed(t)), grace), mine = (x) => !!alts[x.block - 1];
+  const alt = (x) => ({ ...x, why: `(alt) ${x.why}` });
+  return { stop: all.stop.filter(mine).map(alt), warn: all.warn.filter(mine).map(alt) };
 }
 
 // Compares the script a narration was recorded against with the one open now.
