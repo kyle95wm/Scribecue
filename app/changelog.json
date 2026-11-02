@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.73.3",
+  "date": "2026-11-01",
+  "notes": "## Fixes\n\n- In QC, an edited block now ends where its new reading finishes, up to the start of the next block.\n- Blocks saved running past their new reading are fixed when you open the package.\n- If a new reading runs into the next block, a message says the end stops there."
+ },
+ {
   "version": "0.73.2",
   "date": "2026-11-01",
   "notes": "## Fixes\n\n- In QC, an edited block now always ends where its reading finishes, even if you change the words back. Before, the reading could run past the end.\n- In the TTS preview, an edited block heard in its own voice follows its reading too."
