@@ -3,7 +3,7 @@
 // that); this file does the recording. The guide is Guides/RECORDING.md.
 
 import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
-import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
+import { slots, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
 import { storeZip } from './zip.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, editTake, deleteTake, restoreTake, takeAudio, takesWhere, relinkTakes, moveTakes, openSession, useSession, currentSession,
@@ -28,7 +28,7 @@ export function initRecord(h) {
   let rec = null;            // the recording file open: { id, start, fps, media, project?, version? }; id is where its takes are kept
   let takes = [];            // every take of this recording
   let state = 'idle';        // idle | arming | lead | rec | saving
-  let cap = null;            // { stream, ctx, node, chunks, t0, slot, prevEnd, block, inLatency, punch, from }
+  let cap = null;            // { stream, ctx, node, chunks, trail, t0, slot, prevEnd, block, inLatency, punch, from }
   let level = 0, hold = 0;   // meter: current and held peak, 0…1
   let loudest = 0;           // the loudest peak since a check started or was reset, 0…1
   let raf = 0, playing = null, warned = new Set();
@@ -400,12 +400,13 @@ export function initRecord(h) {
     view = { t0, pps };
     peakWant.clear();
     if (!rec) return;
-    TK ||= Object.fromEntries(['ok', 'bad', 'line', 'dim', 'faint', 'accent', 'accent-bg', 'cue', 'cue-bg', 'text', 'mono'].map((n) => [n, tok('--' + n)]));
+    TK ||= Object.fromEntries(['ok', 'bad', 'play', 'line', 'dim', 'faint', 'accent', 'accent-bg', 'cue', 'cue-bg', 'text', 'mono'].map((n) => [n, tok('--' + n)]));
     const t1 = t0 + W / pps, x = (s) => (s - t0) * pps, mid = H / 2, sel = h.selIdx(), amp = mid - 9;
     g.fillStyle = TK.line;
     g.fillRect(0, Math.round(mid), W, 1);
     g.font = `10px ${TK.mono}`;
-    if (!takes.length) { g.fillStyle = TK.dim; g.fillText('Takes show here as you record them', 8, 16); return; }
+    const live = state === 'rec' && cap?.trail;
+    if (!takes.length && !live) { g.fillStyle = TK.dim; g.fillText('Takes show here as you record them', 8, 16); return; }
     sl().forEach((slot, i) => {
       const raw = shownFor(i), slotIn = slot.end > t0 && slot.start < t1;
       const t = raw && tdrag?.t.id === raw.id ? { ...raw, edit: tdrag.e } : raw;
@@ -455,8 +456,32 @@ export function initRecord(h) {
         if (label) { g.fillStyle = on ? TK.accent : TK.cue; g.fillText(label, Math.max(a, 0) + 6, 17); }
       });
     });
+    if (live) drawLive(g, W, H, x, mid, amp);
     if (tdrag?.snapped != null) { g.fillStyle = TK.text; g.fillRect(x(tdrag.snapped) - 1, 0, 2, H); }
     loadPeaks();
+  }
+  // The take being recorded, growing with the playhead, where it will be placed when it's saved.
+  function drawLive(g, W, H, x, mid, amp) {
+    const d = delayOf(cap), first = Math.max(0, cap.t0 - d), pk = cap.trail.peaks;
+    const a = x(placeTake({ t0: cap.t0, delay: d, prevEnd: cap.prevEnd }).start), z = Math.max(a, x(video.currentTime - d));
+    if (z < 0 || a > W) return;
+    g.beginPath();
+    g.roundRect(a, 6, z - a, H - 12, 4);
+    g.fillStyle = `color-mix(in srgb, ${TK.play} 14%, transparent)`;
+    g.fill();
+    g.strokeStyle = TK.play;
+    g.lineWidth = 1;
+    g.stroke();
+    g.fillStyle = TK.play;
+    for (let px = Math.max(0, Math.floor(a)), to = Math.min(W, Math.ceil(z)); px < to; px++) {
+      const s = view.t0 + px / view.pps - first, i0 = Math.max(0, Math.floor(s * PR)), i1 = Math.min(pk.length, Math.max(i0 + 1, Math.floor((s + 1 / view.pps) * PR)));
+      if (i0 >= pk.length) break; // not heard yet
+      let m = 0;
+      for (let k = i0; k < i1; k++) if (pk[k] > m) m = pk[k];
+      const hh = Math.max(0.5, Math.min(1, m * 2) * amp);
+      g.fillRect(px, mid - hh, 1, hh * 2);
+    }
+    if (g.measureText('Recording').width + 12 <= z - Math.max(a, 0)) g.fillText('Recording', Math.max(a, 0) + 6, 17);
   }
 
   const hitAt = (px) => clipAt(shownTakes(), view.t0 + px / view.pps, view.pps);
@@ -589,7 +614,7 @@ export function initRecord(h) {
     cap = { stream, ctx, node, chunks: [], inLatency: settings.latency || 0, outLatency: (ctx.outputLatency || 0) };
     node.port.onmessage = (e) => {
       if (e.data.peak != null) { level = Math.max(level, e.data.peak); loudest = Math.max(loudest, e.data.peak); }
-      if (e.data.pcm && cap) cap.chunks.push(e.data.pcm);
+      if (e.data.pcm && cap) { cap.chunks.push(e.data.pcm); cap.trail?.add(e.data.pcm); }
       if (e.data.done) cap.finish?.();
     };
     devices();
@@ -660,6 +685,7 @@ export function initRecord(h) {
       p.audio = new Audio(URL.createObjectURL(p.wav));
     }
     cap.block = i; cap.slot = s; cap.prevEnd = i ? sl()[i - 1].end : 0; cap.punch = p; cap.alt = alt; cap.from = from;
+    cap.trail = peakTrail(RATE / PR);
     cap.t0 = Math.max(0, (p ? p.at : s.start) - PREROLL);
     h.seek(Math.max(0, cap.t0 - leadSecs));
     h.volume(true, VIDEO_DB);
@@ -689,11 +715,15 @@ export function initRecord(h) {
         el.fill.style.width = Math.max(0, Math.min(1, f)) * 100 + '%';
         el.slot.classList.toggle('over', f > 1);
         if (video.ended) { finish(); return; }
+        h.redraw(); // the take grows on the timeline
       }
       frame();
       if (state === 'lead' || state === 'rec') loop();
     });
   }
+
+  // The sound reaches the narrator late and reaches Scribecue late: a take is placed that much earlier.
+  const delayOf = (c) => c.inLatency + (syncMs != null ? syncMs / 1000 : c.outLatency);
 
   // discard: stop without keeping the take (Esc). In a session it's kept as deleted, so
   // ⌘Z can bring it back until the recording closes.
@@ -719,7 +749,7 @@ export function initRecord(h) {
     level = 0; frame(); el.fill.style.width = '0'; el.slot.classList.remove('over');
     if (samples.length < RATE * 0.3) { state = 'idle'; status(wasRec ? 'Too short to keep: nothing saved' : c.punch ? 'Stopped before the join: nothing saved' : 'Stopped before the block: nothing saved'); render(); return; }
     // The sound reaches the narrator late and reaches Scribecue late: take both off.
-    const delay = c.inLatency + (syncMs != null ? syncMs / 1000 : c.outLatency);
+    const delay = delayOf(c);
     const { start, skip } = placeTake({ t0: c.t0, delay, prevEnd: c.prevEnd });
     let kept = samples.subarray(skip), at = start;
     if (c.punch) {

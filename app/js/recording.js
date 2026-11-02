@@ -459,6 +459,24 @@ export function wavePeaks(pcm, cols) {
   return out;
 }
 
+// A take's waveform as it's recorded: the loudest sample in each column of `size` samples,
+// added to as its sound arrives, so nothing is read twice. peaks: the full columns so far.
+export function peakTrail(size) {
+  let peaks = new Float32Array(1024), n = 0, m = 0, left = size;
+  return {
+    add(pcm) {
+      for (let i = 0; i < pcm.length; i++) {
+        const v = Math.abs(pcm[i]);
+        if (v > m) m = v;
+        if (--left) continue;
+        if (n === peaks.length) { const p = new Float32Array(n * 2); p.set(peaks); peaks = p; }
+        peaks[n++] = m; m = 0; left = size;
+      }
+    },
+    get peaks() { return peaks.subarray(0, n); },
+  };
+}
+
 // Checks the chosen takes before export. chosen[i] is block i's take
 // ({ peak, duration }) or null. Returns { stop, warn }: lists of { block, why }, where
 // block is a 1-based number. Any item in stop means the export must not go ahead.

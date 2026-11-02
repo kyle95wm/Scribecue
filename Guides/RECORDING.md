@@ -116,6 +116,7 @@ lines, including your loudest, and set your gain so the peaks land in it.
 
 - Every take is kept, under the video in Record mode.
 - The take picked for each block shows on the timeline, under the video's waveform.
+- The take you're recording grows there as you read, with its waveform.
 - **While the video plays,** you hear the take picked for each block, where it was read.
   Click **TAKES** under the video to turn that off.
 - **Play** plays one take against the video.

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -515,4 +515,14 @@ test('a recording file made again from what was read opens the same, pickups and
   assert.deepEqual(again, read);
   assert.equal(again.blocks[0].pickup.was, 'She opens the door.');
   assert.equal(takesKey(again), takesKey(read));
+});
+
+test('a take’s waveform grows as its sound arrives, the same as drawn from the whole take', () => {
+  const pcm = new Float32Array(48000 * 3).map((_, i) => Math.sin(i / 50) * (i % 7000) / 7000);
+  const trail = peakTrail(240);
+  for (let i = 0; i < pcm.length; i += 4096) trail.add(pcm.subarray(i, i + 4096));
+  assert.equal(trail.peaks.length, 600);
+  assert.deepEqual([...trail.peaks], [...wavePeaks(pcm, 600)]);
+  trail.add(new Float32Array(100).fill(0.9));
+  assert.equal(trail.peaks.length, 600, 'a column shows once it’s full');
 });
