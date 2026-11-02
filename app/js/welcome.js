@@ -9,11 +9,12 @@
 import { tts, SPEEDS, MAX_BASE, toBase, fillVoiceSelect, chosenVoice, setTtsOption, loadPiper, webPiper, webVoiceChoices, downloadVoice, megabytes } from './tts.js';
 import { updateChoice, setUpdateChoice } from './update.js';
 import { HOSTED } from './config.js';
+import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
 import { savedName, saveName, cleanName } from './profile.js';
 
 const $ = (id) => document.getElementById(id);
 const KEY = 'scribecue.welcome';
-let hooks = { getMode: () => 'transcribe', setMode: () => {}, getOffset: () => 0.2, setOffset: () => {}, getReplay: () => false, setReplay: () => {}, nameChanged: () => {}, offsets: [], toast: () => {} };
+let hooks = { getMode: () => 'transcribe', setMode: () => {}, getOffset: () => 0.2, setOffset: () => {}, getReplay: () => false, setReplay: () => {}, nameChanged: () => {}, offsets: [], toast: () => {}, mic: null, recording: () => false };
 let step = 0;
 let finished = false;
 let only = null; // the one mode being set up, after switching to it for the first time
@@ -21,8 +22,10 @@ let only = null; // the one mode being set up, after switching to it for the fir
 const mode = () => document.querySelector('input[name=wzMode]:checked')?.value || 'transcribe';
 // The steps for the chosen task: the third one depends on it.
 // The web version updates itself, so it skips the question about update checks.
-const steps = () => only ? [only, 'done'] : ['welcome', 'task', mode(), ...(HOSTED ? [] : ['updates']), 'done'];
-const MODE_NAMES = { transcribe: 'Transcribe', write: 'Write', qc: 'QC' };
+// Recording has two steps of its own: the microphone, then listening and sync.
+const modeSteps = (m) => (m === 'record' ? ['record-mic', 'record-listen'] : [m]);
+const steps = () => only ? [...modeSteps(only), 'done'] : ['welcome', 'task', ...modeSteps(mode()), ...(HOSTED ? [] : ['updates']), 'done'];
+const MODE_NAMES = { transcribe: 'Transcribe', write: 'Write', qc: 'QC', record: 'Record' };
 
 function show() {
   const list = steps();
@@ -32,13 +35,25 @@ function show() {
   $('wzBack').hidden = step === 0;
   $('wzNext').textContent = step === list.length - 1 ? 'Finish' : step === 0 && !only ? 'Get started' : 'Next';
   $('wzTtsBody').classList.toggle('off', !$('wzTts').checked);
+  if (list[step] === 'record-mic') {
+    hooks.mic?.devices();
+    // The meter, empty, until the test starts.
+    if (!hooks.mic?.checking) { sizeMeter($('wzRecMeter')); drawLevel($('wzRecMeter'), 0, 0, { scale: true }); }
+  } else stopMicTest();
   if (list[step] === 'done') summarise();
   $('wzNext').focus();
 }
 
 function summarise() {
   const m = mode();
-  const lines = [m === 'qc' ? 'QC mode, with comments and editing permission set by the package creator' : m === 'write' ? 'Write mode, for new audio description' : 'Transcribe mode, for existing audio description'];
+  const lines = [m === 'qc' ? 'QC mode, with comments and editing permission set by the package creator' : m === 'write' ? 'Write mode, for new audio description'
+    : m === 'record' ? 'Record mode, for reading a script against the video' : 'Transcribe mode, for existing audio description'];
+  if (m === 'record') {
+    lines.push(`Microphone: ${$('recDev').selectedOptions[0]?.textContent || 'Default microphone'}`);
+    lines.push(`Lead-in: ${$('recLead').value} s of video before each block`);
+    const sync = parseInt($('recSync').value, 10);
+    lines.push(Number.isFinite(sync) ? `Sync: ${String(sync).replace('-', '−')} ms` : 'Sync: automatic, for wired headphones');
+  }
   if (m === 'qc') {
     const name = cleanName($('wzName').value);
     lines.push(name ? `Comments are signed ${name}` : 'Comments carry no name. You can add one in Settings, under General');
@@ -60,14 +75,16 @@ function summarise() {
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
   if (!HOSTED && !only) lines.push(u === '1' ? 'Checks for updates once a day' : u === '0' ? 'Doesn’t check for updates' : 'Update checks: not chosen yet');
   $('wzSummary').replaceChildren(...lines.map((t) => Object.assign(document.createElement('li'), { textContent: t })));
-  $('wzEditKey').hidden = $('wzEditDesc').hidden = m === 'qc';
-  $('wzModeKey').innerHTML = m === 'qc' ? '<kbd>Alt</kbd><kbd>Shift</kbd><kbd>C</kbd>' : m === 'write' ? '<kbd>V</kbd>' : 'Hold <kbd>H</kbd>';
-  $('wzModeDesc').textContent = m === 'qc' ? 'Open Comments at the playhead' : m === 'write' ? 'Read the selected block aloud' : 'Mark a block while the narrator speaks';
+  $('wzEditKey').hidden = $('wzEditDesc').hidden = m === 'qc' || m === 'record';
+  $('wzSaveKey').hidden = $('wzSaveDesc').hidden = m === 'record'; // takes are kept as they're made
+  $('wzModeKey').innerHTML = m === 'qc' ? '<kbd>Alt</kbd><kbd>Shift</kbd><kbd>C</kbd>' : m === 'write' ? '<kbd>V</kbd>' : m === 'record' ? '<kbd>↵</kbd> or <kbd>R</kbd>' : 'Hold <kbd>H</kbd>';
+  $('wzModeDesc').textContent = m === 'qc' ? 'Open Comments at the playhead' : m === 'write' ? 'Read the selected block aloud' : m === 'record' ? 'Record the selected block, or stop' : 'Mark a block while the narrator speaks';
 }
 
 function finish() {
   const m = mode();
-  hooks.setMode(m, true);
+  // Record mode belongs to an open recording file, so choosing it only gets it ready.
+  if (m !== 'record') hooks.setMode(m, true);
   if (m === 'transcribe') { hooks.setOffset(+$('wzOffset').value); hooks.setReplay($('wzReplay').checked); }
   if (m === 'write') {
     hooks.setReplay($('wzReplayWrite').checked);
@@ -91,6 +108,7 @@ function finish() {
     hooks.toast(`All set for writing. Downloading the Piper voice; it’s chosen once it’s ready, and you can carry on meanwhile`);
     return;
   }
+  if (m === 'record') return hooks.toast(hooks.recording() ? 'All set for recording. Select a block and press Enter or R' : 'All set for recording. Open the recording file and its video');
   hooks.toast(m === 'qc' ? 'All set for QC. Open the project or QC package and its matching video' : m === 'write'
     ? `All set for writing.${$('wzTts').checked ? ' Press V to hear a block.' : ''} Settings at the top runs this again`
     : 'All set for transcribing. Hold H while the narrator speaks. Settings at the top runs this again');
@@ -101,6 +119,10 @@ export function openWelcome(just = null) {
   step = 0;
   only = MODE_NAMES[just] ? just : null;
   for (const r of document.querySelectorAll('input[name=wzMode]')) r.checked = r.value === (only || hooks.getMode());
+  borrow();
+  $('wzRecNote').textContent = 'Your browser asks to use the microphone the first time.';
+  showLoudest($('wzRecLoudest'), 0);
+  $('wzRecBt').textContent = 'Only needed with Bluetooth headphones, which delay sound. Click Sync test, then raise Sync until the flash and the beep happen together.';
   $('wzOffset').value = String(hooks.getOffset());
   $('wzName').value = savedName();
   $('wzReplay').checked = $('wzReplayWrite').checked = hooks.getReplay();
@@ -149,6 +171,45 @@ function piperNote() {
       : 'Recommended: for natural-sounding voices that run on your computer, with exact lengths, add Piper (see INSTALL.md).';
 }
 
+// Recording's settings are the ones under the video, in Microphone, lead-in and sync,
+// lent to the setup while it's open, so there's one of each and changes apply at once.
+const LENT = ['recDev', 'recLead', 'recSync', 'recTest', 'recFlash'];
+let homes = null;
+function borrow() {
+  if (homes || !hooks.mic) return;
+  const item = (id) => $(id).closest('label') || $(id);
+  homes = LENT.map((id) => { const el = item(id); return { el, parent: el.parentNode, next: el.nextSibling }; });
+  $('wzRecMic').append(item('recDev'));
+  $('wzRecLead').append(item('recLead'));
+  $('wzRecSync').append(item('recSync'), item('recTest'), item('recFlash'));
+}
+function giveBack() {
+  if (!homes) return;
+  hooks.mic.stopSync();
+  for (const { el, parent, next } of homes.reverse()) parent.insertBefore(el, next);
+  homes = null;
+}
+
+async function startMicTest() {
+  const note = $('wzRecNote');
+  $('wzRecTest').textContent = 'Stop the test';
+  note.textContent = '';
+  try {
+    const got = await hooks.mic.start($('wzRecMeter'), $('wzRecLoudest'));
+    if (!got) return; // stopped meanwhile
+    if (got.rate) note.textContent = `Your microphone runs at ${got.rate} Hz, so Scribecue converts it to 48 kHz. Set your audio interface to 48 kHz if you can.`;
+    if (got.bluetooth) $('wzRecBt').textContent = 'These headphones look like Bluetooth, which delays sound. Use wired headphones if you can. If not, click Sync test, then raise Sync until the flash and the beep happen together.';
+  } catch (e) {
+    stopMicTest();
+    note.textContent = e.name === 'NotAllowedError' ? 'Scribecue needs permission to use the microphone. Allow it in the address bar, then test again.' : `Couldn’t use the microphone: ${e.message}`;
+  }
+}
+function stopMicTest() {
+  if (!hooks.mic) return;
+  hooks.mic.stop();
+  $('wzRecTest').textContent = 'Test';
+}
+
 // onClose(finished) runs whenever the wizard closes, finished or skipped.
 export function initWelcome(h, onClose = () => {}) {
   hooks = { ...hooks, ...h };
@@ -162,7 +223,13 @@ export function initWelcome(h, onClose = () => {}) {
   $('wzPiperGet').addEventListener('change', webPiperOffer);
   $('wzPiperVoice').addEventListener('change', webPiperOffer);
   for (const r of document.querySelectorAll('input[name=wzMode]')) r.addEventListener('change', show);
+  $('wzRecTest').addEventListener('click', () => (hooks.mic.checking ? stopMicTest() : startMicTest()));
+  $('wzRecReset').addEventListener('click', () => hooks.mic.reset());
+  // A different microphone, mid-test: test that one instead.
+  $('recDev').addEventListener('change', () => { if (d.open && hooks.mic?.checking) { stopMicTest(); startMicTest(); } });
   d.addEventListener('close', () => {
+    stopMicTest();
+    giveBack();
     try { localStorage.setItem(KEY, '1'); } catch { /* ignore */ }
     onClose(finished);
   });
@@ -171,20 +238,23 @@ export function initWelcome(h, onClose = () => {}) {
 }
 
 // The modes set up so far. Before this was kept, someone who'd been through setup had
-// set up the mode they work in, and any mode whose loop card they'd seen.
+// set up the mode they work in, any mode whose loop card they'd seen, and Record mode if
+// they'd chosen a microphone, lead-in or sync for it.
 const MODES = 'scribecue.setupModes';
-export function modesSetUp(stored, { welcomed: was = false, current = '', loops = {} } = {}) {
+export function modesSetUp(stored, { welcomed: was = false, current = '', loops = {}, recorded = false } = {}) {
   if (stored) return stored;
   if (!was) return {};
   const done = {};
-  for (const m of Object.keys(MODE_NAMES)) if (m === current || loops[m]) done[m] = true;
+  for (const m of Object.keys(MODE_NAMES)) if (m === current || loops[m] || (m === 'record' && recorded)) done[m] = true;
   return done;
 }
 const readModes = () => {
   let stored = null, loops = {};
   try { stored = JSON.parse(localStorage.getItem(MODES)); } catch { /* ignore */ }
   try { loops = JSON.parse(localStorage.getItem('scribecue.loops')) || {}; } catch { /* ignore */ }
-  const done = modesSetUp(stored, { welcomed: welcomed(), current: hooks.getMode(), loops });
+  let recorded = false;
+  try { recorded = ['dev', 'lead', 'sync'].some((k) => localStorage.getItem('scribecue.rec.' + k) !== null); } catch { /* ignore */ }
+  const done = modesSetUp(stored, { welcomed: welcomed(), current: hooks.getMode(), loops, recorded });
   // Kept from the first read, before a switch changes the current mode.
   if (!stored && welcomed()) try { localStorage.setItem(MODES, JSON.stringify(done)); } catch { /* ignore */ }
   return done;

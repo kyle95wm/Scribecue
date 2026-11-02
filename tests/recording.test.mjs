@@ -39,8 +39,11 @@ test('peaks are judged against the targets', () => {
   const s = new Float32Array([0, 0.5, -0.25]);
   assert.ok(Math.abs(peakDb(s) + 6.02) < 0.01);
   assert.equal(peakDb(new Float32Array(4)), -Infinity);
-  assert.deepEqual([-5, -7, -10, -14, -20].map(judgePeak), ['loud', 'note', 'good', 'note', 'quiet']);
-  assert.equal(judgePeak(-6), 'note');
+  // the pocket is −12 to −6; quieter is fine; above −6 is too loud
+  assert.deepEqual([-5, -7, -10, -14, -20].map(judgePeak), ['loud', 'good', 'good', 'note', 'quiet']);
+  assert.equal(judgePeak(-6), 'good');
+  assert.equal(judgePeak(-12), 'good');
+  assert.equal(judgePeak(-5.9), 'loud');
   assert.equal(judgePeak(-16), 'note');
 });
 

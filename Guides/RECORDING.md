@@ -56,8 +56,10 @@ Open the video first, so Scribecue can check the narrator has the same copy.
   recording file again to carry on.
 - **Use wired headphones.** You hear the video's sound 30 dB down, to follow the scene.
   You don't hear yourself through Scribecue: use your audio interface for that.
-- **Choose your microphone** under **Microphone, lead-in and sync**. Pick the lead-in
-  there too: 3 to 5 seconds of video before each block.
+- **Follow the setup.** The first time you open a recording file, it helps you pick your
+  microphone, set your [level](#levels) and choose a lead-in: 3 to 5 seconds of video
+  before each block.
+- **Change them later** under **Microphone, lead-in and sync**.
 - **Set your interface to 48 kHz** if you can. Scribecue tells you if it's converting.
 - **Use Chrome, Edge, Firefox or Safari.**
 
@@ -86,14 +88,17 @@ runs past it isn't cut off. It's marked in red until you [trim or move it](#edit
 
 ### Levels
 
-Each take is checked by its loudest moment:
+Aim for each take's loudest moment to land in the pocket: −12 to −6 dBFS. Never go over −6.
 
 | Peak | Means |
 |---|---|
-| −12 to −8 dBFS | On target |
-| −16 to −12, or −8 to −6 dBFS | Fine |
-| Below −16 dBFS | Too quiet: the export warns |
+| −12 to −6 dBFS | In the pocket |
+| −16 to −12 dBFS | Fine, for a quieter delivery |
+| Below −16 dBFS | Very quiet: the export mentions it |
 | Above −6 dBFS | Too loud: retake it, or the export won't go ahead |
+
+**Mic check**, under the video, opens a tall meter with the pocket marked. Read a few
+lines, including your loudest, and set your gain so the peaks land in it.
 
 ### Takes
 

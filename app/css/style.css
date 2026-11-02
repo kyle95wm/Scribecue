@@ -113,11 +113,17 @@ kbd + kbd { margin-left: 2px; }
 .rectakes button { padding: 1px 8px; font-size: 12px; }
 .rectakes .use { color: var(--dim); }
 .rectakes .use[aria-pressed=true] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
-.rectakes .lvl { font: 12px var(--mono); }
-.rectakes .lvl.good { color: var(--ok); }
-.rectakes .lvl.note { color: var(--dim); }
-.rectakes .lvl.quiet { color: var(--warn); }
-.rectakes .lvl.loud, .rectakes .over { color: var(--bad); }
+.rectakes .lvl, .loudest { font: 12px var(--mono); }
+.lvl.good { color: var(--ok); }
+.lvl.note { color: var(--dim); }
+.lvl.quiet { color: var(--warn); }
+.lvl.loud, .rectakes .over { color: var(--bad); }
+/* Meters with the pocket numbered: lying down in setup, standing up in Mic check */
+.wzmeter { display: block; width: 100%; height: 34px; margin: 10px 0 4px; }
+.micdlg { width: min(460px, 92vw); }
+.micbody { display: flex; gap: 16px; align-items: flex-start; }
+.micbody canvas { flex: none; width: 76px; height: 280px; }
+.micbody p:first-child { margin-top: 0; }
 .rectakes:has(.takeedit) { max-height: 200px; }
 .rectakes .takeedit { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 0 8px; }
 .rectakes .takeedit input { width: 72px; }

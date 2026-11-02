@@ -2,6 +2,7 @@
 // exports the chosen ones as one WAV for the mixer. The script is locked (app.js sees to
 // that); this file does the recording. The guide is Guides/RECORDING.md.
 
+import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
 import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, markerLabel, fromRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takesWhere, relinkTakes, moveTakes } from './takestore.js';
@@ -9,7 +10,7 @@ import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takes
 const $ = (id) => document.getElementById(id);
 const VIDEO_DB = -30; // the video's sound while recording, so the scene can still be followed
 const LEAD = [3, 4, 5];
-const LEVEL_WORDS = { good: 'on target', note: 'fine', quiet: 'too quiet', loud: 'too loud: retake it' };
+const LEVEL_WORDS = { good: 'in the pocket', note: 'fine', quiet: 'very quiet', loud: 'too loud: retake it' };
 const get = (k) => { try { return localStorage.getItem('scribecue.rec.' + k); } catch { return null; } };
 const put = (k, v) => { try { if (v == null) localStorage.removeItem('scribecue.rec.' + k); else localStorage.setItem('scribecue.rec.' + k, v); } catch { /* storage blocked */ } };
 
@@ -25,6 +26,7 @@ export function initRecord(h) {
   let state = 'idle';        // idle | arming | lead | rec | saving
   let cap = null;            // { stream, ctx, node, chunks, t0, slot, prevEnd, block, inLatency, punch }
   let level = 0, hold = 0;   // meter: current and held peak, 0…1
+  let loudest = 0;           // the loudest peak since a check started or was reset, 0…1
   let raf = 0, playing = null, warned = new Set();
   let leadSecs = LEAD.includes(+get('lead')) ? +get('lead') : 3;
   let syncMs = get('sync') != null ? +get('sync') : null; // null: use the browser's figure
@@ -501,17 +503,25 @@ export function initRecord(h) {
     const settings = stream.getAudioTracks()[0]?.getSettings?.() || {};
     cap = { stream, ctx, node, chunks: [], inLatency: settings.latency || 0, outLatency: (ctx.outputLatency || 0) };
     node.port.onmessage = (e) => {
-      if (e.data.peak != null) level = Math.max(level, e.data.peak);
+      if (e.data.peak != null) { level = Math.max(level, e.data.peak); loudest = Math.max(loudest, e.data.peak); }
       if (e.data.pcm && cap) cap.chunks.push(e.data.pcm);
       if (e.data.done) cap.finish?.();
     };
     devices();
-    if (settings.sampleRate && settings.sampleRate !== RATE && !warned.has('rate')) {
-      warned.add('rate');
-      h.toast(`Your microphone runs at ${settings.sampleRate} Hz, so Scribecue converts it to 48 kHz. Setting your audio interface to 48 kHz avoids that`);
-    }
+    // What's worth saying about this setup: the sample rate it converts from, if any, and
+    // whether the headphones look like Bluetooth.
     const out = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).find((d) => d.kind === 'audiooutput' && d.deviceId === 'default');
-    if (syncMs == null && looksBluetooth(out?.label, cap.outLatency) && !warned.has('bt')) {
+    return {
+      rate: settings.sampleRate && settings.sampleRate !== RATE ? settings.sampleRate : 0,
+      bluetooth: syncMs == null && looksBluetooth(out?.label, cap.outLatency),
+    };
+  }
+  function warn({ rate, bluetooth }) {
+    if (rate && !warned.has('rate')) {
+      warned.add('rate');
+      h.toast(`Your microphone runs at ${rate} Hz, so Scribecue converts it to 48 kHz. Setting your audio interface to 48 kHz avoids that`);
+    }
+    if (bluetooth && !warned.has('bt')) {
       warned.add('bt');
       h.toast('These headphones look like Bluetooth, which delays sound. Use wired headphones, or set the sync test below');
     }
@@ -538,7 +548,8 @@ export function initRecord(h) {
     }
     stopPlay();
     state = 'arming'; status('Getting the microphone…'); render();
-    try { await arm(); } catch (e) {
+    if (check) stopCheck();
+    try { warn(await arm()); } catch (e) {
       state = 'idle'; disarm(); status(''); render();
       return h.toast(e.name === 'NotAllowedError' ? 'Scribecue needs permission to use the microphone' : `Couldn’t use the microphone: ${e.message}`);
     }
@@ -563,7 +574,7 @@ export function initRecord(h) {
   function loop() {
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(() => {
-      if (!cap) return drawMeter(); // stopped since this frame was asked for
+      if (!cap) return frame(); // stopped since this frame was asked for
       if (state === 'lead' && video.currentTime >= cap.t0) {
         cap.node.port.postMessage('start');
         state = 'rec';
@@ -581,7 +592,7 @@ export function initRecord(h) {
         el.slot.classList.toggle('over', f > 1);
         if (video.ended) { finish(); return; }
       }
-      drawMeter();
+      frame();
       if (state === 'lead' || state === 'rec') loop();
     });
   }
@@ -604,7 +615,7 @@ export function initRecord(h) {
       c.node.port.postMessage('stop');
     });
     disarm();
-    level = 0; drawMeter(); el.fill.style.width = '0'; el.slot.classList.remove('over');
+    level = 0; frame(); el.fill.style.width = '0'; el.slot.classList.remove('over');
     if (samples.length < RATE * 0.3) { state = 'idle'; status(wasRec ? 'Too short to keep: nothing saved' : c.punch ? 'Stopped before the join: nothing saved' : 'Stopped before the block: nothing saved'); render(); return; }
     // The sound reaches the narrator late and reaches Scribecue late: take both off.
     const delay = c.inLatency + (syncMs != null ? syncMs / 1000 : c.outLatency);
@@ -640,23 +651,16 @@ export function initRecord(h) {
   el.go.addEventListener('click', toggle);
   el.punch.addEventListener('click', punch);
 
-  // ---- meter
-  const ctx2 = el.meter.getContext('2d');
   const css = getComputedStyle(document.documentElement), tok = (n) => css.getPropertyValue(n).trim();
-  const C = { ok: tok('--ok'), bad: tok('--bad'), quiet: tok('--faint'), hold: tok('--text') };
-  // The zones behind the bar: the target in the colour for good, too loud in the one for bad.
-  const zone = (c) => `color-mix(in srgb, ${c} 25%, transparent)`;
-  function drawMeter() {
-    const w = el.meter.width, hgt = el.meter.height;
-    ctx2.clearRect(0, 0, w, hgt);
-    const x = (db) => Math.round((Math.max(-48, Math.min(0, db)) + 48) / 48 * w);
-    ctx2.fillStyle = zone(C.ok); ctx2.fillRect(x(-12), 0, x(-8) - x(-12), hgt);
-    ctx2.fillStyle = zone(C.bad); ctx2.fillRect(x(-6), 0, w - x(-6), hgt);
-    const db = level > 0 ? 20 * Math.log10(level) : -48;
-    ctx2.fillStyle = db > -6 ? C.bad : db >= -16 ? C.ok : C.quiet;
-    ctx2.fillRect(0, 3, x(db), hgt - 6);
+
+  // ---- meters: the one under the video, and a check's, while there is one
+  function frame() {
     hold = Math.max(level, hold * 0.97);
-    if (hold > 0) { ctx2.fillStyle = C.hold; ctx2.fillRect(x(20 * Math.log10(hold)), 0, 2, hgt); }
+    drawLevel(el.meter, level, hold);
+    if (check) {
+      drawLevel(check.meter, level, hold, { vertical: check.vertical, scale: true });
+      showLoudest(check.out, loudest);
+    }
     level *= 0.85;
   }
 
@@ -779,6 +783,55 @@ export function initRecord(h) {
     put('hear', on ? null : '0');
     if (on) { wake(); hearing(); } else silence();
   }
+
+  // ---- checking the microphone, recording nothing: in setup, and in Mic check. The
+  // level shows on a meter of its own with the pocket numbered, and the loudest peak in
+  // words on out.
+  let check = null; // { meter, out, vertical, raf }
+  async function startCheck(meter, out = null, vertical = false) {
+    if (state !== 'idle') throw new Error('it’s recording. Stop first, then check it');
+    if (check) return null;
+    check = { meter, out, vertical, raf: 0 };
+    sizeMeter(meter);
+    loudest = 0;
+    let notes;
+    try { notes = await arm(); } catch (e) { check = null; disarm(); throw e; }
+    if (!check) { disarm(); return null; } // stopped while the microphone was coming
+    const draw = () => { frame(); if (check) check.raf = requestAnimationFrame(draw); };
+    draw();
+    return notes;
+  }
+  function stopCheck() {
+    if (!check) return;
+    cancelAnimationFrame(check.raf);
+    const { meter, vertical } = check;
+    check = null;
+    disarm();
+    level = hold = 0;
+    drawLevel(meter, 0, 0, { vertical, scale: true });
+    frame();
+  }
+  const resetLoudest = () => { loudest = 0; hold = 0; };
+
+  // Mic check: a window with the meter standing up, to read a few lines against.
+  const mic = { dlg: $('micDlg'), meter: $('micMeter'), out: $('micLoudest'), note: $('micNote') };
+  async function micCheck() {
+    if (state !== 'idle') return h.toast('Stop recording first, then check your microphone');
+    stopPlay();
+    mic.note.textContent = `Microphone: ${el.dev.selectedOptions[0]?.textContent || 'Default microphone'}. Change it under Microphone, lead-in and sync.`;
+    mic.dlg.showModal();
+    showLoudest(mic.out, 0);
+    try {
+      const got = await startCheck(mic.meter, mic.out, true);
+      if (got?.rate) mic.note.textContent += ` It runs at ${got.rate} Hz: setting your interface to 48 kHz avoids converting.`;
+    } catch (e) {
+      mic.note.textContent = e.name === 'NotAllowedError' ? 'Scribecue needs permission to use the microphone. Allow it in the address bar, then try again.' : `Couldn’t use the microphone: ${e.message}`;
+    }
+  }
+  $('recMic').addEventListener('click', micCheck);
+  $('micReset').addEventListener('click', resetLoudest);
+  $('micClose').addEventListener('click', () => mic.dlg.close());
+  mic.dlg.addEventListener('close', stopCheck);
 
   // ---- sync test: a flash and a beep once a second; raise the number until they agree
   let test = null;
@@ -913,6 +966,12 @@ export function initRecord(h) {
       return true;
     },
     drawTrack,
+    // For setup: hears the microphone on the meter given, until stopped. Resolves to
+    // { rate, bluetooth }, or null if stopped before the microphone came.
+    startCheck, stopCheck, resetLoudest, micCheck,
+    get checking() { return !!check; },
+    stopSyncTest() { if (test) syncTest(); },
+    listDevices: devices,
     refresh: () => reload(),
     get hearing() { return hear; },
     setHearing,
@@ -929,6 +988,7 @@ export function initRecord(h) {
       stopPlay();
       silence(); pb.bufs.clear();
       if (test) syncTest();
+      if (mic.dlg.open) mic.dlg.close();
       h.volume(false);
       rec = null; takes = []; editing = null; pick = null; held = null; peakCache.clear(); menu.hidden = true; render();
     },

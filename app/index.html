@@ -186,6 +186,7 @@
         <div class="recrow">
           <button id="recGo" class="recgo" data-tip="Record the selected block (Enter or R). Press again, or Esc, to stop">● Record</button>
           <button id="recPunch" data-tip="Punch in: pick up the block's take from the playhead, keeping what's before it (Shift+Enter or Shift+R)">Punch in</button>
+          <button id="recMic" data-tip="Mic check: read a few lines and see where your peaks land, to set your gain">Mic check</button>
           <canvas id="recMeter" width="220" height="16" role="img" aria-label="Microphone level. Aim for the green zone"></canvas>
           <div class="recslot" id="recSlot" data-tip="How much of the block's slot is left"><div id="recSlotFill"></div></div>
           <span id="recStatus" role="status"></span>
@@ -471,6 +472,8 @@ docker compose up -d --build</code></pre>
           <span class="dim">Hear your lines read aloud, and check each one fits before the next piece of dialogue.</span></span></label>
       <label class="wzcard"><input type="radio" name="wzMode" value="qc">
         <span><strong>QC review</strong><span class="dim">Listen and leave comments. The package creator decides whether corrections are allowed. Original packaged readings work without installing voices.</span></span></label>
+      <label class="wzcard"><input type="radio" name="wzMode" value="record">
+        <span><strong>Recording narration</strong><span class="dim">Read a finished script into your microphone, block by block, against the video. The writer sends you a recording file.</span></span></label>
       <p class="dim small">Use the mode switch at the top to change tasks at any time.</p>
     </section>
     <section data-step="qc" hidden>
@@ -515,6 +518,25 @@ docker compose up -d --build</code></pre>
       <p class="dim small">When you press <kbd>Esc</kbd> or <kbd>↵</kbd>, the playhead goes back to the block's
         start. <kbd>⇧</kbd><kbd>L</kbd> turns it on or off any time.</p>
     </section>
+    <section data-step="record-mic" hidden>
+      <h2>Your microphone</h2>
+      <p>Choose the microphone you read into, then click <strong>Test</strong>.</p>
+      <div class="recrow" id="wzRecMic"></div>
+      <p>Read a few lines, including your loudest ones. Set your gain so your peaks land in the green pocket, −12 to −6 dBFS. Quieter is fine. Never go over −6.</p>
+      <div class="recrow"><button id="wzRecTest">Test</button><button id="wzRecReset">Reset loudest</button></div>
+      <canvas id="wzRecMeter" class="wzmeter" role="img" aria-label="Microphone level. Aim for the green zone, from −12 to −6 dBFS"></canvas>
+      <p id="wzRecLoudest" class="loudest" role="status"></p>
+      <p id="wzRecNote" class="dim small"></p>
+    </section>
+    <section data-step="record-listen" hidden>
+      <h2>Listening</h2>
+      <p>Use wired headphones. You hear the video's sound quietly, to follow the scene.</p>
+      <p>You don't hear yourself through Scribecue. Use your audio interface for that.</p>
+      <div class="recrow" id="wzRecLead"></div>
+      <p class="dim small">How much of the video plays before each block, so you're ready when it starts.</p>
+      <div class="recrow" id="wzRecSync"></div>
+      <p id="wzRecBt" class="dim small"></p>
+    </section>
     <section data-step="updates" hidden>
       <h2>Updates</h2>
       <p>Scribecue can check GitHub once a day and tell you when a new version is out.</p>
@@ -534,7 +556,7 @@ docker compose up -d --build</code></pre>
         <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
         <dt id="wzEditKey"><kbd>↵</kbd></dt><dd id="wzEditDesc">Create a block at the playhead, or edit the one there</dd>
         <dt id="wzModeKey"></dt><dd id="wzModeDesc"></dd>
-        <dt><kbd><span class="mod"></span>S</kbd></dt><dd>Save your work as a project</dd>
+        <dt id="wzSaveKey"><kbd><span class="mod"></span>S</kbd></dt><dd id="wzSaveDesc">Save your work as a project</dd>
         <dt><kbd>?</kbd></dt><dd>All keyboard shortcuts</dd>
       </dl>
       <p class="dim small">Run this again any time from <strong>Settings</strong> at the top, under General.</p>
@@ -542,6 +564,19 @@ docker compose up -d --build</code></pre>
     <div class="updbtns"><button id="wzBack">Back</button><span class="grow"></span><button id="wzNext" class="hl">Next</button></div>
   </dialog>
 
+  <dialog id="micDlg" class="updbox micdlg" aria-labelledby="micTitle">
+    <h2 id="micTitle">Mic check</h2>
+    <p>Read a few lines, including your loudest ones. Your peaks should land in the pocket, −12 to −6 dBFS. Quieter is fine. Never go over −6.</p>
+    <div class="micbody">
+      <canvas id="micMeter" role="img" aria-label="Microphone level. Aim for the green zone, from −12 to −6 dBFS"></canvas>
+      <div>
+        <p id="micLoudest" class="loudest" role="status"></p>
+        <p class="dim small">The line shows your recent peak. Loudest is the highest since you opened this, or reset it.</p>
+        <p id="micNote" class="dim small"></p>
+      </div>
+    </div>
+    <div class="updbtns"><button id="micReset">Reset loudest</button><span class="grow"></span><button id="micClose" class="hl">Done</button></div>
+  </dialog>
   <dialog id="qcPlaybackDlg" class="updbox" aria-labelledby="qcPlaybackTitle">
     <h2 id="qcPlaybackTitle">QC review</h2>
     <p id="qcPermissionInfo"></p>

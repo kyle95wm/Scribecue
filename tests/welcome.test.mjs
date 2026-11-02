@@ -13,6 +13,8 @@ test('someone new has set up no mode yet', () => {
 test('before this was kept, the mode in use and any whose loop was seen count as set up', () => {
   assert.deepEqual(modesSetUp(null, { welcomed: true, current: 'transcribe' }), { transcribe: true });
   assert.deepEqual(modesSetUp(null, { welcomed: true, current: 'transcribe', loops: { write: true } }), { transcribe: true, write: true });
-  // Record mode has no setup of its own
-  assert.deepEqual(modesSetUp(null, { welcomed: true, current: 'record' }), {});
+  // someone already recording has set up Record mode
+  assert.deepEqual(modesSetUp(null, { welcomed: true, current: 'record' }), { record: true });
+  // and so has someone who chose a microphone, lead-in or sync for it
+  assert.deepEqual(modesSetUp(null, { welcomed: true, current: 'write', recorded: true }), { write: true, record: true });
 });

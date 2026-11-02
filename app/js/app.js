@@ -3020,7 +3020,7 @@ function setMode(m, quiet = false) {
   qcPlayer.stop();
   // A mode used for the first time gets its part of the setup, however it was reached:
   // the mode switch, or a file that opens in it. Read before the mode changes.
-  const fresh = m !== S.mode && m !== 'record' && welcomed() && !modeSetUp(m);
+  const fresh = m !== S.mode && welcomed() && !modeSetUp(m);
   S.mode = m;
   if (qc() && !S.qcSettings) S.qcSettings = readingSettings();
   $('edText').readOnly = $('edStart').readOnly = $('edEnd').readOnly = qcLocked();
@@ -5115,12 +5115,22 @@ initWelcome({
   nameChanged: () => showName(),
   offsets: OFFSETS,
   toast,
+  recording: () => recorder.open,
+  mic: {
+    start: (meter, out) => recorder.startCheck(meter, out),
+    stop: () => recorder.stopCheck(),
+    reset: () => recorder.resetLoudest(),
+    get checking() { return recorder.checking; },
+    devices: () => recorder.listDevices(),
+    stopSync: () => recorder.stopSyncTest(),
+  },
 }, (finished) => {
   // Skipped before answering about updates: ask the usual way instead. The web version
   // updates itself, so there's nothing to ask.
   if (!finished && !HOSTED && updateChoice() === null) setTimeout(openUpdates, 300);
-  // Then the loop for the mode picked, once nothing else is on screen.
-  whenClear(() => maybeShowLoop(S.mode));
+  // Then the loop for the mode picked, once nothing else is on screen. Record mode's is
+  // in the recording guide instead.
+  if (S.mode !== 'record') whenClear(() => maybeShowLoop(S.mode));
 });
 
 // ---------------------------------------------------------------- settings

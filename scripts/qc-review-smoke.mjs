@@ -19,7 +19,7 @@ try {
   await send('Emulation.setCPUThrottlingRate',{rate:6});await send('Emulation.setFocusEmulationEnabled',{enabled:true});
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
   await send('Page.navigate',{url:site});await sleep(1000);
-  await js(`localStorage.clear();localStorage.setItem('scribecue.welcome','1');localStorage.setItem('scribecue.setupModes',JSON.stringify({write:true,transcribe:true,qc:true}));localStorage.setItem('scribecue.updates','0');localStorage.setItem('scribecue.seenVersion','999.0.0');localStorage.setItem('scribecue.mode','qc');localStorage.setItem('scribecue.loops',JSON.stringify({write:true,transcribe:true,qc:true}));localStorage.setItem('scribecue.v1',JSON.stringify({cues:[{start:1,end:2,text:'Initial block'}],dirty:false}));location.reload();true`);
+  await js(`localStorage.clear();localStorage.setItem('scribecue.welcome','1');localStorage.setItem('scribecue.setupModes',JSON.stringify({write:true,transcribe:true,qc:true,record:true}));localStorage.setItem('scribecue.updates','0');localStorage.setItem('scribecue.seenVersion','999.0.0');localStorage.setItem('scribecue.mode','qc');localStorage.setItem('scribecue.loops',JSON.stringify({write:true,transcribe:true,qc:true}));localStorage.setItem('scribecue.v1',JSON.stringify({cues:[{start:1,end:2,text:'Initial block'}],dirty:false}));location.reload();true`);
   await wait(`document.querySelectorAll('#list .row').length===1`);
   await js(`(async()=>{
     const {toProject,newIdentity}=await import('./js/project.js');const {buildReview,readReview,resaveReview}=await import('./js/qc.js');

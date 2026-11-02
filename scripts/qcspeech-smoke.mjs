@@ -41,7 +41,7 @@ try {
     HTMLAnchorElement.prototype.click=function(){if(this.download){window.__downloadName=this.download;window.__download=nativeFetch(this.href).then(r=>r.blob());}else nativeClick.call(this)};
   `});
   await send('Page.navigate',{url:site});await sleep(700);
-  await js(`localStorage.clear();localStorage.setItem('scribecue.welcome','1');localStorage.setItem('scribecue.setupModes',JSON.stringify({write:true,transcribe:true,qc:true}));localStorage.setItem('scribecue.updates','0');localStorage.setItem('scribecue.seenVersion','999.0.0');localStorage.setItem('scribecue.googleTts',JSON.stringify({key:'personal-test-key',voices:[{name:'en-US-Standard-A',languageCodes:['en-US'],ssmlGender:'FEMALE'}]}));location.reload();true`);
+  await js(`localStorage.clear();localStorage.setItem('scribecue.welcome','1');localStorage.setItem('scribecue.setupModes',JSON.stringify({write:true,transcribe:true,qc:true,record:true}));localStorage.setItem('scribecue.updates','0');localStorage.setItem('scribecue.seenVersion','999.0.0');localStorage.setItem('scribecue.googleTts',JSON.stringify({key:'personal-test-key',voices:[{name:'en-US-Standard-A',languageCodes:['en-US'],ssmlGender:'FEMALE'}]}));location.reload();true`);
   await wait(`!!document.getElementById('qcExportStart')`);await sleep(800);
   await js(`(async()=>{
     const {toProject,newIdentity}=await import('./js/project.js');const {buildReview,readReview}=await import('./js/qc.js');const {writeWav}=await import('./js/tts.js');

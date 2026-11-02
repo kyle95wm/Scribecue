@@ -68,7 +68,7 @@ if curl -fs -o /dev/null "http://127.0.0.1:${SCRIBECUE_PORT:-8484}/tts/voices"; 
 else
   echo 'Piper is not running, so the text to speech panel shows browser voices only'
 fi
-"$chrome" --headless=new --mute-audio --remote-debugging-port="$cdp_port" \
+"$chrome" --headless=new --mute-audio --use-fake-device-for-media-stream --remote-debugging-port="$cdp_port" \
   --user-data-dir="$work/profile" --autoplay-policy=no-user-gesture-required --no-first-run \
   about:blank >/dev/null 2>&1 &
 chrome_pid=$!

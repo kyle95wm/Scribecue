@@ -231,12 +231,15 @@ export function peakDb(samples) {
 // A peak for people to read, with a real minus sign.
 export const dbText = (db) => (Number.isFinite(db) ? db.toFixed(1).replace('-', '−') : '−∞') + ' dBFS';
 
-// Judges a take by its peak. 'good' is −12…−8; 'note' is a gentle word either side;
-// 'quiet' (below −16) is flagged; 'loud' (above −6) stops the export.
+// The pocket a take's peak should land in, in dBFS. Quieter is fine for a softer
+// delivery; above it is too loud.
+export const POCKET = [-12, -6];
+// Judges a take by its peak. 'good' is in the pocket; 'note' is below it, which is fine;
+// 'quiet' (below −16) is worth a look; 'loud' (above −6) stops the export.
 export function judgePeak(db) {
-  if (db > -6) return 'loud';
+  if (db > POCKET[1]) return 'loud';
+  if (db >= POCKET[0]) return 'good';
   if (db < -16) return 'quiet';
-  if (db >= -12 && db <= -8) return 'good';
   return 'note';
 }
 
@@ -432,7 +435,7 @@ export function checkExport(blocks, chosen, grace = GRACE) {
     if (!t) { warn.push({ block, why: 'has no take' }); return; }
     const j = judgePeak(t.peak);
     if (j === 'loud') stop.push({ block, why: `peaks at ${dbText(t.peak)}, above −6: retake it quieter` });
-    else if (j === 'quiet') warn.push({ block, why: `is too quiet (${dbText(t.peak)})` });
+    else if (j === 'quiet') warn.push({ block, why: `is very quiet (${dbText(t.peak)}): check it’s meant to be` });
     if (runsOver(t, sl[i])) warn.push({ block, why: 'runs past its slot' });
   });
   return { stop, warn };

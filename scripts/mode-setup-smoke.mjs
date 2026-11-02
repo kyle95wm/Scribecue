@@ -101,8 +101,61 @@ try {
  assert.equal(await open(),false);
  assert.equal((await modes()).qc,true);
 
+
+ // Opening a recording file, never having recorded: Record's setup, with the controls
+ // from under the video lent to it. Chrome runs with a fake microphone.
+ await send('Browser.grantPermissions',{origin:new URL(site).origin,permissions:['audioCapture']});
+ await js(`localStorage.setItem('scribecue.setupModes',JSON.stringify({transcribe:true,write:true,qc:true}));localStorage.setItem('scribecue.mode','write');location.reload();true`);
+ await sleep(1600);
+ await js(`window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.confirm=()=>true;true`);
+ await js(`(async()=>{const R=await import('./js/recording.js');const file=R.toRecordingFile({blocks:[{start:3,end:6,text:'Mara opens the blue door.'}],fps:25});
+  const dt=new DataTransfer();dt.items.add(new File([JSON.stringify(file)],'lights.scribecuerec'));window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));return true})()`);
+ await wait(`document.body.classList.contains('mode-record')`);
+ await js(`document.querySelectorAll('dialog[open]').forEach(d=>{if(d.id!=='welcome')d.close()});true`);
+ await wait(`document.getElementById('welcome').open`);
+ assert.equal(await js(`document.getElementById('wzStep').textContent`),'Setting up Record mode · Step 1 of 3');
+ assert.equal(await js(`document.querySelector('#welcome [data-step=record-mic]').hidden`),false);
+ assert.equal(await js(`!!document.querySelector('#wzRecMic #recDev')`),true);
+ await js(`window.__long=[];new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'});true`);
+ await click('wzRecTest');
+ await wait(`document.getElementById('wzRecTest').textContent==='Stop the test'`);
+ // the loudest peak shows as the fake microphone beeps, against the pocket
+ await wait(`/Loudest: −?[0-9.]+ dBFS, /.test(document.getElementById('wzRecLoudest').textContent)`);
+ assert.match(await js(`document.getElementById('wzRecLoudest').className`),/loudest lvl (good|note|quiet|loud)/);
+ assert.ok(await js(`document.getElementById('wzRecMeter').width>=document.getElementById('wzRecMeter').clientWidth`));
+ const micLong=await js('__long');
+ await click('wzNext');
+ assert.equal(await js(`document.getElementById('wzRecTest').textContent`),'Test');
+ assert.equal(await js(`!!document.querySelector('#wzRecLead #recLead') && !!document.querySelector('#wzRecSync #recTest')`),true);
+ await js(`const l=document.getElementById('recLead');l.value='5';l.dispatchEvent(new Event('change'));true`);
+ assert.equal(await js(`localStorage.getItem('scribecue.rec.lead')`),'5');
+ await click('wzNext');
+ assert.match(await js(`document.getElementById('wzSummary').textContent`),/Lead-in: 5 s/);
+ assert.equal(await js(`document.getElementById('wzSaveKey').hidden`),true);
+ await click('wzNext');
+ assert.equal(await open(),false);
+ await wait(`!!document.querySelector('.recopts #recDev') && !!document.querySelector('.recopts #recLead') && !!document.querySelector('.recopts #recTest')`);
+ assert.equal((await modes()).record,true);
+ await sleep(1500);
+ assert.equal(await js(`document.getElementById('tour').hidden`),true);
+ // Mic check, in its own window: the meter standing up, and the microphone let go when it closes.
+ await js(`window.__long=[];true`);
+ await click('recMic');
+ await wait(`document.getElementById('micDlg').open`);
+ await wait(`/Loudest: −?[0-9.]+ dBFS/.test(document.getElementById('micLoudest').textContent)`);
+ assert.ok(await js(`(()=>{const c=document.getElementById('micMeter');return c.height>c.width*2})()`));
+ assert.match(await js(`document.getElementById('micNote').textContent`),/^Microphone: /);
+ const checkLong=await js('__long');
+ await click('micClose');
+ await wait(`!document.getElementById('micDlg').open`);
+ await sleep(400);
+ const after=await js(`document.getElementById('micLoudest').textContent`);await sleep(600);
+ assert.equal(await js(`document.getElementById('micLoudest').textContent`),after); // nothing listening now
+ console.log(`Mic check at 6×: longest task ${Math.round(Math.max(0,...checkLong))} ms (${checkLong.length} over 50 ms)`);
+ console.log(`Microphone test at 6×: longest task ${Math.round(Math.max(0,...micLong))} ms (${micLong.length} over 50 ms)`);
+
  assert.deepEqual(await js('__errors'),[]);
  const long=await js('__long');
- console.log(`Setup opened ${opened} ms after the click; longest task, after opening a package, ${Math.round(Math.max(0,...long))} ms (${long.length} over 50 ms)`);
+ console.log(`Setup opened ${opened} ms after the click; longest task through Record’s setup, ${Math.round(Math.max(0,...long))} ms (${long.length} over 50 ms)`);
  console.log('Mode setup smoke passed');
 } finally { ws.close(); }
