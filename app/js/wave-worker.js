@@ -13,6 +13,7 @@
 //                                                   { type: 'audio', blob, mime, start } or { type: 'audio', reason } (with mux)
 //                                                   { type: 'done' }
 //      { cmd: 'clip', file, track, from, to }    -> { type: 'clip', audio } (Float32Array, 16 kHz mono)
+//      { cmd: 'detail', file, track, from, to, rate } -> { type: 'detail', from, rate, data } (peaks from `from`)
 //      any can end with { type: 'unsupported' | 'error', message }
 
 const WINDOW = 8 << 20; // bytes read from disk at a time
@@ -25,12 +26,13 @@ let videoFps = 0; // the video's frame rate, found while probing
 let videoCodec = ''; // and its codec, as the file names it (avc1, V_VP9…)
 
 self.onmessage = async ({ data: job }) => {
-  const clip = job.cmd === 'clip';
-  const peaks = clip ? new Clip(job.from, job.to) : new Peaks(job.rate || 200);
+  const detail = job.cmd === 'detail', clip = job.cmd === 'clip' || detail;
+  const peaks = detail ? new Detail(job.from, job.to, job.rate) : job.cmd === 'clip' ? new Clip(job.from, job.to) : new Peaks(job.rate || 200);
   const ticker = job.cmd === 'build' ? setInterval(() => peaks.post(), 250) : 0;
   try {
     let out;
     try { out = await parseMedia(job.file, peaks, job); } catch (err) { if (!(clip && err instanceof Enough)) throw err; }
+    if (detail) { closeDecoders(); postMessage({ type: 'detail', from: job.from, rate: job.rate, data: peaks.out }, [peaks.out.buffer]); return; }
     if (clip) { closeDecoders(); postMessage({ type: 'clip', audio: peaks.out }, [peaks.out.buffer]); return; }
     if (job.cmd === 'probe') { postMessage({ type: 'tracks', tracks: out, fps: videoFps, video: videoCodec }); return; }
     peaks.progress = 1;
@@ -173,6 +175,39 @@ class Clip {
   }
 
   post() {}
+}
+
+// A close-up waveform: peaks at a fine rate between two times, for the timeline zoomed in
+// past the built waveform's 200 a second. It reads like a clip, so it stays quick far into
+// a long file; out[k] is the loudest sample in from + k/rate.
+class Detail extends Clip {
+  constructor(from, to, rate) {
+    super(0, 0);
+    this.from = from;
+    this.to = to;
+    this.rate = rate;
+    this.out = new Float32Array(Math.max(1, Math.ceil((to - from) * rate)));
+  }
+
+  add(t, planes, frames, sampleRate) {
+    t += this.shift;
+    if (this.cursor !== null && (t < this.cursor || t - this.cursor < 0.25)) t = this.cursor; // as in Peaks
+    this.cursor = t + frames / sampleRate;
+    const n = this.out.length, rate = this.rate;
+    for (let j = 0; j < frames;) {
+      const bin = Math.floor((t + j / sampleRate - this.from) * rate);
+      let end = Math.ceil(((bin + 1) / rate + this.from - t) * sampleRate);
+      if (end <= j) end = j + 1;
+      if (end > frames) end = frames;
+      if (bin >= 0 && bin < n) {
+        let m = this.out[bin];
+        for (const p of planes) for (let k = j; k < end; k++) { const v = p[k]; if (v > m) m = v; else if (-v > m) m = -v; }
+        this.out[bin] = m;
+      }
+      j = end;
+    }
+    if (t > this.to + 0.5) throw new Enough();
+  }
 }
 
 // ---------------------------------------------------------------- sample conversion
@@ -765,8 +800,14 @@ async function mp4(file, peaks, job) {
     const perChunk = moov.getUint32(stsc.start + 12 + run * 12);
     const n = Math.min(perChunk, count - sample);
     const off = chunkAt(c);
-    // a clip skips chunks well before it without reading them (chunks are short)
-    if (peaks.skip?.(dts / timescale + 2)) { advance(n); sample += n; continue; }
+    // a clip skips chunks that end before it without reading them (audio-only files can
+    // have chunks minutes long, so it's their end that counts)
+    if (peaks.skip) {
+      const at = [sttsI, sttsLeft, delta, dts];
+      advance(n);
+      if (peaks.skip(dts / timescale)) { sample += n; continue; }
+      [sttsI, sttsLeft, delta, dts] = at;
+    }
     if (pcm) {
       const data = await r.view(off, n * bytesPerFrame, 0);
       await sink.decode(data, dts / timescale);
@@ -861,7 +902,11 @@ async function openSink(info, peaks) {
   const sink = await codecSink(info, peaks);
   if (!(peaks instanceof Clip)) return sink;
   return {
-    async decode(data, t) { peaks.past(t); if (!peaks.skip(t)) await sink.decode(data, t); },
+    async decode(data, t) {
+      // Past the clip: the decoder still holds audio from before it, so let it finish first.
+      try { peaks.past(t); } catch (err) { await sink.finish().catch(() => {}); throw err; }
+      if (!peaks.skip(t)) await sink.decode(data, t);
+    },
     finish: () => sink.finish(),
   };
 }

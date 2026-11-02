@@ -116,7 +116,11 @@ across empty space to draw a new block.
 | Search the blocks | `/` |
 
 You can also click the timeline, or the bar under the video, to jump anywhere. Scroll the
-timeline to pan, and `Ctrl/Cmd`+scroll or pinch to zoom.
+timeline to pan.
+
+To zoom, use − and + at the top right of the timeline, `Ctrl/Cmd`+scroll, or pinch.
+**Fit** shows the whole programme. Zoomed right in, the waveform shows each sound
+sharply, down to a few milliseconds.
 
 **Return to start**, under **Settings → General**, puts the playhead back where you started
 playing when you stop, to hear a part again. Move it to start somewhere else. It's off at

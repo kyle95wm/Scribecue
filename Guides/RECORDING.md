@@ -85,6 +85,7 @@ The writer's notes for a block, such as how to say a name, show above its text.
 | V | Hear the block read by text to speech, as a guide |
 | P | Go to the next [pickup](#pickups) |
 | A | Switch to the block's [alt](#alts), or back |
+| Z | [Zoom to the block's take](#editing-a-take), or back |
 | Space | Play or pause |
 | Alt+Shift+Left / Right | Previous or next block |
 
@@ -131,6 +132,10 @@ take is kept, so **Use** brings it back.
 
 The picked takes show as clips on the timeline, in a track under the video's waveform.
 Each block's slot is shaded green. Any part of a take past its slot is red.
+
+To place a take precisely, press Z, or click **Take** at the top right of the timeline. The
+block's slot and take fill the timeline. Press Z again to zoom back. Zoomed in, the take's
+waveform and the video's are sharp enough to line up single sounds.
 
 | To | Do |
 |---|---|

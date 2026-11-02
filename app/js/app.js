@@ -344,6 +344,7 @@ function revealRange(a, b) {
   setView(b - a > vis * 0.8 ? a - vis * 0.1 : (a + b) / 2 - vis / 2);
 }
 function zoom(f, anchorT) {
+  takeZoom = null;
   const t = anchorT ?? (now() >= S.view && now() <= S.view + visSec() ? now() : S.view + visSec() / 2);
   const x = (t - S.view) * S.pps;
   S.pps = clamp(S.pps * f, minPps(), MAX_PPS);
@@ -354,9 +355,37 @@ function zoom(f, anchorT) {
 function fitAll() {
   S.pps = clamp(boxW(tl) / duration(), 0.5, MAX_PPS);
   S.view = 0;
+  takeZoom = null;
   tlDirty = true;
   updateInd();
 }
+// Zoom to take (Z, Record mode): the selected block's slot and take fill the timeline, for
+// placing it precisely; again goes back to the zoom from before. takeZoom: { id, pps, view }.
+let takeZoom = null;
+function zoomToTake() {
+  const c = selCue();
+  if (takeZoom && (!c || takeZoom.id === c.id)) {
+    ({ pps: S.pps } = takeZoom);
+    S.view = clampView(takeZoom.view);
+    takeZoom = null;
+  } else {
+    if (!c) return toast('Select a block to zoom to its take');
+    const back = takeZoom || { pps: S.pps, view: S.view };
+    const { start, end } = recorder.span(selIdx());
+    const pad = Math.max(0.15, (end - start) * 0.08);
+    S.pps = clamp(boxW(tl) / (end - start + pad * 2), minPps(), MAX_PPS);
+    S.view = clampView(start - pad);
+    takeZoom = { id: c.id, pps: back.pps, view: back.view };
+  }
+  tlDirty = true;
+  updateInd();
+}
+$('tlZoom').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  b.blur(); // keep the keys for the timeline
+  ({ in: () => zoom(1.5), out: () => zoom(1 / 1.5), fit: fitAll, take: zoomToTake })[b.dataset.zoom]();
+});
 function followPlayhead(t) {
   const vis = visSec();
   if (t > S.view + vis * 0.92 || t < S.view) setView(t - vis * 0.08);
@@ -1476,9 +1505,21 @@ function rulerLabel(t, maj) {
   return (h ? `${h}:${String(m).padStart(2, '0')}` : `${m}`) + ':' + ss;
 }
 
+// How much of the programme the timeline shows, for the zoom controls: "0.85 s", "12.0 s", "2:30 min".
+function spanLabel(secs) {
+  if (secs < 10) return `${secs.toFixed(2)} s`;
+  if (secs < 60) return `${secs.toFixed(1)} s`;
+  const m = Math.floor(secs / 60), s = Math.round(secs % 60);
+  return s === 60 ? `${m + 1}:00 min` : `${m}:${String(s).padStart(2, '0')} min`;
+}
+const zoomEl = { span: $('tlZoomSpan'), in: $('tlZoom').querySelector('[data-zoom=in]'), out: $('tlZoom').querySelector('[data-zoom=out]'), take: $('tlZoom').querySelector('[data-zoom=take]') };
 function drawTimeline() {
   tlDirty = false;
   const pps = S.pps, t0 = S.view;
+  zoomEl.span.textContent = spanLabel(visSec());
+  zoomEl.in.disabled = pps >= MAX_PPS - 1e-6;
+  zoomEl.out.disabled = pps <= minPps() + 1e-6;
+  zoomEl.take.setAttribute('aria-pressed', String(!!takeZoom));
   const [maj, min] = pickTicks();
   const ratio = Math.round(maj / min);
 
@@ -1529,8 +1570,21 @@ function drawTimeline() {
   wc.fillRect(0, Math.round(mid), ww, 1);
   if (S.peaks && S.peakMax > 0) {
     const P = S.peaks, len = S.peakLen, amp = wh / 2 - 4, inv = 1 / S.peakMax;
+    // Zoomed in past the built waveform, a close-up of the stretch on screen is read in a
+    // worker, and drawn where it covers; the built waveform fills in until it's there.
+    if (pps > CLOSE_AT) wantCloseUp(t0, t0 + ww / pps);
+    const D = pps > CLOSE_AT && closeUp?.file === S.videoFile && closeUp.track === S.track ? closeUp : null;
     wc.fillStyle = C.wave;
     for (let x = 0; x < ww; x++) {
+      if (D) {
+        const a = Math.floor((t0 + x / pps - D.from) * CLOSE_RATE), b = Math.max(a + 1, Math.floor((t0 + (x + 1) / pps - D.from) * CLOSE_RATE));
+        if (a >= 0 && b <= D.data.length) {
+          let m = 0;
+          for (let i = a; i < b; i++) if (D.data[i] > m) m = D.data[i];
+          if (m) { const h = Math.max(0.5, Math.pow(Math.min(1, m * inv), 0.7) * amp); wc.fillRect(x, mid - h, 1, h * 2); }
+          continue;
+        }
+      }
       let i0 = Math.floor((t0 + x / pps) * PEAK_RATE);
       let i1 = Math.max(i0 + 1, Math.floor((t0 + (x + 1) / pps) * PEAK_RATE));
       if (i1 <= 0 || i0 >= len) continue;
@@ -4477,9 +4531,40 @@ altAudio.addEventListener('error', () => {
 let waveWorker = null;
 const LEGACY_LIMIT = 2e9;
 
+// The close-up waveform, for zooming in past PEAK_RATE: { file, track, from, data }, at
+// CLOSE_RATE a second from `from`. Only the stretch on screen and a screen either side is
+// read, once zooming and scrolling stop, so a long film never has to be read again.
+const CLOSE_RATE = 2000, CLOSE_AT = PEAK_RATE * 1.5;
+let closeUp = null, closeWorker = null, closeWant = null, closeTimer = 0, closeFailed = null;
+function wantCloseUp(t0, t1) {
+  const file = S.videoFile, track = S.track;
+  const covers = (c) => c && c.file === file && c.track === track && c.from <= Math.max(0, t0) && c.to >= Math.min(duration(), t1);
+  if (!file || closeFailed === file || covers(closeUp) || covers(closeWant)) return;
+  clearTimeout(closeTimer);
+  closeTimer = setTimeout(() => {
+    const span = t1 - t0, from = Math.max(0, t0 - span), to = Math.min(duration(), t1 + span);
+    closeWorker?.terminate();
+    try { closeWorker = new Worker('js/wave-worker.js'); } catch { closeFailed = file; return; }
+    const w = closeWorker;
+    closeWant = { file, track, from, to };
+    const done = () => { w.terminate(); if (closeWorker === w) { closeWorker = null; closeWant = null; } };
+    w.onmessage = ({ data: m }) => {
+      if (m.type === 'peaks' || m.type === 'progress') return;
+      if (m.type === 'detail' && closeWorker === w) { closeUp = { file, track, from, to, data: m.data }; tlDirty = true; }
+      else if (m.type !== 'detail') closeFailed = file; // the built waveform stays
+      done();
+    };
+    w.onerror = (e) => { e.preventDefault(); closeFailed = file; done(); };
+    w.postMessage({ cmd: 'detail', file, track, from, to, rate: CLOSE_RATE });
+  }, 250);
+}
+
 function resetWaveform() {
   waveWorker?.terminate();
   waveWorker = null;
+  closeWorker?.terminate();
+  clearTimeout(closeTimer);
+  closeWorker = closeWant = closeUp = closeFailed = null;
   S.peaks = null;
   S.peakLen = 0;
   S.peakMax = 0;
@@ -4960,6 +5045,7 @@ document.addEventListener('keydown', (e) => {
     if (!e.altKey && e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.punch(); return; }
     if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyP') { e.preventDefault(); recorder.nextPickup(); return; }
     if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyA') { e.preventDefault(); recorder.toggleAlt(); return; }
+    if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyZ') { e.preventDefault(); zoomToTake(); return; }
     if (e.key === '[' || e.key === ']') { e.preventDefault(); return; }
   }
   // [ ] by the character typed, since some layouts need ⌥ or AltGr for them.

@@ -218,6 +218,7 @@ export function initRecord(h) {
       takes = takes.map((t) => (by.has(t.id) ? { ...t, ...by.get(t.id) } : t));
     }
     for (const id of peakCache.keys()) if (!takeOf(id)) peakCache.delete(id);
+    for (const id of fineCache.keys()) if (!takeOf(id)) fineCache.delete(id);
     if (pick && !takeOf(pick.id)) pick = null;
     render();
   }
@@ -336,20 +337,28 @@ export function initRecord(h) {
   const SHOW_WAVE = 12;      // pixels per second, at least, to draw takes' waveforms
   const track = $('takeTrack'), menu = $('clipMenu');
   const peakCache = new Map(); // take id → Float32Array, PR a second; null if unreadable
-  const peakWant = new Set();  // takes on screen whose waveform isn't read yet
+  // Zoomed in past PR, takes on screen get a close-up at FINE a second, for placing them
+  // precisely. Only the last few are kept: they're ten times the size.
+  const FINE = 2000, FINE_KEEP = 16;
+  const fineCache = new Map(); // take id → Float32Array, FINE a second
+  const peakWant = new Map();  // takes on screen whose waveform isn't read yet → whether close up
   let peakBusy = false;
   let view = { t0: 0, pps: 100 }; // as last drawn
   let tdrag = null;          // { t, k, mode, x0, e0, e, moved, snapped }
   // One take at a time, and only those on screen, so a long film's takes aren't all read.
   function loadPeaks() {
     if (peakBusy) return;
-    const id = peakWant.values().next().value, t = id && takeOf(id);
+    const [id, fine] = peakWant.entries().next().value || [], t = id && takeOf(id);
     if (!t) return;
     peakWant.delete(id);
     peakBusy = true;
     takeAudio(t).then((w) => w.arrayBuffer()).then((b) => {
-      const pcm = from24(new Uint8Array(b).subarray(WAV24_HEADER));
-      peakCache.set(id, wavePeaks(pcm, Math.max(1, Math.round(pcm.length / RATE * PR))));
+      const pcm = from24(new Uint8Array(b).subarray(WAV24_HEADER)), secs = pcm.length / RATE;
+      if (!peakCache.has(id)) peakCache.set(id, wavePeaks(pcm, Math.max(1, Math.round(secs * PR))));
+      if (fine) {
+        fineCache.set(id, wavePeaks(pcm, Math.max(1, Math.round(secs * FINE))));
+        for (const k of fineCache.keys()) if (fineCache.size > FINE_KEEP) fineCache.delete(k);
+      }
     }, () => peakCache.set(id, null)).finally(() => { peakBusy = false; h.redraw(); });
   }
   let TK = null;
@@ -375,9 +384,10 @@ export function initRecord(h) {
         g.fillRect(x(slot.end) - 1, 0, 2, H);
       }
       if (!t || whole.start > t1 || whole.start + whole.duration < t0) return;
-      const wave = pps >= SHOW_WAVE;
-      if (wave && !peakCache.has(t.id)) peakWant.add(t.id);
-      const pk = wave ? peakCache.get(t.id) : null, on = i === sel, ps = pieces(t);
+      const wave = pps >= SHOW_WAVE, fine = pps > PR && peakCache.get(t.id) !== null;
+      if (wave && !peakCache.has(t.id) || fine && !fineCache.has(t.id)) peakWant.set(t.id, fine);
+      const close = fine && fineCache.get(t.id), rate = close ? FINE : PR;
+      const pk = close || (wave ? peakCache.get(t.id) : null), on = i === sel, ps = pieces(t);
       const n = blockTakes(i, isAlt(t)).findIndex((q) => q.id === t.id) + 1, word = isAlt(t) ? 'Alt' : 'Take';
       ps.forEach((p, j) => {
         const a = x(p.start), z = x(p.start + p.duration);
@@ -398,7 +408,7 @@ export function initRecord(h) {
           let last = '';
           for (let px = from; px < to; px++) {
             const s = t0 + px / pps, off = p.head + s - p.start;
-            const i0 = Math.max(0, Math.floor(off * PR)), i1 = Math.min(pk.length, Math.max(i0 + 1, Math.floor((off + 1 / pps) * PR)));
+            const i0 = Math.max(0, Math.floor(off * rate)), i1 = Math.min(pk.length, Math.max(i0 + 1, Math.floor((off + 1 / pps) * rate)));
             let m = 0;
             for (let k = i0; k < i1; k++) if (pk[k] > m) m = pk[k];
             const fill = s > slot.end ? TK.bad : on ? TK.accent : TK.dim;
@@ -1059,6 +1069,12 @@ export function initRecord(h) {
     altText: (i) => (rec && h.blocks()[i] ? altText(i) : ''),
     setAltText,
     altWording: (i) => (rec ? altWording(i) : null),
+    // Block i's slot and its shown take, together, for Zoom to take (Z).
+    span(i) {
+      const s = sl()[i], t = rec && s && shownFor(i), p = t && placed(t);
+      if (!s) return { start: 0, end: 1 };
+      return p ? { start: Math.min(s.start, p.start), end: Math.max(s.end, p.start + p.duration) } : { start: s.start, end: s.end };
+    },
     // Splits the selected block's take at the playhead (see keyTake): false if no block is selected.
     splitTake() {
       if (!rec || state !== 'idle' || h.selIdx() < 0) return false;
@@ -1100,7 +1116,7 @@ export function initRecord(h) {
       if (test) syncTest();
       if (mic.dlg.open) mic.dlg.close();
       h.volume(false);
-      rec = null; takes = []; editing = null; pick = null; held = null; peakCache.clear(); menu.hidden = true; render();
+      rec = null; takes = []; editing = null; pick = null; held = null; peakCache.clear(); fineCache.clear(); menu.hidden = true; render();
     },
   };
 }
