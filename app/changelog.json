@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.74.0",
+  "date": "2026-11-01",
+  "notes": "## New: choose which QC changes to keep\n\n- Returned QC reviews no longer change your script without asking. Each block change goes to a new **Pending review** tab above the script.\n- Accept (✓) or reject (✗) each change. The timeline outlines where the reviewer’s version would go.\n- Edit the reviewer’s wording, start or end before accepting.\n- Comments still come in by themselves."
+ },
+ {
   "version": "0.73.5",
   "date": "2026-11-01",
   "notes": "## Fixes\n\n- Splitting a block keeps its own voice, volume, programme dip and speed in both halves. Before, the second half read in the project’s voice.\n- When a subtitle file has a block whose times can’t be read, its Scribecue settings no longer move to the next block."
