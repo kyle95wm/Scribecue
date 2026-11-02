@@ -309,6 +309,14 @@ export async function unpackSession(dir, files, progress = () => {}) {
   return theirs;
 }
 
+// Deletes the session kept in the browser under key, once it's been moved to a folder.
+export async function forgetBrowserFolder(key) {
+  try {
+    const root = await (await navigator.storage.getDirectory()).getDirectoryHandle(SESSIONS);
+    await root.removeEntry(key, { recursive: true });
+  } catch (e) { if (!NOT_FOUND(e)) throw e; }
+}
+
 // Whether a page can keep a session in the browser's own folder: it needs to write there.
 export const canKeepInBrowser = (w = globalThis) => typeof w.navigator?.storage?.getDirectory === 'function'
   && typeof w.FileSystemFileHandle?.prototype?.createWritable === 'function';

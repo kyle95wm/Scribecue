@@ -7,7 +7,7 @@ import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, 
 import { storeZip } from './zip.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takesWhere, relinkTakes, moveTakes, openSession, useSession, currentSession,
-  rememberedSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser, sessionFolder } from './takestore.js';
+  rememberedSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser, sessionFolder, unpackSession, forgetBrowserFolder } from './takestore.js';
 import { SESSION_EXT } from './session.js';
 
 const $ = (id) => document.getElementById(id);
@@ -101,10 +101,13 @@ export function initRecord(h) {
       b.disabled = busy;
     }
     $('recLinkRow').hidden = !rec?.project;
+    $('recMoveRow').hidden = !rec || keep !== 'ready' || currentSession()?.where !== 'browser' || !canUseFolders();
+    $('recMove').disabled = busy;
     const sn = currentSession()?.name;
     el.count.dataset.tip = where === 'folder' ? `Takes are kept in ${sn}, a folder you can copy to another computer`
       : where === 'docker' ? 'Takes are kept in Docker, on this computer'
-      : currentSession() ? 'Takes are kept in this browser. Export a session package to move them to another computer, or before clearing its data'
+      : currentSession() ? (canUseFolders() ? 'Takes are kept in this browser. Move them to a folder, under Microphone, lead-in and sync, to copy them to another computer'
+        : 'Takes are kept in this browser. Export a session package to move them to another computer, or before clearing its data')
       : 'Takes are kept in this browser. Clearing its data for Scribecue loses them';
     el.where.hidden = !rec || (keep !== 'choose' && keep !== 'paused');
     el.where.textContent = keep === 'paused' ? `Resume in ${paused?.name}` : 'Choose where to keep takes';
@@ -838,6 +841,34 @@ export function initRecord(h) {
     try { p = await paused.requestPermission({ mode: 'readwrite' }); } catch { /* gone */ }
     if (p === 'granted') return start(paused, 'folder');
     h.toast(`Scribecue can’t keep takes in ${paused.name} without your permission`);
+  });
+
+  // Moves a session kept in the browser to a folder the narrator chooses. The browser's copy
+  // is deleted only once the folder's session has opened with every take.
+  $('recMove').addEventListener('click', async () => {
+    const s = currentSession(), r = rec;
+    if (!r || !s || s.where !== 'browser' || state !== 'idle' || keep !== 'ready') return;
+    let dir;
+    try { dir = await window.showDirectoryPicker({ id: 'scribecue-session', mode: 'readwrite', startIn: 'documents' }); } catch { return; }
+    stopPlay(); silence();
+    keep = 'moving'; render();
+    let moved = null;
+    try {
+      dir = await sessionFolder(dir, `${h.baseName() || 'Recording'} session`);
+      const files = await s.files(), n = files.length - 1;
+      await unpackSession(dir, files, (done, total) => status(`Moving takes to ${dir.name}: ${Math.round((done / total) * 100)}%…`));
+      moved = await openSession(dir, { key: r.id, recording: raw, where: 'folder', app: h.app });
+      if ((await moved.list(r.id)).length < n) throw new Error('not every take arrived');
+    } catch (e) {
+      if (rec === r) { keep = 'ready'; status(''); render(); }
+      return h.toast(`Couldn’t move the takes to ${dir.name}: ${e.message}. They’re still in this browser`);
+    }
+    await rememberSession(r.id, dir);
+    try { await forgetBrowserFolder(r.id); } catch { /* the folder has them: the browser's copy can be cleared in Settings */ }
+    if (rec !== r) return;
+    useSession(moved); where = 'folder'; keep = 'ready'; status('');
+    await reload();
+    h.toast(`Moved the takes to ${dir.name}. New takes are saved there too`);
   });
 
   // The session as one file, to move it to another computer: a zip of its folder.

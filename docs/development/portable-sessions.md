@@ -4,8 +4,8 @@ The goal: a narrator can copy their work to another computer and open it there, 
 every take and alt. Nothing they need stays in the browser.
 
 Built: session folders and browser sessions (`session.js`, `takestore.js`), moving older
-takes in, Zip64, and session packages. Not yet: moving a browser session into a folder,
-and removing the takes container. `scripts/session-smoke.mjs` checks it in Chrome.
+takes in, Zip64, session packages, and moving a browser session into a folder. Not yet:
+removing the takes container. `scripts/session-smoke.mjs` checks it in Chrome.
 
 ## Where things are now
 

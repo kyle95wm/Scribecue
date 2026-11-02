@@ -311,6 +311,8 @@ takes uses about 8.6 MB.
   inside it.
 - **After a reload,** the browser asks again before Scribecue may use the folder. Click
   **Resume in** and the folder's name, under the video.
+- **Chose the browser?** Click **Move takes to a folder…** under **Microphone, lead-in and
+  sync**. New takes are saved there too.
 - **New versions** of the recording file use the same folder.
 - **Takes from earlier versions** of Scribecue, in the browser or in Docker, move into the
   folder you choose.

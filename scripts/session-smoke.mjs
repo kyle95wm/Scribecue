@@ -98,6 +98,28 @@ try {
  assert.deepEqual(await sessionTakes('picked-2'),{takes:[{block:0,chosen:true},{block:1,chosen:true}],files:2});
  assert.deepEqual(await js('__errors'),[]);
 
+ // A session kept in the browser moves to a folder: 20 minutes of takes, at 6× slowdown.
+ const file2=await js(`(async()=>{const R=await import('./js/recording.js');return JSON.parse(JSON.stringify(R.toRecordingFile({blocks:${JSON.stringify(blocks)},fps:25,project:'sessiontest00002',version:1})))})()`);
+ await js(`(()=>{const dt=new DataTransfer();dt.items.add(new File([${JSON.stringify(JSON.stringify(file2))}],'rain.scribecuerec'));window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));return 1})()`);
+ await wait(`document.getElementById('recSessionDlg').open`);
+ await js(`document.getElementById('recSessionBrowser').click();true`);
+ await wait(`!document.getElementById('recMoveRow').hidden`);
+ await send('Emulation.setCPUThrottlingRate',{rate:1});
+ await js(`(async()=>{const T=await import('./js/takestore.js'),B=await import('./js/bwf.js'),R=await import('./js/recording.js');const pcm=new Uint8Array(60*48000*3).map((_,i)=>(i*13)&255);const rec=R.takesKey(R.fromRecordingFile(${JSON.stringify(file2)}));
+  for(let i=0;i<20;i++)await T.saveTake({id:crypto.randomUUID(),rec,block:i%2,start:4+i%2*8,duration:60,peak:-12,made:Date.now()+i,wav:B.wav24(pcm)},true);
+  return 1})()`);
+ await send('Emulation.setCPUThrottlingRate',{rate:6});
+ await longest();
+ const m0=Date.now();
+ await js(`document.getElementById('recMove').click();true`);
+ await wait(`/Moved the takes to picked-3/.test(document.getElementById('toast').textContent)`);
+ const moveMs=Date.now()-m0, moveLong=await longest();
+ assert.equal((await sessionTakes('picked-3')).files,20);
+ assert.equal(await js(`(async()=>{try{await (await (await navigator.storage.getDirectory()).getDirectoryHandle('sessions')).getDirectoryHandle('sessiontest00002-0');return true}catch{return false}})()`),false,'the browser’s copy is gone');
+ assert.equal(await js(`document.getElementById('recMoveRow').hidden`),true);
+ assert.match(await js(`document.getElementById('recCount').dataset.tip`),/kept in picked-3/);
+ assert.deepEqual(await js('__errors'),[]);
+
  // A large session: takes of a minute each, saved and packaged at 6× slowdown.
  const minutes=+bigMinutes;
  await send('Emulation.setCPUThrottlingRate',{rate:1});
@@ -123,6 +145,6 @@ try {
  const bigLong=await longest();
  assert.equal(big.files,minutes+1);
  assert.deepEqual(await js('__errors'),[]);
- console.log(JSON.stringify({ saveTakeMs: saveMs, whileRecordingLongTasks: recLong, saveMinuteTakeMs: one, minuteTakeLongTasks: oneLong, bigPackage: big, bigPackageLongTasks: bigLong }));
+ console.log(JSON.stringify({ moveTwentyMinutesMs: moveMs, moveLongTasks: moveLong, saveTakeMs: saveMs, whileRecordingLongTasks: recLong, saveMinuteTakeMs: one, minuteTakeLongTasks: oneLong, bigPackage: big, bigPackageLongTasks: bigLong }));
  console.log('Session checks passed');
 } finally { await send('Emulation.setCPUThrottlingRate',{rate:1}).catch(()=>{}); ws.close(); }
