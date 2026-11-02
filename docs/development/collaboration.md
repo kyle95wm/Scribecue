@@ -19,10 +19,16 @@ a combined QC package. There is no separate project-copy interface or file type.
   still matches. Save that project too. The original exported package can also serve
   as the source for comparison.
 - **QC under the video → Compare returned review** compares blocks and comments against
-  that round's starting point. Independent changes combine. Same-block edits and deletion
-  versus editing need a choice. Block comments merge separately from script corrections,
-  so a returned comment cannot revert an author’s independent text or timing change.
-  Simultaneous changes to the same comment list still need an explicit choice.
+  that round's starting point. Returned comments combine automatically. Every block the
+  reviewer changed, added or removed, and every conflict, is listed in the Pending review
+  tab (`qcpending.js`) for an explicit accept or reject. An accepted change can carry the
+  user's edits to its wording and times (`edit` on the resolution). Block comments merge
+  separately from script corrections, so a returned comment cannot revert an author’s
+  independent text or timing change. Simultaneous changes to the same comment list still
+  need an explicit choice.
+- Choices are applied together on accept, by merging again against the current project.
+  Blocks edited locally while the list was open come back as conflicts. Pending choices
+  are kept in memory only.
 - Returned reading metadata and permission must match the locally saved baseline.
   Every original clip is hashed again, one at a time, before using its audio. Changed
   readings, changed permissions and script changes in comments-only returns are refused.
@@ -48,7 +54,7 @@ a combined QC package. There is no separate project-copy interface or file type.
 - Package-to-package comparisons retain the original permission and save a QC package.
   QC manifests omit author audio references. Original audio uses Blob slices, not full
   film decoding. The author path never promotes the reviewer's package permission.
-- Cancelled or failed writes keep the live project and conflict decisions. Generation
+- Cancelled or failed writes keep the live project and Pending review choices. Generation
   checks before saving and after stopping jobs prevent overwriting newer work. Download-only
   browsers keep current work open and ask the user to reopen the downloaded package.
 - File parsing, baseline verification, comparison and original-audio verification run
@@ -118,8 +124,9 @@ Before adding that service:
 
 - `scripts/check.sh`: syntax, pure-function tests, Python tests and Docker smoke checks.
 - `scripts/qc-review-smoke.mjs <DevTools port> <site URL> [screenshot path]` exercises the
-  QC entry point, conflicts, audio preservation, stale readings, permissions, failed and
-  cancelled writes, undo, and dialog layout at 6× CPU slowdown in muted headless Chrome.
+  QC entry point, Pending review choices and edits, the timeline outline, audio
+  preservation, stale readings, permissions, failed and cancelled writes, undo, and layout
+  at 6× CPU slowdown in muted headless Chrome.
 - `scripts/author-review-smoke.mjs <port> <site URL> [screenshot path]` checks author
   acceptance, ordinary saves and Save As, recovery, locating missing readings and unchanged
   reviewer restrictions at 6× slowdown.
