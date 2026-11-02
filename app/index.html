@@ -75,6 +75,10 @@
 
   <main>
     <aside class="listwrap">
+      <div id="listTabs" class="listtabs" role="tablist" aria-label="Script or pending review" hidden>
+        <button role="tab" id="tabBlocks" aria-controls="list" data-tip="Your script">Blocks</button>
+        <button role="tab" id="tabPending" aria-controls="pendingPane" data-tip="Block changes in the returned review, to accept or reject">Pending review <span id="pendingCount" class="pcount"></span></button>
+      </div>
       <div class="search">
         <input id="listSearch" type="search" placeholder="Search text, or #12 for a block number"
           spellcheck="false" autocomplete="off" aria-label="Search text blocks">
@@ -122,6 +126,14 @@
             <input id="edPickupNote" type="text" maxlength="500" spellcheck="true" autocomplete="off" hidden
               placeholder="Note for the narrator, such as how to say a name" aria-label="Note for the narrator"></div>
           <div class="edtts" id="qcCommentRow"><button id="edComment" aria-controls="commentsDrawer" data-tip="Add a comment to this block">Comment</button><span id="qcBlockInfo" class="dim qc-only"></span><button id="qcPrevious" aria-pressed="false" hidden data-tip="Hear the old audio alone. It does not match the edited block">Hear previous reading</button></div>
+        </div>
+      </div>
+      <div id="pendingPane" class="pendingpane" role="tabpanel" aria-label="Pending review">
+        <div id="pendingList" class="list" tabindex="0" role="listbox" aria-label="Block changes in the returned review"></div>
+        <div class="pfoot">
+          <p id="pendingStatus" role="status"></p>
+          <div class="updbtns"><button id="pendingRestOk" data-tip="Accept every change you haven't chosen yet">Accept the rest</button><button id="pendingRestNo" data-tip="Reject every change you haven't chosen yet">Reject the rest</button></div>
+          <div class="updbtns"><button id="pendingAccept" class="hl" data-tip="Apply your choices and the reviewer's comments, then save">Accept review</button><button id="pendingDiscard" data-tip="Stop reviewing these changes. Nothing is changed">Close</button></div>
         </div>
       </div>
     </aside>
@@ -376,16 +388,6 @@ docker compose up -d --build</code></pre>
     <p id="reviewCompareStatus" role="status"></p>
     <progress id="reviewCompareProgress" class="jobbar" max="1" value="0" hidden aria-label="Comparing returned review"></progress>
     <button id="reviewCompareStop" hidden>Stop</button>
-    <section id="reviewCompareConflicts" hidden>
-      <div class="wzhead"><strong id="reviewCompareTitle"></strong><span id="reviewCompareCount" class="dim"></span></div>
-      <div class="reviewCompare-versions">
-        <section><h3>This review</h3><p id="reviewCompareLocalTime" class="reviewCompare-time"></p><pre id="reviewCompareLocalText"></pre>
-          <button id="reviewCompareUseLocal" aria-pressed="false">Keep this version</button></section>
-        <section><h3>Returned review</h3><p id="reviewCompareRemoteTime" class="reviewCompare-time"></p><pre id="reviewCompareRemoteText"></pre>
-          <button id="reviewCompareUseRemote" aria-pressed="false">Use returned version</button></section>
-      </div>
-      <div class="updbtns"><button id="reviewComparePrevious">Previous conflict</button><button id="reviewCompareNext">Next conflict</button></div>
-    </section>
     <div class="updbtns"><button id="reviewCompareSave" class="hl" hidden>Save combined review</button><button id="reviewCompareClose">Close</button></div>
   </dialog>
 

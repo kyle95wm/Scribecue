@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { toProject, fromProject, newIdentity, HISTORY_LIMIT } from '../app/js/project.js';
 import { buildReview, readReview, resaveReview, reviewReading, previousReading } from '../app/js/qc.js';
 import { retainHistory } from '../app/js/collaboration.js';
-import { compareReturnedReview } from '../app/js/qcreview.js';
+import { compareReturnedReview, reviewItems } from '../app/js/qcreview.js';
 const project = () => toProject({ projectId: newIdentity(), blocks: [
   { uid: newIdentity(), start: 1, end: 3, text: 'Mara opens a door.' },
   { uid: newIdentity(), start: 5, end: 7, text: 'She steps outside.' },
@@ -52,6 +52,40 @@ test('same-block corrections need explicit choices; unresolved output cannot be 
     assert.equal(resolved.project.blocks[0].text,choice==='local'?'Local wording':'Returned wording');
   }
   assert.deepEqual(local,before);
+});
+
+test('reviewer-only edits are listed for a choice; declining keeps the writer version and still adds comments', async () => {
+  const {original,local,remote}=await setup(true);
+  const [first,second]=remote.blocks;
+  first.text='Reviewer wording';first.comments=[{text:'Reworded this',author:'Sam'}];
+  remote.blocks=[first,{uid:newIdentity(),start:9,end:10,text:'Reviewer added'}];
+  const r=await returned(original,remote), result=await compareReturnedReview(local,r);
+  assert.deepEqual(result.conflicts,[]);
+  assert.deepEqual(new Set(result.changes.map(c=>c.uid)),new Set([first.uid,second.uid,remote.blocks[1].uid]));
+  assert.equal(result.project.blocks.length,2,'without choices every change is accepted, as before');
+  const declined=await compareReturnedReview(local,r,{resolutions:result.changes.map(c=>({...c,choice:'local'}))});
+  assert.deepEqual(declined.project.blocks.map(b=>b.text),['Mara opens a door.','She steps outside.']);
+  assert.equal(declined.project.blocks[0].comments[0].text,'Reworded this','comments come in even when the edit is declined');
+  const mixed=await compareReturnedReview(local,r,{resolutions:result.changes.map(c=>({...c,choice:c.uid===first.uid?'remote':'local'}))});
+  assert.deepEqual(mixed.project.blocks.map(b=>b.text),['Reviewer wording','She steps outside.']);
+});
+
+test('pending review items: each block change in script order, with both versions and no comments', async () => {
+  const {original,local,remote}=await setup(true);
+  local.blocks[0].text='Writer wording';
+  remote.blocks[0].text='Reviewer wording';remote.blocks[1].start=6;remote.blocks[1].comments=[{text:'Moved',author:'Sam'}];
+  remote.blocks.unshift({uid:newIdentity(),start:0.2,end:0.8,text:'Reviewer added'});
+  const result=await compareReturnedReview(local,await returned(original,remote)), items=reviewItems(result,local);
+  assert.deepEqual(items.map(i=>[i.kind,i.conflict,i.ours?.text??null,i.theirs?.text??null]),[
+    ['block',false,null,'Reviewer added'],['block',true,'Writer wording','Reviewer wording'],['block',false,'She steps outside.','She steps outside.']]);
+  assert.equal(items[2].theirs.start,6);assert.ok(!('comments' in items[2].theirs),'comments come in on their own');
+});
+
+test('comment-only returns list no block changes', async () => {
+  const {original,local,remote}=await setup();
+  remote.blocks[0].comments=[{text:'Check this',author:'Sam'}];remote.comments=[{text:'Scene note',time:4}];
+  const result=await compareReturnedReview(local,await returned(original,remote));
+  assert.deepEqual(result.changes,[]);assert.equal(result.project.comments[0].text,'Scene note');
 });
 
 test('moving original readings keeps them usable; wording changes retain stale previous readings without trusting returned offsets', async () => {

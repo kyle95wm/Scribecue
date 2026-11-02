@@ -66,6 +66,20 @@ export async function compareReturnedReview(local, returned, { progress = () => 
   return { ...result, remote: toProject({ ...fromProject(incoming), app: returned.project.app }), base: baseline.project };
 }
 
+// The returned review's block changes, in script order, for the Pending review tab.
+// Comments need no choice unless both sides changed the same list.
+export function reviewItems(res, mine) {
+  const ours = new Map(mine.blocks.map((b) => [b.uid, b])), theirs = new Map(res.remote.blocks.map((b) => [b.uid, b]));
+  const body = (b) => { if (!b) return null; const { comments, ...rest } = b; return rest; };
+  const item = (c, conflict) => {
+    const block = theirs.get(c.uid) || ours.get(c.uid);
+    if (c.kind === 'project') return { ...c, conflict, start: Infinity, ours: mine.comments, theirs: res.remote.comments };
+    if (c.kind === 'block-comments') return { ...c, conflict, start: block?.start ?? Infinity, block: body(block), ours: ours.get(c.uid)?.comments || [], theirs: theirs.get(c.uid)?.comments || [] };
+    return { ...c, conflict, start: Math.min(ours.get(c.uid)?.start ?? Infinity, theirs.get(c.uid)?.start ?? Infinity), ours: body(ours.get(c.uid)), theirs: body(theirs.get(c.uid)) };
+  };
+  return [...res.conflicts.map((c) => item(c, true)), ...(res.changes || []).map((c) => item(c, false))].sort((a, z) => a.start - z.start);
+}
+
 // Attach audio using a known baseline hash. Package contents never grant author access.
 async function verifyOriginalAudio(baseline, returned, progress) {
   if (returned.permissions.allowEdits !== baseline.allowEdits) throw new Error('The review’s editing permission differs from the exported package');

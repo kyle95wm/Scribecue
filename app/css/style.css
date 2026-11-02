@@ -1140,11 +1140,34 @@ body:not(.mode-qc) #edComment, body:not(.mode-qc) #qcCommentRow { display: none;
 
 /* Returned QC reviews reuse the dialog and pressed-button controls. */
 #reviewCompareDlg { width: min(820px, 92vw); }
-#reviewCompareConflicts { margin-top: 20px; }
-#reviewCompareCount, #reviewCompareDlg .reviewCompare-time { font: 12px var(--mono); }
-.reviewCompare-versions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.reviewCompare-versions > section { min-width: 0; }
-#reviewCompareDlg pre { font: 13px/1.5 var(--sans); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; }
+/* Pending review: a returned review's block changes, in a tab above the script. */
+.listtabs { display: none; }
+.mode-qc .listtabs:not([hidden]) { display: grid; grid-template-columns: 1fr 1fr; margin: 8px 10px 0; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); }
+.listtabs button { justify-content: center; padding: 2px 12px; border: 0; border-radius: 999px; background: none; color: var(--dim); font: 12px var(--sans); }
+.listtabs button:hover { background: none; color: var(--text); }
+.listtabs button.on { background: var(--accent); color: var(--bg); font-weight: 600; }
+.listtabs .pcount { margin-left: 4px; font-family: var(--mono); }
+.pendingpane { display: none; }
+.mode-qc .listwrap.pending-on > .search, .mode-qc .listwrap.pending-on > #list { display: none; }
+.mode-qc .listwrap.pending-on > .pendingpane { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.prow .pick { width: 26px; height: 22px; padding: 0; justify-content: center; color: var(--faint); background: none; border: 1px solid var(--line); border-radius: 4px; }
+.prow .pick svg { width: 14px; height: 14px; fill: currentColor; }
+.prow .pick.remote:hover { color: var(--ok); border-color: var(--ok); background: none; }
+.prow .pick.local:hover { color: var(--bad); border-color: var(--bad); background: none; }
+.prow .pick.remote[aria-pressed="true"] { color: var(--bg); background: var(--ok); border-color: var(--ok); }
+.prow .pick.local[aria-pressed="true"] { color: var(--bg); background: var(--bad); border-color: var(--bad); }
+.prow.decided:not(.sel) .tx, .prow.decided:not(.sel) .t { opacity: 0.55; }
+.prow.conflict .d { color: var(--warn); }
+.ppair { display: grid; gap: 8px; margin: 6px 0 2px calc(2em + 10px); }
+.pside { min-width: 0; }
+.pside .pl { margin-right: 8px; color: var(--accent); font: 600 11px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; }
+.pside .pt { color: var(--dim); font: 12px var(--mono); }
+.row.prow .pside .tx { display: block; margin: 2px 0 0; overflow-wrap: anywhere; }
+.pfoot { padding: 10px; border-top: 1px solid var(--line); }
+.pfoot p { margin: 0; color: var(--dim); font: 12px var(--mono); }
+.pfoot .updbtns { flex-wrap: wrap; margin-top: 8px; }
+.cue.ghost { background: linear-gradient(var(--accent-bg), var(--accent-bg)), var(--panel); border: 2px dashed var(--accent); pointer-events: none; z-index: 3; }
+.cue.ghost .ci { color: var(--accent); }
+.cue.changing { opacity: 0.35; }
+.cue.removing { border-style: dashed; border-color: var(--bad); }
 #reviewCompareDlg button:disabled { color: var(--dim); border-color: var(--line); cursor: default; }
-#reviewCompareDlg button[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
-@media (max-width: 680px) { .reviewCompare-versions { grid-template-columns: 1fr; } }

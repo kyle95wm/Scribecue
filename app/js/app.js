@@ -11,7 +11,8 @@ import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
 import { collaborationJob, retainHistory } from './collaboration.js';
-import { initReviewCompare, openReviewCompare } from './qcreviewdrawer.js';
+import { initReviewCompare, openReviewCompare, finishReview } from './qcreviewdrawer.js';
+import { initPending, startPending, addPending, endPending, pendingGhost } from './qcpending.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
 import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, sameVideo, compareScript, newProjectId, pickupsFor } from './recording.js';
 import { readNote } from './bwf.js';
@@ -1517,9 +1518,10 @@ function drawTimeline() {
 }
 
 const cueEls = new Map();
+let ghostEl = null;
 function drawCues(W) {
   const t0 = S.view, t1 = t0 + W / S.pps;
-  const seen = new Set();
+  const seen = new Set(), ghost = pendingGhost();
   for (let i = 0; i < S.cues.length; i++) {
     const c = S.cues[i];
     if (c.start > t1) break;
@@ -1542,10 +1544,24 @@ function drawCues(W) {
     el.classList.toggle('sel', c.id === S.sel);
     el.classList.toggle('active', c.id === S.activeId);
     el.classList.toggle('faded', !matches(c, i));
+    el.classList.toggle('changing', !!ghost?.theirs && c.uid === ghost.uid);
+    el.classList.toggle('removing', !!ghost?.removed && c.uid === ghost.uid);
     el.children[1].textContent = w > 28 ? '#' + (i + 1) + (ttsOn() && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') + (qc() && c.comments?.some((n) => !n.resolved) ? ' · ●' : '') : '';
     if (el._text !== c.text) { el._text = c.text; el.children[2].textContent = c.text; }
   }
   for (const [id, el] of cueEls) if (!seen.has(id)) { el.remove(); cueEls.delete(id); }
+  // The reviewer's version of the block chosen in Pending review, where it would go.
+  const g = ghost?.theirs;
+  if (g && g.end >= t0 && g.start <= t1) {
+    if (!ghostEl) {
+      ghostEl = document.createElement('div'); ghostEl.className = 'cue ghost';
+      ghostEl.innerHTML = '<span class="ci"></span><span class="ct"></span>'; ghostEl.children[0].textContent = 'Returned';
+    }
+    const w = Math.max(2, (g.end - g.start) * S.pps);
+    ghostEl.style.left = (g.start - t0) * S.pps + 'px'; ghostEl.style.width = w + 'px';
+    ghostEl.classList.toggle('narrow', w < 36); ghostEl.children[1].textContent = g.text;
+    if (!ghostEl.isConnected) cuesLayer.append(ghostEl);
+  } else ghostEl?.remove();
 }
 
 function drawOverview() {
@@ -3380,7 +3396,7 @@ function readingSettings() {
 }
 function reviewSettings() { return qc() && S.qcSettings ? S.qcSettings : readingSettings(); }
 function projectFileData() { const p = projectData(); return S.reviewId ? resaveReview(S.review, p, { includeReviewKey: true }) : JSON.stringify(p, null, 1); }
-function clearReview() { stopPreviousReading(); S.review = null; S.reviewId = ''; S.reviewAudio = null; S.qcSource = 'video'; storedReview(null); syncQcPermission(); }
+function clearReview() { endPending(); stopPreviousReading(); S.review = null; S.reviewId = ''; S.reviewAudio = null; S.qcSource = 'video'; storedReview(null); syncQcPermission(); }
 function projectData() {
   const m = S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size, duration: S.hasVideo ? duration() : null } : S.projectMedia;
   return toProject({
@@ -3556,6 +3572,7 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
   await endRecording();
   if (expectedGeneration != null && expectedGeneration !== S.changeGen) return false;
   pushUndo();
+  endPending();
   // The project's dip and Video / TTS slider first, as its blocks' dips and volumes build
   // on them, and exact dips from older projects become the difference from its dip.
   S.loadingProject = true;
@@ -5199,7 +5216,23 @@ initReviewCompare({
     if (S.reviewId) return false;
     return openProject(new File([project], name), handle, true, generation, audio);
   },
-  baseName, toast, time: tc,
+  baseName, toast, time: tc, startPending, addPending, endPending,
   apply: (file, handle, name, generation) => openProject(new File([file], name), handle, true, generation),
+});
+initPending({
+  time: tc, toast, authoring: () => !S.reviewId, finish: finishReview,
+  numbers: () => new Map(S.cues.map((c, i) => [c.uid, i + 1])),
+  redraw: () => { tlDirty = true; },
+  // Show the change: select your block, and bring both versions into view.
+  focus(item) {
+    const c = item.uid && S.cues.find((b) => b.uid === item.uid);
+    if (c) select(c.id, { seek: false, reveal: false, toTop: false });
+    const spans = [item.ours, item.theirs, item.block].filter((b) => b && Number.isFinite(b.start));
+    if (spans.length) {
+      S.playUntil = null; seek(Math.min(...spans.map((b) => b.start)), false);
+      revealRange(Math.min(...spans.map((b) => b.start)), Math.max(...spans.map((b) => b.end)));
+    }
+    tlDirty = true;
+  },
 });
 requestAnimationFrame(tick);

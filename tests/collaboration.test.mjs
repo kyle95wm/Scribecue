@@ -64,7 +64,7 @@ test('notes, comments, settings, media and recording versions cannot silently ov
       recording: [{ id: 'abcdefgh12345678', version: 1 }, { id: 'abcdefgh12345678', version: 2 }],
     };
     [l[field], r[field]] = values[field];
-    assert.deepEqual(mergeProjects(b, l, r), { project: null, conflicts: [{ kind: 'project', field }] });
+    assert.deepEqual(mergeProjects(b, l, r), { project: null, conflicts: [{ kind: 'project', field }], changes: [] });
     const ours = mergeProjects(b, b, r).project[field], theirs = mergeProjects(b, r, b).project[field];
     if (field === 'settings') { delete ours.mode; delete theirs.mode; }
     assert.deepEqual(ours, theirs);

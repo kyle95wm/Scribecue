@@ -33,18 +33,23 @@ export const allows = (role, action) => Object.hasOwn(grants, role) && grants[ro
 // Conflicting results have no project to apply. The caller keeps all three originals
 // and asks the user to resolve the listed conflicts. Inputs are never changed.
 // Comments and settings are atomic for now: concurrent changes require review.
+// `changes` lists blocks only the remote side changed; a 'local' choice declines one.
 export function mergeProjects(base, local, remote, progress = () => {}, resolutions = []) {
   const [b, l, r] = [base, local, remote].map(checked);
   if (base.projectId !== local.projectId || base.projectId !== remote.projectId) {
     throw new Error('These copies belong to different projects');
   }
-  const conflicts = [], blocks = [];
+  const conflicts = [], changes = [], blocks = [];
   const key = (r) => r.kind === 'project' ? `project:${r.field}` : `${r.kind}:${r.uid}`;
   const choices = new Map(resolutions.map((r) => [key(r), r.choice]));
   const choose = (before, ours, theirs, target) => {
     if (equal(ours, theirs) || equal(before, theirs)) return ours;
-    if (equal(before, ours)) return theirs;
     const choice = choices.get(key(target));
+    if (equal(before, ours)) {
+      if (target.kind !== 'block') return theirs;
+      changes.push(target);
+      return choice === 'local' ? ours : theirs;
+    }
     if (choice === 'local') return ours;
     if (choice === 'remote') return theirs;
     conflicts.push(target);
@@ -75,7 +80,7 @@ export function mergeProjects(base, local, remote, progress = () => {}, resoluti
   project.settings = { ...choose(...[b, l, r].map((p) => sharedSettings(p.settings)), { kind: 'project', field: 'settings' }),
     ...(l.settings.mode ? { mode: l.settings.mode } : {}) };
   progress(ids.size, ids.size);
-  return { project: conflicts.length ? null : structuredClone(project), conflicts };
+  return { project: conflicts.length ? null : structuredClone(project), conflicts, changes };
 }
 
 // The page entry point. A fresh worker keeps comparisons off the UI thread and bounds

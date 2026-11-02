@@ -299,10 +299,19 @@ explains what each optional service sends.
 1. Open your saved authoring `.scribecue` project, then switch to **QC**.
 2. Click **QC** under the video, then **Compare returned review**.
 3. Choose the returned `.scribecueqc` package.
-4. Independent corrections and comments combine automatically. For conflicting block
-   versions or comment lists, choose **Keep this version** or **Use returned version**.
-   Check the wording and timings.
-5. Use **Next conflict** for further choices, then **Accept review**.
+4. If the reviewer changed any blocks, **Pending review** opens above the script.
+   Click a change to see your version and theirs. The timeline outlines where theirs would go.
+5. Click ✓ to accept a change, or ✗ to keep yours. The next change opens by itself.
+6. To decide the remaining ones at once, use **Accept the rest** or **Reject the rest**.
+7. Click **Accept review** (**Save combined review** for a QC package). Your choices and the
+   reviewer's comments are applied together.
+
+Comments don't need a choice. Changes marked **Both changed** are blocks you also edited.
+A split or merge shows as more than one change, so accept or reject them together.
+**Close** stops without changing anything. Switch to **Blocks** to check the script meanwhile.
+Choices aren't kept if you reload the page. Compare the review again to pick up where you left off.
+
+![Pending review with a moved block outlined on the timeline](../docs/screenshots/qc-compare.png)
 
 Accepting saves the comments and permitted corrections into your authoring project.
 The header says **Authoring project**: you can make fixes in QC with the comments open,
@@ -349,6 +358,7 @@ while typing, see [Keyboard shortcuts](SHORTCUTS.md).
 | `L` | Loop a block |
 | `V` | Hear the selected block with the chosen QC source |
 | `↑` / `↓` | Select the previous / next block |
+| `↑` / `↓` in Pending review | Select the previous / next change |
 | `←` / `→` | Move one frame back / forward |
 | `Shift+←` / `Shift+→` | Move three seconds back / forward |
 | `Alt+Shift+J` | Jump to a time |

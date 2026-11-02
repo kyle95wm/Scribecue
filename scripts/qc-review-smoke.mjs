@@ -27,30 +27,46 @@ try {
     const p=toProject({projectId:newIdentity(),blocks:[{uid:newIdentity(),start:3,end:6,text:'Mara opens the blue door.'},{uid:newIdentity(),start:10,end:12,text:'She steps into the garden.'}],settings:{mode:'qc',ttsVoice:'test',ttsBase:1}});
     window.__original=await readReview(await buildReview(p,async()=>({blob:__wav(),secs:1,voice:'test'}),{allowEdits:true,handoff:true}));
     window.__local=structuredClone(__original.project);window.__remote=structuredClone(__original.project);
-    __local.blocks[0].text='Mara pushes open the blue door.';__remote.blocks[0].text='Mara opens a weathered blue door.';__remote.blocks[1].comments=[{text:'Check this entrance.',author:'Sam'}];
+    __local.blocks[0].text='Mara pushes open the blue door.';__remote.blocks[0].text='Mara opens a weathered blue door.';__remote.blocks[1].comments=[{text:'Check this entrance.',author:'Sam'}];__remote.blocks[1].start=10.5;__remote.blocks[1].end=12.5;
     window.__returned=resaveReview(__original,__remote);window.__failure='';window.__saved=null;window.__aborted=false;window.confirm=()=>true;
     window.showSaveFilePicker=async()=>{if(__failure==='cancel')throw new DOMException('Cancelled','AbortError');return{name:'combined.scribecueqc',queryPermission:async()=>'granted',requestPermission:async()=>'granted',createWritable:async()=>({write:async data=>{if(__failure==='write')throw Error('Disk full');__saved=data},close:async()=>{},abort:async()=>{__aborted=true}})}};
     const dt=new DataTransfer();dt.items.add(new File([resaveReview(__original,__local)],'writer.scribecueqc'));document.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));
   })()`);
   await wait(`document.getElementById('subName').textContent.includes('writer')`);
   assert.equal(await js(`document.querySelector('[data-act=projectCopies]')`),null);
-  await open();await choose();await wait(`!document.getElementById('reviewCompareConflicts').hidden`);
+  const pendingShown=`!document.getElementById('listTabs').hidden && document.getElementById('pendingPane').offsetParent && !document.getElementById('reviewCompareDlg').open`;
+  await open();await choose();await wait(pendingShown);
   // Exercise the queued-close race without yielding between close and reopen.
   await js(`(async()=>{const {openReviewCompare}=await import('./js/qcreviewdrawer.js');document.getElementById('reviewCompareDlg').close();openReviewCompare();})()`);
-  await sleep(100);await choose();await wait(`!document.getElementById('reviewCompareConflicts').hidden`);
-  assert.equal(await js(`document.getElementById('reviewCompareSave').disabled`),true);
-  assert.equal(await js(`document.getElementById('reviewCompareLocalText').textContent`),'Mara pushes open the blue door.');
-  assert.equal(await js(`document.getElementById('reviewCompareRemoteText').textContent`),'Mara opens a weathered blue door.');
-  const layout=await js(`(()=>{const d=document.getElementById('reviewCompareDlg'),r=d.getBoundingClientRect();return{fits:r.top>=0&&r.bottom<=innerHeight&&d.scrollWidth<=d.clientWidth,height:r.height}})()`);assert.equal(layout.fits,true);
+  await sleep(100);await choose();await wait(pendingShown);
+  const rows=()=>js(`[...document.querySelectorAll('#pendingList .prow')].map(r=>r.querySelector('.d').textContent)`);
+  assert.deepEqual(await rows(),['Both changed: wording','Changed: timing']);
+  assert.equal(await js(`document.getElementById('pendingAccept').disabled`),true);
+  assert.equal(await js(`document.querySelector('#pendingList .prow.sel .ppair').textContent.includes('Mara pushes open the blue door.') && document.querySelector('#pendingList .prow.sel .ppair').textContent.includes('Mara opens a weathered blue door.')`),true);
+  assert.equal(await js(`document.querySelector('#cues .cue.ghost .ct').textContent`),'Mara opens a weathered blue door.');
+  // Accepting moves on to the next change, whose new timing is outlined on the timeline.
+  await js(`document.querySelector('#pendingList .prow .pick.remote').click();true`);
+  assert.deepEqual(await rows(),['Both changed: wording · accepted','Changed: timing']);
+  assert.equal(await js(`document.querySelector('#pendingList .prow.sel').dataset.i`),'1');
+  const ghost=await js(`(()=>{const g=document.querySelector('#cues .cue.ghost'),c=document.querySelector('#cues .cue.changing');return{ghost:!!g,after:g.getBoundingClientRect().left>c.getBoundingClientRect().left}})()`);
+  assert.deepEqual(ghost,{ghost:true,after:true});
+  const layout=await js(`(()=>{const p=document.getElementById('pendingPane'),r=p.getBoundingClientRect();return{fits:r.bottom<=innerHeight&&p.scrollWidth<=p.clientWidth,height:r.height}})()`);assert.equal(layout.fits,true);
   if(screenshot){const shot=await send('Page.captureScreenshot',{format:'png'});writeFileSync(screenshot,Buffer.from(shot.result.data,'base64'));}
-  await click('reviewCompareUseRemote');await js(`__failure='write';true`);await click('reviewCompareSave');
+  await js(`document.querySelector('#pendingList .prow.sel .pick.local').click();true`);
+  await js(`(()=>{const l=document.getElementById('pendingList');l.focus();l.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true,cancelable:true}));})()`);
+  assert.equal(await js(`document.querySelector('#pendingList .prow.sel').dataset.i`),'0','↑ selects the previous change');
+  assert.equal(await js(`document.getElementById('pendingAccept').disabled`),false);
+  await js(`__failure='write';true`);await click('pendingAccept');
   await wait(`document.getElementById('reviewCompareStatus').textContent==='Disk full'`);
   assert.ok(await js(`__aborted && document.getElementById('list').textContent.includes('Mara pushes open the blue door.')`));
-  await js(`__failure='cancel';true`);await click('reviewCompareSave');await wait(`document.getElementById('reviewCompareStatus').textContent.startsWith('Stopped')`);
-  await js(`__failure='';true`);await click('reviewCompareSave');
+  await click('reviewCompareClose');
+  await js(`__failure='cancel';true`);await click('pendingAccept');await wait(`document.getElementById('reviewCompareStatus').textContent.startsWith('Stopped')`);
+  await click('reviewCompareClose');
+  await js(`__failure='';true`);await click('pendingAccept');
   await wait(`!document.getElementById('reviewCompareDlg').open && document.getElementById('subName').textContent.includes('combined')`);
-  const saved=await js(`(async()=>{const {readReview,reviewReading,previousReading}=await import('./js/qc.js');const r=await readReview(__saved);return{editable:r.permissions.allowEdits,text:r.project.blocks[0].text,comments:r.project.blocks[1].comments.length,stale:!reviewReading(r,r.project.blocks[0],r.project.settings),previous:!!previousReading(r,r.project.blocks[0]),baseline:r.baselineId===__original.baselineId,audio:await r.file.slice(0,r.audioEnd).text()===await __original.file.slice(0,__original.audioEnd).text()}})()`);
-  assert.deepEqual(saved,{editable:true,text:'Mara opens a weathered blue door.',comments:1,stale:true,previous:true,baseline:true,audio:true});
+  assert.equal(await js(`document.getElementById('listTabs').hidden && !document.querySelector('#cues .cue.ghost')`),true);
+  const saved=await js(`(async()=>{const {readReview,reviewReading,previousReading}=await import('./js/qc.js');const r=await readReview(__saved);return{editable:r.permissions.allowEdits,text:r.project.blocks[0].text,start:r.project.blocks[1].start,comments:r.project.blocks[1].comments.length,stale:!reviewReading(r,r.project.blocks[0],r.project.settings),previous:!!previousReading(r,r.project.blocks[0]),baseline:r.baselineId===__original.baselineId,audio:await r.file.slice(0,r.audioEnd).text()===await __original.file.slice(0,__original.audioEnd).text()}})()`);
+  assert.deepEqual(saved,{editable:true,text:'Mara opens a weathered blue door.',start:10,comments:1,stale:true,previous:true,baseline:true,audio:true});
   await js(`document.activeElement?.blur();document.body.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyZ',key:'z',ctrlKey:true,bubbles:true,cancelable:true}));true`);
   assert.ok(await js(`document.getElementById('list').textContent.includes('Mara pushes open the blue door.')`));
   // A corrupted original clip is refused, without offering a save.
