@@ -76,7 +76,7 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 2. Press Enter or R. Allow the microphone the first time.
 3. The video plays from the lead-in. Set your gain on the meter while it does.
 4. Read the line when the picture reaches it. The bar shows how much of the slot is left.
-5. Press Enter, R or Space to stop. The take is saved straight away. Esc stops and discards it.
+5. Press Enter, R or Space to stop. The take is saved straight away. Esc stops, discards it, and puts the playhead back.
 
 The writer's notes for a block, such as how to say a name, show above its text.
 

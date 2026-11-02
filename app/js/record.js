@@ -28,7 +28,7 @@ export function initRecord(h) {
   let rec = null;            // the recording file open: { id, start, fps, media, project?, version? }; id is where its takes are kept
   let takes = [];            // every take of this recording
   let state = 'idle';        // idle | arming | lead | rec | saving
-  let cap = null;            // { stream, ctx, node, chunks, t0, slot, prevEnd, block, inLatency, punch }
+  let cap = null;            // { stream, ctx, node, chunks, t0, slot, prevEnd, block, inLatency, punch, from }
   let level = 0, hold = 0;   // meter: current and held peak, 0…1
   let loudest = 0;           // the loudest peak since a check started or was reset, 0…1
   let raf = 0, playing = null, warned = new Set();
@@ -643,6 +643,7 @@ export function initRecord(h) {
       if (at < placed(base).start + PUNCH_MIN || at >= s.end) return h.toast(`Put the playhead where you want to pick up, inside block ${i + 1}’s take, then press Shift+Enter`);
       p = { base, at, ps: pieces(base), on: null };
     }
+    const from = video.currentTime; // where Esc puts the playhead back
     stopPlay();
     state = 'arming'; status('Getting the microphone…'); render();
     if (check) stopCheck();
@@ -658,7 +659,7 @@ export function initRecord(h) {
       }
       p.audio = new Audio(URL.createObjectURL(p.wav));
     }
-    cap.block = i; cap.slot = s; cap.prevEnd = i ? sl()[i - 1].end : 0; cap.punch = p; cap.alt = alt;
+    cap.block = i; cap.slot = s; cap.prevEnd = i ? sl()[i - 1].end : 0; cap.punch = p; cap.alt = alt; cap.from = from;
     cap.t0 = Math.max(0, (p ? p.at : s.start) - PREROLL);
     h.seek(Math.max(0, cap.t0 - leadSecs));
     h.volume(true, VIDEO_DB);
@@ -701,6 +702,7 @@ export function initRecord(h) {
     const c = cap, wasRec = state === 'rec';
     state = 'saving'; status('Saving the take…'); render();
     video.pause();
+    if (discard) h.seek(c.from);
     h.volume(false);
     if (c.punch) { c.punch.audio.pause(); URL.revokeObjectURL(c.punch.audio.src); }
     const samples = await new Promise((ok) => {
