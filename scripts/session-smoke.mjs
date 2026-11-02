@@ -98,6 +98,42 @@ try {
  assert.deepEqual(await sessionTakes('picked-2'),{takes:[{block:0,chosen:true},{block:1,chosen:true}],files:2});
  assert.deepEqual(await js('__errors'),[]);
 
+ // Packaging only the chosen takes leaves out a take that isn't: block 1, recorded again.
+ await js(`(async()=>{const v=await fetch(${JSON.stringify(videoPath)}).then(r=>r.blob());const dt=new DataTransfer();dt.items.add(new File([v],'door.mkv',{type:'video/x-matroska'}));
+  window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));return 1})()`);
+ await wait(`document.querySelector('video').readyState>=2`);
+ await js(`document.querySelectorAll('#list .row')[0].click();true`);await sleep(400);
+ await key('r','KeyR');await wait(`document.getElementById('recGo').classList.contains('on')`);
+ await wait(`document.querySelector('video').currentTime>6.5`,400);
+ await key('r','KeyR');await wait(`/Saved take 2/.test(document.getElementById('recStatus').textContent)`);
+ await js(`document.querySelector('[data-act=exportSession]').click();true`);
+ await wait(`document.getElementById('recPackDlg').open`);
+ assert.match(await text('recPackAll'),/^3 takes, \d+ MB/);
+ assert.match(await text('recPackChosen'),/^2 takes, \d+ MB/);
+ await js(`document.querySelector('#recPackDlg [data-choice=chosen]').click();true`);
+ await wait(`/Saved out\\.scribecuesession: 2 takes/.test(document.getElementById('toast').textContent)`);
+
+ // Deleting doesn't ask; Ctrl+Z, or a click on the message, brings the take back.
+ await js(`window.confirm=()=>{window.__asked=true;return false};document.querySelectorAll('#list .row')[0].click();true`);await sleep(400);
+ const del=async()=>{await js(`[...document.querySelectorAll('#recTakes button')].filter(b=>/^Delete take/.test(b.getAttribute('aria-label')||'')).at(-1).click();true`);
+  await wait(`/^Deleted take 2 of block 1/.test(document.getElementById('toast').textContent)`);};
+ const chosen0=()=>js(`(async()=>{const T=await import('./js/takestore.js');return (await T.listTakes(T.currentSession().key)).filter(t=>t.block===0&&t.chosen).map(t=>t.made)})()`);
+ const before=await chosen0();
+ await del();
+ assert.equal(await js('!!window.__asked'),false);
+ assert.notDeepEqual(await chosen0(),before,'take 1 is chosen in its place');
+ assert.equal(await js(`document.getElementById('toast').classList.contains('act')`),true);
+ await send('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'z',code:'KeyZ',windowsVirtualKeyCode:90,modifiers:2});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'z',code:'KeyZ',windowsVirtualKeyCode:90,modifiers:2});
+ await wait(`/^Brought back take 2 of block 1/.test(document.getElementById('toast').textContent)`);
+ assert.deepEqual(await chosen0(),before,'and chosen again');
+ await del();
+ await js(`document.getElementById('toast').click();true`);
+ await wait(`/^Brought back take 2 of block 1/.test(document.getElementById('toast').textContent)`);
+ assert.equal((await sessionTakes('picked-2')).takes.length,3);
+ // Deleted for good once the recording closes (here, when the next one opens).
+ await del();
+ assert.equal((await sessionTakes('picked-2')).files,3,'kept until the recording closes');
+
  // A session kept in the browser moves to a folder: 20 minutes of takes, at 6× slowdown.
  const file2=await js(`(async()=>{const R=await import('./js/recording.js');return JSON.parse(JSON.stringify(R.toRecordingFile({blocks:${JSON.stringify(blocks)},fps:25,project:'sessiontest00002',version:1})))})()`);
  await js(`(()=>{const dt=new DataTransfer();dt.items.add(new File([${JSON.stringify(JSON.stringify(file2))}],'rain.scribecuerec'));window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));return 1})()`);
@@ -115,6 +151,7 @@ try {
  await wait(`/Moved the takes to picked-3/.test(document.getElementById('toast').textContent)`);
  const moveMs=Date.now()-m0, moveLong=await longest();
  assert.equal((await sessionTakes('picked-3')).files,20);
+ assert.deepEqual(await sessionTakes('picked-2'),{takes:[{block:0,chosen:true},{block:1,chosen:true}],files:2});
  assert.equal(await js(`(async()=>{try{await (await (await navigator.storage.getDirectory()).getDirectoryHandle('sessions')).getDirectoryHandle('sessiontest00002-0');return true}catch{return false}})()`),false,'the browser’s copy is gone');
  assert.equal(await js(`document.getElementById('recMoveRow').hidden`),true);
  assert.match(await js(`document.getElementById('recCount').dataset.tip`),/kept in picked-3/);

@@ -176,7 +176,7 @@ export async function openSession(dir, { key, recording, where = 'folder', app =
   let drafts = was?.drafts || {}, stamp = 0;
   recording ||= was?.recording;
   if (!recording) throw new Error('the recording file is missing');
-  const index = () => JSON.stringify(toSession({ key, recording, takes, drafts, app }), null, 1);
+  const index = (list = takes) => JSON.stringify(toSession({ key, recording, takes: list, drafts, app }), null, 1);
   // session.json is written after every change, one write at a time, and changes made while
   // one is waiting go in it. If another copy of Scribecue changed it since (a synced folder),
   // its takes that this one doesn't know come in first.
@@ -199,7 +199,7 @@ export async function openSession(dir, { key, recording, where = 'folder', app =
     get drafts() { return drafts; },
     async setDrafts(d) { drafts = d; await save(); },
     async setRecording(r) { recording = r; await save(); },
-    list: async () => takes.map((t) => forRecord(t, key)),
+    list: async () => takes.filter((t) => !t.deleted).map((t) => forRecord(t, key)),
     // A take saved again by its id replaces it; without its wav, only its details change.
     async save(take, chooseIt) {
       const t = { ...take, chosen: !!(chooseIt || take.chosen) }, was = find(t.id);
@@ -217,11 +217,19 @@ export async function openSession(dir, { key, recording, where = 'folder', app =
     },
     async choose(rec, id) { const t = find(id); if (t) { choose(takes, t); await save(); } },
     async edit(rec, id, e) { const t = find(id); if (t) { t.edit = e; await save(); } },
-    async remove(rec, id) {
-      try { await takesDir.removeEntry(takeFile(id)); } catch (e) { if (!NOT_FOUND(e)) throw e; }
-      const i = takes.findIndex((t) => t.id === id);
-      if (i >= 0) takes.splice(i, 1);
+    // Deleting only marks a take, until purge(): restore() brings it back till then.
+    async remove(rec, id) { const t = find(id); if (t) { t.deleted = true; t.chosen = false; await save(); } },
+    async restore(rec, id) { const t = find(id); if (t?.deleted) { delete t.deleted; await save(); } return !!t; },
+    // Deletes the WAVs of the takes marked deleted, for good.
+    async purge() {
+      const gone = takes.filter((t) => t.deleted);
+      if (!gone.length) return 0;
+      for (const t of gone) {
+        try { await takesDir.removeEntry(takeFile(t.id)); } catch (e) { if (!NOT_FOUND(e)) throw e; }
+        takes.splice(takes.indexOf(t), 1);
+      }
       await save();
+      return gone.length;
     },
     async relink(rec, changes) {
       for (const { id, block, start, line, chosen, alt } of changes) {
@@ -254,11 +262,12 @@ export async function openSession(dir, { key, recording, where = 'folder', app =
     },
     async move(rec, to) { return to === key ? s.adopt(rec) : 0; },
     audio: async (t) => plainTake(await (await takesDir.getFileHandle(takeFile(t.id))).getFile()),
-    // Every file of the session, for packaging: [{ name, blob, crc? }], session.json first.
-    async files() {
-      await save(); await chain;
-      const out = [{ name: SESSION_FILE, blob: await (await dir.getFileHandle(SESSION_FILE)).getFile() }];
-      for (const t of takes) {
+    // The session's files, for packaging: [{ name, blob, crc? }], session.json first. keep:
+    // the ids of the takes to include, or null for all. Deleted takes are left out.
+    async files(keep = null) {
+      const list = takes.filter((t) => !t.deleted && (!keep || keep.has(t.id)));
+      const out = [{ name: SESSION_FILE, blob: new Blob([index(list)], { type: 'application/json' }) }];
+      for (const t of list) {
         const blob = await (await takesDir.getFileHandle(takeFile(t.id))).getFile();
         out.push({ name: `${TAKES_DIR}/${takeFile(t.id)}`, blob, ...(t.size === blob.size && t.crc != null ? { crc: t.crc } : {}) });
       }
@@ -268,6 +277,7 @@ export async function openSession(dir, { key, recording, where = 'folder', app =
     // After Settings deleted the takes kept in the browser, this one's among them.
     reset() { takes.length = 0; },
   };
+  await s.purge(); // takes deleted when Scribecue last stopped before the recording closed
   await save();
   return s;
 }
@@ -385,6 +395,10 @@ export const relinkTakes = async (rec, changes) => changes.length && (await stor
 
 // Moves every take of one recording to another, such as its project: how many moved.
 export const moveTakes = async (rec, to) => (session && to === session.key ? session : await legacy()).move(rec, to);
+
+// Brings back a take deleted since its recording opened: false if it can't be. Only a
+// session can: elsewhere, a deleted take is gone.
+export const restoreTake = async (rec, id) => !!(session && rec === session.key && await session.restore(rec, id));
 
 // The take's WAV, as a Blob.
 export const takeAudio = async (t) => (await store(t.rec)).audio(t);

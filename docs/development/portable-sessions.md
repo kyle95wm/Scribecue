@@ -58,7 +58,7 @@ Film title narration/
 1. A new take is written as a new WAV. A new file needs no copy, so it's quick.
 2. Then `session.json` is written. It's small: a few hundred bytes a take.
 3. Choosing, moving, trimming and alts change only `session.json`.
-4. Deleting a take deletes its WAV, then updates `session.json`.
+4. Deleting a take only marks it in `session.json`, until the recording closes.
 
 If Scribecue stops between steps 1 and 2, the next open finds a WAV the index doesn't
 list. It reads its `scbc` chunk and adds it. Nothing is lost.
@@ -133,11 +133,14 @@ Check with the CPU slowed 4–6×:
 - Rebuilding `session.json` from a few hundred WAVs: read only each WAV's chunks, not
   its sound.
 
-## Open questions
+## Decided
 
-- Should **Delete** move takes to a `deleted/` folder first, so a mistake can be undone?
-- Do we keep a script history in `session.json`, or only each take's `line` and `ver`, as now?
-- Should packaging leave out takes that aren't chosen, to make a smaller file to send?
+- **Deleting** marks a take in `session.json`. Ctrl/Cmd+Z or a click on the message brings
+  it back. Its WAV is deleted when the recording closes, or when the session next opens.
+- **No script history.** Each take's `line` and `ver` are enough to match takes and find
+  a pickup's original.
+- **Packaging asks** for every take, or chosen takes only. Chosen only keeps the take each
+  pickup replaced, for Compare.
 
 ## Guides to update when it's built
 

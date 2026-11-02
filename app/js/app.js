@@ -3382,8 +3382,11 @@ document.addEventListener('keyup', (e) => {
 window.addEventListener('blur', () => holdEnd());
 
 let toastTimer = 0;
-function toast(msg) {
+// onClick: something a click on the message does, such as bringing back a deleted take.
+function toast(msg, onClick = null) {
   toastEl.textContent = pcKeys(msg);
+  toastEl.onclick = onClick && (() => { toastEl.onclick = null; toastEl.classList.remove('act'); onClick(); });
+  toastEl.classList.toggle('act', !!onClick);
   announce(msg, IS_MAC);
   toastEl.classList.remove('fade');
   clearTimeout(toastTimer);
@@ -3783,7 +3786,7 @@ function saveRecordingFile() {
 $('recFileGo').addEventListener('click', saveRecordingFile);
 $('recFileStart').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveRecordingFile(); } });
 $('recFileCancel').addEventListener('click', () => recFileDlg.close());
-document.addEventListener('keydown', (e) => { if (recFileDlg.open || $('recExportDlg').open || $('narrDlg').open || $('recSessionDlg').open) e.stopPropagation(); }, true);
+document.addEventListener('keydown', (e) => { if (recFileDlg.open || $('recExportDlg').open || $('narrDlg').open || $('recSessionDlg').open || $('recPackDlg').open) e.stopPropagation(); }, true);
 
 // A narration package (a zip from Record mode) is checked by the narration WAV inside it.
 async function openPackage(f) {
@@ -5076,6 +5079,8 @@ document.addEventListener('keydown', (e) => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
   // Undo and redo follow the letter on the key, like other apps, so ⌘Z is still Z on AZERTY.
   const letter = e.key.length === 1 ? e.key.toLowerCase() : '';
+  // Record mode's script is locked: ⌘Z only brings back a take just deleted.
+  if (S.mode === 'record' && mod && letter === 'z' && !e.shiftKey) { e.preventDefault(); recorder.undoDelete().then((ok) => ok || toast('Nothing to bring back')); return; }
   if (S.mode === 'record' && mod && (letter === 'z' || letter === 'y')) { e.preventDefault(); return; }
   if (mod && letter === 'z') { e.preventDefault(); e.shiftKey ? doRedo() : doUndo(); return; }
   if (mod && letter === 'y') { e.preventDefault(); doRedo(); return; }

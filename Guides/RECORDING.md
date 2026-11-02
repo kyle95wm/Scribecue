@@ -86,6 +86,7 @@ The writer's notes for a block, such as how to say a name, show above its text.
 | Shift+Enter or Shift+R | [Punch in](#punching-in) from the playhead |
 | X | Split the block's take at the playhead |
 | Delete | Delete the part of a take you last clicked |
+| Ctrl/Cmd+Z | Bring back the take you deleted |
 | Esc | Stop recording |
 | V | Hear the block read by text to speech, as a guide |
 | P | Go to the next [pickup](#pickups) |
@@ -120,6 +121,8 @@ lines, including your loudest, and set your gain so the peaks land in it.
 - **Play** plays one take against the video.
 - **Use** picks the take for the export. A new take is picked automatically.
 - **Fine-tune** moves, trims or splits the take in the export by the millisecond.
+- **Delete** removes a take. Press Ctrl/Cmd+Z, or click the message, to bring it back.
+  Once you close the recording, it's gone.
 - **Delete** removes a take for good.
 
 ### Punching in
@@ -319,9 +322,11 @@ takes uses about 8.6 MB.
 
 ### Moving to another computer
 
-1. Choose **Export → Session package**. It's one file with the script and every take.
-2. Open it in Scribecue on the other computer.
-3. Choose a folder for the takes.
+1. Choose **Export → Session package**. It's one file with the script and the takes.
+2. Choose **Every take**, or **Chosen takes only** for a smaller file. That keeps the takes
+   in the export, and the take each pickup replaced.
+3. Open it in Scribecue on the other computer.
+4. Choose a folder for the takes.
 
 Or copy the folder. Then open the recording file on the other computer, and choose the
 copied folder.

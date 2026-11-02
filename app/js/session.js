@@ -43,6 +43,8 @@ export function cleanTake(t) {
     ...(typeof t.alt === 'string' && t.alt.length <= MAX_TEXT ? { alt: t.alt } : {}),
     ...(Number.isSafeInteger(t.size) && t.size > 0 ? { size: t.size } : {}),
     ...(Number.isInteger(t.crc) && t.crc >= 0 && t.crc <= 0xffffffff ? { crc: t.crc } : {}),
+    // Deleted, but its WAV is kept until the recording closes, so it can be brought back.
+    ...(t.deleted === true ? { deleted: true } : {}),
   };
 }
 
@@ -51,7 +53,7 @@ export function cleanTake(t) {
 export const takeNote = (t) => {
   const c = cleanTake(t);
   if (!c) return null;
-  const { size, crc, chosen, edit: _, ...rest } = c;
+  const { size, crc, chosen, deleted, edit: _, ...rest } = c;
   return { scribecueTake: 1, ...rest, choose: chosen };
 };
 

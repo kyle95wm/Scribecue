@@ -6,7 +6,7 @@ import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
 import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, fromRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
 import { storeZip } from './zip.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
-import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takesWhere, relinkTakes, moveTakes, openSession, useSession, currentSession,
+import { listTakes, saveTake, chooseTake, editTake, deleteTake, restoreTake, takeAudio, takesWhere, relinkTakes, moveTakes, openSession, useSession, currentSession,
   rememberedSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser, sessionFolder, unpackSession, forgetBrowserFolder } from './takestore.js';
 import { SESSION_EXT } from './session.js';
 
@@ -182,15 +182,11 @@ export function initRecord(h) {
       ed.addEventListener('click', () => { editing = editing?.id === t.id ? null : { id: t.id }; render(); });
       const del = document.createElement('button');
       del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete ${what} ${k + 1}`);
-      del.addEventListener('click', async () => {
-        if (!confirm(`Delete ${what} ${k + 1} of block ${i + 1}? This can’t be undone.`)) return;
-        stopPlay();
-        await deleteTake(rec.id, t.id);
+      del.addEventListener('click', () => remove(t, `${what} ${k + 1} of block ${i + 1}`, () => {
         // Another take takes its place in the export, if this one was chosen.
         const left = blockTakes(i, isAlt(t)).filter((x) => x.id !== t.id);
-        if (t.chosen && left.length) await chooseTake(rec.id, left[left.length - 1].id);
-        await reload();
-      });
+        return t.chosen && left.length ? chooseTake(rec.id, left[left.length - 1].id) : null;
+      }));
       li.append(play, ed, del);
       el.takes.append(li);
       if (editing?.id === t.id) el.takes.append(editor(t, i));
@@ -209,18 +205,40 @@ export function initRecord(h) {
       play.addEventListener('click', () => (playing?.t.id === t.id ? stopPlay() : playTake(t)));
       const del = document.createElement('button');
       del.textContent = 'Delete'; del.setAttribute('aria-label', `Delete old take ${k + 1}`);
-      del.addEventListener('click', async () => {
-        if (!confirm(`Delete old take ${k + 1} of block ${i + 1}? This can’t be undone.`)) return;
-        stopPlay();
-        await deleteTake(rec.id, t.id);
-        await reload();
-      });
+      del.addEventListener('click', () => remove(t, `old take ${k + 1} of block ${i + 1}`));
       li.append(name, tag);
       if (t === orig) li.append(origTag());
       li.append(play, del);
       el.takes.append(li);
     });
   }
+  // Deletes a take. In a session it can be brought back until the recording closes, so it
+  // doesn't ask first; elsewhere it's gone for good. what: how to name it, such as "take 2
+  // of block 5". then: anything to do after, such as choosing another take.
+  let deleted = []; // in a session: [{ id, chosen, what }], the latest last
+  async function remove(t, what, then = () => null) {
+    const undoable = !!currentSession();
+    if (!undoable && !confirm(`Delete ${what}? This can’t be undone.`)) return;
+    stopPlay();
+    try { await deleteTake(rec.id, t.id); await then(); } catch (e) { h.toast(`Couldn’t delete ${what}: ${e.message}`); }
+    await reload();
+    if (!undoable) return;
+    deleted.push({ id: t.id, chosen: t.chosen, what });
+    h.toast(`Deleted ${what}. Undo: ⌘Z`, undoDelete);
+  }
+  // Brings back the take deleted last: false if there's none.
+  async function undoDelete() {
+    const d = rec && state === 'idle' && deleted.pop();
+    if (!d) return false;
+    try {
+      if (!await restoreTake(rec.id, d.id)) throw new Error('it isn’t there any more');
+      if (d.chosen) await chooseTake(rec.id, d.id);
+    } catch (e) { h.toast(`Couldn’t bring back ${d.what}: ${e.message}`); return true; }
+    await reload();
+    h.toast(`Brought back ${d.what}`);
+    return true;
+  }
+
   // match: put takes with the blocks of this version of the script (see relink), as when
   // it's opened. A recording from before projects has only one script, so its takes just
   // get their lines.
@@ -872,10 +890,34 @@ export function initRecord(h) {
   });
 
   // The session as one file, to move it to another computer: a zip of its folder.
-  async function exportSession() {
-    const s = currentSession();
+  // Every take, or only those in the export: the chosen ones, and the take each pickup
+  // replaced, so Compare still works on the other computer.
+  const pack = { dlg: $('recPackDlg'), all: $('recPackAll'), chosen: $('recPackChosen') };
+  const chosenIds = () => {
+    const ids = new Set(takes.filter((t) => t.chosen).map((t) => t.id));
+    for (const i of pickups()) { const o = originalTake(blockTakes(i), oldTakes(i), version()); if (o) ids.add(o.id); }
+    return ids;
+  };
+  const mb = (list) => `${Math.max(1, Math.round(list.reduce((n, t) => n + (t.size || 0), 0) / 1e6))} MB`;
+  const takesText = (n) => `${n} take${n === 1 ? '' : 's'}`;
+  function exportSession() {
     if (!rec || state !== 'idle') return;
-    if (!s) return h.toast(keep === 'ready' ? 'This browser keeps takes where they can’t be packaged. Use Chrome or Edge, or Firefox' : 'Choose where to keep the takes first');
+    if (!currentSession()) return h.toast(keep === 'ready' ? 'This browser keeps takes where they can’t be packaged. Use Chrome or Edge, or Firefox' : 'Choose where to keep the takes first');
+    const ids = chosenIds(), some = takes.filter((t) => ids.has(t.id));
+    if (some.length === takes.length) return packSession(null);
+    pack.all.textContent = `${takesText(takes.length)}, ${mb(takes)}. Everything, as in the folder.`;
+    pack.chosen.textContent = `${takesText(some.length)}, ${mb(some)}. The ones in the export, and the take each pickup replaced.`;
+    pack.dlg.showModal();
+    pack.dlg.querySelector('[data-choice="all"]').focus();
+  }
+  for (const b of pack.dlg.querySelectorAll('.wzchoice')) {
+    b.addEventListener('click', () => { pack.dlg.close(); packSession(b.dataset.choice === 'chosen' ? chosenIds() : null); });
+  }
+  $('recPackCancel').addEventListener('click', () => pack.dlg.close());
+  // only: the ids of the takes to package, or null for all.
+  async function packSession(only) {
+    const s = currentSession();
+    if (!rec || !s || state !== 'idle') return;
     const name = `${h.baseName() || 'Recording'}${SESSION_EXT}`;
     let fh = null;
     if (window.showSaveFilePicker) {
@@ -885,7 +927,7 @@ export function initRecord(h) {
     state = 'saving'; render();
     try {
       status('Packaging the session…');
-      const files = await s.files();
+      const files = await s.files(only);
       const zip = await storeZip(files, { progress: (d, t) => status(`Packaging the session: ${Math.round((d / t) * 100)}%…`) });
       if (fh) {
         const w = await fh.createWritable(), CH = 16 << 20;
@@ -1236,7 +1278,7 @@ export function initRecord(h) {
   return {
     get active() { return state !== 'idle'; },
     get open() { return !!rec; },
-    toggle, punch, exportWav, exportSession, chooseWhere, finish, render, nextPickup,
+    toggle, punch, exportWav, exportSession, chooseWhere, finish, render, nextPickup, undoDelete,
     get session() { return !!rec && !!currentSession(); },
     get pickups() { return rec ? pickups().length : 0; },
     // How many blocks have an alt in the export, and the Alt switch (A).
@@ -1302,6 +1344,9 @@ export function initRecord(h) {
       clearTimeout(draftTimer);
       const s = currentSession();
       if (s && Object.keys(drafts).length) await s.setDrafts({ ...drafts }).catch(() => {});
+      // Takes deleted while it was open go for good now.
+      await s?.purge().catch(() => {});
+      deleted = [];
       useSession(null);
       keep = 'none'; paused = null; raw = null;
       if (answer) settle(null);

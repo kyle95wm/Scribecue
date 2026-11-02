@@ -75,6 +75,41 @@ test('a take saved again by its id replaces it, with or without its sound', asyn
   await assert.rejects(s.save({ ...take(), wav: undefined }), /no sound/);
 });
 
+test('a deleted take can be brought back until it’s purged, and isn’t packaged', async () => {
+  const dir = new DirH('n');
+  const s = await openSession(dir, { key: KEY, recording });
+  const a = take(), b = take();
+  await s.save(a, true); await s.save(b, true);
+  await s.remove(KEY, b.id);
+  assert.deepEqual((await s.list(KEY)).map((t) => t.id), [a.id]);
+  assert.deepEqual((await s.files()).map((f) => f.name), [SESSION_FILE, `takes/${a.id}.wav`]);
+  assert.equal(await s.restore(KEY, b.id), true);
+  assert.equal((await s.list(KEY)).length, 2);
+  await s.remove(KEY, b.id);
+  assert.equal(await s.purge(), 1);
+  assert.equal(await s.restore(KEY, b.id), false);
+  assert.equal((await dir.getDirectoryHandle('takes')).kids.size, 1, 'its WAV is gone');
+});
+
+test('a take deleted when Scribecue last stopped goes when the session opens', async () => {
+  const dir = new DirH('n');
+  const s = await openSession(dir, { key: KEY, recording });
+  const a = take();
+  await s.save(a, true); await s.remove(KEY, a.id);
+  const again = await openSession(dir, { key: KEY, recording });
+  assert.deepEqual(await again.list(KEY), []);
+  assert.equal((await dir.getDirectoryHandle('takes')).kids.size, 0);
+});
+
+test('a package can hold only some takes, with a session.json to match', async () => {
+  const s = await openSession(new DirH('n'), { key: KEY, recording });
+  const a = take(), b = take();
+  await s.save(a, true); await s.save(b, true);
+  const files = await s.files(new Set([b.id]));
+  assert.deepEqual(files.map((f) => f.name), [SESSION_FILE, `takes/${b.id}.wav`]);
+  assert.deepEqual(fromSession(JSON.parse(await files[0].blob.text())).takes.map((t) => t.id), [b.id]);
+});
+
 test('a take saved just before Scribecue stopped comes back from its own WAV', async () => {
   const dir = new DirH('n');
   const s = await openSession(dir, { key: KEY, recording });

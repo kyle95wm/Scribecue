@@ -399,6 +399,16 @@ docker compose up -d --build</code></pre>
     <div class="updbtns"><button id="recSessionBrowser" data-tip="Only this browser has them then. Export a session package to move them">Keep in this browser</button><button id="recSessionPick" class="hl">Choose folder…</button></div>
   </dialog>
 
+  <dialog id="recPackDlg" class="updbox wizard" aria-labelledby="recPackTitle">
+    <h2 id="recPackTitle">Session package</h2>
+    <p>One file with the script and its takes, to carry on on another computer.</p>
+    <button class="wzcard wzchoice" data-choice="all"><span><strong>Every take</strong>
+      <span class="dim" id="recPackAll"></span></span></button>
+    <button class="wzcard wzchoice" data-choice="chosen"><span><strong>Chosen takes only</strong>
+      <span class="dim" id="recPackChosen"></span></span></button>
+    <div class="updbtns"><button id="recPackCancel">Cancel</button></div>
+  </dialog>
+
   <dialog id="narrDlg" class="updbox wizard" aria-labelledby="narrTitle">
     <h2 id="narrTitle">Check the narration</h2>
     <p id="narrWhat"></p>
@@ -1256,6 +1266,7 @@ docker compose up -d --build</code></pre>
             <dt><kbd>⇧</kbd><kbd>↵</kbd> <kbd>⇧</kbd><kbd>R</kbd></dt><dd>Punch in: pick up the block's take from the playhead</dd>
             <dt data-keys="split"><kbd>X</kbd></dt><dd>Split the block's take at the playhead</dd>
             <dt data-keys="deleteNow"><kbd>Delete</kbd></dt><dd>Delete the part of a take you last clicked</dd>
+            <dt><kbd><span class="mod"></span>Z</kbd></dt><dd>Bring back the take you deleted</dd>
             <dt><kbd>P</kbd></dt><dd>Go to the next pickup</dd>
             <dt><kbd>A</kbd></dt><dd>Alt: switch between the block and your own wording for it</dd>
             <dt><kbd>Z</kbd></dt><dd>Zoom to the block's take, or back</dd>
