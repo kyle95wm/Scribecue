@@ -31,8 +31,9 @@ test('the video must match by name and length', () => {
   assert.ok(!sameVideo(saved, { name: 'a.mp4', duration: 75 }));
 });
 
-test('a slot gets 1 second of grace but never reaches the next block', () => {
-  assert.deepEqual(slots(blocks), [{ start: 2, end: 5.4 }, { start: 5.4, end: 9 }, { start: 20, end: 23 }]);
+test('a slot ends where its block does, and any grace never reaches the next block', () => {
+  assert.deepEqual(slots(blocks), [{ start: 2, end: 5 }, { start: 5.4, end: 8 }, { start: 20, end: 22 }]);
+  assert.deepEqual(slots(blocks, 1), [{ start: 2, end: 5.4 }, { start: 5.4, end: 9 }, { start: 20, end: 23 }]);
 });
 
 test('peaks are judged against the targets', () => {

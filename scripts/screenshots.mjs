@@ -219,8 +219,8 @@ await js(`(async () => {
     { block: 0, start: 3.1, secs: 3.1, level: 0.3 },
     { block: 1, start: 11.6, secs: 4.1, level: 0.3 },
     { block: 2, start: 20.0, secs: 3.9, level: 0.1 },
-    { block: 2, start: 20.1, secs: 4.4, level: 0.31, edit: { splits: [2.1], parts: [{ shift: 0, head: 0.1, tail: 0 }, { shift: -0.3, head: 0.35, tail: 0 }] } },
-    { block: 3, start: 30.3, secs: 2.3, level: 0.29 },
+    { block: 2, start: 20.1, secs: 3.9, level: 0.31, edit: { splits: [2.1], parts: [{ shift: 0, head: 0.1, tail: 0 }, { shift: -0.3, head: 0.35, tail: 0 }] } },
+    { block: 3, start: 30.3, secs: 2.1, level: 0.29 },
   ];
   let made = 1;
   for (const t of takes) {
@@ -286,9 +286,9 @@ await js(`(async () => {
   };
   const v1 = ${JSON.stringify(v1)}, v2 = ${JSON.stringify(v2.map(({ start, end, text }) => ({ start, end, text })))};
   const takes = [
-    ...v1.map((b, i) => ({ block: i, line: b, ver: 1, start: b.start + 0.1, secs: Math.min(b.end - b.start + 0.3, 3.6), chosen: i !== 1 && i !== 3 })),
-    { block: 1, line: v2[1], ver: 2, start: v2[1].start + 0.05, secs: 2.8, chosen: true },
-    { block: 3, line: v2[3], ver: 2, start: v2[3].start + 0.1, secs: 2.2, chosen: true },
+    ...v1.map((b, i) => ({ block: i, line: b, ver: 1, start: b.start + 0.1, secs: Math.min(b.end - b.start - 0.2, 3.6), chosen: i !== 1 && i !== 3 })),
+    { block: 1, line: v2[1], ver: 2, start: v2[1].start + 0.05, secs: 2.3, chosen: true },
+    { block: 3, line: v2[3], ver: 2, start: v2[3].start + 0.1, secs: 2.1, chosen: true },
   ];
   let made = 1;
   for (const t of takes) {

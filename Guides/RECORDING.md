@@ -95,8 +95,8 @@ The writer's notes for a block, such as how to say a name, show above its text.
 | Space | Play or pause, or stop recording |
 | Alt+Shift+Left / Right | Previous or next block |
 
-A block's **slot** is its time plus 1 second, but never into the next block. A take that
-runs past it isn't cut off. It's marked in red until you [trim or move it](#editing-a-take).
+A block's **slot** is its time, from its start to its end. A take that runs past it isn't
+cut off. It's marked in red until you [trim or move it](#editing-a-take).
 
 ### Levels
 

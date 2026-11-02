@@ -7,7 +7,7 @@ export const RECORDING_EXT = '.scribecuerec';
 // Earlier builds saved .scribecue-rec, which still opens.
 export const isRecordingFile = (name) => /\.scribecue-?rec$/i.test(name);
 export const RECORDING_FORMAT = 1;
-export const GRACE = 1; // seconds a take may run past its block, never into the next one
+export const GRACE = 0; // seconds a take may run past its block, never into the next one
 export const RATE = 48000;
 
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -245,7 +245,7 @@ export function sameVideo(saved, file) {
   return !num(saved.duration) || !num(file.duration) || Math.abs(saved.duration - file.duration) < 0.1;
 }
 
-// Where each line may be recorded: from its block's start to its end plus the grace,
+// Where each line may be recorded: from its block's start to its end, plus any grace,
 // but never past the next block's start. Returns [{ start, end }] in block order.
 export function slots(blocks, grace = GRACE) {
   return blocks.map((b, i) => {
