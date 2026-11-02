@@ -5220,7 +5220,7 @@ initReviewCompare({
   apply: (file, handle, name, generation) => openProject(new File([file], name), handle, true, generation),
 });
 initPending({
-  time: tc, toast, authoring: () => !S.reviewId, finish: finishReview,
+  time: tc, readTime, toast, authoring: () => !S.reviewId, finish: finishReview,
   numbers: () => new Map(S.cues.map((c, i) => [c.uid, i + 1])),
   redraw: () => { tlDirty = true; },
   // Show the change: select your block, and bring both versions into view.

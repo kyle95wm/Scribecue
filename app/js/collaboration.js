@@ -34,6 +34,7 @@ export const allows = (role, action) => Object.hasOwn(grants, role) && grants[ro
 // and asks the user to resolve the listed conflicts. Inputs are never changed.
 // Comments and settings are atomic for now: concurrent changes require review.
 // `changes` lists blocks only the remote side changed; a 'local' choice declines one.
+// A 'remote' choice may carry `edit`: wording and times to use instead of the remote ones.
 export function mergeProjects(base, local, remote, progress = () => {}, resolutions = []) {
   const [b, l, r] = [base, local, remote].map(checked);
   if (base.projectId !== local.projectId || base.projectId !== remote.projectId) {
@@ -41,17 +42,23 @@ export function mergeProjects(base, local, remote, progress = () => {}, resoluti
   }
   const conflicts = [], changes = [], blocks = [];
   const key = (r) => r.kind === 'project' ? `project:${r.field}` : `${r.kind}:${r.uid}`;
-  const choices = new Map(resolutions.map((r) => [key(r), r.choice]));
+  const choices = new Map(resolutions.map((r) => [key(r), r]));
+  const edited = (theirs, edit) => {
+    if (!theirs || !edit) return theirs;
+    const { text, start, end } = edit;
+    if (typeof text !== 'string' || !Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) throw new Error('An edited block needs wording, and an end after its start');
+    return { ...theirs, text, start, end };
+  };
   const choose = (before, ours, theirs, target) => {
     if (equal(ours, theirs) || equal(before, theirs)) return ours;
-    const choice = choices.get(key(target));
+    const { choice, edit } = choices.get(key(target)) || {};
     if (equal(before, ours)) {
       if (target.kind !== 'block') return theirs;
       changes.push(target);
-      return choice === 'local' ? ours : theirs;
+      return choice === 'local' ? ours : edited(theirs, edit);
     }
     if (choice === 'local') return ours;
-    if (choice === 'remote') return theirs;
+    if (choice === 'remote') return target.kind === 'block' ? edited(theirs, edit) : theirs;
     conflicts.push(target);
     return ours;
   };

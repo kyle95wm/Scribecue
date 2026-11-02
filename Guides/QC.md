@@ -302,6 +302,8 @@ explains what each optional service sends.
 4. If the reviewer changed any blocks, **Pending review** opens above the script.
    Click a change to see your version and theirs. The timeline outlines where theirs would go.
 5. Click ✓ to accept a change, or ✗ to keep yours. The next change opens by itself.
+   To adjust a change before accepting it, edit the returned wording, start or end.
+   This accepts it with your edits. **Use as returned** undoes them.
 6. To decide the remaining ones at once, use **Accept the rest** or **Reject the rest**.
 7. Click **Accept review** (**Save combined review** for a QC package). Your choices and the
    reviewer's comments are applied together.

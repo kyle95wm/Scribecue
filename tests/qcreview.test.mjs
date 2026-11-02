@@ -81,6 +81,21 @@ test('pending review items: each block change in script order, with both version
   assert.equal(items[2].theirs.start,6);assert.ok(!('comments' in items[2].theirs),'comments come in on their own');
 });
 
+test('an accepted change can carry your edits to its wording and times', async () => {
+  const {original,local,remote}=await setup(true);
+  remote.blocks[0].text='Reviewer wording';remote.blocks[0].comments=[{text:'Reworded',author:'Sam'}];
+  const added={uid:newIdentity(),start:9,end:10,text:'Reviewer added'};remote.blocks.push(added);
+  local.blocks[1].text='Writer wording';remote.blocks[1].text='Reviewer other wording';
+  const r=await returned(original,remote), result=await compareReturnedReview(local,r);
+  const edits={[remote.blocks[0].uid]:{text:'My wording',start:1.5,end:3},[added.uid]:{text:'Added, tidied',start:9,end:11},[remote.blocks[1].uid]:{text:'Settled wording',start:5,end:7}};
+  const resolutions=[...result.changes,...result.conflicts].map(c=>({...c,choice:'remote',edit:edits[c.uid]}));
+  const out=await compareReturnedReview(local,r,{resolutions});
+  assert.deepEqual(out.project.blocks.map(b=>[b.text,b.start,b.end]),[['My wording',1.5,3],['Settled wording',5,7],['Added, tidied',9,11]]);
+  assert.equal(out.project.blocks[0].comments[0].text,'Reworded','comments stay with the edited block');
+  const bad=resolutions.map(c=>c.uid===added.uid?{...c,edit:{text:'x',start:5,end:4}}:c);
+  await assert.rejects(compareReturnedReview(local,r,{resolutions:bad}),/end after its start/);
+});
+
 test('comment-only returns list no block changes', async () => {
   const {original,local,remote}=await setup();
   remote.blocks[0].comments=[{text:'Check this',author:'Sam'}];remote.comments=[{text:'Scene note',time:4}];

@@ -1163,6 +1163,9 @@ body:not(.mode-qc) #edComment, body:not(.mode-qc) #qcCommentRow { display: none;
 .pside .pl { margin-right: 8px; color: var(--accent); font: 600 11px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; }
 .pside .pt { color: var(--dim); font: 12px var(--mono); }
 .row.prow .pside .tx { display: block; margin: 2px 0 0; overflow-wrap: anywhere; }
+.ptimes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 6px; }
+.pedit textarea { cursor: text; }
+.preset[hidden] { display: none; }
 .pfoot { padding: 10px; border-top: 1px solid var(--line); }
 .pfoot p { margin: 0; color: var(--dim); font: 12px var(--mono); }
 .pfoot .updbtns { flex-wrap: wrap; margin-top: 8px; }

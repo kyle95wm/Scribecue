@@ -42,17 +42,27 @@ try {
   const rows=()=>js(`[...document.querySelectorAll('#pendingList .prow')].map(r=>r.querySelector('.d').textContent)`);
   assert.deepEqual(await rows(),['Both changed: wording','Changed: timing']);
   assert.equal(await js(`document.getElementById('pendingAccept').disabled`),true);
-  assert.equal(await js(`document.querySelector('#pendingList .prow.sel .ppair').textContent.includes('Mara pushes open the blue door.') && document.querySelector('#pendingList .prow.sel .ppair').textContent.includes('Mara opens a weathered blue door.')`),true);
+  assert.equal(await js(`document.querySelector('#pendingList .prow.sel .ppair').textContent.includes('Mara pushes open the blue door.') && document.querySelector('#pendingList .prow.sel .pedit textarea').value==='Mara opens a weathered blue door.'`),true);
   assert.equal(await js(`document.querySelector('#cues .cue.ghost .ct').textContent`),'Mara opens a weathered blue door.');
   // Accepting moves on to the next change, whose new timing is outlined on the timeline.
   await js(`document.querySelector('#pendingList .prow .pick.remote').click();true`);
   assert.deepEqual(await rows(),['Both changed: wording · accepted','Changed: timing']);
   assert.equal(await js(`document.querySelector('#pendingList .prow.sel').dataset.i`),'1');
-  const ghost=await js(`(()=>{const g=document.querySelector('#cues .cue.ghost'),c=document.querySelector('#cues .cue.changing');return{ghost:!!g,after:g.getBoundingClientRect().left>c.getBoundingClientRect().left}})()`);
-  assert.deepEqual(ghost,{ghost:true,after:true});
+  // The outline is drawn on the next frame.
+  await wait(`(()=>{const g=document.querySelector('#cues .cue.ghost'),c=document.querySelector('#cues .cue.changing');return !!g&&!!c&&g.getBoundingClientRect().left>c.getBoundingClientRect().left})()`);
   const layout=await js(`(()=>{const p=document.getElementById('pendingPane'),r=p.getBoundingClientRect();return{fits:r.bottom<=innerHeight&&p.scrollWidth<=p.clientWidth,height:r.height}})()`);assert.equal(layout.fits,true);
   if(screenshot){const shot=await send('Page.captureScreenshot',{format:'png'});writeFileSync(screenshot,Buffer.from(shot.result.data,'base64'));}
-  await js(`document.querySelector('#pendingList .prow.sel .pick.local').click();true`);
+  // Editing the returned version accepts it with the edits, and the outline follows.
+  await js(`(()=>{const t=document.querySelector('#pendingList .prow.sel .pedit textarea');t.focus();t.value='She steps out into the garden.';t.dispatchEvent(new Event('input',{bubbles:true}));const e=document.querySelector('#pendingList .prow.sel .pedit input[data-f=end]');e.value='00:00:13:00';e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  assert.equal(await js(`document.querySelector('#pendingList .prow.sel .d').textContent`),'Changed: timing · accepted, edited');
+  assert.equal(await js(`document.activeElement.matches('.pedit textarea')`),true,'editing keeps the focus');
+  await sleep(200);assert.equal(await js(`document.querySelector('#cues .cue.ghost .ct').textContent`),'She steps out into the garden.');
+  await js(`(()=>{const e=document.querySelector('#pendingList .prow.sel .pedit input[data-f=start]');e.value='00:00:14:00';e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  assert.equal(await js(`document.querySelector('#pendingList .prow.sel .pedit input[data-f=start]').value`),'00:00:10:12','a start after the end is refused');
+  if(screenshot){const shot=await send('Page.captureScreenshot',{format:'png'});writeFileSync(screenshot.replace(/\.png$/,'-edit.png'),Buffer.from(shot.result.data,'base64'));}
+  await js(`document.querySelector('#pendingList .prow.sel .preset').click();true`);
+  assert.equal(await js(`document.querySelector('#pendingList .prow.sel .d').textContent`),'Changed: timing · accepted');
+  await js(`(()=>{const t=document.querySelector('#pendingList .prow.sel .pedit textarea');t.value='She walks into the garden.';t.dispatchEvent(new Event('input',{bubbles:true}));})()`);
   await js(`(()=>{const l=document.getElementById('pendingList');l.focus();l.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true,cancelable:true}));})()`);
   assert.equal(await js(`document.querySelector('#pendingList .prow.sel').dataset.i`),'0','↑ selects the previous change');
   assert.equal(await js(`document.getElementById('pendingAccept').disabled`),false);
@@ -65,8 +75,8 @@ try {
   await js(`__failure='';true`);await click('pendingAccept');
   await wait(`!document.getElementById('reviewCompareDlg').open && document.getElementById('subName').textContent.includes('combined')`);
   assert.equal(await js(`document.getElementById('listTabs').hidden && !document.querySelector('#cues .cue.ghost')`),true);
-  const saved=await js(`(async()=>{const {readReview,reviewReading,previousReading}=await import('./js/qc.js');const r=await readReview(__saved);return{editable:r.permissions.allowEdits,text:r.project.blocks[0].text,start:r.project.blocks[1].start,comments:r.project.blocks[1].comments.length,stale:!reviewReading(r,r.project.blocks[0],r.project.settings),previous:!!previousReading(r,r.project.blocks[0]),baseline:r.baselineId===__original.baselineId,audio:await r.file.slice(0,r.audioEnd).text()===await __original.file.slice(0,__original.audioEnd).text()}})()`);
-  assert.deepEqual(saved,{editable:true,text:'Mara opens a weathered blue door.',start:10,comments:1,stale:true,previous:true,baseline:true,audio:true});
+  const saved=await js(`(async()=>{const {readReview,reviewReading,previousReading}=await import('./js/qc.js');const r=await readReview(__saved);return{editable:r.permissions.allowEdits,text:r.project.blocks[0].text,start:r.project.blocks[1].start,edited:r.project.blocks[1].text,comments:r.project.blocks[1].comments.length,stale:!reviewReading(r,r.project.blocks[0],r.project.settings),previous:!!previousReading(r,r.project.blocks[0]),baseline:r.baselineId===__original.baselineId,audio:await r.file.slice(0,r.audioEnd).text()===await __original.file.slice(0,__original.audioEnd).text()}})()`);
+  assert.deepEqual(saved,{editable:true,text:'Mara opens a weathered blue door.',start:10.5,edited:'She walks into the garden.',comments:1,stale:true,previous:true,baseline:true,audio:true});
   await js(`document.activeElement?.blur();document.body.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyZ',key:'z',ctrlKey:true,bubbles:true,cancelable:true}));true`);
   assert.ok(await js(`document.getElementById('list').textContent.includes('Mara pushes open the blue door.')`));
   // A corrupted original clip is refused, without offering a save.

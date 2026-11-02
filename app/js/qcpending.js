@@ -21,16 +21,32 @@ function what(item) {
   return `${item.conflict ? 'Both changed' : 'Changed'}: ${changes(item.ours, item.theirs)}`;
 }
 const comments = (value = []) => value.map((c) => `${c.time == null ? '' : h.time(c.time) + ' · '}${c.author || 'Comment'}: ${c.text}${c.resolved ? ' (resolved)' : ''}`).join('\n') || 'No comments.';
-function describe(block) {
-  return [block.text || '(Empty block)', block.voice && `Voice: ${voiceLabel(block.voice)}`,
+function describe(block, withText = true) {
+  return [withText && (block.text || '(Empty block)'), block.voice && `Voice: ${voiceLabel(block.voice)}`,
     block.speed && `Speed: ${Math.round(block.speed * 100)}%`, block.auto && 'End follows reading', block.fit && 'Speed fits slot', block.pinned && 'Speed fixed',
     block.vol != null && `Volume: ${block.vol}%`, block.dip != null && `Programme dip: ${block.dip === 0 ? 'None' : '−' + block.dip + ' dB'}`,
     block.dipBy != null && `Dip adjustment: ${String(block.dipBy).replace('-', '−')} dB`, block.pickup && `Pickup: ${block.pickup.note || 'Marked'}`,
     block.say?.length && `Sounds like: ${block.say.map(([a, b]) => `${a} → ${b}`).join('; ')}`].filter(Boolean).join('\n');
 }
 const span = (cls, text) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; return s; };
+// The reviewer's version, with its wording and times open to change before accepting.
+const shown = (item) => review.edits.has(key(item)) ? { ...item.theirs, ...review.edits.get(key(item)) } : item.theirs;
+function editable(item) {
+  const d = document.createElement('div'), block = shown(item); d.className = 'pside pedit';
+  const time = (f, label) => { const t = document.createElement('input'); t.className = 'time'; t.dataset.f = f; t.spellcheck = false; t.autocomplete = 'off'; t.value = h.time(block[f]); t.setAttribute('aria-label', label); return t; };
+  const text = document.createElement('textarea'); text.rows = 2; text.spellcheck = true; text.value = block.text; text.setAttribute('aria-label', 'Returned wording');
+  const times = document.createElement('div'); times.className = 'ptimes';
+  const reset = document.createElement('button'); reset.className = 'preset'; reset.textContent = 'Use as returned'; reset.hidden = !review.edits.has(key(item));
+  reset.dataset.tip = 'Undo your edits to the returned version';
+  times.append(span('pl', 'Returned'), time('start', 'Returned start'), span('dim', '–'), time('end', 'Returned end'), reset);
+  d.append(times, text);
+  const rest = describe(block, false);
+  if (rest) { const tx = document.createElement('div'); tx.className = 'tx'; tx.textContent = rest; d.append(tx); }
+  return d;
+}
 // One side of a change: its time and what it says, or that it isn't there.
 function side(label, item, value, missing) {
+  if (label === 'Returned' && item.kind === 'block' && value) return editable(item);
   const d = document.createElement('div'); d.className = 'pside';
   const block = item.kind === 'block' ? value : item.block;
   d.append(span('pl', label), span('pt', block ? `${h.time(block.start)} – ${h.time(block.end)}` : ''));
@@ -60,7 +76,7 @@ function row(item, i) {
     r.append(pair);
   } else {
     const tx = document.createElement('div'); tx.className = 'tx';
-    tx.textContent = item.kind === 'block' ? (item.theirs || item.ours).text || '(Empty block)' : comments(item.theirs);
+    tx.textContent = item.kind === 'block' ? (item.theirs ? shown(item) : item.ours).text || '(Empty block)' : comments(item.theirs);
     r.append(tx);
   }
   mark(r, item);
@@ -71,7 +87,7 @@ function mark(r, item) {
   const choice = review.choices.get(key(item));
   item.label ??= what(item);
   r.classList.toggle('decided', !!choice);
-  r.querySelector('.d').textContent = item.label + (choice === 'remote' ? ' · accepted' : choice === 'local' ? ' · rejected' : '');
+  r.querySelector('.d').textContent = item.label + (choice === 'remote' ? review.edits.has(key(item)) ? ' · accepted, edited' : ' · accepted' : choice === 'local' ? ' · rejected' : '');
   for (const b of r.querySelectorAll('.pick')) b.setAttribute('aria-pressed', String(choice === b.dataset.choice));
 }
 const open = () => review ? review.items.filter((c) => !review.choices.has(key(c))).length : 0;
@@ -120,15 +136,15 @@ export const pendingReview = () => !!review;
 // What the timeline should outline: the reviewer's version of the chosen block.
 export function pendingGhost() {
   const item = review && tab === 'pending' ? review.items[at] : null;
-  return item?.kind === 'block' ? { uid: item.uid, theirs: item.theirs, removed: !item.theirs } : null;
+  return item?.kind === 'block' ? { uid: item.uid, theirs: item.theirs && shown(item), removed: !item.theirs } : null;
 }
-export function startPending(file, items) { review = { file, items, choices: new Map() }; at = -1; render(); show('pending'); if (items.length) choose(0); }
+export function startPending(file, items) { review = { file, items, choices: new Map(), edits: new Map() }; at = -1; render(); show('pending'); if (items.length) choose(0); }
 export function addPending(items) {
   if (!review) return;
   const known = new Set(review.items.map(key));
   review.items = [...review.items.map((c) => known.has(key(c)) && items.some((n) => key(n) === key(c)) ? items.find((n) => key(n) === key(c)) : c),
     ...items.filter((c) => !known.has(key(c)))].sort((a, z) => a.start - z.start);
-  for (const c of items) review.choices.delete(key(c));
+  for (const c of items) { review.choices.delete(key(c)); review.edits.delete(key(c)); }
   at = -1; render(); show('pending'); const first = review.items.findIndex((c) => !review.choices.has(key(c))); if (first >= 0) choose(first);
 }
 export function endPending() { if (!review) return; review = null; at = -1; tab = 'blocks'; $('pendingList').replaceChildren(); summary(); h.redraw(); }
@@ -140,15 +156,37 @@ export function initPending(hooks) {
   $('pendingList').addEventListener('click', (e) => {
     const r = e.target.closest('.prow'); if (!r || !review) return;
     const i = +r.dataset.i, pick = e.target.closest('.pick');
+    if (e.target.closest('.preset')) { review.edits.delete(key(review.items[i])); refresh(i); h.redraw(); return; }
     if (!pick) { if (i !== at) choose(i); return; }
     const item = review.items[i], k = key(item);
-    if (review.choices.get(k) === pick.dataset.choice) review.choices.delete(k); else review.choices.set(k, pick.dataset.choice);
+    review.choices.set(k, pick.dataset.choice);
     // Move on to the next open choice, so each one is a single press.
     const next = review.items.findIndex((c, j) => j > i && !review.choices.has(key(c)));
     if (review.choices.has(k) && next >= 0) { refresh(i); choose(next); } else { refresh(i); $(`pending-${i}`)?.querySelector(`.pick.${pick.dataset.choice}`)?.focus(); }
   });
+  // Editing the returned version accepts it, with the edits.
+  const edit = (target, patch) => {
+    const r = target.closest('.prow'), i = +r.dataset.i, item = review.items[i], k = key(item);
+    const next = { ...(review.edits.get(k) || { text: item.theirs.text, start: item.theirs.start, end: item.theirs.end }), ...patch };
+    if (!(next.end > next.start) || next.start < 0) return false;
+    if (next.text === item.theirs.text && next.start === item.theirs.start && next.end === item.theirs.end) review.edits.delete(k); else review.edits.set(k, next);
+    review.choices.set(k, 'remote'); mark(r, item); summary(); h.redraw();
+    r.querySelector('.preset').hidden = !review.edits.has(k);
+    return true;
+  };
+  $('pendingList').addEventListener('input', (e) => { if (review && e.target.matches('.pedit textarea')) edit(e.target, { text: e.target.value }); });
+  $('pendingList').addEventListener('change', (e) => {
+    if (!review || !e.target.matches('.pedit input.time')) return;
+    const item = review.items[+e.target.closest('.prow').dataset.i], t = h.readTime(e.target.value), f = e.target.dataset.f;
+    if (!Number.isFinite(t) || !edit(e.target, { [f]: t })) {
+      h.toast(Number.isFinite(t) ? 'The end must be after the start' : 'Type a time such as 00:01:23:12, or seconds');
+      e.target.value = h.time(shown(item)[f]); return;
+    }
+    e.target.value = h.time(t);
+  });
   $('pendingList').addEventListener('keydown', (e) => {
-    if (!review || e.target.closest('.pick') || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    if (e.target.matches('input, textarea') && e.key === 'Enter' && e.target.matches('input')) { e.preventDefault(); e.target.blur(); return; }
+    if (!review || e.target.closest('.pick, input, textarea') || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
     e.preventDefault(); e.stopPropagation();
     const i = Math.max(0, Math.min(review.items.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)));
     if (i !== at) choose(i);
@@ -164,7 +202,10 @@ export function initPending(hooks) {
   };
   $('pendingAccept').onclick = () => {
     if (!review || open()) return;
-    const decisions = review.items.map(({ kind, uid, field }) => ({ kind, ...(uid ? { uid } : {}), ...(field ? { field } : {}), choice: review.choices.get(key({ kind, uid, field })) }));
+    const decisions = review.items.map((item) => {
+      const { kind, uid, field } = item, choice = review.choices.get(key(item)), edit = choice === 'remote' && review.edits.get(key(item));
+      return { kind, ...(uid ? { uid } : {}), ...(field ? { field } : {}), choice, ...(edit ? { edit } : {}) };
+    });
     h.finish(review.file, decisions);
   };
   $('pendingDiscard').onclick = () => {
