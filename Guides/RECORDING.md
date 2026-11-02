@@ -54,6 +54,8 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 
 - **Open the recording file and the video.** Drag both onto Scribecue together.
   Scribecue opens in Record mode. Reloading the page keeps you there.
+- **Choose where to keep the takes.** Scribecue asks the first time. See
+  [Where takes are kept](#where-takes-are-kept).
 - **Leave** closes the recording, and the script with it. Your takes are kept: open the
   recording file again to carry on.
 - **Use wired headphones.** You hear the video's sound 30 dB down, to follow the scene.
@@ -297,13 +299,35 @@ block keeps its timing, since the alt was read in its slot.
 
 ## Where takes are kept
 
-A minute of takes uses about 8.6 MB.
+The first time you open a recording, Scribecue asks where to keep its takes. A minute of
+takes uses about 8.6 MB.
 
-- **The web version** keeps them in your browser. Clearing the browser's data for
-  Scribecue deletes them, so export the narration when you're done.
-- **In Docker,** add the [takes container](INSTALL.md#keeping-takes-on-disk) to keep them
-  on disk instead.
+| Choice | What happens |
+|---|---|
+| **Choose folder…** | Each take is saved there as you record it. Chrome and Edge only. |
+| **Keep in this browser** | Only this browser has them. Clearing its data for Scribecue deletes them. |
 
-Takes stay until you delete them. To delete them all, from every recording, click
-**Delete all** next to **Recorded takes** in **Settings → Offline and storage**. You don't
-need the recording file for that. Export any narration you still need first.
+- **Pick an empty folder,** or one of your own: Scribecue makes a folder for the takes
+  inside it.
+- **After a reload,** the browser asks again before Scribecue may use the folder. Click
+  **Resume in** and the folder's name, under the video.
+- **New versions** of the recording file use the same folder.
+- **Takes from earlier versions** of Scribecue, in the browser or in Docker, move into the
+  folder you choose.
+
+### Moving to another computer
+
+1. Choose **Export → Session package**. It's one file with the script and every take.
+2. Open it in Scribecue on the other computer.
+3. Choose a folder for the takes.
+
+Or copy the folder. Then open the recording file on the other computer, and choose the
+copied folder.
+
+### Deleting takes
+
+- **In a folder,** the takes are your own files. Delete the folder when you're done.
+- **In the browser,** click **Delete all** next to **Recorded takes** in **Settings →
+  Offline and storage**. It deletes them from every recording.
+
+Export any narration you still need first.

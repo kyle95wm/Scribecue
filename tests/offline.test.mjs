@@ -62,7 +62,7 @@ test('recorded takes show in storage, and removing all data warns about them', (
   const row = rows.find((r) => r[1] === 'Recorded takes');
   assert.match(row[2], /^3 takes, 26 MB\. .*clearing its data for Scribecue loses them/);
   assert.ok(!checklist({ hosted: false, persisted: true, usage: 0, takes: { count: 0, bytes: 0 } }).some((r) => r[1] === 'Recorded takes'));
-  assert.match(wipeWarning({ unsaved: 0, offline: false, hosted: true, takes: 1 }), /1 recorded take will be lost\. Export the narration WAV first/);
+  assert.match(wipeWarning({ unsaved: 0, offline: false, hosted: true, takes: 1 }), /1 recorded take will be lost\. Export a session package in Record mode first/);
   assert.doesNotMatch(wipeWarning({ unsaved: 0, offline: false, hosted: true }), /take/);
 });
 

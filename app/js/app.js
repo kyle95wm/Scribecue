@@ -14,11 +14,12 @@ import { collaborationJob, retainHistory } from './collaboration.js';
 import { initReviewCompare, openReviewCompare, finishReview } from './qcreviewdrawer.js';
 import { initPending, startPending, addPending, endPending, pendingGhost } from './qcpending.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanNotes, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
-import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, sameVideo, compareScript, newProjectId, pickupsFor } from './recording.js';
+import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, sameVideo, compareScript, newProjectId, pickupsFor, takesKey } from './recording.js';
 import { readNote } from './bwf.js';
 import { readZip } from './zip.js';
 import { initRecord } from './record.js';
-import { takesInfo, clearTakes } from './takestore.js';
+import { takesInfo, clearTakes, unpackSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser } from './takestore.js';
+import { isSessionPackage, fromSession, SESSION_FILE, SESSION_EXT } from './session.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
 import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom, stopAt, returnsToStart } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
@@ -3495,7 +3496,7 @@ async function openVideoPicker() {
   }
 }
 
-const isDoc = (name) => isReview(name) || name.toLowerCase().endsWith(PROJECT_EXT) || isRecordingFile(name);
+const isDoc = (name) => isReview(name) || name.toLowerCase().endsWith(PROJECT_EXT) || isRecordingFile(name) || isSessionPackage(name);
 const PROJECT_TYPES = [{ description: 'Scribecue project', accept: { 'application/json': [PROJECT_EXT, REVIEW_EXT] } }];
 
 function readingSettings() {
@@ -3670,6 +3671,7 @@ function okToReplace(what) {
 
 async function openProject(file, handle = null, confirmed = false, expectedGeneration = null, attachedAudio = null) {
   if (isRecordingFile(file.name)) return openRecording(file);
+  if (isSessionPackage(file.name)) return openSessionPackage(file);
   let p, review = null;
   if (isReview(file.name)) toast('Opening QC package…');
   try { if (isReview(file.name)) { review = await openReview(file); p = review.parsed; } else p = fromProject(JSON.parse(await file.text())); }
@@ -3781,7 +3783,7 @@ function saveRecordingFile() {
 $('recFileGo').addEventListener('click', saveRecordingFile);
 $('recFileStart').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveRecordingFile(); } });
 $('recFileCancel').addEventListener('click', () => recFileDlg.close());
-document.addEventListener('keydown', (e) => { if (recFileDlg.open || $('recExportDlg').open || $('narrDlg').open) e.stopPropagation(); }, true);
+document.addEventListener('keydown', (e) => { if (recFileDlg.open || $('recExportDlg').open || $('narrDlg').open || $('recSessionDlg').open) e.stopPropagation(); }, true);
 
 // A narration package (a zip from Record mode) is checked by the narration WAV inside it.
 async function openPackage(f) {
@@ -3885,18 +3887,19 @@ recorder = initRecord({
   seek: (t) => seek(t),
   baseName: () => baseName().replace(/\.[^.]+$/, ''),
   volume: (on, db = 0) => { recVol = on ? 10 ** (db / 20) : 1; applyDuck(0); },
+  app: VERSION,
 });
 
 // Opens a recording file in Record mode: the script, locked, ready to record against.
 async function openRecording(file) {
-  let r;
-  try { r = fromRecordingFile(JSON.parse(await file.text())); }
+  let r, raw;
+  try { raw = JSON.parse(await file.text()); r = fromRecordingFile(raw); }
   catch (e) { return toast(`Couldn’t open ${file.name}: ${e instanceof SyntaxError ? 'the file is damaged' : e.message}`); }
   if (!okToReplace(`Open ${file.name}`)) return;
   await stopJob();
   await recorder.close();
   pushUndo();
-  await enterRecording(r, file.name);
+  await enterRecording(r, file.name, raw);
   const ready = S.videoFile && sameVideo(r.media, { name: S.videoFile.name, duration: S.hasVideo ? video.duration : null });
   if (r.edited) toast(`${file.name} was changed outside Scribecue. Whoever sent it will see that when they check the narration`);
   else toast(`Record mode: ${file.name} (${S.cues.length} blocks). ` + (ready || !r.media ? 'Select a block and press Enter to record it'
@@ -3905,8 +3908,9 @@ async function openRecording(file) {
 }
 // The recording that's open is remembered, so a reload comes back to it, still locked.
 const REC_OPEN = 'scribecue.recOpen';
-async function enterRecording(r, name) {
-  try { localStorage.setItem(REC_OPEN, JSON.stringify({ ...r, name })); } catch { /* storage full or blocked */ }
+// raw: the recording file as opened, for its session (see session.js).
+async function enterRecording(r, name, raw = null) {
+  try { localStorage.setItem(REC_OPEN, JSON.stringify({ ...r, name, raw })); } catch { /* storage full or blocked */ }
   // Pickups as the recording file asks for them: { note?, was?, added? }.
   S.projectId = newIdentity();
   S.reviewHistory = null;
@@ -3924,10 +3928,48 @@ async function enterRecording(r, name) {
   changed();
   select(S.cues[0]?.id ?? null, { seek: false });
   projectSaved(name);
-  await recorder.open(r);
+  await recorder.open(r, raw);
   $('exportPickups').hidden = !recorder.pickups;
-  // Takes live in the browser's storage, so ask it not to clear them to free up space.
+  // Takes may be in the browser's storage, so ask it not to clear them to free up space.
   keepStorage();
+}
+
+// Opens a session package (a zip of a recording's session folder, from Record mode on any
+// computer): its takes go in a folder the narrator chooses, or in the browser, and the
+// recording opens in Record mode with them.
+async function openSessionPackage(file) {
+  let s, r;
+  const files = await readZip(file);
+  const index = files?.find((f) => f.name === SESSION_FILE);
+  try {
+    if (!index) throw new Error('it isn’t a Scribecue recording session');
+    s = fromSession(JSON.parse(await index.blob.text()));
+    r = fromRecordingFile(s.recording);
+    if (takesKey(r) !== s.key) throw new Error('the session is damaged');
+  } catch (e) { return toast(`Couldn’t open ${file.name}: ${e instanceof SyntaxError ? 'the file is damaged' : e.message}`); }
+  if (!canUseFolders() && !canKeepInBrowser()) return toast(`This browser can’t open ${file.name}. Open it in Chrome, Edge or Firefox`);
+  if (!okToReplace(`Open ${file.name}`)) return;
+  await stopJob();
+  await recorder.close();
+  const n = s.takes.length, takes = `${n} take${n === 1 ? '' : 's'}`;
+  const got = canUseFolders()
+    ? await recorder.chooseWhere({ intro: `Choose a folder for the ${takes} in ${file.name}. They’re copied there, and new takes are saved there too.`,
+      sub: file.name.replace(/\.[^.]+$/, '') })
+    : 'browser';
+  if (!got) return;
+  const dir = got === 'browser' ? await browserFolder(s.key) : got;
+  await asJob(async () => {
+    jobText.textContent = `Opening ${file.name}`; jobBar.value = 0; jobBox.hidden = false;
+    try {
+      await unpackSession(dir, files, (done, total) => { jobBar.value = done / total; jobText.textContent = `Opening ${file.name}: ${Math.round((done / total) * 100)}%`; });
+    } catch (e) { toast(`Couldn’t open ${file.name}: ${e.message}`); return; }
+    await rememberSession(s.key, got === 'browser' ? 'browser' : dir);
+    pushUndo();
+    await enterRecording(r, file.name, s.recording);
+    toast(`Record mode: ${file.name}, with ${takes}` + (got === 'browser' ? '' : `, kept in ${dir.name}`));
+    const ready = S.videoFile && sameVideo(r.media, { name: S.videoFile.name, duration: S.hasVideo ? video.duration : null });
+    if (r.media && !ready) reopenVideo(r.media, { ask: true });
+  });
 }
 // The script stays locked: it closes with the recording, and neither undo nor a reload
 // brings it back to edit. The video stays open.
@@ -3972,7 +4014,7 @@ async function openAny() {
       multiple: true,
       types: [
         { description: 'Scribecue project, script, video or audio', accept: {
-          'application/json': [PROJECT_EXT, REVIEW_EXT, RECORDING_EXT], 'text/plain': ['.srt', '.vtt', '.txt', '.adc'],
+          'application/json': [PROJECT_EXT, REVIEW_EXT, RECORDING_EXT], 'application/zip': [SESSION_EXT], 'text/plain': ['.srt', '.vtt', '.txt', '.adc'],
           'video/*': ['.mp4', '.m4v', '.mov', '.mkv', '.webm'], 'audio/*': ['.wav', '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.opus'],
         } },
       ],
@@ -4767,6 +4809,7 @@ const actions = {
   exportRecording: () => askRecordingFile(),
   exportNarration: () => recorder.exportWav(),
   exportPickups: () => recorder.exportWav(true),
+  exportSession: () => recorder.exportSession(),
   exportMenu: () => toggleMenu(exportMenu),
   help: () => toggleHelp(),
   settings: () => showGeneral(),
@@ -5226,7 +5269,7 @@ showDur();
 let reRec = null;
 try { reRec = JSON.parse(localStorage.getItem(REC_OPEN)); } catch { /* ignore */ }
 if (reRec) {
-  enterRecording(reRec, reRec.name);
+  enterRecording(reRec, reRec.name, reRec.raw || null);
   toast(`Back in Record mode: ${reRec.name}`);
   if (reRec.media) reopenVideo(reRec.media).then((ok) => { if (ok) toast(`Back in Record mode: ${reRec.name}, with ${reRec.media.name}`); });
 } else if (restored) {
@@ -5286,7 +5329,7 @@ initOffline({
   whisper: () => stt.ready,
   readings: () => savedReadings(),
   takes: () => takesInfo(),
-  clearTakes: async () => { await clearTakes(); await recorder.refresh(); },
+  clearTakes: async () => { await clearTakes(); await recorder.refreshSession(); },
   clearReadings: () => clearSavedReadings(),
   openTts: () => openTts(),
   openStt: () => openStt(),

@@ -44,7 +44,7 @@ export function checklist({ hosted, appKept, guides, voices, whisper, persisted,
   if (takes?.count) {
     rows.push([null, 'Recorded takes', `${takes.count} take${takes.count === 1 ? '' : 's'}, ${mb(takes.bytes)}. ` + (takes.where === 'docker'
       ? 'Kept in Docker, so clearing the browser doesn’t touch them.'
-      : 'They’re only in this browser: clearing its data for Scribecue loses them. Export the narration WAV to keep them.'), 'takes']);
+      : 'They’re only in this browser: clearing its data for Scribecue loses them. Export a session package in Record mode to keep them.'), 'takes']);
   }
   if (usage) rows.push([null, 'Space used', `${usage < 1e6 ? 'Less than 1' : Math.round(usage / 1e6)} MB in this browser.`]);
   return rows;
@@ -80,7 +80,7 @@ export function wipeWarning({ unsaved, offline, hosted, takes = 0 }) {
   return [
     'This can’t be undone.',
     unsaved ? `${unsaved} block${unsaved === 1 ? ' isn’t' : 's aren’t'} saved in a project file and will be lost.` : '',
-    takes ? `${takes} recorded take${takes === 1 ? '' : 's'} will be lost. Export the narration WAV first to keep them.` : '',
+    takes ? `${takes} recorded take${takes === 1 ? '' : 's'} will be lost. Export a session package in Record mode first to keep them.` : '',
     offline && hosted ? 'You’re offline, so Scribecue won’t open again until you’re back online.' : '',
     'Afterwards Scribecue opens as if for the first time.',
   ].filter(Boolean).join(' ');
@@ -165,7 +165,7 @@ async function clearReadings() {
 // Takes can't be brought back, and a narrator may still need them, so this asks first.
 async function clearTakes() {
   const t = await hooks.takes();
-  if (!t?.count || !confirm(`Delete all ${t.count} recorded take${t.count === 1 ? '' : 's'}, from every recording? This can’t be undone. Export any narration you still need first.`)) return;
+  if (!t?.count || !confirm(`Delete all ${t.count} recorded take${t.count === 1 ? '' : 's'} kept in this browser, from every recording? This can’t be undone. Takes in folders stay. Export any narration you still need first.`)) return;
   try { await hooks.clearTakes(); } catch (e) { hooks.toast(`Couldn’t delete the takes: ${e.message}`); }
   await render();
 }

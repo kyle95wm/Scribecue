@@ -112,8 +112,8 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
-  # Optional: keeps a narrator's takes from Record mode on disk, rather than in the
-  # browser. Turn it on by adding takes to COMPOSE_PROFILES in .env (see Guides/INSTALL.md).
+  # Being retired: Record mode now keeps takes in a folder the narrator chooses. Takes
+  # still in here move into that folder when their recording is next opened.
   takes:
     build: ./takes
     image: scribecue-takes:latest

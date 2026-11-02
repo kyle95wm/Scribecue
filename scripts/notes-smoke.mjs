@@ -24,7 +24,7 @@ try {
  await send('Page.navigate',{url:site});await sleep(800);
  await js(`localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);localStorage.setItem('scribecue.v1',JSON.stringify({cues:[{start:3,end:6,text:'She opens the door.'},{start:9,end:12,text:'Siobhan waves.'}],dirty:false}));location.reload();true`);
  await sleep(2000);
- await js(`window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.__long=[];new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'});true`);
+ await js(`window.showDirectoryPicker=undefined;window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.__long=[];new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'});true`);
  const before=await saved();
 
  // Opening a block puts the cursor in its text, not its notes.

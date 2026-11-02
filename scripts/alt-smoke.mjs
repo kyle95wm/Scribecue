@@ -28,9 +28,9 @@ try {
  await send('Emulation.setCPUThrottlingRate',{rate:6});
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
  await send('Page.navigate',{url:site});await sleep(800);
- await js(`localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);indexedDB.deleteDatabase('scribecue-takes');location.reload();true`);
+ await js(`localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);indexedDB.deleteDatabase('scribecue-takes');navigator.storage.getDirectory().then(r=>r.removeEntry('sessions',{recursive:true})).catch(()=>{}).then(()=>location.reload());true`);
  await sleep(2000);
- await js(`window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.__long=[];new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'});
+ await js(`window.showDirectoryPicker=undefined;window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.__long=[];new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'});
   window.__saved=[];HTMLAnchorElement.prototype.click=function(){if(this.download)__saved.push({name:this.download,href:this.href});};window.confirm=()=>true;true`);
 
  // The narrator opens the recording file and the video, and records block 1's take.

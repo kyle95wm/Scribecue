@@ -199,6 +199,7 @@ await shot('import-timings', '#importDlg', 0);
 await closeDialogs(); await sleep(300);
 await js(`(async () => {
   window.confirm = () => true;
+  window.showDirectoryPicker = undefined; // takes stay in the browser, without the folder dialog
   const R = await import('./js/recording.js'), B = await import('./js/bwf.js'), T = await import('./js/takestore.js');
   const file = R.toRecordingFile({ blocks: ${JSON.stringify(cues)}, fps: 25 });
   const rec = R.recordingId(R.fromRecordingFile(JSON.parse(JSON.stringify(file))));
@@ -268,6 +269,7 @@ await shot('pickup-mark', '#editor', 12);
 // The narrator opens version 2: takes from version 1, and the two pickups recorded since.
 await js(`(async () => {
   window.confirm = () => true;
+  window.showDirectoryPicker = undefined; // takes stay in the browser, without the folder dialog
   const R = await import('./js/recording.js'), B = await import('./js/bwf.js'), T = await import('./js/takestore.js');
   const file = R.toRecordingFile({ blocks: ${JSON.stringify(v2)}, fps: 25, project: 'lights0demo00001', version: 2, sent: ${JSON.stringify(v1)} });
   const rec = R.takesKey(R.fromRecordingFile(JSON.parse(JSON.stringify(file))));

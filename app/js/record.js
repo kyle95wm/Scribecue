@@ -6,7 +6,9 @@ import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
 import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, fromRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
 import { storeZip } from './zip.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
-import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takesWhere, relinkTakes, moveTakes } from './takestore.js';
+import { listTakes, saveTake, chooseTake, editTake, deleteTake, takeAudio, takesWhere, relinkTakes, moveTakes, openSession, useSession, currentSession,
+  rememberedSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser, sessionFolder } from './takestore.js';
+import { SESSION_EXT } from './session.js';
 
 const $ = (id) => document.getElementById(id);
 const VIDEO_DB = -30; // the video's sound while recording, so the scene can still be followed
@@ -15,13 +17,13 @@ const LEVEL_WORDS = { good: 'in the pocket', note: 'fine', quiet: 'very quiet', 
 const get = (k) => { try { return localStorage.getItem('scribecue.rec.' + k); } catch { return null; } };
 const put = (k, v) => { try { if (v == null) localStorage.removeItem('scribecue.rec.' + k); else localStorage.setItem('scribecue.rec.' + k, v); } catch { /* storage blocked */ } };
 
-// h: { video, toast, blocks(), selIdx(), select(i), seek(t), baseName(), volume(on) }
+// h: { video, toast, blocks(), selIdx(), select(i), seek(t), baseName(), volume(on), app }
 export function initRecord(h) {
   const { video } = h;
   const el = { go: $('recGo'), status: $('recStatus'), meter: $('recMeter'), fill: $('recSlotFill'), slot: $('recSlot'),
     dev: $('recDev'), lead: $('recLead'), sync: $('recSync'), test: $('recTest'), flash: $('recFlash'), takes: $('recTakes'),
     punch: $('recPunch'), count: $('recCount'), dlg: $('recExportDlg'), report: $('recReport'), go2: $('recExportGo'), title: $('recExportTitle'),
-    sw: $('edAltSw') };
+    sw: $('edAltSw'), where: $('recSession') };
 
   let rec = null;            // the recording file open: { id, start, fps, media, project?, version? }; id is where its takes are kept
   let takes = [];            // every take of this recording
@@ -33,7 +35,10 @@ export function initRecord(h) {
   let leadSecs = LEAD.includes(+get('lead')) ? +get('lead') : 3;
   let syncMs = get('sync') != null ? +get('sync') : null; // null: use the browser's figure
   let wasPlaying = false;
-  let where = 'browser';     // where takes are kept: 'docker' or 'browser'
+  let where = 'browser';     // where takes are kept: 'folder' or 'browser' (a session), or 'docker'
+  let keep = 'none';         // the session: ready | choose (no folder yet) | paused (the browser asks again) | moving
+  let paused = null;         // the folder the browser asks about again, while paused
+  let raw = null;            // the recording file as it was opened, kept in the session
   let editing = null;        // the take open in the list to fine-tune, always the chosen one: { id }
   let side = false;          // the Alt switch: true works on the selected block's alt, its wording and takes
   let drafts = {};           // alt wording typed for each block of this recording, by altKey; kept in the browser
@@ -96,7 +101,14 @@ export function initRecord(h) {
       b.disabled = busy;
     }
     $('recLinkRow').hidden = !rec?.project;
-    el.count.dataset.tip = where === 'docker' ? 'Takes are kept in Docker, on this computer' : 'Takes are kept in this browser. Clearing its data for Scribecue loses them';
+    const sn = currentSession()?.name;
+    el.count.dataset.tip = where === 'folder' ? `Takes are kept in ${sn}, a folder you can copy to another computer`
+      : where === 'docker' ? 'Takes are kept in Docker, on this computer'
+      : currentSession() ? 'Takes are kept in this browser. Export a session package to move them to another computer, or before clearing its data'
+      : 'Takes are kept in this browser. Clearing its data for Scribecue loses them';
+    el.where.hidden = !rec || (keep !== 'choose' && keep !== 'paused');
+    el.where.textContent = keep === 'paused' ? `Resume in ${paused?.name}` : 'Choose where to keep takes';
+    el.where.dataset.tip = keep === 'paused' ? `The browser asks again before Scribecue may keep takes in ${paused?.name}. Click to resume` : 'Choose a folder for this recording’s takes';
     el.takes.replaceChildren();
     const note = (text) => { const li = document.createElement('li'); li.className = 'dim'; li.textContent = text; el.takes.append(li); };
     if (i < 0) return note('Select a block to record it.');
@@ -210,7 +222,7 @@ export function initRecord(h) {
   // it's opened. A recording from before projects has only one script, so its takes just
   // get their lines.
   async function reload(match = false) {
-    takes = rec ? await listTakes(rec.id).catch(() => []) : [];
+    takes = rec && keep === 'ready' ? await listTakes(rec.id).catch(() => []) : [];
     if (rec && match) {
       const changes = relink(takes, h.blocks(), rec.project ? null : h.blocks());
       try { await relinkTakes(rec.id, changes); } catch (e) { h.toast(`Couldn’t match the takes to this script: ${e.message}`); }
@@ -587,6 +599,11 @@ export function initRecord(h) {
 
   // punch: pick up the block's chosen take from the playhead, rather than record it afresh.
   async function begin(punch = false) {
+    if (keep !== 'ready') {
+      if (keep === 'choose') askWhere();
+      return h.toast(keep === 'paused' ? `Click Resume in ${paused?.name} first, so Scribecue can keep the takes there`
+        : keep === 'moving' ? 'Wait a moment: the takes are being moved' : 'Choose where to keep the takes first');
+    }
     const i = h.selIdx();
     if (i < 0) return h.toast('Select a block, then record it');
     if (!h.hasVideo()) return h.toast('Open the video first');
@@ -724,12 +741,140 @@ export function initRecord(h) {
     if (!rec || !b) return;
     drafts[altKey(b)] = text;
     put(`alts.${rec.id}`, JSON.stringify(drafts));
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(() => currentSession()?.setDrafts({ ...drafts }).catch(() => {}), 500);
     render();
     h.retext();
   }
 
   el.go.addEventListener('click', toggle);
   el.punch.addEventListener('click', punch);
+
+  // ---- where the takes are kept: the recording's session (see session.js). Chrome and Edge
+  // keep it in a folder the narrator chooses; other browsers in their own storage.
+  let draftTimer = 0;
+  const sd = { dlg: $('recSessionDlg'), intro: $('recSessionIntro'), old: $('recSessionOld') };
+  let answer = null; // resolves the dialog: a folder, 'browser', or null
+  let sub = '';      // the name of a new folder for the session, inside one with other files
+  // Asks where to keep a session: resolves to { dir, where }, or null if cancelled. old: how
+  // many takes kept before sessions will move in. intro: the dialog's first line.
+  function chooseWhere({ old = 0, from = 'browser', intro = 'Choose a folder for this recording. Each take is saved there as you record it.', sub: name = '' } = {}) {
+    sd.intro.textContent = intro;
+    sub = `${name || h.baseName() || 'Recording'} session`;
+    sd.old.hidden = !old;
+    sd.old.textContent = `The ${old} take${old === 1 ? '' : 's'} kept ${from === 'docker' ? 'in Docker' : 'in this browser'} for this recording will move there.`;
+    $('recSessionBrowser').hidden = !canKeepInBrowser();
+    answer?.(null);
+    return new Promise((ok) => { answer = ok; sd.dlg.showModal(); });
+  }
+  const settle = (v) => { const a = answer; answer = null; if (sd.dlg.open) sd.dlg.close(); a?.(v); };
+  sd.dlg.addEventListener('close', () => settle(null));
+  $('recSessionBrowser').addEventListener('click', () => settle('browser'));
+  $('recSessionPick').addEventListener('click', async () => {
+    let dir;
+    try { dir = await window.showDirectoryPicker({ id: 'scribecue-session', mode: 'readwrite', startIn: 'documents' }); } catch { return; }
+    try { settle(await sessionFolder(dir, sub)); } catch (e) { h.toast(`Couldn’t use ${dir.name}: ${e.message}`); }
+  });
+
+  async function askWhere() {
+    const r = rec;
+    const old = (await listTakes(r.id).catch(() => [])).length, from = await takesWhere();
+    if (rec !== r) return;
+    const got = await chooseWhere({ old, from });
+    if (rec !== r) return;
+    if (!got) return render();
+    await start(got === 'browser' ? await browserFolder(r.id) : got, got === 'browser' ? 'browser' : 'folder');
+  }
+  // Finds the recording's session: the folder it used last, else asks.
+  async function attach() {
+    const r = rec;
+    useSession(null); keep = 'choose'; paused = null;
+    const kept = await rememberedSession(r.id);
+    if (rec !== r) return;
+    if (kept === 'browser' && canKeepInBrowser()) return start(await browserFolder(r.id), 'browser');
+    if (kept?.kind === 'directory') {
+      let p = 'denied';
+      try { p = await kept.queryPermission({ mode: 'readwrite' }); } catch { /* gone */ }
+      if (rec !== r) return;
+      if (p === 'granted') return start(kept, 'folder');
+      keep = 'paused'; paused = kept; render();
+      return;
+    }
+    if (canUseFolders()) { render(); return askWhere(); }
+    if (canKeepInBrowser()) return start(await browserFolder(r.id), 'browser');
+    keep = 'ready'; // the browser's IndexedDB, as before sessions
+    await reload(true);
+  }
+  async function start(dir, at) {
+    const r = rec;
+    keep = 'moving'; render();
+    let s;
+    try { s = await openSession(dir, { key: r.id, recording: raw, where: at, app: h.app }); } catch (e) {
+      if (rec !== r) return;
+      keep = 'choose'; render();
+      return h.toast(`Couldn’t keep takes in ${dir.name}: ${e.message}`);
+    }
+    if (rec !== r) return;
+    useSession(s); where = at;
+    rememberSession(r.id, at === 'browser' ? 'browser' : dir);
+    if (Object.keys(s.drafts).length) drafts = { ...drafts, ...s.drafts };
+    if (Object.keys(drafts).length) s.setDrafts({ ...drafts }).catch(() => {});
+    try {
+      const n = await s.adopt(r.id, (k, of) => status(`Moving takes into ${at === 'folder' ? s.name : 'this recording’s session'}: ${k} of ${of}…`));
+      if (n) h.toast(`Moved ${n} take${n === 1 ? '' : 's'} into ${at === 'folder' ? s.name : 'this recording’s session'}`);
+    } catch (e) { h.toast(`Couldn’t move the takes kept before: ${e.message}. They’re still where they were`); }
+    if (rec !== r) return;
+    status('');
+    if (s.found) h.toast(`Found ${s.found} take${s.found === 1 ? '' : 's'} in ${s.name} that weren’t listed, and kept ${s.found === 1 ? 'it' : 'them'}`);
+    if (s.missing) h.toast(`${s.missing} take${s.missing === 1 ? '' : 's'} listed in ${s.name} ${s.missing === 1 ? 'has' : 'have'} no WAV file there any more`);
+    keep = 'ready';
+    await reload(true);
+  }
+  el.where.addEventListener('click', async () => {
+    if (!rec) return;
+    if (keep === 'choose') return askWhere();
+    if (keep !== 'paused') return;
+    let p = 'denied';
+    try { p = await paused.requestPermission({ mode: 'readwrite' }); } catch { /* gone */ }
+    if (p === 'granted') return start(paused, 'folder');
+    h.toast(`Scribecue can’t keep takes in ${paused.name} without your permission`);
+  });
+
+  // The session as one file, to move it to another computer: a zip of its folder.
+  async function exportSession() {
+    const s = currentSession();
+    if (!rec || state !== 'idle') return;
+    if (!s) return h.toast(keep === 'ready' ? 'This browser keeps takes where they can’t be packaged. Use Chrome or Edge, or Firefox' : 'Choose where to keep the takes first');
+    const name = `${h.baseName() || 'Recording'}${SESSION_EXT}`;
+    let fh = null;
+    if (window.showSaveFilePicker) {
+      try { fh = await window.showSaveFilePicker({ suggestedName: name, id: 'scribecue-session', types: [{ description: 'Scribecue recording session', accept: { 'application/zip': [SESSION_EXT] } }] }); }
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+    state = 'saving'; render();
+    try {
+      status('Packaging the session…');
+      const files = await s.files();
+      const zip = await storeZip(files, { progress: (d, t) => status(`Packaging the session: ${Math.round((d / t) * 100)}%…`) });
+      if (fh) {
+        const w = await fh.createWritable(), CH = 16 << 20;
+        try {
+          for (let at = 0; at < zip.size; at += CH) {
+            await w.write(zip.slice(at, at + CH));
+            status(`Saving the session package: ${Math.round((Math.min(zip.size, at + CH) / zip.size) * 100)}%…`);
+          }
+          await w.close();
+        } catch (e) { await w.abort().catch(() => {}); throw e; }
+      } else {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(zip); a.download = name; a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60e3);
+      }
+      const n = files.length - 1;
+      h.toast(`Saved ${fh?.name || name}: ${n} take${n === 1 ? '' : 's'}, ${Math.max(1, Math.round(zip.size / 1e6))} MB. Open it in Scribecue to carry on, on any computer`);
+    } catch (e) { h.toast(`Couldn’t package the session: ${e.message}`); }
+    finally { status(''); state = 'idle'; render(); }
+  }
 
   const css = getComputedStyle(document.documentElement), tok = (n) => css.getPropertyValue(n).trim();
 
@@ -1060,7 +1205,8 @@ export function initRecord(h) {
   return {
     get active() { return state !== 'idle'; },
     get open() { return !!rec; },
-    toggle, punch, exportWav, finish, render, nextPickup,
+    toggle, punch, exportWav, exportSession, chooseWhere, finish, render, nextPickup,
+    get session() { return !!rec && !!currentSession(); },
     get pickups() { return rec ? pickups().length : 0; },
     // How many blocks have an alt in the export, and the Alt switch (A).
     get alts() { return rec ? altCount() : 0; },
@@ -1100,14 +1246,20 @@ export function initRecord(h) {
     get hearing() { return hear; },
     setHearing,
     stopPlayback: stopPlay,
-    async open(file) {
+    // raw: the recording file as opened, kept in its session.
+    async open(file, rawFile = null) {
       rec = { ...file, id: takesKey(file) };
+      raw = rawFile;
       state = 'idle';
       side = false;
       try { drafts = JSON.parse(get(`alts.${rec.id}`)) || {}; } catch { drafts = {}; }
       where = await takesWhere();
       status(''); devices();
-      await reload(true);
+      await attach();
+    },
+    // After Settings deleted the takes kept in the browser: a session there starts again.
+    async refreshSession() {
+      if (rec && currentSession()?.where === 'browser') await attach(); else await reload();
     },
     async close() {
       if (state === 'lead' || state === 'rec') await finish();
@@ -1116,6 +1268,12 @@ export function initRecord(h) {
       if (test) syncTest();
       if (mic.dlg.open) mic.dlg.close();
       h.volume(false);
+      clearTimeout(draftTimer);
+      const s = currentSession();
+      if (s && Object.keys(drafts).length) await s.setDrafts({ ...drafts }).catch(() => {});
+      useSession(null);
+      keep = 'none'; paused = null; raw = null;
+      if (answer) settle(null);
       rec = null; takes = []; editing = null; pick = null; held = null; peakCache.clear(); fineCache.clear(); menu.hidden = true; render();
     },
   };

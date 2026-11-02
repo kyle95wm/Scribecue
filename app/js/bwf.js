@@ -117,22 +117,64 @@ export function buildBwf({ takes, markers = [], note = null, secs, rate = 48000,
   return new Blob([head.buffer, ...parts], { type: 'audio/wav' });
 }
 
-// The script a narration WAV was recorded against, or null for any other file. Reads
-// only the chunk headers and that chunk, so a long WAV isn't loaded.
-export async function readNote(file) {
+// The chunks of a RIFF WAVE file: [{ id, at, len }], at being where the chunk's body
+// starts. Reads only their headers, so a long WAV isn't loaded. Null if it isn't a WAV.
+async function chunks(file) {
   const bytes = async (o, n) => new Uint8Array(await file.slice(o, o + n).arrayBuffer());
   const id = (b, o) => String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3]);
   try {
     const head = await bytes(0, 12);
     if (head.length < 12 || id(head, 0) !== 'RIFF' || id(head, 8) !== 'WAVE') return null;
+    const out = [];
     for (let o = 12, i = 0; o + 8 <= file.size && i < 64; i++) {
       const h = await bytes(o, 8), len = new DataView(h.buffer).getUint32(4, true);
-      if (id(h, 0) === NOTE) {
-        const note = JSON.parse(new TextDecoder().decode(await bytes(o + 8, len)));
-        return note?.scribecueNarration && Array.isArray(note.blocks) ? note : null;
-      }
+      out.push({ id: id(h, 0), at: o + 8, len });
       o += 8 + len + (len % 2);
     }
-  } catch { /* not a WAV we can read */ }
-  return null;
+    return out;
+  } catch { return null; }
+}
+const json = async (file, c) => JSON.parse(new TextDecoder().decode(await file.slice(c.at, c.at + c.len).arrayBuffer()));
+
+// The script a narration WAV was recorded against, or null for any other file. Reads
+// only the chunk headers and that chunk, so a long WAV isn't loaded.
+export async function readNote(file) {
+  try {
+    const c = (await chunks(file))?.find((x) => x.id === NOTE);
+    const note = c && await json(file, c);
+    return note?.scribecueNarration && Array.isArray(note.blocks) ? note : null;
+  } catch { return null; }
+}
+
+// A take kept in a session folder carries its own details, in a chunk after its sound, so
+// the session can be rebuilt from its WAVs. Players and DAWs skip chunks they don't know.
+const TAKE = 'sctk';
+
+// wav: a take's WAV, as wav24 makes it. note: its details. Returns a Blob.
+export async function withTakeNote(wav, note) {
+  const head = new DataView(await wav.slice(0, WAV24_HEADER).arrayBuffer());
+  const len = head.getUint32(40, true), pad = len % 2;
+  const body = chunk(TAKE, new TextEncoder().encode(JSON.stringify(note)));
+  const extra = pad + body.reduce((n, p) => n + p.byteLength, 0);
+  head.setUint32(4, 36 + len + extra, true);
+  return new Blob([head.buffer, wav.slice(WAV24_HEADER, WAV24_HEADER + len), ...(pad ? [new Uint8Array(1)] : []), ...body], { type: 'audio/wav' });
+}
+
+// A take's details, as withTakeNote kept them, or null.
+export async function readTakeNote(file) {
+  try {
+    const c = (await chunks(file))?.find((x) => x.id === TAKE);
+    const note = c && await json(file, c);
+    return note && typeof note === 'object' ? note : null;
+  } catch { return null; }
+}
+
+// A take's WAV as wav24 made it, without the chunk withTakeNote adds: the rest of Scribecue
+// reads the sound from WAV24_HEADER to the end.
+export async function plainTake(file) {
+  const head = new DataView(await file.slice(0, WAV24_HEADER).arrayBuffer());
+  const len = Math.min(head.getUint32(40, true), file.size - WAV24_HEADER);
+  if (head.getUint32(4, true) === 36 + len) return file;
+  head.setUint32(4, 36 + len, true);
+  return new Blob([head.buffer, file.slice(WAV24_HEADER, WAV24_HEADER + len)], { type: 'audio/wav' });
 }

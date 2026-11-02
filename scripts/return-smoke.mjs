@@ -23,7 +23,7 @@ await send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceSca
 await send('Page.navigate',{url:site});await sleep(800);
 await js(`localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',returnToStart:'1',setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);localStorage.setItem('scribecue.v1',JSON.stringify({cues:[{start:4,end:7,text:'He walks towards the door.'}],dirty:false}));indexedDB.deleteDatabase('scribecue-takes');true`);await send('Page.reload',{ignoreCache:true});
 await sleep(5000);
-await js(`window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.confirm=()=>true;true`);
+await js(`window.showDirectoryPicker=undefined;window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.confirm=()=>true;true`);
 const blocks=[{start:4,end:7,text:'He walks towards the door.'}];
 // Write mode, with the setting on: no RETURN, no setting, and stopping stays put.
 await js(`(async()=>{const v=await fetch('/door-test.mkv').then(r=>r.blob());const dt=new DataTransfer();dt.items.add(new File([v],'door.mkv',{type:'video/x-matroska'}));window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));return 1})()`);

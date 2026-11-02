@@ -27,3 +27,17 @@ test('a stored zip reads back file by file, with progress as it goes', async () 
 test('something that isn’t a zip reads as null', async () => {
   assert.equal(await readZip(new Blob(['RIFF....WAVE'])), null);
 });
+
+test('Zip64 records read back, with known checksums taken as given', async () => {
+  const a = new Uint8Array(70000).map((_, i) => (i * 7) % 256), b = new TextEncoder().encode('{"scribecueSession":1}');
+  const zip = await storeZip([{ name: 'takes/one.wav', blob: new Blob([a]), crc: crc32(a) }, { name: 'session.json', blob: new Blob([b]) }], { zip64: true });
+  const files = await readZip(zip);
+  assert.deepEqual(files.map((f) => f.name), ['takes/one.wav', 'session.json']);
+  assert.deepEqual(new Uint8Array(await files[0].blob.arrayBuffer()), a);
+  assert.equal(await files[1].blob.text(), '{"scribecueSession":1}');
+  // The local header says Zip64, and its sizes are in the extra field.
+  const head = new DataView(await zip.slice(0, 50).arrayBuffer());
+  assert.equal(head.getUint32(18, true), 0xffffffff);
+  assert.equal(Number(head.getBigUint64(34, true)), a.length);
+  assert.equal(head.getUint32(14, true), crc32(a));
+});

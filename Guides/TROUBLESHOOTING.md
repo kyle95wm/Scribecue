@@ -67,8 +67,9 @@ Google keys and billing have their own list: see [Google voices](GOOGLE-VOICES.m
 | "Scribecue needs permission to use the microphone" | Allow the microphone for Scribecue in the browser's site settings, then try again. |
 | Takes sit late against the picture | Bluetooth headphones delay the sound. Use wired ones, or run the [sync test](RECORDING.md#keeping-takes-in-sync). |
 | "That take is too loud" | Lower your interface's gain and record the block again. The export won't go ahead with it. |
-| "Couldn't keep the take" | The browser's storage may be full. Export the narration, then delete takes you don't need. |
-| Takes are gone after clearing browser data | Clearing the browser's data deletes them. In Docker, [keep takes on disk](INSTALL.md#keeping-takes-on-disk). |
+| "Couldn't keep the take" | The disk or the browser's storage may be full. Export the narration, then delete takes you don't need. |
+| Takes are gone after clearing browser data | Takes kept in the browser go with its data. Keep them in a folder instead: see [Where takes are kept](RECORDING.md#where-takes-are-kept). |
+| "Resume in" shows under the video | The browser asks again after a reload. Click it, then **Allow**. |
 
 ## Working offline
 

@@ -25,7 +25,7 @@ try {
  // Someone who set up Transcribe before modes were kept, and has never used Write or QC.
  await js(`localStorage.clear();localStorage.setItem('scribecue.welcome','1');localStorage.setItem('scribecue.seenVersion','999.0.0');localStorage.setItem('scribecue.updates','0');localStorage.setItem('scribecue.mode','transcribe');localStorage.setItem('scribecue.loops',JSON.stringify({transcribe:true}));localStorage.setItem('scribecue.v1',JSON.stringify({cues:[{start:3,end:6,text:'First block'}],dirty:false}));location.reload();true`);
  await sleep(1600);
- await js(`window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.__long=[];new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'});true`);
+ await js(`window.showDirectoryPicker=undefined;window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.__long=[];new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'});true`);
  assert.equal(await open(),false);
 
  // Write, for the first time: its setup, with text to speech ticked.
@@ -85,7 +85,7 @@ try {
  // Opening a QC package, never having used QC: QC's setup opens once the package is in.
  await js(`localStorage.setItem('scribecue.setupModes',JSON.stringify({transcribe:true,write:true}));localStorage.setItem('scribecue.mode','write');localStorage.removeItem('scribecue.v1');location.reload();true`);
  await sleep(1600);
- await js(`window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.__long=[];new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'});true`);
+ await js(`window.showDirectoryPicker=undefined;window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.__long=[];new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'});true`);
  assert.equal(await current(),'write');
  await js(`(async()=>{
   const {toProject,newIdentity}=await import('./js/project.js');const {buildReview}=await import('./js/qc.js');
@@ -107,7 +107,7 @@ try {
  await send('Browser.grantPermissions',{origin:new URL(site).origin,permissions:['audioCapture']});
  await js(`localStorage.setItem('scribecue.setupModes',JSON.stringify({transcribe:true,write:true,qc:true}));localStorage.setItem('scribecue.mode','write');location.reload();true`);
  await sleep(1600);
- await js(`window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.confirm=()=>true;true`);
+ await js(`window.showDirectoryPicker=undefined;window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.confirm=()=>true;true`);
  await js(`(async()=>{const R=await import('./js/recording.js');const file=R.toRecordingFile({blocks:[{start:3,end:6,text:'Mara opens the blue door.'}],fps:25});
   const dt=new DataTransfer();dt.items.add(new File([JSON.stringify(file)],'lights.scribecuerec'));window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));return true})()`);
  await wait(`document.body.classList.contains('mode-record')`);

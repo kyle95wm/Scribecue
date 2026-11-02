@@ -63,6 +63,7 @@
           <button role="menuitem" data-act="exportRecording" class="write-only"><span><strong>Recording file</strong><span class="dim">the locked script and timings, for a narrator to record against</span></span></button>
           <button role="menuitem" data-act="exportNarration" class="record-only" id="exportNarration"><span><strong>Narration WAV</strong><span class="dim">the chosen takes in one timestamped file, for the mixer</span></span></button>
           <button role="menuitem" data-act="exportPickups" class="record-only" id="exportPickups"><span><strong>Pickups WAV</strong><span class="dim">only the pickups, timestamped to drop into place, with their notes</span></span></button>
+          <button role="menuitem" data-act="exportSession" class="record-only"><span><strong>Session package</strong><span class="dim">the script and every take in one file, to carry on on another computer</span></span></button>
           <button role="menuitem" data-act="exportMix" class="write-only"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></button>
         </div>
       </span>
@@ -197,6 +198,7 @@
           <div class="recslot" id="recSlot" data-tip="How much of the block's slot is left"><div id="recSlotFill"></div></div>
           <span id="recStatus" role="status"></span>
           <span id="recCount" class="dim"></span>
+          <button id="recSession" hidden></button>
         </div>
         <details class="recopts">
           <summary>Microphone, lead-in and sync</summary>
@@ -384,6 +386,14 @@ docker compose up -d --build</code></pre>
     <p class="dim small" id="recFileNote">Timecode at the video's first frame, at <span id="recFileFps"></span> fps. The mixer's software uses it to place the narration.</p>
     <p id="recFileVersion" hidden></p>
     <div class="updbtns"><button id="recFileCancel">Cancel</button><button id="recFileGo" class="hl">Save the file</button></div>
+  </dialog>
+
+  <dialog id="recSessionDlg" class="updbox wizard" aria-labelledby="recSessionTitle">
+    <h2 id="recSessionTitle">Where to keep the takes</h2>
+    <p id="recSessionIntro"></p>
+    <p class="dim small">To carry on on another computer, copy the folder, or export a session package.</p>
+    <p id="recSessionOld" hidden></p>
+    <div class="updbtns"><button id="recSessionBrowser" data-tip="Only this browser has them then. Export a session package to move them">Keep in this browser</button><button id="recSessionPick" class="hl">Choose folder…</button></div>
   </dialog>
 
   <dialog id="narrDlg" class="updbox wizard" aria-labelledby="narrTitle">
@@ -1302,7 +1312,7 @@ docker compose up -d --build</code></pre>
     </div>
   </div>
 
-  <input type="file" id="fileSubs" accept=".scribecueqc,.scribecue,.scribecuerec,.scribecue-rec,.zip,.srt,.vtt,.txt,.adc,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
+  <input type="file" id="fileSubs" accept=".scribecueqc,.scribecue,.scribecuerec,.scribecue-rec,.scribecuesession,.zip,.srt,.vtt,.txt,.adc,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
   <input type="file" id="fileVideo" accept="video/*,audio/*,.mkv,.mov,.m4a" hidden>
   <!-- pops up under a selection in the block text; at the top level so it's placed by the window -->
   <button id="selSay" class="selsay" tabindex="-1" hidden>Sounds Like</button>
