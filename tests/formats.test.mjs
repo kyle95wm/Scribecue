@@ -70,6 +70,11 @@ test('parseSubs reads VTT with cue settings, skips junk and sorts', () => {
   ]);
 });
 
+test('parseSubs drops the notes of a block it skips', () => {
+  const vtt = 'WEBVTT\n\nNOTE Scribecue text to speech speed: 1.3\n\n1\n00:00:01.000 --> bad\nA\n\n2\n00:00:02.000 --> 00:00:03.000\nB\n';
+  assert.deepEqual(parseSubs(vtt), [{ start: 2, end: 3, text: 'B' }]);
+});
+
 test('parseSubs never returns an end before the start', () => {
   assert.equal(parseSubs('1\n00:00:05,000 --> 00:00:04,000\nX\n')[0].end, 5);
 });

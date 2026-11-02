@@ -92,7 +92,7 @@ export function parseSubs(text) {
     const [a, b = ''] = lines[i].split('-->');
     const start = parseTime(a);
     const end = parseTime(b.trim().split(/\s+/)[0] || '');
-    if (Number.isNaN(start) || Number.isNaN(end)) continue;
+    if (Number.isNaN(start) || Number.isNaN(end)) { notes = {}; continue; } // its notes go with it
     const cue = { start, end: Math.max(end, start), text: lines.slice(i + 1).join('\n').trim() };
     if (notes.speed) cue.speed = notes.speed;
     if (notes.voice) cue.voice = notes.voice;

@@ -813,7 +813,9 @@ function split() {
   if (t <= c.start + MIN_DUR || t >= c.end - MIN_DUR) return toast('Move the playhead inside the selected cue to split');
   pushUndo();
   const [a, b] = splitText(c.text);
-  const c2 = mk(t, c.end, b, c.speed);
+  // The second half reads as the first did: same voice, volume, dip and chosen speed.
+  const c2 = Object.assign(mk(t, c.end, b, c.speed), c.voice ? { voice: c.voice } : {}, blockDipOf(c),
+    isVol(c.vol) ? { vol: c.vol } : {}, c.pinned ? { pinned: true } : {});
   if (c.say) c2.say = c.say.map((x) => [...x]); // each half keeps the words; unused ones do nothing
   c.end = t; c.text = a;
   delete c.auto; delete c.fit;
