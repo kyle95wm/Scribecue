@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.73.4",
+  "date": "2026-11-01",
+  "notes": "## Fixes\n\n- Blocks read by Google, Piper or Kokoro voices now end where the voice stops, not after the silence at the end of each reading. Google adds up to half a second or more.\n- Blocks that follow their reading get a little shorter the first time you open a project.\n- In QC, new readings in older packages are measured the same way when you open them."
+ },
+ {
   "version": "0.73.3",
   "date": "2026-11-01",
   "notes": "## Fixes\n\n- In QC, an edited block now ends where its new reading finishes, up to the start of the next block.\n- Blocks saved running past their new reading are fixed when you open the package.\n- If a new reading runs into the next block, a message says the end stops there."
