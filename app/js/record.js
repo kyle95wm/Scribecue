@@ -694,7 +694,9 @@ export function initRecord(h) {
     });
   }
 
-  async function finish() {
+  // discard: stop without keeping the take (Esc). In a session it's kept as deleted, so
+  // ⌘Z can bring it back until the recording closes.
+  async function finish(discard = false) {
     if (state !== 'lead' && state !== 'rec') return;
     const c = cap, wasRec = state === 'rec';
     state = 'saving'; status('Saving the take…'); render();
@@ -726,12 +728,22 @@ export function initRecord(h) {
     const take = { id: crypto.randomUUID(), rec: rec.id, block: c.block, start: at, duration: kept.length / RATE,
       peak: peakDb(kept), made: Date.now(), wav: wav24(to24(kept), RATE), ...(c.punch && { punch: c.punch.at }),
       line: { start: b.start, end: b.end, text: b.text }, ver: version(), ...(c.alt != null && { alt: c.alt }) };
-    try { await saveTake(take, true); } catch (e) {
+    const what = c.alt != null ? 'the alt take' : 'the take';
+    if (discard && !currentSession()) { state = 'idle'; status(`Discarded ${what}`); render(); return; }
+    try {
+      await saveTake(take, !discard);
+      if (discard) await deleteTake(rec.id, take.id);
+    } catch (e) {
       state = 'idle'; render();
       return h.toast(`Couldn’t keep the take: ${e.message}` + (where === 'browser' ? '. The browser’s storage may be full' : ''));
     }
     state = 'idle';
     await reload();
+    if (discard) {
+      deleted.push({ id: take.id, chosen: true, what });
+      status(`Discarded ${what}`);
+      return h.toast(`Discarded ${what}. Undo: ⌘Z`, undoDelete);
+    }
     const j = judgePeak(take.peak);
     status(`Saved ${c.alt != null ? 'alt take' : 'take'} ${blockTakes(c.block, c.alt != null).length}: ${dbText(take.peak)}, ${LEVEL_WORDS[j]}`);
     if (j === 'loud') h.toast('That take is too loud. Lower your gain and record it again: the export won’t go ahead with it');

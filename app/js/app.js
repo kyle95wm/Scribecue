@@ -3117,7 +3117,8 @@ function setMode(m, quiet = false) {
   qcPlayer.stop();
   // A mode used for the first time gets its part of the setup, however it was reached:
   // the mode switch, or a file that opens in it. Read before the mode changes.
-  const fresh = m !== S.mode && welcomed() && !modeSetUp(m);
+  // Record mode's comes with the recording file, even on a first visit.
+  const fresh = m !== S.mode && (welcomed() || m === 'record') && !modeSetUp(m);
   S.mode = m;
   if (qc() && !S.qcSettings) S.qcSettings = readingSettings();
   $('edText').readOnly = $('edStart').readOnly = $('edEnd').readOnly = qcLocked();
@@ -5088,9 +5089,9 @@ document.addEventListener('keydown', (e) => {
   if (isHelpKey(e)) { e.preventDefault(); toggleHelp(); return; }
   if (e.key === '/' && !e.altKey) { e.preventDefault(); listSearch.focus(); listSearch.select(); return; }
 
-  // Record mode: Enter or R records the selected line, and Esc stops. [ ] change a block's speed, which is locked.
+  // Record mode: Enter or R records the selected line, and Esc stops and discards the take. [ ] change a block's speed, which is locked.
   if (S.mode === 'record') {
-    if (e.code === 'Escape' && recorder.active) { e.preventDefault(); recorder.finish(); return; }
+    if (e.code === 'Escape' && recorder.active) { e.preventDefault(); recorder.finish(true); return; }
     if (!e.altKey && !e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.toggle(); return; }
     if (!e.altKey && e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.punch(); return; }
     if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyP') { e.preventDefault(); recorder.nextPickup(); return; }
@@ -5406,7 +5407,8 @@ adopt($('keysDlg'), 'keys', { skip: ['#keysDone'] });
 addSection('storage', HOSTED ? 'Offline and storage' : 'Storage', { open: () => openOffline() });
 adopt($('offlineDlg'), 'storage', { skip: ['.updbtns:has(#offlineClose)'] });
 $('setWhatsNew').addEventListener('click', () => openWhatsNew(VERSION));
-$('setSetup').addEventListener('click', () => { closeSettings(); openWelcome(); });
+// In Record mode, setup is Record mode's, so it can't switch away from the recording.
+$('setSetup').addEventListener('click', () => { closeSettings(); openWelcome(S.mode === 'record' ? 'record' : null); });
 $('setTour').addEventListener('click', () => { closeSettings(); startTour(S.mode); });
 $('setDocker').addEventListener('click', () => { closeSettings(); openGuide('INSTALL.md'); });
 // Once setup and the first loop card are done, the web version mentions running it with
@@ -5464,7 +5466,8 @@ initWhatsNew({
   busy: () => !!document.querySelector('dialog[open]') || !$('tour').hidden || !$('browserAlert').hidden || !$('updAlert')?.hidden,
 });
 // A first visit starts with the tour, then the setup, whether the tour is finished or skipped.
-if (FIRST_RUN) setTimeout(() => startTour(S.mode, { then: openWelcome, finish: 'Set up Scribecue' }), 400);
+// Someone who opened a recording file gets Record mode's setup instead (see setMode).
+if (FIRST_RUN) setTimeout(() => startTour(S.mode, { then: () => S.mode === 'record' || openWelcome(), finish: 'Set up Scribecue' }), 400);
 else if (!welcomed()) {
   // Someone who used Scribecue before the wizard existed: mention it once.
   markWelcomed();

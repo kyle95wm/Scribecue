@@ -14,7 +14,7 @@ The switch next to Scribecue’s name chooses what you’re doing.
 
 Switching keeps your work. QC follows the package’s saved editing permission. Comments appear only in QC.
 
-The first time you use a mode, a short setup for it opens. That includes opening a file that switches modes, such as a QC package. You can skip it.
+The first time you use a mode, a short setup for it opens. That includes opening a file that switches modes, such as a QC package or a recording file. You can skip it.
 [The QC guide](QC.md) explains voice checks and portable review packages.
 
 ## Settings
@@ -26,7 +26,7 @@ shortcuts** and **Storage**.
 Settings that are on show under the video, such as `TTS` or `STT`. Click one to open its
 section.
 
-**Run setup again**, under **General**, asks the first-time questions again, for any mode.
+**Run setup again**, under **General**, asks the first-time questions again. In Record mode, it sets up recording.
 Nothing changes until you press **Finish**.
 
 **Your name**, under **General**, is optional. It fills in your name on comments.

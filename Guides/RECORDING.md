@@ -76,7 +76,7 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 2. Press Enter or R. Allow the microphone the first time.
 3. The video plays from the lead-in. Set your gain on the meter while it does.
 4. Read the line when the picture reaches it. The bar shows how much of the slot is left.
-5. Press Enter, R, Space or Esc to stop. The take is saved straight away.
+5. Press Enter, R or Space to stop. The take is saved straight away. Esc stops and discards it.
 
 The writer's notes for a block, such as how to say a name, show above its text.
 
@@ -86,13 +86,13 @@ The writer's notes for a block, such as how to say a name, show above its text.
 | Shift+Enter or Shift+R | [Punch in](#punching-in) from the playhead |
 | X | Split the block's take at the playhead |
 | Delete | Delete the part of a take you last clicked |
-| Ctrl/Cmd+Z | Bring back the take you deleted |
-| Space or Esc | Stop recording |
+| Ctrl/Cmd+Z | Bring back the take you deleted or discarded |
+| Esc | Stop recording, and discard the take |
 | V | Hear the block read by text to speech, as a guide |
 | P | Go to the next [pickup](#pickups) |
 | A | Switch to the block's [alt](#alts), or back |
 | Z | [Zoom to the block's take](#editing-a-take), or back |
-| Space | Play or pause |
+| Space | Play or pause, or stop recording |
 | Alt+Shift+Left / Right | Previous or next block |
 
 A block's **slot** is its time plus 1 second, but never into the next block. A take that

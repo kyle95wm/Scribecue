@@ -72,6 +72,7 @@ kbd + kbd { margin-left: 2px; }
 .mode-write .transcribe-only, .mode-transcribe .write-only { display: none; }
 .record-only { display: none; }
 .mode-record .record-only { display: flex; }
+.mode-record .record-only[hidden] { display: none; }
 .mode-record .hint.record-only, .mode-record .setrec.record-only { display: block; }
 .mode-record .transcribe-only, .mode-record .write-only, .mode-record #modeSw { display: none; }
 /* Record mode: the script is locked, so nothing offers to change or save it. */
@@ -85,6 +86,7 @@ kbd + kbd { margin-left: 2px; }
 .recbadge button:hover { color: var(--text); background: none; }
 .recbar { flex-direction: column; gap: 6px; padding: 6px 12px; border-top: 1px solid var(--line); background: var(--panel); font-size: 12px; }
 .recrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.recrow[hidden] { display: none; }
 .recgo.on { background: var(--play); border-color: var(--play); color: #fff; }
 #recMeter { border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
 .recslot { width: 120px; height: 8px; border-radius: 4px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }

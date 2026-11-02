@@ -19,7 +19,8 @@ let step = 0;
 let finished = false;
 let only = null; // the one mode being set up, after switching to it for the first time
 
-const mode = () => document.querySelector('input[name=wzMode]:checked')?.value || 'transcribe';
+// Record mode isn't a choice here: its setup runs when a recording file opens.
+const mode = () => only || document.querySelector('input[name=wzMode]:checked')?.value || 'transcribe';
 // The steps for the chosen task: the third one depends on it.
 // The web version updates itself, so it skips the question about update checks.
 // Recording has two steps of its own: the microphone, then listening and sync.
