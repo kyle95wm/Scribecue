@@ -105,6 +105,13 @@ export function fromRecordingFile(json) {
   };
 }
 
+// The recording file again, from what fromRecordingFile read. For a recording opened before
+// Scribecue kept the file itself, so its session has one. Pickups are kept as they were.
+export function asRecordingFile(r, app = '') {
+  const blocks = r.blocks.map((b) => ({ ...b }));
+  return { ...toRecordingFile({ ...r, blocks: [], app }), print: scriptPrint(blocks), blocks };
+}
+
 function readPickup(p) {
   if (!p || typeof p !== 'object') return null;
   const out = {

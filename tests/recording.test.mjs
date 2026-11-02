@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -503,4 +503,15 @@ test('an alt goes in the narration note and the alts WAV’s markers, and is che
   assert.equal(c.stop.length, 1);
   assert.match(c.stop[0].why, /^\(alt\) peaks/);
   assert.deepEqual(c.warn, [], 'a block without an alt isn’t mentioned');
+});
+
+test('a recording file made again from what was read opens the same, pickups and all', () => {
+  const sent = [{ start: 1, end: 3, text: 'She opens the door.' }];
+  const file = toRecordingFile({ project: 'abcdefghijklmnop', version: 2, sent, fps: 24, start: 5, media: { name: 'film.mp4', size: 10, duration: 60 },
+    blocks: [{ start: 1, end: 3, text: 'She shoves the door open.', notes: 'Firmly' }, { start: 4, end: 6, text: 'Rain.', pickup: { note: 'Softer' } }] });
+  const read = fromRecordingFile(JSON.parse(JSON.stringify(file)));
+  const again = fromRecordingFile(JSON.parse(JSON.stringify(asRecordingFile(read, '1.0'))));
+  assert.deepEqual(again, read);
+  assert.equal(again.blocks[0].pickup.was, 'She opens the door.');
+  assert.equal(takesKey(again), takesKey(read));
 });

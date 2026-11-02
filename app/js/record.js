@@ -3,7 +3,7 @@
 // that); this file does the recording. The guide is Guides/RECORDING.md.
 
 import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
-import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, fromRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
+import { slots, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
 import { storeZip } from './zip.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, editTake, deleteTake, restoreTake, takeAudio, takesWhere, relinkTakes, moveTakes, openSession, useSession, currentSession,
@@ -1322,7 +1322,7 @@ export function initRecord(h) {
     // raw: the recording file as opened, kept in its session.
     async open(file, rawFile = null) {
       rec = { ...file, id: takesKey(file) };
-      raw = rawFile;
+      raw = rawFile || asRecordingFile(file, h.app);
       state = 'idle';
       side = false;
       try { drafts = JSON.parse(get(`alts.${rec.id}`)) || {}; } catch { drafts = {}; }
