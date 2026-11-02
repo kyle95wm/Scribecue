@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.76.0",
+  "date": "2026-11-02",
+  "notes": "## New: notes for the narrator\n\n- Each block has a **Notes** box above its text, for direction or how to say a name.\n- Text to speech doesn't read the notes. They don't change the block's timing.\n- In Record mode, the narrator sees them with the block.\n\n## New: alts in Record mode\n\n- Press `A`, or switch the open block to **Alt**, to write and record your own wording for it.\n- Switch between the original and the alt at any time.\n- With alts, **Export → Narration package** gives a zip: the narration WAV, an alts WAV and a notes file.\n- When checking the narration, the writer can use an alt's wording. The block keeps its timing.\n\n## New: timeline zoom\n\n- Zoom with −, + and **Fit** at the top right of the timeline. It shows how much is on screen.\n- In Record mode, press `Z` or click **Take** to zoom to the selected block's take. Press `Z` again to zoom back.\n- Zoomed right in, the waveforms are sharp enough to line up single sounds.\n\n## Changed\n\n- **Return to start** now works only in Record mode, and its setting shows only there.\n\n## Fixed\n\n- Speech to text could hear silence in some audio-only MP4 and M4A files.\n- Exporting the narration of a long programme is much faster."
+ },
+ {
   "version": "0.75.1",
   "date": "2026-11-02",
   "notes": "## Fixed\n\n- In QC, the **Comment** button in an open block is now on the right. Its tooltip no longer runs off the edge of the window."
