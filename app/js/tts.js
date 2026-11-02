@@ -298,7 +298,21 @@ export function readWav(buf) {
     o += 8 + size + (size % 2);
   }
   if (!rate || !samples || bits !== 16) throw new Error('unsupported WAV format');
-  return { rate, channels, samples, secs: samples.length / channels / rate };
+  return { rate, channels, samples, secs: voiceEnd(samples, channels, rate) };
+}
+// Readings end in silence, half a second or more of it from Google, so a block timed to the
+// whole file ends well after the voice. A reading's length is where the voice stops: the
+// last 10 ms louder than −50 dBFS, and a little more for it to fade. All of it still plays.
+const QUIET = (32768 * 10 ** (-50 / 20)) ** 2, FADE = 0.05;
+export function voiceEnd(samples, channels, rate) {
+  const total = samples.length / channels / rate, step = Math.max(1, Math.round(rate / 100)) * channels;
+  for (let end = samples.length; end > 0; end -= step) {
+    const from = Math.max(0, end - step);
+    let e = 0;
+    for (let i = from; i < end; i++) e += samples[i] * samples[i];
+    if (e / (end - from) > QUIET) return Math.min(total, end / channels / rate + FADE);
+  }
+  return total; // silent throughout
 }
 
 // Seconds a line takes to say, from a voice's measured characters per second.
@@ -865,7 +879,7 @@ async function savedReading(key) {
 async function saveReading(key, buf, secs) {
   await saved('readwrite', ({ audio, meta }) => {
     audio.put(buf, key);
-    meta.put({ key, secs, bytes: buf.byteLength, at: Date.now() }, key);
+    meta.put({ key, secs, bytes: buf.byteLength, at: Date.now(), voiceEnd: true }, key);
   });
   const entries = await saved('readonly', ({ meta }, done) => all(meta).then(done));
   const drop = overCap(entries || [], SAVED_MAX);
@@ -876,6 +890,16 @@ async function loadSavedLengths() {
   const entries = await saved('readonly', ({ meta }, done) => all(meta).then(done));
   for (const e of entries || []) if (!measured.has(e.key)) measured.set(e.key, e.secs);
   if (entries?.length) hooks.changed();
+  // Readings saved before lengths stopped at the voice: measured again, once, one at a time.
+  for (const e of entries || []) {
+    if (e.voiceEnd) continue;
+    const buf = await saved('readonly', ({ audio }, done) => { const a = audio.get(e.key); a.onsuccess = () => done(a.result); });
+    let secs;
+    try { secs = readWav(buf).secs; } catch { continue; }
+    measured.set(e.key, secs);
+    await saved('readwrite', ({ meta }) => meta.put({ ...e, secs, voiceEnd: true }, e.key));
+    hooks.changed();
+  }
 }
 // How many readings are kept, and how big they are, for Settings.
 export async function savedReadings() {

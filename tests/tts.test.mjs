@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
-  piperVoiceList, kokoroVoiceList, readWav, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
+  piperVoiceList, kokoroVoiceList, readWav, voiceEnd, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
   toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice, voiceTitle } from '../app/js/tts.js';
 
@@ -425,4 +425,19 @@ test('a reading picked up partway starts at the word it would have reached', asy
   // Never nothing, even right at the end.
   assert.equal(wordsFrom(text, 1.5), 'ten');
   assert.equal(wordsFrom('<i>one</i>  two\nthree', 0.4), 'two three');
+});
+
+test('a reading’s length stops where the voice does, not at the silence after it', async () => {
+  const rate = 24000, voice = rate * 2, quiet = rate / 2;
+  // Two seconds of voice, a 30 ms fade, then near-silence as Google ends its readings.
+  const samples = Int16Array.from({ length: voice + quiet }, (_, i) =>
+    i < voice ? Math.round(8000 * Math.sin(i / 10)) : i < voice + 720 ? Math.round(300 * Math.sin(i / 10)) : (i % 2 ? 2 : -2));
+  const wav = readWav(await writeWav(samples, rate).arrayBuffer());
+  assert.ok(wav.secs > 2.03 && wav.secs < 2.1, `${wav.secs}`);
+  assert.equal(wav.samples.length, samples.length, 'all of it still plays');
+  assert.equal(voiceEnd(new Int16Array(rate), 1, rate), 1, 'silence keeps its length');
+  assert.equal(voiceEnd(Int16Array.from({ length: rate }, (_, i) => 9000 * Math.sin(i)), 1, rate), 1, 'voice to the end');
+  // Stereo: frames, not samples.
+  const stereo = new Int16Array(rate * 2); for (let i = 0; i < rate; i++) stereo[i] = 9000 * Math.sin(i);
+  assert.ok(Math.abs(voiceEnd(stereo, 2, rate) - 0.55) < 0.011);
 });

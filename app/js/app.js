@@ -39,7 +39,7 @@ import { videoName, missing, advice, copyKind } from './codecs.js';
 import { waveKey, loadWave, saveWave } from './wavestore.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
-import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
+import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, readWav, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
   reviewVoices, usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIP_BYS, isDip, FADES, isDipBy, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain,
   savedReadings, clearSavedReadings, checkFfmpeg } from './tts.js';
@@ -700,10 +700,22 @@ async function autoRewrite(id) {
       if (autoAgain.delete(id)) scheduleAutoRewrite(id);
     }
   }
-  const c = S.cues.find((b) => b.id === id);
-  if (!r || !c || !fitQc(c, r.secs)) return;
+  if (!r) return;
+  const review = S.review, secs = await voiceSecs(review, r), c = S.cues.find((b) => b.id === id);
+  if (!c || S.review !== review || playbackReading(review, c, reviewSettings()) !== r || !fitQc(c, secs)) return;
   changed(c.id);
-  if (c.end < c.start + r.secs - 0.05) toast(`Block #${idx(id) + 1}: the reading takes ${r.secs.toFixed(1)} s, but the next block starts first, so the end stops there`);
+  if (c.end < c.start + secs - 0.05) toast(`Block #${idx(id) + 1}: the reading takes ${secs.toFixed(1)} s, but the next block starts first, so the end stops there`);
+}
+// Where the voice stops in a packaged reading. Packages made before 0.73.4 give the whole
+// file's length, with the silence at its end, so that's read from the audio, once.
+const voiceEnds = new WeakMap();
+async function voiceSecs(review, r) {
+  if (!voiceEnds.has(r)) {
+    let secs = r.secs;
+    try { secs = readWav(await review.file.slice(r.offset, r.offset + r.bytes).arrayBuffer()).secs; } catch { /* the stated length */ }
+    voiceEnds.set(r, Math.min(secs, r.secs));
+  }
+  return voiceEnds.get(r);
 }
 // In QC, as in Write mode, a block marked auto ends where its reading finishes. New words
 // or a new speed mark it; setting its end by hand unmarks it.
@@ -729,14 +741,17 @@ function fitQc(c, secs) {
 // On opening a package, or coming to QC: blocks with new readings that don't end where
 // those finish, such as ones saved by earlier versions. The writer's own readings keep
 // the writer's timings.
-function fitQcAll() {
-  if (!qc() || qcLocked() || !S.review) return false;
+async function fitQcAll() {
+  const review = S.review;
+  if (!qc() || qcLocked() || !review) return;
   let any = false;
-  for (const c of S.cues) {
-    const r = playbackReading(S.review, c, reviewSettings());
-    if (r && r !== previousReading(S.review, c) && fitQc(c, r.secs)) any = true;
+  for (const c of [...S.cues]) {
+    const r = c.auto && playbackReading(review, c, reviewSettings());
+    if (!r || r === previousReading(review, c)) continue;
+    const secs = await voiceSecs(review, r);
+    if (S.review === review && S.cues.includes(c) && playbackReading(review, c, reviewSettings()) === r && fitQc(c, secs)) any = true;
   }
-  return any;
+  if (any) changed();
 }
 $('qcPrevious').addEventListener('click', () => {
   const c = selCue(), r = c && previousReading(S.review, c);
@@ -922,7 +937,7 @@ function updateEditor() {
     const unread = !r && !!rewriteSpec(S.review, c, reviewSettings());
     $('qcBlockInfo').textContent = newVoice ? 'New voice · needs a fresh package' : autoMaking.has(c.id) ? 'Making reading…'
       : unread && !autoRewrites() ? 'Needs a Google key' : !r && previous ? 'Original reading out of date'
-      : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'New reading'} ${r.secs.toFixed(1)} s${r.secs > c.end - c.start + 0.05 ? ' · runs past block' : ''}`
+      : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'New reading'} ${(voiceEnds.get(r) ?? r.secs).toFixed(1)} s${(voiceEnds.get(r) ?? r.secs) > c.end - c.start + 0.05 ? ' · runs past block' : ''}`
           : previous || !S.review?.byUid?.size ? 'Original reading missing' : rewriteSpec(S.review, c, reviewSettings()) ? 'New block · not read yet' : 'New block · no reading')
         : S.qcSource === 'preview' ? 'Approximate TTS preview' : 'Programme sound';
   }
@@ -3002,7 +3017,7 @@ function setMode(m, quiet = false) {
   }
   holdEnd();
   if (m === 'write') fitAllAuto();
-  else if (fitQcAll()) changed();
+  else if (qc()) fitQcAll();
   else if (m === 'transcribe' && stt.on) warmStt();
   if (qc()) S.qcLast = null;
   renderList();
@@ -4972,7 +4987,7 @@ if (!IS_MAC) {
 }
 const restored = loadSaved();
 aiNotesChanged();
-if (S.reviewId) { const wanted = S.reviewId; storedReview().then(async (saved) => { if (saved?.id !== wanted || S.reviewId !== wanted) return; try { const review = await openReview(saved.file); if (S.reviewId !== wanted) return; S.review = review; S.qcSource = 'package'; syncQcPermission(); if (fitQcAll()) changed(); configureQcAudio(); updateEditor(); if (S.dirty) scheduleAutosave(); updateInd(); refreshQc(); } catch { toast('Reopen the QC package to restore its original readings'); } }); }
+if (S.reviewId) { const wanted = S.reviewId; storedReview().then(async (saved) => { if (saved?.id !== wanted || S.reviewId !== wanted) return; try { const review = await openReview(saved.file); if (S.reviewId !== wanted) return; S.review = review; S.qcSource = 'package'; syncQcPermission(); fitQcAll(); configureQcAudio(); updateEditor(); if (S.dirty) scheduleAutosave(); updateInd(); refreshQc(); } catch { toast('Reopen the QC package to restore its original readings'); } }); }
 if (!S.reviewId && S.reviewAudio) restoreAuthorAudio();
 S.dirty = false;
 showDocName();
