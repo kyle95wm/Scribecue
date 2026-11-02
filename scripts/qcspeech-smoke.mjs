@@ -130,5 +130,13 @@ try {
   await js(`document.querySelectorAll('dialog[open]').forEach(d=>{if(d.id!=='qcExportDlg')d.close()});document.getElementById('toast').classList.add('fade');true`);
   if(screenshot){const shot=await send('Page.captureScreenshot',{format:'png'});writeFileSync(join(dirname(screenshot),'qc-google-package.png'),Buffer.from(shot.result.data,'base64'));}
   await click('qcExportAllowEdits');assert.equal(await js(`document.getElementById('qcGoogleKey').value`),'');
-  console.log(JSON.stringify({cpuSlowdown:6,synthesisRequests:calls,recordings:persisted.proposals,personalKeyPriority:true,automaticReadings:true,endFollowsReading:true,endFollowsOriginal:true,addedBlockReading:true,automaticFallback:true,offlineReplay:true,returnKeyRemoved:true,responsiveness}));
+  // A block saved by an earlier version, running past its new reading, ends where it finishes once opened.
+  await js(`document.querySelectorAll('dialog[open]').forEach(d=>d.close());__saved=null;true`);await key('KeyS','s');await wait(`!!__saved`);
+  await js(`(async()=>{const {readReview,resaveReview}=await import('./js/qc.js');const r=await readReview(__saved);const p=r.project;
+    p.blocks[0].end=p.blocks[0].start+3;p.blocks[0].auto=true;const f=resaveReview(r,p,{includeReviewKey:true});
+    const d=new DataTransfer();d.items.add(new File([f],'stale.scribecueqc'));document.dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}));return true})()`);
+  await wait(`document.getElementById('subName').textContent.includes('stale')`);
+  await js(`document.querySelectorAll('dialog[open]').forEach(d=>d.close());document.querySelector('#list .row').click();true`);
+  await wait(`document.getElementById('edDur').textContent==='1.000 s'`);
+  console.log(JSON.stringify({cpuSlowdown:6,synthesisRequests:calls,recordings:persisted.proposals,personalKeyPriority:true,automaticReadings:true,endFollowsReading:true,endFollowsOriginal:true,staleEndFitted:true,addedBlockReading:true,automaticFallback:true,offlineReplay:true,returnKeyRemoved:true,responsiveness}));
 } finally {if(preload?.result?.identifier)await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:preload.result.identifier});ws.close();}

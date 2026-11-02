@@ -52,8 +52,8 @@ correct text, timings, pronunciation, block voices and speeds while keeping Comm
 Saving or reloading keeps the creator’s choice. Ask for a new package if you need
 permission to make corrections.
 
-When you change a block’s words or speed, its end moves to where its reading finishes.
-You can still set the end by hand afterwards.
+When you change a block’s words or speed, its end moves to where its reading finishes,
+up to the start of the next block. Setting the end by hand stops this until the next change.
 
 Plain projects start read-only in QC; use Write or Transcribe to edit them. After you
 accept a review into your authoring project, you can edit it in QC too. The header says

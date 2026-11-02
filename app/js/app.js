@@ -72,9 +72,8 @@ const qcLocked = () => qc() && !qcEditable();
 const readingControls = () => ttsOn() || (qc() && qcEditable());
 // QC blocks whose Google reading is being made on its own, and what that has set (see autoRewrite).
 const autoMaking = new Set(), autoAgain = new Set(), autoTimers = new Map();
-// The speech each block's end last matched, in QC. Once the words or speed change, the end
-// moves to where the next reading finishes, as Shift+V does in Write mode.
-const fitFor = new WeakMap();
+// The speech each block had when last seen in QC, and the blocks whose speech changed there.
+const fitFor = new WeakMap(), edited = new WeakSet();
 const ttsOn = () => tts.on && writing();
 const pcKeys = (s) => (IS_MAC ? s : s
   .replace(/⌘(?=\S)/g, 'Ctrl+').replace(/⌘/g, 'Ctrl')
@@ -445,7 +444,7 @@ function changed(id = null) {
   updateEditor();
   refreshComments();
   configureQcAudio();
-  if (id != null) { const c = S.cues[idx(id)]; if (c && qc() && !fitFor.has(c)) fitFor.set(c, previousReading(S.review, c) ? speechOf(c) : ''); scheduleAutoRewrite(id); } // a new block follows its first reading
+  if (id != null) { const c = S.cues[idx(id)]; if (c && qc() && !qcLocked()) noteEdit(c); scheduleAutoRewrite(id); }
   S.activeId = undefined; // force overlay/active refresh
   tlDirty = true;
   clearTimeout(saveTimer);
@@ -702,23 +701,42 @@ async function autoRewrite(id) {
     }
   }
   const c = S.cues.find((b) => b.id === id);
-  if (r && c) followSpeech(c, r.secs);
+  if (!r || !c || !fitQc(c, r.secs)) return;
+  changed(c.id);
+  if (c.end < c.start + r.secs - 0.05) toast(`Block #${idx(id) + 1}: the reading takes ${r.secs.toFixed(1)} s, but the next block starts first, so the end stops there`);
 }
-// The end moves only for speech it hasn't matched yet, so an end set by hand stays put
-// until the next change.
+// In QC, as in Write mode, a block marked auto ends where its reading finishes. New words
+// or a new speed mark it; setting its end by hand unmarks it.
 function speechOf(c) { return JSON.stringify([said(c), c.speed || 1, c.voice || reviewSettings().ttsVoice]); }
 function noteSpeech() { if (qc()) for (const c of S.cues) if (!fitFor.has(c)) fitFor.set(c, speechOf(c)); }
-function followSpeech(c, secs) {
+function noteEdit(c) {
   const key = speechOf(c), was = fitFor.get(c);
   fitFor.set(c, key);
-  if (was == null || was === key || qcLocked()) return;
+  if (was === key || (was == null && previousReading(S.review, c))) return; // a block added in review has no reading yet
+  c.auto = true;
+  edited.add(c);
+}
+function fitQc(c, secs) {
+  if (!c.auto || qcLocked()) return false;
   const i = idx(c.id);
-  if (i < 0) return;
+  if (i < 0) return false;
   const { hi } = bounds(i);
   const end = clamp(c.start + secs, c.start + MIN_DUR, Math.max(hi, c.start + MIN_DUR));
-  if (Math.abs(end - c.end) < 0.0005) return;
+  if (Math.abs(end - c.end) < 0.0005) return false;
   c.end = end;
-  changed(c.id);
+  return true;
+}
+// On opening a package, or coming to QC: blocks with new readings that don't end where
+// those finish, such as ones saved by earlier versions. The writer's own readings keep
+// the writer's timings.
+function fitQcAll() {
+  if (!qc() || qcLocked() || !S.review) return false;
+  let any = false;
+  for (const c of S.cues) {
+    const r = playbackReading(S.review, c, reviewSettings());
+    if (r && r !== previousReading(S.review, c) && fitQc(c, r.secs)) any = true;
+  }
+  return any;
 }
 $('qcPrevious').addEventListener('click', () => {
   const c = selCue(), r = c && previousReading(S.review, c);
@@ -2984,6 +3002,7 @@ function setMode(m, quiet = false) {
   }
   holdEnd();
   if (m === 'write') fitAllAuto();
+  else if (fitQcAll()) changed();
   else if (m === 'transcribe' && stt.on) warmStt();
   if (qc()) S.qcLast = null;
   renderList();
@@ -3557,6 +3576,7 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
   const missing = voiceReport(S.cues, p.settings, reviewVoices()).some((v) => v.id && !v.available);
   if (!review && !missing && mode && mode !== 'qc') setMode(mode, true);
   S.loadingProject = false;
+  fitQcAll();
   changed();
   select(S.cues[p.view.selected]?.id ?? S.cues[0]?.id ?? null, { seek: false });
   S.pendingPlayhead = p.view.playhead ?? null;
@@ -4562,7 +4582,7 @@ function qcRead(c, manual = false) {
     done: (secs) => {
       if (secs == null || !qc() || S.qcLast !== c.id) return;
       // A stand-in voice isn't the writer's reading, so only the block's own voice moves its end.
-      if (whole && voice === requested && S.cues.includes(c)) followSpeech(c, secs);
+      if (whole && voice === requested && edited.has(c) && S.cues.includes(c) && fitQc(c, secs)) changed(c.id);
       if (manual) { if (now() >= c.end) pause(); else S.playUntil = c.end; }
     },
   });
@@ -4952,7 +4972,7 @@ if (!IS_MAC) {
 }
 const restored = loadSaved();
 aiNotesChanged();
-if (S.reviewId) { const wanted = S.reviewId; storedReview().then(async (saved) => { if (saved?.id !== wanted || S.reviewId !== wanted) return; try { const review = await openReview(saved.file); if (S.reviewId !== wanted) return; S.review = review; S.qcSource = 'package'; syncQcPermission(); configureQcAudio(); updateEditor(); if (S.dirty) scheduleAutosave(); updateInd(); refreshQc(); } catch { toast('Reopen the QC package to restore its original readings'); } }); }
+if (S.reviewId) { const wanted = S.reviewId; storedReview().then(async (saved) => { if (saved?.id !== wanted || S.reviewId !== wanted) return; try { const review = await openReview(saved.file); if (S.reviewId !== wanted) return; S.review = review; S.qcSource = 'package'; syncQcPermission(); if (fitQcAll()) changed(); configureQcAudio(); updateEditor(); if (S.dirty) scheduleAutosave(); updateInd(); refreshQc(); } catch { toast('Reopen the QC package to restore its original readings'); } }); }
 if (!S.reviewId && S.reviewAudio) restoreAuthorAudio();
 S.dirty = false;
 showDocName();
