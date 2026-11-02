@@ -20,7 +20,7 @@ import { readZip } from './zip.js';
 import { initRecord } from './record.js';
 import { takesInfo, clearTakes } from './takestore.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
-import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom, stopAt } from './nav.js';
+import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom, stopAt, returnsToStart } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
@@ -125,7 +125,8 @@ const S = {
   offset: (() => { try { const v = parseFloat(localStorage.getItem('scribecue.offset')); return OFFSETS.includes(v) ? v : 0.2; } catch { return 0.2; } })(),
   // After editing a block, go back to its start, to hear it again. On unless turned off.
   replay: (() => { try { return localStorage.getItem('scribecue.replay') !== '0'; } catch { return true; } })(),
-  // Return to start: stopping puts the playhead back where that playback began. Off unless turned on.
+  // Return to start: stopping puts the playhead back where that playback began. Record mode
+  // only (see returning). Off unless turned on.
   returnToStart: (() => { try { return localStorage.getItem('scribecue.returnToStart') === '1'; } catch { return false; } })(),
   // The total length shows the time remaining instead.
   remaining: (() => { try { return localStorage.getItem('scribecue.remaining') === '1'; } catch { return false; } })(),
@@ -274,7 +275,8 @@ video.addEventListener('waiting', () => videoWaiting(true));
 for (const ev of ['playing', 'pause', 'emptied']) video.addEventListener(ev, () => videoWaiting(false));
 // Record mode plays the video itself, so where playback began is taken from the video.
 video.addEventListener('play', () => { playStart = video.currentTime; });
-video.addEventListener('ended', () => { const t = stopAt(S.returnToStart, playStart, now()); if (t !== now()) seek(t); });
+const returning = () => returnsToStart(S.returnToStart, S.mode);
+video.addEventListener('ended', () => { const t = stopAt(returning(), playStart, now()); if (t !== now()) seek(t); });
 function pause() {
   stopPreviousReading();
   qcPlayer.stop();
@@ -288,7 +290,7 @@ function pause() {
 function togglePlay() {
   S.playUntil = null;
   if (isPlaying()) {
-    const t = stopAt(S.returnToStart, playStart, now());
+    const t = stopAt(returning(), playStart, now());
     pause();
     if (t !== now()) seek(t);
     return;
@@ -1911,7 +1913,7 @@ function updateInd() {
     ...(qc() ? [['qc', S.qcSource === 'package' ? (S.review?.proposals.length ? 'QC · SAVED READINGS' : 'QC · ORIGINAL READINGS') : S.qcSource === 'preview' ? 'QC · APPROXIMATE TTS' : 'QC · PROGRAMME SOUND', true]] : []),
     // Settings show only while they're on, and open their section of Settings.
     ...(S.replay ? [['replay', 'REPLAY', true]] : []),
-    ...(S.returnToStart ? [['returnToStart', 'RETURN', true]] : []),
+    ...(returning() ? [['returnToStart', 'RETURN', true]] : []),
     ...(S.mode === 'transcribe' && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
     ...(S.mode === 'record' ? [['takes', 'TAKES', !!recorder?.hearing]] : []),
     ...(writing() && tts.on ? [['tts', tts.base !== 1 ? `TTS ${Math.round(tts.base * 100)}%` : 'TTS', true]] : []),

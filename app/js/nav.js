@@ -40,3 +40,5 @@ export const takeFrom = (t, start, end) => (t > start + 0.01 && t <= end + 0.01 
 // that playback began, so play starts there again. on: the setting. start: where playback
 // began, or null. t: the playhead now. Returns where the playhead goes on stopping.
 export const stopAt = (on, start, t) => (on && start != null ? start : t);
+// Return to start is for recording: it only works in Record mode.
+export const returnsToStart = (on, mode) => !!on && mode === 'record';

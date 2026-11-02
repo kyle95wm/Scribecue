@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockFromPlayhead, BACK_GRACE, nudgeFor, NUDGE_START, takeFrom, stopAt } from '../app/js/nav.js';
+import { blockFromPlayhead, BACK_GRACE, nudgeFor, NUDGE_START, takeFrom, stopAt, returnsToStart } from '../app/js/nav.js';
 
 const cues = [{ start: 2, end: 5 }, { start: 10, end: 14 }, { start: 20, end: 22 }];
 
@@ -61,4 +61,8 @@ test('return to start: stopping goes back to where playback began', () => {
   assert.equal(stopAt(true, 0, 15), 0); // from the very start
   assert.equal(stopAt(false, 5, 15), 15); // the setting is off: stays where it stopped
   assert.equal(stopAt(true, null, 15), 15); // nothing to go back to
+  // Only in Record mode.
+  assert.equal(returnsToStart(true, 'record'), true);
+  for (const mode of ['write', 'transcribe', 'qc']) assert.equal(returnsToStart(true, mode), false);
+  assert.equal(returnsToStart(false, 'record'), false);
 });

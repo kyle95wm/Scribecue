@@ -64,6 +64,9 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 - **Change them later** under **Microphone, lead-in and sync**.
 - **Set your interface to 48 kHz** if you can. Scribecue tells you if it's converting.
 - **Use Chrome, Edge, Firefox or Safari.**
+- **Return to start**, under **Settings → General**, puts the playhead back where you
+  started playing when you stop. It's off at first. `RETURN` shows under the video while
+  it's on.
 
 ### Recording a block
 

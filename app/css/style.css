@@ -72,7 +72,7 @@ kbd + kbd { margin-left: 2px; }
 .mode-write .transcribe-only, .mode-transcribe .write-only { display: none; }
 .record-only { display: none; }
 .mode-record .record-only { display: flex; }
-.mode-record .hint.record-only { display: block; }
+.mode-record .hint.record-only, .mode-record .setrec.record-only { display: block; }
 .mode-record .transcribe-only, .mode-record .write-only, .mode-record #modeSw { display: none; }
 /* Record mode: the script is locked, so nothing offers to change or save it. */
 .mode-record .rowdel, .mode-record .edmove, .mode-record #edAuto, .mode-record #edTts, .mode-record #replaceBtn, .mode-record #aiBtn,

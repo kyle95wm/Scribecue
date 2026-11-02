@@ -122,10 +122,6 @@ To zoom, use − and + at the top right of the timeline, `Ctrl/Cmd`+scroll, or p
 **Fit** shows the whole programme. Zoomed right in, the waveform shows each sound
 sharply, down to a few milliseconds.
 
-**Return to start**, under **Settings → General**, puts the playhead back where you started
-playing when you stop, to hear a part again. Move it to start somewhere else. It's off at
-first. `RETURN` shows under the video while it's on.
-
 ## Saving
 
 Press `Ctrl/Cmd+S` to save a **project** (`.scribecue`). It keeps everything: the blocks,
