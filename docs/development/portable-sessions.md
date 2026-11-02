@@ -146,7 +146,6 @@ Check with the CPU slowed 4–6×:
 
 - `Guides/RECORDING.md`: where takes are kept, sessions, packaging.
 - `Guides/INSTALL.md`: remove the takes container.
-- `Guides/INSTALL.md` says **Settings → Storage**, but the app says **Offline and storage**.
 - `Guides/TROUBLESHOOTING.md`, **Settings → Offline and storage**, the tour and toasts that mention
   where takes are kept.
 - `local-guides/` for narrators.
