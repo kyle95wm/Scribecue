@@ -34,7 +34,7 @@ try {
       await new Promise(r=>setTimeout(r,300));
       if(__offline)throw Error('Failed to fetch');
       if(__fail&&key==='personal-test-key')return {ok:false,status:403,json:async()=>({error:{message:'Test key refused'}})};
-      return {ok:true,json:async()=>({audioContent:__b64})};
+      return {ok:true,json:async()=>({audioContent:String(init.body).includes('short')?__b64short:__b64})};
     };
     window.__saved=null;window.showSaveFilePicker=async()=>({name:'working.scribecueqc',queryPermission:async()=>'granted',createWritable:async()=>({write:async x=>{__saved=x},close:async()=>{}})});
     const nativeClick=HTMLAnchorElement.prototype.click;
@@ -46,6 +46,7 @@ try {
   await js(`(async()=>{
     const {toProject,newIdentity}=await import('./js/project.js');const {buildReview,readReview}=await import('./js/qc.js');const {writeWav}=await import('./js/tts.js');
     const buf=writeWav(new Int16Array(48000),48000),a=new Uint8Array(await buf.arrayBuffer());window.__b64=btoa(Array.from(a,x=>String.fromCharCode(x)).join(''));
+    const half=new Uint8Array(await writeWav(new Int16Array(24000),48000).arrayBuffer());window.__b64short=btoa(Array.from(half,x=>String.fromCharCode(x)).join(''));
     const p=toProject({projectId:newIdentity(),blocks:[{uid:newIdentity(),start:3,end:6,text:'Mara opens the blue door.'}],settings:{mode:'qc',ttsVoice:'google:en-US-Standard-A',ttsBase:1}});
     window.__original=await buildReview(p,async()=>({blob:new Blob([buf]),secs:1,voice:p.settings.ttsVoice}),{handoff:true,allowEdits:true,googleReviewKey:'bundled-test-key'});
     const d=new DataTransfer();d.items.add(new File([__original],'review.scribecueqc'));document.dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}));
@@ -73,14 +74,20 @@ try {
   await hear();await sleep(300);await hear();assert.equal(await js('__calls.length'),1,'replaying is offline');
   await js(`(()=>{const f=document.getElementById('edEnd');f.focus();f.value='00:00:05.500';f.dispatchEvent(new Event('change',{bubbles:true}));f.blur()})()`);
   await sleep(1200);assert.equal(await length(),'2.500 s','an end set by hand stays');assert.equal(await js('__calls.length'),1);
+  // Back to the original words: the end follows the original reading again, with no request.
+  await edit('Mara opens the short door.');await settled(2);
+  await wait(`document.getElementById('edDur').textContent==='0.500 s'`);
+  await edit('Mara opens the blue door.');await sleep(1200);
+  assert.equal(await js('__calls.length'),2,'the original reading needs no request');
+  await wait(`document.getElementById('edDur').textContent==='1.000 s'`);
   // The reviewer's key fails: the writer's key reads it, without asking.
   await js(`__fail=true;true`);await edit('Mara opens the red door.');
-  await settled(3);
+  await settled(4);
   assert.equal(await js('__offers'),0,'no question');assert.deepEqual((await js('__calls')).slice(-2),['personal-test-key','bundled-test-key']);
   await wait(`document.getElementById('toast').textContent.includes('the writer’s key read block #1')`);
   await wait(`document.getElementById('edDur').textContent==='1.000 s'`);
   await js(`document.getElementById('edSpeed').value='1.15';document.getElementById('edSpeed').dispatchEvent(new Event('change'));true`);
-  await settled(5);
+  await settled(6);
   assert.deepEqual((await js('__calls')).slice(-2),['personal-test-key','bundled-test-key'],'each new reading starts with the personal key');
   // A block added in review reads in the package's Google voice, as soon as it's written.
   await js(`__fail=false;document.activeElement?.blur();true`);
@@ -90,7 +97,7 @@ try {
   assert.equal(await js(`document.getElementById('edVoiceWrap').hidden`),true,'an added block keeps the package voice');
   assert.equal(await js(`document.getElementById('qcBlockInfo').textContent`),'New block · no reading');
   await edit('A door slams.');
-  await settled(6);
+  await settled(7);
   assert.equal(await js('__calls.at(-1)'),'personal-test-key');
   await wait(`document.getElementById('edDur').textContent==='1.000 s'&&document.getElementById('qcBlockInfo').textContent.startsWith('New reading')`);
   await js(`document.querySelector('#list .row').click();true`);
@@ -98,7 +105,7 @@ try {
   const calls=await js('__calls.length');
   await key('KeyS','s');await wait(`!!__saved`);
   const persisted=await js(`(async()=>{const r=await(await import('./js/qc.js')).readReview(__saved);return{key:r.reviewAccess.googleKey,proposals:r.proposals.length}})()`);
-  assert.equal(persisted.key,'bundled-test-key');assert.equal(persisted.proposals,4);
+  assert.equal(persisted.key,'bundled-test-key');assert.equal(persisted.proposals,5);
   const responsiveness=await js(`(()=>{cancelAnimationFrame(__raf);__observer.disconnect();return{longTasks:__longTasks,maxFrameGapMs:Math.max(...__frames),frames:__frames.length,heapMiB:Math.round(performance.memory.usedJSHeapSize/1048576)}})()`);
   if(screenshot){
     await js(`document.activeElement?.blur();document.getElementById('toast').classList.add('fade');true`);await sleep(400);
@@ -107,7 +114,7 @@ try {
   await openQC();assert.ok((await js(`document.getElementById('qcKeyInfo').textContent`)).startsWith('Your Google key'));
   await click('qcReturn');
   const returned=await js(`(async()=>{const r=await(await import('./js/qc.js')).readReview(await __download);return{key:r.reviewAccess,proposals:r.proposals.length}})()`);
-  assert.equal(returned.key,null);assert.equal(returned.proposals,4);
+  assert.equal(returned.key,null);assert.equal(returned.proposals,5);
   assert.equal(await js('__calls.length'),calls);
   // Restore the working package, then replay with no network and no lost key setting.
   await send('Page.reload');await wait(`document.querySelectorAll('#list .row').length===2`);await sleep(700);
@@ -123,5 +130,5 @@ try {
   await js(`document.querySelectorAll('dialog[open]').forEach(d=>{if(d.id!=='qcExportDlg')d.close()});document.getElementById('toast').classList.add('fade');true`);
   if(screenshot){const shot=await send('Page.captureScreenshot',{format:'png'});writeFileSync(join(dirname(screenshot),'qc-google-package.png'),Buffer.from(shot.result.data,'base64'));}
   await click('qcExportAllowEdits');assert.equal(await js(`document.getElementById('qcGoogleKey').value`),'');
-  console.log(JSON.stringify({cpuSlowdown:6,synthesisRequests:calls,recordings:persisted.proposals,personalKeyPriority:true,automaticReadings:true,endFollowsReading:true,addedBlockReading:true,automaticFallback:true,offlineReplay:true,returnKeyRemoved:true,responsiveness}));
+  console.log(JSON.stringify({cpuSlowdown:6,synthesisRequests:calls,recordings:persisted.proposals,personalKeyPriority:true,automaticReadings:true,endFollowsReading:true,endFollowsOriginal:true,addedBlockReading:true,automaticFallback:true,offlineReplay:true,returnKeyRemoved:true,responsiveness}));
 } finally {if(preload?.result?.identifier)await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:preload.result.identifier});ws.close();}

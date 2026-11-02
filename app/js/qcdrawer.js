@@ -33,7 +33,7 @@ export function refreshQc() {
   select.replaceChildren(...reviewVoices().map((v) => new Option(v.name, v.id)));
   select.value = reviewVoices().some((v) => v.id === selected) ? selected : chosenVoice();
   $('qcSourcePreview').disabled = !select.options.length;
-  $('qcPreviewNote').textContent = 'Approximate preview: missing voices use the voice selected below. Automatic timing changes stay off. This is not the writer’s original reading. Online voices send text to their provider.';
+  $('qcPreviewNote').textContent = 'Approximate preview: missing voices use the voice selected below, and blocks read in it keep their timings. This is not the writer’s original reading. Online voices send text to their provider.';
   if (!controller) $('qcExportStart').disabled = !spoken.length || report.some((v) => !v.available || !v.exportable);
   $('qcExportCost').hidden = !report.some((v) => usingGoogle(v.id));
   const googleAccess = $('qcExportAllowEdits').getAttribute('aria-pressed') === 'true' && report.some((v) => v.id.startsWith('google:'));

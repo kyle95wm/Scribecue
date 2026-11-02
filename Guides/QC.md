@@ -49,8 +49,11 @@ There is no permission switch for the reviewer.
 
 A comments-only package keeps its script and timings fixed. An editable package lets you
 correct text, timings, pronunciation, block voices and speeds while keeping Comments open.
-Timings never adjust from a reading automatically in QC. Saving or reloading keeps the
-creator’s choice. Ask for a new package if you need permission to make corrections.
+Saving or reloading keeps the creator’s choice. Ask for a new package if you need
+permission to make corrections.
+
+When you change a block’s words or speed, its end moves to where its reading finishes.
+You can still set the end by hand afterwards.
 
 Plain projects start read-only in QC; use Write or Transcribe to edit them. After you
 accept a review into your authoring project, you can edit it in QC too. The header says
@@ -118,7 +121,7 @@ For an editable package with Google voices, a changed block is read when you fin
 editing it, as in Write mode. This covers new wording, a new speed, and blocks you add.
 
 - The new reading uses the block’s original Google voice. Added blocks use the package’s.
-- The block’s end moves to where the new reading finishes. You can still set it by hand.
+- Change the words back, and the block uses the original reading again, with its length.
 - The voice list is hidden for these blocks, since a new voice would need a fresh package.
 - Readings are saved, so they replay offline, after moving a block, or after reopening.
 - Deleting a block makes no request. Undo restores the original audio.

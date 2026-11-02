@@ -71,7 +71,10 @@ const qcEditable = () => S.reviewId ? reviewAllowsEdits(S.review) : !!S.reviewAu
 const qcLocked = () => qc() && !qcEditable();
 const readingControls = () => ttsOn() || (qc() && qcEditable());
 // QC blocks whose Google reading is being made on its own, and what that has set (see autoRewrite).
-const autoMaking = new Set(), autoAgain = new Set(), autoTimers = new Map(), followed = new Map();
+const autoMaking = new Set(), autoAgain = new Set(), autoTimers = new Map();
+// The speech each block's end last matched, in QC. Once the words or speed change, the end
+// moves to where the next reading finishes, as Shift+V does in Write mode.
+const fitFor = new WeakMap();
 const ttsOn = () => tts.on && writing();
 const pcKeys = (s) => (IS_MAC ? s : s
   .replace(/⌘(?=\S)/g, 'Ctrl+').replace(/⌘/g, 'Ctrl')
@@ -365,6 +368,7 @@ const snapshot = () => ({ data: JSON.stringify({ cues: S.cues, sel: S.sel, comme
 
 // `tag` coalesces repeated identical actions (e.g. holding a nudge key) into one undo step.
 function pushUndo(snap = snapshot(), tag = null) {
+  noteSpeech();
   const t = performance.now();
   if (tag && tag === lastUndoTag && t - lastUndoTime < 1000) { lastUndoTime = t; return; }
   lastUndoTag = tag; lastUndoTime = t;
@@ -441,7 +445,7 @@ function changed(id = null) {
   updateEditor();
   refreshComments();
   configureQcAudio();
-  if (id != null) scheduleAutoRewrite(id);
+  if (id != null) { const c = S.cues[idx(id)]; if (c && qc() && !fitFor.has(c)) fitFor.set(c, previousReading(S.review, c) ? speechOf(c) : ''); scheduleAutoRewrite(id); } // a new block follows its first reading
   S.activeId = undefined; // force overlay/active refresh
   tlDirty = true;
   clearTimeout(saveTimer);
@@ -675,8 +679,9 @@ function voiceFixed(c) {
   return !!S.review.byUid?.size && !!S.review.googleVoices?.has(c.voice || reviewSettings().ttsVoice);
 }
 function autoRewrites() { return qc() && !!S.reviewId && qcEditable() && !!reviewGoogleKey(S.review?.reviewAccess?.googleKey || ''); }
+// Edits in QC can change a block's reading: a new Google reading, or back to the original.
 function scheduleAutoRewrite(id) {
-  if (!autoRewrites()) return;
+  if (!qc() || qcLocked() || !S.review) return;
   if (autoMaking.has(id)) { autoAgain.add(id); return; }
   clearTimeout(autoTimers.get(id));
   autoTimers.set(id, setTimeout(() => { autoTimers.delete(id); autoRewrite(id); }, 500));
@@ -684,9 +689,9 @@ function scheduleAutoRewrite(id) {
 async function autoRewrite(id) {
   const block = S.cues.find((b) => b.id === id), reviewId = S.reviewId;
   // A block being typed in is read when the typing ends, since Google counts every reading.
-  if (!autoRewrites() || !block || edit?.id === id || autoMaking.has(id) || !rewriteSpec(S.review, block, reviewSettings())) return;
+  if (!qc() || qcLocked() || !S.review || !block || edit?.id === id || autoMaking.has(id)) return;
   let r = playbackReading(S.review, block, reviewSettings());
-  if (!r) {
+  if (!r && autoRewrites() && rewriteSpec(S.review, block, reviewSettings())) {
     autoMaking.add(id); updateEditor();
     try { r = await makeRewrite(block); }
     catch (error) { if (S.reviewId === reviewId) toast(`Block #${idx(id) + 1}: ${error.message}`); }
@@ -696,19 +701,25 @@ async function autoRewrite(id) {
       if (autoAgain.delete(id)) scheduleAutoRewrite(id);
     }
   }
-  if (r) followReading(id, r);
+  const c = S.cues.find((b) => b.id === id);
+  if (r && c) followSpeech(c, r.secs);
 }
-function followReading(id, r) {
-  const i = idx(id), c = S.cues[i], key = r && readingSpeechKey(c);
-  if (!c || !key || followed.get(id) === key) return;
-  followed.set(id, key);
+// The end moves only for speech it hasn't matched yet, so an end set by hand stays put
+// until the next change.
+function speechOf(c) { return JSON.stringify([said(c), c.speed || 1, c.voice || reviewSettings().ttsVoice]); }
+function noteSpeech() { if (qc()) for (const c of S.cues) if (!fitFor.has(c)) fitFor.set(c, speechOf(c)); }
+function followSpeech(c, secs) {
+  const key = speechOf(c), was = fitFor.get(c);
+  fitFor.set(c, key);
+  if (was == null || was === key || qcLocked()) return;
+  const i = idx(c.id);
+  if (i < 0) return;
   const { hi } = bounds(i);
-  const end = clamp(c.start + r.secs, c.start + MIN_DUR, Math.max(hi, c.start + MIN_DUR));
+  const end = clamp(c.start + secs, c.start + MIN_DUR, Math.max(hi, c.start + MIN_DUR));
   if (Math.abs(end - c.end) < 0.0005) return;
   c.end = end;
   changed(c.id);
 }
-const readingSpeechKey = (c) => { const spec = c && rewriteSpec(S.review, c, reviewSettings()); return spec ? speechKey(spec) : ''; };
 $('qcPrevious').addEventListener('click', () => {
   const c = selCue(), r = c && previousReading(S.review, c);
   if (!qc() || !r) return;
@@ -4545,8 +4556,15 @@ function qcRead(c, manual = false) {
   const requested = c.voice || reviewSettings().ttsVoice;
   const voice = reviewVoices().some((v) => v.id === requested) ? requested : S.qcPreviewVoice;
   if (!voice) return toast('Choose a preview voice in QC playback');
+  // Heard from its first word, so the reading's length is all of it.
+  const whole = from() * spoken(said(c)).split(' ').length < speechLength(said(c), c.speed, voice).secs;
   speak(said(c), { id: c.id, speed: c.speed, voice, gain: volGain(c), from,
-    done: (secs) => { if (manual && secs != null && qc() && S.qcLast === c.id) { if (now() >= c.end) pause(); else S.playUntil = c.end; } },
+    done: (secs) => {
+      if (secs == null || !qc() || S.qcLast !== c.id) return;
+      // A stand-in voice isn't the writer's reading, so only the block's own voice moves its end.
+      if (whole && voice === requested && S.cues.includes(c)) followSpeech(c, secs);
+      if (manual) { if (now() >= c.end) pause(); else S.playUntil = c.end; }
+    },
   });
 }
 function qcSpeech(prevT, t, started) {
