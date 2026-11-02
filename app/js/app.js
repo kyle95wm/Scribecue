@@ -5115,6 +5115,8 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (S.mode === 'record' && id === 'split' && recorder.splitTake()) return; // splits the take being edited
     if (S.mode === 'record' && id === 'deleteNow' && recorder.cutPart()) return; // deletes a part of it
+    // Play / pause stops a recording, and keeps the take. Held down, it doesn't start playing.
+    if (S.mode === 'record' && id === 'play' && (recorder.active || e.repeat)) { if (!e.repeat) recorder.finish(); return; }
     if (qc() && REC_LOCKED.has(id) && !['createEdit', 'comments'].includes(id) && (!qcEditable() || !QC_EDIT_KEYS.has(id))) return toast('The script and timings are fixed in QC mode');
     if (S.mode === 'record' && REC_LOCKED.has(id)) return toast('The script is locked in Record mode');
     RUN[id](e);
