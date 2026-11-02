@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.73.2",
+  "date": "2026-11-01",
+  "notes": "## Fixes\n\n- In QC, an edited block now always ends where its reading finishes, even if you change the words back. Before, the reading could run past the end.\n- In the TTS preview, an edited block heard in its own voice follows its reading too."
+ },
+ {
   "version": "0.73.1",
   "date": "2026-11-01",
   "notes": "## Fixes\n\n- **Return to start** now puts the playhead back as soon as you stop, so play starts right where it sits. Before, it jumped back when you pressed play.\n- If Scribecue can’t read a script you open, it now says why, rather than doing nothing."
