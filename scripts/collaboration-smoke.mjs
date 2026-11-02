@@ -25,7 +25,7 @@ try {
   await send('Emulation.setFocusEmulationEnabled', { enabled: true });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: site }); await sleep(1200);
-  await js(`localStorage.clear();localStorage.setItem('scribecue.welcome','1');localStorage.setItem('scribecue.updates','0');localStorage.setItem('scribecue.seenVersion','999.0.0');localStorage.setItem('scribecue.mode','write');localStorage.setItem('scribecue.loops',JSON.stringify({write:true,transcribe:true,qc:true}));localStorage.setItem('scribecue.v1',JSON.stringify({cues:[{start:1,end:3,text:'First block'},{start:4,end:6,text:'Second block'}],dirty:false}));location.reload();true`);
+  await js(`localStorage.clear();localStorage.setItem('scribecue.welcome','1');localStorage.setItem('scribecue.setupModes',JSON.stringify({write:true,transcribe:true,qc:true}));localStorage.setItem('scribecue.updates','0');localStorage.setItem('scribecue.seenVersion','999.0.0');localStorage.setItem('scribecue.mode','write');localStorage.setItem('scribecue.loops',JSON.stringify({write:true,transcribe:true,qc:true}));localStorage.setItem('scribecue.v1',JSON.stringify({cues:[{start:1,end:3,text:'First block'},{start:4,end:6,text:'Second block'}],dirty:false}));location.reload();true`);
   await wait(`document.querySelectorAll('#list .row').length===2`);
   await setupSave();
   const first = await save();

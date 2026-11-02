@@ -2,8 +2,8 @@
 // what it's for. It opens on a first visit, before the setup, and from the shortcuts
 // overlay. Skippable at any step with Esc or Skip tour.
 //
-// The loop to work in has a card of its own (showLoop), shown once for each mode: after
-// setup for the mode picked there, and the first time someone switches to the other.
+// The loop to work in has a card of its own (showLoop), shown once for each mode, after
+// that mode's setup: on a first visit, or the first time someone switches to it.
 import { HOSTED } from './config.js';
 import { bindings, comboText } from './keymap.js';
 import { keyChanges } from './keys.js';

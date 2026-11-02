@@ -2,6 +2,9 @@
 // tools for it, and update checks. It opens by itself the first time Scribecue is
 // used, and Settings at the top runs it again. Choices take effect only when
 // Finish is pressed, so skipping changes nothing.
+//
+// Switching to a mode that hasn't been set up yet runs just that mode's part of it
+// (openModeSetup), once for each mode.
 
 import { tts, SPEEDS, MAX_BASE, toBase, fillVoiceSelect, chosenVoice, setTtsOption, loadPiper, webPiper, webVoiceChoices, downloadVoice, megabytes } from './tts.js';
 import { updateChoice, setUpdateChoice } from './update.js';
@@ -13,19 +16,21 @@ const KEY = 'scribecue.welcome';
 let hooks = { getMode: () => 'transcribe', setMode: () => {}, getOffset: () => 0.2, setOffset: () => {}, getReplay: () => false, setReplay: () => {}, nameChanged: () => {}, offsets: [], toast: () => {} };
 let step = 0;
 let finished = false;
+let only = null; // the one mode being set up, after switching to it for the first time
 
 const mode = () => document.querySelector('input[name=wzMode]:checked')?.value || 'transcribe';
 // The steps for the chosen task: the third one depends on it.
 // The web version updates itself, so it skips the question about update checks.
-const steps = () => ['welcome', 'task', mode(), ...(HOSTED ? [] : ['updates']), 'done'];
+const steps = () => only ? [only, 'done'] : ['welcome', 'task', mode(), ...(HOSTED ? [] : ['updates']), 'done'];
+const MODE_NAMES = { transcribe: 'Transcribe', write: 'Write', qc: 'QC' };
 
 function show() {
   const list = steps();
   step = Math.max(0, Math.min(step, list.length - 1));
   for (const s of document.querySelectorAll('#welcome [data-step]')) s.hidden = s.dataset.step !== list[step];
-  $('wzStep').textContent = `Step ${step + 1} of ${list.length}`;
+  $('wzStep').textContent = `${only ? `Setting up ${MODE_NAMES[only]} mode · ` : ''}Step ${step + 1} of ${list.length}`;
   $('wzBack').hidden = step === 0;
-  $('wzNext').textContent = step === list.length - 1 ? 'Finish' : step === 0 ? 'Get started' : 'Next';
+  $('wzNext').textContent = step === list.length - 1 ? 'Finish' : step === 0 && !only ? 'Get started' : 'Next';
   $('wzTtsBody').classList.toggle('off', !$('wzTts').checked);
   if (list[step] === 'done') summarise();
   $('wzNext').focus();
@@ -53,7 +58,7 @@ function summarise() {
     if ($('wzReplayWrite').checked) lines.push('Goes back to each block’s start after you edit it');
   }
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
-  if (!HOSTED) lines.push(u === '1' ? 'Checks for updates once a day' : u === '0' ? 'Doesn’t check for updates' : 'Update checks: not chosen yet');
+  if (!HOSTED && !only) lines.push(u === '1' ? 'Checks for updates once a day' : u === '0' ? 'Doesn’t check for updates' : 'Update checks: not chosen yet');
   $('wzSummary').replaceChildren(...lines.map((t) => Object.assign(document.createElement('li'), { textContent: t })));
   $('wzEditKey').hidden = $('wzEditDesc').hidden = m === 'qc';
   $('wzModeKey').innerHTML = m === 'qc' ? '<kbd>Alt</kbd><kbd>Shift</kbd><kbd>C</kbd>' : m === 'write' ? '<kbd>V</kbd>' : 'Hold <kbd>H</kbd>';
@@ -76,7 +81,8 @@ function finish() {
   }
   if (m === 'qc') { saveName($('wzName').value); hooks.nameChanged(); }
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
-  if (u === '1' || u === '0') setUpdateChoice(u === '1');
+  if (!only && (u === '1' || u === '0')) setUpdateChoice(u === '1');
+  markModeSetUp(m);
   const piper = $('wzTts').checked && !$('wzWebPiper').hidden && $('wzPiperGet').checked ? $('wzPiperVoice').value : '';
   finished = true;
   $('welcome').close();
@@ -90,15 +96,17 @@ function finish() {
     : 'All set for transcribing. Hold H while the narrator speaks. Settings at the top runs this again');
 }
 
-export function openWelcome() {
+export function openWelcome(just = null) {
   finished = false;
   step = 0;
-  for (const r of document.querySelectorAll('input[name=wzMode]')) r.checked = r.value === hooks.getMode();
+  only = MODE_NAMES[just] ? just : null;
+  for (const r of document.querySelectorAll('input[name=wzMode]')) r.checked = r.value === (only || hooks.getMode());
   $('wzOffset').value = String(hooks.getOffset());
   $('wzName').value = savedName();
   $('wzReplay').checked = $('wzReplayWrite').checked = hooks.getReplay();
-  // New users who pick Write most likely want text to speech, so it starts ticked for them.
-  $('wzTts').checked = tts.on || !welcomed();
+  // New users who pick Write most likely want text to speech, so it starts ticked for
+  // them, and for anyone setting up Write mode for the first time.
+  $('wzTts').checked = tts.on || !welcomed() || only === 'write';
   fillVoiceSelect($('wzVoice'), chosenVoice());
   const ws = $('wzSpeed');
   if (![...ws.options].some((o) => +o.value === tts.base)) ws.add(new Option(`${Math.round(tts.base * 100)}%`, String(tts.base)));
@@ -160,6 +168,38 @@ export function initWelcome(h, onClose = () => {}) {
   });
   // Keep the editor's shortcuts from firing behind the wizard.
   document.addEventListener('keydown', (e) => { if (d.open) e.stopPropagation(); }, true);
+}
+
+// The modes set up so far. Before this was kept, someone who'd been through setup had
+// set up the mode they work in, and any mode whose loop card they'd seen.
+const MODES = 'scribecue.setupModes';
+export function modesSetUp(stored, { welcomed: was = false, current = '', loops = {} } = {}) {
+  if (stored) return stored;
+  if (!was) return {};
+  const done = {};
+  for (const m of Object.keys(MODE_NAMES)) if (m === current || loops[m]) done[m] = true;
+  return done;
+}
+const readModes = () => {
+  let stored = null, loops = {};
+  try { stored = JSON.parse(localStorage.getItem(MODES)); } catch { /* ignore */ }
+  try { loops = JSON.parse(localStorage.getItem('scribecue.loops')) || {}; } catch { /* ignore */ }
+  const done = modesSetUp(stored, { welcomed: welcomed(), current: hooks.getMode(), loops });
+  // Kept from the first read, before a switch changes the current mode.
+  if (!stored && welcomed()) try { localStorage.setItem(MODES, JSON.stringify(done)); } catch { /* ignore */ }
+  return done;
+};
+function markModeSetUp(m) {
+  try { localStorage.setItem(MODES, JSON.stringify({ ...readModes(), [m]: true })); } catch { /* ignore */ }
+}
+export const modeSetUp = (m) => { try { return !!readModes()[m]; } catch { return true; } };
+// The setup for one mode, the first time someone switches to it. Skipping it counts:
+// it isn't offered again, and Settings at the top still runs the whole setup.
+export function openModeSetup(m) {
+  if (!MODE_NAMES[m] || modeSetUp(m) || $('welcome').open) return false;
+  markModeSetUp(m);
+  openWelcome(m);
+  return true;
 }
 
 export const welcomed = () => { try { return localStorage.getItem(KEY) !== null; } catch { return true; } };

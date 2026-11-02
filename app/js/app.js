@@ -9,7 +9,7 @@ import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, par
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
-import { initWelcome, openWelcome, welcomed, markWelcomed } from './welcome.js';
+import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
 import { collaborationJob, retainHistory } from './collaboration.js';
 import { initReviewCompare, openReviewCompare, finishReview } from './qcreviewdrawer.js';
 import { initPending, startPending, addPending, endPending, pendingGhost } from './qcpending.js';
@@ -3018,6 +3018,9 @@ function setMode(m, quiet = false) {
   if (m === 'qc' && !$('aiDrawer').hidden) toggleAi(false);
   stopPreviousReading();
   qcPlayer.stop();
+  // A mode used for the first time gets its part of the setup, however it was reached:
+  // the mode switch, or a file that opens in it. Read before the mode changes.
+  const fresh = m !== S.mode && m !== 'record' && welcomed() && !modeSetUp(m);
   S.mode = m;
   if (qc() && !S.qcSettings) S.qcSettings = readingSettings();
   $('edText').readOnly = $('edStart').readOnly = $('edEnd').readOnly = qcLocked();
@@ -3042,6 +3045,9 @@ function setMode(m, quiet = false) {
   updateEditor();
   updateInd();
   tlDirty = true;
+  // Once the file has finished opening and nothing else is on screen; a project that
+  // passes through QC on its way to another mode doesn't count.
+  if (fresh) setTimeout(() => whenClear(() => { if (S.mode === m) openModeSetup(m); }), 400);
   if (!quiet) {
     toast(m === 'qc' ? (qcEditable() ? (S.reviewId ? `QC mode: the package allows block edits. ${reviewGoogleKey(S.review?.reviewAccess?.googleKey || '') ? 'Changed Google blocks get a new reading' : 'Timings change only when you edit them'}` : 'QC mode: your authoring project is editable. Timings change only when you edit them') : 'QC mode: comments only. Click a block’s Comment button to add a note') : m === 'write'
       ? `Write mode: text to speech${tts.on ? '' : ' (turn it on in Settings, or with ⌥⇧V)'}, reading times and block speeds`
@@ -3051,8 +3057,13 @@ function setMode(m, quiet = false) {
 // Each mode is a complete workspace; clicking the selected mode keeps it selected.
 document.getElementById('modeSw').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
-  b.blur(); setMode(b.dataset.mode);
-  if (!qc()) maybeShowLoop(b.dataset.mode);
+  b.blur();
+  // A mode used for the first time opens its setup instead of a toast, then its loop card.
+  const m = b.dataset.mode, first = m !== S.mode && !modeSetUp(m);
+  setMode(m, first);
+  if (S.mode !== m) return;
+  if (first) openModeSetup(m);
+  else if (!qc()) maybeShowLoop(m);
 });
 
 // ---------------------------------------------------------------- hold-to-mark
