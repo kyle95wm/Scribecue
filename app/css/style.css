@@ -1136,7 +1136,10 @@ body:not(.mode-qc) #edComment, body:not(.mode-qc) #qcCommentRow { display: none;
 .qc-edit-only { display: none; }
 .mode-qc.qc-editing .qc-edit-only { display: revert; }
 
-.qc-review-only .qc-export { display: none; }
+.qc-package .qc-export { display: none; }
+/* A reviewer with a QC package open sends back a return package, not a script. */
+body:not(.mode-qc) .return-export, body:not(.qc-package) .return-export { display: none; }
+.mode-qc.qc-package nav [data-act=exportSrt], .mode-qc.qc-package nav [data-act=exportVtt] { display: none; }
 
 /* Returned QC reviews reuse the dialog and pressed-button controls. */
 #reviewCompareDlg { width: min(820px, 92vw); }

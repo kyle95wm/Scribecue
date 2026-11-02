@@ -2989,7 +2989,7 @@ mixEl.addEventListener('dblclick', () => { setMix(0); duckAudio(); showMix(); })
 function syncQcPermission() {
   const lockedPackage = !!S.reviewId && !qcEditable();
   document.body.classList.toggle('qc-editing', qc() && qcEditable());
-  document.body.classList.toggle('qc-review-only', lockedPackage);
+  document.body.classList.toggle('qc-package', !!S.reviewId);
   const authoring = !S.reviewId && !!S.reviewAudio;
   $('qcPermission').textContent = authoring ? 'Authoring project' : qcEditable() ? 'Edits allowed' : 'Comments only';
   $('qcPermission').dataset.tip = authoring ? 'Your authoring project: edit in QC or Write, with the original readings kept for reference' : S.reviewId ? 'Chosen when the QC package was created' : 'Use Write or Transcribe to edit a plain project';
@@ -3930,6 +3930,7 @@ function fileKeys(e) {
 
 function exportSubs(fmt) {
   if (S.mode === 'record') return toast('The script is locked in Record mode');
+  if (qc() && S.reviewId) return toast('To send your review back, choose Export, then Return package');
   if (!S.cues.length) return toast('Nothing to export yet');
   const text = fmt === 'vtt' ? toVTT(S.cues) : toSRT(S.cues);
   const name = `${baseName()}.${fmt}`;
@@ -4571,6 +4572,7 @@ const actions = {
     if (!ttsMixExport.disabled) ttsMixExport.click();
   },
   exportQc: () => openQcExport(),
+  exportReturn: () => saveReturnPackage(),
   exportRecording: () => askRecordingFile(),
   exportNarration: () => recorder.exportWav(),
   exportPickups: () => recorder.exportWav(true),
@@ -4633,20 +4635,22 @@ function qcSpeech(prevT, t, started) {
   if (!c || tts.speaking?.id === c.id || S.qcLast === c.id) return;
   if (jumped || (prevT <= c.start && t > c.start)) qcRead(c);
 }
+// What a reviewer sends back: the package without any bundled review key.
+function saveReturnPackage() {
+  if (!S.reviewId) return toast('Open a QC package to save a return package');
+  if (!S.review) return toast('Reopen the QC package to restore its original readings');
+  const file = resaveReview(S.review, projectData());
+  const a = document.createElement('a'), url = URL.createObjectURL(file);
+  a.href = url; a.download = baseName() + '-returned' + REVIEW_EXT; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  toast('Return package saved without the review key. Your working copy keeps it');
+}
 initQc({
   package: () => !!S.reviewId,
-  returnReview: () => {
-    if (!S.reviewId || !S.review) return;
-    const file = resaveReview(S.review, projectData());
-    const a = document.createElement('a'), url = URL.createObjectURL(file);
-    a.href = url; a.download = baseName() + '-returned' + REVIEW_EXT; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-    toast('Return package saved without the review key. Your working copy keeps it');
-  },
   compare: openReviewCompare,
   audioReference: () => !S.reviewId && S.reviewAudio, attachAudio: attachAuthorAudio,
   rememberReview: (history, projectId) => { if (S.projectId === projectId) { S.reviewHistory = retainHistory([...(S.reviewHistory?.checkpoints || []), ...history.checkpoints]); changed(); } },
-  project: projectData, review: () => S.review, canCreate: () => !S.reviewId || qcEditable(), toast, source: () => S.qcSource, qc,
+  project: projectData, review: () => S.review, canCreate: () => !S.reviewId, toast, source: () => S.qcSource, qc,
   setSource(source, voice) { qcPlayer.stop(); stopSpeech(); S.qcLast = null; S.qcSource = source; S.qcPreviewVoice = voice; updateEditor(); updateInd(); },
   baseName, said, busy: (on) => { S.makingReview = on; },
 });

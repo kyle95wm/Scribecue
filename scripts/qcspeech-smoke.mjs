@@ -112,7 +112,13 @@ try {
     const shot=await send('Page.captureScreenshot',{format:'png'});writeFileSync(screenshot,Buffer.from(shot.result.data,'base64'));
   }
   await openQC();assert.ok((await js(`document.getElementById('qcKeyInfo').textContent`)).startsWith('Your Google key'));
-  await click('qcReturn');
+  await click('qcPlaybackClose');
+  // A reviewer sends the package back from Export, where the script formats aren't offered.
+  await click('exportBtn');
+  const menu=await js(`(()=>{const shown=a=>!!document.querySelector('#exportMenu [data-act='+a+']').offsetParent;return{ret:shown('exportReturn'),srt:shown('exportSrt'),vtt:shown('exportVtt'),qc:shown('exportQc')}})()`);
+  assert.deepEqual(menu,{ret:true,srt:false,vtt:false,qc:false});
+  assert.equal(await js(`(()=>{document.querySelector('#exportMenu [data-act=exportQc]').click();return document.getElementById('qcExportDlg').open})()`),false,'an editable package cannot make a new QC package');
+  await js(`document.querySelector('#exportMenu [data-act=exportReturn]').click();true`);
   const returned=await js(`(async()=>{const r=await(await import('./js/qc.js')).readReview(await __download);return{key:r.reviewAccess,proposals:r.proposals.length}})()`);
   assert.equal(returned.key,null);assert.equal(returned.proposals,5);
   assert.equal(await js('__calls.length'),calls);
@@ -121,8 +127,13 @@ try {
   await js(`__offline=true;document.querySelectorAll('dialog[open]').forEach(d=>d.close());document.querySelector('#list .row').click();true`);await hear();
   assert.equal(await js('__calls.length'),0,'browser recovery replays cached rewrite without Google');
   assert.equal(await js(`JSON.parse(localStorage.getItem('scribecue.googleTts')).key`),'personal-test-key');
-  // Check the writer's explicit opt-in and prevent bundling their main key.
-  await js(`(async()=>{document.getElementById('qcExportDlg').showModal();(await import('./js/qcdrawer.js')).refreshQc();return true})()`);
+  // Check the writer's explicit opt-in and prevent bundling their main key. Packages are
+  // made from the writer's project, so keep the package and open its script as one.
+  await js(`document.querySelectorAll('dialog[open]').forEach(d=>d.close());__saved=null;true`);await key('KeyS','s');await wait(`!!__saved`);
+  await js(`(async()=>{window.__pkg=__saved;window.confirm=()=>true;const {readReview}=await import('./js/qc.js');const r=await readReview(__pkg);
+    const d=new DataTransfer();d.items.add(new File([JSON.stringify(r.project)],'writer.scribecue'));document.dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}));return true})()`);
+  await wait(`document.getElementById('subName').textContent.includes('writer')`);
+  await js(`(async()=>{document.querySelectorAll('dialog[open]').forEach(d=>d.close());document.querySelector('#modeSw [data-mode=write]').click();document.querySelectorAll('dialog[open]').forEach(d=>d.close());document.getElementById('qcExportDlg').showModal();(await import('./js/qcdrawer.js')).refreshQc();return true})()`);
   await click('qcExportAllowEdits');await click('qcExportGoogle');
   await js(`document.getElementById('qcGoogleKey').value='personal-test-key';true`);await click('qcExportStart');
   assert.equal(await js(`document.getElementById('qcExportStatus').textContent`),'Use a separate review key. This is your main Google key');
@@ -131,8 +142,8 @@ try {
   if(screenshot){const shot=await send('Page.captureScreenshot',{format:'png'});writeFileSync(join(dirname(screenshot),'qc-google-package.png'),Buffer.from(shot.result.data,'base64'));}
   await click('qcExportAllowEdits');assert.equal(await js(`document.getElementById('qcGoogleKey').value`),'');
   // A block saved by an earlier version, running past its new reading, ends where it finishes once opened.
-  await js(`document.querySelectorAll('dialog[open]').forEach(d=>d.close());__saved=null;true`);await key('KeyS','s');await wait(`!!__saved`);
-  await js(`(async()=>{const {readReview,resaveReview}=await import('./js/qc.js');const r=await readReview(__saved);const p=r.project;
+  await js(`document.querySelectorAll('dialog[open]').forEach(d=>d.close());true`);
+  await js(`(async()=>{const {readReview,resaveReview}=await import('./js/qc.js');const r=await readReview(__pkg);const p=r.project;
     p.blocks[0].end=p.blocks[0].start+3;p.blocks[0].auto=true;const f=resaveReview(r,p,{includeReviewKey:true});
     const d=new DataTransfer();d.items.add(new File([f],'stale.scribecueqc'));document.dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}));return true})()`);
   await wait(`document.getElementById('subName').textContent.includes('stale')`);

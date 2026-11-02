@@ -157,13 +157,18 @@ await js(`(async()=>{
  const saved=JSON.parse(localStorage.getItem('scribecue.v1'));
  const project=p.toProject({blocks:saved.cues,comments:saved.comments,settings:{mode:'qc',ttsVoice:t.tts.voice||t.chosenVoice(),ttsBase:t.tts.base,ttsSkipNotes:t.tts.skipNotes}});
  const file=await q.buildReview(project,b=>t.reviewAudio(t.soundsLike(b.text,b.say),b.speed||1,b.voice||project.settings.ttsVoice),{allowEdits:true});
- window.confirm=()=>true;const d=new DataTransfer();d.items.add(new File([file],'lights-qc.scribecueqc'));window.dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}));
+ window.__writer=project;window.confirm=()=>true;const d=new DataTransfer();d.items.add(new File([file],'lights-qc.scribecueqc'));window.dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}));
  for(let i=0;i<100&&!document.body.classList.contains('qc-editing');i++)await new Promise(r=>setTimeout(r,50));
  document.querySelectorAll('#list .row')[1].click();if(document.getElementById('commentsDrawer').hidden)document.getElementById('commentsBtn').click();document.getElementById('toast').classList.add('fade');return 1;
 })()`); await sleep(300); await shot('qc-editing');
 await js(`document.getElementById('commentsClose').click(); document.querySelector('#ind [data-key=qc]').click(); 1`); await sleep(300);
 await shot('qc-playback', '#qcPlaybackDlg', 0);
-await js(`document.getElementById('qcPlaybackClose').click(); document.querySelector('#modeSw [data-mode=write]').click(); document.querySelector('[data-act=exportQc]').click(); 1`); await sleep(300);
+// QC packages are made from the writer's project, not from a package: open it as one.
+await js(`(async () => { document.getElementById('qcPlaybackClose').click();
+ const d = new DataTransfer(); d.items.add(new File([JSON.stringify(__writer)], 'lights.scribecue')); window.dispatchEvent(new DragEvent('drop', { dataTransfer: d, bubbles: true, cancelable: true }));
+ for (let i = 0; i < 100 && !document.getElementById('subName').textContent.startsWith('lights.scribecue'); i++) await new Promise((r) => setTimeout(r, 50));
+ document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+ document.querySelector('#modeSw [data-mode=write]').click(); document.querySelector('[data-act=exportQc]').click(); return 1; })()`); await sleep(300);
 await shot('qc-package', '#qcExportDlg', 0);
 await js(`document.getElementById('qcExportClose').click(); 1`); await sleep(300);
 

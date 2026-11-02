@@ -59,7 +59,6 @@ try {
   await sleep(200);assert.equal(await js(`document.querySelector('#cues .cue.ghost .ct').textContent`),'She steps out into the garden.');
   await js(`(()=>{const e=document.querySelector('#pendingList .prow.sel .pedit input[data-f=start]');e.value='00:00:14:00';e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   assert.equal(await js(`document.querySelector('#pendingList .prow.sel .pedit input[data-f=start]').value`),'00:00:10:12','a start after the end is refused');
-  if(screenshot){const shot=await send('Page.captureScreenshot',{format:'png'});writeFileSync(screenshot.replace(/\.png$/,'-edit.png'),Buffer.from(shot.result.data,'base64'));}
   await js(`document.querySelector('#pendingList .prow.sel .preset').click();true`);
   assert.equal(await js(`document.querySelector('#pendingList .prow.sel .d').textContent`),'Changed: timing · accepted');
   await js(`(()=>{const t=document.querySelector('#pendingList .prow.sel .pedit textarea');t.value='She walks into the garden.';t.dispatchEvent(new Event('input',{bubbles:true}));})()`);

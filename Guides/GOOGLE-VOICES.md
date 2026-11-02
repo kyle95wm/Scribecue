@@ -64,7 +64,7 @@ then choose **Include a separate Google review key** and paste it. Keep your mai
 
 The reviewer’s own key takes priority. If it fails, Scribecue offers to retry that
 reading with the bundled key. New wording or speed needs internet; saved recordings
-play offline. **Save return package**, under **QC**, leaves out the bundled key.
+play offline. **Export → Return package** leaves out the bundled key.
 
 Anyone with a working package can read its included key. Delete the review key in
 Google Cloud when it is no longer needed. A separate key in the same Google project

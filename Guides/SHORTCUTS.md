@@ -55,7 +55,7 @@ changed. Your shortcuts are kept in this browser.
 | `Ctrl/Cmd+B` `Ctrl/Cmd+I` `Ctrl/Cmd+U` | Bold / italic / underline |
 | `Ctrl/Cmd+Z` `Ctrl/Cmd+Shift+Z` | Undo / redo |
 | `Ctrl/Cmd+S` / `Ctrl/Cmd+Shift+S` | Save the project / save it as a new file |
-| `Ctrl/Cmd+E` / `Ctrl/Cmd+Shift+E` | Export SRT / WebVTT |
+| `Ctrl/Cmd+E` / `Ctrl/Cmd+Shift+E` | Export SRT / WebVTT. Not with a QC package open in QC |
 | `Ctrl/Cmd+O` / `Ctrl/Cmd+Shift+O` | Open a project or script / open a video or audio file |
 
 </details>

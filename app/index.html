@@ -55,6 +55,7 @@
       <span class="navwrap">
         <button data-act="exportMenu" id="exportBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenu">Export <span class="caret" aria-hidden="true">▾</span></button>
         <div class="navmenu" id="exportMenu" role="menu" aria-labelledby="exportBtn" hidden>
+          <button role="menuitem" data-act="exportReturn" class="return-export"><span><strong>Return package</strong><span class="dim">your comments and fixes, to send back to the writer, without any review key</span></span></button>
           <button role="menuitem" data-act="exportSrt"><span><strong>Script as SRT</strong><span class="dim">to hand off, or for the final output</span></span><kbd><span class="mod"></span>E</kbd></button>
           <button role="menuitem" data-act="exportVtt"><span><strong>Script as WebVTT</strong><span class="dim">also keeps block speeds and sounds-like words</span></span><kbd><span class="mod"></span>⇧E</kbd></button>
           <button role="menuitem" data-act="exportTrack" class="write-only"><span><strong>Description track</strong><span class="dim">every reading in one WAV or MP3 file, with a Piper or Google voice</span></span></button>
@@ -546,7 +547,6 @@ docker compose up -d --build</code></pre>
     <p id="qcPermissionInfo"></p>
     <p id="qcPackageInfo" role="status"></p>
     <p id="qcKeyInfo" class="dim small" hidden></p>
-    <button id="qcReturn" hidden>Save return package</button>
     <button id="qcAttachReadings" hidden>Locate original readings</button>
     <input id="qcReadingsFile" type="file" accept=".scribecueqc" hidden>
     <div class="airow"><button id="qcSourceVideo" aria-pressed="true">Programme sound</button><button id="qcSourcePackage" aria-pressed="false">Original readings</button><button id="qcSourcePreview" aria-pressed="false">Approximate TTS preview</button></div>

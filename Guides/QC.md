@@ -144,8 +144,8 @@ moving a block, or changing its volume makes no request. A block changed to anot
 says **New voice · needs a fresh package**. To hear it, ask the writer for a fresh package; the review key isn't used for it. Other voice providers still need fresh packaged audio
 or an explicitly chosen approximate preview after wording or speed changes.
 
-Use **Save** to keep working, including the separate review key. When finished, open
-**QC** under the video and choose **Save return package**. It keeps the comments and saved
+Use **Save** to keep working, including the separate review key. When finished, choose
+**Export → Return package**. It keeps the comments and saved
 recordings but leaves out the bundled key. Keep your working package: if browser recovery
 cannot restore its audio, reopen it before saving.
 
@@ -274,9 +274,10 @@ Agree who resolves issues and who approves the finished programme.
 
 1. Press `Ctrl/Cmd+S`. Check the project no longer has an unsaved-changes dot beside its name.
    If it says **autosave paused**, click it to allow saving, or save a new copy.
-2. For a QC package, choose **QC → Save return package** to leave out any bundled key.
-   Send that `.scribecueqc` file, or your reviewed `.scribecue` project. Include changed media only if you've agreed to
-   supply it. Comments aren't included in SRT, WebVTT, recording files or audio exports.
+2. For a QC package, choose **Export → Return package**. It leaves out any bundled key.
+   Send that `.scribecueqc` file. For a `.scribecue` project, send the saved project.
+   Include changed media only if you've agreed to supply it.
+   With a QC package open, Export offers only the return package. SRT and WebVTT can't carry comments.
 3. Say which source project and picture cut you reviewed. State whether you changed
    the script or timings, and whether any checks remain unfinished.
 

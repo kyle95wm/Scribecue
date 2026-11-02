@@ -27,8 +27,7 @@ export function refreshQc() {
   $('qcSourcePackage').textContent = review?.proposals.length ? 'Saved readings' : 'Original readings';
   const googleReview = h.package() && review?.permissions.allowEdits && review.readings.some((r) => r.voice.startsWith('google:'));
   $('qcKeyInfo').hidden = !googleReview;
-  $('qcKeyInfo').textContent = `${hasGoogleKey() ? `Your Google key reads changed blocks when you finish editing them${review?.reviewAccess ? '. If it fails, the separate key in this package is used' : ''}.` : review?.reviewAccess ? 'The separate key in this package reads changed blocks when you finish editing them.' : 'Add your Google key in Text to speech settings to read changed blocks.'} Only changed wording or speed needs Google. Saved readings play offline. Save keeps the review key for continued work; Save return package leaves it out.`;
-  $('qcReturn').hidden = !h.package();
+  $('qcKeyInfo').textContent = `${hasGoogleKey() ? `Your Google key reads changed blocks when you finish editing them${review?.reviewAccess ? '. If it fails, the separate key in this package is used' : ''}.` : review?.reviewAccess ? 'The separate key in this package reads changed blocks when you finish editing them.' : 'Add your Google key in Text to speech settings to read changed blocks.'} Only changed wording or speed needs Google. Saved readings play offline. Save keeps the review key for continued work; Export → Return package leaves it out.`;
   const select = $('qcPreviewVoice'), selected = select.value;
   select.replaceChildren(...reviewVoices().map((v) => new Option(v.name, v.id)));
   select.value = reviewVoices().some((v) => v.id === selected) ? selected : chosenVoice();
@@ -43,7 +42,7 @@ export function refreshQc() {
 }
 export function openQcPlayback() { if (!h.qc()) return; refreshQc(); $('qcPlaybackDlg').showModal(); refreshQc(); }
 export function openQcExport() {
-  if (!h.canCreate()) return h.toast('This QC package allows comments only. Open the writer’s project to create a new package');
+  if (!h.canCreate()) return h.toast('QC packages are made from the writer’s project. Open it to create a new package');
   $('qcExportAllowEdits').setAttribute('aria-pressed', 'false'); $('qcExportGoogle').setAttribute('aria-pressed', 'false'); $('qcGoogleKey').value = ''; $('qcExportStatus').textContent = ''; $('qcExportDlg').showModal(); refreshQc(); }
 export function initQc(hooks) {
   h = hooks;
@@ -55,7 +54,6 @@ export function initQc(hooks) {
     if (!on) $('qcGoogleKey').value = '';
     refreshQc(); if (on) $('qcGoogleKey').focus();
   };
-  $('qcReturn').onclick = () => { $('qcPlaybackDlg').close(); h.returnReview(); };
   for (const [id, source] of [['qcSourceVideo', 'video'], ['qcSourcePackage', 'package'], ['qcSourcePreview', 'preview']]) {
     $(id).onclick = () => { h.setSource(source, $('qcPreviewVoice').value); refreshQc(); };
   }
