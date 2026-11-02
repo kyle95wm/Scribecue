@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.73.5",
+  "date": "2026-11-01",
+  "notes": "## Fixes\n\n- Splitting a block keeps its own voice, volume, programme dip and speed in both halves. Before, the second half read in the project’s voice.\n- When a subtitle file has a block whose times can’t be read, its Scribecue settings no longer move to the next block."
+ },
+ {
   "version": "0.73.4",
   "date": "2026-11-01",
   "notes": "## Fixes\n\n- Blocks read by Google, Piper or Kokoro voices now end where the voice stops, not after the silence at the end of each reading. Google adds up to half a second or more.\n- Blocks that follow their reading get a little shorter the first time you open a project.\n- In QC, new readings in older packages are measured the same way when you open them."
