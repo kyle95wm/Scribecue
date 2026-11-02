@@ -110,6 +110,7 @@ kbd + kbd { margin-left: 2px; }
 .rectakes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 96px; overflow: auto; }
 .rectakes li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .rectakes .num { font: 12px var(--mono); color: var(--dim); }
+.rectakes .recnotes { align-items: baseline; white-space: pre-line; font: 13px/1.4 var(--sans); }
 .rectakes button { padding: 1px 8px; font-size: 12px; }
 .rectakes .use { color: var(--dim); }
 .rectakes .use[aria-pressed=true] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
@@ -361,6 +362,11 @@ button.clock { padding: 0; border: 0; background: none; color: inherit; }
 .meta { margin-bottom: 6px; }
 .edtts { margin-top: 6px; }
 .edtts[hidden] { display: none; }
+/* Notes for the narrator, above the text: smaller, so the text stays the main thing. */
+#edNotes { display: block; margin-bottom: 6px; font: 13px/1.4 var(--sans); color: var(--dim); padding: 4px 8px; border-radius: 4px; field-sizing: content; min-height: calc(1.4em + 10px); max-height: 8.4em; }
+#edNotes:focus { color: var(--text); }
+#edNotes::placeholder { font-size: 13px; }
+#edNotes[hidden], .mode-transcribe #edNotes { display: none; }
 #edPickup[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 #edPickupNote { flex: 1; min-width: 160px; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; }
 #edPickupNote:focus { outline: none; border-color: var(--accent); }

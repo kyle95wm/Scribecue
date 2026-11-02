@@ -6,7 +6,7 @@ let h, review = null, at = -1, tab = 'blocks', numbers = new Map(), drawing = 0;
 const key = (c) => c.kind === 'project' ? `project:${c.field}` : `${c.kind}:${c.uid}`;
 
 const fields = [['wording', ['text']], ['timing', ['start', 'end']], ['voice', ['voice']], ['speed', ['speed', 'auto', 'fit', 'pinned']],
-  ['levels', ['vol', 'dip', 'dipBy']], ['pickup', ['pickup']], ['sounds like', ['say']]];
+  ['levels', ['vol', 'dip', 'dipBy']], ['pickup', ['pickup']], ['sounds like', ['say']], ['notes', ['notes']]];
 function changes(ours, theirs) {
   const differs = (k) => JSON.stringify(ours[k]) !== JSON.stringify(theirs[k]);
   const named = fields.filter(([, keys]) => keys.some(differs)).map(([name]) => name);
@@ -22,7 +22,7 @@ function what(item) {
 }
 const comments = (value = []) => value.map((c) => `${c.time == null ? '' : h.time(c.time) + ' · '}${c.author || 'Comment'}: ${c.text}${c.resolved ? ' (resolved)' : ''}`).join('\n') || 'No comments.';
 function describe(block, withText = true) {
-  return [withText && (block.text || '(Empty block)'), block.voice && `Voice: ${voiceLabel(block.voice)}`,
+  return [withText && (block.text || '(Empty block)'), block.notes && `Notes: ${block.notes}`, block.voice && `Voice: ${voiceLabel(block.voice)}`,
     block.speed && `Speed: ${Math.round(block.speed * 100)}%`, block.auto && 'End follows reading', block.fit && 'Speed fits slot', block.pinned && 'Speed fixed',
     block.vol != null && `Volume: ${block.vol}%`, block.dip != null && `Programme dip: ${block.dip === 0 ? 'None' : '−' + block.dip + ' dB'}`,
     block.dipBy != null && `Dip adjustment: ${String(block.dipBy).replace('-', '−')} dB`, block.pickup && `Pickup: ${block.pickup.note || 'Marked'}`,

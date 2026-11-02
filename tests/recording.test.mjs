@@ -460,3 +460,13 @@ test('a pickup’s marker in the WAV carries its note', () => {
   assert.equal(markerLabel({ ...line(2, 5, 'Siobhan waves.'), pickup: { note: 'Siobhan: shi-VAWN' } }, 3), '3 PICKUP: Siobhan: shi-VAWN | Siobhan waves.');
   assert.equal(markerLabel({ ...line(2, 5, 'B.'), pickup: { was: 'A.' } }, 4), '4 PICKUP: reworded | B.');
 });
+
+test('a recording file carries each block’s notes, which leave the script’s fingerprint alone', () => {
+  const plain = [line(2, 5, 'A.'), line(9, 13, 'B.')];
+  const noted = [line(2, 5, 'A.'), { ...line(9, 13, 'B.'), notes: 'Siobhan: shi-VAWN' }];
+  const file = JSON.parse(JSON.stringify(toRecordingFile({ blocks: noted })));
+  assert.equal(file.print, toRecordingFile({ blocks: plain }).print, 'notes are not part of what is read');
+  const r = fromRecordingFile(file);
+  assert.deepEqual(r.blocks.map((b) => b.notes ?? null), [null, 'Siobhan: shi-VAWN']);
+  assert.equal(r.edited, false);
+});

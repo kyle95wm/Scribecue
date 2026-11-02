@@ -87,6 +87,10 @@ voice and reading time. The buttons after the times move it:
 
 The × deletes it.
 
+**Notes** sit above the text. Use them to tell the narrator something, such as how to say
+a name. Text to speech doesn't read them, and they don't change the block's timing. Blocks
+with notes show `notes` in the list.
+
 | To | Press |
 | --- | --- |
 | Set the start or end to the playhead | `A` / `S` |

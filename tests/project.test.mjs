@@ -130,3 +130,12 @@ test('authoring projects keep only a valid original-readings reference, never pe
   assert.deepEqual(fromProject(saved).reviewAudio,{baselineId});
   assert.throws(()=>fromProject({...saved,reviewAudio:{baselineId:'bad'}}),/reference is damaged/);
 });
+
+test('a project keeps each block’s notes for the narrator, and drops blank or malformed ones', () => {
+  const blocks = [{ start: 1, end: 2, text: 'A.', notes: 'Siobhan: shi-VAWN.\nWarm, unhurried.' }, { start: 3, end: 4, text: 'B.', notes: '   ' }, { start: 5, end: 6, text: 'C.' }];
+  const saved = JSON.parse(JSON.stringify(toProject({ blocks })));
+  assert.ok(!('notes' in saved.blocks[1]), 'blank notes are not saved');
+  const p = fromProject({ ...saved, blocks: [...saved.blocks, { start: 7, end: 8, text: 'D.', notes: 42 }] });
+  assert.deepEqual(p.blocks.map((b) => b.notes ?? null), ['Siobhan: shi-VAWN.\nWarm, unhurried.', null, null, null]);
+  assert.equal(fromProject({ ...saved, blocks: [{ start: 1, end: 2, text: 'A.', notes: 'x'.repeat(3000) }] }).blocks[0].notes.length, 2000);
+});

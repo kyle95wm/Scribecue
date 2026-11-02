@@ -63,9 +63,10 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     ...(cleanRecording(recording) ? { recording: cleanRecording(recording) } : {}),
     settings,
     view,
-    blocks: blocks.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup }) => ({
+    blocks: blocks.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, notes }) => ({
       ...(validIdentity(uid) ? { uid } : {}),
       start, end, text,
+      ...(cleanNotes(notes) ? { notes: cleanNotes(notes) } : {}),
       ...(cleanPickup(pickup) ? { pickup: cleanPickup(pickup) } : {}),
       ...(Number.isSafeInteger(qcReading) && qcReading >= 8 ? { qcReading } : {}),
       ...(cleanComments(comments).length ? { comments: cleanComments(comments) } : {}),
@@ -104,6 +105,7 @@ export function fromProject(json) {
       start: Math.max(0, b.start),
       end: Math.max(b.start, b.end),
       text: typeof b.text === 'string' ? b.text : '',
+      ...(cleanNotes(b.notes) ? { notes: cleanNotes(b.notes) } : {}),
       ...(num(b.speed) ? { speed: b.speed } : {}),
       ...(typeof b.voice === 'string' && b.voice ? { voice: b.voice.slice(0, 300) } : {}),
       // An exact dip, from before 0.61, or none (0); the editor makes it relative.
@@ -150,6 +152,9 @@ export function fromProject(json) {
     },
   };
 }
+
+// A block's notes for the narrator, such as how to say a name. Never read aloud.
+export const cleanNotes = (n) => (typeof n === 'string' && n.trim() ? n.slice(0, 2000) : '');
 
 // A block marked for the narrator to record again: { note }, the note maybe empty.
 export const cleanPickup = (p) => (p && typeof p === 'object' ? { note: typeof p.note === 'string' ? p.note.slice(0, 500) : '' } : null);

@@ -46,7 +46,7 @@ changed. Your shortcuts are kept in this browser.
 
 | Key | Action |
 | --- | --- |
-| `Tab` `Shift+Tab` | Next / previous field (text → start → end) |
+| `Tab` `Shift+Tab` | Next / previous field (text → start → end → notes) |
 | `Esc` or `Enter` | Close the block. It stays selected |
 | `Shift+Enter` | New line |
 | `↑` `↓` | Previous / next block (from the first / last line) |

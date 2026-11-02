@@ -122,6 +122,8 @@ Tick **Use them in every block with these words** to fix the word everywhere at 
 Readings and the description track use the new sound. The script and SRT exports keep
 the word as written.
 
+Sounds like is for text to speech. To tell a narrator, use the block's **Notes**.
+
 ![The Sounds like dialog, with diagonally to be said as dye-AG-nuh-lee](../docs/screenshots/sounds-like.png)
 
 ## Notes in [square brackets]

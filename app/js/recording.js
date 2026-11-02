@@ -55,8 +55,9 @@ export function pickupsFor(blocks, sent) {
 // the version before, for pickupsFor.
 export function toRecordingFile({ blocks, media = null, start = 0, fps = 25, app = '', project = null, version = 0, sent = null }) {
   const kept = blocks.filter((b) => b.text.trim()), picks = pickupsFor(kept, sent);
-  const lines = kept.map(({ start: s, end, text, voice, speed }, i) => ({
+  const lines = kept.map(({ start: s, end, text, voice, speed, notes }, i) => ({
     start: s, end, text,
+    ...(typeof notes === 'string' && notes.trim() ? { notes: notes.slice(0, 2000) } : {}),
     ...(voice ? { voice } : {}),
     ...(speed ? { speed } : {}),
     ...(picks[i] ? { pickup: picks[i] } : {}),
@@ -86,6 +87,7 @@ export function fromRecordingFile(json) {
     .filter((b) => b && num(b.start) && num(b.end) && typeof b.text === 'string')
     .map((b) => ({
       start: Math.max(0, b.start), end: Math.max(b.start, b.end), text: b.text,
+      ...(typeof b.notes === 'string' && b.notes.trim() ? { notes: b.notes.slice(0, 2000) } : {}),
       ...(typeof b.voice === 'string' && b.voice ? { voice: b.voice.slice(0, 300) } : {}),
       ...(num(b.speed) ? { speed: b.speed } : {}),
       ...(readPickup(b.pickup) ? { pickup: readPickup(b.pickup) } : {}),

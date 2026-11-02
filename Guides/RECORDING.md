@@ -71,6 +71,9 @@ Open the video first, so Scribecue can check the narrator has the same copy.
 4. Read the line when the picture reaches it. The bar shows how much of the slot is left.
 5. Press Enter, R or Esc to stop. The take is saved straight away.
 
+The writer's notes for a block, such as how to say a name, show under the buttons when
+you select it.
+
 | Key | Does |
 |---|---|
 | Enter or R | Record the selected block, or stop |

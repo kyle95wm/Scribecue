@@ -70,6 +70,15 @@ export function initRecord(h) {
     const list = blockTakes(i), b = h.blocks()[i];
     const orig = b.pickup ? originalTake(list, oldTakes(i), version()) : null;
     const origTag = () => { const o = document.createElement('span'); o.className = 'num dim'; o.textContent = 'original'; return o; };
+    // The writer's notes for this block, such as how to say a name.
+    if (b.notes) {
+      const li = document.createElement('li'), tag = document.createElement('span');
+      tag.className = 'lvl note';
+      tag.textContent = 'Notes';
+      li.className = 'recnotes';
+      li.append(tag, b.notes);
+      el.takes.append(li);
+    }
     if (b.pickup) {
       // What the script's writer asked for, and whether it's been recorded since.
       const li = document.createElement('li'), tag = document.createElement('span'), done = pickedUp(chosenFor(i), version());

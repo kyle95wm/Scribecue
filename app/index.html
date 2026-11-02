@@ -104,6 +104,8 @@
             <span class="grow"></span>
             <button id="edDel" class="rowdel" aria-label="Delete this block" data-tip="Delete this block (Del). Ctrl/Cmd+Z brings it back">×</button>
           </div>
+          <textarea id="edNotes" rows="1" spellcheck="true" maxlength="2000" aria-label="Notes for the narrator"
+            placeholder="Notes for the narrator, such as direction or how to say a name. Not read aloud"></textarea>
           <textarea id="edText" rows="2" spellcheck="true" aria-label="Block text"
             placeholder="Type what to say. ⇧↵ new line · ⇥ next field · Esc back to timeline"></textarea>
           <div class="edtts" id="edTts" hidden>
@@ -1204,7 +1206,7 @@ docker compose up -d --build</code></pre>
         <section>
           <h3>Block editor</h3>
           <dl>
-            <dt><kbd>⇥</kbd> <kbd>⇧</kbd><kbd>⇥</kbd></dt><dd>Next / previous field (text → start → end)</dd>
+            <dt><kbd>⇥</kbd> <kbd>⇧</kbd><kbd>⇥</kbd></dt><dd>Next / previous field (text → start → end → notes)</dd>
             <dt><kbd>Esc</kbd> or <kbd>↵</kbd></dt><dd>Close editor, focus timeline</dd>
             <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Previous / next text block (from the first / last line)</dd>
             <dt><kbd>⌥</kbd><kbd>⇧</kbd><kbd>←</kbd> <kbd>→</kbd></dt><dd>Move block one frame back / forward</dd>

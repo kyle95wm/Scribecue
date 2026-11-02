@@ -13,7 +13,7 @@ import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelco
 import { collaborationJob, retainHistory } from './collaboration.js';
 import { initReviewCompare, openReviewCompare, finishReview } from './qcreviewdrawer.js';
 import { initPending, startPending, addPending, endPending, pendingGhost } from './qcpending.js';
-import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
+import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanNotes, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
 import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, sameVideo, compareScript, newProjectId, pickupsFor } from './recording.js';
 import { readNote } from './bwf.js';
 import { initRecord } from './record.js';
@@ -58,7 +58,7 @@ if (isMobile({ ua: navigator.userAgent, mobile: navigator.userAgentData?.mobile,
 const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('list');
 const tl = $('tl'), ruler = $('ruler'), lane = $('lane'), wave = $('wave'), cuesLayer = $('cues'), takeWave = $('takeWave');
 const playheadEl = $('playhead'), dragtip = $('dragtip'), overview = $('overview'), ovWin = $('ovWin');
-const edText = $('edText'), edStart = $('edStart'), edEnd = $('edEnd');
+const edText = $('edText'), edStart = $('edStart'), edEnd = $('edEnd'), edNotes = $('edNotes');
 const editor = $('editor'), edTts = $('edTts');
 const edIdx = $('edIdx'), edDur = $('edDur'), edStats = $('edStats'), edSpeed = $('edSpeed'), edSpeedWrap = $('edSpeedWrap'), edAuto = $('edAuto');
 const clockEl = $('clock'), durEl = $('durEl'), ind = $('ind');
@@ -199,7 +199,7 @@ const mk = (start, end, text = '', speed) => ({ id: nextId++, uid: newIdentity()
 // A saved block back as a block: voice (its own text to speech voice), auto (end follows
 // the reading), fit (speed follows the length), pinned (speed picked by hand, so
 // resizing leaves it alone), dip or dipBy (how far the programme goes down under it) and
-// vol (how loud its reading is).
+// vol (how loud its reading is). notes: what the narrator is told, never read aloud.
 const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
   validIdentity(b.uid) ? { uid: b.uid } : {},
   Number.isSafeInteger(b.qcReading) ? { qcReading: b.qcReading } : {},
@@ -208,7 +208,8 @@ const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
   b.auto ? { auto: true } : {}, b.fit ? { fit: true } : {}, b.pinned ? { pinned: true } : {},
   cleanComments(b.comments).length ? { comments: cleanComments(b.comments) } : {},
   b.say?.length ? { say: b.say } : {},
-  cleanPickup(b.pickup) ? { pickup: cleanPickup(b.pickup) } : {});
+  cleanPickup(b.pickup) ? { pickup: cleanPickup(b.pickup) } : {},
+  cleanNotes(b.notes) ? { notes: cleanNotes(b.notes) } : {});
 // What text to speech reads for a block: its text, with its "sounds like" words.
 const said = (c) => soundsLike(c.text, c.say);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -464,7 +465,7 @@ function save() {
       notes: S.notes,
       comments: S.comments,
       reviewId: S.reviewId, qcSettings: S.qcSettings, recording: S.recording,
-      cues: S.cues.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup }) => ({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup })),
+      cues: S.cues.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, notes }) => ({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, notes })),
     }));
   } catch { /* storage full or blocked */ }
 }
@@ -632,6 +633,20 @@ $('edPickupNote').addEventListener('input', (e) => {
   changed(c.id);
 });
 $('edPickupNote').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); e.target.blur(); } });
+// Notes: for the narrator only. Text to speech never reads them, and they leave the timing alone.
+edNotes.addEventListener('focus', () => { if (!edNotes.readOnly) pushUndo(snapshot(), 'notes'); });
+edNotes.addEventListener('input', () => {
+  const c = selCue();
+  if (!c || edNotes.readOnly) return;
+  if (edNotes.value.trim()) c.notes = edNotes.value; else delete c.notes;
+  changed(c.id);
+});
+edNotes.addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (editorKeys(e, edNotes)) return;
+  if (e.key === 'Enter' && !e.shiftKey && !e.altKey) { e.preventDefault(); closeEditor(true); return; }
+  fileKeys(e);
+});
 function stopPreviousReading() {
   if (!S.previousAudio) return;
   S.previousAudio.audio.pause(); URL.revokeObjectURL(S.previousAudio.url); S.previousAudio = null;
@@ -840,6 +855,7 @@ function merge() {
   const words = new Set((c.say || []).map(([w]) => w.toLocaleLowerCase()));
   const more = (n.say || []).filter(([w]) => !words.has(w.toLocaleLowerCase()));
   if (n.comments?.length) c.comments = [...(c.comments || []), ...n.comments];
+  if (n.notes) c.notes = [c.notes, n.notes].filter(Boolean).join('\n');
   if (more.length) c.say = [...(c.say || []), ...more];
   delete c.auto; delete c.fit;
   S.cues.splice(i + 1, 1);
@@ -893,6 +909,10 @@ function updateEditor() {
   $('edPickup').setAttribute('aria-pressed', String(!!c?.pickup));
   $('edPickupNote').hidden = !c?.pickup;
   if (c?.pickup && document.activeElement !== $('edPickupNote')) $('edPickupNote').value = c.pickup.note || '';
+  edNotes.readOnly = qcLocked();
+  if (document.activeElement !== edNotes) edNotes.value = c?.notes || '';
+  // QC can read the notes but not change them, so an empty box would only be in the way.
+  edNotes.hidden = qcLocked() && !c?.notes;
   if (!c) {
     edSpeedWrap.hidden = true;
     edVoiceWrap.hidden = true;
@@ -984,7 +1004,7 @@ function editText(field = edText) {
   if (!selCue()) return toast('No text block selected — press Enter to create one at the playhead');
   openEditor();
   field.focus();
-  if (field === edText) edText.setSelectionRange(edText.value.length, edText.value.length);
+  if (field === edText || field === edNotes) field.setSelectionRange(field.value.length, field.value.length);
   else field.select();
 }
 
@@ -1045,14 +1065,14 @@ function toggleTag(tag) {
 }
 
 // Keys shared by every field of the block editor (Frazier "Editor / Document").
-const FIELDS = [edText, edStart, edEnd];
+const FIELDS = [edText, edStart, edEnd, edNotes];
 function editorKeys(e, field) {
   const mod = e.metaKey || e.ctrlKey, os = e.altKey && e.shiftKey;
   if (e.key === 'Escape') { e.preventDefault(); closeEditor(true); return true; }
   if (e.key === 'Tab') {
     e.preventDefault();
-    const i = FIELDS.indexOf(field);
-    editText(FIELDS[(i + (e.shiftKey ? FIELDS.length - 1 : 1)) % FIELDS.length]);
+    const fields = FIELDS.filter((f) => f.offsetParent), i = fields.indexOf(field);
+    editText(fields[(i + (e.shiftKey ? fields.length - 1 : 1)) % fields.length]);
     return true;
   }
   if (qcLocked() && ((os && ['ArrowLeft', 'ArrowRight', 'KeyD'].includes(e.code)) || (mod && ['b','i','u','z','y'].includes(e.key.toLowerCase())))) { e.preventDefault(); return true; }
@@ -1079,9 +1099,9 @@ function blockStep(d, field) {
 
 // Leaving the block editor ends an L loop. Moving between its fields (or to the next
 // block with ↑ ↓) blurs and refocuses, so check once focus has settled.
-for (const f of [edText, edStart, edEnd]) {
+for (const f of FIELDS) {
   f.addEventListener('blur', () => setTimeout(() => {
-    if ([edText, edStart, edEnd].includes(document.activeElement)) return;
+    if (FIELDS.includes(document.activeElement)) return;
     S.resumeAfterEdit = false;
     if (S.loopOnce) stopLoop();
   }));
@@ -1266,6 +1286,7 @@ function fillRow(r, c, i) {
   const reading = ttsOn() && !!spoken(c.text) ? speechLength(said(c), c.speed, c.voice) : null;
   const over = !!reading && reading.secs > c.end - c.start + 0.05;
   if (over) dur += ' ⚠';
+  if (c.notes) dur += ' · notes';
   if (c.pickup) dur += ' · pickup';
   const ready = !!reading?.exact, shown = matches(c, i);
   // Unchanged rows are left alone: long jobs refresh the list often, and rewriting every
@@ -1284,7 +1305,7 @@ function fillRow(r, c, i) {
       title: usingGoogle(c.voice) ? 'Reading kept: plays straight away, and isn\'t sent to Google again'
         : usingAudioVoice(c.voice) ? 'Reading kept: its length is exact, and it plays straight away' : 'Reading made: its length is exact' }));
   }
-  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, ready }) + (c.pickup ? ', pickup' : ''));
+  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, ready }) + (c.notes ? ', has notes' : '') + (c.pickup ? ', pickup' : ''));
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
   r.hidden = !shown;
