@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.75.1",
+  "date": "2026-11-02",
+  "notes": "## Fixed\n\n- In QC, the **Comment** button in an open block is now on the right. Its tooltip no longer runs off the edge of the window."
+ },
+ {
   "version": "0.75.0",
   "date": "2026-11-02",
   "notes": "## New: Mic check and the level pocket\n\n- **Mic check**, next to Punch in, opens a tall meter. Read a few lines, including your loudest, and watch where your peaks land.\n- Aim for the pocket: −12 to −6 dBFS. Quieter is fine for softer lines. Never go over −6.\n- Takes in the pocket now say so. Takes up to −6 count, where before only −12 to −8 did.\n\n## New: setup for each mode\n\n- The first time you use a mode, a short setup for it opens. That includes opening a QC package or a recording file.\n- Record mode's setup helps you pick your microphone, test your level and choose a lead-in.\n\n## Changed\n\n- In QC, send your review back with **Export → Return package**. SRT and VTT exports are hidden while a QC package is open."
