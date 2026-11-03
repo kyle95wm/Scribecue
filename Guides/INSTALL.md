@@ -366,7 +366,8 @@ scripts/slow-chromium.sh 0.5
 ```
 
 The number is how many CPU cores it may use. It measures playback, jumps and how quickly the
-Diagnostics window opens, in a two-hour film or in a video you name after the number. It needs Docker.
+Diagnostics window opens, in a two-hour film or in a video you name after the number. It
+needs Docker. Add `--help` to see every option.
 
 To try it by hand, with your own projects and videos:
 

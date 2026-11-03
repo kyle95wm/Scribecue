@@ -6,6 +6,7 @@
 # Usage: scripts/slow-chromium.sh [cpus] [film]
 #        scripts/slow-chromium.sh desktop [cpus] [folder]
 #        scripts/slow-chromium.sh reset [all]
+#        scripts/slow-chromium.sh --help
 #   cpus:   CPU cores the container may use, such as 1 or 0.5 (default 1)
 #   film:   a video to measure with (default: a generated 2-hour 1080p film, made once)
 #   folder: a folder of yours to open and save files in, at /files (default: the test film's)
@@ -15,6 +16,38 @@ set -eu
 cd "$(dirname "$0")/.."
 cache=${TMPDIR:-/tmp}/scribecue-slow-chromium
 name=scribecue-slow-desktop
+
+# Stops before any slow work if something it was given can't be right.
+stop() {
+  echo "$1" >&2
+  echo 'Run scripts/slow-chromium.sh --help to see the options.' >&2
+  exit 2
+}
+check_cpus() {
+  case "$1" in
+    *[!0-9.]* | *.*.* | '' ) stop "CPUs should be a number such as 1 or 0.5, not: $1" ;;
+    *[1-9]*) ;;
+    *) stop 'CPUs should be more than 0.' ;;
+  esac
+}
+
+case "${1:-}" in
+  -h | --help | help)
+    awk '/^set -eu/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"
+    exit 0
+    ;;
+  desktop)
+    check_cpus "${2:-1}"
+    [ -z "${3:-}" ] || [ -d "$3" ] || stop "No such folder: $3"
+    ;;
+  reset)
+    [ -z "${2:-}" ] || [ "$2" = all ] || stop "Reset only takes all, not: $2"
+    ;;
+  *)
+    check_cpus "${1:-1}"
+    [ -z "${2:-}" ] || [ -f "$2" ] || stop "No such video: $2"
+    ;;
+esac
 
 if [ "${1:-}" = reset ]; then
   docker rm -f "$name" >/dev/null 2>&1 || true
