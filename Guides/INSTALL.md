@@ -368,6 +368,16 @@ scripts/slow-chromium.sh 0.5
 The number is how many CPU cores it may use. It measures playback and jumps in a two-hour
 film, or in a video you name after the number. It needs Docker.
 
+To try it by hand, with your own projects and videos:
+
+```bash
+scripts/slow-chromium.sh desktop 0.5 ~/Movies
+```
+
+Then open <http://localhost:6080/vnc.html?autoconnect=1&resize=scale>. Your folder is
+**files** in Chromium's file window, and it can save there. There's no sound. Stop it with
+`docker stop scribecue-slow-desktop`.
+
 To release a new version:
 
 1. Write the release's notes at the top of [app/changelog.json](../app/changelog.json). The
