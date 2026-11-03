@@ -1090,8 +1090,10 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .rec { display: inline-block; margin-left: 6px; padding: 0 6px; font: 600 10px/16px var(--sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--bg); background: var(--ok); border-radius: 8px; vertical-align: middle; }
 /* What's new */
 .wnbox { width: min(620px, calc(100vw - 24px)); }
+/* Only the report scrolls: it takes what's left of the window's height. */
 .diagbox { width: min(760px, calc(100vw - 24px)); }
-.diagtext { max-height: min(56vh, 520px); overflow: auto; font: 12px/1.5 var(--mono); white-space: pre; user-select: text; }
+.diagbox[open] { display: flex; flex-direction: column; overflow: hidden; }
+.diagtext { flex: 0 1 520px; min-height: 120px; overflow: auto; font: 12px/1.5 var(--mono); white-space: pre; user-select: text; }
 .wnlist { max-height: min(58vh, 540px); overflow-y: auto; padding-right: 6px; }
 .wnrelease + .wnrelease { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
 .wnrelease h3 { margin: 0 0 4px; font-size: 15px; color: var(--accent); }
