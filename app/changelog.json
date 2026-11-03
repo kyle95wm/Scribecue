@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.77.1",
+  "date": "2026-11-03",
+  "notes": "## Fixed\n\n- **Open** works again in Chrome, Edge and Chromium. Since 0.77.0 it showed an error instead of the file picker.\n- **Export → Session package** works again in those browsers.\n- Session packages now end in .scribesession. Packages saved by 0.77.0 still open: drag one onto Scribecue, or choose All files in the Open window."
+ },
+ {
   "version": "0.77.0",
   "date": "2026-11-02",
   "notes": "## New: takes in a folder you choose\n\n- When you open a recording file, choose a folder for its takes. Each take is saved there as you record it.\n- Firefox and Safari keep takes in the browser instead. In Chrome and Edge, you can choose that too.\n- Takes kept in the browser can move to a folder with **Move takes to a folder…**.\n- Takes from earlier versions move into the folder when you first open the recording.\n\n## New: session packages\n\n- **Export → Session package** puts the script and your takes in one file, to carry on on another computer.\n- Choose every take, or only the takes in the export.\n- Open the package in Scribecue on the other computer, and choose a folder for the takes.\n\n## New: recording\n\n- The take you're recording grows on the timeline, with its waveform.\n- `Space` stops recording and keeps the take.\n- `Esc` stops recording and discards the take. The playhead goes back to where it was.\n- Deleted or discarded a take by mistake? Press `Ctrl/Cmd+Z`, or click the message, to bring it back.\n\n## Changed\n\n- A block's slot now ends where the block ends, not a second after.\n- First-time setup offers Transcribe, Write and QC. Record mode's setup opens when you open a recording file.\n- **Pickups WAV** shows in the Export menu only when the recording file asks for pickups."
