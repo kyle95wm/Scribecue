@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.77.4",
+  "date": "2026-11-03",
+  "notes": "## Smoother on slower computers\n\n- While a new video's waveform builds, it now waits when you jump and slows down while the video plays. Jumps are faster and playback smoother, especially in long films.\n- The waveform finishes at full speed whenever the video is paused.\n- The bar under the video and the playhead take less work to draw."
+ },
+ {
   "version": "0.77.3",
   "date": "2026-11-03",
   "notes": "## Jumping in long videos\n\n- When a jump takes a moment, **Seeking…** shows next to the clock until the picture arrives.\n- Dragging along the timeline or the bar under the video now shows the picture as you go, instead of only when you let go."
