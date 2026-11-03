@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.78.0",
+  "date": "2026-11-03",
+  "notes": "## New: Diagnostics, for problem reports\n\n- In **Settings**, **General**, click **Diagnostics…** to see details to send with a problem report: your browser, the video's format, how playback is going and recent errors.\n- Click **Copy** or **Save as file**. Nothing is sent by Scribecue.\n- File names are left out unless you click **Include file names**.\n- Open it straight after a problem happens, before reloading the page."
+ },
+ {
   "version": "0.77.4",
   "date": "2026-11-03",
   "notes": "## Smoother on slower computers\n\n- While a new video's waveform builds, it now waits when you jump and slows down while the video plays. Jumps are faster and playback smoother, especially in long films.\n- The waveform finishes at full speed whenever the video is paused.\n- The bar under the video and the playhead take less work to draw."
