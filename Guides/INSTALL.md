@@ -378,6 +378,9 @@ Then open <http://localhost:6080/vnc.html?autoconnect=1&resize=scale>. Your fold
 **files** in Chromium's file window, and it can save there. There's no sound. Stop it with
 `docker stop scribecue-slow-desktop`.
 
+To read a report from **Diagnostics…**, paste it into Claude Code or Codex in this folder.
+The `scribecue-diagnostics` skill explains each row and lists likely causes.
+
 To release a new version:
 
 1. Write the release's notes at the top of [app/changelog.json](../app/changelog.json). The

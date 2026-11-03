@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, realpathSync } from 'node:fs';
 import { createLog, describe, watchErrors, spread, hideNames, report, MAX_LOG } from '../app/js/diagnostics.js';
 
 test('the log keeps the most recent entries, on one line each', () => {
@@ -76,4 +77,16 @@ test('file names are left out unless asked for', () => {
   assert.match(report(info, { names: true }), /File {9}Alien Theatrical\.mkv/);
   assert.match(report({ ...info, video: { ...info.video, decode: { supported: false } } }), /Decoding {5}this browser says it can’t/);
   assert.match(report({ now }), /none open[\s\S]*Jumps {8}none yet[\s\S]*Recent messages\n {2}/);
+});
+
+test('the diagnostics skill explains every row of the report, for Claude and Codex', () => {
+  const skill = '.claude/skills/scribecue-diagnostics/SKILL.md';
+  const text = readFileSync(skill, 'utf8');
+  assert.match(text, /^---\nname: scribecue-diagnostics\ndescription: .+\n---\n/);
+  assert.equal(realpathSync('.agents/skills/scribecue-diagnostics/SKILL.md'), realpathSync(skill));
+  const code = readFileSync('app/js/diagnostics.js', 'utf8');
+  const rows = [...code.matchAll(/row\('([^']+)'/g)].map((m) => m[1]);
+  assert.ok(rows.length >= 15);
+  for (const label of new Set(rows)) assert.ok(text.includes(`| **${label}** |`), `${label} is missing from the skill`);
+  for (const section of ['App', 'Computer', 'Video', 'Performance']) assert.ok(text.includes(`### ${section}\n`), section);
 });
