@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.78.1",
+  "date": "2026-11-03",
+  "notes": "## Fixed\n\n- On smaller screens, the Diagnostics window no longer scrolls as a whole. Only the report scrolls, and its buttons stay in view."
+ },
+ {
   "version": "0.78.0",
   "date": "2026-11-03",
   "notes": "## New: Diagnostics, for problem reports\n\n- In **Settings**, **General**, click **Diagnostics…** to see details to send with a problem report: your browser, the video's format, how playback is going and recent errors.\n- Click **Copy** or **Save as file**. Nothing is sent by Scribecue.\n- File names are left out unless you click **Include file names**.\n- Open it straight after a problem happens, before reloading the page."
