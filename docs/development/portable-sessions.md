@@ -68,7 +68,7 @@ another copy changed it (a synced folder open on two computers), read it again f
 
 ### One file to send: the session package
 
-**Package session** writes the folder as one `.scribecuesession` file. **Open** reads one
+**Package session** writes the folder as one `.scribesession` file. **Open** reads one
 back into a folder the narrator picks.
 
 - It's a zip, stored without compression, like the narration package. People can unzip it

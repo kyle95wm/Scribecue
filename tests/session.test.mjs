@@ -1,9 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toSession, fromSession, cleanTake, rebuild, takeNote, isSessionPackage, SESSION_FILE } from '../app/js/session.js';
+import { toSession, fromSession, cleanTake, rebuild, takeNote, isSessionPackage, SESSION_FILE, SESSION_EXT } from '../app/js/session.js';
 import { openSession } from '../app/js/takestore.js';
 import { wav24, withTakeNote, readTakeNote, plainTake, readNote, WAV24_HEADER } from '../app/js/bwf.js';
 import { crc32, storeZip, readZip } from '../app/js/zip.js';
+import { readdirSync, readFileSync } from 'node:fs';
+import { PROJECT_EXT } from '../app/js/project.js';
+import { REVIEW_EXT } from '../app/js/qc.js';
+import { RECORDING_EXT } from '../app/js/recording.js';
 
 // A folder in memory, with the parts of the File System Access API the session uses.
 let clock = 1;
@@ -179,7 +183,8 @@ test('session files are checked as they’re read', () => {
   assert.equal(s.takes[0].peak, -9);
   assert.equal(cleanTake({ ...t, peak: null }).peak, -Infinity);
   assert.equal(cleanTake({ ...t, block: -1, chosen: true }).chosen, false, 'a take in no block isn’t chosen');
-  assert.ok(isSessionPackage('Lights.scribecuesession'));
+  assert.ok(isSessionPackage('Lights.scribesession'));
+  assert.ok(isSessionPackage('Lights.scribecuesession'), 'packages from 0.77.0 still open');
   assert.ok(!isSessionPackage('Lights.scribecuerec'));
 });
 
@@ -190,4 +195,15 @@ test('rebuild adds unlisted WAVs in the order they were made', () => {
   assert.equal(found, 2);
   assert.equal(missing, 0);
   assert.deepEqual(takes.map((t) => [t.id, t.chosen]), [[a.id, false], [b.id, false], [c.id, true]]);
+});
+
+// Chrome's pickers refuse an extension longer than 16 characters, dot included, and then
+// the whole picker fails: 0.77.0's Open did, for every file.
+test('file picker extensions are 16 characters or fewer', () => {
+  for (const ext of [SESSION_EXT, PROJECT_EXT, REVIEW_EXT, RECORDING_EXT]) assert.ok(ext.length <= 16, ext);
+  for (const f of readdirSync(new URL('../app/js/', import.meta.url))) {
+    if (!f.endsWith('.js')) continue;
+    const src = readFileSync(new URL(`../app/js/${f}`, import.meta.url), 'utf8');
+    for (const [, ext] of src.matchAll(/['"](\.[a-z0-9-]+)['"]/gi)) if (ext.length > 16) assert.fail(`${f}: ${ext}`);
+  }
 });

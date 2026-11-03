@@ -8,9 +8,10 @@
 export const SESSION_FORMAT = 1;
 export const SESSION_FILE = 'session.json';
 export const TAKES_DIR = 'takes';
-// One file holding a whole session, to send or move: a zip of the folder.
-export const SESSION_EXT = '.scribecuesession';
-export const isSessionPackage = (name) => /\.scribecuesession$/i.test(name);
+// One file holding a whole session, to send or move: a zip of the folder. Chrome refuses
+// a picker extension longer than 16 characters, so 0.77.0's .scribecuesession only opens.
+export const SESSION_EXT = '.scribesession';
+export const isSessionPackage = (name) => /\.scribe(cue)?session$/i.test(name);
 
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
