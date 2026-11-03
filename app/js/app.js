@@ -39,7 +39,8 @@ import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, writeWav, readingStarting, reviewGoogleKey, missingVoiceAdvice, hasGoogleKey } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands } from './ffcmd.js';
-import { videoName, missing, advice, copyKind } from './codecs.js';
+import { videoName, missing, advice, copyKind, TESTS } from './codecs.js';
+import { createLog, watchErrors, report as diagReport } from './diagnostics.js';
 import { waveKey, loadWave, saveWave } from './wavestore.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
@@ -49,6 +50,9 @@ import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLen
   savedReadings, clearSavedReadings, checkFfmpeg } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
+// Errors, warnings and messages, kept from the start for Diagnostics in Settings.
+const diagLog = createLog();
+watchErrors(diagLog);
 
 // Phones and tablets get a notice instead of the editor, which needs a keyboard and a
 // bigger screen. Nothing else starts.
@@ -3408,6 +3412,7 @@ window.addEventListener('blur', () => holdEnd());
 let toastTimer = 0;
 // onClick: something a click on the message does, such as bringing back a deleted take.
 function toast(msg, onClick = null) {
+  diagLog.add('message', msg);
   toastEl.textContent = pcKeys(msg);
   toastEl.onclick = onClick && (() => { toastEl.onclick = null; toastEl.classList.remove('act'); onClick(); });
   toastEl.classList.toggle('act', !!onClick);
@@ -4595,6 +4600,7 @@ const LEGACY_LIMIT = 2e9;
 // Building it steps aside for the video: it waits while the video seeks, and goes slowly
 // while it plays, so a slower computer can keep up (pace in wave-worker.js).
 let wavePace = null;
+let waveBuild = null; // for Diagnostics: { t0 } while building, then { ms }, or { kept }
 function paceWave() {
   const pace = video.seeking ? 'hold' : isPlaying() ? 'slow' : 'go';
   if (!waveWorker || pace === wavePace) return;
@@ -4669,6 +4675,7 @@ async function buildWaveform(file, track, mux) {
   const key = waveKey(file, track, PEAK_RATE);
   const kept = await loadWave(key);
   if (gen !== waveGen || S.videoFile !== file) return;
+  waveBuild = kept ? { kept: true } : { t0: performance.now() };
   if (kept) {
     Object.assign(S, kept);
     tlDirty = true;
@@ -4716,6 +4723,7 @@ async function buildWaveform(file, track, mux) {
       S.waveStatus = '';
       tlDirty = true;
       trackCache.set(track, { peaks: S.peaks, peakLen: S.peakLen, peakMax: S.peakMax, ...entry });
+      if (waveBuild?.t0) waveBuild = { ms: performance.now() - waveBuild.t0 };
       if (!kept && S.peakMax) saveWave(key, S.peaks, S.peakLen, S.peakMax);
       if (!S.peakMax) toast('No waveform: the audio track is silent');
       else toast(multi ? `Audio: ${trackLabel(track)}. T switches tracks` : 'Waveform ready');
@@ -5529,3 +5537,97 @@ initPending({
   },
 });
 requestAnimationFrame(tick);
+
+// ---------------------------------------------------------------- diagnostics
+
+// How long each jump takes to show its picture, and the page's long tasks, for Diagnostics.
+const jumpTimes = [], longTasks = [];
+let jumpFrom = null;
+video.addEventListener('seeking', () => { jumpFrom ??= performance.now(); });
+video.addEventListener('seeked', () => {
+  if (jumpFrom == null) return;
+  jumpTimes.push(performance.now() - jumpFrom);
+  if (jumpTimes.length > 20) jumpTimes.shift();
+  jumpFrom = null;
+});
+video.addEventListener('emptied', () => { jumpFrom = null; jumpTimes.length = 0; });
+try {
+  new PerformanceObserver((l) => {
+    for (const e of l.getEntries()) longTasks.push([e.startTime, e.duration]);
+    if (longTasks.length > 500) longTasks.splice(0, longTasks.length - 500);
+  }).observe({ type: 'longtask' });
+} catch { /* only Chromium reports long tasks */ }
+
+// The browser with its version, for a problem report.
+function browserVersion() {
+  const ua = navigator.userAgentData;
+  if (ua?.brands?.length) {
+    const b = ua.brands.filter((x) => !/not.?a.?brand/i.test(x.brand));
+    const pick = b.find((x) => x.brand !== 'Chromium') || b[0];
+    if (pick) return `${pick.brand} ${pick.version}`;
+  }
+  const s = navigator.userAgent, m = /(Edg|Firefox|Chrome)\/(\d+)/.exec(s) || /Version\/(\d+).*(Safari)/.exec(s);
+  if (!m) return s;
+  return m[2] === 'Safari' ? `Safari ${m[1]}` : `${m[1] === 'Edg' ? 'Edge' : m[1]} ${m[2]}`;
+}
+async function diagnosticsInfo() {
+  const f = S.videoFile, now = performance.now(), minutes = 5;
+  const recent = longTasks.filter(([at]) => now - at < minutes * 60e3);
+  let storage = null, decode = null;
+  try { const e = await navigator.storage?.estimate(); if (e) storage = { used: e.usage, quota: e.quota }; } catch { /* not available */ }
+  if (f && S.hasVideo && TESTS[S.videoCodec] && navigator.mediaCapabilities) {
+    try {
+      decode = await navigator.mediaCapabilities.decodingInfo({ type: 'file', video: {
+        contentType: TESTS[S.videoCodec], width: video.videoWidth || 1920, height: video.videoHeight || 1080,
+        bitrate: Math.round((f.size * 8) / (duration() || 1)), framerate: S.fps || 24,
+      } });
+    } catch { /* the browser couldn't say */ }
+  }
+  const q = video.getVideoPlaybackQuality?.();
+  return {
+    now: Date.now(),
+    names: [f?.name, S.projectMedia?.name, S.handle?.name, S.subName, baseName()],
+    app: { version: VERSION, web: HOSTED, installed: matchMedia('(display-mode: standalone)').matches, mode: MODE_NAMES[S.mode] || S.mode },
+    browser: { name: browserVersion(), platform: navigator.userAgentData?.platform || navigator.platform, cores: navigator.hardwareConcurrency,
+      memory: navigator.deviceMemory, screen: `${screen.width}×${screen.height}`, dpr: devicePixelRatio || 1 },
+    storage,
+    video: f && S.hasVideo ? {
+      name: f.name, bytes: f.size, duration: duration(), width: video.videoWidth, height: video.videoHeight,
+      codec: S.videoCodec, fps: S.fps, decode, audio: S.tracks.map((t) => t.codec).filter(Boolean), separate: !!alt,
+      frames: q ? { total: q.totalVideoFrames, dropped: q.droppedVideoFrames } : null,
+    } : null,
+    waveform: S.waveStatus ? { building: S.waveStatus.replace(/^.*?(\d+%)$/, '$1') } : waveBuild?.t0 ? { building: 'starting' } : waveBuild,
+    jumps: jumpTimes,
+    longTasks: 'PerformanceObserver' in window && PerformanceObserver.supportedEntryTypes?.includes('longtask') ? { count: recent.length, longest: Math.max(0, ...recent.map(([, d]) => d)), minutes } : null,
+    log: diagLog.entries,
+  };
+}
+
+const diagDlg = $('diagDlg');
+let diagData = null;
+function showDiagnostics() {
+  $('diagText').textContent = diagReport(diagData, { names: $('diagNames').getAttribute('aria-pressed') === 'true' });
+}
+async function openDiagnostics() {
+  diagData = await diagnosticsInfo();
+  showDiagnostics();
+  if (!diagDlg.open) diagDlg.showModal();
+}
+$('setDiag').addEventListener('click', openDiagnostics);
+$('diagNames').addEventListener('click', (e) => {
+  e.currentTarget.setAttribute('aria-pressed', String(e.currentTarget.getAttribute('aria-pressed') !== 'true'));
+  showDiagnostics();
+});
+$('diagCopy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('diagText').textContent); toast('Copied the diagnostics'); }
+  catch { toast('Couldn’t copy. Select the text and copy it, or save it as a file'); }
+});
+$('diagSave').addEventListener('click', () => {
+  const d = new Date(), name = `scribecue-diagnostics-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.txt`;
+  const url = URL.createObjectURL(new Blob([$('diagText').textContent], { type: 'text/plain' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast(`Saved ${name} to your downloads`);
+});
+$('diagClose').addEventListener('click', () => diagDlg.close());

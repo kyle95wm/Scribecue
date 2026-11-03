@@ -13,6 +13,7 @@ for its part of Scribecue: see [More help](#more-help).
 - [Working offline](#working-offline)
 - [QC](#qc)
 - [More help](#more-help)
+- [Reporting a problem](#reporting-a-problem)
 
 ## Browser and computer
 
@@ -99,5 +100,16 @@ Each guide has a list for its own part:
 - [Google voices](GOOGLE-VOICES.md#if-something-goes-wrong)
 - [Running it yourself with Docker](INSTALL.md#if-something-goes-wrong)
 
+## Reporting a problem
+
 Found a problem that isn't here? Report it on
-[GitHub](https://github.com/kyle95wm/Scribecue/issues).
+[GitHub](https://github.com/kyle95wm/Scribecue/issues), with the diagnostics:
+
+1. Open **Settings**, then **General**, and click **Diagnostics…**.
+2. Click **Copy**, or **Save as file**, and add it to your report.
+
+They show your browser, the video's format, how playback is going and recent errors.
+Nothing is sent by Scribecue. File names are left out unless you click **Include file names**.
+
+For a problem that happens while you work, such as a slow jump, open the diagnostics
+straight after it happens, before reloading the page.

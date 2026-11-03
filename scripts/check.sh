@@ -8,7 +8,15 @@ set -eu
 cd "$(dirname "$0")/.."
 
 echo '== JavaScript syntax'
-for f in app/js/*.js app/sw.js tests/*.mjs scripts/*.mjs; do node --check "$f"; done
+# A .js file with import or export is checked as a module: plain --check misses some of
+# its errors, such as a name declared twice, which then stop the page from loading.
+for f in app/js/*.js app/sw.js tests/*.mjs scripts/*.mjs; do
+  if grep -qE '^(import|export) ' "$f" && [ "${f%.js}" != "$f" ]; then
+    node --input-type=module --check < "$f" || { echo "in $f"; exit 1; }
+  else
+    node --check "$f"
+  fi
+done
 
 echo '== Unit tests'
 node --test 'tests/*.test.mjs'

@@ -248,5 +248,5 @@ in a container with no internet access.
 - **The sound stutters or stops while transcribing, in Firefox:** use Chrome or Edge.
   Reopening the tab brings the sound back.
 
-Found a problem that isn't here? Report it on
-[GitHub](https://github.com/kyle95wm/Scribecue/issues).
+Found a problem that isn't here? [Report it](TROUBLESHOOTING.md#reporting-a-problem),
+with the diagnostics from Settings.

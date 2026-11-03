@@ -110,6 +110,14 @@ try {
   const pictures = await js(`new Set(__frames.filter((f) => f[0] > __d0 && f[0] < __t0).map((f) => f[1].toFixed(2))).size`);
   row('Drag across the film', `${pictures} pictures during the drag, final one ${await landed(0.6 * dur)} after letting go`);
   row('Long tasks while jumping', await longTasks());
+
+  // 4. The Diagnostics window, from Settings.
+  await js('window.__t0 = performance.now(); document.getElementById("setDiag").click(); 1');
+  const opened = await js(`new Promise((r) => { const go = () => document.getElementById('diagDlg').open && document.getElementById('diagText').textContent
+    ? r(Math.round(performance.now() - __t0) + ' ms') : setTimeout(go, 20); go(); })`);
+  row('Diagnostics window', `opened in ${opened}`);
+  const lines = await js(`document.getElementById('diagText').textContent.split('\\n').filter((l) => /^ {2}(Decoding|Frames|Jumps|Long tasks)/.test(l)).map((l) => l.trim().replace(/ {2,}/, ': '))`);
+  for (const l of lines) console.log(`  ${l}`);
 } finally {
   browser.kill();
   server.close();

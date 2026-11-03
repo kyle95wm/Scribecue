@@ -220,6 +220,8 @@ If the video is slow to start or to jump, or stutters:
   tracks, Scribecue plays the chosen track alongside the video, which is more work.
 - **Press play once.** **Loading…** next to the clock means it's getting ready.
   **Seeking…** means it's finding the place you jumped to.
+- **Still slow?** [Report it](TROUBLESHOOTING.md#reporting-a-problem) with the diagnostics
+  from Settings. They show how playback is going on your computer.
 
 ## Supported files
 

@@ -358,6 +358,20 @@ docker compose up -d --build</code></pre>
     </div>
   </dialog>
 
+  <dialog id="diagDlg" class="updbox diagbox" aria-labelledby="diagTitle">
+    <h2 id="diagTitle">Diagnostics</h2>
+    <p class="small">Send this with a problem report. Nothing is sent from here: copy it or save it, and read
+      it before you send it.</p>
+    <pre id="diagText" class="diagtext" tabindex="0" aria-label="Diagnostics"></pre>
+    <div class="updbtns">
+      <button id="diagNames" aria-pressed="false" data-tip="File names are left out unless you turn this on">Include file names</button>
+      <span class="grow"></span>
+      <button id="diagSave">Save as file</button>
+      <button id="diagCopy">Copy</button>
+      <button id="diagClose" class="hl">Close</button>
+    </div>
+  </dialog>
+
   <dialog id="dockerTip" class="updbox dockertip" aria-labelledby="dockerTipTitle">
     <h2 id="dockerTipTitle">Scribecue can run on your computer too</h2>
     <p>You're using the web version, which has almost everything. Run Scribecue yourself with Docker and
@@ -1161,6 +1175,10 @@ docker compose up -d --build</code></pre>
         <button id="setDocker" class="hosted-only">Run it on your computer</button></p>
       <p class="dim small">Setup asks what you're working on and sets up its tools. The tour shows you round the screen.
         <span class="hosted-only">Running Scribecue on your computer with Docker adds Kokoro voices, and keeps everything there.</span></p>
+      <h3>Problems</h3>
+      <p class="updstatus"><button id="setDiag">Diagnostics…</button></p>
+      <p class="dim small">Details to send with a problem report: your browser, the video's format, recent
+        errors and how playback is going. Nothing is sent: you copy or save them.</p>
       <h3 class="docker-only">Updates</h3>
     </div>
     <div id="setMarking" hidden>

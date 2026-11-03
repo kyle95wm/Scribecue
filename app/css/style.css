@@ -1090,6 +1090,8 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .rec { display: inline-block; margin-left: 6px; padding: 0 6px; font: 600 10px/16px var(--sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--bg); background: var(--ok); border-radius: 8px; vertical-align: middle; }
 /* What's new */
 .wnbox { width: min(620px, calc(100vw - 24px)); }
+.diagbox { width: min(760px, calc(100vw - 24px)); }
+.diagtext { max-height: min(56vh, 520px); overflow: auto; font: 12px/1.5 var(--mono); white-space: pre; user-select: text; }
 .wnlist { max-height: min(58vh, 540px); overflow-y: auto; padding-right: 6px; }
 .wnrelease + .wnrelease { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
 .wnrelease h3 { margin: 0 0 4px; font-size: 15px; color: var(--accent); }
@@ -1135,7 +1137,7 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 
 /* Comments reuse the AI drawer and its message controls. */
 #commentsDrawer input { min-width: 0; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
-#commentsDrawer button[aria-pressed="true"], #commentsBtn[aria-pressed="true"], #qcExportAllowEdits[aria-pressed="true"], #qcExportGoogle[aria-pressed="true"], #qcPrevious[aria-pressed="true"], #setReturn[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+#commentsDrawer button[aria-pressed="true"], #commentsBtn[aria-pressed="true"], #qcExportAllowEdits[aria-pressed="true"], #qcExportGoogle[aria-pressed="true"], #qcPrevious[aria-pressed="true"], #setReturn[aria-pressed="true"], #diagNames[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 #commentAt, .comment-location { font: 12px var(--mono); }
 .comment-body { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .comment-meta { font: 12px var(--sans); color: var(--dim); }
