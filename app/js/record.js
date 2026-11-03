@@ -9,6 +9,7 @@ import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, editTake, deleteTake, restoreTake, takeAudio, takesWhere, relinkTakes, moveTakes, openSession, useSession, currentSession,
   rememberedSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser, sessionFolder, unpackSession, forgetBrowserFolder } from './takestore.js';
 import { SESSION_EXT } from './session.js';
+import { picker } from './pickers.js';
 
 const $ = (id) => document.getElementById(id);
 const VIDEO_DB = -30; // the video's sound while recording, so the scene can still be followed
@@ -837,7 +838,7 @@ export function initRecord(h) {
   $('recSessionBrowser').addEventListener('click', () => settle('browser'));
   $('recSessionPick').addEventListener('click', async () => {
     let dir;
-    try { dir = await window.showDirectoryPicker({ id: 'scribecue-session', mode: 'readwrite', startIn: 'documents' }); } catch { return; }
+    try { dir = await picker('folder'); } catch { return; }
     try { settle(await sessionFolder(dir, sub)); } catch (e) { h.toast(`Couldn’t use ${dir.name}: ${e.message}`); }
   });
 
@@ -911,7 +912,7 @@ export function initRecord(h) {
     const s = currentSession(), r = rec;
     if (!r || !s || s.where !== 'browser' || state !== 'idle' || keep !== 'ready') return;
     let dir;
-    try { dir = await window.showDirectoryPicker({ id: 'scribecue-session', mode: 'readwrite', startIn: 'documents' }); } catch { return; }
+    try { dir = await picker('folder'); } catch { return; }
     stopPlay(); silence();
     keep = 'moving'; render();
     let moved = null;
@@ -965,7 +966,7 @@ export function initRecord(h) {
     const name = `${h.baseName() || 'Recording'}${SESSION_EXT}`;
     let fh = null;
     if (window.showSaveFilePicker) {
-      try { fh = await window.showSaveFilePicker({ suggestedName: name, id: 'scribecue-session', types: [{ description: 'Scribecue recording session', accept: { 'application/zip': [SESSION_EXT] } }] }); }
+      try { fh = await picker('session', { suggestedName: name }); }
       catch (e) { if (e.name === 'AbortError') return; }
     }
     state = 'saving'; render();

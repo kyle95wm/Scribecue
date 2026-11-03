@@ -122,7 +122,7 @@ Before adding that service:
 
 ## Validation
 
-- `scripts/check.sh`: syntax, pure-function tests, Python tests and Docker smoke checks.
+- `scripts/check.sh`: syntax, pure-function tests, Python tests, Chrome's check of the file pickers and Docker smoke checks.
 - `scripts/qc-review-smoke.mjs <DevTools port> <site URL> [screenshot path]` exercises the
   QC entry point, Pending review choices and edits, the timeline outline, audio
   preservation, stale readings, permissions, failed and cancelled writes, undo, and layout

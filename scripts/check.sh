@@ -1,6 +1,7 @@
 #!/bin/sh
 # Runs every check that must pass before committing, pushing or opening a PR:
-# syntax, unit tests, and a Docker build that serves the app with its security headers.
+# syntax, unit tests, Chrome's check of the file pickers, and a Docker build that serves
+# the app with its security headers.
 # Usage: scripts/check.sh            (all checks)
 #        scripts/check.sh --no-docker (skip the Docker build, e.g. without Docker)
 set -eu
@@ -12,6 +13,9 @@ for f in app/js/*.js app/sw.js tests/*.mjs scripts/*.mjs; do node --check "$f"; 
 echo '== Unit tests'
 node --test 'tests/*.test.mjs'
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py'
+
+echo '== File pickers in Chrome'
+node scripts/picker-check.mjs
 
 [ "${1:-}" = "--no-docker" ] && { echo 'Skipped Docker checks'; exit 0; }
 

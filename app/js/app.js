@@ -19,7 +19,8 @@ import { readNote } from './bwf.js';
 import { readZip } from './zip.js';
 import { initRecord } from './record.js';
 import { takesInfo, clearTakes, unpackSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser } from './takestore.js';
-import { isSessionPackage, fromSession, SESSION_FILE, SESSION_EXT } from './session.js';
+import { isSessionPackage, fromSession, SESSION_FILE } from './session.js';
+import { picker, refused } from './pickers.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
 import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom, stopAt, returnsToStart } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
@@ -3489,19 +3490,17 @@ $('reopenVideo').addEventListener('click', (e) => {
 async function openVideoPicker() {
   if (!window.showOpenFilePicker) return fileVideo.click();
   try {
-    const [h] = await window.showOpenFilePicker({ types: [{ description: 'Video or audio', accept: {
-      'video/*': ['.mp4', '.m4v', '.mov', '.mkv', '.webm'], 'audio/*': ['.wav', '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.opus'],
-    } }] });
+    const [h] = await picker('video');
     const file = await h.getFile();
     loadVideoFile(file);
     rememberVideo(h, file);
   } catch (e) {
-    if (e.name !== 'AbortError') toast(`Couldn’t open the file: ${e.message}`);
+    if (refused(e)) fileVideo.click();
+    else if (e.name !== 'AbortError') toast(`Couldn’t open the file: ${e.message}`);
   }
 }
 
 const isDoc = (name) => isReview(name) || name.toLowerCase().endsWith(PROJECT_EXT) || isRecordingFile(name) || isSessionPackage(name);
-const PROJECT_TYPES = [{ description: 'Scribecue project', accept: { 'application/json': [PROJECT_EXT, REVIEW_EXT] } }];
 
 function readingSettings() {
   return { ttsVoice: tts.voice || chosenVoice(), ttsBase: tts.base, ttsSkipNotes: tts.skipNotes };
@@ -3578,7 +3577,7 @@ async function saveProject(as = false) {
     let h = as ? null : S.handle;
     if (h && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted' &&
       (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') h = null;
-    if (!h) h = await window.showSaveFilePicker({ suggestedName: name, types: PROJECT_TYPES });
+    if (!h) h = await picker('project', { suggestedName: name });
     await writeFile(h, text);
     S.handle = h;
     handleStore.set(h);
@@ -4014,15 +4013,7 @@ function projectSound({ ttsDuck, ttsDipDb, ttsDipFade, ttsMix }) {
 async function openAny() {
   if (!window.showOpenFilePicker) return fileSubs.click();
   try {
-    const handles = await window.showOpenFilePicker({
-      multiple: true,
-      types: [
-        { description: 'Scribecue project, script, video or audio', accept: {
-          'application/json': [PROJECT_EXT, REVIEW_EXT, RECORDING_EXT], 'application/zip': [SESSION_EXT], 'text/plain': ['.srt', '.vtt', '.txt', '.adc'],
-          'video/*': ['.mp4', '.m4v', '.mov', '.mkv', '.webm'], 'audio/*': ['.wav', '.mp3', '.m4a', '.aac', '.flac', '.ogg', '.opus'],
-        } },
-      ],
-    });
+    const handles = await picker('open');
     // Videos first, so a project picked with its video finds it already open.
     const files = await Promise.all(handles.map(async (h) => [h, await h.getFile()]));
     const isProject = ([, f]) => isDoc(f.name);
@@ -4032,7 +4023,8 @@ async function openAny() {
     }
     for (const [h, file] of files.filter(isProject)) openProject(file, h);
   } catch (e) {
-    if (e.name !== 'AbortError') toast(`Couldn’t open the file: ${e.message}`);
+    if (refused(e)) fileSubs.click();
+    else if (e.name !== 'AbortError') toast(`Couldn’t open the file: ${e.message}`);
   }
 }
 

@@ -353,10 +353,11 @@ Run the checks before committing, pushing or opening a pull request:
 scripts/check.sh
 ```
 
-This checks the JavaScript syntax, runs the unit tests in `tests/`, then builds the Docker
-image and checks that it serves the app with its security headers. Use
-`scripts/check.sh --no-docker` to skip the Docker part. The same checks run on GitHub for
-every push and pull request.
+This checks the JavaScript syntax and runs the unit tests in `tests/`. It asks Chrome
+whether it accepts every file picker, so it needs Chrome or Chromium. Set `CHROME` to its
+path if it isn't found. Last, it builds the Docker image and checks that it serves the app
+with its security headers. Use `scripts/check.sh --no-docker` to skip the Docker part. The
+same checks run on GitHub for every push and pull request.
 
 To release a new version:
 

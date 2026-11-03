@@ -1,5 +1,6 @@
 import { collaborationJob } from './collaboration.js';
 import { reviewItems } from './qcreview.js';
+import { picker } from './pickers.js';
 const $ = (id) => document.getElementById('reviewCompare' + id);
 let h, controller, working = false, authoring = false, local, returned, result, generation, finished = false;
 const status = (text) => { $('Status').textContent = text; };
@@ -36,9 +37,7 @@ async function saveReview(file, name, author = false) {
   }
   let handle = author ? h.authorHandle() : null;
   if (handle && (!/\.scribecue$/i.test(handle.name) || (await handle.queryPermission({ mode: 'readwrite' })) !== 'granted' && (await handle.requestPermission({ mode: 'readwrite' })) !== 'granted')) handle = null;
-  if (!handle) handle = await window.showSaveFilePicker({ suggestedName: name, types: author
-    ? [{ description: 'Scribecue project', accept: { 'application/json': ['.scribecue'] } }]
-    : [{ description: 'QC package', accept: { 'application/octet-stream': ['.scribecueqc'] } }] });
+  if (!handle) handle = await picker(author ? 'authorProject' : 'qcPackage', { suggestedName: name });
   const writer = await handle.createWritable();
   try { await writer.write(file); await writer.close(); }
   catch (error) { try { await writer.abort?.(); } catch { /* keep the write error */ } throw error; }
