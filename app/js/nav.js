@@ -42,3 +42,19 @@ export const takeFrom = (t, start, end) => (t > start + 0.01 && t <= end + 0.01 
 export const stopAt = (on, start, t) => (on && start != null ? start : t);
 // Return to start is for recording: it only works in Record mode.
 export const returnsToStart = (on, mode) => !!on && mode === 'record';
+
+// Dragging the playhead over a long film: each new seek cancels the last, so where a jump
+// is slow to decode the picture never catches up until you stop. While the video is
+// seeking, only the latest place is kept, and it's gone to once the seek lands, so the
+// picture follows the drag. Letting go goes to the last place straight away, as before.
+// seeking: whether the video is seeking. go(t): seeks.
+export function scrubber(seeking, go) {
+  let next = null;
+  return {
+    get target() { return next; },
+    to(t) { if (seeking()) next = t; else { next = null; go(t); } },
+    seeked() { this.done(); },
+    done() { if (next == null) return; const t = next; next = null; go(t); },
+    clear() { next = null; },
+  };
+}

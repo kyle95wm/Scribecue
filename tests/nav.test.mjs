@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockFromPlayhead, BACK_GRACE, nudgeFor, NUDGE_START, takeFrom, stopAt, returnsToStart } from '../app/js/nav.js';
+import { blockFromPlayhead, BACK_GRACE, nudgeFor, NUDGE_START, takeFrom, stopAt, returnsToStart, scrubber } from '../app/js/nav.js';
 
 const cues = [{ start: 2, end: 5 }, { start: 10, end: 14 }, { start: 20, end: 22 }];
 
@@ -65,4 +65,23 @@ test('return to start: stopping goes back to where playback began', () => {
   assert.equal(returnsToStart(true, 'record'), true);
   for (const mode of ['write', 'transcribe', 'qc']) assert.equal(returnsToStart(true, mode), false);
   assert.equal(returnsToStart(false, 'record'), false);
+});
+
+test('a drag waits for each seek to land, then goes to the latest place', () => {
+  let seeking = false;
+  const went = [];
+  const s = scrubber(() => seeking, (t) => { went.push(t); seeking = true; });
+  s.to(10);
+  s.to(20); s.to(30);
+  assert.deepEqual(went, [10], 'later places wait while the video seeks');
+  assert.equal(s.target, 30);
+  seeking = false; s.seeked();
+  assert.deepEqual(went, [10, 30], 'only the latest place is gone to');
+  assert.equal(s.target, null);
+  seeking = false; s.seeked();
+  assert.deepEqual(went, [10, 30], 'nothing waiting: nothing to do');
+  seeking = true; s.to(40); s.clear(); seeking = false; s.seeked();
+  assert.deepEqual(went, [10, 30], 'a click or key clears what was waiting');
+  seeking = true; s.to(50); s.done();
+  assert.deepEqual(went, [10, 30, 50], 'letting go goes to the last place without waiting');
 });

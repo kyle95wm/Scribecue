@@ -22,7 +22,7 @@ import { takesInfo, clearTakes, unpackSession, rememberSession, browserFolder, c
 import { isSessionPackage, fromSession, SESSION_FILE } from './session.js';
 import { picker, refused } from './pickers.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
-import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom, stopAt, returnsToStart } from './nav.js';
+import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom, stopAt, returnsToStart, scrubber } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
@@ -231,13 +231,16 @@ function duration() {
   const d = S.hasVideo && Number.isFinite(video.duration) ? video.duration : 0;
   return d > 0 ? Math.max(d, S.maxEnd) : Math.max(60, S.maxEnd + 30, commentEnd);
 }
-const now = () => (S.hasVideo ? video.currentTime : S.vt);
+// While a drag waits for a slow seek, the playhead shows where it's going.
+const scrub = scrubber(() => video.seeking, (t) => setTime(t));
+const now = () => (S.hasVideo ? scrub.target ?? video.currentTime : S.vt);
 const qcPlayer = createQcPlayer({ now, duck: (on) => duckAudio(on), error: (message) => toast(message) });
 const isPlaying = () => (S.hasVideo ? !video.paused && !video.ended : S.vplaying);
 // For return to start: where playback began, moved along by any jump while playing.
 let playStart = null;
 
 function setTime(t) {
+  scrub.clear();
   stopPreviousReading();
   qcPlayer.stop();
   t = clamp(t, 0, duration());
@@ -249,6 +252,13 @@ function setTime(t) {
 function seek(t, reveal = true) {
   setTime(t);
   if (reveal) ensureVisible(now());
+}
+// Seeks while dragging the playhead: see scrubber in nav.js.
+function scrubTo(t, reveal = true) {
+  if (!S.hasVideo) return seek(t, reveal);
+  scrub.to(clamp(t, 0, duration()));
+  if (reveal) ensureVisible(now());
+  tlDirty = true;
 }
 function seekBy(d) {
   S.playUntil = null;
@@ -268,12 +278,19 @@ function play() {
 // say it's loading rather than look as if play did nothing. Only after a moment, so a
 // quick start doesn't flicker.
 let waitTimer = 0;
-function videoWaiting(on) {
+// Says so under the video when it's slow to load, or to show the place you jumped to.
+function videoWaiting(on, seeking = false) {
   clearTimeout(waitTimer);
-  if (on) waitTimer = setTimeout(() => { $('vidWait').hidden = video.paused; }, 300);
+  if (on) waitTimer = setTimeout(() => {
+    $('vidWait').textContent = seeking ? 'Seeking…' : 'Loading…';
+    $('vidWait').hidden = seeking ? !video.seeking : video.paused;
+  }, 300);
   else $('vidWait').hidden = true;
 }
 video.addEventListener('waiting', () => videoWaiting(true));
+video.addEventListener('seeking', () => videoWaiting(true, true));
+video.addEventListener('seeked', () => { videoWaiting(false); scrub.seeked(); });
+video.addEventListener('emptied', () => scrub.clear());
 for (const ev of ['playing', 'pause', 'emptied']) video.addEventListener(ev, () => videoWaiting(false));
 // Record mode plays the video itself, so where playback began is taken from the video.
 video.addEventListener('play', () => { playStart = video.currentTime; });
@@ -1722,9 +1739,10 @@ scrubEl.addEventListener('pointerdown', (e) => {
 });
 scrubEl.addEventListener('pointermove', (e) => {
   showScrubTime(e);
-  if (scrubEl.hasPointerCapture(e.pointerId)) seek(scrubAt(e));
+  if (scrubEl.hasPointerCapture(e.pointerId)) scrubTo(scrubAt(e));
 });
 const scrubDone = (e) => {
+  scrub.done();
   scrubEl.classList.remove('on');
   if (e.type !== 'pointerup' || !scrubEl.matches(':hover')) scrubTime.hidden = true;
 };
@@ -1839,8 +1857,8 @@ ruler.addEventListener('pointerdown', (e) => {
   S.playUntil = null;
   seek(xToT(e.clientX), false);
 });
-ruler.addEventListener('pointermove', (e) => { if (scrubbing) seek(xToT(e.clientX), false); });
-ruler.addEventListener('pointerup', () => { scrubbing = false; });
+ruler.addEventListener('pointermove', (e) => { if (scrubbing) scrubTo(xToT(e.clientX), false); });
+ruler.addEventListener('pointerup', () => { scrubbing = false; scrub.done(); });
 
 let ovDrag = false;
 const ovJump = (e) => {

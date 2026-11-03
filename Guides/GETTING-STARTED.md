@@ -208,7 +208,7 @@ more: see [what you need](INSTALL.md#what-you-need).
 
 ## On a slower computer
 
-If the video is slow to start, or stutters:
+If the video is slow to start or to jump, or stutters:
 
 - **Use a smaller copy of the video to write with,** such as 720p instead of 1080p or 4K.
   The timings are the same, so the script works with the full-size video too.
@@ -217,6 +217,7 @@ If the video is slow to start, or stutters:
 - **Prefer a file with only the description mix,** if you have one. With several audio
   tracks, Scribecue plays the chosen track alongside the video, which is more work.
 - **Press play once.** **Loading…** next to the clock means it's getting ready.
+  **Seeking…** means it's finding the place you jumped to.
 
 ## Supported files
 
