@@ -102,14 +102,19 @@ Each guide has a list for its own part:
 
 ## Reporting a problem
 
-Found a problem that isn't here? Report it on
-[GitHub](https://github.com/kyle95wm/Scribecue/issues), with the diagnostics:
+Found a problem that isn't here? Report it with the diagnostics:
 
 1. Open **Settings**, then **General**, and click **Diagnostics…**.
-2. Click **Copy**, or **Save as file**, and add it to your report.
+2. Click **Copy**.
+3. Open the [bug report form](https://github.com/kyle95wm/Scribecue/issues/new?template=bug_report.yml)
+   and paste it into **Diagnostics**.
 
 They show your browser, the video's format, how playback is going and recent errors.
 Nothing is sent by Scribecue. File names are left out unless you click **Include file names**.
+Issues are public, so read the diagnostics before you post them.
 
 For a problem that happens while you work, such as a slow jump, open the diagnostics
 straight after it happens, before reloading the page.
+
+Using Claude Code or Codex in a copy of Scribecue? Paste the diagnostics and ask it to help
+you report the problem. It checks for known causes and drafts the report for you to approve.

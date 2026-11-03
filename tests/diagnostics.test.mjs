@@ -89,4 +89,10 @@ test('the diagnostics skill explains every row of the report, for Claude and Cod
   assert.ok(rows.length >= 15);
   for (const label of new Set(rows)) assert.ok(text.includes(`| **${label}** |`), `${label} is missing from the skill`);
   for (const section of ['App', 'Computer', 'Video', 'Performance']) assert.ok(text.includes(`### ${section}\n`), section);
+  const form = readFileSync('.github/ISSUE_TEMPLATE/bug_report.yml', 'utf8');
+  assert.match(form, /id: diagnostics\n\s+attributes:\n\s+label: Diagnostics\n[\s\S]*?render: text/);
+  for (const heading of ['Diagnostics', 'What happened', 'What you expected', 'Steps to make it happen', 'Analysis']) {
+    assert.ok(form.includes(`label: ${heading}\n`), `${heading} is missing from the bug form`);
+    assert.ok(text.includes(`### ${heading}\n`), `${heading} is missing from the skill's draft`);
+  }
 });

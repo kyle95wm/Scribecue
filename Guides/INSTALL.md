@@ -379,7 +379,7 @@ Then open <http://localhost:6080/vnc.html?autoconnect=1&resize=scale>. Your fold
 `docker stop scribecue-slow-desktop`.
 
 To read a report from **Diagnostics…**, paste it into Claude Code or Codex in this folder.
-The `scribecue-diagnostics` skill explains each row and lists likely causes.
+The `scribecue-diagnostics` skill explains each row, lists likely causes and can draft an issue.
 
 To release a new version:
 
