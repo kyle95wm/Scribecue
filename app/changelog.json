@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.77.2",
+  "date": "2026-11-03",
+  "notes": "## Fixed\n\n- If Chrome or Edge can't show Scribecue's Open window, the browser's own file window opens instead, so you can still open files."
+ },
+ {
   "version": "0.77.1",
   "date": "2026-11-03",
   "notes": "## Fixed\n\n- **Open** works again in Chrome, Edge and Chromium. Since 0.77.0 it showed an error instead of the file picker.\n- **Export → Session package** works again in those browsers.\n- Session packages now end in .scribesession. Packages saved by 0.77.0 still open: drag one onto Scribecue, or choose All files in the Open window."
