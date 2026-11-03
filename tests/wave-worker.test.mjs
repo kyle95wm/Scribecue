@@ -164,3 +164,16 @@ test('a clip of compressed audio closes every decoder it opens', async () => {
     delete globalThis.EncodedAudioChunk;
   }
 });
+
+test('a build waits while held, and carries on when let go', async () => {
+  self.onmessage({ data: { cmd: 'pace', pace: 'hold' } });
+  let finished = false;
+  const built = run({ cmd: 'build', file: wav(), rate: 200 }).then((r) => { finished = true; return r; });
+  await new Promise((r) => setTimeout(r, 150));
+  assert.equal(finished, false, 'nothing is read while the video seeks');
+  self.onmessage({ data: { cmd: 'pace', pace: 'slow' } });
+  const { end, max } = await built;
+  assert.equal(end.type, 'done', 'it still finishes while the video plays');
+  assert.ok(max > 0.4);
+  self.onmessage({ data: { cmd: 'pace', pace: 'go' } });
+});

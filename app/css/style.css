@@ -585,6 +585,7 @@ body.mode-record { grid-template-rows: 44px minmax(0, 1fr) 290px 28px; }
 .overview { position: relative; height: 10px; flex: none; background: var(--bg); border-top: 1px solid var(--line); cursor: pointer; }
 #ovWin { position: absolute; top: 1px; bottom: 1px; min-width: 4px; background: var(--faint); border-radius: 2px; }
 .playhead {
+  will-change: transform; /* its own layer, so moving it doesn't repaint the timeline */
   position: absolute;
   top: 0;
   bottom: 10px;

@@ -180,6 +180,8 @@ as audio description is picked for you.
   use the usual milliseconds.
 - **Waveforms are kept** in your browser, so reopening a video, even after a reload, shows
   its waveform straight away. The 20 used most recently are kept.
+- **A new video's waveform builds as you work.** It slows down while the video plays, and
+  waits while you jump, so the video comes first.
 - **Copy a timecode:** click the clock under the video.
 - **Time remaining:** click the total length, next to the clock.
 - **Find and replace:** `Alt+Shift+F`, or **Replace…** next to the search box, changes text

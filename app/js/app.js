@@ -1690,9 +1690,13 @@ function drawOverview() {
 // keyboard focus, so the editor's keys keep working; ←/→ and the rest still move.
 const scrubEl = $('scrub'), scrubMarks = $('scrubMarks'), scrubTime = $('scrubTime');
 let scrubW = 0, scrubSec = -1;
+// Moved only when it moves a pixel: in a long film that's every few seconds, and each
+// move costs a layout and a repaint that a slower computer needs for the video.
+let scrubPx = -1;
 function placeScrub(t) {
-  const d = duration();
-  scrubEl.style.setProperty('--at-f', d > 0 ? clamp(t / d, 0, 1) : 0);
+  const d = duration(), f = d > 0 ? clamp(t / d, 0, 1) : 0;
+  const px = Math.round(f * boxW(scrubMarks) * (devicePixelRatio || 1));
+  if (px !== scrubPx) { scrubPx = px; scrubEl.style.setProperty('--at-f', f); }
   const sec = Math.floor(t);
   if (sec !== scrubSec) {
     scrubSec = sec;
@@ -4588,6 +4592,16 @@ altAudio.addEventListener('error', () => {
 // whole file in memory, which only works for smaller files.
 let waveWorker = null;
 const LEGACY_LIMIT = 2e9;
+// Building it steps aside for the video: it waits while the video seeks, and goes slowly
+// while it plays, so a slower computer can keep up (pace in wave-worker.js).
+let wavePace = null;
+function paceWave() {
+  const pace = video.seeking ? 'hold' : isPlaying() ? 'slow' : 'go';
+  if (!waveWorker || pace === wavePace) return;
+  wavePace = pace;
+  waveWorker.postMessage({ cmd: 'pace', pace });
+}
+for (const ev of ['play', 'playing', 'pause', 'ended', 'seeking', 'seeked']) video.addEventListener(ev, paceWave);
 
 // The close-up waveform, for zooming in past PEAK_RATE: { file, track, from, data }, at
 // CLOSE_RATE a second from `from`. Only the stretch on screen and a screen either side is
@@ -4709,6 +4723,8 @@ async function buildWaveform(file, track, mux) {
   };
   worker.onerror = (e) => { e.preventDefault(); stop('the waveform worker crashed'); };
   worker.postMessage({ cmd: 'build', file, rate: PEAK_RATE, track, mux });
+  wavePace = null;
+  paceWave();
 }
 
 async function legacyWaveform(file, reason) {

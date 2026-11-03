@@ -15,6 +15,7 @@
 //      { cmd: 'clip', file, track, from, to }    -> { type: 'clip', audio } (Float32Array, 16 kHz mono)
 //      { cmd: 'detail', file, track, from, to, rate } -> { type: 'detail', from, rate, data } (peaks from `from`)
 //      any can end with { type: 'unsupported' | 'error', message }
+//      { cmd: 'pace', pace }                     -> nothing; see pace below
 
 const WINDOW = 8 << 20; // bytes read from disk at a time
 const MAX_CHANNELS = 8;
@@ -25,7 +26,27 @@ class Enough extends Error {} // a clip has all the audio it needs
 let videoFps = 0; // the video's frame rate, found while probing
 let videoCodec = ''; // and its codec, as the file names it (avc1, V_VP9…)
 
+// How fast a build may read, so it doesn't take the CPU from the video on a slower
+// computer: 'go', 'slow' while the video plays (a rest after each stretch of work, so it
+// still finishes), or 'hold' while it seeks. Every read waits at gate().
+const SLOW_WORK = 100, SLOW_REST = 400; // ms
+let pace = 'go', release = null, worked = 0;
+const now = () => globalThis.performance?.now() ?? Date.now();
+async function gate() {
+  while (pace === 'hold') await new Promise((r) => { release = r; });
+  if (pace !== 'slow') { worked = now(); return; }
+  if (now() - worked < SLOW_WORK) return;
+  await new Promise((r) => setTimeout(r, SLOW_REST));
+  worked = now();
+}
+
 self.onmessage = async ({ data: job }) => {
+  if (job.cmd === 'pace') {
+    if (pace !== 'slow' && job.pace === 'slow') worked = now();
+    pace = job.pace;
+    if (pace !== 'hold') { release?.(); release = null; }
+    return;
+  }
   const detail = job.cmd === 'detail', clip = job.cmd === 'clip' || detail;
   const peaks = detail ? new Detail(job.from, job.to, job.rate) : job.cmd === 'clip' ? new Clip(job.from, job.to) : new Peaks(job.rate || 200);
   const ticker = job.cmd === 'build' ? setInterval(() => peaks.post(), 250) : 0;
@@ -347,6 +368,7 @@ class Reader {
   has(pos, n) { return pos >= this.base && pos + n <= this.base + this.buf.length; }
   // `ahead` reads extra bytes past `n` so the next small reads hit memory
   async load(pos, n, ahead = WINDOW) {
+    await gate();
     const end = Math.min(this.file.size, pos + Math.max(n, ahead));
     this.buf = new Uint8Array(await this.file.slice(pos, end).arrayBuffer());
     this.base = pos;
