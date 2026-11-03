@@ -381,6 +381,26 @@ Then open <http://localhost:6080/vnc.html?autoconnect=1&resize=scale>. Your fold
 To read a report from **Diagnostics…**, paste it into Claude Code or Codex in this folder.
 The `scribecue-diagnostics` skill explains each row, lists likely causes and can draft an issue.
 
+To use the skill in any folder, copy it to your own skills folder.
+
+For Claude Code:
+
+```bash
+mkdir -p ~/.claude/skills/scribecue-diagnostics
+curl -fsSL -o ~/.claude/skills/scribecue-diagnostics/SKILL.md https://raw.githubusercontent.com/kyle95wm/Scribecue/main/.claude/skills/scribecue-diagnostics/SKILL.md
+```
+
+For Codex:
+
+```bash
+mkdir -p ~/.agents/skills/scribecue-diagnostics
+curl -fsSL -o ~/.agents/skills/scribecue-diagnostics/SKILL.md https://raw.githubusercontent.com/kyle95wm/Scribecue/main/.claude/skills/scribecue-diagnostics/SKILL.md
+```
+
+Start a new session afterwards. A copy can read reports and draft issues. It can't check the
+changelog, trace errors or reproduce problems, because those need this folder. Run the
+commands again to update it.
+
 To release a new version:
 
 1. Write the release's notes at the top of [app/changelog.json](../app/changelog.json). The
