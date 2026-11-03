@@ -359,6 +359,15 @@ path if it isn't found. Last, it builds the Docker image and checks that it serv
 with its security headers. Use `scripts/check.sh --no-docker` to skip the Docker part. The
 same checks run on GitHub for every push and pull request.
 
+To try a change on a slower computer, run Linux Chromium with less CPU:
+
+```bash
+scripts/slow-chromium.sh 0.5
+```
+
+The number is how many CPU cores it may use. It measures playback and jumps in a two-hour
+film, or in a video you name after the number. It needs Docker.
+
 To release a new version:
 
 1. Write the release's notes at the top of [app/changelog.json](../app/changelog.json). The
