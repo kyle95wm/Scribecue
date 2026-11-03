@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.77.3",
+  "date": "2026-11-03",
+  "notes": "## Jumping in long videos\n\n- When a jump takes a moment, **Seeking…** shows next to the clock until the picture arrives.\n- Dragging along the timeline or the bar under the video now shows the picture as you go, instead of only when you let go."
+ },
+ {
   "version": "0.77.2",
   "date": "2026-11-03",
   "notes": "## Fixed\n\n- If Chrome or Edge can't show Scribecue's Open window, the browser's own file window opens instead, so you can still open files."
