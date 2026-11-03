@@ -5,12 +5,29 @@
 # try things by hand. Needs Docker.
 # Usage: scripts/slow-chromium.sh [cpus] [film]
 #        scripts/slow-chromium.sh desktop [cpus] [folder]
+#        scripts/slow-chromium.sh reset [all]
 #   cpus:   CPU cores the container may use, such as 1 or 0.5 (default 1)
 #   film:   a video to measure with (default: a generated 2-hour 1080p film, made once)
 #   folder: a folder of yours to open and save files in, at /files (default: the test film's)
+#   reset:  stops Chromium and clears what it keeps, such as settings and waveforms. Your
+#           folder isn't touched. "all" also removes the image and the test film.
 set -eu
 cd "$(dirname "$0")/.."
 cache=${TMPDIR:-/tmp}/scribecue-slow-chromium
+name=scribecue-slow-desktop
+
+if [ "${1:-}" = reset ]; then
+  docker rm -f "$name" >/dev/null 2>&1 || true
+  docker volume rm -f scribecue-slow-profile >/dev/null
+  echo 'Chromium is stopped and cleared.'
+  if [ "${2:-}" = all ]; then
+    docker rmi scribecue-slow-chromium >/dev/null 2>&1 || true
+    rm -rf "$cache"
+    echo 'The image and the test film are removed too.'
+  fi
+  exit 0
+fi
+
 mkdir -p "$cache"
 
 echo '== Building the Chromium image'
@@ -19,7 +36,6 @@ docker build -q -t scribecue-slow-chromium scripts/slow-chromium >/dev/null
 if [ "${1:-}" = desktop ]; then
   cpus=${2:-1}
   folder=$(cd "${3:-$cache}" && pwd)
-  name=scribecue-slow-desktop
   docker rm -f "$name" >/dev/null 2>&1 || true
   # Only this computer can reach it. Settings and waveforms are kept between runs.
   docker run -d --rm --name "$name" --cpus="$cpus" --shm-size=1g -p 127.0.0.1:6080:6080 \

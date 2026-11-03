@@ -378,6 +378,15 @@ Then open <http://localhost:6080/vnc.html?autoconnect=1&resize=scale>. Your fold
 **files** in Chromium's file window, and it can save there. There's no sound. Stop it with
 `docker stop scribecue-slow-desktop`.
 
+To start again with a clean Chromium:
+
+```bash
+scripts/slow-chromium.sh reset
+```
+
+This clears everything Chromium keeps, including unsaved blocks and takes. Files in your
+folder stay. Add `all` to remove the image and the test film too.
+
 To read a report from **Diagnostics…**, paste it into Claude Code or Codex in this folder.
 The `scribecue-diagnostics` skill explains each row, lists likely causes and can draft an issue.
 
