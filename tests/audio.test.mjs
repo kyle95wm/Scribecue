@@ -1,7 +1,7 @@
 // Laying readings out as the description track, as track-worker.js does.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { layTrack, TRACK_PEAK_DB, TRACK_MAX_DB } from '../app/js/audio.js';
+import { layTrack, layTrackBlob, trackParts, mixTrack, pcmToWav, writeWav, TRACK_PEAK_DB, TRACK_MAX_DB } from '../app/js/audio.js';
 
 const tone = (secs, rate) => Int16Array.from({ length: Math.round(secs * rate) }, (_, i) => Math.round(20000 * Math.sin(i / 3)));
 
@@ -39,4 +39,26 @@ test('no readings: a silent track of the length asked', () => {
   const { samples, rate } = layTrack([], 2);
   assert.equal(rate, 22050);
   assert.equal(samples.length, 44100);
+});
+
+test('a track made in pieces is the same as one made whole', async () => {
+  // Readings across the joins between pieces, overlapping, and starting before the track.
+  const r = (start, n, v, gain) => ({ start, samples: new Int16Array(n).map((_, i) => Math.round(v * Math.sin(i / 3))), gain });
+  const items = [r(-0.2, 40, 20000), r(0.9, 60, 30000), r(1.1, 30, 8000, 2), r(4.8, 100, 32000)];
+  const whole = [...trackParts(items, 20, 6, TRACK_PEAK_DB, TRACK_MAX_DB, 100)];
+  assert.equal(whole.length, 1);
+  const pieces = [...trackParts(items, 20, 6, TRACK_PEAK_DB, TRACK_MAX_DB, 1)];
+  assert.equal(pieces.length, 6);
+  assert.deepEqual(Array.from(pieces.flatMap((p) => [...p])), Array.from(whole[0]));
+  assert.deepEqual(mixTrack(items, 20, 6), whole[0]);
+});
+
+test('the track as a Blob matches, and makes the same WAV', async () => {
+  const readings = [{ start: 0.5, samples: new Int16Array(4000).fill(9000), rate: 8000, secs: 0.5 }];
+  const { samples, rate } = layTrack(readings, 2);
+  const { pcm, rate: same, overlaps } = layTrackBlob(readings, 2);
+  assert.equal(same, rate);
+  assert.equal(overlaps, 0);
+  assert.deepEqual(new Int16Array(await pcm.arrayBuffer()), samples);
+  assert.deepEqual(await pcmToWav(pcm, rate).arrayBuffer(), await writeWav(samples, rate).arrayBuffer());
 });

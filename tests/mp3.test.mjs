@@ -17,7 +17,7 @@ function encode(samples, rate, kbps) {
   return new Promise((resolve) => {
     const msgs = [];
     sink = (m) => { msgs.push(m); if (m.type !== 'progress') resolve({ end: m, msgs }); };
-    self.onmessage({ data: { samples, rate, kbps } });
+    self.onmessage({ data: { pcm: new Blob([samples.buffer]), rate, kbps } });
   });
 }
 const tone = (rate, secs) => Int16Array.from({ length: rate * secs }, (_, i) => Math.round(8000 * Math.sin((2 * Math.PI * 440 * i) / rate)));
@@ -56,9 +56,9 @@ test('the formats match the choices in the settings, and anything else is a WAV'
   assert.equal(trackFormat(undefined), TRACK_FORMATS.wav);
 });
 
-test('the encoder’s delay is taken off the start, so readings stay on time', () => {
+test('the encoder’s delay is taken off the start, so readings stay on time', async () => {
   const s = Int16Array.from({ length: 5000 }, (_, i) => i);
-  assert.equal(forMp3(s)[0], MP3_DELAY);
-  assert.equal(forMp3(s).length, 5000 - MP3_DELAY);
-  assert.equal(forMp3(new Int16Array(10)).length, 0);
+  assert.equal(new Int16Array(await forMp3(new Blob([s.buffer])).arrayBuffer())[0], MP3_DELAY);
+  assert.equal(forMp3(new Blob([s.buffer])).size, (5000 - MP3_DELAY) * 2);
+  assert.equal(forMp3(new Blob([new Int16Array(10).buffer])).size, 0);
 });

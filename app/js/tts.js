@@ -13,9 +13,9 @@
 
 import { HOSTED } from './config.js';
 import { TRACK_FORMATS, MIX_FORMATS } from './mp3.js';
-import { layTrack } from './audio.js';
+import { layTrackBlob } from './audio.js';
 
-export { writeWav, resample, mixTrack, TRACK_PEAK_DB, TRACK_MAX_DB } from './audio.js';
+export { writeWav, pcmToWav, resample, mixTrack, TRACK_PEAK_DB, TRACK_MAX_DB } from './audio.js';
 
 export const SPEEDS = [
   [0.7, 'very slow (−30%)'],
@@ -475,6 +475,21 @@ export function setMix(mix, keep = true) {
 let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1, readingChanged: () => {}, blockVoices: () => [] };
 let voices = [];
 const measured = new Map(); // voice|speed|text -> seconds of video time
+const measuredBy = new Map(); // voice|text -> Map of speed -> seconds: every speed read, without searching them all
+// A reading's key in its parts. The speed is the first number between bars, as words can
+// have bars in them.
+export function splitReadingKey(key) {
+  const m = /^(.*?)\|(\d*\.?\d+(?:e-?\d+)?)\|(.*)$/s.exec(key);
+  return m && { voice: m[1], speed: +m[2], words: m[3] };
+}
+function setMeasured(key, secs) {
+  measured.set(key, secs);
+  const k = splitReadingKey(key);
+  if (!k) return;
+  const at = `${k.voice}|${k.words}`;
+  if (!measuredBy.has(at)) measuredBy.set(at, new Map());
+  measuredBy.get(at).set(k.speed, secs);
+}
 
 function allowed() {
   const browser = pickVoices(tts.available ? speechSynthesis.getVoices() : [], { online: tts.online, lang: navigator.language || 'en' });
@@ -567,12 +582,9 @@ const measureKey = (text, speed, uri) => `${voiceKey(uri)}|${rate(speed)}|${spok
 // Every reading of this text with the voice so far, as [{ speed, secs }], with speeds
 // before the base speed, unless asMade.
 export function readingsOf(text, asMade = false, uri) {
-  const head = `${voiceKey(uri)}|`, tail = `|${spoken(text)}`, out = [];
-  for (const [k, secs] of measured) {
-    if (k.startsWith(head) && k.endsWith(tail)) {
-      const speed = +k.slice(head.length, k.length - tail.length);
-      if (speed > 0) out.push({ speed: asMade ? speed : speed / tts.base, secs });
-    }
+  const out = [];
+  for (const [speed, secs] of measuredBy.get(`${voiceKey(uri)}|${spoken(text)}`) || []) {
+    if (speed > 0) out.push({ speed: asMade ? speed : speed / tts.base, secs });
   }
   return out;
 }
@@ -888,7 +900,7 @@ async function saveReading(key, buf, secs) {
 // The lengths of every saved reading, so they're exact as Scribecue opens.
 async function loadSavedLengths() {
   const entries = await saved('readonly', ({ meta }, done) => all(meta).then(done));
-  for (const e of entries || []) if (!measured.has(e.key)) measured.set(e.key, e.secs);
+  for (const e of entries || []) if (!measured.has(e.key)) setMeasured(e.key, e.secs);
   if (entries?.length) hooks.changed();
   // Readings saved before lengths stopped at the voice: measured again, once, one at a time.
   for (const e of entries || []) {
@@ -896,7 +908,7 @@ async function loadSavedLengths() {
     const buf = await saved('readonly', ({ audio }, done) => { const a = audio.get(e.key); a.onsuccess = () => done(a.result); });
     let secs;
     try { secs = readWav(buf).secs; } catch { continue; }
-    measured.set(e.key, secs);
+    setMeasured(e.key, secs);
     await saved('readwrite', ({ meta }) => meta.put({ ...e, secs, voiceEnd: true }, e.key));
     hooks.changed();
   }
@@ -976,7 +988,7 @@ function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background')
     });
     p = keptOr(key, make).then((buf) => {
       const wav = readWav(buf);
-      measured.set(key, wav.secs);
+      setMeasured(key, wav.secs);
       learnShare(voice.voiceURI, readingsOf(text, true, voice.voiceURI));
       if (words.length > 8) { tts.cps[voice.voiceURI] = words.length / (wav.secs * speed); save(); }
       return { ...wav, buf };
@@ -1020,7 +1032,7 @@ export async function renderTrack(blocks, secs, progress = () => {}) {
   const readings = made.map(({ start, w }, k) => ({ start, samples: w.samples, rate: w.rate, secs: w.secs, gain: blocks[k].gain ?? 1 }));
   return new Promise((resolve, reject) => {
     let w;
-    try { w = new Worker(new URL('./track-worker.js', import.meta.url), { type: 'module' }); } catch { return resolve(layTrack(readings, secs)); }
+    try { w = new Worker(new URL('./track-worker.js', import.meta.url), { type: 'module' }); } catch { return resolve(layTrackBlob(readings, secs)); }
     w.onmessage = ({ data }) => { w.terminate(); resolve(data); };
     w.onerror = (e) => { e.preventDefault(); w.terminate(); reject(new Error(e.message || 'the track couldn’t be laid out')); };
     w.postMessage({ readings, secs });
@@ -1146,7 +1158,7 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
     if (!ok || !t0) { done(null); return; }
     // Wall time × playback rate = time on the video's clock.
     const secs = ((performance.now() - t0) / 1000) * playRate;
-    measured.set(key, secs);
+    setMeasured(key, secs);
     if (words.length > 8) {
       tts.cps[voice.voiceURI] = words.length / (secs * rate(speed));
       save();

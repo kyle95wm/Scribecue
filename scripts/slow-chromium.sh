@@ -1,14 +1,20 @@
 #!/bin/sh
 # Tries Scribecue in Linux Chromium on a slower computer: Chromium runs in a container
 # limited to a share of one CPU core, decodes video in software, and is headless and muted.
-# It measures playback and jumps in a long film, or shows Chromium in your own browser to
-# try things by hand. Needs Docker.
+# It measures playback and jumps in a long film, goes through the whole app, or shows
+# Chromium in your own browser to try things by hand. Needs Docker.
 # Usage: scripts/slow-chromium.sh [cpus] [film]
+#        scripts/slow-chromium.sh tour [cpus] [blocks] [slowdown] [sections]
 #        scripts/slow-chromium.sh desktop [cpus] [folder]
 #        scripts/slow-chromium.sh reset [all]
 #        scripts/slow-chromium.sh --help
 #   cpus:   CPU cores the container may use, such as 1 or 0.5 (default 1)
 #   film:   a video to measure with (default: a generated 2-hour 1080p film, made once)
+#   tour:   every mode and feature, with a big script: how long each step takes, freezes,
+#           slow responses and memory. About 15 minutes.
+#   blocks: how many blocks the script has (default 1500)
+#   slowdown: how much more to slow the page, as in DevTools (default 6)
+#   sections: some of waveform,write,modes,panels,tts,exports,record (default all)
 #   folder: a folder of yours to open and save files in, at /files (default: the test film's)
 #   reset:  stops Chromium and clears what it keeps, such as settings and waveforms. Your
 #           folder isn't touched. "all" also removes the image and the test film.
@@ -39,6 +45,11 @@ case "${1:-}" in
   desktop)
     check_cpus "${2:-1}"
     [ -z "${3:-}" ] || [ -d "$3" ] || stop "No such folder: $3"
+    ;;
+  tour)
+    check_cpus "${2:-1}"
+    case "${3:-1500}" in *[!0-9]* | '' ) stop "Blocks should be a whole number, not: $3" ;; esac
+    case "${4:-6}" in *[!0-9]* | '' | 0 ) stop "Slowdown should be a whole number of 1 or more, not: $4" ;; esac
     ;;
   reset)
     [ -z "${2:-}" ] || [ "$2" = all ] || stop "Reset only takes all, not: $2"
@@ -80,11 +91,16 @@ if [ "${1:-}" = desktop ]; then
   echo "There's no sound. Stop it with: docker stop $name"
   exit 0
 fi
-cpus=${1:-1}
+# The tour always uses the generated film, which is two hours long.
+if [ "${1:-}" = tour ]; then
+  cpus=${2:-1} film_arg=
+else
+  cpus=${1:-1} film_arg=${2:-}
+fi
 
-if [ -n "${2:-}" ]; then
-  dir=$(cd "$(dirname "$2")" && pwd)
-  film="/film/$(basename "$2")"
+if [ -n "$film_arg" ]; then
+  dir=$(cd "$(dirname "$film_arg")" && pwd)
+  film="/film/$(basename "$film_arg")"
 else
   dir=$cache
   film=/film/film.mp4
@@ -101,6 +117,13 @@ else
       ffmpeg -v error -y -f concat -i list.txt -c copy -movflags +faststart film.mp4 &&
       rm clip.mp4 list.txt'
   fi
+fi
+
+if [ "${1:-}" = tour ]; then
+  echo "== Going through the app with $cpus CPU"
+  docker run --rm --cpus="$cpus" --shm-size=1g -e PROFILE="${PROFILE:-}" -v "$(pwd):/repo:ro" -v "$dir:/film:ro" -w /repo \
+    scribecue-slow-chromium node scripts/slow-tour.mjs "$film" "${3:-1500}" "${4:-6}" "${5:-}"
+  exit 0
 fi
 
 echo "== Measuring with $cpus CPU"

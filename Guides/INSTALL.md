@@ -369,6 +369,15 @@ The number is how many CPU cores it may use. It measures playback, jumps and how
 Diagnostics window opens, in a two-hour film or in a video you name after the number. It
 needs Docker. Add `--help` to see every option.
 
+To go through the whole app, with a two-hour film and 1,500 blocks:
+
+```bash
+scripts/slow-chromium.sh tour
+```
+
+It shows how long each step takes, any freezes, and how much memory is used. It takes about
+15 minutes. Don't change the app while it runs, as it reads the files as it goes.
+
 To try it by hand, with your own projects and videos:
 
 ```bash
