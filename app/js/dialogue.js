@@ -4,6 +4,13 @@
 
 // The shortest pause worth stopping at, in seconds. Shorter ones aren't marked either.
 export const MIN_GAP = 1;
+// The shortest free stretch that D stops at: enough for a few words.
+export const MIN_ROOM = 1.5;
+// Less speech under a block than this isn't worth a warning: subtitles often stay up a
+// little after the words end.
+export const MIN_CLASH = 0.3;
+// How far a block made from a gap stays from what's either side of it, in seconds.
+export const GAP_MARGIN = 0.2;
 // A line with no length in the file lasts this long, or until the next line.
 const DEFAULT_LINE = 3;
 
@@ -69,6 +76,42 @@ export function gapFrom(gaps, t, dir) {
   const near = 0.02; // a seek lands a frame or so off
   if (dir > 0) return gaps.find((g) => g.start > t + near) || null;
   return gaps.findLast((g) => g.start < t - near) || null;
+}
+
+// The parts of the gaps that no block covers, of at least min. blocks: sorted by start.
+export function freeGaps(gaps, blocks, min = MIN_ROOM) {
+  const free = [];
+  let k = 0;
+  for (const g of gaps) {
+    while (k < blocks.length && blocks[k].end <= g.start) k++;
+    let at = g.start;
+    for (let i = k; i < blocks.length && blocks[i].start < g.end; i++) {
+      if (blocks[i].start - at >= min) free.push({ start: at, end: blocks[i].start });
+      at = Math.max(at, blocks[i].end);
+    }
+    if (g.end - at >= min) free.push({ start: at, end: g.end });
+  }
+  return free;
+}
+
+// Where a block made in a free gap goes: from t, or just after the gap's start, to just
+// before its end. Check it's long enough: a very short gap can leave nothing.
+export function placeInGap(gap, t = gap.start, margin = GAP_MARGIN) {
+  return { start: Math.max(gap.start + margin, t), end: gap.end - margin };
+}
+
+// How many seconds of speech fall between two times. Spans are sorted and don't overlap.
+export function speechIn(spans, start, end) {
+  let lo = 0, hi = spans.length;
+  while (lo < hi) {
+    const m = (lo + hi) >> 1;
+    if (spans[m][1] <= start) lo = m + 1; else hi = m;
+  }
+  let secs = 0;
+  for (let i = lo; i < spans.length && spans[i][0] < end; i++) {
+    secs += Math.min(end, spans[i][1]) - Math.max(start, spans[i][0]);
+  }
+  return secs;
 }
 
 // Which subtitle track to show first: words rather than pictures, and all the dialogue

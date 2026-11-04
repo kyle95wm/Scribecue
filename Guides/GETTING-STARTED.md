@@ -174,11 +174,19 @@ speak and how long each gap is, so you can see where description fits.
 
 | To do this | Do this |
 | --- | --- |
-| Jump to the next or previous gap | Press `D` or `Shift+D` |
+| Jump to the next or previous free gap | Press `D` or `Shift+D` |
+| Fill the gap with a new block | Press `Shift+N`, or double-click the gap |
+| Jump to a block over dialogue | Press `U` or `Shift+U` |
 | Move the playhead | Click the lane |
 | Pick other subtitles, or turn the lane off | Use **Dialogue** under the video |
 | Use a subtitle file (SRT or WebVTT) | Pick **Load a subtitle file…** in **Dialogue** |
 
+- **A free gap has room for a block.** `D` skips gaps that are already filled, and
+  stretches under 1.5 seconds.
+- **`Shift+N` starts at the playhead.** If you've just pressed `D`, that's the start of the gap.
+- **Over dialogue is a warning, not an error.** A block over dialogue has a yellow line
+  under it on the timeline. The list and editor say so too. With text to speech on, this
+  goes by the reading, not the block's length. It shows in Write and QC.
 - **Timing is close, not exact.** Subtitles often stay up a little after the words end.
   Check with the waveform.
 - **An MKV's subtitles can take a while the first time.** They load while the video is

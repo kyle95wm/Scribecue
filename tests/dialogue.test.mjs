@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildDialogue, cleanLine, isSoundOnly, gapsOf, gapFrom, bestTrack, drawDialogue, MIN_GAP } from '../app/js/dialogue.js';
+import { buildDialogue, cleanLine, isSoundOnly, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, bestTrack, drawDialogue, MIN_GAP, MIN_ROOM, GAP_MARGIN } from '../app/js/dialogue.js';
 
 test('takes the styling out of a subtitle', () => {
   assert.equal(cleanLine('{\\an8}<i>Hello</i>\\Nthere'), 'Hello there');
@@ -80,4 +80,42 @@ test('zoomed out, a long film draws stretches of speech without their words', ()
   drawDialogue(g, 1500, 30, 0, 1500 / 7200, many, gapsOf(many.spans, 7200), C);
   assert.deepEqual(calls.words, []);
   assert.ok(calls.bars <= 2001);
+});
+
+test('finds what’s left of the gaps once blocks are in them', () => {
+  const gaps = [{ start: 0, end: 10 }, { start: 20, end: 30 }, { start: 40, end: 45 }];
+  const blocks = [{ start: 1, end: 4 }, { start: 20, end: 30 }, { start: 41, end: 42 }];
+  assert.deepEqual(freeGaps(gaps, blocks, 1.5), [{ start: 4, end: 10 }, { start: 42, end: 45 }]);
+  assert.deepEqual(freeGaps(gaps, []), gaps);
+  assert.deepEqual(freeGaps([{ start: 0, end: 10 }], [{ start: 4, end: 5 }], 3), [{ start: 0, end: 4 }, { start: 5, end: 10 }]);
+});
+
+test('skips a stretch too short to use, on either side of a block', () => {
+  assert.deepEqual(freeGaps([{ start: 0, end: 10 }], [{ start: 1, end: 9 }], MIN_ROOM), []);
+});
+
+test('copes with a long block and a shorter one inside it', () => {
+  const blocks = [{ start: 0, end: 25 }, { start: 2, end: 3 }, { start: 26, end: 27 }];
+  assert.deepEqual(freeGaps([{ start: 1, end: 10 }, { start: 20, end: 40 }], blocks, 1.5), [{ start: 27, end: 40 }]);
+});
+
+test('a free gap can run on past a block that ends where it starts', () => {
+  assert.deepEqual(freeGaps([{ start: 5, end: 10 }], [{ start: 1, end: 5 }]), [{ start: 5, end: 10 }]);
+});
+
+test('places a block just inside a gap, or from the playhead', () => {
+  const gap = { start: 10, end: 20 };
+  assert.deepEqual(placeInGap(gap), { start: 10 + GAP_MARGIN, end: 20 - GAP_MARGIN });
+  assert.deepEqual(placeInGap(gap, 15), { start: 15, end: 20 - GAP_MARGIN });
+  const { start, end } = placeInGap({ start: 10, end: 10.3 });
+  assert.ok(end - start < 0.1, 'a very short gap leaves no room');
+});
+
+test('counts the speech under a block', () => {
+  const spans = [[1, 3], [5, 6], [8, 12]];
+  assert.equal(speechIn(spans, 3, 5), 0);
+  assert.equal(speechIn(spans, 2, 5.5), 1.5);
+  assert.equal(speechIn(spans, 0, 20), 7);
+  assert.equal(speechIn(spans, 9, 10), 1);
+  assert.equal(speechIn([], 0, 5), 0);
 });

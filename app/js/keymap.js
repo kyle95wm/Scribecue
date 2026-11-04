@@ -25,6 +25,8 @@ export const GROUPS = [
     ['blockNext', 'Next block', ['Alt+Shift+ArrowRight']],
     ['gapBack', 'Previous gap in the dialogue', ['Shift+KeyD']],
     ['gapNext', 'Next gap in the dialogue', ['KeyD']],
+    ['overBack', 'Previous block over dialogue', ['Shift+KeyU']],
+    ['overNext', 'Next block over dialogue', ['KeyU']],
     ['videoStart', 'Beginning of the video', ['Home']],
     ['videoEnd', 'End of the video', ['End']],
     ['toStart', 'Playhead to the block’s start', ['KeyG']],
@@ -35,6 +37,7 @@ export const GROUPS = [
   ['Blocks', [
     ['createEdit', 'Create or edit a block at the playhead', ['Enter', 'NumpadEnter']],
     ['newBlock', 'New block at the playhead', ['KeyN']],
+    ['gapBlock', 'New block filling the gap at the playhead', ['Shift+KeyN']],
     ['prevBlock', 'Previous block in the list', ['ArrowUp', 'KeyK']],
     ['nextBlock', 'Next block in the list', ['ArrowDown', 'KeyJ']],
     ['back10Blocks', 'Ten blocks back', ['PageUp']],
