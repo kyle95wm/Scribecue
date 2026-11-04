@@ -1,4 +1,9 @@
 [
+  {
+    "version": "0.81.1",
+    "date": "2026-11-04",
+    "notes": "## Fixed: changing audio tracks\n\n- After changing tracks, the old track's sound no longer plays under the new waveform.\n- The first time you use a track, the video goes silent until **Getting the sound ready** finishes.\n- This wait is much shorter than before on long films.\n- Going back to a track you've already used is instant.\n\n## Fixed: several audio tracks in Firefox\n\n- A second audio track no longer stutters, cuts out or shifts in pitch."
+  },
  {
   "version": "0.81.0",
   "date": "2026-11-04",
