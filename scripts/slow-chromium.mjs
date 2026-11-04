@@ -4,7 +4,7 @@
 // Usage (in the container): node scripts/slow-chromium.mjs <film>
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFile, mkdtemp } from 'node:fs/promises';
+import { readFile, writeFile, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, normalize } from 'node:path';
 
@@ -118,6 +118,35 @@ try {
   if (await js(`document.querySelectorAll('#dialSel option[value^=t]').length`)) {
     await js(`new Promise((r) => { const t = performance.now(), go = () => window.__lane || performance.now() - t > 300e3 ? r(1) : setTimeout(go, 200); go(); })`);
     row('Dialogue lane', await js(`__lane ? (__lane / 1000).toFixed(1) + ' s from opening the film' : 'not read after 5 more minutes'`));
+
+    // A long script over the lane: each block is checked against the dialogue as it's drawn.
+    const stamp = (t) => `${new Date(t * 1000).toISOString().slice(11, 23).replace('.', ',')}`;
+    const blocks = Array.from({ length: 1500 }, (_, i) => `${i + 1}\n${stamp(5 + i * 4.5)} --> ${stamp(8 + i * 4.5)}\nBlock ${i + 1} with a few words to read aloud.\n`);
+    const script = join(profile, 'script.srt');
+    await writeFile(script, blocks.join('\n'));
+    const { result: { nodeId: subs } } = await send('DOM.querySelector', { nodeId: root.nodeId, selector: '#fileSubs' });
+    await send('DOM.setFileInputFiles', { nodeId: subs, files: [script] });
+    await sleep(5000); await longTasks();
+    await seekTo(600); await sleep(500);
+    await js(`(() => { const v = document.getElementById('video'); window.__p0 = performance.now(); window.__q0 = v.getVideoPlaybackQuality(); v.play(); return 1; })()`);
+    await sleep(10e3);
+    const over = await js(`(() => { const v = document.getElementById('video'); v.pause(); const q = v.getVideoPlaybackQuality(), secs = (performance.now() - __p0) / 1000;
+      return { fps: (__frames.filter((f) => f[0] > __p0).length / secs).toFixed(1), dropped: q.droppedVideoFrames - __q0.droppedVideoFrames, total: q.totalVideoFrames - __q0.totalVideoFrames }; })()`);
+    row('Playback with 1,500 blocks', `${over.fps} pictures a second, ${over.dropped} of ${over.total} frames dropped`);
+    row('Long tasks while playing them', await longTasks());
+    for (const [name, code] of [['D, next free gap', 'KeyD'], ['U, next block over dialogue', 'KeyU']]) {
+      const ms = await js(`(async () => { document.activeElement.blur(); let most = 0;
+        for (let i = 0; i < 20; i++) { const t = performance.now(); document.body.dispatchEvent(new KeyboardEvent('keydown', { code: '${code}', key: '${code.at(-1).toLowerCase()}', bubbles: true })); most = Math.max(most, performance.now() - t); await new Promise((r) => setTimeout(r, 50)); }
+        return Math.round(most); })()`);
+      row(`${name}: slowest of 20 presses`, `${ms} ms`);
+    }
+    await js(`(() => { const out = document.querySelector('#tlZoom [data-zoom=out]'); for (let i = 0; i < 30; i++) out.click(); return 1; })()`);
+    await sleep(1000); await longTasks();
+    await js(`(() => { let n = 0; const tl = document.getElementById('tl'); window.__wheel = setInterval(() => tl.dispatchEvent(new WheelEvent('wheel', { deltaX: n++ % 2 ? 60 : -60, bubbles: true, cancelable: true })), 16); return 1; })()`);
+    const scroll = await js(`new Promise((r) => { let frames = 0; const t0 = performance.now(); const tick = () => { frames++; performance.now() - t0 < 5000 ? requestAnimationFrame(tick) : r(Math.round(frames / 5)); }; tick(); })`);
+    await js('clearInterval(__wheel); 1');
+    row('Scrolling the zoomed-out timeline', `${scroll} frames a second, ${await js(`document.querySelectorAll('.cue').length`)} blocks on screen`);
+    row('Long tasks while scrolling', await longTasks());
   }
 
   // 4. The Diagnostics window, from Settings.

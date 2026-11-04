@@ -102,6 +102,7 @@
             </span>
             <span id="edAuto" class="autotag" hidden data-tip="This block's end follows the reading as you type. Set the end yourself and it stays where you put it">auto</span>
             <span id="edDur" class="dim"></span>
+            <span id="edClash" hidden data-tip="Subtitles can stay up after the words end, so check it by ear"></span>
             <span class="grow"></span>
             <span class="modesw edaltsw" id="edAltSw" role="radiogroup" aria-label="Wording to record">
               <button role="radio" data-side="orig" aria-checked="true" data-tip="Record the block as written (A)">Original</button>
@@ -232,7 +233,7 @@
       <div id="cues"></div>
       <div id="dragtip" hidden></div>
     </div>
-    <div class="dialtrack" id="dialTrack" hidden data-tip="Dialogue from the subtitles, with the length of each gap. Click to move the playhead. D and Shift+D jump between gaps"><canvas id="dialWave"></canvas></div>
+    <div class="dialtrack" id="dialTrack" hidden data-tip="Dialogue from the subtitles, with the length of each gap. Click to move the playhead. Double-click a gap to make a block. D and Shift+D jump between free gaps"><canvas id="dialWave"></canvas></div>
     <div class="taketrack record-only" id="takeTrack"><canvas id="takeWave"></canvas></div>
     <div class="overview" id="overview"><div id="ovWin"></div></div>
     <div class="playhead" id="playhead"></div>
@@ -1242,7 +1243,8 @@ docker compose up -d --build</code></pre>
             <dt data-keys="frameBack frameFwd"><kbd>←</kbd> <kbd>→</kbd></dt><dd>One frame back / forward</dd>
             <dt data-keys="back3 fwd3"><kbd>⇧</kbd><kbd>←</kbd> <kbd>⇧</kbd><kbd>→</kbd></dt><dd>Three seconds back / forward</dd>
             <dt data-keys="blockBack blockNext"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>←</kbd> <kbd>→</kbd></dt><dd>Start of this block, then the previous / next block</dd>
-            <dt data-keys="gapBack gapNext"><kbd>⇧</kbd><kbd>D</kbd> <kbd>D</kbd></dt><dd>Previous / next gap in the dialogue</dd>
+            <dt data-keys="gapBack gapNext"><kbd>⇧</kbd><kbd>D</kbd> <kbd>D</kbd></dt><dd>Previous / next free gap in the dialogue</dd>
+            <dt data-keys="overBack overNext"><kbd>⇧</kbd><kbd>U</kbd> <kbd>U</kbd></dt><dd>Previous / next block over dialogue</dd>
             <dt data-keys="videoStart videoEnd" data-pc="&lt;kbd&gt;Home&lt;/kbd&gt; &lt;kbd&gt;End&lt;/kbd&gt;"><kbd>Fn</kbd><kbd>←</kbd> <kbd>Fn</kbd><kbd>→</kbd></dt><dd data-pc="Beginning / end of video">Beginning / end of video (Home / End)</dd>
             <dt data-keys="jumpTime"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>J</kbd></dt><dd>Jump to a timecode</dd>
             <dt data-keys="quickNav"><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Quick navigation (search blocks)</dd>
@@ -1313,6 +1315,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="back10Blocks fwd10Blocks"><kbd>PgUp</kbd> <kbd>PgDn</kbd></dt><dd>Jump 10 blocks</dd>
             <dt data-keys="playBlock"><kbd>⇧</kbd><kbd>Space</kbd></dt><dd>Play selected block only</dd>
             <dt data-keys="newBlock"><kbd>N</kbd></dt><dd>New block at playhead</dd>
+            <dt data-keys="gapBlock"><kbd>⇧</kbd><kbd>N</kbd></dt><dd>New block filling the gap at playhead</dd>
             <dt data-keys="setStart setEnd"><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Set start / end to playhead</dd>
             <dt data-keys="startBack startFwd"><kbd>Q</kbd> <kbd>W</kbd></dt><dd>Start −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
             <dt data-keys="endBack endFwd"><kbd>E</kbd> <kbd>R</kbd></dt><dd>End −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>

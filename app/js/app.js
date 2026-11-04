@@ -42,7 +42,7 @@ import { ffmpegCommands } from './ffcmd.js';
 import { videoName, missing, advice, copyKind, TESTS } from './codecs.js';
 import { createLog, watchErrors, pictureWatch, report as diagReport } from './diagnostics.js';
 import { waveKey, loadWave, saveWave } from './wavestore.js';
-import { buildDialogue, gapsOf, gapFrom, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue } from './dialogue.js';
+import { buildDialogue, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, MIN_CLASH, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue } from './dialogue.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, readWav, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
@@ -69,7 +69,7 @@ const playheadEl = $('playhead'), dragtip = $('dragtip'), overview = $('overview
 const TEXT_HINT = $('edText').placeholder;
 const edText = $('edText'), edStart = $('edStart'), edEnd = $('edEnd'), edNotes = $('edNotes');
 const editor = $('editor'), edTts = $('edTts');
-const edIdx = $('edIdx'), edDur = $('edDur'), edStats = $('edStats'), edSpeed = $('edSpeed'), edSpeedWrap = $('edSpeedWrap'), edAuto = $('edAuto');
+const edIdx = $('edIdx'), edDur = $('edDur'), edClash = $('edClash'), edStats = $('edStats'), edSpeed = $('edSpeed'), edSpeedWrap = $('edSpeedWrap'), edAuto = $('edAuto');
 const clockEl = $('clock'), durEl = $('durEl'), ind = $('ind');
 const toastEl = $('toast'), helpEl = $('help'), fileSubs = $('fileSubs'), fileVideo = $('fileVideo');
 
@@ -855,8 +855,12 @@ function newCue() {
   const next = S.cues.find((c) => c.start > t);
   const end = Math.min(t + DEFAULT_LEN, next ? next.start : Infinity);
   if (end - t < MIN_DUR) return toast('No room for a cue here');
+  return addBlock(t, end);
+}
+
+function addBlock(start, end) {
   pushUndo();
-  const c = mk(t, end);
+  const c = mk(start, end);
   // A block written with text to speech on takes its end from the reading.
   if (ttsOn()) c.auto = true;
   S.cues.push(c);
@@ -988,6 +992,7 @@ function updateEditor() {
     if (document.activeElement !== edStart) edStart.value = '';
     if (document.activeElement !== edEnd) edEnd.value = '';
     edDur.textContent = '';
+    edClash.hidden = true;
     edStats.textContent = '';
     if (!edit) edText.value = '';
     return;
@@ -1045,6 +1050,9 @@ function updateEditor() {
     s.className = 'dim';
     edStats.append(s);
   }
+  const clash = overDialogue(c);
+  edClash.hidden = !clash;
+  edClash.textContent = clash ? `${clash.toFixed(1)} s over dialogue` : '';
 }
 
 // With a Piper or Google voice, make the selected block's reading once typing pauses, so its
@@ -1368,16 +1376,18 @@ function fillRow(r, c, i) {
   if (over) dur += ' ⚠';
   if (c.notes) dur += ' · notes';
   if (c.pickup) dur += ' · pickup';
+  const clash = overDialogue(c) > 0;
   const ready = !!reading?.exact;
   // Unchanged rows are left alone: long jobs refresh the list often, and rewriting every
   // row each time made the browser lay it all out again.
-  const was = `${i}|${times}|${dur}|${ready}|${query}|${c.text}`;
+  const was = `${i}|${times}|${dur}|${clash}|${ready}|${query}|${c.text}`;
   if (r.dataset.was === was) return;
   r.dataset.was = was;
   n.textContent = i + 1;
   t.textContent = times;
   d.textContent = dur;
   d.classList.toggle('over', over);
+  if (clash) d.append(Object.assign(document.createElement('span'), { className: 'clash', textContent: ' · over dialogue' }));
   // A dot when the reading has been made, at this voice and speed. Piper, Kokoro and Google
   // readings are kept in the browser, so they play straight away, even after a reload.
   if (ready) {
@@ -1385,7 +1395,7 @@ function fillRow(r, c, i) {
       title: usingGoogle(c.voice) ? 'Reading kept: plays straight away, and isn\'t sent to Google again'
         : usingAudioVoice(c.voice) ? 'Reading kept: its length is exact, and it plays straight away' : 'Reading made: its length is exact' }));
   }
-  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, ready }) + (c.notes ? ', has notes' : '') + (c.pickup ? ', pickup' : ''));
+  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, overDialogue: clash, ready }) + (c.notes ? ', has notes' : '') + (c.pickup ? ', pickup' : ''));
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
   r.hidden = false;
@@ -1691,6 +1701,8 @@ function drawCues(W) {
     el.classList.toggle('faded', !matches(c, i));
     el.classList.toggle('changing', !!ghost?.theirs && c.uid === ghost.uid);
     el.classList.toggle('removing', !!ghost?.removed && c.uid === ghost.uid);
+    // Too narrow to show, and a long film zoomed out draws thousands of these.
+    el.classList.toggle('clash', w >= 8 && overDialogue(c) > 0);
     el.children[1].textContent = w > 28 ? '#' + (i + 1) + (ttsOn() && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') + (qc() && c.comments?.some((n) => !n.resolved) ? ' · ●' : '') : '';
     if (el._text !== c.text) { el._text = c.text; el.children[2].textContent = c.text; }
   }
@@ -4599,6 +4611,7 @@ function resetDialogue() {
   S.dialStatus = '';
   delete $('dialSel').dataset.reading;
   renderDialPick();
+  showClashes();
 }
 
 // A subtitle track's name in the picker.
@@ -4633,6 +4646,7 @@ function useDialogue(file, entry, { keep = true } = {}) {
   delete $('dialSel').dataset.reading;
   dialGapsFor = '';
   renderDialPick();
+  showClashes();
   if (keep) saveDialogue(dialogueKey(file), { choice: entry.choice, label: entry.label, lines: S.dialogue.lines });
   return S.dialogue.lines.length;
 }
@@ -4645,6 +4659,7 @@ function offDialogue(file) {
   S.dialStatus = '';
   delete $('dialSel').dataset.reading;
   renderDialPick();
+  showClashes();
   saveDialogue(dialogueKey(file), { choice: 'off', label: '', lines: [] });
 }
 
@@ -4687,7 +4702,7 @@ function readSubTrack(file, i) {
       w.terminate();
       dialWorker = null;
       const n = useDialogue(file, { choice: `t${i}`, label: dialLabel(t), lines: m.cues });
-      toast(n ? `Dialogue lane: ${n.toLocaleString('en')} subtitles. D and Shift+D jump between gaps` : 'No dialogue found in those subtitles');
+      toast(n ? `Dialogue lane: ${n.toLocaleString('en')} subtitles. D and Shift+D jump between free gaps` : 'No dialogue found in those subtitles');
     } else if (m.type === 'unsupported' || m.type === 'error') stop(m.message);
   };
   w.onerror = (e) => { e.preventDefault(); stop('the worker crashed'); };
@@ -4721,7 +4736,7 @@ async function loadDialogueFile() {
   dialWorker?.terminate();
   dialWorker = null;
   const n = useDialogue(file, { choice: 'file', label: sub.name, lines });
-  toast(`Dialogue lane: ${n.toLocaleString('en')} subtitles from ${sub.name}. D and Shift+D jump between gaps`);
+  toast(`Dialogue lane: ${n.toLocaleString('en')} subtitles from ${sub.name}. D and Shift+D jump between free gaps`);
 }
 
 $('dialSel').addEventListener('change', (e) => {
@@ -4760,14 +4775,62 @@ dialTrack.addEventListener('pointerdown', (e) => {
   S.playUntil = null;
   seek(xToT(e.clientX));
 });
+dialTrack.addEventListener('dblclick', (e) => {
+  if (S.mode !== 'record') gapBlock(xToT(e.clientX), true);
+});
 
+const NO_LANE = 'No dialogue lane. Pick subtitles next to Dialogue, under the video';
+
+// Goes to the next stretch with room for a block, so it passes gaps already filled.
 function jumpGap(dir) {
-  if (!S.dialogue) return toast('No dialogue lane. Pick subtitles next to Dialogue, under the video');
-  const gap = gapFrom(currentGaps(), now(), dir);
-  if (!gap) return toast(dir < 0 ? 'No gap before the playhead' : 'No gap after the playhead');
+  if (!S.dialogue) return toast(NO_LANE);
+  const gap = gapFrom(freeGaps(currentGaps(), S.cues), now(), dir);
+  if (!gap) return toast(dir < 0 ? 'No free gap before the playhead' : 'No free gap after the playhead');
   S.playUntil = null;
   seek(gap.start);
   toast(`Gap of ${(gap.end - gap.start).toFixed(1)} s`);
+}
+
+// A block filling the free gap at t, ready to type in: from t, or from the gap's start
+// when whole, as where a double-click lands on the lane doesn't mean anything.
+function gapBlock(t = now(), whole = false) {
+  if (qcLocked()) return toast('The script and timings are fixed in QC mode');
+  if (!S.dialogue) return toast(NO_LANE);
+  const near = 0.02; // a seek lands a frame or so off
+  const gap = freeGaps(currentGaps(), S.cues, MIN_DUR).find((g) => g.start - near <= t && t < g.end);
+  if (!gap) return toast('The playhead isn’t in a free gap');
+  const { start, end } = placeInGap(gap, whole ? gap.start : t);
+  if (end - start < MIN_DUR) return toast('No room for a block here');
+  const c = addBlock(start, end);
+  if (whole) { S.playUntil = null; seek(c.start); }
+  editText();
+}
+
+// How many seconds of a block's sound fall over dialogue: its reading with text to speech
+// on, otherwise the block itself. 0 if there's too little to mention. Transcribing and
+// recording aren't timed around the dialogue, so it doesn't apply there.
+function overDialogue(c) {
+  if (!S.dialogue || !(writing() || qc()) || !c.text.trim()) return 0;
+  if (ttsOn() && !spoken(c.text)) return 0;
+  const end = ttsOn() ? c.start + speechLength(said(c), c.speed, c.voice).secs : c.end;
+  const secs = speechIn(S.dialogue.spans, c.start, end);
+  return secs >= MIN_CLASH ? secs : 0;
+}
+
+function showClashes() {
+  refreshList();
+  updateEditor();
+  tlDirty = true;
+}
+
+function jumpClash(dir) {
+  if (!S.dialogue) return toast(NO_LANE);
+  const t = now(), near = 0.02, over = S.cues.filter((c) => overDialogue(c));
+  const c = dir > 0 ? over.find((b) => b.start > t + near) : over.findLast((b) => b.start < t - near);
+  if (!c) return toast(dir < 0 ? 'No block over dialogue before the playhead' : 'No block over dialogue after the playhead');
+  S.playUntil = null;
+  select(c.id);
+  toast(`Block #${idx(c.id) + 1}: ${overDialogue(c).toFixed(1)} s over dialogue`);
 }
 
 function useAltAudio(a) {
@@ -5393,10 +5456,10 @@ document.addEventListener('keydown', (e) => {
   if (frazier) { e.preventDefault(); toast(`${frazier} are not part of this editor`); }
 });
 
-const QC_EDIT_KEYS = new Set(['newBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'setStart', 'setEnd', 'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10', 'moveBack10', 'moveFwd10', 'soundsLike']);
+const QC_EDIT_KEYS = new Set(['newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'setStart', 'setEnd', 'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10', 'moveBack10', 'moveFwd10', 'soundsLike']);
 
 // Keys that change the script, or help with writing it: off in Record mode.
-const REC_LOCKED = new Set(['createEdit', 'newBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'findReplace', 'setStart', 'setEnd',
+const REC_LOCKED = new Set(['createEdit', 'newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'findReplace', 'setStart', 'setEnd',
   'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10',
   'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'aiHelp', 'comments', 'offset']);
 
@@ -5416,6 +5479,8 @@ const RUN = {
   blockNext: () => playheadBlock(1),
   gapBack: () => jumpGap(-1),
   gapNext: () => jumpGap(1),
+  overBack: () => jumpClash(-1),
+  overNext: () => jumpClash(1),
   videoStart: () => { S.playUntil = null; seek(0); },
   videoEnd: () => { S.playUntil = null; seek(duration()); },
   toStart: () => gotoSel(false),
@@ -5424,6 +5489,7 @@ const RUN = {
   quickNav: () => openPalette('nav'),
   createEdit: () => createOrEdit(),
   newBlock: () => newCue(),
+  gapBlock: () => gapBlock(),
   prevBlock: () => selectRel(-1),
   nextBlock: () => selectRel(1),
   back10Blocks: () => selectRel(-10),
