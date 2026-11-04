@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.78.2",
+  "date": "2026-11-03",
+  "notes": "## Smoother with long scripts\n\n- Typing, choosing blocks, undo and changing modes respond much faster, especially on slower computers.\n- **Fit speeds to timings** and **Make all readings** run faster in long scripts.\n- Exporting the description track uses less memory.\n- In long scripts, the search above the list updates when you pause typing."
+ },
+ {
   "version": "0.78.1",
   "date": "2026-11-03",
   "notes": "## Fixed\n\n- On smaller screens, the Diagnostics window no longer scrolls as a whole. Only the report scrolls, and its buttons stay in view."
