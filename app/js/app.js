@@ -22,7 +22,7 @@ import { takesInfo, clearTakes, unpackSession, rememberSession, browserFolder, c
 import { isSessionPackage, fromSession, SESSION_FILE } from './session.js';
 import { picker, refused } from './pickers.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
-import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom, stopAt, returnsToStart, scrubber } from './nav.js';
+import { blockFromPlayhead, nudgeFor, nudges, NUDGE, takeFrom, stopAt, returnsToStart, scrubber } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
@@ -4856,6 +4856,7 @@ function useNativeAudio() {
 }
 // The video is the clock; the copied track follows it.
 let nudging = 0; // see nudgeFor
+const canNudge = nudges(browserName(navigator.userAgent, navigator.userAgentData?.brands || []));
 function syncAlt(force) {
   if (!alt) return;
   const target = video.currentTime - alt.start;
@@ -4867,6 +4868,7 @@ function syncAlt(force) {
     nudging = 0;
     return;
   }
+  if (!canNudge) return;
   // Jumping again would land late again (seeking has latency) and is audible,
   // so close small gaps by playing a little faster or slower for a moment.
   nudging = nudgeFor(drift, nudging);

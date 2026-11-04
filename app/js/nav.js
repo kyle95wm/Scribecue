@@ -18,7 +18,9 @@ export function blockFromPlayhead(cues, t, d, playing = false) {
 // Keeping a copied audio track in step with the video (see syncAlt in app.js). Small
 // gaps close by playing the track a little faster or slower. The nudge is a fixed step,
 // started only once the gap is noticeable and stopped once it has closed, so the speed
-// changes rarely: Firefox restarts its audio on every change, which stutters.
+// changes rarely. Firefox doesn't get nudges at all: it restarts its audio on every
+// change, and that stutters, and can fall further behind and set off more jumps.
+export const nudges = (browser) => browser !== 'Firefox';
 export const NUDGE_START = 0.04; // seconds apart before nudging
 export const NUDGE_STOP = 0.01; // close enough to stop
 export const NUDGE = 0.04; // 4% faster or slower

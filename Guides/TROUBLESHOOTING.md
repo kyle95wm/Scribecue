@@ -34,7 +34,6 @@ for its part of Scribecue: see [More help](#more-help).
 | "No waveform: the audio track is silent" | Choose another track in the **Audio** picker under the video. |
 | "Can't play track 2 on its own" | The browser can't play that track's format by itself, such as Vorbis. Choose another track, or convert the file. |
 | A large file won't open | Use MP4, MOV, M4A, MKV, WebM or WAV. Other formats must be under 2 GB. |
-| The sound stutters in Firefox, with several audio tracks | Use Chrome or Edge, or a file with only the description mix. |
 | The video is gone after an update | Updating reloads the page. Click **Reopen**, or open the video with `Ctrl/Cmd+Shift+O`. |
 
 ## Saving and your work

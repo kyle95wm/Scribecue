@@ -29,9 +29,8 @@ test('the notice lists only the features this browser lacks', () => {
 
 test('Firefox’s known problems are listed after what it lacks', () => {
   const items = noticeItems('Firefox', { AudioDecoder: 1, speechSynthesis: {} });
-  assert.equal(items.length, 4);
-  assert.match(items[2], /description track/);
-  assert.match(items[3], /speech to text/);
+  assert.equal(items.length, 3);
+  assert.match(items[2], /speech to text/);
   assert.deepEqual(knownIssues('Chrome'), []);
   assert.deepEqual(knownIssues('Safari'), []);
 });
