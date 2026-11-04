@@ -1,7 +1,7 @@
 // Which formats the browser can't play, and what Scribecue says about it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { videoName, missing, advice, copyKind, TESTS, COMMON } from '../app/js/codecs.js';
+import { videoName, missing, silentSound, copiesSound, advice, copyKind, TESTS, COMMON } from '../app/js/codecs.js';
 import { missingFeatures } from '../app/js/browser.js';
 
 // A Chromium build without the licensed codecs.
@@ -32,9 +32,35 @@ test('the message names what is missing and what to do', () => {
   assert.match(advice([], { file: 'Film.avi' }), /^This browser can’t play Film\.avi\. /);
 });
 
+test('sound that can’t play is only reported when no track can', () => {
+  const none = (t) => (/ec-3|ac-3|dtsc|mlpa/.test(t) ? '' : 'probably');
+  assert.deepEqual(silentSound(['DTS', 'DTS'], none), ['DTS']);
+  assert.deepEqual(silentSound(['DTS', 'TrueHD'], none), ['DTS', 'TrueHD']);
+  assert.deepEqual(silentSound(['DTS', 'AAC'], none), []);
+  assert.deepEqual(silentSound(['DTS', 'E-AC-3'], none), []); // E-AC-3 gets a copy
+  assert.deepEqual(silentSound([], none), []);
+  assert.deepEqual(silentSound(['DTS'], () => 'probably'), []);
+});
+
+test('AC-3 and E-AC-3 get a copy only where the browser can’t play them', () => {
+  const none = (t) => (/ec-3|ac-3/.test(t) ? '' : 'probably');
+  assert.equal(copiesSound('E-AC-3', none), true);
+  assert.equal(copiesSound('AC-3', none), true);
+  assert.equal(copiesSound('E-AC-3', () => 'probably'), false); // Safari plays it
+  assert.equal(copiesSound('AAC', none), false);
+  assert.equal(copiesSound(undefined, none), false);
+});
+
+test('the message for missing sound says what happens and what to do', () => {
+  assert.match(advice(['DTS'], { file: 'Film.mp4' }), /can’t play DTS, so Film\.mp4 has no sound or waveform.*AAC sound/);
+  assert.match(advice(['DTS', 'TrueHD'], { file: 'Film.mkv', ffmpeg: true }), /DTS or TrueHD.*Make a copy/);
+  assert.doesNotMatch(advice(['DTS'], { file: 'Film.mp4' }), /Chrome or Edge/);
+});
+
 test('the copy keeps the picture only when it plays and fits in an MP4', () => {
   assert.equal(copyKind('H.264', ['AAC']), 'mp4');
   assert.equal(copyKind('H.264', ['H.264', 'AAC']), 'webm');
+  assert.equal(copyKind('H.264', ['DTS']), 'mp4');
   assert.equal(copyKind('', ['AAC']), 'webm');
   assert.equal(copyKind('MPEG-4 video', ['AAC']), 'webm');
 });

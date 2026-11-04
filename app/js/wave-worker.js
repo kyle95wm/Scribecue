@@ -4,8 +4,9 @@
 //
 // It can list a file's audio tracks, build the timeline waveform for one of
 // them, and copy that track (without re-encoding) into a small audio-only file
-// the page can play, since most browsers can't switch tracks inside a video. It can
-// also cut out the audio between two times as 16 kHz mono, for speech to text, and read
+// the page can play, since most browsers can't switch tracks inside a video. AC-3 and
+// E-AC-3, which browsers can't decode, are decoded with vendor/ac3.js and the copy is
+// made as Opus. It can also cut out the audio between two times as 16 kHz mono, for speech to text, and read
 // a subtitle track's lines, for the dialogue lane.
 //
 // in:  { cmd: 'probe', file }                    -> { type: 'tracks', tracks, fps, subs } (fps: 0 if unknown)
@@ -417,6 +418,50 @@ async function decoderSink(peaks, config) {
   };
 }
 
+// AC-3 and E-AC-3. Browsers don't decode these, so a WebAssembly build of FFmpeg's decoder
+// does, loaded only when a file needs it. copy: an OpusCopy that also gets the sound.
+let ac3 = null;
+async function loadAc3() {
+  if (ac3) return ac3;
+  try {
+    globalThis.exports = {}; // how the file hands over what it makes
+    await import('../vendor/ac3.js');
+    const m = await globalThis.exports.default();
+    const fn = (name, args) => m.cwrap(name, 'number', args.map(() => 'number'));
+    ac3 = {
+      m, open: fn('init_decoder', [0]), packet: fn('configure_decode_packet', [0, 0]), decode: fn('decode_packet', [0, 0]),
+      format: fn('get_decoded_format', [0]), plane: fn('get_decoded_plane_ptr', [0, 0]), channels: fn('get_decoded_channels', [0]),
+      rate: fn('get_decoded_sample_rate', [0]), frames: fn('get_decoded_sample_count', [0]), close: m.cwrap('close_decoder', null, ['number']),
+    };
+    return ac3;
+  } catch (err) { throw new Unsupported(`the AC-3 decoder didn't load: ${err.message}`); }
+}
+
+const FLOAT_PLANES = 8; // FFmpeg's AV_SAMPLE_FMT_FLTP
+
+async function ac3Sink(peaks, kind, copy) {
+  const a = await loadAc3(), ctx = a.open(kind === 'ac3' ? 0 : 1);
+  if (!ctx) throw new Unsupported(`${KIND_LABEL[kind]} audio`);
+  const dec = { state: 'open', close() { this.state = 'closed'; a.close(ctx); } };
+  decoders.add(dec);
+  return {
+    copy,
+    async decode(data, t) {
+      a.m.HEAPU8.set(data, a.packet(ctx, data.length));
+      if (a.decode(ctx, 0n) < 0) return; // a damaged frame: carry on from the next
+      if (a.format(ctx) !== FLOAT_PLANES) throw new Unsupported(`${KIND_LABEL[kind]} audio`);
+      const frames = a.frames(ctx), rate = a.rate(ctx), planes = [];
+      for (let c = 0, n = a.channels(ctx); c < n; c++) planes.push(new Float32Array(a.m.HEAPU8.buffer, a.plane(ctx, c), frames));
+      peaks.add(t, planes, frames, rate);
+      await copy?.push(t + (peaks.shift || 0), planes, frames, rate);
+    },
+    async finish() {
+      decoders.delete(dec);
+      if (dec.state !== 'closed') dec.close();
+    },
+  };
+}
+
 function aacCodec(asc) {
   let aot = asc[0] >> 3;
   if (aot === 31) aot = 32 + (((asc[0] & 7) << 3) | (asc[1] >> 5));
@@ -599,8 +644,8 @@ async function matroska(file, peaks, job) {
           // players drop the codec delay (encoder priming) from the start, like an MP4 edit list
           // (Opus and Vorbis decoders already drop it themselves; an Opus copy keeps it in dOps)
           shift = peaks.shift = info.kind === 'opus' || info.kind === 'vorbis' ? 0 : -(chosen.delay || 0) / 1e9;
-          sink = await openSink(info, peaks);
-          mux = job.mux ? makeMux(file, info) : null;
+          sink = await openSink(info, peaks, job.mux);
+          mux = job.mux ? makeMux(file, info, sink) : null;
         }
       }
       pos = start;
@@ -953,8 +998,8 @@ async function mp4(file, peaks, job) {
   if (!stsz || !stco || !stsc || !stts) {
     throw new Unsupported(child(moov, all, 'mvex') ? 'fragmented MP4' : 'MP4 audio without a sample table');
   }
-  const sink = await openSink(info, peaks);
-  const mux = job.mux ? makeMux(file, info) : null;
+  const sink = await openSink(info, peaks, job.mux);
+  const mux = job.mux ? makeMux(file, info, sink) : null;
   const pcm = info.kind === 'pcm' ? info.pcm : null;
 
   const constSize = moov.getUint32(stsz.start + 4), count = moov.getUint32(stsz.start + 8);
@@ -1048,8 +1093,8 @@ async function wav(file, peaks, job) {
       if (info.kind !== 'pcm') throw new Unsupported('compressed WAV');
       if (size === 0xffffffff && dataSize64) size = dataSize64;
       const start = pos + 8, end = Math.min(file.size, start + size);
-      const sink = await openSink(info, peaks);
-      const mux = job.mux ? makeMux(file, info) : null;
+      const sink = await openSink(info, peaks, job.mux);
+      const mux = job.mux ? makeMux(file, info, sink) : null;
       const step = Math.floor(WINDOW / fmt.align) * fmt.align;
       for (let p = start; p < end; p += step) {
         if (peaks.skip?.((p + step - start) / fmt.align / fmt.rate)) continue;
@@ -1083,8 +1128,8 @@ function describe(info, meta) {
   };
 }
 
-async function openSink(info, peaks) {
-  const sink = await codecSink(info, peaks);
+async function openSink(info, peaks, mux) {
+  const sink = await codecSink(info, peaks, mux);
   if (!(peaks instanceof Clip)) return sink;
   return {
     async decode(data, t) {
@@ -1096,9 +1141,10 @@ async function openSink(info, peaks) {
   };
 }
 
-async function codecSink(info, peaks) {
+async function codecSink(info, peaks, mux) {
   if (info.kind === 'pcm') return pcmSink(peaks, { rate: info.rate, channels: info.channels, ...info.pcm });
-  const codec = { aac: info.desc && aacCodec(info.desc), opus: 'opus', vorbis: 'vorbis', flac: 'flac', mp3: 'mp3', ac3: 'ac-3', eac3: 'ec-3' }[info.kind];
+  if (info.kind === 'ac3' || info.kind === 'eac3') return ac3Sink(peaks, info.kind, mux ? new OpusCopy() : null);
+  const codec = { aac: info.desc && aacCodec(info.desc), opus: 'opus', vorbis: 'vorbis', flac: 'flac', mp3: 'mp3' }[info.kind];
   if (!codec) throw new Unsupported(`${label(info)} audio`);
   const config = { codec, sampleRate: info.rate, numberOfChannels: info.channels };
   if (info.desc) config.description = info.desc;
@@ -1109,8 +1155,10 @@ async function codecSink(info, peaks) {
 
 // Compressed frames are copied into an M4A (AAC, Opus, FLAC) or a raw MP3
 // stream; PCM becomes a WAV whose data is mostly slices of the original file,
-// so even a long uncompressed track costs almost no memory.
-function makeMux(file, info) {
+// so even a long uncompressed track costs almost no memory. AC-3 and E-AC-3 have no
+// frames to copy that a browser could play: sink.copy makes the file from the sound.
+function makeMux(file, info, sink) {
+  if (sink.copy) return sink.copy;
   if (info.kind === 'aac' && info.desc) {
     const rate = ascRate(info.desc) || info.rate;
     return new Mp4Mux(audioEntry('mp4a', info.channels, rate, esdsBox(info.desc)), rate, () => 1024, aacCodec(info.desc));
@@ -1224,6 +1272,78 @@ class RawMux {
 }
 
 // A plain (non-fragmented) M4A: one sample per chunk keeps the tables simple.
+// A stereo Opus M4A of sound that's already decoded, at a bitrate that sounds clean for
+// working on. Opus because every browser with WebCodecs can encode it.
+const COPY_BITRATE = 128000, COPY_QUEUE = 16;
+class OpusCopy {
+  constructor() { this.enc = null; this.mux = null; this.at = null; this.failed = ''; }
+
+  async open(rate) {
+    const config = { codec: 'opus', sampleRate: rate, numberOfChannels: 2, bitrate: COPY_BITRATE };
+    const works = typeof AudioEncoder !== 'undefined' && await AudioEncoder.isConfigSupported(config).then((r) => r.supported, () => false);
+    if (!works) { this.failed = 'this browser can’t make Opus sound'; return; }
+    this.enc = new AudioEncoder({
+      output: (chunk, meta) => {
+        const head = meta?.decoderConfig?.description;
+        if (!this.mux) {
+          const desc = head && (ArrayBuffer.isView(head) ? new Uint8Array(head.buffer, head.byteOffset, head.byteLength) : new Uint8Array(head));
+          this.mux = new Mp4Mux(audioEntry('Opus', 2, 48000, dOpsBox({ desc, channels: 2 })), 48000, opusDuration, 'opus');
+        }
+        const d = new Uint8Array(chunk.byteLength);
+        chunk.copyTo(d);
+        this.mux.add(d, chunk.timestamp / 1e6);
+      },
+      error: (err) => { this.failed = err.message; },
+    });
+    decoders.add(this.enc);
+    this.enc.configure(config);
+  }
+
+  // Sound from time t. Any gap, as from a damaged frame, becomes silence, to stay in sync.
+  async push(t, planes, frames, rate) {
+    if (!this.enc && !this.failed) await this.open(rate);
+    if (this.failed) return;
+    this.at ??= t;
+    for (let gap = t - this.at; gap > 0.1; gap -= frames / rate) this.encode(null, frames, rate);
+    this.encode(planes, frames, rate);
+    while (this.enc.encodeQueueSize > COPY_QUEUE && !this.failed) {
+      await new Promise((r) => { this.enc.addEventListener('dequeue', r, { once: true }); setTimeout(r, 500); });
+    }
+  }
+
+  encode(planes, frames, rate) {
+    const data = new Float32Array(frames * 2);
+    if (planes) toStereo(planes, frames, data.subarray(0, frames), data.subarray(frames));
+    const a = new AudioData({ format: 'f32-planar', sampleRate: rate, numberOfFrames: frames, numberOfChannels: 2, timestamp: Math.round(this.at * 1e6), data });
+    this.enc.encode(a);
+    a.close();
+    this.at += frames / rate;
+  }
+
+  add() {} // the file's own frames aren't used
+
+  async finish() {
+    if (this.enc && !this.failed) await this.enc.flush().catch((err) => { this.failed = err.message; });
+    if (this.enc?.state === 'configured') this.enc.close();
+    decoders.delete(this.enc);
+    if (this.failed) return { reason: this.failed };
+    return this.mux ? { ...this.mux.finish(), made: true } : { reason: 'the track is empty' };
+  }
+}
+
+// Down to stereo as the full mix does: left, right, centre, LFE (left out), then the
+// surrounds in pairs, the centre and surrounds at −3 dB.
+function toStereo(planes, frames, left, right) {
+  const ch = planes.length, [p0, p1 = p0, p2] = planes, c = Math.SQRT1_2;
+  for (let k = 0; k < frames; k++) {
+    let l = p0[k], r = p1[k];
+    if (p2) { const m = c * p2[k]; l += m; r += m; }
+    for (let j = 4; j < ch; j++) { if (j % 2) r += c * planes[j][k]; else l += c * planes[j][k]; }
+    left[k] = l;
+    right[k] = r;
+  }
+}
+
 class Mp4Mux {
   constructor(entry, timescale, frameDuration, codec) {
     Object.assign(this, { entry, timescale, frameDuration, codec });

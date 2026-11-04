@@ -22,6 +22,14 @@ function encode(samples, rate, kbps) {
 }
 const tone = (rate, secs) => Int16Array.from({ length: rate * secs }, (_, i) => Math.round(8000 * Math.sin((2 * Math.PI * 440 * i) / rate)));
 
+test('the AC-3 decoder is @mediabunny/ac3 1.65.1, unchanged', () => {
+  const sum = createHash('sha256').update(readFileSync(app('vendor/ac3.js'))).digest('hex');
+  assert.equal(sum, 'b821a0e3d88de20d58816772d710220847e05538ea8003fe83dbfdb2ee45a400');
+  const licence = readFileSync(app('vendor/ac3-LICENSE.txt'), 'utf8');
+  assert.match(licence, /Lesser General Public License/);
+  assert.match(licence, /Mozilla Public License/);
+});
+
 test('the encoder is lamejs 1.2.1, unchanged', () => {
   const sum = createHash('sha256').update(readFileSync(app('vendor/lame.min.js'))).digest('hex');
   assert.equal(sum, '15d285e2587b3bdbfd18a68de6ce07cc074f7480a82c3815da2dc1c348ec6df4');

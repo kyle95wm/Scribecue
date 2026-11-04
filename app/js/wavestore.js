@@ -1,9 +1,12 @@
 // Waveforms kept in the browser, so reopening a video, or reloading, doesn't build its
 // waveform again. Kept by the file's name, size and date, and the track, as 16-bit levels
 // against the loudest: about 3 MB for a two-hour film. The ones used longest ago go first.
+// The sound made for AC-3 and E-AC-3 is kept the same way, so that also happens once. At
+// about 100 MB for a two-hour film, only a few are kept.
 
 const DB = 'scribecue-waves', STORE = 'waves';
-export const KEEP = 20;
+const SOUND_DB = 'scribecue-sounds';
+export const KEEP = 20, KEEP_SOUNDS = 3;
 
 export const waveKey = (file, track, rate) => `${file.name}|${file.size}|${file.lastModified}|${track}|${rate}`;
 
@@ -20,8 +23,8 @@ export function unpackPeaks({ levels, max }) {
   return { peaks, peakLen: levels.length, peakMax: max };
 }
 
-const open = () => new Promise((ok, fail) => {
-  const r = indexedDB.open(DB, 1);
+const open = (name = DB) => new Promise((ok, fail) => {
+  const r = indexedDB.open(name, 1);
   r.onupgradeneeded = () => r.result.createObjectStore(STORE, { keyPath: 'key' }).createIndex('used', 'used');
   r.onsuccess = () => ok(r.result);
   r.onerror = () => fail(r.error);
@@ -40,20 +43,45 @@ export async function loadWave(key) {
   } catch { return null; }
 }
 
+// Past keep, the ones used longest ago go, found by when they were used without reading
+// them.
+async function trim(st, keep) {
+  let extra = (await done(st.count())) - keep;
+  if (extra <= 0) return;
+  const c = st.index('used').openKeyCursor();
+  c.onsuccess = () => {
+    if (!c.result || extra-- <= 0) return;
+    st.delete(c.result.primaryKey);
+    c.result.continue();
+  };
+}
+
 export async function saveWave(key, peaks, len, max) {
   try {
     const db = await open();
     const st = db.transaction(STORE, 'readwrite').objectStore(STORE);
     st.put({ key, used: Date.now(), ...packPeaks(peaks, len, max) });
-    // Past KEEP, the ones used longest ago go, found by when they were used without
-    // reading the waveforms themselves.
-    let extra = (await done(st.count())) - KEEP;
-    if (extra <= 0) return;
-    const c = st.index('used').openKeyCursor();
-    c.onsuccess = () => {
-      if (!c.result || extra-- <= 0) return;
-      st.delete(c.result.primaryKey);
-      c.result.continue();
-    };
+    await trim(st, KEEP);
   } catch { /* storage full or blocked: it's built again next time */ }
+}
+
+// { blob, start }, or null if this track's sound isn't kept.
+export async function loadSound(key) {
+  try {
+    const db = await open(SOUND_DB);
+    const e = await done(db.transaction(STORE).objectStore(STORE).get(key));
+    if (!e) return null;
+    e.used = Date.now();
+    db.transaction(STORE, 'readwrite').objectStore(STORE).put(e);
+    return e;
+  } catch { return null; }
+}
+
+export async function saveSound(key, blob, start) {
+  try {
+    const db = await open(SOUND_DB);
+    const st = db.transaction(STORE, 'readwrite').objectStore(STORE);
+    st.put({ key, used: Date.now(), blob, start });
+    await trim(st, KEEP_SOUNDS);
+  } catch { /* storage full or blocked: it's made again next time */ }
 }

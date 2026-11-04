@@ -260,7 +260,8 @@ If the video is slow to start or to jump, or stutters:
 | **Scripts** | SRT and WebVTT, to open and export; Frazier's `.adc`, to open |
 | **Video and audio** | MP4, MOV, M4A, MKV, WebM and WAV |
 | **Very large files** | Fine for MP4, MOV, M4A, MKV, WebM and WAV. Other formats need to be under 2 GB |
-| **AC-3, E-AC-3, DTS, TrueHD audio** | Play, but with no waveform |
+| **AC-3, E-AC-3 audio** | Work, after a short wait the first time. See [If a video has no sound](#if-a-video-has-no-sound) |
+| **DTS, TrueHD audio** | The picture plays with no sound or waveform. See [If a video has no sound](#if-a-video-has-no-sound) |
 
 ### If a video won't play
 
@@ -273,6 +274,19 @@ can't play.
   [ffmpeg in Docker](INSTALL.md#the-full-mix-in-the-video-ffmpeg), choose
   **Make a copy that plays** and Scribecue makes one, opens it and downloads it for you.
 - **Keep the copy with the project.** Your timings work with the original video too.
+
+### If a video has no sound
+
+**AC-3 and E-AC-3:** wait for **Getting the sound ready** on the timeline to finish. It can
+take a few minutes for a long film. Scribecue keeps the sound for the last three videos, so
+they open straight away next time.
+
+**DTS and TrueHD:** most browsers can't play these. Scribecue tells you when you open a file
+like this.
+
+- **With [ffmpeg in Docker](INSTALL.md#the-full-mix-in-the-video-ffmpeg),** choose **Make a
+  copy that plays**. The picture stays as it is.
+- **Otherwise,** open a copy with AAC sound.
 
 ### If the picture freezes
 
