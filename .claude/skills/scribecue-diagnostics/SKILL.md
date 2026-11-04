@@ -108,7 +108,9 @@ The section says "none open" if no video was loaded. Performance numbers then me
 | Row | Meaning | Watch out for |
 | --- | --- | --- |
 | **Waveform** | "built in", "from the saved copy", "building, 4%" or "none". | While it's building, it competes with the video for the CPU. It eases off during playback and pauses for jumps. |
-| **Jumps** | Up to 20 jumps since the video loaded, from seeking to seeked. | A drag merges into one long jump, so "slowest" can be a drag. Times stop when the browser finishes seeking, not when the picture shows. |
+| **Jumps** | Up to 20 jumps since the video loaded, from seeking to seeked. | A drag merges into one long jump, so "slowest" can be a drag. Times stop when the browser finishes seeking, not when the picture shows: see **Jump picture**. |
+| **Jump picture** | Up to 20 jumps of a second or more, from seeking to the first new picture. "not shown yet after 41 s" means the latest one still hadn't shown when the report was made. | Much slower than **Jumps** means the seek finished but the decoder didn't. Missing if the browser can't report frames. |
+| **Frozen video** | Times the film played on for 3 s or more with no new picture, and the longest. "frozen now" means it was still happening. | A film with very few frames, such as long still images, can look frozen. Stalls while loading don't count, since the film isn't moving. Missing if the browser can't report frames. |
 | **Long tasks** | Tasks on the page over 50 ms, in the last 5 minutes. | Chromium only. Missing in other browsers. Video decoding isn't on the page, so slow decoding won't show here. |
 
 ### Rough guides
@@ -120,6 +122,8 @@ These are rules of thumb, not limits.
 | Frames dropped | under 1% | 1–5% | over 5% |
 | Typical jump | under 1 s | 1–3 s | over 3 s |
 | Longest long task | under 200 ms | 200–500 ms | over 500 ms |
+| Typical jump picture | under 1 s | 1–3 s | over 3 s |
+| Frozen video | none | 1, short | several, or any over 10 s |
 
 ### Measured reference points
 
@@ -154,6 +158,7 @@ The last 50 show, newest last. `−0:12` means 12 seconds before the report was 
 | Slow jumps, "not power-efficient", few long tasks | Software decoding. A jump decodes from the previous keyframe. | A smaller copy of the video, or Chrome or Edge. |
 | Dropped frames with "building" on the waveform | The waveform build is competing with playback. | Pause until it finishes, then test again. Later visits use the saved copy. |
 | Dropped frames, "not power-efficient", 1080p or more, few long tasks | The CPU can't decode the video fast enough. | A 720p copy. |
+| **Frozen video** or "not shown yet", few long tasks, and green flashes or a stuck picture | Decoding is failing, often the graphics chip or its driver. | Play the same spot in VLC, to rule out the file. Then start Chromium with `--disable-accelerated-video-decode`, or turn off graphics acceleration in its settings. |
 | Many long tasks, or any over 500 ms | Work on the page is blocking it. | Reproduce it. This is likely a Scribecue bug. |
 | Dropped frames with "plays alongside the video" | Two players are in use. | A file with only the description mix. |
 | "can't decode this video" | The browser lacks the codec. | Chrome or Edge. Some Chromium builds can't play MP4. |
