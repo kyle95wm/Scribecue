@@ -244,3 +244,20 @@ can't play.
   [ffmpeg in Docker](INSTALL.md#the-full-mix-in-the-video-ffmpeg), choose
   **Make a copy that plays** and Scribecue makes one, opens it and downloads it for you.
 - **Keep the copy with the project.** Your timings work with the original video too.
+
+### If the picture freezes
+
+If the picture sticks or flashes green while the sound carries on, the graphics chip or its
+driver is probably failing to play the video. Jumps can also take many seconds. It's most
+likely on Linux.
+
+Turn off the graphics chip for video:
+
+1. Open `chrome://flags` in Chrome, Edge or Chromium.
+2. Find **Hardware-accelerated video decode** and set it to **Disabled**.
+3. Click **Relaunch**, then try the same place in the video.
+
+To try it once first, start the browser from a terminal with
+`--disable-accelerated-video-decode`.
+
+Still happening? Play the same place in VLC. If it's wrong there too, the file may be damaged.

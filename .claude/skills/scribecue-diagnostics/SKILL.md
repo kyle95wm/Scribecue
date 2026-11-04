@@ -158,7 +158,7 @@ The last 50 show, newest last. `−0:12` means 12 seconds before the report was 
 | Slow jumps, "not power-efficient", few long tasks | Software decoding. A jump decodes from the previous keyframe. | A smaller copy of the video, or Chrome or Edge. |
 | Dropped frames with "building" on the waveform | The waveform build is competing with playback. | Pause until it finishes, then test again. Later visits use the saved copy. |
 | Dropped frames, "not power-efficient", 1080p or more, few long tasks | The CPU can't decode the video fast enough. | A 720p copy. |
-| **Frozen video** or "not shown yet", few long tasks, and green flashes or a stuck picture | Decoding is failing, often the graphics chip or its driver. | Play the same spot in VLC, to rule out the file. Then start Chromium with `--disable-accelerated-video-decode`, or turn off graphics acceleration in its settings. |
+| **Frozen video** or "not shown yet", few long tasks, and green flashes or a stuck picture | Decoding is failing, often the graphics chip or its driver. | Play the same spot in VLC, to rule out the file. Then start Chromium with `--disable-accelerated-video-decode`. If that fixes it, turn off **Hardware-accelerated video decode** in `chrome://flags` to keep it off. |
 | Many long tasks, or any over 500 ms | Work on the page is blocking it. | Reproduce it. This is likely a Scribecue bug. |
 | Dropped frames with "plays alongside the video" | Two players are in use. | A file with only the description mix. |
 | "can't decode this video" | The browser lacks the codec. | Chrome or Edge. Some Chromium builds can't play MP4. |
@@ -194,6 +194,9 @@ scripts/slow-chromium.sh 0.5 path/to/video.mp4
 The number is the CPU share. Pick a video like the reporter's, with the same resolution,
 codec and length if you can. `scripts/slow-chromium.sh desktop 0.5 folder` lets you try it
 by hand and make a report there. Ignore **CPU cores** in that report.
+
+The container has no graphics chip, so it can't reproduce a problem in hardware decoding. A
+clean run there doesn't clear the graphics chip or its driver.
 
 Compare one thing at a time. Results vary between runs, so run each side at least twice,
 in both orders.
