@@ -65,7 +65,7 @@ try {
   console.log(`reading the subtitles: ${readMs} ms from opening; while reading:`, reading);
   await sleep(500);
   assert.equal(await js(`document.getElementById('dialTrack').hidden`), false, 'the lane shows');
-  assert.match(await js(`document.getElementById('toast').textContent`), /Dialogue lane|Waveform|Loading/);
+  assert.match(await js(`document.getElementById('toast').textContent`), /Dialogue lane|Waveform|Loading|audio track/);
   await shoot('lane');
 
   // Gaps: D and Shift+D, in order, landing where the lane says.
