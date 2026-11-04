@@ -112,7 +112,10 @@ its container:
 
 MP3 exports use [lamejs](https://github.com/zhuker/lamejs) by Alex Zhukov, a JavaScript
 version of the [LAME](https://lame.sourceforge.io/) MP3 encoder (LGPL), unchanged, in
-`app/vendor`. The ffmpeg container installs [FFmpeg](https://ffmpeg.org) (LGPL and GPL)
+`app/vendor`. AC-3 and E-AC-3 sound is decoded with
+[@mediabunny/ac3](https://github.com/Vanilagy/mediabunny/tree/main/packages/ac3) by
+Vanilagy (MPL 2.0), which is [FFmpeg](https://ffmpeg.org)'s decoder (LGPL), also unchanged
+in `app/vendor`. The ffmpeg container installs [FFmpeg](https://ffmpeg.org) (LGPL and GPL)
 from Alpine Linux's packages when it's built.
 
 Scribecue is an independent project. It is not affiliated with, endorsed by or connected

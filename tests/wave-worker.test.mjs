@@ -2,6 +2,7 @@
 // files or browser are needed. WAV is read without AudioDecoder.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 let sink = () => {};
 globalThis.self = globalThis;
@@ -306,4 +307,78 @@ test('says closed captions in an MP4 can’t be read', async () => {
   const [t] = await probeSubs(mp4File('c608', [], { handler: 'clcp' }));
   assert.equal(t.codec, 'CEA-608');
   assert.equal(t.text, false);
+});
+
+// A Matroska file with one E-AC-3 track: tone.eac3, seven 32 ms frames of a 1 kHz tone.
+function eac3File() {
+  const bytes = readFileSync(new URL('./tone.eac3', import.meta.url));
+  const size = (n) => [0x10 | (n >> 24), (n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const el = (id, body) => [...id, ...size(body.length), ...body];
+  const str = (s) => [...s].map((c) => c.charCodeAt(0));
+  const f64 = (x) => { const dv = new DataView(new ArrayBuffer(8)); dv.setFloat64(0, x); return [...new Uint8Array(dv.buffer)]; };
+  const track = el([0xae], [...el([0xd7], [1]), ...el([0x83], [2]), ...el([0x86], str('A_EAC3')),
+    ...el([0xe1], [...el([0xb5], f64(48000)), ...el([0x9f], [2])])]);
+  const blocks = [];
+  for (let k = 0; k < 7; k++) blocks.push(...el([0xa3], [0x81, 0, k * 32, 0x80, ...bytes.subarray(k * 384, (k + 1) * 384)]));
+  const cluster = el([0x1f, 0x43, 0xb6, 0x75], [...el([0xe7], [0]), ...blocks]);
+  const segment = el([0x18, 0x53, 0x80, 0x67], [...el([0x16, 0x54, 0xae, 0x6b], track), ...cluster]);
+  return new File([new Uint8Array([...el([0x1a, 0x45, 0xdf, 0xa3], el([0x42, 0x82], str('webm'))), ...segment])], 'test.mkv');
+}
+
+test('reads E-AC-3 without the browser’s decoders', async () => {
+  const { end, peaks, max } = await run({ cmd: 'build', file: eac3File(), rate: 200 });
+  assert.equal(end.type, 'done');
+  assert.ok(Math.abs(peaks.length - 45) <= 2, `expected about 45 bins, got ${peaks.length}`);
+  assert.ok(max > 0.05 && max <= 1.01, `peak level ${max}`);
+});
+
+test('cuts a clip out of E-AC-3', async () => {
+  const { end } = await run({ cmd: 'clip', file: eac3File(), from: 0, to: 0.2 });
+  assert.equal(end.type, 'clip');
+  assert.ok(Math.abs(end.audio.length - 3200) <= 2, `got ${end.audio.length} samples`);
+  assert.ok(end.audio.some((v) => Math.abs(v) > 0.02), 'the clip is silent');
+});
+
+test('a browser that can’t make Opus still gets the waveform, and says why there’s no sound', async () => {
+  const { end, msgs, max } = await run({ cmd: 'build', file: eac3File(), rate: 200, mux: true });
+  assert.equal(end.type, 'done');
+  assert.ok(max > 0.05);
+  assert.match(msgs.find((m) => m.type === 'audio').reason, /can’t make Opus/);
+});
+
+test('makes a stereo Opus M4A of E-AC-3, starting where the sound does', async () => {
+  const seen = { frames: 0, channels: 0 };
+  const opusHead = new Uint8Array([79, 112, 117, 115, 72, 101, 97, 100, 1, 2, 0x38, 1, 0x80, 0xbb, 0, 0, 0, 0, 0]);
+  globalThis.AudioData = class { constructor(o) { Object.assign(this, o); } close() {} };
+  globalThis.AudioEncoder = class extends EventTarget {
+    static isConfigSupported = async () => ({ supported: true });
+    state = 'configured'; encodeQueueSize = 0;
+    constructor({ output }) { super(); this.output = output; }
+    configure(c) { assert.equal(c.codec, 'opus'); assert.equal(c.numberOfChannels, 2); }
+    encode(a) {
+      seen.frames += a.numberOfFrames;
+      seen.channels = a.numberOfChannels;
+      assert.ok(a.data.some((v) => v !== 0));
+      const bytes = new Uint8Array([0xfc, 1, 2, 3]); // one 20 ms Opus frame
+      this.output({ byteLength: 4, timestamp: a.timestamp, copyTo: (d) => d.set(bytes) }, { decoderConfig: { description: opusHead } });
+    }
+    flush() { return Promise.resolve(); }
+    close() { this.state = 'closed'; }
+  };
+  try {
+    const { end, msgs } = await run({ cmd: 'build', file: eac3File(), rate: 200, mux: true });
+    assert.equal(end.type, 'done');
+    const audio = msgs.find((m) => m.type === 'audio');
+    assert.equal(audio.reason, undefined);
+    assert.equal(audio.made, true);
+    assert.match(audio.mime, /opus/);
+    assert.equal(audio.start, 0);
+    assert.equal(seen.channels, 2);
+    assert.equal(seen.frames, 7 * 1536);
+    const text = Buffer.from(await audio.blob.arrayBuffer()).toString('latin1');
+    assert.ok(text.includes('Opus') && text.includes('dOps') && text.includes('mdat'));
+  } finally {
+    delete globalThis.AudioData;
+    delete globalThis.AudioEncoder;
+  }
 });

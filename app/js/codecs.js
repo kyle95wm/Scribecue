@@ -27,11 +27,30 @@ export const TESTS = {
 // The two most videos use: missing either, a browser can't play a usual MP4.
 export const COMMON = ['H.264', 'AAC'];
 
+// Sound most browsers can't decode at all. The picture still plays, with no sound and
+// no waveform, so the video element gives no error.
+const SOUND_TESTS = {
+  DTS: 'audio/mp4; codecs="dtsc"',
+  TrueHD: 'audio/mp4; codecs="mlpa"',
+};
+// The same, but Scribecue can make a copy of the sound itself (ac3Sink in wave-worker.js).
+const COPIED_TESTS = {
+  'AC-3': 'audio/mp4; codecs="ac-3"',
+  'E-AC-3': 'audio/mp4; codecs="ec-3"',
+};
+export const copiesSound = (codec, canPlay) => !!COPIED_TESTS[codec] && !canPlay(COPIED_TESTS[codec]);
+
 // Which of names (video or audio, as above) the browser can't play. canPlay: a
-// video element's canPlayType. Names it has no test for are left out: AC-3, DTS and the
-// like have their own handling, with the waveform.
+// video element's canPlayType. Names it has no test for are left out: see silentSound
+// for DTS and the like, and copiesSound for AC-3.
 export function missing(names, canPlay) {
   return [...new Set(names)].filter((n) => TESTS[n] && !canPlay(TESTS[n]));
+}
+
+// The formats of a file's audio tracks, if none of them can play here, or nothing if one
+// can: then the others only matter when chosen, and picking one says so.
+export function silentSound(codecs, canPlay) {
+  return codecs.every((c) => SOUND_TESTS[c] && !canPlay(SOUND_TESTS[c])) ? [...new Set(codecs)] : [];
 }
 
 // What to say when a file uses formats the browser can't play. ffmpeg: whether the
@@ -39,6 +58,10 @@ export function missing(names, canPlay) {
 // names: what it can't play, or none when the browser only said it couldn't play the file.
 export function advice(names, { file = 'this file', ffmpeg = false } = {}) {
   const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names.at(-1)}` : names[0];
+  if (names.length && names.every((n) => SOUND_TESTS[n])) {
+    return `This browser can’t play ${list}, so ${file} has no sound or waveform here. ` +
+      (ffmpeg ? 'Make a copy that plays here.' : 'Open a copy with AAC sound instead.');
+  }
   return (names.length ? `This browser can’t play ${list}, which ${file} uses. Some Chromium builds leave ${names.length > 1 ? 'them' : 'it'} out. `
     : `This browser can’t play ${file}. `) +
     (ffmpeg ? 'Make a copy that plays here, or use Chrome or Edge.' : 'Use Chrome or Edge, or a WebM copy of the video.');

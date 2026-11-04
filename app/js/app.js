@@ -39,9 +39,9 @@ import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, reviewGoogleKey, missingVoiceAdvice, hasGoogleKey } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands } from './ffcmd.js';
-import { videoName, missing, advice, copyKind, TESTS } from './codecs.js';
+import { videoName, missing, silentSound, copiesSound, advice, copyKind, TESTS } from './codecs.js';
 import { createLog, watchErrors, pictureWatch, report as diagReport } from './diagnostics.js';
-import { waveKey, loadWave, saveWave } from './wavestore.js';
+import { waveKey, loadWave, saveWave, loadSound, saveSound } from './wavestore.js';
 import { buildDialogue, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, MIN_CLASH, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue } from './dialogue.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
@@ -4446,11 +4446,12 @@ async function loadTracks(file) {
   if (fps) setFps(fps);
   startDialogue(file, subs);
   S.videoCodec = videoName(codec);
-  const gone = missing([S.videoCodec, ...tracks.map((t) => t.codec)], (t) => video.canPlayType(t));
+  const canPlay = (t) => video.canPlayType(t);
+  const gone = [...missing([S.videoCodec, ...tracks.map((t) => t.codec)], canPlay), ...silentSound(tracks.map((t) => t.codec), canPlay)];
   if (gone.length) showCodecAlert(file, gone);
   S.tracks = tracks;
   renderTrackPicker();
-  if (tracks.length < 2) return buildWaveform(file, 0, false);
+  if (tracks.length < 2) return buildWaveform(file, 0, needsCopy(0));
   // transcribing description is the point, so prefer a track marked as AD
   let pick = tracks.findIndex((t) => t.ad);
   if (pick >= 0) toast(`Using the audio description track (${trackLabel(pick)}). Press T to switch tracks`);
@@ -4542,6 +4543,9 @@ $('codecCopy').addEventListener('click', async () => {
   }
 });
 
+// A track the video can't play at all, as AC-3 is in most browsers.
+const needsCopy = (i) => copiesSound(S.tracks[i]?.codec, (t) => video.canPlayType(t));
+
 // Safari can switch tracks itself; everywhere else we copy the track out.
 const nativeSwitching = () => video.audioTracks && video.audioTracks.length === S.tracks.length;
 
@@ -4550,7 +4554,7 @@ function selectTrack(i) {
   if (!file || !S.tracks[i]) return;
   S.track = i;
   renderTrackPicker();
-  const multi = S.tracks.length > 1, native = multi && nativeSwitching();
+  const multi = S.tracks.length > 1, native = multi && nativeSwitching(), copied = needsCopy(i) || (multi && !native);
   if (native) {
     for (let k = 0; k < video.audioTracks.length; k++) video.audioTracks[k].enabled = k === i;
     useNativeAudio();
@@ -4559,14 +4563,14 @@ function selectTrack(i) {
   if (cached) {
     resetWaveform();
     Object.assign(S, { peaks: cached.peaks, peakLen: cached.peakLen, peakMax: cached.peakMax });
-    if (multi && !native) {
+    if (copied) {
       if (cached.audio) useAltAudio(cached.audio);
       else toast(`Can't play track ${i + 1} on its own: ${cached.reason}`);
     }
     if (multi) toast(`Audio: ${trackLabel(i)}`);
     return;
   }
-  buildWaveform(file, i, multi && !native);
+  buildWaveform(file, i, copied);
 }
 
 function stepTrack(d) {
@@ -4887,14 +4891,15 @@ altAudio.addEventListener('error', () => {
 let waveWorker = null;
 const LEGACY_LIMIT = 2e9;
 // Building it steps aside for the video: it waits while the video seeks, and goes slowly
-// while it plays, so a slower computer can keep up (pace in wave-worker.js).
-let wavePace = null;
+// while it plays, so a slower computer can keep up (pace in wave-worker.js). Sound that's
+// still being made doesn't go slowly: the video is silent until it's done.
+let wavePace = null, waveMaking = false;
 let waveBuild = null; // for Diagnostics: { t0 } while building, then { ms }, or { kept }
 function paceWave() {
   const pace = video.seeking ? 'hold' : isPlaying() ? 'slow' : 'go';
   if (pace === wavePace) return;
   wavePace = pace;
-  waveWorker?.postMessage({ cmd: 'pace', pace });
+  waveWorker?.postMessage({ cmd: 'pace', pace: waveMaking && pace === 'slow' ? 'go' : pace });
   dialWaiting = !!dialWorker && dialScans && pace === 'slow';
   dialWorker?.postMessage({ cmd: 'pace', pace: dialWaiting ? 'hold' : pace });
   tlDirty = true;
@@ -4961,23 +4966,33 @@ async function buildWaveform(file, track, mux) {
   const gen = ++waveGen;
   const multi = S.tracks.length > 1;
   const prefix = multi ? `Track ${track + 1} · ` : '';
-  S.waveStatus = `${prefix}Waveform 0%`;
+  const making = mux && needsCopy(track);
+  S.waveStatus = `${prefix}${making ? 'Getting the sound ready' : 'Waveform'} 0%`;
   // A waveform built before, kept in the browser. A track copied out to play still has
   // to be copied, but its waveform shows straight away.
   const key = waveKey(file, track, PEAK_RATE);
   const kept = await loadWave(key);
+  const sound = making && kept ? await loadSound(key) : null;
   if (gen !== waveGen || S.videoFile !== file) return;
   waveBuild = kept ? { kept: true } : { t0: performance.now() };
   if (kept) {
     Object.assign(S, kept);
     tlDirty = true;
+    if (sound) {
+      const audio = { url: URL.createObjectURL(sound.blob), start: sound.start };
+      S.waveStatus = '';
+      trackCache.set(track, { ...kept, audio, reason: '' });
+      if (S.track === track) useAltAudio(audio);
+      return;
+    }
     if (!mux) {
       S.waveStatus = '';
       trackCache.set(track, { ...kept, audio: null, reason: '' });
       return;
     }
-    S.waveStatus = `${prefix}Copying the track`;
+    S.waveStatus = `${prefix}${making ? 'Getting the sound ready' : 'Copying the track'}`;
   }
+  if (making) toast(`Getting the ${S.tracks[track].codec} sound ready. It’ll play when this is done`);
   let worker;
   try {
     worker = new Worker('js/wave-worker.js');
@@ -5001,11 +5016,12 @@ async function buildWaveform(file, track, mux) {
   worker.onmessage = ({ data: m }) => {
     if (stale()) return;
     if (m.type === 'peaks') { if (!kept) addPeaks(m.from, m.data, m.max); }
-    else if (m.type === 'progress') { S.waveStatus = `${prefix}${kept ? 'Copying the track' : 'Waveform'} ${Math.round(m.done * 100)}%`; tlDirty = true; }
+    else if (m.type === 'progress') { S.waveStatus = `${prefix}${making ? 'Getting the sound ready' : kept ? 'Copying the track' : 'Waveform'} ${Math.round(m.done * 100)}%`; tlDirty = true; }
     else if (m.type === 'audio') {
       if (m.blob && !altAudio.canPlayType(m.mime)) entry.reason = `this browser can’t play ${S.tracks[track].codec} on its own`;
       else if (m.blob) entry.audio = { url: URL.createObjectURL(m.blob), start: m.start || 0 };
       else entry.reason = m.reason;
+      if (m.made && entry.audio) saveSound(key, m.blob, m.start);
       if (S.track !== track) return;
       if (entry.audio) useAltAudio(entry.audio);
       else toast(`Can't play track ${track + 1} on its own: ${entry.reason}`);
@@ -5018,11 +5034,12 @@ async function buildWaveform(file, track, mux) {
       if (waveBuild?.t0) waveBuild = { ms: performance.now() - waveBuild.t0 };
       if (!kept && S.peakMax) saveWave(key, S.peaks, S.peakLen, S.peakMax);
       if (!S.peakMax) toast('No waveform: the audio track is silent');
-      else toast(multi ? `Audio: ${trackLabel(track)}. T switches tracks` : 'Waveform ready');
+      else toast(multi ? `Audio: ${trackLabel(track)}. T switches tracks` : making && entry.audio ? 'Sound and waveform ready' : 'Waveform ready');
     } else stop(m.message);
   };
   worker.onerror = (e) => { e.preventDefault(); stop('the waveform worker crashed'); };
   worker.postMessage({ cmd: 'build', file, rate: PEAK_RATE, track, mux });
+  waveMaking = making;
   wavePace = null;
   paceWave();
 }

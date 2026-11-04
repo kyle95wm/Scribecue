@@ -235,8 +235,9 @@ in a container with no internet access.
 - **"Can't play track 2 on its own":** the browser can't play that track's format by
   itself, such as Vorbis. Its waveform still shows. Choose another track, or convert the
   file.
-- **No waveform:** the audio is AC-3, E-AC-3, DTS or TrueHD, which browsers can't decode.
-  It plays, but speech to text can't read it either.
+- **No sound or waveform:** the audio is DTS or TrueHD, which most browsers can't decode.
+  Speech to text can't read it either. See
+  [If a video has no sound](GETTING-STARTED.md#if-a-video-has-no-sound).
 - **STT doesn't show, or Settings says Whisper isn't ready:** in the web version,
   download it in Settings, under Transcribing; with Docker, check that `COMPOSE_PROFILES` in `.env`
   includes `whisper`, then run `docker compose up -d --build`. The container takes a few
