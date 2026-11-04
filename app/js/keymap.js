@@ -23,6 +23,8 @@ export const GROUPS = [
     ['fwd3', 'Three seconds forward', ['Shift+ArrowRight']],
     ['blockBack', 'Start of this block, then the previous block', ['Alt+Shift+ArrowLeft']],
     ['blockNext', 'Next block', ['Alt+Shift+ArrowRight']],
+    ['gapBack', 'Previous gap in the dialogue', ['Shift+KeyD']],
+    ['gapNext', 'Next gap in the dialogue', ['KeyD']],
     ['videoStart', 'Beginning of the video', ['Home']],
     ['videoEnd', 'End of the video', ['End']],
     ['toStart', 'Playhead to the block’s start', ['KeyG']],

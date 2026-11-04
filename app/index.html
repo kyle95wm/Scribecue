@@ -183,6 +183,9 @@
         <label class="trackpick" id="trackPick" hidden
           data-tip="Audio track to hear and draw in the waveform. T / ⇧T switch tracks">Audio
           <select id="trackSel"></select></label>
+        <label class="trackpick" id="dialPick" hidden
+          data-tip="Subtitles to show as dialogue on the timeline, so you can see the gaps. They stay in this browser and aren’t part of the script">Dialogue
+          <select id="dialSel"></select></label>
         <label class="mixbox tip-end" id="mixBox" hidden>Video
           <input type="range" id="mix" min="-100" max="100" step="5" value="0"
             aria-label="Mix between the video's sound and the readings">
@@ -229,6 +232,7 @@
       <div id="cues"></div>
       <div id="dragtip" hidden></div>
     </div>
+    <div class="dialtrack" id="dialTrack" hidden data-tip="Dialogue from the subtitles, with the length of each gap. Click to move the playhead. D and Shift+D jump between gaps"><canvas id="dialWave"></canvas></div>
     <div class="taketrack record-only" id="takeTrack"><canvas id="takeWave"></canvas></div>
     <div class="overview" id="overview"><div id="ovWin"></div></div>
     <div class="playhead" id="playhead"></div>
@@ -1238,6 +1242,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="frameBack frameFwd"><kbd>←</kbd> <kbd>→</kbd></dt><dd>One frame back / forward</dd>
             <dt data-keys="back3 fwd3"><kbd>⇧</kbd><kbd>←</kbd> <kbd>⇧</kbd><kbd>→</kbd></dt><dd>Three seconds back / forward</dd>
             <dt data-keys="blockBack blockNext"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>←</kbd> <kbd>→</kbd></dt><dd>Start of this block, then the previous / next block</dd>
+            <dt data-keys="gapBack gapNext"><kbd>⇧</kbd><kbd>D</kbd> <kbd>D</kbd></dt><dd>Previous / next gap in the dialogue</dd>
             <dt data-keys="videoStart videoEnd" data-pc="&lt;kbd&gt;Home&lt;/kbd&gt; &lt;kbd&gt;End&lt;/kbd&gt;"><kbd>Fn</kbd><kbd>←</kbd> <kbd>Fn</kbd><kbd>→</kbd></dt><dd data-pc="Beginning / end of video">Beginning / end of video (Home / End)</dd>
             <dt data-keys="jumpTime"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>J</kbd></dt><dd>Jump to a timecode</dd>
             <dt data-keys="quickNav"><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Quick navigation (search blocks)</dd>
@@ -1346,6 +1351,7 @@ docker compose up -d --build</code></pre>
 
   <input type="file" id="fileSubs" accept=".scribecueqc,.scribecue,.scribecuerec,.scribecue-rec,.scribesession,.scribecuesession,.zip,.srt,.vtt,.txt,.adc,video/*,audio/*,.mkv,.mov,.m4a" multiple hidden>
   <input type="file" id="fileVideo" accept="video/*,audio/*,.mkv,.mov,.m4a" hidden>
+  <input type="file" id="fileDialogue" accept=".srt,.vtt" hidden>
   <!-- pops up under a selection in the block text; at the top level so it's placed by the window -->
   <button id="selSay" class="selsay" tabindex="-1" hidden>Sounds Like</button>
 </body>
