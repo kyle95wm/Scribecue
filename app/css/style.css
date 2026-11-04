@@ -206,6 +206,26 @@ body.swapped .listwrap { border-right: 0; border-left: 1px solid var(--line); }
   align-items: center;
   justify-content: center;
 }
+/* Over the video while the sound for AC-3 or E-AC-3 is made, since it's silent till then. */
+.soundwait {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font: 12px var(--sans);
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  pointer-events: none;
+}
+.soundwait[hidden] { display: none; }
+.soundwait .num { min-width: 4ch; font-family: var(--mono); text-align: right; }
+.soundwait .jobbar { width: 120px; }
 .stage.drop { outline: 2px dashed var(--accent); outline-offset: -8px; }
 video { width: 100%; height: 100%; object-fit: contain; display: block; }
 #stageEmpty #reopenVideo { margin-top: 14px; pointer-events: auto; font-size: 14px; }

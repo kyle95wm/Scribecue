@@ -4944,6 +4944,7 @@ function resetWaveform() {
   S.peakLen = 0;
   S.peakMax = 0;
   S.waveStatus = '';
+  soundProgress(null);
   tlDirty = true;
 }
 
@@ -4958,6 +4959,14 @@ function addPeaks(from, data, max) {
   S.peakLen = Math.max(S.peakLen, need);
   S.peakMax = Math.max(S.peakMax, max);
   tlDirty = true;
+}
+
+// Progress over the video while its sound is made: 0..1, or null when it's not.
+function soundProgress(done) {
+  $('soundWait').hidden = done === null;
+  if (done === null) return;
+  $('soundBar').value = done;
+  $('soundPct').textContent = `${Math.round(done * 100)}%`;
 }
 
 let waveGen = 0;
@@ -4993,6 +5002,7 @@ async function buildWaveform(file, track, mux) {
     S.waveStatus = `${prefix}${making ? 'Getting the sound ready' : 'Copying the track'}`;
   }
   if (making) toast(`Getting the ${S.tracks[track].codec} sound ready. It’ll play when this is done`);
+  if (making) soundProgress(0);
   let worker;
   try {
     worker = new Worker('js/wave-worker.js');
@@ -5007,6 +5017,7 @@ async function buildWaveform(file, track, mux) {
     if (stale()) return;
     waveWorker = null;
     S.waveStatus = '';
+    soundProgress(null);
     tlDirty = true;
     if (S.peakLen) toast(`Waveform may be incomplete: ${reason}`);
     // the in-memory fallback can only see the default track
@@ -5016,7 +5027,7 @@ async function buildWaveform(file, track, mux) {
   worker.onmessage = ({ data: m }) => {
     if (stale()) return;
     if (m.type === 'peaks') { if (!kept) addPeaks(m.from, m.data, m.max); }
-    else if (m.type === 'progress') { S.waveStatus = `${prefix}${making ? 'Getting the sound ready' : kept ? 'Copying the track' : 'Waveform'} ${Math.round(m.done * 100)}%`; tlDirty = true; }
+    else if (m.type === 'progress') { S.waveStatus = `${prefix}${making ? 'Getting the sound ready' : kept ? 'Copying the track' : 'Waveform'} ${Math.round(m.done * 100)}%`; tlDirty = true; if (making) soundProgress(m.done); }
     else if (m.type === 'audio') {
       if (m.blob && !altAudio.canPlayType(m.mime)) entry.reason = `this browser can’t play ${S.tracks[track].codec} on its own`;
       else if (m.blob) entry.audio = { url: URL.createObjectURL(m.blob), start: m.start || 0 };
@@ -5029,6 +5040,7 @@ async function buildWaveform(file, track, mux) {
       worker.terminate();
       waveWorker = null;
       S.waveStatus = '';
+      soundProgress(null);
       tlDirty = true;
       trackCache.set(track, { peaks: S.peaks, peakLen: S.peakLen, peakMax: S.peakMax, ...entry });
       if (waveBuild?.t0) waveBuild = { ms: performance.now() - waveBuild.t0 };
