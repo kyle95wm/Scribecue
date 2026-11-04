@@ -11,9 +11,11 @@
 #   cpus:   CPU cores the container may use, such as 1 or 0.5 (default 1)
 #   film:   a video to measure with (default: a generated 2-hour 1080p film, made once)
 #   tour:   every mode and feature, with a big script: how long each step takes, freezes,
-#           slow responses and memory. About 15 minutes.
+#           slow responses and memory. About 15 minutes. It uses all the CPU unless you give
+#           a number: a tour's cpus default to "all". To limit the whole browser instead of
+#           slowing the page, use a slowdown of 1. The two together overstate delays.
 #   blocks: how many blocks the script has (default 1500)
-#   slowdown: how much more to slow the page, as in DevTools (default 6)
+#   slowdown: how much to slow the page, as in DevTools (default 6)
 #   sections: some of waveform,write,modes,panels,tts,exports,record (default all)
 #   folder: a folder of yours to open and save files in, at /files (default: the test film's)
 #   reset:  stops Chromium and clears what it keeps, such as settings and waveforms. Your
@@ -47,7 +49,7 @@ case "${1:-}" in
     [ -z "${3:-}" ] || [ -d "$3" ] || stop "No such folder: $3"
     ;;
   tour)
-    check_cpus "${2:-1}"
+    [ "${2:-all}" = all ] || check_cpus "$2"
     case "${3:-1500}" in *[!0-9]* | '' ) stop "Blocks should be a whole number, not: $3" ;; esac
     case "${4:-6}" in *[!0-9]* | '' | 0 ) stop "Slowdown should be a whole number of 1 or more, not: $4" ;; esac
     ;;
@@ -93,7 +95,7 @@ if [ "${1:-}" = desktop ]; then
 fi
 # The tour always uses the generated film, which is two hours long.
 if [ "${1:-}" = tour ]; then
-  cpus=${2:-1} film_arg=
+  cpus=${2:-all} film_arg=
 else
   cpus=${1:-1} film_arg=${2:-}
 fi
@@ -120,8 +122,11 @@ else
 fi
 
 if [ "${1:-}" = tour ]; then
-  echo "== Going through the app with $cpus CPU"
-  docker run --rm --cpus="$cpus" --shm-size=1g -e PROFILE="${PROFILE:-}" -v "$(pwd):/repo:ro" -v "$dir:/film:ro" -w /repo \
+  echo "== Going through the app with $cpus CPU and a ${4:-6}× slowdown"
+  limit=
+  [ "$cpus" = all ] || limit="--cpus=$cpus"
+  # shellcheck disable=SC2086 # no limit means no option at all
+  docker run --rm $limit --shm-size=1g -e PROFILE="${PROFILE:-}" -v "$(pwd):/repo:ro" -v "$dir:/film:ro" -w /repo \
     scribecue-slow-chromium node scripts/slow-tour.mjs "$film" "${3:-1500}" "${4:-6}" "${5:-}"
   exit 0
 fi

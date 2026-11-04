@@ -375,8 +375,12 @@ To go through the whole app, with a two-hour film and 1,500 blocks:
 scripts/slow-chromium.sh tour
 ```
 
-It shows how long each step takes, any freezes, and how much memory is used. It takes about
-15 minutes. Don't change the app while it runs, as it reads the files as it goes.
+It slows the page 6×, then shows how long each step takes, any freezes, and how much memory
+is used. It takes about 15 minutes. Don't change the app while it runs, as it reads the files
+as it goes.
+
+To limit the whole browser instead, give it cores and no slowdown: `scripts/slow-chromium.sh
+tour 0.5 1500 1`. Using both together makes delays look worse than they are.
 
 To try it by hand, with your own projects and videos:
 
