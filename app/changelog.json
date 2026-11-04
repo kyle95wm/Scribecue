@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.81.0",
+  "date": "2026-11-04",
+  "notes": "## New: AC-3 and E-AC-3 videos have sound\n\n- These videos used to open silent, with no waveform. Now they play.\n- The first time you open one, the sound takes a moment. **Getting the sound ready** shows over the video.\n- The sound for the last three videos is kept, so they open straight away.\n- The waveform, speech to text and the full mix work with these videos too.\n\n## Changed\n\n- DTS and TrueHD videos still can't play in most browsers. Scribecue now says so when you open one."
+ },
+ {
   "version": "0.80.0",
   "date": "2026-11-04",
   "notes": "## New: find and fill the gaps faster\n\n- `D` and `Shift+D` now stop only at free gaps, and skip gaps you've already filled.\n- Press `Shift+N`, or double-click a gap on the dialogue lane, to fill it with a new block.\n\n## New: see blocks that run over dialogue\n\n- A block over dialogue has a yellow line on the timeline. The list and editor say so too.\n- With text to speech on, this goes by the reading.\n- Press `U` or `Shift+U` to jump between these blocks.\n- It's a hint, not an error: subtitles can stay up after the words end, so check by ear."
