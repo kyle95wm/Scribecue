@@ -242,10 +242,12 @@ class Detail extends Clip {
 
 // A subtitle track, as the app sees it. text: whether its words can be read. Tracks of
 // pictures (Blu-ray and DVD subtitles) can't, so the app says so rather than offer them.
-function describeSub(codec, text, meta) {
+// scan: whether reading it means going through the whole file, as in Matroska, where
+// lines sit between the video's. An MP4's index leads straight to them.
+function describeSub(codec, text, meta, scan = false) {
   const name = meta.name || '';
   return {
-    codec, text, lang: meta.lang || '', name, default: !!meta.default,
+    codec, text, scan, lang: meta.lang || '', name, default: !!meta.default,
     forced: !!meta.forced || /\bforced\b/i.test(name),
     hearing: !!meta.hearing || /\bsdh\b|\bcc\b|hearing|deaf|caption/i.test(name),
   };
@@ -556,7 +558,7 @@ async function matroska(file, peaks, job) {
     videoCodec = tracks.find((t) => t.type === 1)?.codec || '';
     subTracks = subs().map((t) => {
       const [codec, format] = MKV_SUBS[t.codec] || [(t.codec || 'unknown').replace(/^S_/, '')];
-      return describeSub(codec, !!format && !t.encoded, { lang: t.bcp47 || t.lang, name: t.name, default: t.default !== 0, forced: t.forced === 1, hearing: t.hearing === 1 });
+      return describeSub(codec, !!format && !t.encoded, { lang: t.bcp47 || t.lang, name: t.name, default: t.default !== 0, forced: t.forced === 1, hearing: t.hearing === 1 }, true);
     });
     return listAudio();
   };

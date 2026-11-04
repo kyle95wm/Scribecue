@@ -4584,6 +4584,9 @@ $('trackSel').addEventListener('change', (e) => { selectTrack(+e.target.value); 
 // they aren't part of the script or the project.
 
 let dialWorker = null, dialGen = 0;
+// Going through a whole file takes the CPU from a video that's playing, and the lane can
+// wait, so that kind of read rests until the video stops. See paceWave.
+let dialScans = false, dialWaiting = false;
 let dialDrawn = '', dialGaps = [], dialGapsFor = '';
 const dialColors = () => ({ bar: C.line, text: C.text, dim: C.dim, panel: C.panel });
 
@@ -4661,6 +4664,7 @@ async function startDialogue(file, subs) {
 function readSubTrack(file, i) {
   dialWorker?.terminate();
   const gen = ++dialGen, t = S.subTracks[i], sel = $('dialSel');
+  dialScans = t.scan;
   S.dialogue = null;
   S.dialStatus = 'Reading subtitles 0%';
   sel.dataset.reading = `t${i}`;
@@ -4738,7 +4742,7 @@ const currentGaps = () => {
 
 function drawDialogueLane() {
   if (dialTrack.hidden) return;
-  const [w, h] = box(dialWave), drawn = `${S.view}|${S.pps}|${w}|${h}|${S.dialStatus}|${duration()}`;
+  const [w, h] = box(dialWave), drawn = `${S.view}|${S.pps}|${w}|${h}|${S.dialStatus}|${dialWaiting}|${duration()}`;
   if (drawn === dialDrawn) return;
   dialDrawn = drawn;
   const [g, W, H] = fitCanvas(dialWave);
@@ -4747,7 +4751,7 @@ function drawDialogueLane() {
     g.fillStyle = C.dim;
     g.font = '11px ui-monospace, Menlo, monospace';
     g.textBaseline = 'middle';
-    g.fillText(S.dialStatus, 8, H / 2);
+    g.fillText(S.dialStatus + (dialWaiting ? ', waiting while the video plays' : ''), 8, H / 2);
   }
 }
 
@@ -4827,7 +4831,10 @@ function paceWave() {
   const pace = video.seeking ? 'hold' : isPlaying() ? 'slow' : 'go';
   if (pace === wavePace) return;
   wavePace = pace;
-  for (const w of [waveWorker, dialWorker]) w?.postMessage({ cmd: 'pace', pace });
+  waveWorker?.postMessage({ cmd: 'pace', pace });
+  dialWaiting = !!dialWorker && dialScans && pace === 'slow';
+  dialWorker?.postMessage({ cmd: 'pace', pace: dialWaiting ? 'hold' : pace });
+  tlDirty = true;
 }
 for (const ev of ['play', 'playing', 'pause', 'ended', 'seeking', 'seeked']) video.addEventListener(ev, paceWave);
 

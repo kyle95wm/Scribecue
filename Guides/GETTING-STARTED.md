@@ -181,6 +181,8 @@ speak and how long each gap is, so you can see where description fits.
 
 - **Timing is close, not exact.** Subtitles often stay up a little after the words end.
   Check with the waveform.
+- **An MKV's subtitles can take a while the first time.** They load while the video is
+  paused, so it plays smoothly. After that they show straight away.
 - **Sound notes don't count as speech,** such as `[door slams]`.
 - **Picture subtitles can't be read.** Blu-ray and DVD subtitles are images. They show in
   the list, greyed out. Load a subtitle file instead.

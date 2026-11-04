@@ -211,7 +211,7 @@ const readSubs = (file, track = 0) => run({ cmd: 'subs', file, track });
 
 test('lists a Matroska file’s subtitle tracks', async () => {
   const [t] = await probeSubs(mkvFile('S_TEXT/UTF8', [], [el(0x55aa, [1]), el(0x55ab, [1])]));
-  assert.deepEqual(t, { codec: 'SRT', text: true, lang: 'eng', name: 'English', default: true, forced: true, hearing: true });
+  assert.deepEqual(t, { codec: 'SRT', text: true, scan: true, lang: 'eng', name: 'English', default: true, forced: true, hearing: true });
   const [p] = await probeSubs(mkvFile('S_HDMV/PGS', []));
   assert.equal(p.codec, 'PGS');
   assert.equal(p.text, false);
@@ -228,6 +228,16 @@ test('reads ASS and WebM subtitles’ words', async () => {
   assert.equal(ass.end.cues[0].text, 'Well, hello');
   const webm = await readSubs(mkvFile('D_WEBVTT/SUBTITLES', [[0, 100, '\nline:90%\nHello\nthere']]));
   assert.equal(webm.end.cues[0].text, 'Hello\nthere');
+});
+
+test('a subtitle read rests while it’s told to hold', async () => {
+  self.onmessage({ data: { cmd: 'pace', pace: 'hold' } });
+  let finished = false;
+  const reading = readSubs(mkvFile('S_TEXT/UTF8', [[1000, 2000, 'Hello']])).then((r) => { finished = true; return r; });
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(finished, false, 'nothing is read while the video plays');
+  self.onmessage({ data: { cmd: 'pace', pace: 'go' } });
+  assert.equal((await reading).end.cues.length, 1);
 });
 
 test('won’t read pictures as words', async () => {
@@ -276,6 +286,7 @@ test('reads an MP4 text track, leaving out the pauses', async () => {
   assert.equal(t.text, true);
   assert.equal(t.lang, 'eng');
   assert.equal(t.name, '');
+  assert.equal(t.scan, false, 'an MP4’s index leads straight to the lines');
   const { end } = await readSubs(file);
   assert.deepEqual(end.cues, [{ start: 1, end: 3, text: 'Hello' }, { start: 3.5, end: 5, text: 'There' }]);
 });

@@ -57,6 +57,9 @@ try {
   await send('DOM.enable');
   const { result: { root } } = await send('DOM.getDocument');
   const { result: { nodeId } } = await send('DOM.querySelector', { nodeId: root.nodeId, selector: '#fileVideo' });
+  // How long a subtitle track takes to reach the timeline, while everything else goes on.
+  await js(`(() => { const t0 = performance.now(), sel = document.getElementById('dialSel'); window.__lane = null;
+    const go = () => { if (sel.value.startsWith('t') && !sel.dataset.reading) window.__lane = Math.round(performance.now() - t0); else setTimeout(go, 100); }; go(); return 1; })()`);
   await send('DOM.setFileInputFiles', { nodeId, files: [film] });
   await js(`new Promise((r) => { const v = document.getElementById('video'); const go = () => v.readyState >= 2 ? r(1) : setTimeout(go, 100); go(); })`);
   await sleep(2000);
@@ -110,6 +113,12 @@ try {
   const pictures = await js(`new Set(__frames.filter((f) => f[0] > __d0 && f[0] < __t0).map((f) => f[1].toFixed(2))).size`);
   row('Drag across the film', `${pictures} pictures during the drag, final one ${await landed(0.6 * dur)} after letting go`);
   row('Long tasks while jumping', await longTasks());
+
+  // Subtitles, if the film has any. Reading them shares the computer with all of the above.
+  if (await js(`document.querySelectorAll('#dialSel option[value^=t]').length`)) {
+    await js(`new Promise((r) => { const t = performance.now(), go = () => window.__lane || performance.now() - t > 300e3 ? r(1) : setTimeout(go, 200); go(); })`);
+    row('Dialogue lane', await js(`__lane ? (__lane / 1000).toFixed(1) + ' s from opening the film' : 'not read after 5 more minutes'`));
+  }
 
   // 4. The Diagnostics window, from Settings.
   await js('window.__t0 = performance.now(); document.getElementById("setDiag").click(); 1');
