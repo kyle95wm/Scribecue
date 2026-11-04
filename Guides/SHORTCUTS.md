@@ -30,6 +30,7 @@ changed. Your shortcuts are kept in this browser.
 | `Space` | Play / pause |
 | `←` `→` | One frame back / forward |
 | `Shift+←` `Shift+→` | Three seconds back / forward |
+| `Shift+D` `D` | Previous / next gap in the dialogue, with a dialogue lane showing |
 | `Alt+Shift+←` `Alt+Shift+→` | Start of the block you're in, then the previous block / the next block, from the playhead |
 | `Home` `End` | Beginning / end of the video (`Fn+←` `Fn+→` on Mac laptops) |
 | `Alt+Shift+J` | Jump to a timecode (`hh:mm:ss:ff`, `hh:mm:ss.mmm`, `mm:ss` or seconds) |

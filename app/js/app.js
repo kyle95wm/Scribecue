@@ -42,6 +42,7 @@ import { ffmpegCommands } from './ffcmd.js';
 import { videoName, missing, advice, copyKind, TESTS } from './codecs.js';
 import { createLog, watchErrors, pictureWatch, report as diagReport } from './diagnostics.js';
 import { waveKey, loadWave, saveWave } from './wavestore.js';
+import { buildDialogue, gapsOf, gapFrom, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue } from './dialogue.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, readWav, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
@@ -63,7 +64,7 @@ if (isMobile({ ua: navigator.userAgent, mobile: navigator.userAgentData?.mobile,
 }
 
 const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('list');
-const tl = $('tl'), ruler = $('ruler'), lane = $('lane'), wave = $('wave'), cuesLayer = $('cues'), takeWave = $('takeWave');
+const tl = $('tl'), ruler = $('ruler'), lane = $('lane'), wave = $('wave'), cuesLayer = $('cues'), takeWave = $('takeWave'), dialTrack = $('dialTrack'), dialWave = $('dialWave');
 const playheadEl = $('playhead'), dragtip = $('dragtip'), overview = $('overview'), ovWin = $('ovWin');
 const TEXT_HINT = $('edText').placeholder;
 const edText = $('edText'), edStart = $('edStart'), edEnd = $('edEnd'), edNotes = $('edNotes');
@@ -110,7 +111,7 @@ const PEAK_RATE = 200; // waveform bins per second
 const OFFSETS = [0, 0.1, 0.15, 0.2, 0.25, 0.3]; // hold-to-mark reaction offsets, ⇧H cycles
 
 const css = getComputedStyle(document.documentElement);
-const C = Object.fromEntries(['panel', 'line', 'dim', 'faint', 'accent', 'bg', 'cue'].map((k) => [k, css.getPropertyValue('--' + k).trim()]));
+const C = Object.fromEntries(['panel', 'line', 'dim', 'faint', 'accent', 'bg', 'cue', 'text'].map((k) => [k, css.getPropertyValue('--' + k).trim()]));
 C.wave = '#3b7f86';
 C.grid = '#1b2028';
 
@@ -148,6 +149,9 @@ const S = {
   peakLen: 0,
   peakMax: 0,
   waveStatus: '',
+  subTracks: [],    // the video's subtitle tracks, from the worker
+  dialogue: null,   // the dialogue lane: { lines, spans, choice, label }
+  dialStatus: '',   // and how reading it is going
   tracks: [], // audio tracks in the media file, as listed by the worker
   track: 0,
   maxEnd: 0,
@@ -1653,6 +1657,7 @@ function drawTimeline() {
   }
 
   drawCues(ww);
+  drawDialogueLane();
   if (S.mode === 'record' && recorder) recorder.drawTrack(...fitCanvas(takeWave), t0, pps);
   drawOverview();
 }
@@ -4407,6 +4412,7 @@ function resetTracks() {
   S.tracks = [];
   S.track = 0;
   renderTrackPicker();
+  resetDialogue();
 }
 
 function probeTracks(file) {
@@ -4423,9 +4429,10 @@ async function loadTracks(file) {
   resetTracks();
   resetWaveform();
   S.waveStatus = 'Reading audio tracks…';
-  const { tracks, fps, video: codec } = await probeTracks(file);
+  const { tracks, fps, video: codec, subs = [] } = await probeTracks(file);
   if (S.videoFile !== file) return;
   if (fps) setFps(fps);
+  startDialogue(file, subs);
   S.videoCodec = videoName(codec);
   const gone = missing([S.videoCodec, ...tracks.map((t) => t.codec)], (t) => video.canPlayType(t));
   if (gone.length) showCodecAlert(file, gone);
@@ -4569,6 +4576,200 @@ function renderTrackPicker() {
 }
 $('trackSel').addEventListener('change', (e) => { selectTrack(+e.target.value); e.target.blur(); });
 
+// ---------------------------------------------------------------- the dialogue lane
+//
+// A video's subtitles, on a strip of their own under the blocks, so the gaps can be seen
+// (see dialogue.js). They come from a track in the file, read in a worker while the video
+// stays usable, or from a subtitle file. They stay in this browser, with the video's name:
+// they aren't part of the script or the project.
+
+let dialWorker = null, dialGen = 0;
+// Going through a whole file takes the CPU from a video that's playing, and the lane can
+// wait, so that kind of read rests until the video stops. See paceWave.
+let dialScans = false, dialWaiting = false;
+let dialDrawn = '', dialGaps = [], dialGapsFor = '';
+const dialColors = () => ({ bar: C.line, text: C.text, dim: C.dim, panel: C.panel });
+
+function resetDialogue() {
+  dialGen++;
+  dialWorker?.terminate();
+  dialWorker = null;
+  S.subTracks = [];
+  S.dialogue = null;
+  S.dialStatus = '';
+  delete $('dialSel').dataset.reading;
+  renderDialPick();
+}
+
+// A subtitle track's name in the picker.
+function dialLabel(t) {
+  let lang = t.lang;
+  try { if (lang && langNames) lang = langNames.of(lang); } catch { /* unknown code */ }
+  return [lang || 'Unknown language', t.forced && 'forced', t.hearing && 'SDH', t.name && `“${t.name}”`, !t.text && `${t.codec}: pictures, can’t be read`].filter(Boolean).join(' · ');
+}
+
+function renderDialPick() {
+  const sel = $('dialSel'), d = S.dialogue;
+  $('dialPick').hidden = !S.videoFile;
+  sel.textContent = '';
+  const add = (value, text, disabled = false) => {
+    const o = document.createElement('option');
+    Object.assign(o, { value, textContent: text, disabled });
+    sel.append(o);
+  };
+  add('off', 'Off');
+  S.subTracks.forEach((t, i) => add(`t${i}`, dialLabel(t), !t.text));
+  if (d?.choice === 'file') add('file', d.label);
+  add('load', 'Load a subtitle file…');
+  sel.value = sel.dataset.reading || d?.choice || 'off';
+  dialTrack.hidden = !d && !S.dialStatus;
+  dialDrawn = '';
+  tlDirty = true;
+}
+
+function useDialogue(file, entry, { keep = true } = {}) {
+  S.dialogue = { ...buildDialogue(entry.lines), choice: entry.choice, label: entry.label };
+  S.dialStatus = '';
+  delete $('dialSel').dataset.reading;
+  dialGapsFor = '';
+  renderDialPick();
+  if (keep) saveDialogue(dialogueKey(file), { choice: entry.choice, label: entry.label, lines: S.dialogue.lines });
+  return S.dialogue.lines.length;
+}
+
+function offDialogue(file) {
+  dialGen++;
+  dialWorker?.terminate();
+  dialWorker = null;
+  S.dialogue = null;
+  S.dialStatus = '';
+  delete $('dialSel').dataset.reading;
+  renderDialPick();
+  saveDialogue(dialogueKey(file), { choice: 'off', label: '', lines: [] });
+}
+
+// What a video shows when it opens: what it showed last time, or its best subtitle track.
+async function startDialogue(file, subs) {
+  S.subTracks = subs;
+  renderDialPick();
+  const gen = dialGen, kept = await loadDialogue(dialogueKey(file));
+  if (gen !== dialGen || S.videoFile !== file) return;
+  if (kept?.choice === 'off') return;
+  if (kept) { useDialogue(file, kept, { keep: false }); return; }
+  const best = bestTrack(subs);
+  if (best >= 0) readSubTrack(file, best);
+  else if (subs.length && subs.every((t) => !t.text)) toast('This video’s subtitles are pictures, so there’s no dialogue lane. Load a subtitle file to add one');
+}
+
+function readSubTrack(file, i) {
+  dialWorker?.terminate();
+  const gen = ++dialGen, t = S.subTracks[i], sel = $('dialSel');
+  dialScans = t.scan;
+  S.dialogue = null;
+  S.dialStatus = 'Reading subtitles 0%';
+  sel.dataset.reading = `t${i}`;
+  renderDialPick();
+  let w;
+  const stop = (why) => {
+    w?.terminate();
+    if (gen !== dialGen) return;
+    dialWorker = null;
+    S.dialStatus = '';
+    delete sel.dataset.reading;
+    renderDialPick();
+    toast(`Couldn’t read the subtitles: ${why}`);
+  };
+  try { w = dialWorker = new Worker('js/wave-worker.js'); } catch { return stop('workers are unavailable'); }
+  w.onmessage = ({ data: m }) => {
+    if (gen !== dialGen) return;
+    if (m.type === 'progress') { S.dialStatus = `Reading subtitles ${Math.round(m.done * 100)}%`; dialDrawn = ''; tlDirty = true; }
+    else if (m.type === 'subs') {
+      w.terminate();
+      dialWorker = null;
+      const n = useDialogue(file, { choice: `t${i}`, label: dialLabel(t), lines: m.cues });
+      toast(n ? `Dialogue lane: ${n.toLocaleString('en')} subtitles. D and Shift+D jump between gaps` : 'No dialogue found in those subtitles');
+    } else if (m.type === 'unsupported' || m.type === 'error') stop(m.message);
+  };
+  w.onerror = (e) => { e.preventDefault(); stop('the worker crashed'); };
+  w.postMessage({ cmd: 'subs', file, track: i });
+  wavePace = null;
+  paceWave();
+}
+
+// A subtitle file for this video, for one with no track that can be read.
+async function loadDialogueFile() {
+  const file = S.videoFile;
+  let sub;
+  if (window.showOpenFilePicker) {
+    try { sub = await (await picker('subtitles'))[0].getFile(); } catch (e) {
+      if (!refused(e)) { if (e.name !== 'AbortError') toast(`Couldn’t open the file: ${e.message}`); return; }
+    }
+  }
+  sub ||= await new Promise((ok) => {
+    const input = $('fileDialogue');
+    input.value = '';
+    input.onchange = () => ok(input.files[0]);
+    input.oncancel = () => ok(null);
+    input.click();
+  });
+  if (!sub || S.videoFile !== file) return;
+  let text;
+  try { text = await sub.text(); } catch (e) { return toast(`Couldn’t read ${sub.name}${readProblem(e)}`); }
+  const lines = parseSubs(text);
+  if (!lines.length) return toast(`No subtitles found in ${sub.name}`);
+  dialGen++;
+  dialWorker?.terminate();
+  dialWorker = null;
+  const n = useDialogue(file, { choice: 'file', label: sub.name, lines });
+  toast(`Dialogue lane: ${n.toLocaleString('en')} subtitles from ${sub.name}. D and Shift+D jump between gaps`);
+}
+
+$('dialSel').addEventListener('change', (e) => {
+  const v = e.target.value, file = S.videoFile;
+  e.target.blur();
+  if (!file) return;
+  if (v === 'off') offDialogue(file);
+  else if (v === 'load') { renderDialPick(); loadDialogueFile(); }
+  else if (v[0] === 't') readSubTrack(file, +v.slice(1));
+});
+
+const currentGaps = () => {
+  const d = S.dialogue, dur = duration(), key = `${dur}`;
+  if (!d) return [];
+  if (key !== dialGapsFor) { dialGaps = gapsOf(d.spans, dur); dialGapsFor = key; }
+  return dialGaps;
+};
+
+function drawDialogueLane() {
+  if (dialTrack.hidden) return;
+  const [w, h] = box(dialWave), drawn = `${S.view}|${S.pps}|${w}|${h}|${S.dialStatus}|${dialWaiting}|${duration()}`;
+  if (drawn === dialDrawn) return;
+  dialDrawn = drawn;
+  const [g, W, H] = fitCanvas(dialWave);
+  drawDialogue(g, W, H, S.view, S.pps, S.dialogue, currentGaps(), dialColors());
+  if (S.dialStatus) {
+    g.fillStyle = C.dim;
+    g.font = '11px ui-monospace, Menlo, monospace';
+    g.textBaseline = 'middle';
+    g.fillText(S.dialStatus + (dialWaiting ? ', waiting while the video plays' : ''), 8, H / 2);
+  }
+}
+
+dialTrack.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  S.playUntil = null;
+  seek(xToT(e.clientX));
+});
+
+function jumpGap(dir) {
+  if (!S.dialogue) return toast('No dialogue lane. Pick subtitles next to Dialogue, under the video');
+  const gap = gapFrom(currentGaps(), now(), dir);
+  if (!gap) return toast(dir < 0 ? 'No gap before the playhead' : 'No gap after the playhead');
+  S.playUntil = null;
+  seek(gap.start);
+  toast(`Gap of ${(gap.end - gap.start).toFixed(1)} s`);
+}
+
 function useAltAudio(a) {
   if (alt === a) return;
   alt = a;
@@ -4628,9 +4829,12 @@ let wavePace = null;
 let waveBuild = null; // for Diagnostics: { t0 } while building, then { ms }, or { kept }
 function paceWave() {
   const pace = video.seeking ? 'hold' : isPlaying() ? 'slow' : 'go';
-  if (!waveWorker || pace === wavePace) return;
+  if (pace === wavePace) return;
   wavePace = pace;
-  waveWorker.postMessage({ cmd: 'pace', pace });
+  waveWorker?.postMessage({ cmd: 'pace', pace });
+  dialWaiting = !!dialWorker && dialScans && pace === 'slow';
+  dialWorker?.postMessage({ cmd: 'pace', pace: dialWaiting ? 'hold' : pace });
+  tlDirty = true;
 }
 for (const ev of ['play', 'playing', 'pause', 'ended', 'seeking', 'seeked']) video.addEventListener(ev, paceWave);
 
@@ -5210,6 +5414,8 @@ const RUN = {
   fwd3: () => seekBy(3),
   blockBack: () => playheadBlock(-1),
   blockNext: () => playheadBlock(1),
+  gapBack: () => jumpGap(-1),
+  gapNext: () => jumpGap(1),
   videoStart: () => { S.playUntil = null; seek(0); },
   videoEnd: () => { S.playUntil = null; seek(duration()); },
   toStart: () => gotoSel(false),

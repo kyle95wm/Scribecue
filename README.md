@@ -14,6 +14,7 @@ Handle pickups, work with text to speech, or transcribe existing description.
 - **Record** the narration: a narrator records each block against the video, and the mixer
   gets one timestamped WAV.
 - **Private:** your video, audio and scripts are never uploaded.
+- **See the gaps:** a video's subtitles show as a dialogue lane on the timeline.
 - **Familiar keys** if you've used Frazier.
 - Opens and saves SRT and WebVTT scripts, and opens Frazier's `.adc` scripts.
 

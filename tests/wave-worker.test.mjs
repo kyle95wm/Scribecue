@@ -37,7 +37,7 @@ function run(job) {
         peaks.set(m.data, m.from);
         max = Math.max(max, m.max);
       }
-      if (['done', 'tracks', 'clip', 'error', 'unsupported'].includes(m.type)) resolve({ end: m, msgs, peaks, max });
+      if (['done', 'tracks', 'clip', 'subs', 'error', 'unsupported'].includes(m.type)) resolve({ end: m, msgs, peaks, max });
     };
     self.onmessage({ data: job });
   });
@@ -176,4 +176,134 @@ test('a build waits while held, and carries on when let go', async () => {
   assert.equal(end.type, 'done', 'it still finishes while the video plays');
   assert.ok(max > 0.4);
   self.onmessage({ data: { cmd: 'pace', pace: 'go' } });
+});
+
+// ---- subtitle tracks, in small files built here
+
+const bytes = (...parts) => {
+  const all = parts.flatMap((p) => (typeof p === 'string' ? [...new TextEncoder().encode(p)] : [...p]));
+  return Uint8Array.from(all);
+};
+// Matroska: an ID, its size in 8 bytes, its content.
+const idBytes = (id) => { const b = []; for (let v = id; v > 0; v = Math.floor(v / 256)) b.unshift(v % 256); return b; };
+const el = (id, ...content) => {
+  const body = bytes(...content);
+  const size = [0x01, 0, 0, 0, (body.length >>> 24) & 255, (body.length >>> 16) & 255, (body.length >>> 8) & 255, body.length & 255];
+  return bytes(idBytes(id), size, body);
+};
+const block = (track, rel, text) => bytes([0x80 | track, (rel >> 8) & 255, rel & 255, 0], text);
+
+function mkvFile(subCodec, payloads, flags = []) {
+  const head = el(0x1a45dfa3, el(0x4282, 'matroska'));
+  const tracks = el(0x1654ae6b,
+    el(0xae, el(0xd7, [1]), el(0x83, [1]), el(0x86, 'V_VP9')),
+    el(0xae, el(0xd7, [2]), el(0x83, [17]), el(0x86, subCodec), el(0x22b59c, 'eng'), el(0x536e, 'English'), ...flags));
+  const groups = payloads.map(([ms, dur, text]) => el(0xa0, el(0xa1, block(2, ms, text)), el(0x9b, [(dur >> 8) & 255, dur & 255])));
+  const cluster = el(0x1f43b675, el(0xe7, [0]),
+    el(0xa3, block(1, 0, 'video frame')), // not a subtitle
+    el(0xa0, el(0xa1, block(1, 1, 'more video')), el(0x9b, [0x40, 0])), // and its length isn't a line's
+    ...groups);
+  return new File([bytes(head, el(0x18538067, tracks, cluster))], 'test.mkv');
+}
+
+const probeSubs = async (file) => (await run({ cmd: 'probe', file })).end.subs;
+const readSubs = (file, track = 0) => run({ cmd: 'subs', file, track });
+
+test('lists a Matroska file’s subtitle tracks', async () => {
+  const [t] = await probeSubs(mkvFile('S_TEXT/UTF8', [], [el(0x55aa, [1]), el(0x55ab, [1])]));
+  assert.deepEqual(t, { codec: 'SRT', text: true, scan: true, lang: 'eng', name: 'English', default: true, forced: true, hearing: true });
+  const [p] = await probeSubs(mkvFile('S_HDMV/PGS', []));
+  assert.equal(p.codec, 'PGS');
+  assert.equal(p.text, false);
+});
+
+test('reads a Matroska subtitle track, with each line’s length', async () => {
+  const { end } = await readSubs(mkvFile('S_TEXT/UTF8', [[1000, 2000, 'Héllo'], [4000, 500, 'There']]));
+  assert.equal(end.type, 'subs');
+  assert.deepEqual(end.cues, [{ start: 1, end: 3, text: 'Héllo' }, { start: 4, end: 4.5, text: 'There' }]);
+});
+
+test('reads ASS and WebM subtitles’ words', async () => {
+  const ass = await readSubs(mkvFile('S_TEXT/ASS', [[0, 100, '3,0,Default,,0,0,0,,Well, hello']]));
+  assert.equal(ass.end.cues[0].text, 'Well, hello');
+  const webm = await readSubs(mkvFile('D_WEBVTT/SUBTITLES', [[0, 100, '\nline:90%\nHello\nthere']]));
+  assert.equal(webm.end.cues[0].text, 'Hello\nthere');
+});
+
+test('a subtitle read rests while it’s told to hold', async () => {
+  self.onmessage({ data: { cmd: 'pace', pace: 'hold' } });
+  let finished = false;
+  const reading = readSubs(mkvFile('S_TEXT/UTF8', [[1000, 2000, 'Hello']])).then((r) => { finished = true; return r; });
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(finished, false, 'nothing is read while the video plays');
+  self.onmessage({ data: { cmd: 'pace', pace: 'go' } });
+  assert.equal((await reading).end.cues.length, 1);
+});
+
+test('won’t read pictures as words', async () => {
+  const { end } = await readSubs(mkvFile('S_HDMV/PGS', [[0, 100, 'xx']]));
+  assert.equal(end.type, 'unsupported');
+});
+
+// MP4: size, type, content.
+const u32 = (n) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+const box = (type, ...content) => { const body = bytes(...content); return bytes(u32(body.length + 8), type, body); };
+const zero = (n) => new Array(n).fill(0);
+
+function mp4Trak({ id, handler, entry, samples, base, tref = [] }) {
+  // samples: [[duration, bytes]], one to a chunk, from offset base; 1000 ticks a second
+  const offsets = [];
+  let at = base;
+  for (const [, b] of samples) { offsets.push(at); at += b.length; }
+  const stbl = box('stbl',
+    box('stsd', zero(4), u32(1), box(entry, zero(8))),
+    box('stts', zero(4), u32(samples.length), samples.flatMap(([d]) => [...u32(1), ...u32(d)])),
+    box('stsc', zero(4), u32(1), u32(1), u32(1), u32(1)),
+    box('stsz', zero(4), u32(0), u32(samples.length), samples.flatMap(([, b]) => u32(b.length))),
+    box('stco', zero(4), u32(samples.length), offsets.flatMap((o) => u32(o))));
+  return box('trak',
+    box('tkhd', zero(4), zero(8), u32(id), zero(68)),
+    ...tref,
+    box('mdia',
+      box('mdhd', zero(12), u32(1000), zero(4), [0x15, 0xc7], zero(2)), // "eng"
+      box('hdlr', zero(8), handler, zero(12), 'SubtitleHandler', [0]),
+      box('minf', stbl)));
+}
+
+function mp4File(entry, lines, { handler = 'sbtl', extra = [] } = {}) {
+  const ftyp = box('ftyp', 'isom', zero(4));
+  const samples = lines.map(([d, b]) => [d, bytes(b)]);
+  const size = (base) => box('moov', box('mvhd', zero(12), u32(1000), zero(84)), mp4Trak({ id: 1, handler, entry, samples, base }), ...extra).length;
+  const base = ftyp.length + size(0) + 8;
+  const moov = box('moov', box('mvhd', zero(12), u32(1000), zero(84)), mp4Trak({ id: 1, handler, entry, samples, base }), ...extra);
+  return new File([bytes(ftyp, moov, box('mdat', ...samples.map(([, b]) => b)))], 'test.mp4');
+}
+const tx3g = (s) => { const b = new TextEncoder().encode(s); return bytes([b.length >> 8, b.length & 255], b); };
+
+test('reads an MP4 text track, leaving out the pauses', async () => {
+  const file = mp4File('tx3g', [[1000, tx3g('')], [2000, tx3g('Hello')], [500, tx3g('')], [1500, bytes(tx3g('There'), [0, 0, 0, 8], 'styl')]]);
+  const [t] = await probeSubs(file);
+  assert.equal(t.text, true);
+  assert.equal(t.lang, 'eng');
+  assert.equal(t.name, '');
+  assert.equal(t.scan, false, 'an MP4’s index leads straight to the lines');
+  const { end } = await readSubs(file);
+  assert.deepEqual(end.cues, [{ start: 1, end: 3, text: 'Hello' }, { start: 3.5, end: 5, text: 'There' }]);
+});
+
+test('reads MP4 WebVTT', async () => {
+  const cue = box('vttc', box('payl', 'Hello'));
+  const { end } = await readSubs(mp4File('wvtt', [[1000, box('vtte')], [2000, cue]]));
+  assert.deepEqual(end.cues, [{ start: 1, end: 3, text: 'Hello' }]);
+});
+
+test('leaves out an MP4 chapter track', async () => {
+  const pointer = box('trak', box('tkhd', zero(4), zero(8), u32(9), zero(68)), box('tref', box('chap', u32(1))));
+  assert.deepEqual(await probeSubs(mp4File('text', [[1000, tx3g('Chapter 1')]], { handler: 'text', extra: [pointer] })), []);
+});
+
+test('says closed captions in an MP4 can’t be read', async () => {
+  const [t] = await probeSubs(mp4File('c608', [], { handler: 'clcp' }));
+  assert.equal(t.codec, 'CEA-608');
+  assert.equal(t.text, false);
 });

@@ -5,15 +5,18 @@
 // It can list a file's audio tracks, build the timeline waveform for one of
 // them, and copy that track (without re-encoding) into a small audio-only file
 // the page can play, since most browsers can't switch tracks inside a video. It can
-// also cut out the audio between two times as 16 kHz mono, for speech to text.
+// also cut out the audio between two times as 16 kHz mono, for speech to text, and read
+// a subtitle track's lines, for the dialogue lane.
 //
-// in:  { cmd: 'probe', file }                    -> { type: 'tracks', tracks, fps } (fps: 0 if unknown)
+// in:  { cmd: 'probe', file }                    -> { type: 'tracks', tracks, fps, subs } (fps: 0 if unknown)
 //      { cmd: 'build', file, rate, track, mux }  -> { type: 'peaks', from, data, max } ...
 //                                                   { type: 'progress', done: 0..1 } ...
 //                                                   { type: 'audio', blob, mime, start } or { type: 'audio', reason } (with mux)
 //                                                   { type: 'done' }
 //      { cmd: 'clip', file, track, from, to }    -> { type: 'clip', audio } (Float32Array, 16 kHz mono)
 //      { cmd: 'detail', file, track, from, to, rate } -> { type: 'detail', from, rate, data } (peaks from `from`)
+//      { cmd: 'subs', file, track }              -> { type: 'progress', done: 0..1 } ...
+//                                                   { type: 'subs', cues } ([{ start, end, text }]; end: null if unknown)
 //      any can end with { type: 'unsupported' | 'error', message }
 //      { cmd: 'pace', pace }                     -> nothing; see pace below
 
@@ -25,6 +28,7 @@ class Enough extends Error {} // a clip has all the audio it needs
 
 let videoFps = 0; // the video's frame rate, found while probing
 let videoCodec = ''; // and its codec, as the file names it (avc1, V_VP9…)
+let subTracks = []; // its subtitle tracks, found while probing: see describeSub
 
 // How fast a build may read, so it doesn't take the CPU from the video on a slower
 // computer: 'go', 'slow' while the video plays (a rest after each stretch of work, so it
@@ -48,14 +52,16 @@ self.onmessage = async ({ data: job }) => {
     return;
   }
   const detail = job.cmd === 'detail', clip = job.cmd === 'clip' || detail;
-  const peaks = detail ? new Detail(job.from, job.to, job.rate) : job.cmd === 'clip' ? new Clip(job.from, job.to) : new Peaks(job.rate || 200);
-  const ticker = job.cmd === 'build' ? setInterval(() => peaks.post(), 250) : 0;
+  const subs = job.cmd === 'subs';
+  const peaks = subs ? new SubCues() : detail ? new Detail(job.from, job.to, job.rate) : job.cmd === 'clip' ? new Clip(job.from, job.to) : new Peaks(job.rate || 200);
+  const ticker = job.cmd === 'build' || subs ? setInterval(() => peaks.post(), 250) : 0;
   try {
     let out;
     try { out = await parseMedia(job.file, peaks, job); } catch (err) { if (!(clip && err instanceof Enough)) throw err; }
     if (detail) { closeDecoders(); postMessage({ type: 'detail', from: job.from, rate: job.rate, data: peaks.out }, [peaks.out.buffer]); return; }
     if (clip) { closeDecoders(); postMessage({ type: 'clip', audio: peaks.out }, [peaks.out.buffer]); return; }
-    if (job.cmd === 'probe') { postMessage({ type: 'tracks', tracks: out, fps: videoFps, video: videoCodec }); return; }
+    if (job.cmd === 'probe') { postMessage({ type: 'tracks', tracks: out, fps: videoFps, video: videoCodec, subs: subTracks }); return; }
+    if (subs) { postMessage({ type: 'subs', cues: peaks.cues }); return; }
     peaks.progress = 1;
     peaks.post();
     if (job.mux) postMessage({ type: 'audio', ...(out || { reason: 'nothing to play' }) });
@@ -82,6 +88,7 @@ async function parseMedia(file, sink, job) {
   else throw new Unsupported('this file type is not streamed');
   videoFps = 0;
   videoCodec = '';
+  subTracks = [];
   return parse(file, sink, job);
 }
 
@@ -229,6 +236,63 @@ class Detail extends Clip {
     }
     if (t > this.to + 0.5) throw new Enough();
   }
+}
+
+// ---------------------------------------------------------------- subtitle tracks
+
+// A subtitle track, as the app sees it. text: whether its words can be read. Tracks of
+// pictures (Blu-ray and DVD subtitles) can't, so the app says so rather than offer them.
+// scan: whether reading it means going through the whole file, as in Matroska, where
+// lines sit between the video's. An MP4's index leads straight to them.
+function describeSub(codec, text, meta, scan = false) {
+  const name = meta.name || '';
+  return {
+    codec, text, scan, lang: meta.lang || '', name, default: !!meta.default,
+    forced: !!meta.forced || /\bforced\b/i.test(name),
+    hearing: !!meta.hearing || /\bsdh\b|\bcc\b|hearing|deaf|caption/i.test(name),
+  };
+}
+
+// Collects a subtitle track's lines. Stands in for Peaks, and for the audio decoder.
+class SubCues {
+  constructor() { this.cues = []; this.format = 'plain'; this.last = null; this.progress = 0; this.sent = -1; }
+
+  // data: one line's bytes, from t. dur: its length, if it's known yet.
+  async decode(data, t, dur = null) {
+    const text = lineText(data, this.format);
+    this.last = text ? { start: t, end: dur === null ? null : t + dur, text } : null;
+    if (this.last) this.cues.push(this.last);
+  }
+
+  // Matroska gives a line's length after it.
+  duration(d) { if (this.last) this.last.end = this.last.start + d; }
+
+  async finish() {}
+
+  post() {
+    if (this.progress === this.sent) return;
+    this.sent = this.progress;
+    postMessage({ type: 'progress', done: this.progress });
+  }
+}
+
+// One subtitle's words, by how the file stores them.
+function lineText(b, format) {
+  if (format === 'tx3g') { // a 16-bit length, the words, then styling
+    if (b.length < 2) return '';
+    const n = (b[0] << 8) | b[1], at = b.subarray(2, 2 + n);
+    return (at[0] === 0xfe && at[1] === 0xff ? new TextDecoder('utf-16be') : utf8).decode(at);
+  }
+  if (format === 'wvtt') { // boxes: a vttc holding a payl with the words
+    const dv = new DataView(b.buffer, b.byteOffset, b.length);
+    return [...boxes(dv, 0, b.length)].filter((x) => x.type === 'vttc')
+      .map((x) => child(dv, x, 'payl')).filter(Boolean)
+      .map((x) => utf8.decode(b.subarray(x.start, x.end))).join('\n');
+  }
+  const text = utf8.decode(b);
+  if (format === 'ass') return text.split(',').slice(8).join(','); // eight fields, then the words
+  if (format === 'webm') return text.split('\n').slice(2).join('\n'); // an id line and a settings line first
+  return text;
 }
 
 // ---------------------------------------------------------------- sample conversion
@@ -388,12 +452,23 @@ const MKV = {
   Channels: 0x9f, BitDepth: 0x6264, ContentEncodings: 0x6d80, Cluster: 0x1f43b675, Timecode: 0xe7,
   SimpleBlock: 0xa3, BlockGroup: 0xa0, Block: 0xa1, Language: 0x22b59c, LanguageBCP47: 0x22b59d, Name: 0x536e,
   FlagDefault: 0x88, FlagVisualImpaired: 0x55ac, CodecDelay: 0x56aa, DefaultDuration: 0x23e383,
+  FlagForced: 0x55aa, FlagHearingImpaired: 0x55ab, BlockDuration: 0x9b,
 };
 // Masters we step into; every other element is skipped by its size.
 const MKV_ENTER = new Set([MKV.Segment, MKV.Info, MKV.Tracks, MKV.TrackEntry, MKV.Audio, MKV.Cluster, MKV.BlockGroup]);
 const MKV_READ = new Set([MKV.TimecodeScale, MKV.TrackNumber, MKV.TrackType, MKV.CodecID, MKV.CodecPrivate,
   MKV.SamplingFrequency, MKV.Channels, MKV.BitDepth, MKV.Timecode, MKV.Language, MKV.LanguageBCP47, MKV.Name,
-  MKV.FlagDefault, MKV.FlagVisualImpaired, MKV.CodecDelay, MKV.DefaultDuration]);
+  MKV.FlagDefault, MKV.FlagVisualImpaired, MKV.CodecDelay, MKV.DefaultDuration,
+  MKV.FlagForced, MKV.FlagHearingImpaired, MKV.BlockDuration]);
+
+// Subtitle codecs: how each stores its words, or nothing if it doesn't hold words.
+const MKV_SUBS = {
+  'S_TEXT/UTF8': ['SRT', 'plain'], 'S_TEXT/ASCII': ['SRT', 'plain'], 'S_TEXT/ASS': ['ASS', 'ass'], S_ASS: ['ASS', 'ass'],
+  'S_TEXT/SSA': ['SSA', 'ass'], S_SSA: ['SSA', 'ass'], 'S_TEXT/WEBVTT': ['WebVTT', 'plain'],
+  'D_WEBVTT/SUBTITLES': ['WebVTT', 'webm'], 'D_WEBVTT/CAPTIONS': ['WebVTT', 'webm'],
+  'S_HDMV/PGS': ['PGS'], S_VOBSUB: ['VobSub'], S_DVBSUB: ['DVB'], 'S_HDMV/TEXTST': ['TextST'],
+};
+const MKV_SUBTITLE = 17; // a TrackType
 
 function vint(b, o, isSize) {
   const first = b[o];
@@ -481,13 +556,18 @@ async function matroska(file, peaks, job) {
     const v = tracks.find((t) => t.type === 1 && t.frameNs > 0);
     if (v) videoFps = 1e9 / v.frameNs;
     videoCodec = tracks.find((t) => t.type === 1)?.codec || '';
+    subTracks = subs().map((t) => {
+      const [codec, format] = MKV_SUBS[t.codec] || [(t.codec || 'unknown').replace(/^S_/, '')];
+      return describeSub(codec, !!format && !t.encoded, { lang: t.bcp47 || t.lang, name: t.name, default: t.default !== 0, forced: t.forced === 1, hearing: t.hearing === 1 }, true);
+    });
     return listAudio();
   };
+  const subs = () => tracks.filter((t) => t.type === MKV_SUBTITLE);
   const listAudio = () => audioTracks().map((t) => describe(mkvInfo(t), {
     lang: t.bcp47 || t.lang, name: t.name, default: t.default !== 0, ad: t.vi === 1 || isAD(t.name),
   }));
   let clusterEnd = -1; // where the current cluster ends, if its size is known
-  let pos = 0, track = null, scale = 1e6, cluster = 0, chosen = null, sink = null, mux = null, ahead = WINDOW, shift = 0;
+  let pos = 0, track = null, scale = 1e6, cluster = 0, chosen = null, sink = null, mux = null, ahead = WINDOW, shift = 0, ours = false;
   while (pos < size) {
     if (!r.has(pos, 12)) await r.load(pos, 12, ahead);
     const b = r.buf, o = pos - r.base;
@@ -505,15 +585,23 @@ async function matroska(file, peaks, job) {
       if (id.value === MKV.Cluster && !sink) {
         // all track headers come before the first cluster
         if (job.cmd === 'probe') return list();
-        chosen = audioTracks()[job.track || 0];
-        if (!chosen) throw new Unsupported('no audio track');
-        if (chosen.encoded) throw new Unsupported('compressed Matroska audio track');
-        const info = mkvInfo(chosen);
-        // players drop the codec delay (encoder priming) from the start, like an MP4 edit list
-        // (Opus and Vorbis decoders already drop it themselves; an Opus copy keeps it in dOps)
-        shift = peaks.shift = info.kind === 'opus' || info.kind === 'vorbis' ? 0 : -(chosen.delay || 0) / 1e9;
-        sink = await openSink(info, peaks);
-        mux = job.mux ? makeMux(file, info) : null;
+        if (job.cmd === 'subs') {
+          chosen = subs()[job.track || 0];
+          const format = chosen && !chosen.encoded && MKV_SUBS[chosen.codec]?.[1];
+          if (!format) throw new Unsupported('this subtitle track can’t be read');
+          peaks.format = format;
+          sink = peaks;
+        } else {
+          chosen = audioTracks()[job.track || 0];
+          if (!chosen) throw new Unsupported('no audio track');
+          if (chosen.encoded) throw new Unsupported('compressed Matroska audio track');
+          const info = mkvInfo(chosen);
+          // players drop the codec delay (encoder priming) from the start, like an MP4 edit list
+          // (Opus and Vorbis decoders already drop it themselves; an Opus copy keeps it in dOps)
+          shift = peaks.shift = info.kind === 'opus' || info.kind === 'vorbis' ? 0 : -(chosen.delay || 0) / 1e9;
+          sink = await openSink(info, peaks);
+          mux = job.mux ? makeMux(file, info) : null;
+        }
       }
       pos = start;
       continue;
@@ -523,7 +611,8 @@ async function matroska(file, peaks, job) {
       const head = await r.view(start, Math.min(len, 8));
       const tn = vint(head, 0, false);
       const early = tn && peaks.skip && head.length >= tn.len + 2 && peaks.skip((cluster + (((head[tn.len] << 8) | head[tn.len + 1]) << 16 >> 16)) * scale / 1e9 + 1);
-      if (tn?.value === chosen.number && !early) {
+      ours = tn?.value === chosen.number;
+      if (ours && !early) {
         const blk = await r.view(start, len, 0);
         if (blk.length === len) {
           const { rel, frames } = blockFrames(blk);
@@ -560,6 +649,9 @@ async function matroska(file, peaks, job) {
         case MKV.Name: if (track) track.name = utf8.decode(v).replace(/\0+$/, ''); break;
         case MKV.FlagDefault: if (track) track.default = uint(v); break;
         case MKV.FlagVisualImpaired: if (track) track.vi = uint(v); break;
+        case MKV.FlagForced: if (track) track.forced = uint(v); break;
+        case MKV.FlagHearingImpaired: if (track) track.hearing = uint(v); break;
+        case MKV.BlockDuration: if (ours) sink.duration?.((uint(v) * scale) / 1e9); break;
         case MKV.CodecDelay: if (track) track.delay = uint(v); break;
       }
     } else if (id.value === MKV.ContentEncodings && track) {
@@ -738,6 +830,74 @@ function editShift(moov, trak, timescale) {
   return 0;
 }
 
+// Subtitle sample entries, as in MKV_SUBS. QuickTime's "text" tracks are also used for
+// chapters, which the tracks they belong to point at (see chapters below).
+const MP4_SUBS = { tx3g: ['SRT', 'tx3g'], text: ['Text', 'tx3g'], wvtt: ['WebVTT', 'wvtt'], stpp: ['TTML'], c608: ['CEA-608'], c708: ['CEA-708'], mp4s: ['VobSub'] };
+const MP4_SUB_HANDLERS = ['sbtl', 'subt', 'text', 'clcp', 'subp'];
+
+function mp4Subs(moov) {
+  const traks = [...boxes(moov, 0, moov.byteLength)].filter((b) => b.type === 'trak');
+  const fragmented = !!child(moov, { start: 0, end: moov.byteLength }, 'mvex');
+  const trackId = (trak) => {
+    const tkhd = child(moov, trak, 'tkhd');
+    return tkhd ? moov.getUint32(tkhd.start + (moov.getUint8(tkhd.start) === 1 ? 20 : 12)) : 0;
+  };
+  const chapters = new Set(traks.flatMap((trak) => {
+    const chap = path(moov, trak, 'tref', 'chap'), ids = [];
+    if (chap) for (let p = chap.start; p + 4 <= chap.end; p += 4) ids.push(moov.getUint32(p));
+    return ids;
+  }));
+  return traks.flatMap((trak) => {
+    const mdia = child(moov, trak, 'mdia');
+    const hdlr = child(moov, mdia, 'hdlr'), mdhd = child(moov, mdia, 'mdhd');
+    if (!hdlr || !mdhd || !MP4_SUB_HANDLERS.includes(fourcc(moov, hdlr.start + 8)) || chapters.has(trackId(trak))) return [];
+    const stbl = path(moov, mdia, 'minf', 'stbl'), stsd = child(moov, stbl, 'stsd');
+    const type = stsd && [...boxes(moov, stsd.start + 8, stsd.end)][0]?.type;
+    const [codec, format] = MP4_SUBS[type] || [];
+    if (!codec) return [];
+    const meta = mp4Meta(moov, trak, mdhd);
+    if (/subtitle ?handler|core media text|^text$/i.test(meta.name)) meta.name = '';
+    return [{ trak, mdhd, stbl, format, sub: describeSub(codec, !!format && !fragmented, meta) }];
+  });
+}
+
+// Reads a subtitle track's lines through the file's index, so the video between them is
+// never read.
+async function mp4Lines(file, moov, t, cues) {
+  if (!t?.sub.text) throw new Unsupported('this subtitle track can’t be read');
+  const { trak, mdhd, stbl } = t;
+  cues.format = t.format;
+  const timescale = moov.getUint32(mdhd.start + (moov.getUint8(mdhd.start) === 1 ? 20 : 12));
+  const shift = editShift(moov, trak, timescale);
+  const stsz = child(moov, stbl, 'stsz'), stsc = child(moov, stbl, 'stsc');
+  const stts = child(moov, stbl, 'stts'), stco = child(moov, stbl, 'stco') || child(moov, stbl, 'co64');
+  if (!stsz || !stsc || !stts || !stco) throw new Unsupported('MP4 subtitles without a sample table');
+  const constSize = moov.getUint32(stsz.start + 4), count = moov.getUint32(stsz.start + 8);
+  const is64 = stco.type === 'co64', chunks = moov.getUint32(stco.start + 4), runs = moov.getUint32(stsc.start + 4);
+  const r = new Reader(file);
+  let sample = 0, run = 0, dts = 0, sttsI = 0, sttsLeft = 0, delta = 0;
+  const sttsN = moov.getUint32(stts.start + 4);
+  for (let c = 0; c < chunks && sample < count; c++) {
+    while (run + 1 < runs && c + 1 >= moov.getUint32(stsc.start + 8 + (run + 1) * 12)) run++;
+    const n = moov.getUint32(stsc.start + 12 + run * 12);
+    let off = is64 ? Number(moov.getBigUint64(stco.start + 8 + c * 8)) : moov.getUint32(stco.start + 8 + c * 4);
+    for (let k = 0; k < n && sample < count; k++, sample++) {
+      while (!sttsLeft && sttsI < sttsN) {
+        sttsLeft = moov.getUint32(stts.start + 8 + sttsI * 8);
+        delta = moov.getUint32(stts.start + 12 + sttsI * 8);
+        sttsI++;
+      }
+      const size = constSize || moov.getUint32(stsz.start + 12 + sample * 4);
+      // Pauses between lines are stored as empty samples.
+      if (size > 2) await cues.decode(await r.view(off, size, 0), dts / timescale + shift, delta / timescale);
+      off += size;
+      dts += delta;
+      sttsLeft--;
+    }
+    cues.progress = sample / count;
+  }
+}
+
 async function mp4(file, peaks, job) {
   let pos = 0, moov = null;
   while (pos + 8 <= file.size) {
@@ -777,7 +937,10 @@ async function mp4(file, peaks, job) {
     if (!entry) return [];
     return [{ trak, mdhd, stbl, info: mp4Info(entry), meta: mp4Meta(moov, trak, mdhd) }];
   });
+  const subs = mp4Subs(moov);
+  subTracks = subs.map((t) => t.sub);
   if (job.cmd === 'probe') return sound.map((t) => describe(t.info, t.meta));
+  if (job.cmd === 'subs') return mp4Lines(file, moov, subs[job.track || 0], peaks);
   const chosen = sound[job.track || 0];
   if (!chosen) throw new Unsupported('no audio track');
   const { trak, mdhd, stbl, info } = chosen;

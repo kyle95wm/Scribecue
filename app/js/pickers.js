@@ -14,6 +14,7 @@ export const PICKERS = {
     'application/json': [PROJECT_EXT, REVIEW_EXT, RECORDING_EXT], 'application/zip': [SESSION_EXT], 'text/plain': ['.srt', '.vtt', '.txt', '.adc'], ...VIDEO,
   } }] },
   video: { kind: 'open', types: [{ description: 'Video or audio', accept: VIDEO }] },
+  subtitles: { kind: 'open', types: [{ description: 'Subtitles', accept: { 'text/plain': ['.srt', '.vtt'] } }] },
   project: { kind: 'save', types: [{ description: 'Scribecue project', accept: { 'application/json': [PROJECT_EXT, REVIEW_EXT] } }] },
   authorProject: { kind: 'save', types: [{ description: 'Scribecue project', accept: { 'application/json': [PROJECT_EXT] } }] },
   qcPackage: { kind: 'save', types: [{ description: 'QC package', accept: { 'application/octet-stream': [REVIEW_EXT] } }] },

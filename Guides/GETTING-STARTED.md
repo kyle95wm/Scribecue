@@ -167,6 +167,27 @@ use the **Export** menu at the top:
 
 `Ctrl/Cmd+O` opens SRT and WebVTT scripts too, and Frazier's `.adc` scripts.
 
+## See the dialogue on the timeline
+
+If a video has subtitles, a **dialogue lane** appears under the blocks. It shows when people
+speak and how long each gap is, so you can see where description fits.
+
+| To do this | Do this |
+| --- | --- |
+| Jump to the next or previous gap | Press `D` or `Shift+D` |
+| Move the playhead | Click the lane |
+| Pick other subtitles, or turn the lane off | Use **Dialogue** under the video |
+| Use a subtitle file (SRT or WebVTT) | Pick **Load a subtitle file…** in **Dialogue** |
+
+- **Timing is close, not exact.** Subtitles often stay up a little after the words end.
+  Check with the waveform.
+- **An MKV's subtitles can take a while the first time.** They load while the video is
+  paused, so it plays smoothly. After that they show straight away.
+- **Sound notes don't count as speech,** such as `[door slams]`.
+- **Picture subtitles can't be read.** Blu-ray and DVD subtitles are images. They show in
+  the list, greyed out. Load a subtitle file instead.
+- **The lane stays in this browser.** It isn't part of your script, project or exports.
+
 ## Files with several audio tracks
 
 If a file has more than one audio track, such as the original mix and a description mix,

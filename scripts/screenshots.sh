@@ -23,13 +23,61 @@ echo '== Making the test video'
 # A minute of slow colour gradients with two audio tracks: "Original" (tones and a
 # noise bed) and "Audio Description", which adds a voice-like noise during the lines
 # the screenshots use. It's generated, so no real programme material is involved.
+# A subtitle track too, with dialogue between those lines, for the dialogue lane.
+cat > "$work/demo.srt" <<'SRT'
+1
+00:00:00,600 --> 00:00:02,500
+Is anyone out there?
+
+2
+00:00:06,800 --> 00:00:08,600
+I can see it now.
+
+3
+00:00:08,900 --> 00:00:10,900
+It's further away than it looks.
+
+4
+00:00:14,500 --> 00:00:16,800
+We should have turned back.
+
+5
+00:00:17,200 --> 00:00:19,500
+Not yet. Keep watching.
+
+6
+00:00:24,300 --> 00:00:27,000
+Did you see that?
+
+7
+00:00:27,300 --> 00:00:29,700
+There. It happened again.
+
+8
+00:00:33,100 --> 00:00:35,000
+It's gone.
+
+9
+00:00:35,300 --> 00:00:37,500
+Give it a moment.
+
+10
+00:00:42,200 --> 00:00:46,300
+That's the most beautiful thing I've ever seen.
+
+11
+00:00:50,800 --> 00:00:54,000
+Let's go home.
+SRT
 seg="between(t,3,6.2)+between(t,11.5,14)+between(t,20,23.8)+between(t,30.2,32.5)+between(t,38,41.6)+between(t,47,50.3)"
 ffmpeg -loglevel error -y \
   -f lavfi -i "gradients=s=1280x720:r=25:d=60:c0=0x0b1d3a:c1=0x1f6f8b:c2=0x3a2c6b:c3=0x0e4d4a:n=4:speed=0.012,format=yuv420p" \
   -f lavfi -i "sine=f=110:r=48000:d=60" -f lavfi -i "sine=f=164.8:r=48000:d=60" \
   -f lavfi -i "anoisesrc=c=pink:a=0.5:r=48000:d=60" -f lavfi -i "anoisesrc=c=pink:a=0.6:r=48000:d=60:seed=7" \
+  -i "$work/demo.srt" \
   -filter_complex "[1]volume=0.05[a1];[2]volume=0.035[a2];[3]lowpass=f=900,volume='0.10+0.06*sin(2*PI*t/9)':eval=frame[bed];[a1][a2][bed]amix=inputs=3:normalize=0,asplit[orig][orig2];[4]bandpass=f=1200:width_type=h:w=1800,volume='0.9*(0.55+0.45*sin(2*PI*4.3*t)*sin(2*PI*1.7*t+1))*($seg)':eval=frame[nar];[orig2][nar]amix=inputs=2:normalize=0[ad]" \
-  -map 0 -map "[orig]" -map "[ad]" -c:v libx264 -crf 28 -preset veryfast -c:a aac -b:a 96k \
+  -map 0 -map "[orig]" -map "[ad]" -map 5 -c:v libx264 -crf 28 -preset veryfast -c:a aac -b:a 96k -c:s srt \
+  -metadata:s:s:0 language=eng \
   -metadata:s:a:0 title="Original" -metadata:s:a:0 language=eng \
   -metadata:s:a:1 title="Audio Description" -metadata:s:a:1 language=eng \
   -disposition:a:0 default -disposition:a:1 0 "$work/demo.mkv"
