@@ -202,6 +202,9 @@ If a file has more than one audio track, such as the original mix and a descript
 an **Audio** picker appears under the video. `T` / `Shift+T` switch tracks. A track marked
 as audio description is picked for you.
 
+The first time you use a track, the video goes silent until **Getting the sound ready**
+finishes. After that, switching to it is instant until you close the video.
+
 ## Other handy features
 
 - **Timecode:** times show as `hh:mm:ss:ff`, in frames at the video's own frame rate.
@@ -277,9 +280,12 @@ can't play.
 
 ### If a video has no sound
 
-**AC-3 and E-AC-3:** wait for **Getting the sound ready** over the video to finish. It can
-take a few minutes for a long film. Scribecue keeps the sound for the last three videos, so
-they open straight away next time.
+**After switching tracks, or with AC-3 and E-AC-3:** wait for **Getting the sound ready**
+over the video to finish. It can
+take a few minutes for a long film.
+
+Scribecue keeps AC-3 and E-AC-3 sound for the last three videos, so they open straight away
+next time.
 
 **DTS and TrueHD:** most browsers can't play these. Scribecue tells you when you open a file
 like this.

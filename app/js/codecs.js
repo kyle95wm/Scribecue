@@ -27,6 +27,9 @@ export const TESTS = {
 // The two most videos use: missing either, a browser can't play a usual MP4.
 export const COMMON = ['H.264', 'AAC'];
 
+// The track a video plays by itself: the one marked default, or the first.
+export const ownTrack = (tracks) => Math.max(0, tracks.findIndex((t) => t.default));
+
 // Sound most browsers can't decode at all. The picture still plays, with no sound and
 // no waveform, so the video element gives no error.
 const SOUND_TESTS = {

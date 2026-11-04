@@ -1,7 +1,7 @@
 // Which formats the browser can't play, and what Scribecue says about it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { videoName, missing, silentSound, copiesSound, advice, copyKind, TESTS, COMMON } from '../app/js/codecs.js';
+import { videoName, missing, silentSound, copiesSound, ownTrack, advice, copyKind, TESTS, COMMON } from '../app/js/codecs.js';
 import { missingFeatures } from '../app/js/browser.js';
 
 // A Chromium build without the licensed codecs.
@@ -70,4 +70,10 @@ test('the start-up notice says when most MP4s won’t play', () => {
   assert.deepEqual(missingFeatures(w), ['playing most MP4 videos, which use H.264 and AAC. Use a WebM copy instead']);
   w.document.createElement = () => ({ canPlayType: () => 'probably' });
   assert.deepEqual(missingFeatures(w), []);
+});
+
+test('a video plays the track marked default, or else the first', () => {
+  assert.equal(ownTrack([{}, { default: true }]), 1);
+  assert.equal(ownTrack([{}, {}]), 0);
+  assert.equal(ownTrack([]), 0);
 });

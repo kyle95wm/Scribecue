@@ -30,7 +30,7 @@ for its part of Scribecue: see [More help](#more-help).
 | --- | --- |
 | The video won't play, mostly on Linux | Some Chromium builds can't play MP4. See [If a video won't play](GETTING-STARTED.md#if-a-video-wont-play). |
 | The picture sticks or flashes green while the sound carries on | The graphics chip may be failing to play it. See [If the picture freezes](GETTING-STARTED.md#if-the-picture-freezes). |
-| The video plays, but there's no sound or waveform | With AC-3 or E-AC-3, wait for **Getting the sound ready** to finish. DTS and TrueHD don't play in most browsers. See [If a video has no sound](GETTING-STARTED.md#if-a-video-has-no-sound). |
+| The video plays, but there's no sound or waveform | Wait for **Getting the sound ready** to finish, if it shows. DTS and TrueHD don't play in most browsers. See [If a video has no sound](GETTING-STARTED.md#if-a-video-has-no-sound). |
 | "No waveform: the audio track is silent" | Choose another track in the **Audio** picker under the video. |
 | "Can't play track 2 on its own" | The browser can't play that track's format by itself, such as Vorbis. Choose another track, or convert the file. |
 | A large file won't open | Use MP4, MOV, M4A, MKV, WebM or WAV. Other formats must be under 2 GB. |
