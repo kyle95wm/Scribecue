@@ -1,5 +1,10 @@
 [
  {
+  "version": "0.80.0",
+  "date": "2026-11-04",
+  "notes": "## New: find and fill the gaps faster\n\n- `D` and `Shift+D` now stop only at free gaps, and skip gaps you've already filled.\n- Press `Shift+N`, or double-click a gap on the dialogue lane, to fill it with a new block.\n\n## New: see blocks that run over dialogue\n\n- A block over dialogue has a yellow line on the timeline. The list and editor say so too.\n- With text to speech on, this goes by the reading.\n- Press `U` or `Shift+U` to jump between these blocks.\n- It's a hint, not an error: subtitles can stay up after the words end, so check by ear."
+ },
+ {
   "version": "0.79.0",
   "date": "2026-11-04",
   "notes": "## New: see the dialogue on the timeline\n\n- If a video has subtitles, a dialogue lane shows under the blocks, with the length of each gap.\n- Press `D` or `Shift+D` to jump to the next or previous gap.\n- Use **Dialogue** under the video to pick other subtitles or turn the lane off.\n- No subtitles in the video? Pick **Load a subtitle file…** to use an SRT or WebVTT file.\n- An MKV's subtitles can take a while the first time. They load while the video is paused, so it plays smoothly.\n\n## Diagnostics\n\n- The report now shows when the picture has frozen.\n- It counts only frames really shown."
