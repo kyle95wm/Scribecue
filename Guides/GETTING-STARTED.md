@@ -277,7 +277,7 @@ can't play.
 
 ### If a video has no sound
 
-**AC-3 and E-AC-3:** wait for **Getting the sound ready** on the timeline to finish. It can
+**AC-3 and E-AC-3:** wait for **Getting the sound ready** over the video to finish. It can
 take a few minutes for a long film. Scribecue keeps the sound for the last three videos, so
 they open straight away next time.
 
