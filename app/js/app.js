@@ -40,7 +40,7 @@ import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, reviewGoogleKe
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands } from './ffcmd.js';
 import { videoName, missing, advice, copyKind, TESTS } from './codecs.js';
-import { createLog, watchErrors, report as diagReport } from './diagnostics.js';
+import { createLog, watchErrors, pictureWatch, report as diagReport } from './diagnostics.js';
 import { waveKey, loadWave, saveWave } from './wavestore.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
@@ -5580,6 +5580,27 @@ video.addEventListener('seeked', () => {
   jumpFrom = null;
 });
 video.addEventListener('emptied', () => { jumpFrom = null; jumpTimes.length = 0; });
+// Whether the picture really changes. Asks for one frame at a time, not every frame.
+const picture = pictureWatch();
+let frameWanted = false;
+const wantFrame = () => {
+  if (frameWanted || !video.requestVideoFrameCallback) return;
+  frameWanted = true;
+  video.requestVideoFrameCallback((_, m) => {
+    frameWanted = false;
+    picture.frame(m.mediaTime, performance.now());
+    if (picture.jumping) wantFrame();
+  });
+};
+video.addEventListener('seeking', () => { picture.jump(video.currentTime, performance.now()); wantFrame(); });
+video.addEventListener('timeupdate', () => {
+  if (video.paused || video.seeking || document.hidden || !video.videoWidth) return picture.rest();
+  picture.playing(video.currentTime);
+  wantFrame();
+});
+video.addEventListener('pause', () => picture.rest());
+video.addEventListener('emptied', () => picture.clear());
+document.addEventListener('visibilitychange', () => { if (document.hidden) picture.away(); });
 try {
   new PerformanceObserver((l) => {
     for (const e of l.getEntries()) longTasks.push([e.startTime, e.duration]);
@@ -5627,6 +5648,7 @@ async function diagnosticsInfo() {
     } : null,
     waveform: S.waveStatus ? { building: S.waveStatus.replace(/^.*?(\d+%)$/, '$1') } : waveBuild?.t0 ? { building: 'starting' } : waveBuild,
     jumps: jumpTimes,
+    picture: video.requestVideoFrameCallback ? picture.info(performance.now()) : null,
     longTasks: 'PerformanceObserver' in window && PerformanceObserver.supportedEntryTypes?.includes('longtask') ? { count: recent.length, longest: Math.max(0, ...recent.map(([, d]) => d)), minutes } : null,
     log: diagLog.entries,
   };

@@ -49,6 +49,56 @@ export function spread(ms) {
   return { n: s.length, typical: s[Math.floor((s.length - 1) / 2)], slowest: s[s.length - 1] };
 }
 
+// How long a picture can stay the same while the film moves on, in seconds of film.
+export const FREEZE_AFTER = 3;
+const MOVED = 0.5, JUMPED = 1, STEP = 1, KEEP = 20;
+
+// Whether the picture really changes, which the browser's own events can't say: a decoder
+// can finish a jump, and the sound can play on, with the same frame on screen. Fed from the
+// video's events, with times in seconds of film and `at` in ms. Nothing here runs per frame.
+export function pictureWatch() {
+  const jumps = [];
+  let frameTime = null, lastTime = null, jumpAt = null, stuck = 0, freezes = 0, longest = 0;
+  const thaw = () => {
+    if (stuck >= FREEZE_AFTER) { freezes++; longest = Math.max(longest, stuck); }
+    stuck = 0;
+  };
+  return {
+    get jumping() { return jumpAt != null; },
+    // A picture was shown. During a jump, only one from somewhere else ends it.
+    frame(time, at) {
+      thaw();
+      const moved = frameTime == null || Math.abs(time - frameTime) >= MOVED;
+      frameTime = time;
+      lastTime = time;
+      if (jumpAt == null || !moved) return;
+      jumps.push(at - jumpAt);
+      if (jumps.length > KEEP) jumps.shift();
+      jumpAt = null;
+    },
+    // The film has reached `time` while playing. Steps are capped, so a page that was busy
+    // for a while doesn't look like a frozen picture.
+    playing(time) {
+      if (lastTime != null && time > lastTime) stuck += Math.min(time - lastTime, STEP);
+      lastTime = time;
+    },
+    // A jump began. A small step may land on the same frame, so no new picture comes.
+    jump(time, at) {
+      thaw();
+      if (jumpAt == null && (lastTime == null || Math.abs(time - lastTime) >= JUMPED)) jumpAt = at;
+      lastTime = time;
+    },
+    rest() { thaw(); lastTime = null; },
+    // Out of sight the browser stops showing frames, so nothing can be measured.
+    away() { this.rest(); jumpAt = null; },
+    clear() { frameTime = lastTime = jumpAt = null; stuck = freezes = longest = 0; jumps.length = 0; },
+    info(at) {
+      const now = stuck >= FREEZE_AFTER ? stuck : 0;
+      return { jumps: jumps.slice(), waiting: jumpAt == null ? 0 : at - jumpAt, freezes: freezes + (now ? 1 : 0), longest: Math.max(longest, now), frozen: !!now };
+    },
+  };
+}
+
 // Each name in the text, as ‹file›: whole words only, so a film called "Short" leaves
 // "shortcuts" alone.
 export function hideNames(text, names) {
@@ -113,6 +163,12 @@ export function report(info, { names = false } = {}) {
   if (w) row('Waveform', w.building ? `building, ${w.building}` : w.kept ? 'from the saved copy' : w.ms ? `built in ${secs(w.ms)}` : 'none');
   const j = spread(info.jumps || []);
   row('Jumps', j ? `last ${j.n}: typical ${secs(j.typical)}, slowest ${secs(j.slowest)}` : 'none yet');
+  const p = info.picture;
+  if (p) {
+    const shown = spread(p.jumps), late = p.waiting >= 1e3 ? `not shown yet after ${secs(p.waiting)}` : '';
+    row('Jump picture', [shown ? `last ${shown.n}: typical ${secs(shown.typical)}, slowest ${secs(shown.slowest)}` : !late && 'none yet', late].filter(Boolean).join('; '));
+    row('Frozen video', p.freezes ? `${p.freezes} while playing, longest ${secs(p.longest * 1e3)}${p.frozen ? ', frozen now' : ''}` : 'none while playing');
+  }
   const lt = info.longTasks;
   if (lt) row('Long tasks', lt.count ? `${lt.count} in the last ${lt.minutes} min, longest ${Math.round(lt.longest)} ms` : `none in the last ${lt.minutes} min`);
 

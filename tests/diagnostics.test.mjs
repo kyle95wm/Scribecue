@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, realpathSync } from 'node:fs';
-import { createLog, describe, watchErrors, spread, hideNames, report, MAX_LOG } from '../app/js/diagnostics.js';
+import { createLog, describe, watchErrors, spread, hideNames, report, pictureWatch, FREEZE_AFTER, MAX_LOG } from '../app/js/diagnostics.js';
 
 test('the log keeps the most recent entries, on one line each', () => {
   let t = 0;
@@ -39,6 +39,83 @@ test('errors, rejections and console errors and warnings are logged, and still r
 test('jump times show as typical and slowest', () => {
   assert.equal(spread([]), null);
   assert.deepEqual(spread([300, 2100, 400, 500]), { n: 4, typical: 400, slowest: 2100 });
+});
+
+// Plays from `from` to `to` a quarter second at a time, with no picture shown.
+const playOn = (w, from, to) => { for (let t = from; t <= to; t += 0.25) w.playing(t); };
+
+test('a picture that stays the same while the film plays on counts as frozen', () => {
+  const w = pictureWatch();
+  w.frame(10, 0);
+  playOn(w, 10, 10 + FREEZE_AFTER - 0.5);
+  assert.deepEqual(w.info(0), { jumps: [], waiting: 0, freezes: 0, longest: 0, frozen: false }, 'a short gap is not a freeze');
+  playOn(w, 10 + FREEZE_AFTER - 0.25, 20);
+  assert.equal(w.info(0).frozen, true, 'still frozen');
+  assert.equal(w.info(0).freezes, 1);
+  w.frame(20, 0);
+  assert.deepEqual(w.info(0), { jumps: [], waiting: 0, freezes: 1, longest: 10, frozen: false }, 'a new picture ends it');
+  w.playing(21);
+  w.frame(21, 0);
+  assert.equal(w.info(0).freezes, 1, 'pictures that keep coming are fine');
+});
+
+test('a busy page, a pause or a stall is not a frozen picture', () => {
+  const w = pictureWatch();
+  w.frame(0, 0);
+  w.playing(9);
+  w.frame(9, 0);
+  assert.equal(w.info(0).freezes, 0, 'one long step: the page was busy');
+  w.frame(10, 0);
+  w.rest();
+  w.playing(14);
+  assert.equal(w.info(0).freezes, 0, 'time passed during a pause');
+  for (let i = 0; i < 40; i++) w.playing(14);
+  assert.equal(w.info(0).freezes, 0, 'the film itself stopped, so it is only waiting');
+});
+
+test('a jump ends when a picture from somewhere else shows', () => {
+  const w = pictureWatch();
+  w.frame(60, 0);
+  w.jump(3540, 1000);
+  assert.equal(w.jumping, true);
+  w.frame(60.04, 1500);
+  assert.equal(w.info(2000).waiting, 1000, 'a frame from before the jump');
+  w.frame(3540, 3000);
+  assert.deepEqual(w.info(3000).jumps, [2000]);
+  assert.equal(w.jumping, false);
+  w.jump(3540.04, 4000);
+  assert.equal(w.jumping, false, 'a small step may land on the same frame');
+  w.jump(100, 5000);
+  w.jump(200, 6000);
+  w.frame(200, 7000);
+  assert.deepEqual(w.info(7000).jumps, [2000, 2000], 'a drag counts as one jump');
+  w.jump(900, 8000);
+  w.away();
+  assert.equal(w.jumping, false, 'nothing shows out of sight');
+  w.clear();
+  assert.deepEqual(w.info(0).jumps, []);
+});
+
+test('a jump clears a freeze, and keeps it in the count', () => {
+  const w = pictureWatch();
+  w.frame(0, 0);
+  playOn(w, 0, 5);
+  w.jump(100, 0);
+  playOn(w, 100, 101);
+  const { freezes, longest, frozen } = w.info(0);
+  assert.deepEqual({ freezes, longest, frozen }, { freezes: 1, longest: 5, frozen: false });
+});
+
+test('the report shows when pictures come, or that they stopped', () => {
+  const base = { now: 0, app: {}, browser: {}, log: [] };
+  assert.doesNotMatch(report(base), /Jump picture|Frozen video/, 'not without the browser’s help');
+  const quiet = report({ ...base, picture: { jumps: [], waiting: 0, freezes: 0, longest: 0, frozen: false } });
+  assert.match(quiet, /Jump picture {1}none yet/);
+  assert.match(quiet, /Frozen video {1}none while playing/);
+  const bad = report({ ...base, picture: { jumps: [200, 400, 3000], waiting: 41e3, freezes: 2, longest: 62, frozen: true } });
+  assert.match(bad, /Jump picture {1}last 3: typical 400 ms, slowest 3\.0 s; not shown yet after 41 s/);
+  assert.match(bad, /Frozen video {1}2 while playing, longest 62 s, frozen now/);
+  assert.match(report({ ...base, picture: { jumps: [], waiting: 5e3, freezes: 0, longest: 0, frozen: false } }), /Jump picture {1}not shown yet after 5\.0 s/);
 });
 
 test('file names are left out unless asked for', () => {
