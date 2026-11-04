@@ -36,7 +36,7 @@ import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } fr
 import { comboOf, lookup } from './keymap.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
-import { FIT_MIN, MAX_SPEED, writeWav, readingStarting, reviewGoogleKey, missingVoiceAdvice, hasGoogleKey } from './tts.js';
+import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, reviewGoogleKey, missingVoiceAdvice, hasGoogleKey } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands } from './ffcmd.js';
 import { videoName, missing, advice, copyKind, TESTS } from './codecs.js';
@@ -110,7 +110,7 @@ const PEAK_RATE = 200; // waveform bins per second
 const OFFSETS = [0, 0.1, 0.15, 0.2, 0.25, 0.3]; // hold-to-mark reaction offsets, ⇧H cycles
 
 const css = getComputedStyle(document.documentElement);
-const C = Object.fromEntries(['panel', 'line', 'dim', 'faint', 'accent', 'bg'].map((k) => [k, css.getPropertyValue('--' + k).trim()]));
+const C = Object.fromEntries(['panel', 'line', 'dim', 'faint', 'accent', 'bg', 'cue'].map((k) => [k, css.getPropertyValue('--' + k).trim()]));
 C.wave = '#3b7f86';
 C.grid = '#1b2028';
 
@@ -1176,7 +1176,7 @@ edText.addEventListener('focus', () => {
   if (qcLocked() || S.mode === 'record') return;
   if (!c) { edText.blur(); return; }
   edit = { id: c.id, orig: c.text, pushed: false };
-  document.body.classList.add('editing');
+  editor.classList.add('editing');
 });
 edText.addEventListener('input', () => {
   if (S.mode === 'record') { if (recorder.side) recorder.setAltText(selIdx(), edText.value); return; }
@@ -1193,7 +1193,7 @@ edText.addEventListener('input', () => {
 edText.addEventListener('blur', () => {
   const was = edit && S.cues.find((c) => c.id === edit.id);
   edit = null;
-  document.body.classList.remove('editing');
+  editor.classList.remove('editing');
   updateEditor();
   // The block just edited, even when another one is now selected: with a Google voice,
   // this is when it's read.
@@ -1262,9 +1262,9 @@ function bindTimeInput(input, which) {
   input.addEventListener('blur', apply);
   input.addEventListener('focus', () => {
     if (!selCue()) { input.blur(); return; }
-    document.body.classList.add('editing');
+    editor.classList.add('editing');
   });
-  input.addEventListener('blur', () => { if (!FIELDS.includes(document.activeElement)) document.body.classList.remove('editing'); });
+  input.addEventListener('blur', () => { if (!FIELDS.includes(document.activeElement)) editor.classList.remove('editing'); });
 }
 function updateEditorTimes() {
   const c = selCue();
@@ -1308,12 +1308,11 @@ function fillText(tx, c) {
 }
 
 function applyFilter() {
-  let n = 0;
-  S.cues.forEach((c, i) => {
-    const r = rowMap.get(c.id);
-    if (r) fillRow(r, c, i);
-    if (matches(c, i)) n++;
-  });
+  S.cues.forEach((c, i) => { const r = rowMap.get(c.id); if (r) fillRow(r, c, i); });
+  showFilter();
+}
+function showFilter() {
+  const n = query ? S.cues.reduce((k, c, i) => k + (matches(c, i) ? 1 : 0), 0) : S.cues.length;
   listCount.textContent = query ? `${n} of ${S.cues.length}` : '';
   noResults.textContent = `No text blocks match “${listSearch.value.trim()}”`;
   if (query && !n && S.cues.length) list.append(noResults); else noResults.remove();
@@ -1328,15 +1327,19 @@ function stepMatch(d) {
   select(hits[next].id);
 }
 
+// In a long script, waits for a pause in the typing rather than searching at every key.
+let searchTimer = 0;
 listSearch.addEventListener('input', () => {
-  query = listSearch.value.trim().toLowerCase();
-  applyFilter();
+  clearTimeout(searchTimer);
+  const go = () => { query = listSearch.value.trim().toLowerCase(); applyFilter(); };
+  if (S.cues.length > 300) searchTimer = setTimeout(go, 150); else go();
 });
 listSearch.addEventListener('keydown', (e) => {
   e.stopPropagation();
   if (e.key === 'Escape') {
     e.preventDefault();
-    if (listSearch.value) { listSearch.value = ''; query = ''; applyFilter(); }
+    clearTimeout(searchTimer);
+    if (listSearch.value || query) { listSearch.value = ''; query = ''; applyFilter(); }
     listSearch.blur();
   } else if (e.key === 'Enter') {
     e.preventDefault();
@@ -1349,6 +1352,8 @@ listSearch.addEventListener('keydown', (e) => {
 });
 
 function fillRow(r, c, i) {
+  // Filtered out: it's filled in when it next shows.
+  if (!matches(c, i)) { r.hidden = true; r.dataset.was = ''; return; }
   const [n, t, d] = r.children[0].children, tx = r.children[1];
   const times = `${tc(c.start)} – ${tc(c.end)}`;
   let dur = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '')
@@ -1359,10 +1364,10 @@ function fillRow(r, c, i) {
   if (over) dur += ' ⚠';
   if (c.notes) dur += ' · notes';
   if (c.pickup) dur += ' · pickup';
-  const ready = !!reading?.exact, shown = matches(c, i);
+  const ready = !!reading?.exact;
   // Unchanged rows are left alone: long jobs refresh the list often, and rewriting every
   // row each time made the browser lay it all out again.
-  const was = `${i}|${times}|${dur}|${ready}|${shown}|${query}|${c.text}`;
+  const was = `${i}|${times}|${dur}|${ready}|${query}|${c.text}`;
   if (r.dataset.was === was) return;
   r.dataset.was = was;
   n.textContent = i + 1;
@@ -1379,21 +1384,37 @@ function fillRow(r, c, i) {
   r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, ready }) + (c.notes ? ', has notes' : '') + (c.pickup ? ', pickup' : ''));
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
-  r.hidden = !shown;
+  r.hidden = false;
 }
 
 // Refreshes the rows in place when the blocks are the same ones in the same order, as
-// when readings arrive; otherwise builds the list again.
+// when readings arrive; otherwise brings the list up to date.
 function refreshList() {
-  const rows = [...list.children].filter((el) => el !== editor);
-  if (rows.length !== S.cues.length || S.cues.some((c, i) => rows[i] !== rowMap.get(c.id))) return renderList();
-  S.cues.forEach((c, i) => fillRow(rows[i], c, i));
+  const same = S.cues.length === rowMap.size && S.cues.every((c, i) => { const r = rowMap.get(c.id); return r && rowOrder.get(r) === i; });
+  if (!same) return renderList();
+  S.cues.forEach((c, i) => fillRow(rowMap.get(c.id), c, i));
 }
 
+function newRow(c) {
+  const r = document.createElement('div');
+  r.className = 'row';
+  r.dataset.id = c.id;
+  r.id = `blk-${c.id}`;
+  r.setAttribute('role', 'option');
+  r.innerHTML = '<div class="rh"><span class="n"></span><span class="t"></span><span class="d"></span>' +
+    // Only for the mouse: from the keyboard, Delete does it, so screen readers skip it.
+    '<span class="rowdel" aria-hidden="true" data-tip="Delete this block (Del). Ctrl/Cmd+Z brings it back">×</span></div>' +
+    '<div class="tx"></div>';
+  return r;
+}
+
+// Brings the rows up to date with the blocks. Rows are kept and only those that changed
+// are touched: building thousands again froze the page at every undo or new block.
+const rowOrder = new WeakMap(); // row -> its place in the list
 function renderList() {
-  rowMap.clear();
-  // Everything but the editor, which stays put so typing in it isn't interrupted.
-  for (const el of [...list.children]) if (el !== editor) el.remove();
+  for (const el of [...list.children]) if (el !== editor && !el.classList.contains('row')) el.remove();
+  const wanted = new Set(S.cues.map((c) => c.id));
+  for (const [id, r] of rowMap) if (!wanted.has(id)) { r.remove(); rowMap.delete(id); }
   list.removeAttribute('aria-activedescendant');
   // A list for screen readers only when there are blocks in it.
   if (S.cues.length) list.setAttribute('role', 'listbox'); else list.removeAttribute('role');
@@ -1407,28 +1428,26 @@ function renderList() {
     placeEditor();
     return;
   }
-  const frag = document.createDocumentFragment();
+  // The editor stays where it is, so typing in it isn't interrupted; placeEditor then
+  // puts it back between the right rows.
+  let at = list.firstElementChild;
+  const next = () => { while (at === editor) at = at.nextElementSibling; };
+  next();
   S.cues.forEach((c, i) => {
-    const r = document.createElement('div');
-    r.className = 'row';
-    r.dataset.id = c.id;
-    r.id = `blk-${c.id}`;
-    r.setAttribute('role', 'option');
-    r.setAttribute('aria-selected', String(c.id === S.sel));
-    r.innerHTML = '<div class="rh"><span class="n"></span><span class="t"></span><span class="d"></span>' +
-      // Only for the mouse: from the keyboard, Delete does it, so screen readers skip it.
-      '<span class="rowdel" aria-hidden="true" data-tip="Delete this block (Del). Ctrl/Cmd+Z brings it back">×</span></div>' +
-      '<div class="tx"></div>';
+    let r = rowMap.get(c.id);
+    if (!r) { r = newRow(c); rowMap.set(c.id, r); }
     fillRow(r, c, i);
-    if (c.id === S.sel) r.classList.add('sel');
-    if (c.id === S.activeId) r.classList.add('active');
-    rowMap.set(c.id, r);
-    frag.append(r);
+    rowOrder.set(r, i);
+    r.classList.toggle('sel', c.id === S.sel);
+    r.setAttribute('aria-selected', String(c.id === S.sel));
+    r.classList.toggle('active', c.id === S.activeId);
+    if (r === at) { at = at.nextElementSibling; next(); }
+    else list.insertBefore(r, at);
   });
-  list.insertBefore(frag, editor);
   if (rowMap.has(S.sel)) list.setAttribute('aria-activedescendant', `blk-${S.sel}`);
   placeEditor();
-  applyFilter();
+  showFilter();
+  tlDirty = true;
 }
 
 // The selected block opens in its place, as in Frazier: the rows up to it go above the
@@ -1445,10 +1464,14 @@ function placeEditor() {
   // Record mode always shows the selected block open, locked, with its Original | Alt switch.
   editor.hidden = !(edOpen || S.mode === 'record') || i < 0 || !rowMap.has(S.sel);
   if (editor.hidden) return;
-  const rows = S.cues.map((c) => rowMap.get(c.id));
+  // The rows are in order, so how many are above the editor is found by halving, and only
+  // the rows between there and the selected block move.
+  const row = (k) => rowMap.get(S.cues[k].id);
   const above = (r) => r.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING;
-  for (let k = 0; k <= i; k++) if (!above(rows[k])) list.insertBefore(rows[k], editor);
-  for (let k = rows.length - 1; k > i; k--) if (above(rows[k])) editor.after(rows[k]);
+  let lo = 0, hi = S.cues.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (above(row(m))) lo = m + 1; else hi = m; }
+  for (let k = lo; k <= i; k++) list.insertBefore(row(k), editor);
+  for (let k = lo - 1; k > i; k--) editor.after(row(k));
 }
 
 list.addEventListener('click', (e) => {
@@ -1693,7 +1716,7 @@ function drawOverview() {
 // Blocks show as marks along it, the selected one in the accent colour. It takes no
 // keyboard focus, so the editor's keys keep working; ←/→ and the rest still move.
 const scrubEl = $('scrub'), scrubMarks = $('scrubMarks'), scrubTime = $('scrubTime');
-let scrubW = 0, scrubSec = -1;
+let scrubDrawn = '', scrubSec = -1;
 // Moved only when it moves a pixel: in a long film that's every few seconds, and each
 // move costs a layout and a repaint that a slower computer needs for the video.
 let scrubPx = -1;
@@ -1709,22 +1732,24 @@ function placeScrub(t) {
     scrubEl.setAttribute('aria-valuetext', tc(t).slice(0, 8));
   }
 }
-function drawScrub(force = false) {
+// Drawn again only when the marks change: selecting a block or moving the timeline
+// leaves all but one of them where they are.
+function drawScrub() {
   const w = boxW(scrubMarks), dpr = devicePixelRatio || 1;
-  if (!w || (!force && w === scrubW)) return;
-  scrubW = w;
+  const drawn = `${w}|${S.changeGen}|${S.sel}|${duration()}|${S.cues.length}`;
+  if (!w || drawn === scrubDrawn) return;
+  scrubDrawn = drawn;
   scrubMarks.width = Math.round(w * dpr);
   scrubMarks.height = Math.round(6 * dpr);
   const g = scrubMarks.getContext('2d'), d = duration(), k = scrubMarks.width / d;
   g.clearRect(0, 0, scrubMarks.width, scrubMarks.height);
-  const css = getComputedStyle(document.documentElement);
   const mark = (c, color) => {
     g.fillStyle = color;
     g.fillRect(c.start * k, 0, Math.max(dpr, (c.end - c.start) * k), scrubMarks.height);
   };
-  for (const c of S.cues) mark(c, css.getPropertyValue('--cue'));
+  for (const c of S.cues) mark(c, C.cue);
   const s = selCue();
-  if (s) mark(s, css.getPropertyValue('--accent'));
+  if (s) mark(s, C.accent);
 }
 const scrubAt = (e) => {
   const r = scrubMarks.getBoundingClientRect();
@@ -2515,11 +2540,11 @@ ttsExport.addEventListener('click', async () => {
     const as = trackFormat(tts.trackAs);
     // With an MP3, making the readings is the first 80% of the bar and encoding the rest.
     const part = as.kbps ? 0.8 : 1;
-    const { samples, rate, overlaps } = await renderTrack(blocks, S.hasVideo ? duration() : 0,
+    const { pcm, rate, overlaps } = await renderTrack(blocks, S.hasVideo ? duration() : 0,
       (k, n) => { ttsExportBar.value = part * k / n; ttsExportStatus.textContent = `Making readings: ${k} of ${n}`; });
     const blob = as.kbps
-      ? await encodeMp3(samples, rate, as.kbps, (f) => { ttsExportBar.value = part + (1 - part) * f; ttsExportStatus.textContent = `Making the MP3: ${Math.round(f * 100)}%`; })
-      : writeWav(samples, rate);
+      ? await encodeMp3(pcm, rate, as.kbps, (f) => { ttsExportBar.value = part + (1 - part) * f; ttsExportStatus.textContent = `Making the MP3: ${Math.round(f * 100)}%`; })
+      : pcmToWav(pcm, rate);
     const name = `${baseName()} - audio description.${as.ext}`;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -5272,7 +5297,8 @@ function tick(ts) {
     clockEl.textContent = tc(t);
     if (S.remaining) showDur(t);
   }
-  if (tlDirty) { drawTimeline(); drawScrub(true); } else drawScrub();
+  if (tlDirty) drawTimeline();
+  drawScrub();
   updateMark();
   placePlayhead(t);
   placeScrub(t);
@@ -5342,8 +5368,11 @@ function readingsChanged() {
   if (readingsTimer) return;
   const wait = readingsAt + READINGS_EVERY - performance.now();
   if (wait > 0) { readingsTimer = setTimeout(() => { readingsTimer = 0; readingsChanged(); }, wait); return; }
-  readingsAt = performance.now();
+  const t0 = performance.now();
   fitAllAuto(); refreshList(); updateEditor(); updateInd(); refreshQc(); tlDirty = true;
+  // On a slower computer or in a long script this takes longer, so it comes round less
+  // often, and most of the time still goes to making the readings.
+  readingsAt = performance.now() + Math.max(0, (performance.now() - t0) * 4 - READINGS_EVERY);
 }
 initTts({
   toast,

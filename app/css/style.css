@@ -362,7 +362,7 @@ button.clock { padding: 0; border: 0; background: none; color: inherit; }
   border-radius: 6px;
 }
 .editor[hidden] { display: none; }
-.editing .editor { border-color: var(--accent); }
+.editor.editing { border-color: var(--accent); }
 .meta, .edtts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font: 12px var(--mono); }
 .meta { margin-bottom: 6px; }
 .edtts { margin-top: 6px; }
@@ -428,15 +428,20 @@ textarea:disabled { opacity: 0.5; }
   border-right: 1px solid var(--line);
   background: var(--panel);
 }
-.list { position: relative; flex: 1; overflow-y: auto; min-height: 0; }
+.list { position: relative; flex: 1; overflow-y: auto; min-height: 0; contain: layout style; }
 .list .emptyhint { padding: 24px 16px; color: var(--dim); line-height: 2; }
 .row {
   padding: 6px 6px 8px 10px;
   border-bottom: 1px solid #1a1e25;
   border-left: 3px solid transparent;
   cursor: pointer;
+  /* Rows out of view take no layout or painting: a long script has thousands of them. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 62px;
 }
 .row:hover { background: var(--panel2); }
+/* A row in use isn't clipped to its own box, so its tooltip can show. */
+.row:hover, .row.sel { content-visibility: visible; }
 /* delete button at the end of each row: faint until the row is pointed at */
 .rowdel {
   display: flex;

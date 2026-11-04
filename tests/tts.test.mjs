@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
-  piperVoiceList, kokoroVoiceList, readWav, voiceEnd, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
+  splitReadingKey, piperVoiceList, kokoroVoiceList, readWav, voiceEnd, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
   toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice, voiceTitle } from '../app/js/tts.js';
 
@@ -440,4 +440,12 @@ test('a reading’s length stops where the voice does, not at the silence after 
   // Stereo: frames, not samples.
   const stereo = new Int16Array(rate * 2); for (let i = 0; i < rate; i++) stereo[i] = 9000 * Math.sin(i);
   assert.ok(Math.abs(voiceEnd(stereo, 2, rate) - 0.55) < 0.011);
+});
+
+test('a reading’s key splits into its voice, speed and words, even with bars in them', () => {
+  assert.deepEqual(splitReadingKey('piper:en_US-lessac|1.15|Hello there'), { voice: 'piper:en_US-lessac', speed: 1.15, words: 'Hello there' });
+  assert.deepEqual(splitReadingKey('piper:x|0.7|A | B |2| C'), { voice: 'piper:x', speed: 0.7, words: 'A | B |2| C' });
+  assert.deepEqual(splitReadingKey('odd|voice|1|Words'), { voice: 'odd|voice', speed: 1, words: 'Words' });
+  assert.deepEqual(splitReadingKey('google:a|1.5|Two\nlines'), { voice: 'google:a', speed: 1.5, words: 'Two\nlines' });
+  assert.equal(splitReadingKey('no speed here'), null);
 });

@@ -29,10 +29,10 @@ export const mixFormat = (k) => MIX_FORMATS[k] || MIX_FORMATS.wav;
 // more as a player decodes it). Without a gapless header, which players only partly
 // honour, everything would sound that much late, so they're taken off the start.
 export const MP3_DELAY = 1105;
-export const forMp3 = (samples) => samples.subarray(Math.min(MP3_DELAY, samples.length));
+export const forMp3 = (pcm) => pcm.slice(Math.min(MP3_DELAY * 2, pcm.size));
 
-// Mono 16-bit samples as an MP3 Blob. progress(0..1) as it goes.
-export function encodeMp3(samples, rate, kbps, progress = () => {}) {
+// Mono 16-bit samples in a Blob as an MP3 Blob. progress(0..1) as it goes.
+export function encodeMp3(pcm, rate, kbps, progress = () => {}) {
   return new Promise((resolve, reject) => {
     let w;
     try { w = new Worker(new URL('./mp3-worker.js', import.meta.url)); } catch { return reject(new Error('workers are unavailable')); }
@@ -43,7 +43,6 @@ export function encodeMp3(samples, rate, kbps, progress = () => {}) {
       else end(reject, new Error(m.message));
     };
     w.onerror = (e) => { e.preventDefault(); end(reject, new Error(e.message || 'the MP3 encoder didn’t load')); };
-    const copy = forMp3(samples).slice();
-    w.postMessage({ samples: copy, rate, kbps }, [copy.buffer]);
+    w.postMessage({ pcm: forMp3(pcm), rate, kbps });
   });
 }
