@@ -35,8 +35,7 @@ speech to text can type it for you.
 
 ### Transcribe mode
 
-Pick **Transcribe** with the switch next to the Scribecue name, at the top left. Use
-Chrome or Edge: in Firefox, a description track can stutter.
+Pick **Transcribe** with the switch next to the Scribecue name, at the top left.
 
 ### Opening the programme
 

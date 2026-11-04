@@ -60,7 +60,6 @@ export function missingFeatures(w = globalThis) {
 // notice. Feature checks can't see these.
 const ISSUES = {
   Firefox: [
-    'smooth sound for a file’s description track, when the file has several audio tracks (it can stutter or cut out)',
     'speech to text, which can interrupt the video’s sound while blocks are transcribed',
   ],
 };

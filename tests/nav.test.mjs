@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockFromPlayhead, BACK_GRACE, nudgeFor, NUDGE_START, takeFrom, stopAt, returnsToStart, scrubber } from '../app/js/nav.js';
+import { blockFromPlayhead, BACK_GRACE, nudgeFor, nudges, NUDGE_START, takeFrom, stopAt, returnsToStart, scrubber } from '../app/js/nav.js';
 
 const cues = [{ start: 2, end: 5 }, { start: 10, end: 14 }, { start: 20, end: 22 }];
 
@@ -84,4 +84,9 @@ test('a drag waits for each seek to land, then goes to the latest place', () => 
   assert.deepEqual(went, [10, 30], 'a click or key clears what was waiting');
   seeking = true; s.to(50); s.done();
   assert.deepEqual(went, [10, 30, 50], 'letting go goes to the last place without waiting');
+});
+
+test('Firefox doesn’t get nudges, as a speed change restarts its audio', () => {
+  assert.equal(nudges('Firefox'), false);
+  for (const b of ['Chrome', 'Edge', 'Safari', 'Brave']) assert.equal(nudges(b), true);
 });

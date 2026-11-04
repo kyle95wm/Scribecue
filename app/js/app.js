@@ -22,7 +22,7 @@ import { takesInfo, clearTakes, unpackSession, rememberSession, browserFolder, c
 import { isSessionPackage, fromSession, SESSION_FILE } from './session.js';
 import { picker, refused } from './pickers.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
-import { blockFromPlayhead, nudgeFor, NUDGE, takeFrom, stopAt, returnsToStart, scrubber } from './nav.js';
+import { blockFromPlayhead, nudgeFor, nudges, NUDGE, takeFrom, stopAt, returnsToStart, scrubber } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
@@ -39,7 +39,7 @@ import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, reviewGoogleKey, missingVoiceAdvice, hasGoogleKey } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands } from './ffcmd.js';
-import { videoName, missing, silentSound, copiesSound, advice, copyKind, TESTS } from './codecs.js';
+import { videoName, missing, silentSound, copiesSound, ownTrack, advice, copyKind, TESTS } from './codecs.js';
 import { createLog, watchErrors, pictureWatch, report as diagReport } from './diagnostics.js';
 import { waveKey, loadWave, saveWave, loadSound, saveSound } from './wavestore.js';
 import { buildDialogue, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, MIN_CLASH, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue } from './dialogue.js';
@@ -4565,7 +4565,10 @@ function selectTrack(i) {
     Object.assign(S, { peaks: cached.peaks, peakLen: cached.peakLen, peakMax: cached.peakMax });
     if (copied) {
       if (cached.audio) useAltAudio(cached.audio);
-      else toast(`Can't play track ${i + 1} on its own: ${cached.reason}`);
+      else {
+        useNativeAudio();
+        toast(`Can't play track ${i + 1} on its own: ${cached.reason}`);
+      }
     }
     if (multi) toast(`Audio: ${trackLabel(i)}`);
     return;
@@ -4847,15 +4850,23 @@ function useAltAudio(a) {
   if (isPlaying()) altAudio.play().catch(() => {});
 }
 function useNativeAudio() {
-  if (!alt) return;
-  alt = null;
-  altAudio.pause();
-  altAudio.removeAttribute('src');
-  altAudio.load();
+  if (alt) {
+    alt = null;
+    altAudio.pause();
+    altAudio.removeAttribute('src');
+    altAudio.load();
+  }
   video.muted = false;
+}
+// A copied track can't play until the whole file has been read. Until then, silence is
+// better than the last track's sound under the new track's waveform.
+function holdSound() {
+  useNativeAudio();
+  video.muted = true;
 }
 // The video is the clock; the copied track follows it.
 let nudging = 0; // see nudgeFor
+const canNudge = nudges(browserName(navigator.userAgent, navigator.userAgentData?.brands || []));
 function syncAlt(force) {
   if (!alt) return;
   const target = video.currentTime - alt.start;
@@ -4867,6 +4878,7 @@ function syncAlt(force) {
     nudging = 0;
     return;
   }
+  if (!canNudge) return;
   // Jumping again would land late again (seeking has latency) and is audible,
   // so close small gaps by playing a little faster or slower for a moment.
   nudging = nudgeFor(drift, nudging);
@@ -4976,7 +4988,8 @@ async function buildWaveform(file, track, mux) {
   const multi = S.tracks.length > 1;
   const prefix = multi ? `Track ${track + 1} · ` : '';
   const making = mux && needsCopy(track);
-  S.waveStatus = `${prefix}${making ? 'Getting the sound ready' : 'Waveform'} 0%`;
+  const silent = making || (mux && track !== ownTrack(S.tracks)); // nothing to hear until it's copied
+  S.waveStatus = `${prefix}${silent ? 'Getting the sound ready' : 'Waveform'} 0%`;
   // A waveform built before, kept in the browser. A track copied out to play still has
   // to be copied, but its waveform shows straight away.
   const key = waveKey(file, track, PEAK_RATE);
@@ -4999,10 +5012,9 @@ async function buildWaveform(file, track, mux) {
       trackCache.set(track, { ...kept, audio: null, reason: '' });
       return;
     }
-    S.waveStatus = `${prefix}${making ? 'Getting the sound ready' : 'Copying the track'}`;
+    S.waveStatus = `${prefix}${silent ? 'Getting the sound ready' : 'Copying the track'}`;
   }
-  if (making) toast(`Getting the ${S.tracks[track].codec} sound ready. It’ll play when this is done`);
-  if (making) soundProgress(0);
+  if (silent) toast(`Getting the ${S.tracks[track].codec} sound ready. It’ll play when this is done`);
   let worker;
   try {
     worker = new Worker('js/wave-worker.js');
@@ -5010,6 +5022,7 @@ async function buildWaveform(file, track, mux) {
     return multi ? toast('No waveform: workers are unavailable') : legacyWaveform(file, 'workers are unavailable');
   }
   waveWorker = worker;
+  if (silent) { holdSound(); soundProgress(0); } else if (mux) useNativeAudio();
   const entry = { audio: null, reason: '' };
   const stale = () => S.videoFile !== file || waveWorker !== worker;
   const stop = (reason) => {
@@ -5018,6 +5031,7 @@ async function buildWaveform(file, track, mux) {
     waveWorker = null;
     S.waveStatus = '';
     soundProgress(null);
+    if (!alt) useNativeAudio();
     tlDirty = true;
     if (S.peakLen) toast(`Waveform may be incomplete: ${reason}`);
     // the in-memory fallback can only see the default track
@@ -5027,7 +5041,7 @@ async function buildWaveform(file, track, mux) {
   worker.onmessage = ({ data: m }) => {
     if (stale()) return;
     if (m.type === 'peaks') { if (!kept) addPeaks(m.from, m.data, m.max); }
-    else if (m.type === 'progress') { S.waveStatus = `${prefix}${making ? 'Getting the sound ready' : kept ? 'Copying the track' : 'Waveform'} ${Math.round(m.done * 100)}%`; tlDirty = true; if (making) soundProgress(m.done); }
+    else if (m.type === 'progress') { S.waveStatus = `${prefix}${silent ? 'Getting the sound ready' : kept ? 'Copying the track' : 'Waveform'} ${Math.round(m.done * 100)}%`; tlDirty = true; if (silent) soundProgress(m.done); }
     else if (m.type === 'audio') {
       if (m.blob && !altAudio.canPlayType(m.mime)) entry.reason = `this browser can’t play ${S.tracks[track].codec} on its own`;
       else if (m.blob) entry.audio = { url: URL.createObjectURL(m.blob), start: m.start || 0 };
@@ -5035,7 +5049,10 @@ async function buildWaveform(file, track, mux) {
       if (m.made && entry.audio) saveSound(key, m.blob, m.start);
       if (S.track !== track) return;
       if (entry.audio) useAltAudio(entry.audio);
-      else toast(`Can't play track ${track + 1} on its own: ${entry.reason}`);
+      else {
+        useNativeAudio();
+        toast(`Can't play track ${track + 1} on its own: ${entry.reason}`);
+      }
     } else if (m.type === 'done') {
       worker.terminate();
       waveWorker = null;
@@ -5051,7 +5068,7 @@ async function buildWaveform(file, track, mux) {
   };
   worker.onerror = (e) => { e.preventDefault(); stop('the waveform worker crashed'); };
   worker.postMessage({ cmd: 'build', file, rate: PEAK_RATE, track, mux });
-  waveMaking = making;
+  waveMaking = silent;
   wavePace = null;
   paceWave();
 }
