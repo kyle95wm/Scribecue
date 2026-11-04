@@ -125,12 +125,16 @@ async function collect() {
   return js(`(() => { const m = window.__m; return { long: m.long.splice(0), gaps: m.gaps.splice(0), events: m.events.splice(0),
     heap: performance.memory.usedJSHeapSize, hidden: document.hidden || !document.hasFocus(),  nodes: document.getElementsByTagName('*').length }; })()`);
 }
+// Chrome makes up hover events after a scroll, carrying the time of the last real mouse
+// move, so they look slow however quick the page is. Only what someone did counts.
+const HOVER = /^(pointer|mouse)(over|out|enter|leave|move)$/;
 function row(name, ms, s, note = '') {
+  const felt = s.events.filter((e) => !HOVER.test(e[0]));
   const r = {
     name, ms: Math.round(ms), longTasks: s.long.length, longestTask: Math.round(Math.max(0, ...s.long)),
     blocked: Math.round(s.long.reduce((a, b) => a + Math.max(0, b - 50), 0)),
     worstGap: Math.round(Math.max(0, ...s.gaps)), p95Gap: Math.round(pct(s.gaps, 0.95)),
-    worstResponse: Math.round(Math.max(0, ...s.events.map((e) => e[1]))), responses: s.events.length,
+    worstResponse: Math.round(Math.max(0, ...felt.map((e) => e[1]))), responses: felt.length,
     heapMB: Math.round(s.heap / 1048576), pssMB: Math.max(pssMB(), stepPeak), note,
   };
   results.push(r);
@@ -152,6 +156,13 @@ async function topFunctions(name) {
     console.log(`  -- ${lays.length} layouts: ${Math.round(sum((e) => e.dur / 1000))} ms, average ${Math.round(sum((e) => e.args.beginData.dirtyObjects) / lays.length)} of ${Math.round(sum((e) => e.args.beginData.totalObjects) / lays.length)} objects dirty`);
     const big = [...lays].sort((x, y) => y.dur - x.dur).slice(0, 3);
     for (const e of big) console.log(`     ${Math.round(e.dur / 1000)} ms, ${e.args.beginData.dirtyObjects} dirty of ${e.args.beginData.totalObjects}, partial ${e.args.beginData.partialLayout}, stack ${(e.args.beginData.stackTrace || []).slice(0, 2).map((f) => `${f.functionName}:${f.lineNumber}`).join(' < ')}`);
+  }
+  // The longest tasks, and what took the time inside them.
+  const tasks = traceEvents.filter((e) => e.ph === 'X' && e.tid === main?.tid && e.pid === main?.pid && e.name === 'RunTask' && e.dur > 100e3).sort((x, y) => y.dur - x.dur).slice(0, 4);
+  for (const t of tasks) {
+    console.log(`  -- task of ${Math.round(t.dur / 1000)} ms`);
+    const inside = traceEvents.filter((e) => e !== t && e.ph === 'X' && e.tid === t.tid && e.pid === t.pid && e.ts >= t.ts && e.ts + e.dur <= t.ts + t.dur && e.dur > t.dur / 12 && !/^(ThreadControllerImpl|SequenceManager|Scheduler)/.test(e.name));
+    for (const e of inside.slice(0, 16)) console.log(`     +${String(Math.round((e.ts - t.ts) / 1000)).padStart(5)} ${String(Math.round(e.dur / 1000)).padStart(5)} ms  ${e.name}${e.args?.data?.type ? ` ${e.args.data.type}` : ''}${e.args?.data?.functionName ? ` ${e.args.data.functionName}` : ''}`);
   }
   console.log('  -- browser work');
   for (const [k, [ms, n]] of wanted) console.log(`     ${String(Math.round(ms)).padStart(7)} ms  ${n} × ${k}`);
@@ -177,7 +188,9 @@ async function step(name, fn) {
     return row(name, Date.now() - t0, s, `FAILED: ${String(e.message).split('\n')[0].slice(0, 160)}`);
   }
   const ms = Date.now() - t0;
-  return row(name, ms, await collect(), note || '');
+  const got = await collect();
+  if (profiled) console.log(`  -- slowest responses: ${got.events.filter((e) => !HOVER.test(e[0])).sort((x, y) => y[1] - x[1]).slice(0, 6).map(([n, d]) => `${n} ${Math.round(d)}`).join(', ')}`);
+  return row(name, ms, got, note || '');
 }
 const section = (name) => { if (only && !only.has(name)) return false; console.log(`\n== ${name}`); return true; };
 
