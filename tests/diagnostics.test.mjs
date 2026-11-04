@@ -67,7 +67,7 @@ test('file names are left out unless asked for', () => {
   assert.match(text, /Size {9}4\.2 GB, 1:51:50/);
   assert.match(text, /Picture {6}1920×1080, H\.264, 23\.976 fps/);
   assert.match(text, /Decoding {5}smooth, not power-efficient \(likely without the graphics chip\)/);
-  assert.match(text, /Frames {7}1000 shown, 25 dropped \(2\.5%\)/);
+  assert.match(text, /Frames {7}975 shown, 25 dropped \(2\.5%\)/);
   assert.match(text, /Waveform {5}built in 99 s/);
   assert.match(text, /Jumps {8}last 4: typical 400 ms, slowest 2\.1 s/);
   assert.match(text, /Long tasks {3}3 in the last 5 min, longest 120 ms/);
