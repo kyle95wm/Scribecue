@@ -105,7 +105,7 @@ export function report(info, { names = false } = {}) {
     if (v.decode?.supported === false) row('Decoding', 'this browser says it can’t decode this video');
     else if (v.decode) row('Decoding', `${v.decode.smooth ? 'smooth' : 'not smooth'}, ${v.decode.powerEfficient ? 'power-efficient (likely the graphics chip)' : 'not power-efficient (likely without the graphics chip)'}`);
     if (v.audio?.length) row('Audio', v.audio.join(', ') + (v.separate ? '; the chosen track plays alongside the video' : ''));
-    if (v.frames?.total) row('Frames', `${v.frames.total} shown, ${v.frames.dropped} dropped (${(100 * v.frames.dropped / v.frames.total).toFixed(1)}%)`);
+    if (v.frames?.total) row('Frames', `${Math.max(0, v.frames.total - v.frames.dropped)} shown, ${v.frames.dropped} dropped (${(100 * v.frames.dropped / v.frames.total).toFixed(1)}%)`);
   }
 
   L.push('', 'Performance');
