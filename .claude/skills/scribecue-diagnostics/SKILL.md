@@ -100,7 +100,7 @@ The section says "none open" if no video was loaded. Performance numbers then me
 | **Size** | File size and length. | Size divided by length gives the bitrate. |
 | **Picture** | Resolution, codec, frame rate. | No keyframe spacing. Wide spacing makes jumps slow, and only the file can show it. |
 | **Decoding** | The browser's `mediaCapabilities` answer. | An estimate, not a measurement. "not power-efficient" suggests decoding without the graphics chip. `chrome://gpu` confirms it. The row is missing if the browser couldn't say. |
-| **Audio** | Track codecs. "plays alongside the video" means a separate player for the chosen track. | Separate playback is extra work. AC-3, E-AC-3, DTS and TrueHD play, but have no waveform. |
+| **Audio** | Track codecs. "plays alongside the video" means a separate player for the chosen track. | Separate playback is extra work. Most browsers can't play AC-3 or E-AC-3, so Scribecue makes a copy of the sound, which is silent until **Getting the sound ready** finishes. DTS and TrueHD have no sound or waveform in most browsers. |
 | **Frames** | Shown and dropped since the video loaded. | A total: one bad minute fades in a long session. With few frames shown, the percentage is noisy. |
 
 ### Performance
