@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.82.0",
+    "date": "2026-11-04",
+    "notes": "## New: comments in Write\n\n- You can now leave comments in Write mode, not just QC.\n- You don't need a QC package to leave notes on your own script.\n- Click **Comment** in an open block, click **Comments** at the top, or right-click the timeline.\n- Comments with no name now say **No name** instead of **Reviewer**.\n\n## Changed: the Export menu\n\n- Export is now grouped by who each file is for, such as **For a reviewer** or **For a narrator**.\n- **Narration package** is now called **Narration zip**. It holds the same files."
+  },
+  {
     "version": "0.81.1",
     "date": "2026-11-04",
     "notes": "## Fixed: changing audio tracks\n\n- After changing tracks, the old track's sound no longer plays under the new waveform.\n- The first time you use a track, the video goes silent until **Getting the sound ready** finishes.\n- This wait is much shorter than before on long films.\n- Going back to a track you've already used is instant.\n\n## Fixed: several audio tracks in Firefox\n\n- A second audio track no longer stutters, cuts out or shifts in pitch."
