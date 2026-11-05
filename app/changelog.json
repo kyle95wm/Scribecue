@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.84.0",
+    "date": "2026-11-05",
+    "notes": "## New: spelling and grammar check\n\n- Exporting now checks the script first, and lists anything that looks wrong.\n- Click a suggestion to fix it, or choose **Export anyway**. You can always export.\n- To check without exporting, press `Alt+Shift+K`, or choose **Export → Check spelling and grammar**.\n- **Add to project** saves names, so they aren't flagged again.\n- It works offline, for American, British or Canadian spelling. It only checks English.\n- Turn it off, or change the spelling, in Settings under General.\n\n## New: Check grammar with AI\n\n- This button in the check finds harder mistakes, using your AI provider.\n- It sends the whole script, so an online provider may charge for it.\n- Nothing changes until you choose a fix."
+  },
+  {
     "version": "0.83.0",
     "date": "2026-11-05",
     "notes": "## New: smaller QC packages\n\n- Packages no longer hold audio for Piper blocks, so they stay small.\n- The reviewer's computer reads those blocks live, and changed Piper blocks can be heard straight away.\n- If a reviewer doesn't have a package's Piper voice, Scribecue offers to download it.\n- Google Cloud and Kokoro blocks still keep their audio in the package.\n- Writers and reviewers both need 0.83 or later.\n\n## Fixed: videos no browser can open\n\n- TS, M2TS, AVI, WMV and MPG files no longer tell you to try Chrome or Edge, which wouldn't help.\n- The message now asks for an MP4 or WebM copy.\n- The Getting Started guide shows how to make an MP4 copy."
