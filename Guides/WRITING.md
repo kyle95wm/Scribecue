@@ -170,6 +170,6 @@ later in the text to speech settings.
 
 ## Hand off for QC
 
-Choose **Export → QC package** to include the original readings with the project.
-Reviewers can listen in QC mode without installing your voices. Built-in computer
-voices cannot be packaged. See [QC review](QC.md#make-a-portable-qc-package).
+Choose **Export → QC package**. It keeps the audio of Google and Kokoro blocks, so
+reviewers need no key or Docker. Their computer reads Piper blocks. Built-in computer
+voices can't be used. See [QC review](QC.md#make-a-portable-qc-package).

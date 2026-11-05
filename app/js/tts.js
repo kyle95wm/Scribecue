@@ -719,16 +719,15 @@ export function webVoiceChoices() {
 }
 export const megabytes = (bytes) => `${Math.round(bytes / 1e6)} MB`;
 
-export async function downloadVoice(voice) {
+export async function downloadVoice(voice, { choose = true } = {}) {
   webPiper.downloading = { voice, loaded: 0, total: 0 };
   renderWeb();
   // Ask the browser to keep the voices when space runs low, rather than clearing them.
   navigator.storage?.persist?.().catch(() => {});
   try {
     await ask('download', { voice });
-    tts.voice = 'piper:' + voice;
-    save();
-    hooks.toast('Voice downloaded. It’s now chosen, and works offline');
+    if (choose) { tts.voice = 'piper:' + voice; save(); }
+    hooks.toast(choose ? 'Voice downloaded. It’s now chosen, and works offline' : 'Voice downloaded. It works offline');
   } catch (e) {
     hooks.toast(`The voice didn’t download: ${e.message}`);
   }

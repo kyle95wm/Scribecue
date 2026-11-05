@@ -20,7 +20,7 @@ one project with your findings. You don't need an AI provider or a paid voice to
 
 Ask the person sending the review for:
 
-- **A `.scribecueqc` package for a TTS review, or a `.scribecue` project for a recorded mix.** Both keep the script, timings and comments. The package also keeps the writer’s original readings.
+- **A `.scribecueqc` package for a TTS review, or a `.scribecue` project for a recorded mix.** Both keep the script, timings and comments. The package also keeps the writer’s Google and Kokoro readings.
 - **The matching video or audio.** The project refers to it; it doesn't contain the media.
   Check the cut, lead-in and duration match the writer's copy.
 - **The review brief.** Agree whether you should comment only or make fixes. Confirm the
@@ -75,7 +75,7 @@ Click **QC** under the video to choose the source and check the project’s voic
 | Source | Use it for |
 | --- | --- |
 | **Programme sound** | A recorded description mix. Choose its track in Audio. No TTS is added. |
-| **Original readings** | The writer’s audio from a QC package. No matching voices, services or keys are needed. This is the default for packages. |
+| **Original readings** | The default for packages. Google and Kokoro blocks play the writer’s audio, with no key or Docker needed. Your computer reads Piper blocks. |
 | **Approximate TTS preview** | A project without packaged audio. Available project voices are used; missing voices use the preview voice you choose. |
 
 ![QC playback choices and voice availability](../docs/screenshots/qc-playback.png)
@@ -105,10 +105,20 @@ over a track that already contains description. `T` and `Shift+T` change audio t
 
 ![QC package export with its voice check](../docs/screenshots/qc-package.png)
 
-Packaging needs available **Piper, Kokoro or Google Cloud** voices. Built-in computer
-voices and the browser’s online voices cannot supply audio for a package. Choose an
-exportable voice and check its readings and timings first, or supply a recorded review
-mix. Google Cloud packaging sends text to Google and can use your quota or incur charges.
+What happens to each voice:
+
+| Voice | In the package |
+| --- | --- |
+| **Google Cloud** | Its audio. The reviewer needs no key. |
+| **Kokoro** | Its audio. The reviewer doesn't need Docker. |
+| **Piper** | No audio, so the file stays small. The reviewer's computer reads these blocks. |
+| Built-in and online browser voices | Can't be used. Choose another voice, or supply a recorded review mix. |
+
+If a reviewer doesn't have a package's Piper voice, Scribecue offers to download it when
+the package opens. Click **QC** under the video to get it later. Without it, those blocks
+say **Needs** and the voice's name. Both people need Scribecue 0.83 or later.
+
+Google Cloud packaging sends text to Google and can use your quota or incur charges.
 The video is sent separately. Keys stay private unless you explicitly include a separate Google review key.
 
 Original readings keep their full length, including overlapping tails. Moving a block
@@ -141,7 +151,7 @@ Google Cloud when the review is done. See [Google keys](GOOGLE-VOICES.md#keys-fo
 
 New readings send the changed text to Google and need internet. Playing saved audio,
 moving a block, or changing its volume makes no request. A block changed to another voice
-says **New voice · needs a fresh package**. To hear it, ask the writer for a fresh package; the review key isn't used for it. Other voice providers still need fresh packaged audio
+says **New voice · needs a fresh package**. To hear it, ask the writer for a fresh package; the review key isn't used for it. Piper blocks are read again by your computer after any change. Kokoro blocks still need a fresh package
 or an explicitly chosen approximate preview after wording or speed changes.
 
 Use **Save** to keep working, including the separate review key. When finished, choose

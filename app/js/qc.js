@@ -17,6 +17,11 @@ export function hasReviewText(block, settings = {}) {
   if (settings.ttsSkipNotes) text = text.replace(/\[[^\]]*\]/g, ' ');
   return !!text.trim();
 }
+// Anyone can download a Piper voice, so a package leaves its audio out and the reviewer's
+// computer reads those blocks. Google needs a key and Kokoro needs Docker, so theirs stays in.
+export const readsLive = (block, settings = {}) => String(block.voice || settings.ttsVoice || '').startsWith('piper:');
+export const liveBlock = (review, block, settings = {}) => !!review?.live && readsLive(block, settings) && hasReviewText(block, settings);
+export const liveVoices = (review, blocks, settings = {}) => [...new Set(blocks.filter((b) => liveBlock(review, b, settings)).map((b) => b.voice || settings.ttsVoice))];
 export function voiceReport(blocks, settings, available) {
   const byId = new Map(available.map((v) => [v.id, v]));
   const used = new Map();
@@ -74,17 +79,17 @@ function trailer(length) {
   const out = new Uint8Array(FOOTER);
   new DataView(out.buffer).setUint32(0, length, true); out.set(bytes(MAGIC), 4); return out;
 }
-function manifestParts(project, readings, allowEdits = false, baselineId = null, proposals = [], googleKey = '') {
+function manifestParts(project, readings, allowEdits = false, baselineId = null, proposals = [], googleKey = '', live = false) {
   const { reviewAudio, ...packageProject } = project;
   // Readings for added blocks need version 4, so older versions say to update rather than fail.
-  const version = proposals.some((r) => r.originalOffset == null) ? 4 : proposals.length || googleKey ? 3 : 2;
+  const version = live ? 5 : proposals.some((r) => r.originalOffset == null) ? 4 : proposals.length || googleKey ? 3 : 2;
   const json = bytes(JSON.stringify({ review: version, ...(baselineId ? { reviewBaseline: baselineId } : {}), permissions: { allowEdits: allowEdits === true }, project: packageProject, readings,
-    ...(proposals.length ? { proposals } : {}), ...(googleKey && allowEdits ? { reviewAccess: { googleKey } } : {}) }));
+    ...(proposals.length ? { proposals } : {}), ...(googleKey && allowEdits ? { reviewAccess: { googleKey } } : {}), ...(live ? { live: true } : {}) }));
   if (json.byteLength > MAX_MANIFEST) throw new Error('This review has too much project information');
   return [json, trailer(json.byteLength)];
 }
 export function resaveReview(review, project, { includeReviewKey = false } = {}) {
-  return new Blob([review.file.slice(0, review.audioEnd), ...manifestParts(project, review.readings, reviewAllowsEdits(review), review.baselineId, review.proposals, includeReviewKey ? review.reviewAccess?.googleKey : '')], { type: 'application/octet-stream' });
+  return new Blob([review.file.slice(0, review.audioEnd), ...manifestParts(project, review.readings, reviewAllowsEdits(review), review.baselineId, review.proposals, includeReviewKey ? review.reviewAccess?.googleKey : '', review.live)], { type: 'application/octet-stream' });
 }
 export async function appendRewrite(review, project, block, made) {
   const spec = rewriteSpec(review, block, project.settings), original = previousReading(review, block);
@@ -93,7 +98,7 @@ export async function appendRewrite(review, project, block, made) {
   const proposal = { ...(original ? { originalOffset: original.offset } : { blockUid: block.uid }), key: readingKey(block, project.settings), offset: review.audioEnd,
     bytes: made.blob.size, secs: made.secs, voice: spec.voice, sha: await hashReading(made.blob) };
   const file = new Blob([review.file.slice(0, review.audioEnd), made.blob,
-    ...manifestParts(project, review.readings, true, review.baselineId, [...review.proposals, proposal], review.reviewAccess?.googleKey)], { type: 'application/octet-stream' });
+    ...manifestParts(project, review.readings, true, review.baselineId, [...review.proposals, proposal], review.reviewAccess?.googleKey, review.live)], { type: 'application/octet-stream' });
   return openReview(file);
 }
 export async function readReview(file) {
@@ -104,7 +109,7 @@ export async function readReview(file) {
   if (!length || length > MAX_MANIFEST || end - length < 8) throw new Error('The QC package is damaged');
   const audioEnd = end - length;
   let m; try { m = JSON.parse(await file.slice(audioEnd, end).text()); } catch { throw new Error('The QC package is damaged'); }
-  if (![1, 2, 3, 4].includes(m.review)) throw new Error('This QC package needs a newer Scribecue version');
+  if (![1, 2, 3, 4, 5].includes(m.review)) throw new Error('This QC package needs a newer Scribecue version');
   if (m.reviewBaseline != null && !validRevision(m.reviewBaseline)) throw new Error('The QC starting point is damaged');
   const parsed = fromProject(m.project); // Check the script before exposing any audio.
   if (!Array.isArray(m.readings) || m.readings.length > 100000) throw new Error('The QC readings are damaged');
@@ -135,7 +140,7 @@ export async function readReview(file) {
     if (m.permissions?.allowEdits !== true || typeof key !== 'string' || !key.trim() || key.length > 512 || /\s/.test(key)) throw new Error('The QC review key is damaged');
     reviewAccess = { googleKey: key };
   }
-  return { file, baselineId: m.reviewBaseline || null, project: m.project, parsed, readings: m.readings, proposals, proposalIndex, googleVoices, reviewAccess, audioEnd, index, byOffset, byUid, permissions: { allowEdits: m.review >= 2 && m.permissions?.allowEdits === true } };
+  return { file, live: m.review >= 5 && m.live === true, baselineId: m.reviewBaseline || null, project: m.project, parsed, readings: m.readings, proposals, proposalIndex, googleVoices, reviewAccess, audioEnd, index, byOffset, byUid, permissions: { allowEdits: m.review >= 2 && m.permissions?.allowEdits === true } };
 }
 // Package metadata is parsed and checked off the page for long reviews.
 export async function openReview(file) {
@@ -154,7 +159,7 @@ export async function buildReview(project, make, { sink = null, progress = () =>
   project = { ...project, blocks: project.blocks.map(({ qcReading, ...b }) => b) };
   if (handoff && (!validIdentity(project.projectId) || project.blocks.some((b) => !validIdentity(b.uid)))) throw new Error('Save the project in this version before making a QC package');
   const parts = [], readings = [];
-  let baselineId = null;
+  let baselineId = null, live = false;
   const write = async (part) => { if (sink) await sink.write(part); else parts.push(part); };
   let offset = 8;
   try {
@@ -162,7 +167,8 @@ export async function buildReview(project, make, { sink = null, progress = () =>
     for (let i = 0; i < project.blocks.length; i++) {
       if (signal?.aborted) throw new Error('QC export stopped');
       const b = project.blocks[i]; progress(i, project.blocks.length);
-      if (hasReviewText(b, project.settings)) {
+      if (hasReviewText(b, project.settings) && readsLive(b, project.settings)) live = true;
+      else if (hasReviewText(b, project.settings)) {
         const made = await make(b, i);
         if (signal?.aborted) throw new Error('QC export stopped');
         if (!made) throw new Error('A reading could not be packaged');
@@ -182,7 +188,7 @@ export async function buildReview(project, make, { sink = null, progress = () =>
         : await collaborationJob({ task: 'prepareReview', project, readings, allowEdits }, { signal });
       project = prepared.project; baselineId = prepared.baselineId;
     }
-    for (const part of manifestParts(project, readings, allowEdits, baselineId, [], googleReviewKey)) await write(part);
+    for (const part of manifestParts(project, readings, allowEdits, baselineId, [], googleReviewKey, live)) await write(part);
     if (signal?.aborted) throw new Error('QC export stopped');
     progress(project.blocks.length, project.blocks.length);
     if (sink) { await sink.close(); return sink.file(); }

@@ -57,7 +57,7 @@ for its part of Scribecue: see [More help](#more-help).
 | "The Piper voice couldn't read that block" | Reload the page. |
 | "Made 8 of 10 readings" | Some readings failed. Try again in a moment. |
 | An online or Google voice won't read while offline | Choose a voice on your computer, or a Piper voice, in Settings. |
-| Timings change on another computer | Another voice can take a different time to read. Send a [QC package](QC.md#make-a-portable-qc-package) instead. |
+| Timings change on another computer | Another voice can take a different time to read. Send a [QC package](QC.md#make-a-portable-qc-package) instead, and use the same Piper voice on both. |
 
 Google keys and billing have their own list: see [Google voices](GOOGLE-VOICES.md#if-something-goes-wrong).
 
@@ -88,6 +88,7 @@ Google keys and billing have their own list: see [Google voices](GOOGLE-VOICES.m
 | "Making a QC package needs browser disk storage" | Use a current Chrome or Edge. |
 | "No matching original reading for this block" | The block changed since the package was made. Ask the writer for a new package. |
 | The original readings are missing after a reload | Open the QC package again. |
+| **Needs** and a voice's name under a block | Click **QC** under the video, then **Get the voices this review needs**. |
 
 More in [QC review](QC.md#common-problems).
 

@@ -15,7 +15,8 @@ removing the takes container. `scripts/session-smoke.mjs` checks it in Chrome.
 | The narrator's script | `.scribecuerec` (JSON) | Yes |
 | Takes and alts, their edits and which is chosen | IndexedDB, or the takes container | No |
 | TTS readings | Made when needed, held in memory | No, made again |
-| QC readings | `.scribecueqc` | Yes |
+| QC readings: Google and Kokoro | `.scribecueqc` | Yes |
+| QC readings: Piper | Made by the reviewer's computer | No, made again |
 | Waveforms, keys, AI and TTS settings | The browser | No, and shouldn't |
 
 Takes are the gap. They're also the largest data: 8.6 MB a minute, 24-bit at 48 kHz.

@@ -109,5 +109,6 @@ take a different time to read the same words. Missing voices open a project in Q
 with its saved timings fixed. An approximate preview must be chosen explicitly.
 
 For accurate TTS review, send a [QC package](QC.md#make-a-portable-qc-package).
-It includes original Piper, Kokoro or Google Cloud readings, so the reviewer needs
-no matching voices or keys. For built-in voices, supply a recorded review mix instead.
+It keeps the Google Cloud and Kokoro readings, so the reviewer needs no key or Docker.
+The reviewer's computer reads Piper blocks, with the same voice. For built-in voices,
+supply a recorded review mix instead.

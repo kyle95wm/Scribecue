@@ -61,7 +61,7 @@
           </div>
           <div role="group" class="menugroup qc-export" aria-labelledby="expReviewer">
             <div class="menuhead" id="expReviewer">For a reviewer</div>
-            <button role="menuitem" data-act="exportQc"><span><strong>QC package</strong><span class="dim">the project and original readings, ready to review on another computer</span></span></button>
+            <button role="menuitem" data-act="exportQc"><span><strong>QC package</strong><span class="dim">the project and its Google and Kokoro readings, ready to review on another computer</span></span></button>
           </div>
           <div role="group" class="menugroup write-only" aria-labelledby="expNarrator">
             <div class="menuhead" id="expNarrator">For a narrator</div>
@@ -553,14 +553,14 @@ docker compose up -d --build</code></pre>
         <span><strong>Writing new audio description</strong>
           <span class="dim">Hear your lines read aloud, and check each one fits before the next piece of dialogue.</span></span></label>
       <label class="wzcard"><input type="radio" name="wzMode" value="qc">
-        <span><strong>QC review</strong><span class="dim">Listen and leave comments. The package creator decides whether corrections are allowed. Original packaged readings work without installing voices.</span></span></label>
+        <span><strong>QC review</strong><span class="dim">Listen and leave comments. The package creator decides whether corrections are allowed. Google and Kokoro readings work without a key or Docker. Piper blocks need their voice.</span></span></label>
       <p class="dim small">Use the mode switch at the top to change tasks at any time.</p>
       <p class="dim small">Recording narration? Open the recording file the writer sent you. Setup for recording starts then.</p>
     </section>
     <section data-step="qc" hidden>
       <h2>Review in QC</h2>
       <p>Open the project or QC package and its matching video. The package creator decides whether block edits are allowed. Timings never adjust automatically in QC.</p>
-      <p>Click QC under the video to choose programme sound, original readings or an approximate TTS preview. Packaged readings need no voice installation or key.</p>
+      <p>Click QC under the video to choose programme sound, original readings or an approximate TTS preview. Packaged readings need no key. Piper blocks are read on your computer.</p>
       <p>Click Comment in a block, or right-click the timeline to leave a note. Save and return the reviewed file.</p>
       <div class="ttsgrid"><label for="wzName">Your name</label><input id="wzName" autocomplete="name" maxlength="100" spellcheck="false" placeholder="optional"></div>
       <p class="dim small">Fills in your name on comments. Leave it blank if you'd rather not. It stays in this browser, and you can change it in Settings, under General.</p>
@@ -658,12 +658,20 @@ docker compose up -d --build</code></pre>
     </div>
     <div class="updbtns"><button id="micReset">Reset loudest</button><span class="grow"></span><button id="micClose" class="hl">Done</button></div>
   </dialog>
+  <dialog id="qcVoiceDlg" class="updbox" aria-labelledby="qcVoiceTitle">
+    <h2 id="qcVoiceTitle">Voices for this review</h2>
+    <p>This package leaves out its Piper readings to stay small. Your computer reads those blocks, so it needs these voices:</p>
+    <ul id="qcVoiceList2"></ul>
+    <p id="qcVoiceStatus" class="dim small" role="status"></p>
+    <div class="updbtns"><button id="qcVoiceGet" class="hl" hidden>Download</button><button id="qcVoiceLater">Later</button></div>
+  </dialog>
   <dialog id="qcPlaybackDlg" class="updbox" aria-labelledby="qcPlaybackTitle">
     <h2 id="qcPlaybackTitle">QC review</h2>
     <p id="qcPermissionInfo"></p>
     <p id="qcPackageInfo" role="status"></p>
     <p id="qcKeyInfo" class="dim small" hidden></p>
     <button id="qcAttachReadings" hidden>Locate original readings</button>
+    <button id="qcGetVoices" hidden>Get the voices this review needs</button>
     <input id="qcReadingsFile" type="file" accept=".scribecueqc" hidden>
     <div class="airow"><button id="qcSourceVideo" aria-pressed="true">Programme sound</button><button id="qcSourcePackage" aria-pressed="false">Original readings</button><button id="qcSourcePreview" aria-pressed="false">Approximate TTS preview</button></div>
     <p id="qcPreviewNote" class="dim small"></p>
@@ -673,8 +681,8 @@ docker compose up -d --build</code></pre>
   </dialog>
   <dialog id="qcExportDlg" class="updbox" aria-labelledby="qcExportTitle">
     <h2 id="qcExportTitle">Make a QC package</h2>
-    <p>Includes the project, comments and each original reading. Send the matching video separately. The reviewer needs no voice installation or key to play the included audio.</p>
-    <p>Piper, Kokoro and Google Cloud voices can be packaged. Built-in and browser-provided online voices cannot: choose an exportable voice in Write mode, or supply a recorded review video.</p>
+    <p>Includes the project, comments and the audio of Google and Kokoro blocks. The reviewer needs no key or Docker to play it. Send the matching video separately.</p>
+    <p>Piper blocks are read on the reviewer’s computer, so the file stays small. They need the same voice. Built-in and browser-provided online voices can’t be used: choose another voice in Write mode, or supply a recorded review video.</p>
     <button id="qcExportAllowEdits" aria-pressed="false" aria-describedby="qcExportPermissionInfo">Allow reviewers to edit blocks</button>
     <p id="qcExportPermissionInfo" class="dim small">Off: comments only. On: reviewers may correct text, timings, voices and speeds. This choice stays with the package; reviewers cannot change it in QC. The package also keeps a starting point for comparing the returned review.</p>
     <ul id="qcExportVoices"></ul>
