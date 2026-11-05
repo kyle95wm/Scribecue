@@ -43,7 +43,7 @@ packages keep a starting point for comparing returned reviews. There is no live 
 4. Check a familiar scene near the beginning and another later on. Make sure the blocks
    line up with the same picture and sound throughout.
 
-Select **QC** at the top. Comments are available only here. The package creator decides
+Select **QC** at the top. The package creator decides
 whether you can edit blocks. The header says **Comments only** or **Edits allowed**.
 There is no permission switch for the reviewer.
 
@@ -151,7 +151,7 @@ cannot restore its audio, reopen it before saving.
 
 ### Checking a narration WAV
 
-With the script open, open a narration WAV or package exported by Scribecue. Scribecue compares the
+With the script open, open a narration WAV or zip exported by Scribecue. Scribecue compares the
 script and timings stored with the recording against the project you have open. It lists
 differences and says if the recording file was changed outside Scribecue.
 

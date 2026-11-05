@@ -3,7 +3,7 @@ import { createQcPlayer } from './qcplayer.js';
 import { REVIEW_EXT, isReview, openReview, resaveReview, reviewAllowsEdits, reviewReading, playbackReading, rewriteSpec, readingVoiceChanged, appendRewrite, previousReading, storedReview, voiceReport, reviewAudioKey } from './qc.js';
 import { reviewedRewrite, speechKey } from './qcspeech.js';
 import { initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
-import { cleanComments } from './comments.js';
+import { cleanComments, commentsAllowed } from './comments.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
 import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
@@ -77,6 +77,7 @@ const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform);
 // Mac key symbols as Windows and Linux users know them: ⌥⇧← becomes Alt+Shift+←.
 const writing = () => S.mode === 'write';
 const qc = () => S.mode === 'qc';
+const canComment = () => commentsAllowed(S.mode);
 const qcEditable = () => S.reviewId ? reviewAllowsEdits(S.review) : !!S.reviewAudio;
 const qcLocked = () => qc() && !qcEditable();
 const readingControls = () => ttsOn() || (qc() && qcEditable());
@@ -1613,7 +1614,7 @@ function drawTimeline() {
   // Open comments mark the ruler; nearby comments share a mark.
   rc.fillStyle = C.accent;
   let lastCommentX = -10;
-  for (const time of qc() ? commentTimes : []) {
+  for (const time of canComment() ? commentTimes : []) {
     if (time < t0) continue;
     const x = Math.round((time - t0) * pps);
     if (x > rw) break;
@@ -1703,7 +1704,7 @@ function drawCues(W) {
     el.classList.toggle('removing', !!ghost?.removed && c.uid === ghost.uid);
     // Too narrow to show, and a long film zoomed out draws thousands of these.
     el.classList.toggle('clash', w >= 8 && overDialogue(c) > 0);
-    el.children[1].textContent = w > 28 ? '#' + (i + 1) + (ttsOn() && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') + (qc() && c.comments?.some((n) => !n.resolved) ? ' · ●' : '') : '';
+    el.children[1].textContent = w > 28 ? '#' + (i + 1) + (ttsOn() && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') + (canComment() && c.comments?.some((n) => !n.resolved) ? ' · ●' : '') : '';
     if (el._text !== c.text) { el._text = c.text; el.children[2].textContent = c.text; }
   }
   for (const [id, el] of cueEls) if (!seen.has(id)) { el.remove(); cueEls.delete(id); }
@@ -3180,7 +3181,7 @@ function setMode(m, quiet = false) {
   S.playUntil = null;
   if (m === 'qc') measuring = false;
   if (m === 'qc' && S.mode !== 'qc') S.qcSettings = readingSettings();
-  if (m !== 'qc' && !$('commentsDrawer').hidden) toggleComments(false);
+  if (!commentsAllowed(m) && !$('commentsDrawer').hidden) toggleComments(false);
   if (m === 'qc' && !$('aiDrawer').hidden) toggleAi(false);
   stopPreviousReading();
   qcPlayer.stop();
@@ -3857,12 +3858,12 @@ $('recFileStart').addEventListener('keydown', (e) => { if (e.key === 'Enter') { 
 $('recFileCancel').addEventListener('click', () => recFileDlg.close());
 document.addEventListener('keydown', (e) => { if (recFileDlg.open || $('recExportDlg').open || $('narrDlg').open || $('recSessionDlg').open || $('recPackDlg').open) e.stopPropagation(); }, true);
 
-// A narration package (a zip from Record mode) is checked by the narration WAV inside it.
+// A narration zip (from Record mode) is checked by the narration WAV inside it.
 async function openPackage(f) {
   const files = (await readZip(f)) || [];
   const notes = (await Promise.all(files.filter((x) => /\.wav$/i.test(x.name)).map((x) => readNote(x.blob)))).filter(Boolean);
   const note = notes.find((n) => !n.altOnly) || notes[0];
-  if (!note) return toast(`${f.name} isn’t a narration package from Scribecue`);
+  if (!note) return toast(`${f.name} isn’t a narration zip from Scribecue`);
   checkNarration(note, f.name);
 }
 
@@ -4173,6 +4174,7 @@ function newProject(ask = true) {
   S.qcSettings = null;
   S.qcPreviewVoice = '';
   S.comments = [];
+  if (!$('commentsDrawer').hidden) toggleComments(false);
   S.notes = '';
   S.recording = null;
   if (leavingPackage) { undoStack.length = 0; redoStack.length = 0; }
@@ -5267,14 +5269,14 @@ initQc({
 
 initComments({
   blocks: () => S.cues, selected: selCue, comments: () => S.comments,
-  canComment: qc, toast,
+  canComment, toast,
   now, tc, readTime, duration, closeAi: () => { if (!$('aiDrawer').hidden) toggleAi(false); },
   go: ({ block, time }) => { if (block) select(block.id); else { select(null, { seek: false }); seek(time); } },
   change: (apply) => { pushUndo(); apply(); changed(); },
 });
 // Right-click anywhere on the timeline to comment at that time.
 tl.addEventListener('contextmenu', (e) => {
-  if (!qc()) return;
+  if (!canComment()) return;
   e.preventDefault(); toggleComments(true, clamp(xToT(e.clientX), 0, duration()));
 });
 
@@ -5322,16 +5324,16 @@ const exportMenu = $('exportMenu');
 function toggleMenu(menu, open = menu.hidden) {
   closeMenus();
   if (!open) return;
-  // With alts recorded, the narration goes out as a package.
+  // With alts recorded, the narration goes out as a zip.
   if (menu === exportMenu && S.mode === 'record') {
     const [name, what] = $('exportNarration').firstElementChild.children;
-    name.textContent = recorder.alts ? 'Narration package' : 'Narration WAV';
+    name.textContent = recorder.alts ? 'Narration zip' : 'Narration WAV';
     what.textContent = recorder.alts ? 'a zip of the narration WAV, a WAV of the alts alone and the notes, for the mixer'
       : 'the chosen takes in one timestamped file, for the mixer';
   }
   menu.hidden = false;
   menu.previousElementSibling.setAttribute('aria-expanded', 'true');
-  menu.querySelector('[role="menuitem"]:not([hidden])')?.focus();
+  [...menu.querySelectorAll('[role="menuitem"]')].find((b) => b.offsetParent)?.focus();
 }
 // A menu's button is just before it. The take menu on the timeline has none.
 const menuBtn = (m) => (m.previousElementSibling?.hasAttribute('aria-haspopup') ? m.previousElementSibling : null);

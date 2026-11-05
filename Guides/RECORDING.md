@@ -191,12 +191,12 @@ Play a take back to check it sits where you read it.
 ### Exporting the narration
 
 Choose **Export → Narration WAV**. With [alts](#alts) recorded, it's **Narration
-package** instead.
+zip** instead.
 
 - Any take above −6 dBFS stops the export, alts included. Scribecue lists the blocks to
   retake.
 - Blocks with no take, takes that run long, and quiet takes don't stop it. Scribecue lists
-  them: send that list with the WAV. A package has it inside.
+  them: send that list with the WAV. A zip has it inside.
 
 ![The notes to send with the WAV](../docs/screenshots/recording-export.png)
 
@@ -253,7 +253,7 @@ for "towards". The block and its takes stay as they are.
 - The alt keeps the block's slot. The block doesn't get longer.
 - A block has one alt, with takes of its own. **In export** picks one, as for the block.
 
-With an alt recorded, **Export → Narration package** saves a zip:
+With an alt recorded, **Export → Narration zip** saves:
 
 | File | Holds |
 | --- | --- |
@@ -285,7 +285,7 @@ The recording file is plain text, so a narrator could change it in a text editor
 can't stop that, but Scribecue shows it.
 
 1. Open your script.
-2. Open the narration WAV or package, as you'd open a video.
+2. Open the narration WAV or zip, as you'd open a video.
 
 Scribecue lists any block whose text or timing differs from yours. It also says if the
 recording file was changed by hand. Blocks you've changed since sending the file show up

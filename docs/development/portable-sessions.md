@@ -71,7 +71,7 @@ another copy changed it (a synced folder open on two computers), read it again f
 **Package session** writes the folder as one `.scribesession` file. **Open** reads one
 back into a folder the narrator picks.
 
-- It's a zip, stored without compression, like the narration package. People can unzip it
+- It's a zip, stored without compression, like the narration zip. People can unzip it
   by hand if they need the WAVs.
 - `zip.js` needs **Zip64**. A long film's takes can pass 4 GB.
 - Written and read one take at a time, in a worker, with progress. Nothing is held whole.

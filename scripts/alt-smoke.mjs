@@ -1,5 +1,5 @@
 // Alt checks in headless, muted Chrome at 6× CPU slowdown, with Chrome's fake microphone:
-// the narrator records an alt beside a block's take, exports the narration package, and the
+// the narrator records an alt beside a block's take, exports the narration zip, and the
 // writer opens it and uses the alt's wording. Then a two-hour package is packed, to check
 // it keeps the page responsive and out of memory.
 // Usage: node scripts/alt-smoke.mjs <devtools port> <site url> <video path on the site> [screenshot.png]
@@ -99,7 +99,7 @@ try {
 
  // The export is a package now.
  await js(`document.querySelector('[data-act=exportMenu]')?.click()||document.getElementById('exportBtn')?.click();true`);await sleep(300);
- assert.equal(await js(`document.querySelector('#exportNarration strong').textContent`),'Narration package');
+ assert.equal(await js(`document.querySelector('#exportNarration strong').textContent`),'Narration zip');
  await js(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}));true`);
  const long0=(await js(`__long`)).length, t0=Date.now();
  await js(`document.getElementById('exportNarration').click();true`);

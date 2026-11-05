@@ -14,7 +14,7 @@ function showComments() {
 }
 // The header and shortcut start a comment at the playhead; right-click supplies a time.
 export function toggleComments(open = $('commentsDrawer').hidden, time = null) {
-  if (open && !hooks.canComment()) return hooks.toast('Comments are available in QC mode. Switch to QC at the top');
+  if (open && !hooks.canComment()) return hooks.toast('Comments are available in Write and QC. Switch modes at the top');
   if (!open) {
     $('commentsDrawer').hidden = true;
     $('commentsBtn').setAttribute('aria-pressed', 'false');
@@ -49,7 +49,7 @@ export function refreshComments() {
     const location = button(`${block ? `Block #${hooks.blocks().indexOf(block) + 1} · ` : ''}${hooks.tc(e.time)}`, () => hooks.go(e));
     location.className = 'comment-location';
     const meta = document.createElement('div'); meta.className = 'comment-meta';
-    const date = new Date(c.created); meta.textContent = `${c.author || 'Reviewer'}${Number.isNaN(date.getTime()) ? '' : ' · ' + date.toLocaleString()}${c.resolved ? ' · Resolved' : ''}`;
+    const date = new Date(c.created); meta.textContent = `${c.author || 'No name'}${Number.isNaN(date.getTime()) ? '' : ' · ' + date.toLocaleString()}${c.resolved ? ' · Resolved' : ''}`;
     const body = document.createElement('p'); body.className = 'comment-body'; body.textContent = c.text;
     const acts = document.createElement('div'); acts.className = 'acts';
     acts.append(button(c.resolved ? 'Reopen' : 'Resolve', () => hooks.change(() => { c.resolved = !c.resolved; })),

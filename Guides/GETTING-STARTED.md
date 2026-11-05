@@ -12,7 +12,7 @@ The switch next to Scribecue’s name chooses what you’re doing.
 | **Write** | Write descriptions and hear them with text to speech. |
 | **QC** | Review scripts; the package creator decides whether edits are allowed. Listen to original readings or programme sound, and leave comments. |
 
-Switching keeps your work. QC follows the package’s saved editing permission. Comments appear only in QC.
+Switching keeps your work. QC follows the package’s saved editing permission. Comments work in Write and QC.
 
 The first time you use a mode, a short setup for it opens. That includes opening a file that switches modes, such as a QC package or a recording file. You can skip it.
 [The QC guide](QC.md) explains voice checks and portable review packages.
@@ -143,13 +143,16 @@ programme. `Ctrl/Cmd+O` opens it again.
 Saving to the file, autosave and reopening the video need Chrome or Edge. Other browsers
 download a copy each time you save, and you open the video yourself.
 
-## Comments for QC
+## Comments
 
-Select **QC**, then click **Comment** in an open block to comment on it. Open **Comments** at the top to
-comment at the playhead, or right-click the timeline. Add your name if you like, write
-the comment, then click **Post comment**. Save the project or QC package to hand it over.
+Comments work in Write and QC, so you can leave notes on your own script.
 
-This works on your own project too. You don't need a QC package to leave yourself comments.
+- **On a block:** click **Comment** in the open block.
+- **At the playhead:** click **Comments** at the top.
+- **At a time:** right-click the timeline.
+
+Add your name if you like, write the comment, then click **Post comment**. Comments save
+with the project or QC package.
 
 The [QC guide](QC.md) covers reviewing, resolving comments and returning the project.
 
@@ -180,7 +183,7 @@ Your project is your master copy, so keep it. The other files are made for one p
 | The writer, after a review | Return package (`.scribecueqc`), or the saved project if that's what you were sent | **Export → Return package** |
 | A narrator | [Recording file](RECORDING.md#making-the-recording-file) (`.scribecuerec`) | **Export → Recording file** |
 | Your other computer, partway through recording | [Session package](RECORDING.md#moving-to-another-computer) (`.scribesession`) | **Export → Session package** |
-| A mixer | [Narration WAV](RECORDING.md#exporting-the-narration), or a Narration package with alts | **Export**, in Record mode |
+| A mixer | [Narration WAV](RECORDING.md#exporting-the-narration), or a Narration zip with alts | **Export**, in Record mode |
 | Someone using another tool | SRT or WebVTT | **Export** |
 
 - **Send the video too.** Reviewers and narrators need their own copy. No Scribecue file contains it.
