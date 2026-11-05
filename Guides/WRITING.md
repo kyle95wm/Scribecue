@@ -170,6 +170,7 @@ later in the text to speech settings.
 
 ## Hand off for QC
 
-Choose **Export → QC package**. It keeps the audio of Google and Kokoro blocks, so
+Scribecue [checks spelling and grammar](GETTING-STARTED.md#checking-spelling-and-grammar) first.
+Then choose **Export → QC package**. It keeps the audio of Google and Kokoro blocks, so
 reviewers need no key or Docker. Their computer reads Piper blocks. Built-in computer
 voices can't be used. See [QC review](QC.md#make-a-portable-qc-package).

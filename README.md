@@ -110,6 +110,9 @@ its container:
   [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) by thewh1teagle (MIT) and
   espeak-ng (GPL).
 
+The spelling check uses [nspell](https://github.com/wooorm/nspell) by Titus Wormer (MIT) and
+dictionaries from [SCOWL](http://wordlist.aspell.net/) (MIT and BSD), in `app/vendor`.
+
 MP3 exports use [lamejs](https://github.com/zhuker/lamejs) by Alex Zhukov, a JavaScript
 version of the [LAME](https://lame.sourceforge.io/) MP3 encoder (LGPL), unchanged, in
 `app/vendor`. AC-3 and E-AC-3 sound is decoded with

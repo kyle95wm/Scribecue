@@ -9,11 +9,12 @@ import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, par
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
+import { initCheck, openCheck, checkFirst } from './proofdialog.js';
 import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
 import { collaborationJob, retainHistory } from './collaboration.js';
 import { initReviewCompare, openReviewCompare, finishReview } from './qcreviewdrawer.js';
 import { initPending, startPending, addPending, endPending, pendingGhost } from './qcpending.js';
-import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanNotes, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
+import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanNotes, cleanWords, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
 import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, sameVideo, compareScript, newProjectId, pickupsFor, takesKey } from './recording.js';
 import { readNote } from './bwf.js';
 import { readZip } from './zip.js';
@@ -164,6 +165,7 @@ const S = {
   previousAudio: null, review: null, reviewId: '', qcSource: 'video', qcPreviewVoice: '', qcSettings: null, loadingProject: false, makingReview: false,
   comments: [], // comments at fixed timeline times
   notes: '', // the writer's notes about the programme, for AI help
+  words: [], // names and terms the spelling check accepts in this project
   projectId: newIdentity(), reviewHistory: null, reviewAudio: null,
   recording: null, // this project's recording files: { id, version, sent } (see cleanRecording)
 };
@@ -524,6 +526,7 @@ function save() {
       // The open video, so it can be reopened after a reload, or else the project's.
       projectMedia: S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size } : S.projectMedia,
       notes: S.notes,
+      words: S.words,
       comments: S.comments,
       reviewId: S.reviewId, qcSettings: S.qcSettings, recording: S.recording,
       cues: S.cues.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, notes }) => ({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, notes })),
@@ -545,6 +548,7 @@ function loadSaved() {
       S.savedDirty = o.dirty !== false;
       S.projectMedia = o.projectMedia || null;
       S.notes = typeof o.notes === 'string' ? o.notes : '';
+      S.words = cleanWords(o.words);
       S.recording = cleanRecording(o.recording);
       return S.cues.length || S.comments.length;
     }
@@ -2554,7 +2558,8 @@ ttsFitStop.addEventListener('click', () => { measuring = false; stopSpeech(); })
 // Export description track: every block's Piper or Google reading in one WAV or MP3 file, each
 // at its block's start, as long as the video (or the last reading, without one).
 const ttsExport = $('ttsExport'), ttsExportStatus = $('ttsExportStatus'), ttsExportBar = $('ttsExportBar');
-ttsExport.addEventListener('click', async () => {
+ttsExport.addEventListener('click', () => checkFirst(exportTrack));
+async function exportTrack() {
   const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice, gain: volGain(c) }));
   if (!blocks.length) return (ttsExportStatus.textContent = 'There are no blocks with text yet.');
   pause();
@@ -2583,7 +2588,7 @@ ttsExport.addEventListener('click', async () => {
     busy(ttsExport, ttsExportBar, false);
     ttsExport.disabled = !usingAudioVoice();
   }
-});
+}
 // Export full mix: the programme with the readings, mixed in mix-worker.js as playback
 // sounds. The readings are made first, at the level the voice gives them, as they play.
 const ttsMixExport = $('ttsMixExport'), ttsMixStatus = $('ttsMixStatus'), ttsMixBar = $('ttsMixBar'), ttsMixStop = $('ttsMixStop');
@@ -2656,7 +2661,8 @@ async function wholeProgramme(file) {
   const buf = await new OfflineAudioContext(2, 1, 48000).decodeAudioData(await file.arrayBuffer());
   return { planes: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c)), rate: buf.sampleRate };
 }
-ttsMixExport.addEventListener('click', async () => {
+ttsMixExport.addEventListener('click', () => checkFirst(exportMix));
+async function exportMix() {
   const file = S.videoFile;
   if (!file) return (ttsMixStatus.textContent = 'Open the programme’s video or audio first.');
   const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice, dip: blockDip(c), gain: volGain(c) }));
@@ -2736,7 +2742,7 @@ ttsMixExport.addEventListener('click', async () => {
     ttsMixStop.hidden = true;
     ttsMixExport.disabled = !usingAudioVoice();
   }
-});
+}
 for (const [btn, code] of [['ttsCmdAddCopy', 'ttsCmdAdd'], ['ttsCmdReplaceCopy', 'ttsCmdReplace']]) {
   $(btn).addEventListener('click', async () => toast(await copyText($(code).textContent) ? 'Copied the command' : 'Couldn’t copy: the browser blocked clipboard access'));
 }
@@ -3593,6 +3599,7 @@ function projectData() {
     projectId: S.projectId, reviewHistory: S.reviewHistory, reviewAudio: S.reviewId ? null : S.reviewAudio,
     blocks: S.cues,
     notes: S.notes,
+    words: S.words,
     comments: S.comments,
     recording: S.recording,
     media: m,
@@ -3780,6 +3787,7 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
   S.projectMedia = p.media;
   S.comments = p.comments;
   S.notes = p.notes;
+  S.words = p.words;
   S.recording = p.recording;
   aiNotesChanged();
   const { mode, offset, ttsSpeed, ttsBase, ttsVoice } = p.settings;
@@ -4004,6 +4012,7 @@ async function enterRecording(r, name, raw = null) {
   clearReview();
   S.comments = [];
   S.notes = '';
+  S.words = [];
   aiNotesChanged();
   setFps(r.fps);
   setMode('record', true);
@@ -4185,6 +4194,7 @@ function newProject(ask = true) {
   S.comments = [];
   if (!$('commentsDrawer').hidden) toggleComments(false);
   S.notes = '';
+  S.words = [];
   S.recording = null;
   if (leavingPackage) { undoStack.length = 0; redoStack.length = 0; }
   if (leavingQc) setMode('write', true);
@@ -4209,6 +4219,9 @@ function exportSubs(fmt) {
   if (S.mode === 'record') return toast('The script is locked in Record mode');
   if (qc() && S.reviewId) return toast('To send your review back, choose Export, then Return package');
   if (!S.cues.length) return toast('Nothing to export yet');
+  checkFirst(() => writeSubs(fmt));
+}
+function writeSubs(fmt) {
   const text = fmt === 'vtt' ? toVTT(S.cues) : toSRT(S.cues);
   const name = `${baseName()}.${fmt}`;
   const a = document.createElement('a');
@@ -5192,9 +5205,10 @@ const actions = {
     ttsMixExport.scrollIntoView({ block: 'center' });
     if (!ttsMixExport.disabled) ttsMixExport.click();
   },
-  exportQc: () => openQcExport(),
+  exportQc: () => (S.reviewId ? openQcExport() : checkFirst(openQcExport)),
   exportReturn: () => saveReturnPackage(),
-  exportRecording: () => askRecordingFile(),
+  exportRecording: () => checkFirst(askRecordingFile),
+  checkSpelling: () => openCheck(),
   exportNarration: () => recorder.exportWav(),
   exportPickups: () => recorder.exportWav(true),
   exportSession: () => recorder.exportSession(),
@@ -5283,6 +5297,20 @@ initQc({
   project: projectData, review: () => S.review, canCreate: () => !S.reviewId, toast, source: () => S.qcSource, qc,
   setSource(source, voice) { qcPlayer.stop(); stopSpeech(); S.qcLast = null; S.qcSource = source; S.qcPreviewVoice = voice; updateEditor(); updateInd(); },
   baseName, said, busy: (on) => { S.makingReview = on; },
+});
+
+initCheck({
+  blocks: () => S.cues, words: () => S.words, notes: () => S.notes, project: () => S.projectId,
+  locked: () => S.mode === 'record', canEdit: () => !qc() && S.mode !== 'record', toast, tc,
+  addWord(word) { S.words = cleanWords([...S.words, word]); changed(); },
+  // Changes several blocks as one step to undo.
+  apply(texts) {
+    pushUndo();
+    for (const [id, text] of texts) { const c = S.cues.find((x) => x.id === id); if (c) { c.text = text; adapt(c); } }
+    changed();
+  },
+  go: (id) => select(id),
+  openAiSettings,
 });
 
 initComments({
@@ -5587,6 +5615,7 @@ const RUN = {
   trackPrev: () => stepTrack(-1),
   transcribeBlock: () => transcribeSelected(),
   findReplace: () => openFind(),
+  checkSpelling: () => openCheck(),
   sttPanel: () => showMarking(),
   read: () => speakBlock(false),
   fitToReading: () => speakBlock(true),

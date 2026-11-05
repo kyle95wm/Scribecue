@@ -49,7 +49,7 @@ export const cleanSay = (say) => (Array.isArray(say) ? say : [])
 
 // state: { blocks, media, settings, view, app, notes }. Returns the object to save as JSON.
 // notes: what the writer tells AI help about the programme (characters, setting, style).
-export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', comments = [], recording = null, projectId = null, reviewHistory = null, reviewAudio = null }) {
+export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', words = [], comments = [], recording = null, projectId = null, reviewHistory = null, reviewAudio = null }) {
   return {
     scribecue: PROJECT_FORMAT,
     ...(validIdentity(projectId) ? { projectId } : {}),
@@ -58,6 +58,7 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     app,
     saved: new Date().toISOString(),
     ...(notes.trim() ? { notes } : {}),
+    ...(cleanWords(words).length ? { words: cleanWords(words) } : {}),
     ...(cleanComments(comments, true).length ? { comments: cleanComments(comments, true) } : {}),
     media: media && media.name ? { name: media.name, size: media.size ?? null, duration: num(media.duration) ? media.duration : null } : null,
     ...(cleanRecording(recording) ? { recording: cleanRecording(recording) } : {}),
@@ -131,6 +132,7 @@ export function fromProject(json) {
     recording: cleanRecording(json.recording),
     comments: cleanComments(json.comments, true),
     notes: typeof json.notes === 'string' ? json.notes : '',
+    words: cleanWords(json.words),
     media: m && typeof m.name === 'string' ? { name: m.name, size: num(m.size) ? m.size : null, duration: num(m.duration) ? m.duration : null } : null,
     settings: {
       ...(s.mode === 'write' || s.mode === 'transcribe' || s.mode === 'qc' ? { mode: s.mode } : {}),
@@ -152,6 +154,10 @@ export function fromProject(json) {
     },
   };
 }
+
+// The names and terms added to this project, so the spelling check accepts them.
+export const cleanWords = (w) => [...new Set((Array.isArray(w) ? w : [])
+  .filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim().slice(0, 100)))].slice(0, 5000);
 
 // A block's notes for the narrator, such as how to say a name. Never read aloud.
 export const cleanNotes = (n) => (typeof n === 'string' && n.trim() ? n.slice(0, 2000) : '');

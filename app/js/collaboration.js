@@ -1,6 +1,6 @@
 // Local collaboration primitives. No transport, account state or permission enforcement.
 // Merge saved project snapshots against their exact shared ancestor, never by position.
-import { fromProject, toProject, validIdentity, HISTORY_LIMIT, HISTORY_CHARS } from './project.js';
+import { fromProject, toProject, cleanWords, validIdentity, HISTORY_LIMIT, HISTORY_CHARS } from './project.js';
 
 const equal = (a, b) => {
   if (a === b) return true;
@@ -84,6 +84,9 @@ export function mergeProjects(base, local, remote, progress = () => {}, resoluti
   for (const field of ['notes', 'comments', 'media', 'recording']) {
     project[field] = choose(b[field], l[field], r[field], { kind: 'project', field });
   }
+  // Words people added are only ever added to, so both sides' count.
+  const words = cleanWords([...(l.words || []), ...(r.words || [])]);
+  if (words.length) project.words = words;
   project.settings = { ...choose(...[b, l, r].map((p) => sharedSettings(p.settings)), { kind: 'project', field: 'settings' }),
     ...(l.settings.mode ? { mode: l.settings.mode } : {}) };
   progress(ids.size, ids.size);

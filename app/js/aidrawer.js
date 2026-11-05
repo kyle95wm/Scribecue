@@ -312,6 +312,21 @@ async function finishSignIn() {
   return true;
 }
 
+// ---- questions from other parts of the app
+
+// Whether AI help can be asked, and who would be asked.
+export const aiStatus = () => ({ ready: ready(), offline: unreachable(), name: PROVIDERS[ai.provider]?.name || '', local: !!PROVIDERS[ai.provider]?.local });
+// One question on its own, outside the chat. Returns the reply's text.
+export async function askAi(system, text, signal) {
+  const provider = ai.provider;
+  const req = buildRequest(provider, { key: keys()[provider], model: ai.models[provider], base: ai.base, system, messages: [{ role: 'user', text }] });
+  const r = await fetch(req.url, { method: 'POST', headers: req.headers, body: JSON.stringify(req.body), signal });
+  if (!r.ok) throw new Error(await failure(provider, r));
+  const reply = await readReply(provider, r);
+  if (reply.stop === 'refusal' || (!reply.text && reply.stop)) throw new Error('the model declined to answer');
+  return reply.text;
+}
+
 // ---- project notes
 
 // The notes button says when there are notes, so it's clear they're being sent.

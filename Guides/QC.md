@@ -280,6 +280,11 @@ Don't delete a note just because you've read it. Resolve keeps its text, reviewe
 and original posting time available for the next person. It isn't a formal sign-off.
 Agree who resolves issues and who approves the finished programme.
 
+## Check spelling and grammar first
+
+Press `Alt+Shift+K` when a script arrives. If the list is long, you can send it back before
+you spend time on it. See [Checking spelling and grammar](GETTING-STARTED.md#checking-spelling-and-grammar).
+
 ## Save and return the review
 
 1. Press `Ctrl/Cmd+S`. Check the project no longer has an unsaved-changes dot beside its name.
@@ -287,7 +292,7 @@ Agree who resolves issues and who approves the finished programme.
 2. For a QC package, choose **Export → Return package**. It leaves out any bundled key.
    Send that `.scribecueqc` file. For a `.scribecue` project, send the saved project.
    Include changed media only if you've agreed to supply it.
-   With a QC package open, Export offers only the return package. SRT and WebVTT can't carry comments.
+   With a QC package open, the return package is the only export. SRT and WebVTT can't carry comments.
 3. Say which source project and picture cut you reviewed. State whether you changed
    the script or timings, and whether any checks remain unfinished.
 
