@@ -285,6 +285,7 @@ If the video is slow to start or to jump, or stutters:
 | **Recording** | `.scribecuerec` and `.scribesession`, to open |
 | **Scripts** | SRT and WebVTT, to open and export; Frazier's `.adc`, to open |
 | **Video and audio** | MP4, MOV, M4A, MKV, WebM and WAV |
+| **TS, M2TS, AVI, WMV, MPG** | Browsers can't open these. See [If a video won't play](#if-a-video-wont-play) |
 | **Very large files** | Fine for MP4, MOV, M4A, MKV, WebM and WAV. Other formats need to be under 2 GB |
 | **AC-3, E-AC-3 audio** | Work, after a short wait the first time. See [If a video has no sound](#if-a-video-has-no-sound) |
 | **DTS, TrueHD audio** | The picture plays with no sound or waveform. See [If a video has no sound](#if-a-video-has-no-sound) |
@@ -300,6 +301,16 @@ can't play.
   [ffmpeg in Docker](INSTALL.md#the-full-mix-in-the-video-ffmpeg), choose
   **Make a copy that plays** and Scribecue makes one, opens it and downloads it for you.
 - **Keep the copy with the project.** Your timings work with the original video too.
+
+**TS, M2TS, AVI, WMV, MPG:** browsers can't open these, so changing browser won't help. TV
+recordings are often like this. Make an MP4 copy with [ffmpeg](https://ffmpeg.org/):
+
+```bash
+ffmpeg -i "Film.m2ts" -map 0:v:0 -map 0:a:0 -c:v copy -c:a aac -b:a 192k -movflags +faststart "Film.mp4"
+```
+
+- This keeps the picture as it is, and the first audio track.
+- If the copy shows no picture, change `-c:v copy` to `-c:v libx264`. It takes longer.
 
 ### If a video has no sound
 

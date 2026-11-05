@@ -39,7 +39,7 @@ import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, reviewGoogleKey, missingVoiceAdvice, hasGoogleKey } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands } from './ffcmd.js';
-import { videoName, missing, silentSound, copiesSound, ownTrack, advice, copyKind, TESTS } from './codecs.js';
+import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS } from './codecs.js';
 import { createLog, watchErrors, pictureWatch, report as diagReport } from './diagnostics.js';
 import { waveKey, loadWave, saveWave, loadSound, saveSound } from './wavestore.js';
 import { buildDialogue, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, MIN_CLASH, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue } from './dialogue.js';
@@ -4483,6 +4483,7 @@ function showCodecAlert(file, gone) {
   const box = $('codecAlert');
   const fresh = box.hidden;
   $('codecAlertText').textContent = advice(codecGone, { file: file.name, ffmpeg: !!tts.ffmpeg });
+  box.classList.toggle('nocopy', noBrowserOpens(file.name)); // ffmpeg's copy doesn't take these
   if (fresh) $('codecStatus').textContent = '';
   box.hidden = false;
   if (fresh) announce(box.querySelector('h2').textContent + '. ' + $('codecAlertText').textContent, IS_MAC);

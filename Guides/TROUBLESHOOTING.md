@@ -29,6 +29,7 @@ for its part of Scribecue: see [More help](#more-help).
 | Problem | What to do |
 | --- | --- |
 | The video won't play, mostly on Linux | Some Chromium builds can't play MP4. See [If a video won't play](GETTING-STARTED.md#if-a-video-wont-play). |
+| "Browsers can't open .m2ts files" | This applies to TS, M2TS, AVI, WMV and MPG in any browser. Make an MP4 copy. See [If a video won't play](GETTING-STARTED.md#if-a-video-wont-play). |
 | The picture sticks or flashes green while the sound carries on | The graphics chip may be failing to play it. See [If the picture freezes](GETTING-STARTED.md#if-the-picture-freezes). |
 | The video plays, but there's no sound or waveform | Wait for **Getting the sound ready** to finish, if it shows. DTS and TrueHD don't play in most browsers. See [If a video has no sound](GETTING-STARTED.md#if-a-video-has-no-sound). |
 | "No waveform: the audio track is silent" | Choose another track in the **Audio** picker under the video. |

@@ -56,10 +56,18 @@ export function silentSound(codecs, canPlay) {
   return codecs.every((c) => SOUND_TESTS[c] && !canPlay(SOUND_TESTS[c])) ? [...new Set(codecs)] : [];
 }
 
+// Video files Chrome and Edge refuse whatever is inside them, so changing browser won't help.
+const UNOPENED = /\.(ts|mts|m2ts|m2t|avi|wmv|flv|mpg|mpeg|vob)$/i;
+export const noBrowserOpens = (file) => UNOPENED.test(file);
+
 // What to say when a file uses formats the browser can't play. ffmpeg: whether the
 // ffmpeg container is running, to make a copy it can.
 // names: what it can't play, or none when the browser only said it couldn't play the file.
 export function advice(names, { file = 'this file', ffmpeg = false } = {}) {
+  if (noBrowserOpens(file)) {
+    const ext = file.split('.').pop().toLowerCase();
+    return `Browsers can’t open .${ext} files, so trying another one won’t help. Open an MP4 or WebM copy of ${file}.`;
+  }
   const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names.at(-1)}` : names[0];
   if (names.length && names.every((n) => SOUND_TESTS[n])) {
     return `This browser can’t play ${list}, so ${file} has no sound or waveform here. ` +
