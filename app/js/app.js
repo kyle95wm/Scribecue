@@ -1,8 +1,8 @@
 import { startNewProject } from './newproject.js';
 import { createQcPlayer } from './qcplayer.js';
-import { REVIEW_EXT, isReview, openReview, resaveReview, reviewAllowsEdits, reviewReading, playbackReading, rewriteSpec, readingVoiceChanged, appendRewrite, previousReading, storedReview, voiceReport, reviewAudioKey } from './qc.js';
+import { REVIEW_EXT, isReview, openReview, resaveReview, liveBlock, reviewAllowsEdits, reviewReading, playbackReading, rewriteSpec, readingVoiceChanged, appendRewrite, previousReading, storedReview, voiceReport, reviewAudioKey } from './qc.js';
 import { reviewedRewrite, speechKey } from './qcspeech.js';
-import { initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
+import { offerLiveVoices, initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments, commentsAllowed } from './comments.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
 import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, parseTC } from './formats.js';
@@ -243,7 +243,7 @@ function duration() {
 // While a drag waits for a slow seek, the playhead shows where it's going.
 const scrub = scrubber(() => video.seeking, (t) => setTime(t));
 const now = () => (S.hasVideo ? scrub.target ?? video.currentTime : S.vt);
-const qcPlayer = createQcPlayer({ now, duck: (on) => duckAudio(on), error: (message) => toast(message) });
+const qcPlayer = createQcPlayer({ now, duck: (on) => duckAudio(on || !!tts.speaking), error: (message) => toast(message) });
 const isPlaying = () => (S.hasVideo ? !video.paused && !video.ended : S.vplaying);
 // For return to start: where playback began, moved along by any jump while playing.
 let playStart = null;
@@ -708,6 +708,10 @@ edNotes.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey && !e.altKey) { e.preventDefault(); closeEditor(true); return; }
   fileKeys(e);
 });
+// A package's Piper blocks have no saved audio: this computer reads them.
+const liveRead = (c) => liveBlock(S.review, c, reviewSettings());
+const liveVoiceOf = (c) => c.voice || reviewSettings().ttsVoice;
+const liveVoiceHere = (c) => reviewVoices().some((v) => v.id === liveVoiceOf(c));
 function stopPreviousReading() {
   if (!S.previousAudio) return;
   S.previousAudio.audio.pause(); URL.revokeObjectURL(S.previousAudio.url); S.previousAudio = null;
@@ -1026,11 +1030,12 @@ function updateEditor() {
   if (qc()) {
     const r = playbackReading(S.review, c, reviewSettings()), previous = previousReading(S.review, c);
     $('qcPrevious').hidden = r === previous || !previous;
-    const newVoice = !r && !!previous && readingVoiceChanged(S.review, c, reviewSettings());
+    const live = liveRead(c), newVoice = !live && !r && !!previous && readingVoiceChanged(S.review, c, reviewSettings());
     if (newVoice) $('qcBlockInfo').dataset.tip = 'A different voice can’t make new audio in QC. Ask the writer for a fresh package to hear it, or change the voice back';
     else delete $('qcBlockInfo').dataset.tip;
     const unread = !r && !!rewriteSpec(S.review, c, reviewSettings());
-    $('qcBlockInfo').textContent = newVoice ? 'New voice · needs a fresh package' : autoMaking.has(c.id) ? 'Making reading…'
+    $('qcBlockInfo').textContent = live && S.qcSource === 'package' ? (liveVoiceHere(c) ? `Read here with ${voiceLabel(liveVoiceOf(c))}` : `Needs ${voiceLabel(liveVoiceOf(c))}`)
+      : newVoice ? 'New voice · needs a fresh package' : autoMaking.has(c.id) ? 'Making reading…'
       : unread && !autoRewrites() ? 'Needs a Google key' : !r && previous ? 'Original reading out of date'
       : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'New reading'} ${(voiceEnds.get(r) ?? r.secs).toFixed(1)} s${(voiceEnds.get(r) ?? r.secs) > c.end - c.start + 0.05 ? ' · runs past block' : ''}`
           : previous || !S.review?.byUid?.size ? 'Original reading missing' : rewriteSpec(S.review, c, reviewSettings()) ? 'New block · not read yet' : 'New block · no reading')
@@ -2119,7 +2124,7 @@ function stopLoop() {
 // video playing alongside. Playback stops at the block's end, or where the reading
 // ends if it runs over. ⇧V then sets the block's end to where the reading finished.
 function speakBlock(fit) {
-  if (qc()) { const c = selCue() || cueAt(now()); if (!c) return; if (fit) return; seek(c.start); S.playUntil = S.qcSource === 'preview' ? null : c.end; play(); qcRead(c, true); return; }
+  if (qc()) { const c = selCue() || cueAt(now()); if (!c) return; if (fit) return; seek(c.start); S.playUntil = S.qcSource === 'preview' || (S.qcSource === 'package' && liveRead(c)) ? null : c.end; play(); qcRead(c, true); return; }
   const guide = S.mode === 'record'; // a guide reading of the line, before taking it
   if (!writing() && !guide) return modeOnly('Text to speech', 'write');
   if (!tts.on && !guide) { openTts(); return toast('Turn on text to speech to hear blocks read aloud'); }
@@ -3078,6 +3083,7 @@ selSay.addEventListener('click', () => { selSay.hidden = true; openSay(); });
 // through a block, or jumped into one, its reading picks up from there.
 function liveSpeech(prevT, t, started) {
   if (!qc()) readAheadOf(t);
+  else if (S.qcSource === 'package' && S.review?.live) readAheadOf(t, liveRead);
   if (qc()) return qcSpeech(prevT, t, started);
   if (!ttsOn() || !tts.live || tts.speaking?.manual || hold) return; // not over someone reading
   const a = cueAt(t);
@@ -3093,15 +3099,17 @@ function liveSpeech(prevT, t, started) {
 // next blocks are read ahead. Otherwise a reading would start late and run past its block.
 const AHEAD_SECS = 15, AHEAD_BLOCKS = 2;
 let aheadOf = '';
-function readAheadOf(t) {
-  if (!ttsOn() || !tts.live) return;
-  const next = S.cues.filter((c) => c.start > t && c.start - t <= AHEAD_SECS && spoken(c.text) && usingAudioVoice(c.voice))
+// only: in QC, just the blocks this computer reads, with each one's voice from the project.
+function readAheadOf(t, only = null) {
+  if (!only && (!ttsOn() || !tts.live)) return;
+  const voiceOf = (c) => (only ? liveVoiceOf(c) : c.voice);
+  const next = S.cues.filter((c) => c.start > t && c.start - t <= AHEAD_SECS && spoken(c.text) && usingAudioVoice(voiceOf(c)) && (!only || only(c)))
     .sort((a, b) => a.start - b.start).slice(0, AHEAD_BLOCKS);
   // Only when the blocks ahead, or what they say, change: this runs on every frame.
   const key = `${chosenVoice()}|${tts.base}|` + next.map((c) => `${c.id}|${c.speed}|${c.voice}|${said(c)}`).join('\n');
   if (key === aheadOf) return;
   aheadOf = key;
-  for (const c of next) readAhead(said(c), c.speed, c.voice);
+  for (const c of next) readAhead(said(c), c.speed, voiceOf(c));
 }
 
 // Lower the original audio while a block is read, as far and as quickly as the text to
@@ -3120,7 +3128,7 @@ function duckAudio(on = ducked) {
 function applyDuck(dt) {
   const c = tts.speaking && S.cues.find((x) => x.id === tts.speaking.id);
   const target = !ducked ? 0 : qc() && S.qcSource === 'package'
-    ? Math.max(0, ...qcPlayer.activeReadings().map(blockDip)) : blockDip(c);
+    ? Math.max(0, ...qcPlayer.activeReadings().map(blockDip), ...(c ? [blockDip(c)] : [])) : blockDip(c);
   if (target !== dipTo) { dipTo = target; dipFrom = dip; }
   dip = stepDip(dip, target, dt, tts.dipFade, dipFrom);
   const v = dipLevel(dip) * ((writing() && tts.on) || (qc() && S.qcSource !== 'video') ? mixLevels(tts.mix).video : 1) * recVol;
@@ -3799,6 +3807,7 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
   const ready = S.videoFile && sameMedia(p.media, S.videoFile);
   if (ready && S.pendingPlayhead != null) { seek(S.pendingPlayhead); S.pendingPlayhead = null; }
   projectSaved(file.name);
+  if (review?.live) offerLiveVoices();
   if (!review && S.reviewAudio) {
     const restoring = restoreAuthorAudio(attachedAudio);
     if (attachedAudio) await restoring;
@@ -5205,11 +5214,12 @@ function configureQcAudio() {
   }
   qcPlayer.configure(S.review.file, entries);
 }
+let liveMissingSaid = '';
 function qcRead(c, manual = false) {
   if (!qc() || S.qcSource === 'video') return;
   S.qcLast = c.id;
-  const from = () => Math.max(0, now() - c.start);
-  if (S.qcSource === 'package') {
+  const from = () => Math.max(0, now() - c.start), live = S.qcSource === 'package' && liveRead(c);
+  if (S.qcSource === 'package' && !live) {
     const r = playbackReading(S.review, c, reviewSettings());
     if (!r && rewriteSpec(S.review, c, reviewSettings())) {
       // Not read yet, such as after a failed request: read it now.
@@ -5222,7 +5232,12 @@ function qcRead(c, manual = false) {
     return;
   }
   const requested = c.voice || reviewSettings().ttsVoice;
-  const voice = reviewVoices().some((v) => v.id === requested) ? requested : S.qcPreviewVoice;
+  const voice = reviewVoices().some((v) => v.id === requested) ? requested : live ? '' : S.qcPreviewVoice;
+  if (!voice && live) {
+    if (manual || liveMissingSaid !== requested) toast(`${voiceLabel(requested)} isn’t on this computer. Click QC under the video to get it`);
+    liveMissingSaid = requested;
+    return;
+  }
   if (!voice) return toast('Choose a preview voice in QC playback');
   // Heard from its first word, so the reading's length is all of it.
   const whole = from() * spoken(said(c)).split(' ').length < speechLength(said(c), c.speed, voice).secs;
@@ -5238,13 +5253,15 @@ function qcRead(c, manual = false) {
 function qcSpeech(prevT, t, started) {
   if (S.qcSource === 'package') {
     const ready = !S.hasVideo || (!video.seeking && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA);
-    return qcPlayer.sync(t, isPlaying() && ready, S.rate, mixLevels(tts.mix).reading);
+    qcPlayer.sync(t, isPlaying() && ready, S.rate, mixLevels(tts.mix).reading);
+    if (!S.review?.live) return;
   }
   if (S.qcSource === 'video') return;
   const jumped = started || t < prevT || t - prevT >= 0.5;
   if (jumped) S.qcLast = null;
   const c = cueAt(t);
   if (!c || tts.speaking?.id === c.id || S.qcLast === c.id) return;
+  if (S.qcSource === 'package' && !liveRead(c)) return;
   if (jumped || (prevT <= c.start && t > c.start)) qcRead(c);
 }
 // What a reviewer sends back: the package without any bundled review key.

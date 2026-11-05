@@ -1,5 +1,6 @@
-import { buildReview, openReview, hasReviewText, playbackReading, reviewSink, voiceReport, REVIEW_EXT } from './qc.js';
-import { reviewVoices, reviewAudio, voiceLabel, chosenVoice, usingGoogle, hasGoogleKey, isPersonalGoogleKey } from './tts.js';
+import { buildReview, openReview, hasReviewText, playbackReading, reviewSink, voiceReport, readsLive, liveBlock, liveVoices, REVIEW_EXT } from './qc.js';
+import { reviewVoices, reviewAudio, voiceLabel, chosenVoice, usingGoogle, hasGoogleKey, isPersonalGoogleKey, webPiper, downloadVoice, loadPiper, megabytes, missingVoiceAdvice } from './tts.js';
+import { HOSTED } from './config.js';
 const $ = (id) => document.getElementById(id);
 let h, controller = null;
 export function qcReport() { const p = h.project(); return voiceReport(p.blocks, p.settings, reviewVoices()); }
@@ -11,17 +12,19 @@ export function refreshQc() {
     const list = $(id); list.replaceChildren();
     for (const v of report) {
       const row = document.createElement('li');
-      row.textContent = `${v.id ? voiceLabel(v.id) : 'No voice chosen'} · blocks ${v.blocks.slice(0, 12).join(', ')}${v.blocks.length > 12 ? '…' : ''}: ${!v.available ? 'not available here' : !v.exportable ? 'playback only; cannot package audio' : 'available for playback and packaging'}`;
+      row.textContent = `${v.id ? voiceLabel(v.id) : 'No voice chosen'} · blocks ${v.blocks.slice(0, 12).join(', ')}${v.blocks.length > 12 ? '…' : ''}: ${!v.available ? 'not available here' : !v.exportable ? 'playback only; cannot package audio' : v.id.startsWith('piper:') ? 'read on the reviewer’s computer' : 'audio kept in the package'}`;
       list.append(row);
     }
   }
   const review = h.review(), spoken = p.blocks.filter((b) => hasReviewText(b, p.settings));
-  const valid = spoken.filter((b) => playbackReading(review, b, p.settings)).length;
-  $('qcPackageInfo').textContent = review ? `${valid} of ${spoken.length} blocks have matching saved readings. ${valid < spoken.length ? 'Changed Google blocks are read when you finish editing them. Other missing readings need a new package from the writer.' : 'The included audio plays without installing these voices or adding a key.'}` : 'No original readings are included. Use the programme sound, ask for a QC package, or explicitly choose an approximate TTS preview.';
+  const live = spoken.filter((b) => liveBlock(review, b, p.settings)).length, missing = review ? missingVoices() : [];
+  const valid = spoken.filter((b) => playbackReading(review, b, p.settings) || liveBlock(review, b, p.settings)).length;
+  $('qcPackageInfo').textContent = review ? `${valid} of ${spoken.length} blocks have matching saved readings. ${valid < spoken.length ? 'Changed Google blocks are read when you finish editing them. Other missing readings need a new package from the writer.' : live ? 'Piper blocks are read on this computer. Other audio is included.' : 'The included audio plays without installing these voices or adding a key.'}` : 'No original readings are included. Use the programme sound, ask for a QC package, or explicitly choose an approximate TTS preview.';
   for (const [id, source] of [['qcSourceVideo', 'video'], ['qcSourcePackage', 'package'], ['qcSourcePreview', 'preview']]) {
     $(id).setAttribute('aria-pressed', String(h.source() === source));
   }
   $('qcAttachReadings').hidden = !h.audioReference?.() || !!review;
+  $('qcGetVoices').hidden = !missing.length;
   if (!review && h.audioReference?.()) $('qcPackageInfo').textContent = 'Original readings are not available in this browser. Locate the matching QC package to hear them again.';
   $('qcSourcePackage').disabled = !review;
   $('qcSourcePackage').textContent = review?.proposals.length ? 'Saved readings' : 'Original readings';
@@ -39,6 +42,44 @@ export function refreshQc() {
   $('qcGoogleAccess').hidden = !googleAccess;
   if (!googleAccess) { $('qcExportGoogle').setAttribute('aria-pressed', 'false'); $('qcGoogleKey').value = ''; }
   $('qcGoogleKeyRow').hidden = $('qcExportGoogle').getAttribute('aria-pressed') !== 'true';
+}
+function missingVoices() {
+  const p = h.project(), here = new Set(reviewVoices().map((v) => v.id));
+  return liveVoices(h.review(), p.blocks, p.settings).filter((id) => !here.has(id));
+}
+// Downloadable voices in the web version. Docker's Piper voices come with its setup.
+const offered = (id) => webPiper.offered?.[id.slice(6)];
+function showVoiceOffer() {
+  const missing = missingVoices();
+  if (!missing.length) { if ($('qcVoiceDlg').open) $('qcVoiceDlg').close(); return; }
+  const get = HOSTED ? missing.filter(offered) : [];
+  const size = get.reduce((sum, id) => sum + offered(id), webPiper.engineReady ? 0 : webPiper.engine);
+  $('qcVoiceList2').replaceChildren(...missing.map((id) => {
+    const row = document.createElement('li');
+    row.textContent = `${voiceLabel(id)}${get.includes(id) ? '' : `: ${missingVoiceAdvice(id, { hosted: HOSTED })}`}`;
+    return row;
+  }));
+  $('qcVoiceGet').hidden = !get.length;
+  $('qcVoiceGet').textContent = `Download ${megabytes(size)}`;
+  $('qcVoiceStatus').textContent = '';
+  if (!$('qcVoiceDlg').open) $('qcVoiceDlg').showModal();
+}
+async function getVoices() {
+  $('qcVoiceGet').disabled = true;
+  const timer = setInterval(() => {
+    const d = webPiper.downloading;
+    $('qcVoiceStatus').textContent = d?.total ? `${megabytes(d.loaded)} of ${megabytes(d.total)}` : 'Starting…';
+  }, 300);
+  try { for (const id of missingVoices().filter(offered)) await downloadVoice(id.slice(6), { choose: false }); }
+  finally { clearInterval(timer); $('qcVoiceGet').disabled = false; }
+  showVoiceOffer(); refreshQc();
+}
+// Offered once a package has opened and anything showing first, such as setup, has closed.
+export async function offerLiveVoices() {
+  const review = h.review();
+  await loadPiper();
+  while (document.querySelector('dialog[open]')) await new Promise((r) => setTimeout(r, 500));
+  if (h.review() === review) showVoiceOffer();
 }
 export function openQcPlayback() { if (!h.qc()) return; refreshQc(); $('qcPlaybackDlg').showModal(); refreshQc(); }
 export function openQcExport() {
@@ -68,11 +109,14 @@ export function initQc(hooks) {
     finally { $('qcAttachReadings').disabled = false; }
   };
   $('qcPlaybackClose').onclick = () => $('qcPlaybackDlg').close();
+  $('qcGetVoices').onclick = () => { $('qcPlaybackDlg').close(); showVoiceOffer(); };
+  $('qcVoiceGet').onclick = getVoices;
+  $('qcVoiceLater').onclick = () => $('qcVoiceDlg').close();
   $('qcExportClose').onclick = () => { controller?.abort(); $('qcExportDlg').close(); };
   $('qcExportStop').onclick = () => controller?.abort();
   $('qcExportDlg').addEventListener('cancel', () => controller?.abort());
   $('qcExportDlg').addEventListener('close', () => { $('qcGoogleKey').value = ''; });
-  for (const id of ['qcPlaybackDlg', 'qcExportDlg']) document.addEventListener('keydown', (e) => { if ($(id).open) e.stopPropagation(); }, true);
+  for (const id of ['qcPlaybackDlg', 'qcExportDlg', 'qcVoiceDlg']) document.addEventListener('keydown', (e) => { if ($(id).open) e.stopPropagation(); }, true);
   $('qcExportStart').onclick = async () => {
     if (controller || !h.canCreate()) return;
     const allowEdits = $('qcExportAllowEdits').getAttribute('aria-pressed') === 'true';
@@ -92,7 +136,7 @@ export function initQc(hooks) {
       const blob = await buildReview(project, (b) => reviewAudio(h.said(b), b.speed || 1, b.voice || project.settings.ttsVoice), {
         sink, signal: controller.signal, allowEdits, handoff: true, googleReviewKey, progress: (done, total) => {
           $('qcExportProgress').value = total ? done / total : 0;
-          $('qcExportStatus').textContent = `Making readings: ${done} of ${total}`;
+          $('qcExportStatus').textContent = `Packaging blocks: ${done} of ${total}`;
         },
       });
       if (controller.signal.aborted) throw new Error('QC export stopped');

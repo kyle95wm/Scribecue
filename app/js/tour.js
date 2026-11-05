@@ -86,7 +86,7 @@ export const STEPS = [
   {
     target: 'nav [data-act="settings"]',
     title: 'Settings',
-    text: (mode) => mode === 'qc' ? 'Click QC under the video to check voice availability and choose what you hear. Original packaged readings work without installing voices. A substitute TTS preview is approximate and must be chosen explicitly.' : `Everything you set up is in Settings (${keyFor('settings')}). ${mode === 'write'
+    text: (mode) => mode === 'qc' ? 'Click QC under the video to check voice availability and choose what you hear. Packaged readings need no key. Piper blocks are read on your computer. A substitute TTS preview is approximate and must be chosen explicitly.' : `Everything you set up is in Settings (${keyFor('settings')}). ${mode === 'write'
       ? 'Start with Text to speech: turn it on to hear your blocks read aloud, and check each one fits before the next line of dialogue. With a Piper voice, lengths are exact and you can export a description track.'
       : `Start with Transcribing: Whisper can type each line for you. When you let go of ${keyFor('hold')}, it listens to the block and fills in what the narrator said, ready to check. It runs on your computer.`} AI help, your shortcuts and storage are there too, and so are setup and this tour.`,
   },

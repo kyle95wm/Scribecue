@@ -130,5 +130,6 @@ echo '== Taking screenshots'
 node scripts/screenshots.mjs "$cdp_port" "$root/docs/screenshots" "http://127.0.0.1:$site_port/"
 node scripts/comments-smoke.mjs "$cdp_port" "http://127.0.0.1:$site_port/"
 node scripts/qc-smoke.mjs "$cdp_port" "http://127.0.0.1:$site_port/"
+node scripts/qc-live-smoke.mjs "$cdp_port" "http://127.0.0.1:$site_port/"
 node scripts/mode-setup-smoke.mjs "$cdp_port" "http://127.0.0.1:$site_port/"
 echo "Saved to docs/screenshots. Look them over before committing."

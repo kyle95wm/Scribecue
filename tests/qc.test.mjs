@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReview, readReview, resaveReview, reviewReading, readingKey, voiceReport, hasReviewText, previousReading, reviewAllowsEdits } from '../app/js/qc.js';
+import { buildReview, readReview, resaveReview, reviewReading, readingKey, voiceReport, hasReviewText, previousReading, reviewAllowsEdits, liveBlock, liveVoices, playbackReading } from '../app/js/qc.js';
 import { toProject, fromProject } from '../app/js/project.js';
 const block = { start: 3, end: 6, text: 'Mara arrives.', speed: 1, say: [['Mara', 'Mah-ra']] };
-const project = () => toProject({ blocks: [block, { start: 10, end: 12, text: 'Another block.', voice: 'kokoro:af_heart' }], settings: { mode: 'qc', ttsBase: 1, ttsVoice: 'piper:en_US-lessac-medium', ttsSkipNotes: true } });
+const project = () => toProject({ blocks: [block, { start: 10, end: 12, text: 'Another block.', voice: 'kokoro:af_heart' }], settings: { mode: 'qc', ttsBase: 1, ttsVoice: 'kokoro:bf_emma', ttsSkipNotes: true } });
 const wav = () => new Blob([new Uint8Array(100)], { type: 'audio/wav' });
-const make = async (b) => ({ blob: wav(), secs: b.end - b.start, voice: b.voice || 'piper:en_US-lessac-medium' });
+const make = async (b) => ({ blob: wav(), secs: b.end - b.start, voice: b.voice || 'kokoro:bf_emma' });
 
 test('QC settings and comments survive a normal project round trip', () => {
   const p = fromProject(project());
@@ -13,8 +13,8 @@ test('QC settings and comments survive a normal project round trip', () => {
 });
 test('voice checks cover main and individual block voices without accepting substitutes', () => {
   const p = project();
-  const r = voiceReport(p.blocks, p.settings, [{ id: 'piper:en_US-lessac-medium', exportable: true }, { id: 'Samantha', exportable: false }]);
-  assert.deepEqual(r.map((v) => [v.id, v.available, v.blocks]), [['piper:en_US-lessac-medium', true, [1]], ['kokoro:af_heart', false, [2]]]);
+  const r = voiceReport(p.blocks, p.settings, [{ id: 'kokoro:bf_emma', exportable: true }, { id: 'Samantha', exportable: false }]);
+  assert.deepEqual(r.map((v) => [v.id, v.available, v.blocks]), [['kokoro:bf_emma', true, [1]], ['kokoro:af_heart', false, [2]]]);
   assert.equal(voiceReport([{...block, voice:'Samantha'}], p.settings, [{id:'Samantha',exportable:false}])[0].exportable, false);
   assert.equal(hasReviewText({text:'[A note]'}, {ttsSkipNotes:true}), false);
 });
@@ -152,5 +152,31 @@ test('permission-aware packages require a reader that understands their review v
     return new Blob([r.file.slice(0,r.audioEnd),json,footer]);
   };
   assert.equal(reviewAllowsEdits(await readReview(repack(1))),false);
-  await assert.rejects(readReview(repack(5)),/newer Scribecue/);
+  await assert.rejects(readReview(repack(6)),/newer Scribecue/);
+});
+
+test('Piper readings stay out of a package; Google and Kokoro readings stay in', async () => {
+  const p = project();
+  p.blocks[0].voice = 'piper:en_US-lessac-medium'; p.blocks[1].voice = 'kokoro:bf_emma';
+  const asked = [], r = await readReview(await buildReview(p, async (b, i) => { asked.push(i); return make(b, i); }));
+  assert.deepEqual(asked, [1]);
+  assert.equal(r.readings.length, 1); assert.equal(r.live, true);
+  assert.equal(liveBlock(r, p.blocks[0], p.settings), true);
+  assert.equal(liveBlock(r, p.blocks[1], p.settings), false);
+  assert.deepEqual(liveVoices(r, p.blocks, p.settings), ['piper:en_US-lessac-medium']);
+  assert.equal(playbackReading(r, p.blocks[0], p.settings), null);
+  assert.ok(playbackReading(r, p.blocks[1], p.settings));
+});
+test('a package of only Piper blocks opens, and stays live when saved again', async () => {
+  const p = project(); p.settings.ttsVoice = 'piper:en_US-lessac-medium'; delete p.blocks[0].voice; delete p.blocks[1].voice;
+  const blob = await buildReview(p, async () => { throw new Error('nothing should be read'); }), r = await readReview(blob);
+  assert.equal(r.readings.length, 0); assert.equal(r.live, true);
+  assert.ok(blob.size < 5000);
+  assert.equal((await readReview(resaveReview(r, p))).live, true);
+  assert.equal(JSON.parse(await blob.slice(8, -12).text()).review, 5);
+});
+test('packages without Piper voices keep their version and all their audio', async () => {
+  const r = await readReview(await buildReview(project(), make));
+  assert.equal(r.live, false); assert.equal(r.readings.length, 2);
+  assert.equal(JSON.parse(await r.file.slice(r.audioEnd, -12).text()).review, 2);
 });

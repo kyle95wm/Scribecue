@@ -112,7 +112,7 @@ test('readings for added blocks cannot claim an original block, another voice, o
   await assert.rejects(tamper((m) => { m.proposals[0].blockUid = r.project.blocks[0].uid; }), /rewrites are damaged/);
   await assert.rejects(tamper((m) => { m.proposals[0].key = m.proposals[0].key.replace('Standard-A', 'Standard-B'); m.proposals[0].voice = 'google:en-US-Standard-B'; }), /rewrites are damaged/);
   await assert.rejects(tamper(() => {}, 3), /rewrites are damaged/);
-  await assert.rejects(tamper((m) => { m.review = 5; }), /newer Scribecue/);
+  await assert.rejects(tamper((m) => { m.review = 6; }), /newer Scribecue/);
 });
 
 test('personal key first; bundled fallback is offered and requires agreement for each failed reading', async () => {
