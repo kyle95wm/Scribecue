@@ -1,5 +1,6 @@
 // Run against a fresh headless Chrome launched with --mute-audio:
-// node scripts/collaboration-smoke.mjs <DevTools port> <site URL>
+// node scripts/collaboration-smoke.mjs <DevTools port> <site URL> [video]
+// With a video, it also checks split and merge, and that playback keeps up during a comparison.
 // Exercises the actual save/load path and worker at 6× CPU slowdown.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -89,7 +90,10 @@ try {
     const observer=new PerformanceObserver(l=>longTasks.push(...l.getEntries().map(e=>e.duration)));observer.observe({type:'longtask'});
     let raf,last=performance.now();const tick=t=>{frames.push(t-last);last=t;raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);
     document.querySelector('#list .row').click();const input=document.getElementById('edText');input.focus();input.value='Typing during comparison';input.dispatchEvent(new Event('input',{bubbles:true}));
-    const video=document.getElementById('video'),videoStart=video.currentTime,wallStart=performance.now(),qualityStart=video.getVideoPlaybackQuality();
+    // Clicking the block jumped the video to its start. Time that jump apart from the comparison.
+    const video=document.getElementById('video');if(video.seeking)await new Promise(r=>video.addEventListener('seeked',r,{once:true}));
+    await new Promise(r=>setTimeout(r,250));
+    const videoStart=video.currentTime,wallStart=performance.now(),qualityStart=video.getVideoPlaybackQuality();
     const started=performance.now();const result=await compareProjectCopies(base,local,remote,{progress:(done,total)=>progress.push([done,total])});
     const elapsed=performance.now()-started;
     const controller=new AbortController();const cancelled=compareProjectCopies(base,local,remote,{signal:controller.signal});controller.abort();
@@ -100,9 +104,12 @@ try {
       playback:{elapsed:video.currentTime-videoStart,wallSeconds:(performance.now()-wallStart)/1000,droppedFrames:video.getVideoPlaybackQuality().droppedVideoFrames-qualityStart.droppedVideoFrames},typing:input.value,
       text:[result.project.blocks[0].text,result.project.blocks[1499].text],conflicts:result.conflicts,heapBytes:performance.memory?.usedJSHeapSize};
   })()`);
+  console.log('6× CPU, 1,500-block two-hour script:', JSON.stringify(measured));
   assert.deepEqual(measured.text, ['Local edit', 'Remote edit']);
   assert.deepEqual(measured.conflicts, []); assert.deepEqual(measured.lastProgress, [1500, 1500]);
-  assert.ok(measured.progress > 1 && measured.aborted && measured.failed);
+  assert.ok(measured.progress > 1, 'comparison reports progress');
+  assert.ok(measured.aborted, 'comparison can be cancelled');
+  assert.ok(measured.failed, 'comparison refuses a project with no id');
   assert.equal(measured.typing, 'Typing during comparison');
   if (mediaPath) assert.ok(measured.playback.elapsed / measured.playback.wallSeconds > 0.9, 'video keeps pace with real time');
   await js(`document.getElementById('video').pause();document.activeElement?.blur();document.querySelector('[data-act=newProject]').click();document.querySelector('#newDlg [data-choice=project]').click();true`);
@@ -112,5 +119,4 @@ try {
   assert.notEqual(fresh.projectId, first.projectId);
   assert.ok(fresh.blocks.every(b=>!first.blocks.some(old=>old.uid===b.uid)));
   console.log('Identity save/load/import/split/merge/undo/new-project checks passed');
-  console.log('6× CPU, 1,500-block two-hour script:', JSON.stringify(measured));
 } finally { ws.close(); }
