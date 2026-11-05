@@ -149,6 +149,8 @@ Select **QC**, then click **Comment** in an open block to comment on it. Open **
 comment at the playhead, or right-click the timeline. Add your name if you like, write
 the comment, then click **Post comment**. Save the project or QC package to hand it over.
 
+This works on your own project too. You don't need a QC package to leave yourself comments.
+
 The [QC guide](QC.md) covers reviewing, resolving comments and returning the project.
 
 ## Exporting
@@ -166,6 +168,23 @@ use the **Export** menu at the top:
   one, as one WAV or MP3 file. See [Exporting the full mix](WRITING.md#exporting-the-full-mix).
 
 `Ctrl/Cmd+O` opens SRT and WebVTT scripts too, and Frazier's `.adc` scripts.
+
+## Which file to send
+
+Your project is your master copy, so keep it. The other files are made for one person and one job.
+
+| Sending to | Send | Make it with |
+| --- | --- | --- |
+| A reviewer, for a text to speech review | [QC package](QC.md#make-a-portable-qc-package) (`.scribecueqc`) | **Export → QC package** |
+| A reviewer, for a recorded mix | Project (`.scribecue`) and a review mix | `Ctrl/Cmd+S` |
+| The writer, after a review | Return package (`.scribecueqc`), or the saved project if that's what you were sent | **Export → Return package** |
+| A narrator | [Recording file](RECORDING.md#making-the-recording-file) (`.scribecuerec`) | **Export → Recording file** |
+| Your other computer, partway through recording | [Session package](RECORDING.md#moving-to-another-computer) (`.scribesession`) | **Export → Session package** |
+| A mixer | [Narration WAV](RECORDING.md#exporting-the-narration), or a Narration package with alts | **Export**, in Record mode |
+| Someone using another tool | SRT or WebVTT | **Export** |
+
+- **Send the video too.** Reviewers and narrators need their own copy. No Scribecue file contains it.
+- **Narrating your own script?** Export a recording file, then open it. Record mode opens from that file.
 
 ## See the dialogue on the timeline
 
@@ -260,6 +279,7 @@ If the video is slow to start or to jump, or stutters:
 | | Supported |
 | --- | --- |
 | **Projects** | `.scribecue` and `.scribecueqc`, to open and save |
+| **Recording** | `.scribecuerec` and `.scribesession`, to open |
 | **Scripts** | SRT and WebVTT, to open and export; Frazier's `.adc`, to open |
 | **Video and audio** | MP4, MOV, M4A, MKV, WebM and WAV |
 | **Very large files** | Fine for MP4, MOV, M4A, MKV, WebM and WAV. Other formats need to be under 2 GB |
