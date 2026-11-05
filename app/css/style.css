@@ -78,7 +78,7 @@ kbd + kbd { margin-left: 2px; }
 /* Record mode: the script is locked, so nothing offers to change or save it. */
 .mode-record .rowdel, .mode-record .edmove, .mode-record #edAuto, .mode-record #edTts, .mode-record #replaceBtn, .mode-record #aiBtn,
 .mode-record nav [data-act=newProject], .mode-record nav [data-act=saveProject],
-.mode-record nav [data-act=exportSrt], .mode-record nav [data-act=exportVtt], .mode-record .hint:not(.record-only) { display: none; }
+.mode-record .script-export, .mode-record .hint:not(.record-only) { display: none; }
 /* Where the mode switch was, and shaped like it: the mode, and the way out. */
 .recbadge { align-items: center; flex-shrink: 0; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font: 12px var(--sans); }
 .recbadge strong { padding: 2px 12px; border-radius: 999px; background: var(--play); color: #fff; font-weight: 600; }
@@ -167,6 +167,9 @@ nav { display: flex; gap: 6px; margin-left: auto; }
 .navmenu button:hover, .navmenu button:focus-visible { background: var(--raise); border-color: var(--line); outline: none; }
 .navmenu button > span { display: flex; flex-direction: column; gap: 1px; }
 .navmenu .dim { font-size: 12px; }
+.menugroup { flex-direction: column; }
+.menugroup button { width: 100%; }
+.menuhead { padding: 6px 8px 2px; font: 12px var(--sans); color: var(--faint); }
 button {
   font: 13px var(--sans);
   color: var(--text);
@@ -387,6 +390,10 @@ button.clock { padding: 0; border: 0; background: none; color: inherit; }
 .meta { margin-bottom: 6px; }
 .edtts { margin-top: 6px; }
 .edtts[hidden] { display: none; }
+.edfoot { display: flex; flex-wrap: wrap; column-gap: 8px; }
+.edfoot #edPickupRow { flex: 1; }
+#qcCommentRow { margin-left: auto; }
+.mode-qc #qcCommentRow { flex: 1; }
 /* Notes for the narrator, above the text: smaller, so the text stays the main thing. */
 #edNotes { display: block; margin-bottom: 6px; font: 13px/1.4 var(--sans); color: var(--dim); padding: 4px 8px; border-radius: 4px; field-sizing: content; min-height: calc(1.4em + 10px); max-height: 8.4em; }
 #edNotes:focus { color: var(--text); }
@@ -1189,8 +1196,8 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .mode-qc .modesw::before { transform: translateX(200%); }
 .qc-only { display: none; }
 .mode-qc .qc-only { display: block; }
-body:not(.mode-qc) #commentsBtn, body:not(.mode-qc) #commentsDrawer,
-body:not(.mode-qc) #edComment, body:not(.mode-qc) #qcCommentRow { display: none; }
+.mode-transcribe #commentsBtn, .mode-transcribe #commentsDrawer,
+.mode-transcribe #edComment, .mode-transcribe #qcCommentRow, .mode-record #edComment, .mode-record #qcCommentRow { display: none; }
 .mode-qc .transcribe-only, .mode-qc .write-only, .mode-transcribe .qc-export, .mode-record .qc-export,
 .mode-qc:not(.qc-editing) .rowdel, .mode-qc:not(.qc-editing) .edmove, .mode-qc #edAuto, .mode-qc #replaceBtn, .mode-qc #aiBtn,
 .mode-qc .hint:not(.qc-only), .mode-qc #help .cols,
@@ -1209,7 +1216,7 @@ body:not(.mode-qc) #edComment, body:not(.mode-qc) #qcCommentRow { display: none;
 .qc-package .qc-export { display: none; }
 /* A reviewer with a QC package open sends back a return package, not a script. */
 body:not(.mode-qc) .return-export, body:not(.qc-package) .return-export { display: none; }
-.mode-qc.qc-package nav [data-act=exportSrt], .mode-qc.qc-package nav [data-act=exportVtt] { display: none; }
+.mode-qc.qc-package .script-export { display: none; }
 
 /* Returned QC reviews reuse the dialog and pressed-button controls. */
 #reviewCompareDlg { width: min(820px, 92vw); }

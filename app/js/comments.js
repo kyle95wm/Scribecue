@@ -1,3 +1,5 @@
+// Comments go with writing and review. Transcribe and Record have other jobs.
+export const commentsAllowed = (mode) => mode === 'write' || mode === 'qc';
 // Comments stay with their block, or at a fixed time in the programme.
 export function cleanComments(value, timed = false) {
   return (Array.isArray(value) ? value : []).filter((c) => c && typeof c.text === 'string' && c.text.trim() &&

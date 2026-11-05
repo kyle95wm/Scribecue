@@ -25,14 +25,17 @@ try {
  const before=await save();
  await js(`document.getElementById('edText').value='Unwanted edit';document.getElementById('edText').dispatchEvent(new Event('input',{bubbles:true}));document.getElementById('edVoice').value='unwanted';document.getElementById('edVoice').dispatchEvent(new Event('change'));document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'Delete',code:'Delete',bubbles:true,cancelable:true}));true`);
  assert.deepEqual((await save()).blocks,before.blocks);
- for(const m of ['write','transcribe']){
-  await mode(m);
+ await mode('write');
+ assert.notEqual(await js(`getComputedStyle(document.getElementById('commentsBtn')).display`),'none');
+ assert.notEqual(await js(`getComputedStyle(document.getElementById('edComment')).display`),'none');
+ {
+  await mode('transcribe');
   assert.equal(await js(`getComputedStyle(document.getElementById('commentsBtn')).display`),'none');
   await click('commentsBtn');
   assert.equal(await js(`document.getElementById('commentsDrawer').hidden`),true);
   assert.equal(await js(`getComputedStyle(document.getElementById('edComment')).display`),'none');
  }
- await mode('qc');await click('edComment');assert.equal(await js(`document.getElementById('commentsDrawer').hidden`),false);await mode('write');assert.equal(await js(`document.getElementById('commentsDrawer').hidden`),true);
+ await mode('qc');await click('edComment');assert.equal(await js(`document.getElementById('commentsDrawer').hidden`),false);await mode('write');assert.equal(await js(`document.getElementById('commentsDrawer').hidden`),false);await mode('transcribe');assert.equal(await js(`document.getElementById('commentsDrawer').hidden`),true);
  assert.equal(await js(`document.getElementById('qcAllowEdits')`),null);
  // Export actual Piper readings through the UI, then open them with no provider calls.
  await mode('write');

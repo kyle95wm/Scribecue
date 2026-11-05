@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanComments, commentEntries } from '../app/js/comments.js';
+import { cleanComments, commentEntries, commentsAllowed } from '../app/js/comments.js';
 import { toProject, fromProject } from '../app/js/project.js';
 const note = { text: 'Check the name.', author: 'Sam', created: '2026-10-31T12:00:00Z', resolved: false };
 
@@ -43,4 +43,8 @@ test('comments-only projects can be handed over without blocks', () => {
   const project = fromProject(toProject({ blocks: [], comments: [{ ...note, time: 7200 }] }));
   assert.deepEqual(project.blocks, []);
   assert.equal(project.comments[0].time, 7200);
+});
+
+test('comments work in Write and QC, not in Transcribe or Record', () => {
+  assert.deepEqual(['write', 'qc', 'transcribe', 'record'].map(commentsAllowed), [true, true, false, false]);
 });

@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { speakable, blockLabel } from '../app/js/a11y.js';
 
 test('key symbols are read as words', () => {
@@ -21,4 +22,16 @@ test('a block in the list is read with its number, time, length and text', () =>
 test('a block whose reading is ready says so', () => {
   assert.equal(blockLabel({ n: 2, start: '00:00:11.500', secs: '2.50', text: 'The colours fold.', ready: true }),
     'Block 2, at 00:00:11.500, 2.50 seconds, reading ready: The colours fold.');
+});
+
+test('every Export item sits in a named group', () => {
+  const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
+  const menu = html.slice(html.indexOf('id="exportMenu"'), html.indexOf('id="qcPermission"'));
+  const groups = menu.split('role="group"').slice(1);
+  assert.equal(groups.length, 7);
+  for (const g of groups) {
+    const id = /aria-labelledby="(\w+)"/.exec(g)?.[1];
+    assert.ok(id && g.includes(`class="menuhead" id="${id}"`), `group ${id} has no heading`);
+  }
+  assert.equal(groups.join('').match(/role="menuitem"/g).length, menu.match(/role="menuitem"/g).length);
 });

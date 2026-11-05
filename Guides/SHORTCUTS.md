@@ -95,7 +95,7 @@ changed. Your shortcuts are kept in this browser.
 | `[` `]` | Make the block's reading slower / faster |
 | `Alt+Shift+V` | Text to speech settings |
 | `Alt+Shift+P` | [Sounds like](WRITING.md) for the selected block |
-| `Alt+Shift+C` | Open or close Comments (QC mode only) |
+| `Alt+Shift+C` | Open or close Comments (Write and QC) |
 | `Alt+Shift+A` | Open or close [AI help](AI.md) |
 | `Alt+Shift+S` | Settings |
 | `Alt+=` `Alt+-` `Alt+0` | Zoom the timeline in / out / to fit |
