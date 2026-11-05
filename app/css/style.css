@@ -78,7 +78,7 @@ kbd + kbd { margin-left: 2px; }
 /* Record mode: the script is locked, so nothing offers to change or save it. */
 .mode-record .rowdel, .mode-record .edmove, .mode-record #edAuto, .mode-record #edTts, .mode-record #replaceBtn, .mode-record #aiBtn,
 .mode-record nav [data-act=newProject], .mode-record nav [data-act=saveProject],
-.mode-record .script-export, .mode-record .hint:not(.record-only) { display: none; }
+.mode-record .script-export, .mode-record .check-export, .mode-record .hint:not(.record-only) { display: none; }
 /* Where the mode switch was, and shaped like it: the mode, and the way out. */
 .recbadge { align-items: center; flex-shrink: 0; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font: 12px var(--sans); }
 .recbadge strong { padding: 2px 12px; border-radius: 999px; background: var(--play); color: #fff; font-weight: 600; }
@@ -744,6 +744,17 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
   user-select: text;
 }
 .wizard { width: min(600px, 92vw); }
+.checkdlg { width: min(720px, 92vw); }
+.checklist { display: flex; flex-direction: column; gap: 6px; max-height: 52vh; overflow: auto; margin: 8px 0; }
+.checklist:empty { display: none; }
+.checkrow { padding: 8px 10px; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; }
+.checkhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 12px; }
+.checkhead .where { font: 12px var(--mono); color: var(--dim); }
+.checktext { margin: 4px 0 6px; overflow-wrap: anywhere; }
+.checktext mark { color: var(--warn); background: none; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.checkbtns { display: flex; flex-wrap: wrap; gap: 6px; }
+.checkbtns .fix { color: var(--accent); }
+#checkMore { margin-bottom: 8px; }
 .wzhead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
 .wzcard { display: flex; gap: 10px; align-items: flex-start; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
 .wzcard:hover { border-color: var(--faint); }
@@ -1180,7 +1191,7 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 
 /* Comments reuse the AI drawer and its message controls. */
 #commentsDrawer input { min-width: 0; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
-#commentsDrawer button[aria-pressed="true"], #commentsBtn[aria-pressed="true"], #qcExportAllowEdits[aria-pressed="true"], #qcExportGoogle[aria-pressed="true"], #qcPrevious[aria-pressed="true"], #setReturn[aria-pressed="true"], #diagNames[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+#commentsDrawer button[aria-pressed="true"], #commentsBtn[aria-pressed="true"], #qcExportAllowEdits[aria-pressed="true"], #qcExportGoogle[aria-pressed="true"], #qcPrevious[aria-pressed="true"], #setReturn[aria-pressed="true"], #setCheckWarn[aria-pressed="true"], #diagNames[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 #commentAt, .comment-location { font: 12px var(--mono); }
 .comment-body { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .comment-meta { font: 12px var(--sans); color: var(--dim); }

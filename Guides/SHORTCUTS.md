@@ -89,6 +89,7 @@ changed. Your shortcuts are kept in this browser.
 | `Alt+Shift+H` | Speech to text settings |
 | `/` | Search the block list |
 | `Alt+Shift+F` | [Find and replace](GETTING-STARTED.md#other-handy-features) in every block |
+| `Alt+Shift+K` | [Check spelling and grammar](GETTING-STARTED.md#checking-spelling-and-grammar) |
 | `O` | Loop on / off |
 | `F` | Follow the playhead on / off |
 | `V` / `Shift+V` | [Read the block aloud](WRITING.md) / fit the block to the reading |

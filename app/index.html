@@ -81,6 +81,10 @@
             <button role="menuitem" data-act="exportTrack"><span><strong>Description track</strong><span class="dim">every reading in one WAV or MP3 file, with a Piper or Google voice</span></span></button>
             <button role="menuitem" data-act="exportMix"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></button>
           </div>
+          <div role="group" class="menugroup check-export" aria-labelledby="expCheck">
+            <div class="menuhead" id="expCheck">Before you send it</div>
+            <button role="menuitem" data-act="checkSpelling"><span><strong>Check spelling and grammar</strong><span class="dim">see what needs fixing, without exporting anything</span></span></button>
+          </div>
           <div role="group" class="menugroup script-export" aria-labelledby="expTools">
             <div class="menuhead" id="expTools">For other tools</div>
             <button role="menuitem" data-act="exportSrt"><span><strong>Script as SRT</strong><span class="dim">to hand off, or for the final output</span></span><kbd><span class="mod"></span>E</kbd></button>
@@ -815,6 +819,20 @@ docker compose up -d --build</code></pre>
     </div>
   </dialog>
 
+  <dialog id="checkDlg" class="updbox checkdlg" aria-labelledby="checkTitle">
+    <h2 id="checkTitle">Check spelling and grammar</h2>
+    <p id="checkSummary" role="status"></p>
+    <progress id="checkBar" class="jobbar" max="1" value="0" hidden aria-label="Checking the script"></progress>
+    <div id="checkList" class="checklist"></div>
+    <button id="checkMore" hidden>Show more</button>
+    <div id="checkAiRow" class="updstatus">
+      <button id="checkAi">Check grammar with AI</button>
+      <button id="checkAiStop" hidden>Stop</button>
+      <span id="checkAiNote" class="dim small"></span>
+    </div>
+    <div class="updbtns"><button id="checkClose">Close</button><button id="checkGo" class="hl" hidden>Export anyway</button></div>
+  </dialog>
+
   <dialog id="sayDlg" class="updbox" aria-labelledby="sayTitle">
     <h2 id="sayTitle">Sounds like</h2>
     <p>Tell text to speech how to say words in <span id="sayBlock">this block</span>. Only the reading
@@ -1203,6 +1221,12 @@ docker compose up -d --build</code></pre>
       <p class="dim small">When you press <kbd>Esc</kbd> or <kbd>↵</kbd>, the playhead goes back to the start of
         the block, to hear it again. If it was playing, it carries on from there.
         <kbd>⇧</kbd><kbd>L</kbd> turns it on or off.</p>
+      <h3>Spelling and grammar</h3>
+      <p class="updstatus"><button id="setCheckWarn" aria-pressed="true">Check before exporting</button>
+        <label for="setCheckLang" class="small">Spelling</label>
+        <select id="setCheckLang"><option value="en-us">American</option><option value="en-gb">British</option><option value="en-ca">Canadian</option></select></p>
+      <p class="dim small">When on, exporting a script or its audio first lists anything that looks wrong. You can still export.
+        Turn it off for scripts that aren't in English.</p>
       <div class="setrec record-only">
       <h3>Recording</h3>
       <p class="updstatus"><button id="setReturn" aria-pressed="false">Return to start</button></p>
@@ -1361,6 +1385,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="trackNext trackPrev"><kbd>T</kbd> / <kbd>⇧</kbd><kbd>T</kbd></dt><dd>Next / previous audio track</dd>
             <dt><kbd>/</kbd></dt><dd>Search the block list (↑ ↓ step through matches, ↵ back to timeline, Esc clears)</dd>
             <dt data-keys="findReplace"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Find and replace text in every block</dd>
+            <dt data-keys="checkSpelling"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>K</kbd></dt><dd>Check spelling and grammar</dd>
             <dt data-keys="toStart toEnd"><kbd>G</kbd> / <kbd>⇧</kbd><kbd>G</kbd></dt><dd>Playhead to block start / end</dd>
             <dt data-keys="hold" class="transcribe-only">Hold <kbd>H</kbd></dt><dd class="transcribe-only">Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on</dd>
             <dt data-keys="hold" class="write-only">Hold <kbd>H</kbd></dt><dd class="write-only">Time your own read of the selected block: let go to set its end. Hold again to carry on after a breath; <kbd>G</kbd> first to start over</dd>

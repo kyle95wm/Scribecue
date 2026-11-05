@@ -28,7 +28,7 @@ test('every Export item sits in a named group', () => {
   const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
   const menu = html.slice(html.indexOf('id="exportMenu"'), html.indexOf('id="qcPermission"'));
   const groups = menu.split('role="group"').slice(1);
-  assert.equal(groups.length, 7);
+  assert.equal(groups.length, 8);
   for (const g of groups) {
     const id = /aria-labelledby="(\w+)"/.exec(g)?.[1];
     assert.ok(id && g.includes(`class="menuhead" id="${id}"`), `group ${id} has no heading`);

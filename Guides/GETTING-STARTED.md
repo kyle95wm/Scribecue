@@ -172,6 +172,30 @@ use the **Export** menu at the top:
 
 `Ctrl/Cmd+O` opens SRT and WebVTT scripts too, and Frazier's `.adc` scripts.
 
+## Checking spelling and grammar
+
+Scribecue checks the script when you export it, as a file, a package or audio. If something
+looks wrong, it lists it first. Fix it, or choose **Export anyway**.
+
+To check without exporting, choose **Export → Check spelling and grammar**, or press
+`Alt+Shift+K`.
+
+| Button | What it does |
+| --- | --- |
+| A suggestion | Changes the text. A misspelled word changes everywhere it's used. `Ctrl/Cmd+Z` undoes it. |
+| **Go to block** | Closes the list and selects the block. |
+| **Ignore** | Hides it until you open another project. |
+| **Add to project** | Accepts a name or term. It's saved with the project. |
+
+- **Names:** capitalised words in your [AI notes](AI.md#what-it-does) and words with a
+  sounds-like count as right.
+- **Exporting again:** you're only asked about new problems.
+- **Harder mistakes:** the check works offline, but it only catches simple grammar.
+  [Check grammar with AI](AI.md#what-it-does) goes further.
+- **In QC mode:** it lists problems but can't change text. Go to the block to comment.
+- **Settings:** under General, turn off **Check before exporting**, or choose American,
+  British or Canadian spelling. The check is English only, so turn it off for other languages.
+
 ## Which file to send
 
 Your project is your master copy, so keep it. The other files are made for one person and one job.

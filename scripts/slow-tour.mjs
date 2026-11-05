@@ -238,7 +238,7 @@ const script = Array.from({ length: BLOCKS }, (_, i) => {
   return { start: +start.toFixed(2), end: +(start + 3.2).toFixed(2), text: text[0].toUpperCase() + text.slice(1) + '.' };
 });
 
-const SETTINGS = { welcome: '1', seenVersion: '999.0.0', updates: '0', mode: 'write', setupModes: '{"write":true,"transcribe":true,"qc":true,"record":true}', loops: '{"write":true,"transcribe":true}' };
+const SETTINGS = { proof: '{"warn":false}', welcome: '1', seenVersion: '999.0.0', updates: '0', mode: 'write', setupModes: '{"write":true,"transcribe":true,"qc":true,"record":true}', loops: '{"write":true,"transcribe":true}' };
 try {
   await send('Runtime.enable');
   await send('Page.enable');

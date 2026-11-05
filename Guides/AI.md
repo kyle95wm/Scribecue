@@ -37,6 +37,8 @@ Click **AI** at the top, or press `Alt+Shift+A`, and a drawer slides out beside 
 - **Notes:** tell the AI what the frames can't show, such as who's who. Every draft and
   message includes them, and they're saved with the project.
 - **New chat** starts again.
+- **Check grammar with AI:** in the [spelling and grammar check](GETTING-STARTED.md#checking-spelling-and-grammar).
+  It suggests fixes for mistakes the offline check misses. Nothing changes until you choose a fix.
 
 ## Choosing where it runs
 
@@ -228,6 +230,7 @@ And always check a draft against the picture: AI is confident even when it's wro
 - With an online provider, each message or draft sends the frames it uses, the selected
   block and those around it, and your project notes, to that provider only, under its terms.
   Scribecue's own server never sees them.
+- **Check grammar with AI** sends the whole script and your project notes, in parts.
 - With Ollama, everything stays on your computer.
 - Keys stay in your browser, and only go to their own provider. Your TMDB key, if you look
   up a cast, only goes to TMDB, with the IMDb link or title you looked up.
@@ -240,7 +243,8 @@ cent with Sonnet 5.5, and a fraction of a cent with Haiku 5.5. With OpenAI, it's
 2–3 cents with GPT-6 Astra, half a cent with GPT-6.1 Sol, and a tiny fraction of a cent
 with GPT-6 Luna. These are estimates; your
 provider's dashboard shows the real figures. Long chats cost more, though only the latest
-messages resend their frames. Ollama costs nothing to use.
+messages resend their frames. **Check grammar with AI** sends the whole script, so a long
+script costs more than a draft. Ollama costs nothing to use.
 
 ## If something goes wrong
 
