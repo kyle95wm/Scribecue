@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.83.0",
+    "date": "2026-11-05",
+    "notes": "## New: smaller QC packages\n\n- Packages no longer hold audio for Piper blocks, so they stay small.\n- The reviewer's computer reads those blocks live, and changed Piper blocks can be heard straight away.\n- If a reviewer doesn't have a package's Piper voice, Scribecue offers to download it.\n- Google Cloud and Kokoro blocks still keep their audio in the package.\n- Writers and reviewers both need 0.83 or later.\n\n## Fixed: videos no browser can open\n\n- TS, M2TS, AVI, WMV and MPG files no longer tell you to try Chrome or Edge, which wouldn't help.\n- The message now asks for an MP4 or WebM copy.\n- The Getting Started guide shows how to make an MP4 copy."
+  },
+  {
     "version": "0.82.0",
     "date": "2026-11-04",
     "notes": "## New: comments in Write\n\n- You can now leave comments in Write mode, not just QC.\n- You don't need a QC package to leave notes on your own script.\n- Click **Comment** in an open block, click **Comments** at the top, or right-click the timeline.\n- Comments with no name now say **No name** instead of **Reviewer**.\n\n## Changed: the Export menu\n\n- Export is now grouped by who each file is for, such as **For a reviewer** or **For a narrator**.\n- **Narration package** is now called **Narration zip**. It holds the same files."
