@@ -1,7 +1,7 @@
 // Which formats the browser can't play, and what Scribecue says about it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { videoName, missing, silentSound, copiesSound, ownTrack, advice, copyKind, TESTS, COMMON } from '../app/js/codecs.js';
+import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS, COMMON } from '../app/js/codecs.js';
 import { missingFeatures } from '../app/js/browser.js';
 
 // A Chromium build without the licensed codecs.
@@ -29,7 +29,18 @@ test('the message names what is missing and what to do', () => {
   assert.match(one, /leave it out/);
   assert.match(one, /WebM copy/);
   assert.match(advice(['H.264', 'AAC'], { file: 'Film.mp4', ffmpeg: true }), /H\.264 or AAC.*leave them out.*Make a copy/);
-  assert.match(advice([], { file: 'Film.avi' }), /^This browser can’t play Film\.avi\. /);
+  assert.match(advice([], { file: 'Film.ogv' }), /^This browser can’t play Film\.ogv\. /);
+});
+
+test('files no browser opens don’t send people to another browser', () => {
+  for (const file of ['Film.m2ts', 'Film.ts', 'FILM.MTS', 'Film.avi', 'Film.wmv', 'Film.mpg']) assert.ok(noBrowserOpens(file), file);
+  for (const file of ['Film.mp4', 'Film.mkv', 'Film.webm', 'this file', 'ts', 'Film.m2ts.mp4']) assert.ok(!noBrowserOpens(file), file);
+  for (const ffmpeg of [false, true]) {
+    const said = advice([], { file: 'Bend.M2TS', ffmpeg });
+    assert.match(said, /^Browsers can’t open \.m2ts files/);
+    assert.match(said, /MP4 or WebM copy of Bend\.M2TS/);
+    assert.doesNotMatch(said, /Chrome or Edge|Make a copy/);
+  }
 });
 
 test('sound that can’t play is only reported when no track can', () => {

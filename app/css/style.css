@@ -871,6 +871,7 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 #list .clash { color: var(--warn); }
 #list .ready { color: var(--accent); }
 .ffonly[hidden], #ttsWeb[hidden], #ttsWebGet[hidden], #ttsAllStop[hidden], #ttsAllExactRow[hidden], #ttsAll[hidden], #ttsExport[hidden], #ttsFitAll[hidden], #ttsFitStop[hidden], .jobbar[hidden] { display: none; }
+.nocopy .ffonly { display: none; }
 .jobbar { width: 220px; height: 10px; vertical-align: middle; accent-color: var(--accent); }
 #ttsPiperNote:empty, #ttsExportNote:empty { display: none; }
 .edspeed { display: inline-flex; align-items: center; gap: 4px; }
