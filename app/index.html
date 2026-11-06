@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Scribecue</title>
   <!-- The same policy nginx sends, here too for the web version, which has no nginx. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://texttospeech.googleapis.com https://openrouter.ai https://api.themoviedb.org http://localhost:11434 http://127.0.0.1:11434; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://texttospeech.googleapis.com https://polly.us-east-1.amazonaws.com https://polly.us-west-2.amazonaws.com https://polly.ca-central-1.amazonaws.com https://polly.eu-west-1.amazonaws.com https://polly.eu-west-2.amazonaws.com https://polly.eu-central-1.amazonaws.com https://polly.ap-northeast-1.amazonaws.com https://polly.ap-southeast-2.amazonaws.com https://openrouter.ai https://api.themoviedb.org http://localhost:11434 http://127.0.0.1:11434; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#11141a">
@@ -61,7 +61,7 @@
           </div>
           <div role="group" class="menugroup qc-export" aria-labelledby="expReviewer">
             <div class="menuhead" id="expReviewer">For a reviewer</div>
-            <button role="menuitem" data-act="exportQc"><span><strong>QC package</strong><span class="dim">the project and its Google and Kokoro readings, ready to review on another computer</span></span></button>
+            <button role="menuitem" data-act="exportQc"><span><strong>QC package</strong><span class="dim">the project and its Google, Amazon Polly and Kokoro readings, ready to review on another computer</span></span></button>
           </div>
           <div role="group" class="menugroup write-only" aria-labelledby="expNarrator">
             <div class="menuhead" id="expNarrator">For a narrator</div>
@@ -78,7 +78,7 @@
           </div>
           <div role="group" class="menugroup write-only" aria-labelledby="expAudio">
             <div class="menuhead" id="expAudio">Finished audio</div>
-            <button role="menuitem" data-act="exportTrack"><span><strong>Description track</strong><span class="dim">every reading in one WAV or MP3 file, with a Piper or Google voice</span></span></button>
+            <button role="menuitem" data-act="exportTrack"><span><strong>Description track</strong><span class="dim">every reading in one WAV or MP3 file, with a Piper, Google or Amazon Polly voice</span></span></button>
             <button role="menuitem" data-act="exportMix"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></button>
           </div>
           <div role="group" class="menugroup check-export" aria-labelledby="expCheck">
@@ -502,7 +502,7 @@ docker compose up -d --build</code></pre>
       <span class="dim">Lines that no longer fit show their duration in red.</span></span></button>
     <button class="wzcard wzchoice" data-choice="back"><span><strong id="chgBack">Go back</strong>
       <span class="dim">Nothing changes: the voice and speed are as they were, and so are the timings.</span></span></button>
-    <p class="warnbox googlecost" hidden>You're using a Google Cloud voice, so changing the ends reads every block with Google again, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
+    <p class="warnbox cloudcost" hidden>You're using a Google Cloud or Amazon Polly voice, so changing the ends reads every block with it again, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
     <label class="updopt"><input type="checkbox" id="chgAlways"> Always do this when the voice or base speed changes</label>
     <p class="dim small">You can undo the change with <kbd><span class="mod"></span>Z</kbd>, and change this in
       Settings, under Text to speech.</p>
@@ -517,7 +517,7 @@ docker compose up -d --build</code></pre>
       <span class="dim">Each block ends where its reading finishes, at its speed, never running into the next block.</span></span></button>
     <button class="wzcard wzchoice" data-choice="leave"><span><strong>Leave everything as it is</strong>
       <span class="dim">Lines that don't fit show their duration in red, so you can deal with them one by one.</span></span></button>
-    <p class="warnbox googlecost" hidden>You're using a Google Cloud voice, so keeping the timings and fitting the speeds, or changing the ends, reads every block with Google again, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
+    <p class="warnbox cloudcost" hidden>You're using a Google Cloud or Amazon Polly voice, so keeping the timings and fitting the speeds, or changing the ends, reads every block with it again, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
     <label class="updopt"><input type="checkbox" id="impAlways"> Always do this when I open a script</label>
     <p class="dim small">You can undo either change with <kbd><span class="mod"></span>Z</kbd>, and change this in
       Settings, under Text to speech.</p>
@@ -558,7 +558,7 @@ docker compose up -d --build</code></pre>
         <span><strong>Writing new audio description</strong>
           <span class="dim">Hear your lines read aloud, and check each one fits before the next piece of dialogue.</span></span></label>
       <label class="wzcard"><input type="radio" name="wzMode" value="qc">
-        <span><strong>QC review</strong><span class="dim">Listen and leave comments. The package creator decides whether corrections are allowed. Google and Kokoro readings work without a key or Docker. Piper blocks need their voice.</span></span></label>
+        <span><strong>QC review</strong><span class="dim">Listen and leave comments. The package creator decides whether corrections are allowed. Google, Amazon Polly and Kokoro readings work without a key or Docker. Piper blocks need their voice.</span></span></label>
       <p class="dim small">Use the mode switch at the top to change tasks at any time.</p>
       <p class="dim small">Recording narration? Open the recording file the writer sent you. Setup for recording starts then.</p>
     </section>
@@ -686,7 +686,7 @@ docker compose up -d --build</code></pre>
   </dialog>
   <dialog id="qcExportDlg" class="updbox" aria-labelledby="qcExportTitle">
     <h2 id="qcExportTitle">Make a QC package</h2>
-    <p>Includes the project, comments and the audio of Google and Kokoro blocks. The reviewer needs no key or Docker to play it. Send the matching video separately.</p>
+    <p>Includes the project, comments and the audio of Google, Amazon Polly and Kokoro blocks. The reviewer needs no key or Docker to play it. Send the matching video separately.</p>
     <p>Piper blocks are read on the reviewer’s computer, so the file stays small. They need the same voice. Built-in and browser-provided online voices can’t be used: choose another voice in Write mode, or supply a recorded review video.</p>
     <button id="qcExportAllowEdits" aria-pressed="false" aria-describedby="qcExportPermissionInfo">Allow reviewers to edit blocks</button>
     <p id="qcExportPermissionInfo" class="dim small">Off: comments only. On: reviewers may correct text, timings, voices and speeds. This choice stays with the package; reviewers cannot change it in QC. The package also keeps a starting point for comparing the returned review.</p>
@@ -698,7 +698,16 @@ docker compose up -d --build</code></pre>
         <label for="qcGoogleKey">Separate review key</label> <input id="qcGoogleKey" type="password" autocomplete="off" spellcheck="false">
       </div>
     </div>
-    <p id="qcExportCost" class="warnbox" hidden>Making Google Cloud readings sends the text to Google and uses your allowance. Uncached readings may cost money.</p>
+    <div id="qcPollyAccess" hidden>
+      <button id="qcExportPolly" aria-pressed="false">Include a separate Amazon Polly review key</button>
+      <div id="qcPollyKeyRow" hidden>
+        <p class="dim small">Create a separate key for this review, with an end date, then paste it below. Reviewers use their own key first. New wording or speed needs internet; placement uses saved audio. Anyone with this package can read this key, and an AWS key isn't tied to a website. Delete it in AWS when the review is done.</p>
+        <p class="updstatus"><label for="qcPollyKey">Access key</label> <input id="qcPollyKey" type="password" autocomplete="off" spellcheck="false"></p>
+        <p class="updstatus"><label for="qcPollySecret">Secret key</label> <input id="qcPollySecret" type="password" autocomplete="off" spellcheck="false"></p>
+        <p class="updstatus"><label for="qcPollyRegion">Region</label> <select id="qcPollyRegion"></select></p>
+      </div>
+    </div>
+    <p id="qcExportCost" class="warnbox" hidden>Making Google Cloud or Amazon Polly readings sends the text to them and uses your allowance. Uncached readings may cost money.</p>
     <p id="qcExportStatus" class="dim small" role="status"></p>
     <progress id="qcExportProgress" max="1" value="0" hidden aria-label="QC package progress"></progress>
     <div class="updbtns"><button id="qcExportStart" class="hl">Make QC package</button><button id="qcExportStop" hidden>Stop</button><button id="qcExportClose">Close</button></div>
@@ -938,7 +947,7 @@ docker compose up -d --build</code></pre>
           <option value="leave">Leave the timings as they are</option>
         </select>
       </div>
-      <p class="warnbox googlecost" hidden>You're using a Google Cloud voice, so making all readings, updating all timings or fitting speeds to timings reads every block with Google, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
+      <p class="warnbox cloudcost" hidden>You're using a Google Cloud or Amazon Polly voice, so making all readings, updating all timings or fitting speeds to timings reads every block with it, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
       <h3>Make all readings</h3>
       <p class="small">Read every block now, at its own speed, so each one plays straight away and its
         length is exact. Timings aren't changed. The readings are kept in this browser, so they're still
@@ -1047,6 +1056,24 @@ docker compose up -d --build</code></pre>
         <a href="https://github.com/kyle95wm/Scribecue/blob/main/Guides/GOOGLE-VOICES.md" target="_blank" rel="noopener noreferrer">The Google voices guide</a>
         covers setting up the key, and making sure you're never billed. Readings are kept in this browser,
         so each line is only sent to Google once, unless you change it.</p>
+      <h3>Amazon Polly voices</h3>
+      <p class="small">Amazon's Neural and Standard voices, with your own AWS key. Like Piper voices, they give
+        exact lengths and can be exported as a description track. Each reading sends the block's text to
+        Amazon, and Amazon bills your AWS account for it, past any free allowance. See
+        <a href="https://aws.amazon.com/polly/pricing/" target="_blank" rel="noopener noreferrer">Amazon's prices</a>.</p>
+      <p class="updstatus"><label for="ttsPollyKey" class="small">Access key</label>
+        <input id="ttsPollyKey" type="password" autocomplete="off" spellcheck="false" placeholder="AKIA…">
+        <a id="ttsPollyGet" class="small" target="_blank" rel="noopener noreferrer">Get a key</a>
+        <button id="ttsPollyForget">Forget</button></p>
+      <p class="updstatus"><label for="ttsPollySecret" class="small">Secret key</label>
+        <input id="ttsPollySecret" type="password" autocomplete="off" spellcheck="false"></p>
+      <p class="updstatus"><label for="ttsPollyRegion" class="small">Region</label>
+        <select id="ttsPollyRegion"></select></p>
+      <p id="ttsPollyStatus" class="dim small" aria-live="polite"></p>
+      <p class="dim small">Use a key that can only reach Polly. It's kept in this browser, and only sent to Amazon.
+        <a href="https://github.com/kyle95wm/Scribecue/blob/main/Guides/POLLY-VOICES.md" target="_blank" rel="noopener noreferrer">The Amazon Polly voices guide</a>
+        covers setting up the key, and stopping the voices at a spending limit. Readings are kept in this
+        browser, so each line is only sent to Amazon once, unless you change it.</p>
       <h3>Online voices</h3>
       <label class="updopt"><input type="checkbox" id="ttsOnline"> Include online voices</label>
       <p id="ttsNoOnline" class="warnbox" hidden>This browser doesn't offer any online voices. To use

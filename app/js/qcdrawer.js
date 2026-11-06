@@ -1,5 +1,7 @@
+import { POLLY_REGIONS, POLLY_REGION } from './polly.js';
+import { keyName } from './qcspeech.js';
 import { buildReview, openReview, hasReviewText, playbackReading, reviewSink, voiceReport, readsLive, liveBlock, liveVoices, REVIEW_EXT } from './qc.js';
-import { reviewVoices, reviewAudio, voiceLabel, chosenVoice, usingGoogle, hasGoogleKey, isPersonalGoogleKey, webPiper, downloadVoice, loadPiper, megabytes, missingVoiceAdvice } from './tts.js';
+import { reviewVoices, reviewAudio, voiceLabel, chosenVoice, cloudOf, hasGoogleKey, hasPollyKey, isPersonalGoogleKey, isPersonalPollyKey, reviewPollyCreds, webPiper, downloadVoice, loadPiper, megabytes, missingVoiceAdvice } from './tts.js';
 import { HOSTED } from './config.js';
 const $ = (id) => document.getElementById(id);
 let h, controller = null;
@@ -19,7 +21,7 @@ export function refreshQc() {
   const review = h.review(), spoken = p.blocks.filter((b) => hasReviewText(b, p.settings));
   const live = spoken.filter((b) => liveBlock(review, b, p.settings)).length, missing = review ? missingVoices() : [];
   const valid = spoken.filter((b) => playbackReading(review, b, p.settings) || liveBlock(review, b, p.settings)).length;
-  $('qcPackageInfo').textContent = review ? `${valid} of ${spoken.length} blocks have matching saved readings. ${valid < spoken.length ? 'Changed Google blocks are read when you finish editing them. Other missing readings need a new package from the writer.' : live ? 'Piper blocks are read on this computer. Other audio is included.' : 'The included audio plays without installing these voices or adding a key.'}` : 'No original readings are included. Use the programme sound, ask for a QC package, or explicitly choose an approximate TTS preview.';
+  $('qcPackageInfo').textContent = review ? `${valid} of ${spoken.length} blocks have matching saved readings. ${valid < spoken.length ? 'Changed Google and Amazon Polly blocks are read when you finish editing them. Other missing readings need a new package from the writer.' : live ? 'Piper blocks are read on this computer. Other audio is included.' : 'The included audio plays without installing these voices or adding a key.'}` : 'No original readings are included. Use the programme sound, ask for a QC package, or explicitly choose an approximate TTS preview.';
   for (const [id, source] of [['qcSourceVideo', 'video'], ['qcSourcePackage', 'package'], ['qcSourcePreview', 'preview']]) {
     $(id).setAttribute('aria-pressed', String(h.source() === source));
   }
@@ -28,20 +30,30 @@ export function refreshQc() {
   if (!review && h.audioReference?.()) $('qcPackageInfo').textContent = 'Original readings are not available in this browser. Locate the matching QC package to hear them again.';
   $('qcSourcePackage').disabled = !review;
   $('qcSourcePackage').textContent = review?.proposals.length ? 'Saved readings' : 'Original readings';
-  const googleReview = h.package() && review?.permissions.allowEdits && review.readings.some((r) => r.voice.startsWith('google:'));
-  $('qcKeyInfo').hidden = !googleReview;
-  $('qcKeyInfo').textContent = `${hasGoogleKey() ? `Your Google key reads changed blocks when you finish editing them${review?.reviewAccess ? '. If it fails, the separate key in this package is used' : ''}.` : review?.reviewAccess ? 'The separate key in this package reads changed blocks when you finish editing them.' : 'Add your Google key in Text to speech settings to read changed blocks.'} Only changed wording or speed needs Google. Saved readings play offline. Save keeps the review key for continued work; Export → Return package leaves it out.`;
+  const rereading = h.package() && review?.permissions.allowEdits ? [...new Set([...review.rereadVoices].map(keyName))] : [];
+  $('qcKeyInfo').hidden = !rereading.length;
+  $('qcKeyInfo').textContent = `${rereading.map((name) => keyNote(name, review)).join(' ')} Only changed wording or speed needs ${rereading.map((name) => (name === 'AWS' ? 'Amazon' : name)).join(' or ')}. Saved readings play offline. Save keeps the review key for continued work; Export → Return package leaves it out.`;
   const select = $('qcPreviewVoice'), selected = select.value;
   select.replaceChildren(...reviewVoices().map((v) => new Option(v.name, v.id)));
   select.value = reviewVoices().some((v) => v.id === selected) ? selected : chosenVoice();
   $('qcSourcePreview').disabled = !select.options.length;
   $('qcPreviewNote').textContent = 'Approximate preview: missing voices use the voice selected below, and blocks read in it keep their timings. This is not the writer’s original reading. Online voices send text to their provider.';
   if (!controller) $('qcExportStart').disabled = !spoken.length || report.some((v) => !v.available || !v.exportable);
-  $('qcExportCost').hidden = !report.some((v) => usingGoogle(v.id));
+  $('qcExportCost').hidden = !report.some((v) => cloudOf(v.id));
   const googleAccess = $('qcExportAllowEdits').getAttribute('aria-pressed') === 'true' && report.some((v) => v.id.startsWith('google:'));
   $('qcGoogleAccess').hidden = !googleAccess;
   if (!googleAccess) { $('qcExportGoogle').setAttribute('aria-pressed', 'false'); $('qcGoogleKey').value = ''; }
   $('qcGoogleKeyRow').hidden = $('qcExportGoogle').getAttribute('aria-pressed') !== 'true';
+  const pollyAccess = $('qcExportAllowEdits').getAttribute('aria-pressed') === 'true' && report.some((v) => v.id.startsWith('polly:'));
+  $('qcPollyAccess').hidden = !pollyAccess;
+  if (!pollyAccess) { $('qcExportPolly').setAttribute('aria-pressed', 'false'); clearPollyFields(); }
+  $('qcPollyKeyRow').hidden = $('qcExportPolly').getAttribute('aria-pressed') !== 'true';
+}
+// What reads a package's changed blocks, for one kind of key.
+function keyNote(name, review) {
+  const aws = name === 'AWS', mine = aws ? hasPollyKey() : hasGoogleKey(), bundled = aws ? review.reviewAccess?.polly : review.reviewAccess?.googleKey;
+  if (mine) return `Your ${name} key reads changed blocks when you finish editing them${bundled ? '. If it fails, the separate key in this package is used' : ''}.`;
+  return bundled ? `The separate ${name} key in this package reads changed blocks when you finish editing them.` : `Add your ${name} key in Text to speech settings to read changed blocks.`;
 }
 function missingVoices() {
   const p = h.project(), here = new Set(reviewVoices().map((v) => v.id));
@@ -56,7 +68,7 @@ function showVoiceOffer() {
   const size = get.reduce((sum, id) => sum + offered(id), webPiper.engineReady ? 0 : webPiper.engine);
   $('qcVoiceList2').replaceChildren(...missing.map((id) => {
     const row = document.createElement('li');
-    row.textContent = `${voiceLabel(id)}${get.includes(id) ? '' : `: ${missingVoiceAdvice(id, { hosted: HOSTED })}`}`;
+    row.textContent = `${voiceLabel(id)}${get.includes(id) ? '' : `: ${missingVoiceAdvice(id, { pollyKey: hasPollyKey(), hosted: HOSTED })}`}`;
     return row;
   }));
   $('qcVoiceGet').hidden = !get.length;
@@ -84,9 +96,12 @@ export async function offerLiveVoices() {
 export function openQcPlayback() { if (!h.qc()) return; refreshQc(); $('qcPlaybackDlg').showModal(); refreshQc(); }
 export function openQcExport() {
   if (!h.canCreate()) return h.toast('QC packages are made from the writer’s project. Open it to create a new package');
-  $('qcExportAllowEdits').setAttribute('aria-pressed', 'false'); $('qcExportGoogle').setAttribute('aria-pressed', 'false'); $('qcGoogleKey').value = ''; $('qcExportStatus').textContent = ''; $('qcExportDlg').showModal(); refreshQc(); }
+  $('qcExportAllowEdits').setAttribute('aria-pressed', 'false'); $('qcExportGoogle').setAttribute('aria-pressed', 'false'); $('qcGoogleKey').value = ''; $('qcExportPolly').setAttribute('aria-pressed', 'false'); clearPollyFields(); $('qcExportStatus').textContent = ''; $('qcExportDlg').showModal(); refreshQc(); }
+const clearPollyFields = () => { $('qcPollyKey').value = ''; $('qcPollySecret').value = ''; };
+const POLLY_FIELDS = ['qcExportPolly', 'qcPollyKey', 'qcPollySecret', 'qcPollyRegion'];
 export function initQc(hooks) {
   h = hooks;
+  $('qcPollyRegion').append(...POLLY_REGIONS.map(([id, name]) => new Option(`${name}, ${id}`, id)));
   $('qcExportAllowEdits').onclick = () => { if (!controller) { $('qcExportAllowEdits').setAttribute('aria-pressed', String($('qcExportAllowEdits').getAttribute('aria-pressed') !== 'true')); refreshQc(); } };
   $('qcExportGoogle').onclick = () => {
     if (controller) return;
@@ -94,6 +109,14 @@ export function initQc(hooks) {
     $('qcExportGoogle').setAttribute('aria-pressed', String(on));
     if (!on) $('qcGoogleKey').value = '';
     refreshQc(); if (on) $('qcGoogleKey').focus();
+  };
+  $('qcExportPolly').onclick = () => {
+    if (controller) return;
+    const on = $('qcExportPolly').getAttribute('aria-pressed') !== 'true';
+    $('qcExportPolly').setAttribute('aria-pressed', String(on));
+    if (on) $('qcPollyRegion').value = reviewPollyCreds()?.region || POLLY_REGION;
+    else clearPollyFields();
+    refreshQc(); if (on) $('qcPollyKey').focus();
   };
   for (const [id, source] of [['qcSourceVideo', 'video'], ['qcSourcePackage', 'package'], ['qcSourcePreview', 'preview']]) {
     $(id).onclick = () => { h.setSource(source, $('qcPreviewVoice').value); refreshQc(); };
@@ -115,7 +138,7 @@ export function initQc(hooks) {
   $('qcExportClose').onclick = () => { controller?.abort(); $('qcExportDlg').close(); };
   $('qcExportStop').onclick = () => controller?.abort();
   $('qcExportDlg').addEventListener('cancel', () => controller?.abort());
-  $('qcExportDlg').addEventListener('close', () => { $('qcGoogleKey').value = ''; });
+  $('qcExportDlg').addEventListener('close', () => { $('qcGoogleKey').value = ''; clearPollyFields(); });
   for (const id of ['qcPlaybackDlg', 'qcExportDlg', 'qcVoiceDlg']) document.addEventListener('keydown', (e) => { if ($(id).open) e.stopPropagation(); }, true);
   $('qcExportStart').onclick = async () => {
     if (controller || !h.canCreate()) return;
@@ -123,18 +146,22 @@ export function initQc(hooks) {
     const googleReviewKey = $('qcExportGoogle').getAttribute('aria-pressed') === 'true' ? $('qcGoogleKey').value.trim() : '';
     if ($('qcExportGoogle').getAttribute('aria-pressed') === 'true' && !googleReviewKey) { $('qcExportStatus').textContent = 'Paste the separate review key first'; return; }
     if (isPersonalGoogleKey(googleReviewKey)) { $('qcExportStatus').textContent = 'Use a separate review key. This is your main Google key'; return; }
+    const pollyOn = $('qcExportPolly').getAttribute('aria-pressed') === 'true';
+    const pollyReviewKey = pollyOn ? { key: $('qcPollyKey').value.trim(), secret: $('qcPollySecret').value.trim(), region: $('qcPollyRegion').value } : null;
+    if (pollyOn && !(pollyReviewKey.key && pollyReviewKey.secret)) { $('qcExportStatus').textContent = 'Paste the separate access key and secret key first'; return; }
+    if (isPersonalPollyKey(pollyReviewKey?.key)) { $('qcExportStatus').textContent = 'Use a separate review key. This is your main AWS key'; return; }
     const project = h.project();
     project.settings.mode = 'qc';
     const report = voiceReport(project.blocks, project.settings, reviewVoices());
     if (report.some((v) => !v.available || !v.exportable)) return refreshQc();
-    controller = new AbortController(); h.busy(true); $('qcExportAllowEdits').disabled = true; $('qcExportGoogle').disabled = true; $('qcGoogleKey').disabled = true;
+    controller = new AbortController(); h.busy(true); $('qcExportAllowEdits').disabled = true; $('qcExportGoogle').disabled = true; $('qcGoogleKey').disabled = true; for (const id of POLLY_FIELDS) $(id).disabled = true;
     $('qcExportStart').disabled = true; $('qcExportStop').hidden = false; $('qcExportProgress').hidden = false;
     let sink;
     try {
       sink = await reviewSink();
       if (!sink) throw new Error('Making a QC package needs browser disk storage. Use a current Chrome or Edge browser');
       const blob = await buildReview(project, (b) => reviewAudio(h.said(b), b.speed || 1, b.voice || project.settings.ttsVoice), {
-        sink, signal: controller.signal, allowEdits, handoff: true, googleReviewKey, progress: (done, total) => {
+        sink, signal: controller.signal, allowEdits, handoff: true, googleReviewKey, pollyReviewKey, progress: (done, total) => {
           $('qcExportProgress').value = total ? done / total : 0;
           $('qcExportStatus').textContent = `Packaging blocks: ${done} of ${total}`;
         },
@@ -148,6 +175,6 @@ export function initQc(hooks) {
       setTimeout(() => { URL.revokeObjectURL(url); sink.clean(); }, 60000);
       $('qcExportStatus').textContent = 'QC package saved. Send it with the matching video. The video is not included.';
     } catch (e) { await sink?.clean(); $('qcExportStatus').textContent = e.message; }
-    finally { controller = null; h.busy(false); $('qcExportAllowEdits').disabled = false; $('qcExportGoogle').disabled = false; $('qcGoogleKey').disabled = false; $('qcExportStop').hidden = true; $('qcExportProgress').hidden = true; refreshQc(); }
+    finally { controller = null; h.busy(false); $('qcExportAllowEdits').disabled = false; $('qcExportGoogle').disabled = false; $('qcGoogleKey').disabled = false; for (const id of POLLY_FIELDS) $(id).disabled = false; $('qcExportStop').hidden = true; $('qcExportProgress').hidden = true; refreshQc(); }
   };
 }

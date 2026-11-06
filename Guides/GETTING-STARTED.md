@@ -166,8 +166,8 @@ use the **Export** menu at the top:
 - **Script as WebVTT** (`Ctrl/Cmd+Shift+E`). This also keeps each block's speed, voice and
   sounds-like words.
 - **Description track:** all the readings as one WAV or MP3 file, in Write mode with a
-  [Piper](VOICES.md#piper-voices), [Kokoro](VOICES.md#kokoro-voices) or
-  [Google](VOICES.md#google-cloud-voices) voice.
+  [Piper](VOICES.md#piper-voices), [Kokoro](VOICES.md#kokoro-voices), [Google](VOICES.md#google-cloud-voices)
+  or [Amazon Polly](VOICES.md#amazon-polly-voices) voice.
 - **Full mix:** the programme's sound with the readings, the programme lowered under each
   one, as one WAV or MP3 file. See [Exporting the full mix](WRITING.md#exporting-the-full-mix).
 

@@ -152,7 +152,7 @@ test('permission-aware packages require a reader that understands their review v
     return new Blob([r.file.slice(0,r.audioEnd),json,footer]);
   };
   assert.equal(reviewAllowsEdits(await readReview(repack(1))),false);
-  await assert.rejects(readReview(repack(6)),/newer Scribecue/);
+  await assert.rejects(readReview(repack(7)),/newer Scribecue/);
 });
 
 test('Piper readings stay out of a package; Google and Kokoro readings stay in', async () => {

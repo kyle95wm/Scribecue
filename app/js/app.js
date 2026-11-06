@@ -1,7 +1,7 @@
 import { startNewProject } from './newproject.js';
 import { createQcPlayer } from './qcplayer.js';
 import { REVIEW_EXT, isReview, openReview, resaveReview, liveBlock, reviewAllowsEdits, reviewReading, playbackReading, rewriteSpec, readingVoiceChanged, appendRewrite, previousReading, storedReview, voiceReport, reviewAudioKey } from './qc.js';
-import { reviewedRewrite, speechKey } from './qcspeech.js';
+import { reviewedRewrite, speechKey, rereads, canReread, bundledFor, keyName } from './qcspeech.js';
 import { offerLiveVoices, initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments, commentsAllowed } from './comments.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
@@ -38,7 +38,7 @@ import { comboOf, lookup } from './keymap.js';
 import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime } from './extended.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
-import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, reviewGoogleKey, missingVoiceAdvice, hasGoogleKey } from './tts.js';
+import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands } from './ffcmd.js';
 import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS } from './codecs.js';
@@ -49,7 +49,7 @@ import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, readWav, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
-  reviewVoices, usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showGoogleCost, usingGoogle, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIP_BYS, isDip, FADES, isDipBy, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain,
+  reviewVoices, usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showCloudCost, cloudOf, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIP_BYS, isDip, FADES, isDipBy, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain,
   savedReadings, clearSavedReadings, checkFfmpeg } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -83,7 +83,7 @@ const canComment = () => commentsAllowed(S.mode);
 const qcEditable = () => S.reviewId ? reviewAllowsEdits(S.review) : !!S.reviewAudio;
 const qcLocked = () => qc() && !qcEditable();
 const readingControls = () => ttsOn() || (qc() && qcEditable());
-// QC blocks whose Google reading is being made on its own, and what that has set (see autoRewrite).
+// QC blocks whose new reading is being made on its own, and what that has set (see autoRewrite).
 const autoMaking = new Set(), autoAgain = new Set(), autoTimers = new Map();
 // The speech each block had when last seen in QC, and the blocks whose speech changed there.
 const fitFor = new WeakMap(), edited = new WeakSet();
@@ -826,7 +826,7 @@ function stopPreviousReading() {
   $('qcPrevious').textContent = 'Hear previous reading';
   $('qcPrevious').setAttribute('aria-pressed', 'false');
 }
-// Makes the Google reading of a QC block's changed wording or speed and saves it in the
+// Makes the new reading of a QC block's changed wording or speed and saves it in the
 // package. Returns it, or null when the block changed again meanwhile. The reviewer's own
 // key goes first; if it fails, the writer's key in the package reads it instead.
 async function makeRewrite(block) {
@@ -835,7 +835,7 @@ async function makeRewrite(block) {
   if (!spec) return null;
   const captured = { ...block, say: block.say?.map((p) => [...p]) }, project = projectData();
   let fellBack = false;
-  const made = await reviewedRewrite(spec, review.reviewAccess?.googleKey || '', () => {
+  const made = await reviewedRewrite(spec, bundledFor(review.reviewAccess, spec.voice), () => {
     const current = S.cues.find((b) => b.id === block.id), currentSpec = current && rewriteSpec(S.review, current, reviewSettings());
     fellBack = qc() && S.review === review && S.reviewId === reviewId && !!currentSpec && speechKey(currentSpec) === speechKey(spec);
     return fellBack;
@@ -847,27 +847,30 @@ async function makeRewrite(block) {
   const kept = await storedReview({ id: reviewId, file: next.file });
   if (S.review !== next || S.reviewId !== reviewId) return null;
   changed();
-  if (fellBack) toast(`Your Google key didn’t work, so the writer’s key read block #${idx(block.id) + 1}`);
+  if (fellBack) toast(`Your ${keyName(spec.voice)} key didn’t work, so the writer’s key read block #${idx(block.id) + 1}`);
   else if (!kept) toast('Reading ready. Save the QC package to keep it');
   const current = S.cues.find((b) => b.id === block.id), currentSpec = current && rewriteSpec(next, current, reviewSettings());
   if (!currentSpec || speechKey(currentSpec) !== speechKey(spec)) return null;
   return playbackReading(next, current, reviewSettings());
 }
-// A changed Google block is read once the edit ends, as in Write mode, and its end moves to
-// where the new reading finishes. It needs a Google key: the reviewer's own, or the writer's
-// in the package. The end can still
+// A changed Google or Polly block is read once the edit ends, as in Write mode, and its end
+// moves to where the new reading finishes. It needs a key for that voice: the reviewer's own,
+// or the writer's in the package. The end can still
 // be set by hand afterwards: it only follows a reading the first time it's heard.
-// Such a block keeps its Google voice, since a new one would need a fresh package. The list
+// Such a block keeps its voice, since a new one would need a fresh package. The list
 // stays for a block whose voice was already changed, so it can be changed back. A block
 // added in review reads with the package's voice, so it has no list either.
 function voiceFixed(c) {
-  if (!autoRewrites()) return false;
-  const previous = previousReading(S.review, c);
-  if (previous) return !!previous.voice?.startsWith('google:') && !readingVoiceChanged(S.review, c, reviewSettings());
-  return !!S.review.byUid?.size && !!S.review.googleVoices?.has(c.voice || reviewSettings().ttsVoice);
+  if (!qc() || !S.review) return false;
+  const previous = previousReading(S.review, c), voice = previous?.voice || c.voice || reviewSettings().ttsVoice;
+  if (!autoRewrites(voice)) return false;
+  if (previous) return rereads(previous.voice) && !readingVoiceChanged(S.review, c, reviewSettings());
+  return !!S.review.byUid?.size && !!S.review.rereadVoices?.has(voice);
 }
-function autoRewrites() { return qc() && !!S.reviewId && qcEditable() && !!reviewGoogleKey(S.review?.reviewAccess?.googleKey || ''); }
-// Edits in QC can change a block's reading: a new Google reading, or back to the original.
+function autoRewrites(voice) { return qc() && !!S.reviewId && qcEditable() && canReread(voice, S.review?.reviewAccess); }
+// Whether any of the package's voices can make new readings here.
+const packageRereads = () => [...(S.review?.rereadVoices || [])].some((v) => canReread(v, S.review.reviewAccess));
+// Edits in QC can change a block's reading: a new reading, or back to the original.
 function scheduleAutoRewrite(id) {
   if (!qc() || qcLocked() || !S.review) return;
   if (autoMaking.has(id)) { autoAgain.add(id); return; }
@@ -876,10 +879,11 @@ function scheduleAutoRewrite(id) {
 }
 async function autoRewrite(id) {
   const block = S.cues.find((b) => b.id === id), reviewId = S.reviewId;
-  // A block being typed in is read when the typing ends, since Google counts every reading.
+  // A block being typed in is read when the typing ends, since every reading is counted.
   if (!qc() || qcLocked() || !S.review || !block || edit?.id === id || autoMaking.has(id)) return;
   let r = playbackReading(S.review, block, reviewSettings());
-  if (!r && autoRewrites() && rewriteSpec(S.review, block, reviewSettings())) {
+  const spec = !r && rewriteSpec(S.review, block, reviewSettings());
+  if (spec && autoRewrites(spec.voice)) {
     autoMaking.add(id); updateEditor();
     try { r = await makeRewrite(block); }
     catch (error) { if (S.reviewId === reviewId) toast(`Block #${idx(id) + 1}: ${error.message}`); }
@@ -1147,10 +1151,10 @@ function updateEditor() {
     const live = liveRead(c), newVoice = !live && !r && !!previous && readingVoiceChanged(S.review, c, reviewSettings());
     if (newVoice) $('qcBlockInfo').dataset.tip = 'A different voice can’t make new audio in QC. Ask the writer for a fresh package to hear it, or change the voice back';
     else delete $('qcBlockInfo').dataset.tip;
-    const unread = !r && !!rewriteSpec(S.review, c, reviewSettings());
+    const unread = !r && rewriteSpec(S.review, c, reviewSettings());
     $('qcBlockInfo').textContent = live && S.qcSource === 'package' ? (liveVoiceHere(c) ? `Read here with ${voiceLabel(liveVoiceOf(c))}` : `Needs ${voiceLabel(liveVoiceOf(c))}`)
       : newVoice ? 'New voice · needs a fresh package' : autoMaking.has(c.id) ? 'Making reading…'
-      : unread && !autoRewrites() ? 'Needs a Google key' : !r && previous ? 'Original reading out of date'
+      : unread && !autoRewrites(unread.voice) ? `Needs ${keyName(unread.voice) === 'AWS' ? 'an AWS' : 'a Google'} key` : !r && previous ? 'Original reading out of date'
       : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'New reading'} ${(voiceEnds.get(r) ?? r.secs).toFixed(1)} s${isExt(c) ? ' · pauses the video' : (voiceEnds.get(r) ?? r.secs) > c.end - c.start + 0.05 ? ' · runs past block' : ''}`
           : previous || !S.review?.byUid?.size ? 'Original reading missing' : rewriteSpec(S.review, c, reviewSettings()) ? 'New block · not read yet' : 'New block · no reading')
         : S.qcSource === 'preview' ? 'Approximate TTS preview' : 'Programme sound';
@@ -1181,7 +1185,7 @@ function updateEditor() {
 let prefetchTimer = 0;
 function schedulePrefetch(c) {
   clearTimeout(prefetchTimer);
-  if (edit?.id === c.id && usingGoogle(c.voice)) return;
+  if (edit?.id === c.id && cloudOf(c.voice)) return;
   const text = said(c), { speed, voice } = c;
   prefetchTimer = setTimeout(() => prefetch(text, speed, voice), 500);
 }
@@ -1523,7 +1527,7 @@ function fillRow(r, c, i) {
   // readings are kept in the browser, so they play straight away, even after a reload.
   if (ready) {
     d.append(Object.assign(document.createElement('span'), { className: 'ready', textContent: ' ●',
-      title: usingGoogle(c.voice) ? 'Reading kept: plays straight away, and isn\'t sent to Google again'
+      title: cloudOf(c.voice) ? `Reading kept: plays straight away, and isn't sent to ${cloudOf(c.voice)} again`
         : usingAudioVoice(c.voice) ? 'Reading kept: its length is exact, and it plays straight away' : 'Reading made: its length is exact' }));
   }
   r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, overDialogue: clash, ready, extended: ext }) + (c.notes ? ', has notes' : '') + (c.pickup ? ', pickup' : ''));
@@ -2653,7 +2657,7 @@ function afterImport(name) {
   const n = S.cues.length;
   $('impWhat').textContent = `${name} has ${n} block${n > 1 ? 's' : ''} with timings of ${n > 1 ? 'their' : 'its'} own.`;
   $('impAlways').checked = false;
-  showGoogleCost();
+  showCloudCost();
   importDlg.showModal();
   importDlg.querySelector('.wzchoice').focus();
 }
@@ -2682,7 +2686,7 @@ function readingChanged(what, was) {
   changedFrom = { what, was };
   $('chgBack').textContent = `Go back to ${what === 'voice' ? voiceName(was) : `${Math.round(was * 100)}%`}`;
   $('chgAlways').checked = false;
-  showGoogleCost();
+  showCloudCost();
   changeDlg.showModal();
   changeDlg.querySelector('.wzchoice').focus();
 }
@@ -3326,7 +3330,7 @@ function syncQcPermission() {
   $('qcPermission').textContent = authoring ? 'Authoring project' : qcEditable() ? 'Edits allowed' : 'Comments only';
   $('qcPermission').dataset.tip = authoring ? 'Your authoring project: edit in QC or Write, with the original readings kept for reference' : S.reviewId ? 'Chosen when the QC package was created' : 'Use Write or Transcribe to edit a plain project';
   $('qcPermissionInfo').textContent = authoring ? 'This is your authoring project. You can edit in QC or Write. Changed readings stay available as previous readings.' : qcEditable()
-    ? (reviewGoogleKey(S.review?.reviewAccess?.googleKey || '') ? 'The package creator allows block edits. A changed Google block gets a new reading, and its end moves to fit.'
+    ? (packageRereads() ? 'The package creator allows block edits. A changed Google or Amazon Polly block gets a new reading, and its end moves to fit.'
       : 'The package creator allows block edits. Timings change only when you edit them. Changed readings are marked out of date.')
     : S.reviewId ? 'The package creator allows comments only. The script and timings stay fixed.'
       : 'This project is read-only in QC. Use Write or Transcribe to edit, or ask for a QC package that allows edits.';
@@ -3384,7 +3388,7 @@ function setMode(m, quiet = false) {
   // passes through QC on its way to another mode doesn't count.
   if (fresh) setTimeout(() => whenClear(() => { if (S.mode === m) openModeSetup(m); }), 400);
   if (!quiet) {
-    toast(m === 'qc' ? (qcEditable() ? (S.reviewId ? `QC mode: the package allows block edits. ${reviewGoogleKey(S.review?.reviewAccess?.googleKey || '') ? 'Changed Google blocks get a new reading' : 'Timings change only when you edit them'}` : 'QC mode: your authoring project is editable. Timings change only when you edit them') : 'QC mode: comments only. Click a block’s Comment button to add a note') : m === 'write'
+    toast(m === 'qc' ? (qcEditable() ? (S.reviewId ? `QC mode: the package allows block edits. ${packageRereads() ? 'Changed Google and Amazon Polly blocks get a new reading' : 'Timings change only when you edit them'}` : 'QC mode: your authoring project is editable. Timings change only when you edit them') : 'QC mode: comments only. Click a block’s Comment button to add a note') : m === 'write'
       ? `Write mode: text to speech${tts.on ? '' : ' (turn it on in Settings, or with ⌥⇧V)'}, reading times and block speeds`
       : 'Transcribe mode: hold H while the narrator speaks to mark each line');
   }
@@ -4453,9 +4457,9 @@ function askVoices(adc, name) {
   const here = reviewVoices().map((v) => v.id);
   const away = voiceList.filter((v) => !here.includes(v.uri));
   $('voiceScriptNote').textContent = away.length
-    ? `${andList(away.map((v) => voiceLabel(v.uri)))} ${away.length === 1 ? 'isn’t' : 'aren’t'} available here. ${missingVoiceAdvice(away[0].uri, { googleKey: hasGoogleKey(), hosted: HOSTED }).replace(/\bit\b/, away.length === 1 ? 'it' : 'them')} Until then, blocks are read with ${chosenVoiceName()}.`
+    ? `${andList(away.map((v) => voiceLabel(v.uri)))} ${away.length === 1 ? 'isn’t' : 'aren’t'} available here. ${missingVoiceAdvice(away[0].uri, { googleKey: hasGoogleKey(), pollyKey: hasPollyKey(), hosted: HOSTED }).replace(/\bit\b/, away.length === 1 ? 'it' : 'them')} Until then, blocks are read with ${chosenVoiceName()}.`
     : (main ? `The project reads with ${voiceLabel(main.uri)}${own.length ? ', and blocks keep their own voices' : ''}.` : 'Blocks keep their own voices.')
-      + (voiceList.some((v) => usingGoogle(v.uri)) ? ' Each reading sends the block’s text to Google.' : '');
+      + (voiceList.some((v) => cloudOf(v.uri) === 'Google') ? ' Each reading sends the block’s text to Google.' : '');
   $('voiceAsk').hidden = false;
   $('voicePick').hidden = true;
   voiceDlg.showModal();
@@ -5401,9 +5405,10 @@ function qcRead(c, manual = false, after = null) {
   const from = () => Math.max(0, now() - c.start), live = S.qcSource === 'package' && liveRead(c);
   if (S.qcSource === 'package' && !live) {
     const r = playbackReading(S.review, c, reviewSettings());
-    if (!r && rewriteSpec(S.review, c, reviewSettings())) {
+    const spec = !r && rewriteSpec(S.review, c, reviewSettings());
+    if (spec) {
       // Not read yet, such as after a failed request: read it now.
-      if (!autoRewrites()) return toast('Add your Google key in Text to speech settings to read changed blocks');
+      if (!autoRewrites(spec.voice)) return toast(`Add your ${keyName(spec.voice)} key in Text to speech settings to read changed blocks`);
       if (!autoMaking.has(c.id)) autoRewrite(c.id);
       return toast('Making the new reading. Play the block again when it’s ready');
     }
