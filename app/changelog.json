@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.87.0",
+    "date": "2026-11-06",
+    "notes": "## New: Extended AD\n\n- The video pauses while a block is read, then carries on.\n- Click **Extended** in a block, or turn it on for the whole project in the text to speech settings.\n- QC reviewers hear the pauses too.\n\n## New: Extended AD in exports\n\n- The description track, full mix and scripts follow the pauses.\n- **Export → Extended video** saves a new video that holds the picture during each pause. It needs ffmpeg.\n- Turn off **Include the narration** for the programme's sound alone, to mix in a DAW.\n- **Export → Pause list** saves where the video stops, as a CSV.\n- To keep the video's timing, turn off **Keep the pauses**.\n\n## New: Extended AD in Record mode\n\n- Narrators read extended blocks with the video stopped, with no time limit.\n- The Narration WAV follows the pauses, and a pause list comes with it.\n\n## New: Amazon Polly voices\n\n- Use Amazon's voices with your own AWS key.\n- New AWS accounts can use Polly in their home region."
+  },
+  {
     "version": "0.86.0",
     "date": "2026-11-05",
     "notes": "## New: lead-in\n\n- Hear the moments before a block when you go back to it.\n- Set **Lead-in** in Settings, under General, from 0 to 30 seconds.\n- It works with Replay, `Shift+Space`, `L` and `V`.\n- With `V`, the reading starts when the playhead reaches the block.\n- At 0, everything starts at the block, as before.\n- Record mode keeps its own lead-in."
