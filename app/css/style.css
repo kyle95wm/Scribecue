@@ -75,6 +75,7 @@ kbd + kbd { margin-left: 2px; }
 .mode-record .record-only[hidden] { display: none; }
 .mode-record .hint.record-only, .mode-record .setrec.record-only { display: block; }
 .mode-record .transcribe-only, .mode-record .write-only, .mode-record #modeSw { display: none; }
+.mode-record .not-record { display: none; }
 /* Record mode: the script is locked, so nothing offers to change or save it. */
 .mode-record .rowdel, .mode-record .edmove, .mode-record #edAuto, .mode-record #edTts, .mode-record #replaceBtn, .mode-record #aiBtn,
 .mode-record nav [data-act=newProject], .mode-record nav [data-act=saveProject],
@@ -1173,6 +1174,7 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .setpane .aisetup { padding: 0; border: 0; max-height: none; overflow: visible; }
 .setpane .keyslist { max-height: none; }
 #setTmdb .updstatus { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#setLead { width: 64px; font: 13px var(--mono); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
 #setTmdbKey, #setName, #wzName { flex: 1; min-width: 12em; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
 /* Settings under the video only show while on, and open their section. */
 #ind .setlabel { cursor: pointer; }

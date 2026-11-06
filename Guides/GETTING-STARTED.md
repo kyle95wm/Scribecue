@@ -50,7 +50,8 @@ In **Write** mode, with text to speech on (`Alt+Shift+V`). Open the video with
    the next block.
 3. **Close it.** Press `Esc` or `Enter`.
 4. **Listen.** Press `V` to hear it with the video. `[` `]` make this block's reading
-   slower or faster.
+   slower or faster. To hear the moments before it too, set a **Lead-in** in Settings,
+   under General.
 
 **To read it yourself instead,** select the block and hold `H` while you say the line.
 When you let go, the block ends there.

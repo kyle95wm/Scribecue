@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockFromPlayhead, BACK_GRACE, nudgeFor, nudges, NUDGE_START, takeFrom, stopAt, returnsToStart, scrubber } from '../app/js/nav.js';
+import { blockFromPlayhead, BACK_GRACE, nudgeFor, nudges, NUDGE_START, takeFrom, stopAt, returnsToStart, scrubber, cleanLead, leadFrom, LEAD_MAX } from '../app/js/nav.js';
 
 const cues = [{ start: 2, end: 5 }, { start: 10, end: 14 }, { start: 20, end: 22 }];
 
@@ -89,4 +89,19 @@ test('a drag waits for each seek to land, then goes to the latest place', () => 
 test('Firefox doesn’t get nudges, as a speed change restarts its audio', () => {
   assert.equal(nudges('Firefox'), false);
   for (const b of ['Chrome', 'Edge', 'Safari', 'Brave']) assert.equal(nudges(b), true);
+});
+
+test('a lead-in of 0 starts at the block, and others before it', () => {
+  assert.equal(leadFrom(10, 0), 10);
+  assert.equal(leadFrom(10, 2.5), 7.5);
+  assert.equal(leadFrom(1, 3), 0); // never before the video starts
+  assert.equal(leadFrom(0, 3), 0); // a block at the very start has no lead-in
+});
+
+test('the lead-in setting keeps what makes sense', () => {
+  assert.equal(cleanLead('2'), 2);
+  assert.equal(cleanLead('1.5'), 1.5);
+  assert.equal(cleanLead(1.26), 1.3);
+  assert.equal(cleanLead(LEAD_MAX + 5), LEAD_MAX);
+  for (const v of ['', null, undefined, 'abc', '-3', '0', 0]) assert.equal(cleanLead(v), 0);
 });

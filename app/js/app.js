@@ -23,7 +23,7 @@ import { takesInfo, clearTakes, unpackSession, rememberSession, browserFolder, c
 import { isSessionPackage, fromSession, SESSION_FILE } from './session.js';
 import { picker, refused } from './pickers.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
-import { blockFromPlayhead, nudgeFor, nudges, NUDGE, takeFrom, stopAt, returnsToStart, scrubber } from './nav.js';
+import { blockFromPlayhead, nudgeFor, nudges, NUDGE, takeFrom, stopAt, returnsToStart, scrubber, cleanLead, leadFrom } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
@@ -134,6 +134,8 @@ const S = {
   offset: (() => { try { const v = parseFloat(localStorage.getItem('scribecue.offset')); return OFFSETS.includes(v) ? v : 0.2; } catch { return 0.2; } })(),
   // After editing a block, go back to its start, to hear it again. On unless turned off.
   replay: (() => { try { return localStorage.getItem('scribecue.replay') !== '0'; } catch { return true; } })(),
+  // Lead-in: how many seconds before a block hearing it again starts. 0 starts at the block.
+  lead: (() => { try { return cleanLead(localStorage.getItem('scribecue.lead')); } catch { return 0; } })(),
   // Return to start: stopping puts the playhead back where that playback began. Record mode
   // only (see returning). Off unless turned on.
   returnToStart: (() => { try { return localStorage.getItem('scribecue.returnToStart') === '1'; } catch { return false; } })(),
@@ -249,9 +251,12 @@ const qcPlayer = createQcPlayer({ now, duck: (on) => duckAudio(on || !!tts.speak
 const isPlaying = () => (S.hasVideo ? !video.paused && !video.ended : S.vplaying);
 // For return to start: where playback began, moved along by any jump while playing.
 let playStart = null;
+// While a lead-in plays or waits, the block it leads to, and a reading to start on reaching it.
+let leadTo = null, leadRead = null;
 
 function setTime(t) {
   scrub.clear();
+  leadTo = null; leadRead = null;
   stopPreviousReading();
   qcPlayer.stop();
   t = clamp(t, 0, duration());
@@ -308,6 +313,7 @@ video.addEventListener('play', () => { playStart = video.currentTime; });
 const returning = () => returnsToStart(S.returnToStart, S.mode);
 video.addEventListener('ended', () => { const t = stopAt(returning(), playStart, now()); if (t !== now()) seek(t); });
 function pause() {
+  leadRead = null;
   stopPreviousReading();
   qcPlayer.stop();
   stopSpeech();
@@ -330,9 +336,32 @@ function togglePlay() {
 function playCue() {
   const c = selCue();
   if (!c) return togglePlay();
-  setTime(c.start);
+  leadBefore(c);
   S.playUntil = c.end;
   play();
+}
+// Where hearing a block again starts. Record mode has a lead-in of its own, for recording.
+const heardFrom = (c) => (S.mode === 'record' ? c.start : leadFrom(c.start, S.lead));
+// Goes to where hearing the block starts. read: starts its reading, now or on reaching it.
+function leadBefore(c, go = setTime, read = null) {
+  const t = heardFrom(c);
+  go(t);
+  if (t < c.start) { leadTo = c.id; leadRead = read; } else read?.();
+}
+// The block a lead-in is leading to, while the playhead is still in the lead-in. Keys that
+// act on the block here mean this one, not whichever block the lead-in passes through.
+function leadingTo(t = now()) {
+  const c = leadTo != null && leadTo === S.sel ? selCue() : null;
+  return c && t < c.start ? c : null;
+}
+// Called as the playhead moves: the lead-in ends at the block's start.
+function reachBlock(t) {
+  if (leadTo == null) return;
+  const c = S.cues[idx(leadTo)];
+  if (c && t < c.start) return;
+  const read = leadRead;
+  leadTo = null; leadRead = null;
+  if (c) read?.();
 }
 function setRate(r) {
   S.rate = clamp(Math.round(r * 100) / 100, 0.25, 3);
@@ -1078,7 +1107,7 @@ function schedulePrefetch(c) {
 
 // Frazier "Enter": edit the block under the playhead, or create one there.
 function createOrEdit() {
-  const c = cueAt(now()) || newCue();
+  const c = leadingTo() || cueAt(now()) || newCue();
   if (!c) return;
   select(c.id, { seek: false });
   editText();
@@ -1097,9 +1126,9 @@ function closeEditor(finished = false) {
   document.activeElement?.blur();
   if (finished) { edOpen = false; placeEditor(); }
   if (S.loopOnce) stopLoop();
-  // With Replay on, the playhead goes back to the start of the block just edited, so it
+  // With Replay on, the playhead goes back to the block just edited, or its lead-in, so it
   // can be heard again, and playback carries on from there if it was playing.
-  if (finished && S.replay && selCue()) seek(selCue().start);
+  if (finished && S.replay && selCue()) leadBefore(selCue(), seek);
   if (S.resumeAfterEdit) {
     S.resumeAfterEdit = false;
     play();
@@ -1118,6 +1147,13 @@ function setReplay(on, quiet = false) {
   try { localStorage.setItem('scribecue.replay', on ? '1' : '0'); } catch { /* ignore */ }
   updateInd();
   if (!quiet) toast(on ? 'Replay on: Esc or ↵ after editing a block goes back to its start' : 'Replay off: the playhead stays where it is after editing');
+}
+
+function setLead(v) {
+  S.lead = cleanLead(v);
+  $('setLead').value = S.lead;
+  try { localStorage.setItem('scribecue.lead', String(S.lead)); } catch { /* ignore */ }
+  updateInd();
 }
 
 function confirmDelete() {
@@ -1969,7 +2005,7 @@ function updateActive(t) {
   rowMap.get(id)?.classList.add('active');
   cueEls.get(id)?.classList.add('active');
   renderOverlay(a);
-  if (a && isPlaying() && S.follow && !S.loop && !edit && !drag && S.sel !== id) {
+  if (a && isPlaying() && S.follow && !S.loop && !edit && !drag && S.sel !== id && !leadingTo(t)) {
     select(id, { seek: false, reveal: false });
   }
 }
@@ -1980,6 +2016,7 @@ const IND_TIPS = {
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
   returnToStart: 'Return to start is on: stopping puts the playhead back where playback began. Click for its settings',
   replay: 'Replay is on: Esc or ↵ after editing a block puts the playhead back at its start (⇧L). Click for its settings',
+  lead: 'Lead-in: hearing a block again starts this long before it. Click for its settings',
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H changes it; click for its settings',
   tts: 'Text to speech is on: hear blocks read aloud (V). Click for its settings, such as the voice and speed (⌥⇧V)',
   takes: 'Takes: hear the take chosen for each block as the video plays. Click to turn it off or on',
@@ -1995,6 +2032,7 @@ function updateInd() {
     ...(qc() ? [['qc', S.qcSource === 'package' ? (S.review?.proposals.length ? 'QC · SAVED READINGS' : 'QC · ORIGINAL READINGS') : S.qcSource === 'preview' ? 'QC · APPROXIMATE TTS' : 'QC · PROGRAMME SOUND', true]] : []),
     // Settings show only while they're on, and open their section of Settings.
     ...(S.replay ? [['replay', 'REPLAY', true]] : []),
+    ...(S.lead && S.mode !== 'record' ? [['lead', `LEAD ${S.lead} s`, true]] : []),
     ...(returning() ? [['returnToStart', 'RETURN', true]] : []),
     ...(S.mode === 'transcribe' && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
     ...(S.mode === 'record' ? [['takes', 'TAKES', !!recorder?.hearing]] : []),
@@ -2090,7 +2128,7 @@ ind.addEventListener('click', (e) => {
   else if (k === 'offset' || k === 'stt') showMarking();
   else if (k === 'tts') openTts();
   else if (k === 'qc') openQcPlayback();
-  else if (k === 'replay' || k === 'returnToStart') showGeneral();
+  else if (k === 'replay' || k === 'lead' || k === 'returnToStart') showGeneral();
   else if (k === 'takes') {
     recorder.setHearing(!recorder.hearing);
     updateInd();
@@ -2109,9 +2147,11 @@ function toggleFlag(k) {
 // L: loop the block under the playhead (or the selected one) until the editor closes.
 function loopBlock() {
   if (S.loop) { stopLoop(); return; }
-  const c = cueAt(now()) || selCue();
+  const c = leadingTo() || cueAt(now()) || selCue();
   if (!c) return toast('No text block here — move the playhead into one or select one');
-  select(c.id, { seek: now() < c.start || now() >= c.end });
+  const inside = now() >= c.start && now() < c.end, leading = c === leadingTo();
+  select(c.id, { seek: false });
+  if (!inside && !leading) { S.playUntil = null; leadBefore(c, seek); }
   S.loop = true;
   S.loopOnce = true;
   if (!isPlaying()) play();
@@ -2130,19 +2170,18 @@ function stopLoop() {
 // video playing alongside. Playback stops at the block's end, or where the reading
 // ends if it runs over. ⇧V then sets the block's end to where the reading finished.
 function speakBlock(fit) {
-  if (qc()) { const c = selCue() || cueAt(now()); if (!c) return; if (fit) return; seek(c.start); S.playUntil = S.qcSource === 'preview' || (S.qcSource === 'package' && liveRead(c)) ? null : c.end; play(); qcRead(c, true); return; }
+  if (qc()) { const c = selCue() || cueAt(now()); if (!c) return; if (fit) return; leadBefore(c, seek); S.playUntil = S.qcSource === 'preview' || (S.qcSource === 'package' && liveRead(c)) ? null : c.end; play(); if (leadTo != null) leadRead = () => qcRead(c, true); else qcRead(c, true); return; }
   const guide = S.mode === 'record'; // a guide reading of the line, before taking it
   if (!writing() && !guide) return modeOnly('Text to speech', 'write');
   if (!tts.on && !guide) { openTts(); return toast('Turn on text to speech to hear blocks read aloud'); }
-  const c = cueAt(now()) || selCue();
+  const c = leadingTo() || cueAt(now()) || selCue();
   if (!c) return toast('No text block here — move the playhead into one or select one');
   if (!spoken(c.text)) return toast(onlyNotes(c.text) ? 'This block only has notes in [brackets], which aren’t read' : 'This block has no text to read yet');
   select(c.id, { seek: false });
   if (S.loop) { S.loop = S.loopOnce = false; updateInd(); }
   S.playUntil = null;
-  setTime(c.start);
   const id = c.id;
-  speak(said(c), {
+  const read = () => speak(said(c), {
     id, manual: true, speed: c.speed, voice: c.voice, gain: volGain(c),
     done: (secs) => {
       const cur = S.cues[idx(id)];
@@ -2158,6 +2197,11 @@ function speakBlock(fit) {
         : `Reading takes ${secs.toFixed(1)} s and fits, with ${(room - secs).toFixed(1)} s to spare`);
     },
   });
+  // ⇧V is measuring, so it starts straight away.
+  if (fit) { setTime(c.start); read(); } else {
+    leadBefore(c, setTime, read);
+    if (leadTo != null) readAhead(said(c), c.speed, c.voice); // so it's ready at the block's start
+  }
   play();
   toast(fit ? 'Reading the block to measure it…' : 'Reading the block…');
 }
@@ -5537,6 +5581,7 @@ document.addEventListener('keydown', (e) => {
     // An open block closes, even when its text box isn't focused.
     if (edOpen) { closeEditor(true); return; }
     S.playUntil = null;
+    leadRead = null;
     document.activeElement?.blur();
     if (S.loopOnce) stopLoop(); else updateInd();
     return;
@@ -5666,13 +5711,14 @@ function tick(ts) {
   const playing = isPlaying();
   if (playing) {
     const c = selCue(), t = now();
+    reachBlock(t);
     liveSpeech(lastT, t, !lastPlaying);
     if (S.playUntil != null && t >= S.playUntil) {
       pause();
       setTime(S.playUntil);
       S.playUntil = null;
     } else if (S.loop && c && t >= c.end) {
-      setTime(c.start);
+      leadBefore(c);
     }
     if (S.follow) followPlayhead(now());
     if (alt && ts - lastSync > 100) { lastSync = ts; syncAlt(false); }
@@ -5832,6 +5878,7 @@ initSettings();
 const showGeneral = () => {
   $('setVersion').textContent = VERSION;
   $('setReplay').checked = S.replay;
+  $('setLead').value = S.lead;
   $('setReturn').setAttribute('aria-pressed', String(S.returnToStart));
   renderUpdates();
   openSettings('general');
@@ -5868,6 +5915,7 @@ const dockerTip = initDockerTip({ hosted: HOSTED, welcomed, loopSeen: () => loop
 document.addEventListener('tourend', () => setTimeout(() => whenClear(dockerTip), 300));
 whenClear(dockerTip);
 $('setReplay').addEventListener('change', (e) => setReplay(e.target.checked, true));
+$('setLead').addEventListener('change', (e) => setLead(e.target.value));
 $('setReturn').addEventListener('click', () => setReturnToStart(!S.returnToStart));
 $('setOffset').addEventListener('change', (e) => setOffset(+e.target.value));
 

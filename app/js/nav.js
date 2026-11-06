@@ -45,6 +45,17 @@ export const stopAt = (on, start, t) => (on && start != null ? start : t);
 // Return to start is for recording: it only works in Record mode.
 export const returnsToStart = (on, mode) => !!on && mode === 'record';
 
+// Lead-in (a setting): hearing a block again starts this many seconds before it, so you
+// hear what leads into it. 0 starts at the block.
+export const LEAD_MAX = 30;
+// What's typed or stored, as a tenth of a second from 0 to LEAD_MAX. Anything else is 0.
+export const cleanLead = (v) => {
+  const n = Math.round(parseFloat(v) * 10) / 10;
+  return n > 0 ? Math.min(n, LEAD_MAX) : 0;
+};
+// Where hearing a block that starts at `start` begins.
+export const leadFrom = (start, lead) => Math.max(0, start - lead);
+
 // Dragging the playhead over a long film: each new seek cancels the last, so where a jump
 // is slow to decode the picture never catches up until you stop. While the video is
 // seeking, only the latest place is kept, and it's gone to once the seek lands, so the
