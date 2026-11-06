@@ -16,7 +16,7 @@
 import { HOSTED } from './config.js';
 import { TRACK_FORMATS, MIX_FORMATS } from './mp3.js';
 import { layTrackBlob, writeWav } from './audio.js';
-import { POLLY_RATE, POLLY_REGION, POLLY_REGIONS, POLLY_KEY_PAGE, pollyRequest, pollyVoicesRequest, pollyVoiceList, pollyVoiceRecord, pollyLabel, pollyFailure, pollyThrottled } from './polly.js';
+import { POLLY_RATE, POLLY_REGION, POLLY_REGIONS, POLLY_KEY_PAGE, pollyRegionLabel, pollyRequest, pollyVoicesRequest, pollyVoiceList, pollyVoiceRecord, pollyLabel, pollyFailure, pollyThrottled } from './polly.js';
 
 export { writeWav, pcmToWav, resample, mixTrack, TRACK_PEAK_DB, TRACK_MAX_DB } from './audio.js';
 
@@ -461,7 +461,7 @@ export const hasPollyKey = () => !!pollyCreds();
 export const isPersonalPollyKey = (key) => !!key && key === pollyCreds()?.key;
 // As with Google: a review key belongs to its package, and the reviewer's own goes first.
 export const reviewPollyCreds = (bundled = null) => pollyCreds() || bundled;
-tts.polly = pollyCreds() ? pollyVoiceList({ Voices: pollyStore().voices }, langs()) : [];
+tts.polly = pollyCreds() ? pollyVoiceList({ Voices: pollyStore().voices }, langs(), pollyCreds().region) : [];
 tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
 tts.favourites = Array.isArray(tts.favourites) ? tts.favourites.filter((f) => typeof f === 'string') : [];
 tts.base = toBase(tts.base);
@@ -893,7 +893,7 @@ export async function loadPolly() {
         next = page.NextToken || '';
       } while (next);
       try { localStorage.setItem(PKEY, JSON.stringify({ ...pollyStore(), voices: list })); } catch { /* ignore */ }
-      tts.polly = pollyVoiceList({ Voices: list }, langs());
+      tts.polly = pollyVoiceList({ Voices: list }, langs(), creds.region);
     } catch (e) { error = e.message === 'Failed to fetch' ? 'Couldn’t reach Amazon' : e.message; }
   }
   voices = allowed();
@@ -1600,7 +1600,7 @@ export function initTts(h) {
   });
   $('ttsGoogleForget').addEventListener('click', () => setGoogleKey(''));
   $('ttsPollyGet').href = POLLY_KEY_PAGE;
-  $('ttsPollyRegion').append(...POLLY_REGIONS.map(([id, name]) => new Option(`${name}, ${id}`, id)));
+  $('ttsPollyRegion').append(...POLLY_REGIONS.map((r) => new Option(pollyRegionLabel(r), r[0])));
   // Both halves of the key are needed, so nothing happens until they're both in.
   const pollyChanged = async () => {
     const [key, secret, region] = ['ttsPollyKey', 'ttsPollySecret', 'ttsPollyRegion'].map((id) => $(id).value.trim());

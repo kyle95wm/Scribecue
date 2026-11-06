@@ -2,20 +2,26 @@
 // directly, so every request is signed here with AWS Signature Version 4. Nothing in this
 // file touches the page, so it can be tested without a browser.
 
-// The regions on offer, all with Neural voices. The page may only contact addresses named
-// in its security rules, which can't say "any region", so each one is listed there too
-// (nginx.conf and the meta tag in index.html).
+// The regions on offer. The page may only contact addresses named in its security rules,
+// which can't say "any region", so each one is listed there too (nginx.conf and the meta
+// tag in index.html). New AWS accounts on the Free plan can only use Polly in their home
+// region, which AWS picks by country, so Ohio, Stockholm and Sydney have to be here.
 export const POLLY_REGIONS = [
   ['us-east-1', 'US East (N. Virginia)'],
+  ['us-east-2', 'US East (Ohio)'],
   ['us-west-2', 'US West (Oregon)'],
   ['ca-central-1', 'Canada (Central)'],
   ['eu-west-1', 'Europe (Ireland)'],
   ['eu-west-2', 'Europe (London)'],
   ['eu-central-1', 'Europe (Frankfurt)'],
+  ['eu-north-1', 'Europe (Stockholm)'],
   ['ap-northeast-1', 'Asia Pacific (Tokyo)'],
   ['ap-southeast-2', 'Asia Pacific (Sydney)'],
 ];
 export const POLLY_REGION = POLLY_REGIONS[0][0];
+// Amazon has no Neural voices in these, though its voice list still names them.
+const STANDARD_ONLY = new Set(['us-east-2', 'eu-north-1']);
+export const pollyRegionLabel = ([id, name]) => `${name}, ${id}${STANDARD_ONLY.has(id) ? ' (Standard voices only)' : ''}`;
 export const POLLY_KEY_PAGE = 'https://console.aws.amazon.com/iam/home#/users';
 // A key as a QC package may hold it.
 export const validPollyKey = (k) => !!k && /^[A-Za-z0-9]{1,128}$/.test(k.key) && /^\S{1,256}$/.test(k.secret) && POLLY_REGIONS.some(([id]) => id === k.region);
@@ -110,9 +116,10 @@ export const pollyVoicesRequest = (creds, nextToken = '', now = new Date()) =>
 // Polly's voice list, as Scribecue's voice objects: one for each engine a voice has, in
 // the user's languages if it has any of those, with Neural voices first. Matthew's Neural
 // voice is "Polly Neural Matthew, male".
-export function pollyVoiceList(json, langs = ['en']) {
+export function pollyVoiceList(json, langs = ['en'], region = POLLY_REGION) {
   const all = [];
   for (const engine of ENGINES) {
+    if (engine === 'neural' && STANDARD_ONLY.has(region)) continue;
     for (const v of json?.Voices || []) {
       if (!v.Id || !v.LanguageCode || !v.SupportedEngines?.includes(engine)) continue;
       const gender = { Female: ', female', Male: ', male' }[v.Gender] || '';
@@ -147,6 +154,7 @@ export async function pollyFailure(r) {
   if (['InvalidSignatureException', 'SignatureDoesNotMatch'].includes(type)) {
     return /expired|future|time/i.test(msg) ? 'Amazon refused the request: check this computer’s clock is right' : 'Amazon didn’t accept the secret key. Check it in Settings, under Text to speech';
   }
+  if (/service control policy/i.test(msg)) return 'Amazon blocked Polly in this region for your account. New AWS accounts can only use it in their home region: AWS Settings shows it, under Projects and Additional info';
   if (type === 'AccessDeniedException' || r.status === 403) return `Amazon refused: ${msg || 'the access key may not be allowed to use Polly'}. If your budget has run out, this is the budget stopping the voices`;
   if (type === 'EngineNotSupportedException') return 'That voice isn’t offered in this AWS region. Choose another voice or region in Settings';
   if (pollyThrottled(r)) return 'Amazon says too many readings were asked for at once. Try again in a moment';

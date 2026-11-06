@@ -1,4 +1,4 @@
-import { POLLY_REGIONS, POLLY_REGION } from './polly.js';
+import { POLLY_REGIONS, POLLY_REGION, pollyRegionLabel } from './polly.js';
 import { keyName } from './qcspeech.js';
 import { buildReview, openReview, hasReviewText, playbackReading, reviewSink, voiceReport, readsLive, liveBlock, liveVoices, REVIEW_EXT } from './qc.js';
 import { reviewVoices, reviewAudio, voiceLabel, chosenVoice, cloudOf, hasGoogleKey, hasPollyKey, isPersonalGoogleKey, isPersonalPollyKey, reviewPollyCreds, webPiper, downloadVoice, loadPiper, megabytes, missingVoiceAdvice } from './tts.js';
@@ -101,7 +101,7 @@ const clearPollyFields = () => { $('qcPollyKey').value = ''; $('qcPollySecret').
 const POLLY_FIELDS = ['qcExportPolly', 'qcPollyKey', 'qcPollySecret', 'qcPollyRegion'];
 export function initQc(hooks) {
   h = hooks;
-  $('qcPollyRegion').append(...POLLY_REGIONS.map(([id, name]) => new Option(`${name}, ${id}`, id)));
+  $('qcPollyRegion').append(...POLLY_REGIONS.map((r) => new Option(pollyRegionLabel(r), r[0])));
   $('qcExportAllowEdits').onclick = () => { if (!controller) { $('qcExportAllowEdits').setAttribute('aria-pressed', String($('qcExportAllowEdits').getAttribute('aria-pressed') !== 'true')); refreshQc(); } };
   $('qcExportGoogle').onclick = () => {
     if (controller) return;
