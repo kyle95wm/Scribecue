@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.86.0",
+    "date": "2026-11-05",
+    "notes": "## New: lead-in\n\n- Hear the moments before a block when you go back to it.\n- Set **Lead-in** in Settings, under General, from 0 to 30 seconds.\n- It works with Replay, `Shift+Space`, `L` and `V`.\n- With `V`, the reading starts when the playhead reaches the block.\n- At 0, everything starts at the block, as before.\n- Record mode keeps its own lead-in."
+  },
+  {
     "version": "0.85.0",
     "date": "2026-11-05",
     "notes": "## New: Esc takes you back to the timeline\n\n- Press `Esc` anywhere, and the keys work on the timeline again.\n- It leaves sliders, menus and boxes, such as the mix slider or a block's volume.\n- If a block is open, `Esc` closes it from any of its fields.\n- Dialogs, header menus, Comments and the shortcuts list go back to the timeline too.\n- If you opened a dialog while typing in a block, `Esc` takes you back to your typing.\n- While recording, `Esc` discards the take from anywhere, even from a box.\n\n## Fixed: dialogs that ignored Esc\n\n- Some dialogs, such as Diagnostics, now close with `Esc`."
