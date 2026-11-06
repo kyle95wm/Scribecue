@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { speakable, blockLabel } from '../app/js/a11y.js';
+import { speakable, blockLabel, keepsFocusAfterDialog } from '../app/js/a11y.js';
 
 test('key symbols are read as words', () => {
   assert.equal(speakable('Undo with ⌘Z'), 'Undo with Command Z');
@@ -34,4 +34,13 @@ test('every Export item sits in a named group', () => {
     assert.ok(id && g.includes(`class="menuhead" id="${id}"`), `group ${id} has no heading`);
   }
   assert.equal(groups.join('').match(/role="menuitem"/g).length, menu.match(/role="menuitem"/g).length);
+});
+
+test('Esc out of a dialog goes to the timeline, unless a dialog, block or drawer is still in use', () => {
+  const inside = (found) => ({ closest: (s) => (found && s.includes(found) ? {} : null) });
+  assert.equal(keepsFocusAfterDialog(inside(null), false), false);
+  assert.equal(keepsFocusAfterDialog(null, false), false);
+  assert.equal(keepsFocusAfterDialog(inside(null), true), true);
+  assert.equal(keepsFocusAfterDialog(inside('#editor'), false), true);
+  assert.equal(keepsFocusAfterDialog(inside('.aidrawer'), false), true);
 });

@@ -39,6 +39,7 @@ changed. Your shortcuts are kept in this browser.
 | `+` `-` | Faster / slower playback |
 | `Enter` | Create or edit a block |
 | `Alt+Shift+D` | Delete a block (asks first) |
+| `Esc` | Back to the timeline. Closes what's open, or leaves a field or slider |
 | `Shift+O` or `?` | Show all shortcuts |
 
 </details>

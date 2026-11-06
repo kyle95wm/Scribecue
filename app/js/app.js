@@ -29,7 +29,7 @@ import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
 import { initSettings, addSection, adopt, place, openSettings, closeSettings } from './settings.js';
 import { initReminder } from './reminder.js';
-import { announce, speakable, blockLabel } from './a11y.js';
+import { announce, speakable, blockLabel, keepsFocusAfterDialog } from './a11y.js';
 import { initOffline, openOffline, keepStorage } from './offline.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
@@ -5396,7 +5396,7 @@ document.addEventListener('keydown', (e) => {
   e.stopPropagation();
   const items = [...menu.querySelectorAll('[role="menuitem"]')].filter((b) => b.offsetParent);
   const k = items.indexOf(e.target);
-  if (e.key === 'Escape') { e.preventDefault(); closeMenus(); menuBtn(menu)?.focus(); }
+  if (e.key === 'Escape') { e.preventDefault(); closeMenus(); document.activeElement?.blur(); }
   else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
     items[(k + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
@@ -5494,10 +5494,20 @@ document.addEventListener('keydown', (e) => {
   const mod = e.metaKey || e.ctrlKey;
   if (fileKeys(e)) return;
   if (!helpEl.hidden) {
-    if (e.key === 'Escape' || isHelpKey(e) || (e.shiftKey && e.code === 'KeyO')) { e.preventDefault(); toggleHelp(false); }
+    if (e.key === 'Escape' || isHelpKey(e) || (e.shiftKey && e.code === 'KeyO')) {
+      e.preventDefault();
+      toggleHelp(false);
+      if (e.key === 'Escape') document.activeElement?.blur();
+    }
     return;
   }
-  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  if (e.code === 'Escape' && document.querySelector('dialog[open]')) return; // the browser closes it
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) {
+    if (e.code !== 'Escape' || e.altKey || e.shiftKey || mod || e.isComposing) return;
+    // Esc in a slider, menu or box acts as it does elsewhere. While recording it only
+    // leaves the field, so a take isn't discarded by accident.
+    if (recorder.active) { e.preventDefault(); e.target.blur(); return; }
+  }
   // Undo and redo follow the letter on the key, like other apps, so ⌘Z is still Z on AZERTY.
   const letter = e.key.length === 1 ? e.key.toLowerCase() : '';
   // Record mode's script is locked: ⌘Z only brings back a take just deleted.
@@ -5523,6 +5533,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '[' || e.key === ']') { e.preventDefault(); stepBlockSpeed(e.key === '[' ? -1 : 1); return; }
   if (e.code === 'Escape' && !e.altKey && !e.shiftKey) {
     e.preventDefault();
+    closeMenus();
     // An open block closes, even when its text box isn't focused.
     if (edOpen) { closeEditor(true); return; }
     S.playUntil = null;
@@ -5549,6 +5560,16 @@ document.addEventListener('keydown', (e) => {
   const frazier = e.altKey && e.shiftKey ? { KeyM: 'Markers' }[e.code] : e.shiftKey && !e.altKey ? FRAZIER_ONLY[e.code] : null;
   if (frazier) { e.preventDefault(); toast(`${frazier} are not part of this editor`); }
 });
+
+// Esc out of a dialog comes back to the timeline, not to the button that opened it. The
+// browser has put the focus back by the time 'close' fires.
+let escapedDialog = null;
+document.addEventListener('cancel', (e) => { if (e.target instanceof HTMLDialogElement) escapedDialog = e.target; }, true);
+document.addEventListener('close', (e) => {
+  if (e.target !== escapedDialog) return;
+  escapedDialog = null;
+  if (!keepsFocusAfterDialog(document.activeElement, !!document.querySelector('dialog[open]'))) document.activeElement?.blur();
+}, true);
 
 const QC_EDIT_KEYS = new Set(['newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'setStart', 'setEnd', 'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10', 'moveBack10', 'moveFwd10', 'soundsLike']);
 

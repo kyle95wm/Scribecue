@@ -18,7 +18,7 @@ export function toggleComments(open = $('commentsDrawer').hidden, time = null) {
   if (!open) {
     $('commentsDrawer').hidden = true;
     $('commentsBtn').setAttribute('aria-pressed', 'false');
-    $('commentsBtn').focus();
+    document.activeElement?.blur();
     return;
   }
   timeline = true;

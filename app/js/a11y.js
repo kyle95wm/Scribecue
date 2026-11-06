@@ -22,6 +22,12 @@ export function blockLabel({ n, start, secs, text, tooLong = false, overDialogue
   return `Block ${n}, at ${start}, ${secs} seconds${tooLong ? ', too long to read in time' : ''}${overDialogue ? ', over dialogue' : ''}${ready ? ', reading ready' : ''}: ${words || 'empty'}`;
 }
 
+// After Esc closes a dialog, whether the focus stays where the browser put it back: under
+// another dialog, or in a block or drawer that's still open, so typing carries on there.
+export function keepsFocusAfterDialog(active, otherDialogOpen) {
+  return otherDialogOpen || !!active?.closest?.('#editor, .aidrawer');
+}
+
 let region = null, timer = 0;
 // Reads a message out politely, after whatever the screen reader is saying. The same
 // message twice in a row is read twice.
