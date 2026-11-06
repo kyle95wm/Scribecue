@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.85.0",
+    "date": "2026-11-05",
+    "notes": "## New: Esc takes you back to the timeline\n\n- Press `Esc` anywhere, and the keys work on the timeline again.\n- It leaves sliders, menus and boxes, such as the mix slider or a block's volume.\n- If a block is open, `Esc` closes it from any of its fields.\n- Dialogs, header menus, Comments and the shortcuts list go back to the timeline too.\n- If you opened a dialog while typing in a block, `Esc` takes you back to your typing.\n- While recording, `Esc` discards the take from anywhere, even from a box.\n\n## Fixed: dialogs that ignored Esc\n\n- Some dialogs, such as Diagnostics, now close with `Esc`."
+  },
+  {
     "version": "0.84.0",
     "date": "2026-11-05",
     "notes": "## New: spelling and grammar check\n\n- Exporting now checks the script first, and lists anything that looks wrong.\n- Click a suggestion to fix it, or choose **Export anyway**. You can always export.\n- To check without exporting, press `Alt+Shift+K`, or choose **Export → Check spelling and grammar**.\n- **Add to project** saves names, so they aren't flagged again.\n- It works offline, for American, British or Canadian spelling. It only checks English.\n- Turn it off, or change the spelling, in Settings under General.\n\n## New: Check grammar with AI\n\n- This button in the check finds harder mistakes, using your AI provider.\n- It sends the whole script, so an online provider may charge for it.\n- Nothing changes until you choose a fix."
