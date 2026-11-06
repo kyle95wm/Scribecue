@@ -90,6 +90,9 @@ preview helps check wording, but cannot establish the writer’s pacing. Listen 
 whole gap, including the dialogue after it. For a timing decision, ask for original
 readings or a recorded review mix. Synthetic speech cannot approve a narrator’s delivery.
 
+In a project with [Extended AD](WRITING.md#extended-ad), the video pauses while those
+blocks are read. Programme sound doesn't pause.
+
 The **Video / TTS** slider balances readings against the programme. Avoid playing TTS
 over a track that already contains description. `T` and `Shift+T` change audio tracks.
 

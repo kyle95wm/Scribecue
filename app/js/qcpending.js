@@ -6,7 +6,7 @@ let h, review = null, at = -1, tab = 'blocks', numbers = new Map(), drawing = 0;
 const key = (c) => c.kind === 'project' ? `project:${c.field}` : `${c.kind}:${c.uid}`;
 
 const fields = [['wording', ['text']], ['timing', ['start', 'end']], ['voice', ['voice']], ['speed', ['speed', 'auto', 'fit', 'pinned']],
-  ['levels', ['vol', 'dip', 'dipBy']], ['pickup', ['pickup']], ['sounds like', ['say']], ['notes', ['notes']]];
+  ['levels', ['vol', 'dip', 'dipBy']], ['pickup', ['pickup']], ['extended', ['extended']], ['sounds like', ['say']], ['notes', ['notes']]];
 function changes(ours, theirs) {
   const differs = (k) => JSON.stringify(ours[k]) !== JSON.stringify(theirs[k]);
   const named = fields.filter(([, keys]) => keys.some(differs)).map(([name]) => name);

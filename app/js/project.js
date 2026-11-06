@@ -64,11 +64,12 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     ...(cleanRecording(recording) ? { recording: cleanRecording(recording) } : {}),
     settings,
     view,
-    blocks: blocks.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, notes }) => ({
+    blocks: blocks.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes }) => ({
       ...(validIdentity(uid) ? { uid } : {}),
       start, end, text,
       ...(cleanNotes(notes) ? { notes: cleanNotes(notes) } : {}),
       ...(cleanPickup(pickup) ? { pickup: cleanPickup(pickup) } : {}),
+      ...(extended === true ? { extended: true } : {}),
       ...(Number.isSafeInteger(qcReading) && qcReading >= 8 ? { qcReading } : {}),
       ...(cleanComments(comments).length ? { comments: cleanComments(comments) } : {}),
       ...(speed ? { speed } : {}),
@@ -118,6 +119,7 @@ export function fromProject(json) {
       ...(b.fit === true ? { fit: true } : {}),
       ...(b.pinned === true ? { pinned: true } : {}),
       ...(cleanPickup(b.pickup) ? { pickup: cleanPickup(b.pickup) } : {}),
+      ...(b.extended === true ? { extended: true } : {}),
     });
   }
   blocks.sort((a, z) => a.start - z.start);
@@ -147,6 +149,7 @@ export function fromProject(json) {
       ...(Number.isInteger(s.ttsDipDb) && s.ttsDipDb >= 1 && s.ttsDipDb <= 40 ? { ttsDipDb: s.ttsDipDb } : {}),
       ...(num(s.ttsDipFade) && s.ttsDipFade >= 0 && s.ttsDipFade <= 2 ? { ttsDipFade: s.ttsDipFade } : {}),
       ...(num(s.ttsMix) && s.ttsMix >= -1 && s.ttsMix <= 1 ? { ttsMix: s.ttsMix } : {}),
+      ...(s.extendedAll === true ? { extendedAll: true } : {}),
     },
     view: {
       ...(num(v.playhead) ? { playhead: Math.max(0, v.playhead) } : {}),

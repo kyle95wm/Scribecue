@@ -4,7 +4,7 @@ import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVo
   splitReadingKey, piperVoiceList, kokoroVoiceList, readWav, voiceEnd, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
   toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice, voiceTitle } from '../app/js/tts.js';
-import { awsSignature, pollyRequest, pollyVoicesRequest, pollyVoiceList, pollyRate, ssmlText, pollyFailure, pollyThrottled, pollyHost, POLLY_REGIONS } from '../app/js/polly.js';
+import { awsSignature, pollyRequest, pollyVoicesRequest, pollyVoiceList, pollyRate, ssmlText, pollyFailure, pollyThrottled, pollyHost, POLLY_REGIONS, pollyRegionLabel } from '../app/js/polly.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -518,6 +518,17 @@ test('Polly’s voices become one voice per engine, Neural first, leaving out th
   assert.deepEqual(pollyVoiceList(null), []);
 });
 
+test('The Polly regions without Neural voices only offer Standard ones, and say so', () => {
+  const joanna = { Voices: [{ Id: 'Joanna', Name: 'Joanna', Gender: 'Female', LanguageCode: 'en-US', SupportedEngines: ['standard', 'neural'] }] };
+  const engines = (region) => pollyVoiceList(joanna, ['en'], region).map((v) => v.polly.engine);
+  assert.deepEqual(engines('ca-central-1'), ['neural', 'standard']);
+  assert.deepEqual(engines('us-east-2'), ['standard']);
+  assert.deepEqual(engines('eu-north-1'), ['standard']);
+  const label = (id) => pollyRegionLabel(POLLY_REGIONS.find(([r]) => r === id));
+  assert.equal(label('us-east-2'), 'US East (Ohio), us-east-2 (Standard voices only)');
+  assert.equal(label('ca-central-1'), 'Canada (Central), ca-central-1');
+});
+
 test('Polly voices sit in their own group, and are kept like Google’s', () => {
   const groups = groupVoices([matthew, v('Google UK', 'en-GB', false)]);
   assert.deepEqual(groups.map(([label, list]) => [label, list.length]).filter(([, n]) => n), [
@@ -542,6 +553,10 @@ test('Amazon’s errors become something to act on', async () => {
   assert.match(await pollyFailure(answer(403, 'InvalidSignatureException', 'The request signature we calculated does not match')), /secret key/);
   assert.match(await pollyFailure(answer(403, 'InvalidSignatureException', 'Signature expired')), /clock/);
   assert.match(await pollyFailure(answer(403, 'AccessDeniedException', 'User is not authorized')), /not authorized.*budget/);
+  // AWS's own limit on new accounts, not the user's budget.
+  const blocked = await pollyFailure(answer(403, 'AccessDeniedException', 'not authorized to perform: polly:DescribeVoices with an explicit deny in a service control policy'));
+  assert.match(blocked, /home region/);
+  assert.doesNotMatch(blocked, /budget/);
   assert.match(await pollyFailure(answer(400, 'EngineNotSupportedException', 'x')), /region/);
   assert.equal(await pollyFailure(answer(500, 'ServiceFailureException', 'Oops')), 'Amazon answered 500: Oops');
   assert.equal(pollyThrottled(answer(400, 'ThrottlingException', 'x')), true);

@@ -5,9 +5,11 @@ export function createQcPlayer({ now, duck, error }) {
   const active = new Map();
   function drop(id) {
     const p = active.get(id); if (!p) return;
+    const done = p.done;
     p.audio.onended = p.audio.onerror = p.audio.onloadedmetadata = null;
     p.audio.pause(); p.audio.removeAttribute('src'); p.audio.load(); p.node?.disconnect(); p.gain?.disconnect(); URL.revokeObjectURL(p.url); active.delete(id);
     duck(active.size > 0);
+    done?.();
   }
   function stop() { for (const id of [...active.keys()]) drop(id); last = null; }
   function unlock() {
@@ -17,12 +19,13 @@ export function createQcPlayer({ now, duck, error }) {
     } catch { /* a browser without Web Audio can still play at normal level */ }
   }
   function configure(nextFile, nextEntries) {
-    if (file === nextFile && nextEntries.length === entries.length && nextEntries.every((r, i) => r.key === entries[i].key && r.start === entries[i].start && r.gain === entries[i].gain && r.dip === entries[i].dip && r.dipBy === entries[i].dipBy)) return;
+    if (file === nextFile && nextEntries.length === entries.length && nextEntries.every((r, i) => r.key === entries[i].key && r.start === entries[i].start && r.gain === entries[i].gain && r.dip === entries[i].dip && r.dipBy === entries[i].dipBy && r.held === entries[i].held)) return;
     stop(); file = nextFile; entries = nextEntries; longest = entries.reduce((m, r) => Math.max(m, r.secs), 0);
   }
-  function add(r, rate, level) {
+  // held: an extended block's whole reading, with the clock stopped. done: as it ends.
+  function add(r, rate, level, done = null) {
     const url = URL.createObjectURL(file.slice(r.offset, r.offset + r.bytes, 'audio/wav')), audio = new Audio();
-    const p = { audio, url }; active.set(r.id, p);
+    const p = { audio, url, done }; active.set(r.id, p);
     if (ctx) { p.node = ctx.createMediaElementSource(audio); p.gain = ctx.createGain(); p.node.connect(p.gain); p.gain.connect(limit); }
     const gain = level * r.gain;
     if (p.gain) p.gain.gain.value = gain; else audio.volume = Math.min(1, gain);
@@ -31,7 +34,7 @@ export function createQcPlayer({ now, duck, error }) {
     audio.onerror = () => { drop(r.id); error('A packaged reading could not play. Ask the writer for a fresh QC package'); };
     audio.onloadedmetadata = () => {
       if (active.get(r.id) !== p) return;
-      const offset = Math.max(0, now() - r.start);
+      const offset = done ? 0 : Math.max(0, now() - r.start);
       if (offset >= audio.duration) return drop(r.id);
       audio.currentTime = offset; duck(true);
       audio.play().catch(() => { if (active.get(r.id) === p) { drop(r.id); error('Click Play to allow original QC readings to play'); } });
@@ -48,7 +51,7 @@ export function createQcPlayer({ now, duck, error }) {
       cursor = lo;
     }
     while (cursor < entries.length && entries[cursor].start <= t) {
-      const r = entries[cursor++]; if (r.start + r.secs > t) add(r, rate, level);
+      const r = entries[cursor++]; if (!r.held && r.start + r.secs > t) add(r, rate, level);
     }
     for (const [id, p] of active) {
       const r = entries[id];
@@ -57,5 +60,7 @@ export function createQcPlayer({ now, duck, error }) {
     }
     last = t;
   }
-  return { configure, sync, stop, unlock, activeCount: () => active.size, activeReadings: () => [...active.keys()].map((id) => entries[id]) };
+  const has = (uid) => entries.some((r) => r.uid === uid);
+  function hold(uid, rate, level, done) { stop(); add(entries.find((r) => r.uid === uid), rate, level, done); }
+  return { configure, sync, stop, unlock, has, hold, activeCount: () => active.size, activeReadings: () => [...active.keys()].map((id) => entries[id]) };
 }

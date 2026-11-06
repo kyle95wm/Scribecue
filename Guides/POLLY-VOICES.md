@@ -67,12 +67,33 @@ gets out.
 8. Copy both the access key and the secret key. AWS only shows the secret once.
 9. In Scribecue, open **Settings**, choose **Text to speech**, and find **Amazon Polly
    voices**.
-10. Paste both keys, and choose the region nearest to you.
+10. Paste both keys, and choose the region nearest to you. On AWS's Free plan, choose
+    your [home region](#new-aws-accounts) instead.
 
 The voices in your languages appear in the voice list, under **Amazon Polly**. **Forget**
 removes the key and its voices.
 
+### New AWS accounts
+
+Accounts on AWS's Free plan can only use Polly in their home region. AWS picks it from
+your country.
+
+| Your country | Home region | Voices |
+| --- | --- | --- |
+| Americas | US East (Ohio) | Standard only |
+| Europe, Africa and the Middle East | Europe (Stockholm) | Standard only |
+| Asia Pacific | Asia Pacific (Sydney) | Neural and Standard |
+
+To check yours, open [AWS Settings](https://settings.aws.com), then **Projects**, then
+**Additional info**.
+
+For Neural voices in Ohio or Stockholm, you'd need another region. **Activate advanced
+features** in AWS Settings allows that, but you can't go back to the Free plan afterwards.
+
 ## Stopping at a spending limit
+
+On AWS's Free plan you can skip this, because AWS doesn't charge you unless you upgrade.
+Set it up before you upgrade.
 
 A budget can block the `scribecue` user once the month's cost passes your limit. Your
 other voices keep working, and Polly starts working again next month.
@@ -229,6 +250,7 @@ change the policy's end date.
 | "Amazon didn't accept the access key" | Check you copied all of it. |
 | "Amazon didn't accept the secret key" | Paste the secret again. If it's lost, create a new access key. |
 | "Check this computer's clock" | Set your computer's clock to update automatically. |
+| "Amazon blocked Polly in this region" | Choose your account's [home region](#new-aws-accounts). |
 | "Amazon refused: …" | The user may lack `scribecue-polly`, or your budget may have stopped it. Check your budget emails. |
 | "That voice isn't offered in this AWS region" | Choose another voice or region. |
 | "Too many readings" | Wait a moment and try again. |
