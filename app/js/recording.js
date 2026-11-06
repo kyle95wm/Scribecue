@@ -2,6 +2,8 @@
 // in, and how takes are judged. Plain functions, so they can be tested without a browser.
 // The guide is Guides/RECORDING.md.
 
+import { extendedTimeline } from './extended.js';
+
 // Letters only: Chrome's file picker refuses an extension with a hyphen in it.
 export const RECORDING_EXT = '.scribecuerec';
 // Earlier builds saved .scribecue-rec, which still opens.
@@ -20,7 +22,7 @@ const hash = (text) => {
 
 // The script's fingerprint: its lines' text and timings. It catches a recording file
 // edited by hand, though not someone set on hiding it, since the sum is no secret.
-export const scriptPrint = (blocks) => hash(JSON.stringify(blocks.map((b) => [b.start, b.end, b.text]))) + '-' + blocks.length;
+export const scriptPrint = (blocks) => hash(JSON.stringify(blocks.map((b) => [b.start, b.end, b.text, ...(b.extended ? [1] : [])]))) + '-' + blocks.length;
 
 // A project's recordings: every version of its recording file shares the project's id, so
 // takes carry over from one to the next. 16 letters and digits.
@@ -55,8 +57,9 @@ export function pickupsFor(blocks, sent) {
 // the version before, for pickupsFor.
 export function toRecordingFile({ blocks, media = null, start = 0, fps = 25, app = '', project = null, version = 0, sent = null }) {
   const kept = blocks.filter((b) => b.text.trim()), picks = pickupsFor(kept, sent);
-  const lines = kept.map(({ start: s, end, text, voice, speed, notes }, i) => ({
+  const lines = kept.map(({ start: s, end, text, voice, speed, notes, extended }, i) => ({
     start: s, end, text,
+    ...(extended === true ? { extended: true } : {}),
     ...(typeof notes === 'string' && notes.trim() ? { notes: notes.slice(0, 2000) } : {}),
     ...(voice ? { voice } : {}),
     ...(speed ? { speed } : {}),
@@ -87,6 +90,7 @@ export function fromRecordingFile(json) {
     .filter((b) => b && num(b.start) && num(b.end) && typeof b.text === 'string')
     .map((b) => ({
       start: Math.max(0, b.start), end: Math.max(b.start, b.end), text: b.text,
+      ...(b.extended === true ? { extended: true } : {}),
       ...(typeof b.notes === 'string' && b.notes.trim() ? { notes: b.notes.slice(0, 2000) } : {}),
       ...(typeof b.voice === 'string' && b.voice ? { voice: b.voice.slice(0, 300) } : {}),
       ...(num(b.speed) ? { speed: b.speed } : {}),
@@ -127,13 +131,16 @@ function readPickup(p) {
 // numbers of the blocks whose pickups are in it.
 // alts: for each block, the wording of its alt in the package, or null; altOnly: the WAV of
 // the alts alone.
-export const narrationNote = ({ blocks, edited = false, project = null, version = 0, only = false, picked = [], alts = [], altOnly = false }) => ({
+// pauses: where the video stops for extended blocks, on the WAV's timeline: [{ at, secs }]
+// in the programme's time.
+export const narrationNote = ({ blocks, edited = false, project = null, version = 0, only = false, picked = [], alts = [], altOnly = false, pauses = [] }) => ({
   scribecueNarration: 1, print: scriptPrint(blocks), edited: !!edited,
   ...(project ? { project, version } : {}),
   ...(only ? { only: true } : {}),
   ...(altOnly ? { altOnly: true } : {}),
   ...(picked.length ? { picked } : {}),
-  blocks: blocks.map(({ start, end, text, pickup }, i) => ({ start, end, text, ...(pickup ? { pickup } : {}), ...(typeof alts[i] === 'string' ? { alt: alts[i] } : {}) })),
+  ...(pauses.length ? { pauses } : {}),
+  blocks: blocks.map(({ start, end, text, pickup, extended }, i) => ({ start, end, text, ...(extended ? { extended: true } : {}), ...(pickup ? { pickup } : {}), ...(typeof alts[i] === 'string' ? { alt: alts[i] } : {}) })),
 });
 
 // Whether a take is of a block's alt: the narrator's own wording, kept as alt. A block has
@@ -232,6 +239,7 @@ export function compareScript(note, blocks, max = 20) {
     else {
       if (a.text.trim() !== b.text.trim()) all.push({ line, why: 'has different text' });
       if (!near(a.start, b.start) || !near(a.end, b.end)) all.push({ line, why: 'has different timings' });
+      if (!a.extended !== !b.extended) all.push({ line, why: b.extended ? 'is extended here, but wasn’t recorded that way' : 'was recorded as extended, but isn’t now' });
     }
   }
   return { same: !all.length, edited: !!note.edited, lines: all.slice(0, max), more: Math.max(0, all.length - max) };
@@ -246,14 +254,21 @@ export function sameVideo(saved, file) {
 }
 
 // Where each line may be recorded: from its block's start to its end, plus any grace,
-// but never past the next block's start. Returns [{ start, end }] in block order.
+// but never past the next block's start. An extended block is read with the video stopped,
+// so its slot has no end: mark is where its marker ends. Returns [{ start, end, hold?, mark? }]
+// in block order.
 export function slots(blocks, grace = GRACE) {
   return blocks.map((b, i) => {
+    if (b.extended) return { start: b.start, end: Infinity, hold: true, mark: b.end };
     const next = blocks[i + 1];
     const end = Math.min(b.end + grace, next ? Math.max(next.start, b.end) : Infinity);
     return { start: b.start, end };
   });
 }
+
+// How early block i's take may start: where the slot before it ends. A take of an extended
+// block doesn't use up the programme, so the next block can start right after its start.
+export const prevEnd = (sl, i) => (!i ? 0 : sl[i - 1].hold ? sl[i - 1].start : sl[i - 1].end);
 
 // Loudest sample, in dBFS (−Infinity for silence). samples: Float32Array in −1…1.
 export function peakDb(samples) {
@@ -491,6 +506,16 @@ export function checkExport(blocks, chosen, grace = GRACE) {
     if (runsOver(t, sl[i])) warn.push({ block, why: 'runs past its slot' });
   });
   return { stop, warn };
+}
+
+// How a narration's timeline stretches for extended blocks: the video stops for as long as
+// each one's chosen take runs, from the block's start. takes[i]: block i's chosen take as
+// placed, or null. Gives where each block now starts, how far each moves, how long each
+// stops the video, and the pauses.
+export function narrationTimeline(blocks, takes) {
+  const secs = blocks.map((b, i) => (b.extended && takes[i] ? Math.max(0, takes[i].start + takes[i].duration - b.start) : 0));
+  const { starts, pauses, added } = extendedTimeline(blocks.map((b, i) => ({ start: b.start, extended: b.extended, secs: secs[i] })));
+  return { starts, moved: starts.map((s, i) => s - blocks[i].start), secs, pauses, added };
 }
 
 // The short report to send with the WAV.

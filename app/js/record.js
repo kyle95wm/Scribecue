@@ -3,8 +3,10 @@
 // that); this file does the recording. The guide is Guides/RECORDING.md.
 
 import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
-import { slots, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
+import { slots, prevEnd, narrationTimeline, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
 import { storeZip } from './zip.js';
+import { blockToHold, stillHeard, pauseList } from './extended.js';
+import { fmtTime } from './formats.js';
 import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, editTake, deleteTake, restoreTake, takeAudio, takesWhere, relinkTakes, moveTakes, openSession, useSession, currentSession,
   rememberedSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser, sessionFolder, unpackSession, forgetBrowserFolder } from './takestore.js';
@@ -143,7 +145,8 @@ export function initRecord(h) {
     const read = side && chosenFor(i, true);
     if (read && read.alt !== altText(i)) note(`The alt in the export was read as “${read.alt}”. Record it again to match the new wording.`);
     const what = side ? 'alt take' : 'take';
-    if (busy && cap?.block === i) note(cap.punch ? `Punching in: ${what} ${list.length + 1} of block ${i + 1}, from ${what} ${list.findIndex((t) => t.id === cap.punch.base.id) + 1}.` : `Recording ${what} ${list.length + 1} of block ${i + 1}.`);
+    if (busy && cap?.block === i && cap.slot.hold) note(`Recording ${what} ${list.length + 1} of block ${i + 1}. Read it when the video stops, then press Enter.`);
+    else if (busy && cap?.block === i) note(cap.punch ? `Punching in: ${what} ${list.length + 1} of block ${i + 1}, from ${what} ${list.findIndex((t) => t.id === cap.punch.base.id) + 1}.` : `Recording ${what} ${list.length + 1} of block ${i + 1}.`);
     else if (!list.length && side) note(`Block ${i + 1} has no alt yet. Type your wording in the block and press Enter, then Enter or R to record it. Press A to go back to the original.`);
     else if (!list.length) note(`Block ${i + 1} has no takes yet. Press Enter or R to record it.` + (rec?.project && !takes.length ? ' Takes from an older recording file can be brought in, under Microphone, lead-in and sync.' : ''));
     list.forEach((t, k) => {
@@ -260,7 +263,7 @@ export function initRecord(h) {
   // ---- editing a take: split it, move the parts and trim their ends, against the slot.
   // The chosen takes are clips on the take track, under the timeline's lane (see drawTrack);
   // Fine-tune in the list does the same in milliseconds, from the keyboard.
-  const prevEndOf = (i) => (i ? sl()[i - 1].end : 0);
+  const prevEndOf = (i) => prevEnd(sl(), i);
   const takeOf = (id) => takes.find((t) => t.id === id) || null;
   let pick = null;           // the part of a take last clicked: { id, part }
   // Keeps an edit and shows it everywhere: false if it couldn't be kept.
@@ -409,14 +412,15 @@ export function initRecord(h) {
     const live = state === 'rec' && cap?.trail;
     if (!takes.length && !live) { g.fillStyle = TK.dim; g.fillText('Takes show here as you record them', 8, 16); return; }
     sl().forEach((slot, i) => {
-      const raw = shownFor(i), slotIn = slot.end > t0 && slot.start < t1;
+      const slotEnd = slot.hold ? slot.mark : slot.end;
+      const raw = shownFor(i), slotIn = slotEnd > t0 && slot.start < t1;
       const t = raw && tdrag?.t.id === raw.id ? { ...raw, edit: tdrag.e } : raw;
       const whole = t && placed(t), over = t && runsOver(whole, slot);
       if (slotIn) {
         g.fillStyle = `color-mix(in srgb, ${TK.ok} 10%, transparent)`;
-        g.fillRect(x(slot.start), 0, x(slot.end) - x(slot.start), H);
+        g.fillRect(x(slot.start), 0, x(slotEnd) - x(slot.start), H);
         g.fillStyle = over ? TK.bad : TK.ok;
-        g.fillRect(x(slot.end) - 1, 0, 2, H);
+        g.fillRect(x(slotEnd) - 1, 0, 2, H);
       }
       if (!t || whole.start > t1 || whole.start + whole.duration < t0) return;
       const wave = pps >= SHOW_WAVE, fine = pps > PR && peakCache.get(t.id) !== null;
@@ -464,7 +468,8 @@ export function initRecord(h) {
   // The take being recorded, growing with the playhead, where it will be placed when it's saved.
   function drawLive(g, W, H, x, mid, amp) {
     const d = delayOf(cap), first = Math.max(0, cap.t0 - d), pk = cap.trail.peaks;
-    const a = x(placeTake({ t0: cap.t0, delay: d, prevEnd: cap.prevEnd }).start), z = Math.max(a, x(video.currentTime - d));
+    const held = cap.heldAt ? (performance.now() - cap.heldAt) / 1000 : 0;
+    const a = x(placeTake({ t0: cap.t0, delay: d, prevEnd: cap.prevEnd }).start), z = Math.max(a, x(video.currentTime + held - d));
     if (z < 0 || a > W) return;
     g.beginPath();
     g.roundRect(a, 6, z - a, H - 12, 4);
@@ -485,7 +490,8 @@ export function initRecord(h) {
     if (g.measureText('Recording').width + 12 <= z - Math.max(a, 0)) g.fillText('Recording', Math.max(a, 0) + 6, 17);
   }
 
-  const hitAt = (px) => clipAt(shownTakes(), view.t0 + px / view.pps, view.pps);
+  // A take of an extended block can lie under the blocks after it: those are on top.
+  const hitAt = (px) => clipAt(shownTakes().sort((a, z) => z.block - a.block), view.t0 + px / view.pps, view.pps);
   const pxOf = (ev) => ev.clientX - track.getBoundingClientRect().left;
   const grab = (on) => { h.select(on.t.block); pick = { id: on.t.id, part: on.k }; render(); };
   track.addEventListener('pointerdown', (ev) => {
@@ -655,6 +661,7 @@ export function initRecord(h) {
     if (i < 0) return h.toast('Select a block, then record it');
     if (!h.hasVideo()) return h.toast('Open the video first');
     const s = sl()[i];
+    if (punch && s.hold) return h.toast(`Block ${i + 1} is extended, so it’s read in one go. Press Enter to record it again`);
     // An alt needs wording of its own first.
     const alt = side ? altText(i).trim() : null, b = h.blocks()[i];
     if (side && (!alt || alt.replace(/\s+/g, ' ') === b.text.replace(/\s+/g, ' ').trim())) {
@@ -685,7 +692,7 @@ export function initRecord(h) {
       }
       p.audio = new Audio(URL.createObjectURL(p.wav));
     }
-    cap.block = i; cap.slot = s; cap.prevEnd = i ? sl()[i - 1].end : 0; cap.punch = p; cap.alt = alt; cap.from = from;
+    cap.block = i; cap.slot = s; cap.prevEnd = prevEndOf(i); cap.punch = p; cap.alt = alt; cap.from = from;
     cap.trail = peakTrail(RATE / PR);
     cap.t0 = Math.max(0, (p ? p.at : s.start) - PREROLL);
     h.seek(Math.max(0, cap.t0 - leadSecs));
@@ -709,7 +716,12 @@ export function initRecord(h) {
         p.on = follow(p.audio, p.ps, video.currentTime, p.on, p.at);
       }
       if (state === 'lead') status(p ? `Picks up in ${Math.max(0, p.at - video.currentTime).toFixed(1)} s` : `Starts in ${Math.ceil(Math.max(0, cap.slot.start - video.currentTime))} s: set your level`);
-      if (state === 'rec') {
+      if (state === 'rec' && cap.slot.hold) {
+        // The video stops at the block, and the take runs as long as the reading does.
+        if (!cap.heldAt && video.currentTime >= cap.slot.start) { video.pause(); cap.heldAt = performance.now(); }
+        status(cap.heldAt ? 'Read it now' : `Starts in ${Math.ceil(Math.max(0, cap.slot.start - video.currentTime))}`);
+        h.redraw();
+      } else if (state === 'rec') {
         const left = cap.slot.end - video.currentTime;
         status(left >= 0 ? `Recording: ${left.toFixed(1)} s left in the slot` : `Recording: ${(-left).toFixed(1)} s over the slot`);
         const f = (video.currentTime - cap.slot.start) / (cap.slot.end - cap.slot.start);
@@ -1019,7 +1031,7 @@ export function initRecord(h) {
   // then: what to do when it plays to the end, rather than stop.
   async function playTake(raw, then = null, cmp = null) {
     stopPlay();
-    const t = placed(raw), ps = pieces(raw);
+    const t = placed(raw), ps = pieces(raw), held = sl()[raw.block]?.hold;
     let wav;
     try { wav = await takeAudio(t); } catch (e) { return h.toast(`Couldn’t play the take: ${e.message}`); }
     const audio = new Audio(URL.createObjectURL(wav));
@@ -1028,11 +1040,16 @@ export function initRecord(h) {
     h.seek(Math.max(0, t.start - 2));
     video.play().catch(() => {});
     render();
+    // An extended block's take plays with the video stopped, on a clock of its own.
+    let stoppedAt = 0;
+    const when = () => (stoppedAt ? t.start + (performance.now() - stoppedAt) / 1000 : video.currentTime);
     const tick = () => {
       if (!playing) return;
-      playing.on = follow(audio, ps, video.currentTime, playing.on);
-      if (video.paused || video.currentTime >= t.start + t.duration) {
-        const next = !video.paused && playing.then;
+      if (held && !stoppedAt && video.currentTime >= t.start) { video.pause(); stoppedAt = performance.now(); }
+      playing.on = follow(audio, ps, when(), playing.on);
+      const on = stoppedAt ? video.paused : !video.paused;
+      if (!on || when() >= t.start + t.duration) {
+        const next = on && playing.then;
         if (next) next(); else stopPlay();
         return;
       }
@@ -1055,7 +1072,39 @@ export function initRecord(h) {
   let hear = get('hear') !== '0';
   // id: the part playing (its key); tid: its take's; queued: the next part, already started on the audio clock.
   const pb = { ctx: null, gain: null, src: null, id: null, tid: null, queued: null, at: 0, from: 0, rate: 1, raf: 0, bufs: new Map() };
-  const chosenList = () => shownTakes().flatMap(pieces).sort((a, z) => a.start - z.start);
+  const stops = (t) => !!sl()[t.block]?.hold;
+  const chosenList = () => shownTakes().filter((t) => !stops(t)).flatMap(pieces).sort((a, z) => a.start - z.start);
+  // An extended block's take, as the video plays: it stops there while the take plays.
+  // pb.hold: { take, timer } while it does; pb.heard: its block, so it doesn't stop again.
+  async function holdFor(t) {
+    const hold = pb.hold = { take: t };
+    pb.heard = t.block;
+    video.pause();
+    buffer(t);
+    const buf = await pb.bufs.get(t.id);
+    if (pb.hold !== hold) return;
+    const ps = pieces(t), first = ps[0].start, at = pb.ctx.currentTime + 0.02;
+    hold.srcs = buf ? ps.map((p) => {
+      const src = pb.ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(pb.gain);
+      src.start(at + p.start - first, p.head, p.duration);
+      return src;
+    }) : [];
+    const z = ps[ps.length - 1], secs = buf ? z.start + z.duration - first : 0;
+    hold.timer = setTimeout(() => {
+      if (pb.hold !== hold) return;
+      endHold();
+      video.play().catch(() => {});
+    }, secs * 1000);
+  }
+  function endHold() {
+    const hold = pb.hold;
+    if (!hold) return;
+    pb.hold = null;
+    clearTimeout(hold.timer);
+    for (const src of hold.srcs || []) stopSrc(src);
+  }
   // Made on a key press or click: Safari won't play sound otherwise.
   const wake = () => {
     if (!rec || !hear) return;
@@ -1100,7 +1149,14 @@ export function initRecord(h) {
   function hearing() {
     cancelAnimationFrame(pb.raf);
     if (!rec || !hear || state !== 'idle' || playing || video.paused || pb.ctx?.state !== 'running') { silence(); return; }
-    const now = video.currentTime, list = chosenList();
+    const now = video.currentTime, list = chosenList(), blocks = h.blocks();
+    if (pb.heard != null && !stillHeard(blocks[pb.heard]?.start ?? -1, now)) pb.heard = null;
+    const stop = blockToHold(blocks, pb.last ?? now, now, false, (b) => {
+      const i = blocks.indexOf(b);
+      return !!b.extended && i !== pb.heard && !!shownFor(i);
+    });
+    pb.last = now;
+    if (stop) { pb.raf = 0; silence(); holdFor(shownFor(blocks.indexOf(stop))); return; }
     const here = takeAt(list, now), next = nextTake(list, now, 4);
     for (const id of pb.bufs.keys()) if (id !== here?.take.id && id !== next?.id && id !== pb.tid && id !== pb.queued?.tid) pb.bufs.delete(id);
     // The part queued to follow on has begun: it's the one playing now.
@@ -1119,12 +1175,13 @@ export function initRecord(h) {
     }
     pb.raf = requestAnimationFrame(hearing);
   }
-  video.addEventListener('play', () => hearing());
+  video.addEventListener('play', () => { endHold(); pb.last = video.currentTime; hearing(); });
   for (const ev of ['pause', 'seeking', 'ratechange']) video.addEventListener(ev, () => silence());
+  video.addEventListener('seeking', () => { endHold(); pb.last = null; pb.heard = null; });
   function setHearing(on) {
     hear = on;
     put('hear', on ? null : '0');
-    if (on) { wake(); hearing(); } else silence();
+    if (on) { wake(); hearing(); } else { silence(); endHold(); }
   }
 
   // ---- checking the microphone, recording nothing: in setup, and in Mic check. The
@@ -1216,6 +1273,8 @@ export function initRecord(h) {
     await reload();
     const all = blocks.map((_, i) => chosenFor(i)), altTakes = only ? [] : blocks.map((_, i) => chosenFor(i, true));
     const pack = altTakes.some(Boolean);
+    // With extended blocks, the WAV follows the pauses, whichever takes it holds.
+    const line = narrationTimeline(blocks, all.map((t) => t && placed(t)));
     const check = only ? checkPickups(blocks, all, version()) : checkExport(blocks, all.map((t) => t && placed(t)));
     if (pack) { const a = checkAlts(blocks, altTakes); check.stop.push(...a.stop); check.warn.push(...a.warn); }
     const chosen = only ? check.takes : all;
@@ -1228,15 +1287,15 @@ export function initRecord(h) {
         const wav = await takeAudio(t);
         for (const p of pieces(t)) {
           const from = WAV24_HEADER + Math.round(p.head * RATE) * 3;
-          parts.push({ start: p.start, pcm: wav.slice(from, from + Math.round(p.duration * RATE) * 3) });
+          parts.push({ start: p.start + line.moved[t.block], pcm: wav.slice(from, from + Math.round(p.duration * RATE) * 3) });
         }
       }
       parts.sort((a, z) => a.start - z.start);
-      const last = Math.max(0, ...list.filter(Boolean).map((t) => { const s = placed(t); return s.start + s.duration; }));
+      const last = Math.max(0, ...list.filter(Boolean).map((t) => { const s = placed(t); return s.start + s.duration + line.moved[t.block]; }));
       return buildBwf({
         takes: parts, markers,
-        note: narrationNote({ blocks, edited: rec.edited, project: rec.project, version: version(), alts, ...note }),
-        secs: Math.max(h.duration(), last), rate: RATE, startSecs: rec.start, description: `${h.baseName()} ${what}`.slice(0, 256),
+        note: narrationNote({ blocks, edited: rec.edited, project: rec.project, version: version(), alts, pauses: line.pauses, ...note }),
+        secs: Math.max(h.duration() + line.added, last), rate: RATE, startSecs: rec.start, description: `${h.baseName()} ${what}`.slice(0, 256),
       });
     };
     const save = (blob, name) => {
@@ -1249,7 +1308,10 @@ export function initRecord(h) {
     const mention = check.warn.length ? `. ${check.warn.length} thing${check.warn.length === 1 ? '' : 's'} to mention to the mixer` : '';
     const go = async () => {
       const base = h.baseName();
-      const markers = blocks.map((b, i) => ({ at: b.start, label: markerLabel(b, i + 1) })).filter((_, i) => !only || chosen[i]);
+      const markers = blocks.map((b, i) => ({ at: line.starts[i], label: markerLabel(b, i + 1) })).filter((_, i) => !only || chosen[i]);
+      // Where the video stops, for whoever makes the extended video.
+      const rows = blocks.flatMap((b, i) => (line.secs[i] ? [{ block: i + 1, programme: fmtTime(b.start, '.'), extended: fmtTime(line.starts[i], '.'), secs: line.secs[i], text: b.text }] : []));
+      const pauseCsv = rows.length ? new Blob([pauseList(rows)], { type: 'text/csv;charset=utf-8' }) : null;
       const what = only ? `pickups${version() ? `, version ${version()}` : ''}: blocks ${chosen.flatMap((t, i) => (t ? [i + 1] : [])).join(', ')}` : 'narration';
       let main;
       try {
@@ -1258,17 +1320,19 @@ export function initRecord(h) {
       if (!pack) {
         const name = `${base}-${only ? `pickups${version() ? `-v${version()}` : ''}` : 'narration'}.wav`;
         save(main, name);
-        return h.toast(`Exported ${name}${mention}`);
+        if (pauseCsv) { await new Promise((ok) => setTimeout(ok, 300)); save(pauseCsv, `${base}-pauses.csv`); }
+        return h.toast(`Exported ${name}${pauseCsv ? ' and the pause list' : ''}${mention}`);
       }
       let zip;
       try {
-        const altMarkers = blocks.flatMap((b, i) => (alts[i] != null ? [{ at: b.start, label: markerLabel(b, i + 1, alts[i]) }] : []));
+        const altMarkers = blocks.flatMap((b, i) => (alts[i] != null ? [{ at: line.starts[i], label: markerLabel(b, i + 1, alts[i]) }] : []));
         const alt = await wavOf(altTakes, { markers: altMarkers, what: 'alts', altOnly: true });
         const report = exportReport(check), list = alts.flatMap((a, i) => (a != null ? [`Block ${i + 1}: “${a}” (was “${blocks[i].text}”)`] : []));
         const notes = [`Alts: ${list.length}`, ...list, ...(report ? ['', report] : [])].join('\n') + '\n';
         let shown = -1;
         zip = await storeZip([{ name: `${base}-narration.wav`, blob: main }, { name: `${base}-alts.wav`, blob: alt },
-          { name: `${base}-notes.txt`, blob: new Blob([notes], { type: 'text/plain' }) }], {
+          { name: `${base}-notes.txt`, blob: new Blob([notes], { type: 'text/plain' }) },
+          ...(pauseCsv ? [{ name: `${base}-pauses.csv`, blob: pauseCsv }] : [])], {
           progress: (done, total) => { const pc = Math.floor((done / total) * 100); if (pc !== shown) status(`Packing the narration: ${(shown = pc)}%`); },
         });
       } catch (e) { status(''); return h.toast(`Couldn’t make the package: ${e.message}`); }
@@ -1337,7 +1401,8 @@ export function initRecord(h) {
     span(i) {
       const s = sl()[i], t = rec && s && shownFor(i), p = t && placed(t);
       if (!s) return { start: 0, end: 1 };
-      return p ? { start: Math.min(s.start, p.start), end: Math.max(s.end, p.start + p.duration) } : { start: s.start, end: s.end };
+      const end = s.hold ? s.mark : s.end;
+      return p ? { start: Math.min(s.start, p.start), end: Math.max(end, p.start + p.duration) } : { start: s.start, end };
     },
     // Splits the selected block's take at the playhead (see keyTake): false if no block is selected.
     splitTake() {
