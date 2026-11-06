@@ -8,6 +8,7 @@ The voices Scribecue can read with, and how to add more natural ones.
 | [Piper](#piper-voices) (recommended) | Natural | ✓ | ✓ | Web version and Docker |
 | [Kokoro](#kokoro-voices) | Most lifelike | ✓ | ✓ | Docker only |
 | [Google Cloud](#google-cloud-voices) | Natural | Sent to Google | ✓ | Web version and Docker, with your own key |
+| [Amazon Polly](#amazon-polly-voices) | Natural | Sent to Amazon | ✓ | Web version and Docker, with your own key |
 | [Online voices](#online-voices) | Natural | Sent to the voice's company | | Mainly Edge and Chrome |
 
 Choose a voice in **Settings → Text to speech** (`Alt+Shift+V`).
@@ -93,6 +94,16 @@ Each line is only sent to Google once, unless you change it. Readings are kept i
 browser, so playing, reopening and exporting cost nothing. While you're typing, nothing is
 sent: the block is read when you close it.
 
+## Amazon Polly voices
+
+Polly's **Neural** and **Standard** voices work with your own AWS key. They work like
+Google Cloud voices: lengths are exact, you can export a description track, and each
+reading sends the block's text to Amazon.
+
+[Amazon Polly voices](POLLY-VOICES.md) walks you through getting a key and setting a
+spending limit. Then paste it under **Amazon Polly voices** in the text to speech
+settings.
+
 ## Good to know
 
 - **If a project's voice isn't available,** such as a Piper voice while Piper isn't
@@ -109,6 +120,6 @@ take a different time to read the same words. Missing voices open a project in Q
 with its saved timings fixed. An approximate preview must be chosen explicitly.
 
 For accurate TTS review, send a [QC package](QC.md#make-a-portable-qc-package).
-It keeps the Google Cloud and Kokoro readings, so the reviewer needs no key or Docker.
+It keeps the Google Cloud, Amazon Polly and Kokoro readings, so the reviewer needs no key or Docker.
 The reviewer's computer reads Piper blocks, with the same voice. For built-in voices,
 supply a recorded review mix instead.

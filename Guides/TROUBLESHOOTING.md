@@ -57,10 +57,10 @@ for its part of Scribecue: see [More help](#more-help).
 | "Piper isn't answering" or "Kokoro isn't answering" | The container isn't running. See [Running it yourself](INSTALL.md#if-something-goes-wrong). |
 | "The Piper voice couldn't read that block" | Reload the page. |
 | "Made 8 of 10 readings" | Some readings failed. Try again in a moment. |
-| An online or Google voice won't read while offline | Choose a voice on your computer, or a Piper voice, in Settings. |
+| An online, Google or Amazon Polly voice won't read while offline | Choose a voice on your computer, or a Piper voice, in Settings. |
 | Timings change on another computer | Another voice can take a different time to read. Send a [QC package](QC.md#make-a-portable-qc-package) instead, and use the same Piper voice on both. |
 
-Google keys and billing have their own list: see [Google voices](GOOGLE-VOICES.md#if-something-goes-wrong).
+Keys and billing have their own lists: see [Google voices](GOOGLE-VOICES.md#if-something-goes-wrong) and [Amazon Polly voices](POLLY-VOICES.md#if-something-goes-wrong).
 
 ## Recording
 
@@ -100,6 +100,7 @@ Each guide has a list for its own part:
 - [Transcribing and speech to text](TRANSCRIBING.md#if-something-goes-wrong)
 - [AI help](AI.md#if-something-goes-wrong)
 - [Google voices](GOOGLE-VOICES.md#if-something-goes-wrong)
+- [Amazon Polly voices](POLLY-VOICES.md#if-something-goes-wrong)
 - [Running it yourself with Docker](INSTALL.md#if-something-goes-wrong)
 
 ## Reporting a problem

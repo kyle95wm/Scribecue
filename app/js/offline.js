@@ -25,7 +25,7 @@ export function offlineLabel({ hosted, offline, ready }) {
 // refused: the browser has just said no when asked. It decides by itself, mostly by how
 // much the site is used, and nothing can make it agree, so the row says what keeps work
 // safe anyway.
-// readings: Piper, Kokoro and Google readings kept in this browser, { count, bytes }.
+// readings: Piper, Kokoro, Google and Polly readings kept in this browser, { count, bytes }.
 // takes: a narrator's recorded takes, likewise.
 export function checklist({ hosted, appKept, guides, voices, whisper, persisted, usage, refused = false, readings = null, takes = null }) {
   const rows = [];
@@ -39,7 +39,7 @@ export function checklist({ hosted, appKept, guides, voices, whisper, persisted,
   }
   if (readings?.count) {
     rows.push([null, 'Saved readings', `${readings.count} line${readings.count === 1 ? '' : 's'}, ${mb(readings.bytes)}. `
-      + 'They play straight away and offline, and Google ones aren’t sent to Google again.', 'readings']);
+      + 'They play straight away and offline, and Google and Amazon ones aren’t sent again.', 'readings']);
   }
   if (takes?.count) {
     rows.push([null, 'Recorded takes', `${takes.count} take${takes.count === 1 ? '' : 's'}, ${mb(takes.bytes)}. ` + (takes.where === 'docker'
@@ -155,9 +155,9 @@ async function persist() {
   await render();
 }
 
-// Google charges for readings past its free allowance, so this asks first.
+// Google and Amazon charge for readings past their free allowances, so this asks first.
 async function clearReadings() {
-  if (!confirm('Remove the readings kept in this browser? Lines are read again the next time they’re needed, and Google readings are counted again.')) return;
+  if (!confirm('Remove the readings kept in this browser? Lines are read again the next time they’re needed, and Google and Amazon readings are counted again.')) return;
   await hooks.clearReadings();
   await render();
 }
