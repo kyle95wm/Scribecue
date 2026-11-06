@@ -1226,6 +1226,7 @@ edText.addEventListener('keydown', (e) => {
   e.stopPropagation();
   // The alt's wording: Enter and Esc go back to the keys, so Enter records it next.
   if (S.mode === 'record') {
+    if (e.key === 'Escape' && recorder.active) recorder.finish(true);
     if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); edText.blur(); }
     else if (e.key === 'Tab') e.preventDefault();
     return;
@@ -1360,6 +1361,7 @@ listSearch.addEventListener('keydown', (e) => {
   e.stopPropagation();
   if (e.key === 'Escape') {
     e.preventDefault();
+    if (recorder.active) recorder.finish(true);
     clearTimeout(searchTimer);
     if (listSearch.value || query) { listSearch.value = ''; query = ''; applyFilter(); }
     listSearch.blur();
@@ -5503,10 +5505,8 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.code === 'Escape' && document.querySelector('dialog[open]')) return; // the browser closes it
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) {
+    // Esc in a slider, menu or box acts as it does anywhere else.
     if (e.code !== 'Escape' || e.altKey || e.shiftKey || mod || e.isComposing) return;
-    // Esc in a slider, menu or box acts as it does elsewhere. While recording it only
-    // leaves the field, so a take isn't discarded by accident.
-    if (recorder.active) { e.preventDefault(); e.target.blur(); return; }
   }
   // Undo and redo follow the letter on the key, like other apps, so ⌘Z is still Z on AZERTY.
   const letter = e.key.length === 1 ? e.key.toLowerCase() : '';
@@ -5521,7 +5521,7 @@ document.addEventListener('keydown', (e) => {
 
   // Record mode: Enter or R records the selected line, and Esc stops and discards the take. [ ] change a block's speed, which is locked.
   if (S.mode === 'record') {
-    if (e.code === 'Escape' && recorder.active) { e.preventDefault(); recorder.finish(true); return; }
+    if (e.code === 'Escape' && recorder.active) { e.preventDefault(); recorder.finish(true); document.activeElement?.blur(); return; }
     if (!e.altKey && !e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.toggle(); return; }
     if (!e.altKey && e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.punch(); return; }
     if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyP') { e.preventDefault(); recorder.nextPickup(); return; }

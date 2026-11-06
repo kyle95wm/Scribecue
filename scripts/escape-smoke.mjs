@@ -1,8 +1,10 @@
 // Esc checks in headless, muted Chrome at 6× CPU slowdown: from a field, slider, menu,
 // dialog, drawer, overlay or the palette, Esc leaves the keys on the timeline.
-// Usage: node scripts/escape-smoke.mjs <devtools port> <site url>
+// With a video, it also checks that one Esc in a field discards a take being recorded.
+// Usage: node scripts/escape-smoke.mjs <devtools port> <site url> [video path on the site]
+// Recording needs Chrome's --use-fake-device-for-media-stream --use-fake-ui-for-media-stream.
 import assert from 'node:assert/strict';
-const [,, port, site] = process.argv;
+const [,, port, site, videoPath] = process.argv;
 const tabs = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
 const ws = new WebSocket(tabs.find((t) => t.type === 'page').webSocketDebuggerUrl);
 await new Promise((r) => ws.addEventListener('open', r, { once: true }));
@@ -91,6 +93,34 @@ assert.equal(await js(`!document.getElementById('help').hidden`), true, 'keys wo
 await js(`document.querySelector('[aria-haspopup]').focus();true`);
 await esc(); await expectTimeline('shortcuts overlay');
 
+// While recording, one Esc in a field discards the take, as it does on the timeline.
+if (videoPath) {
+  const blocks = [{ start: 4, end: 7, text: 'He walks towards the door.' }];
+  const wait = async (e, n = 200) => { for (let i = 0; i < n; i++) { if (await js(e)) return; await sleep(250); } throw Error('Timed out: ' + e); };
+  await js(`window.confirm=()=>true;(async()=>{const R=await import('./js/recording.js');const file=JSON.parse(JSON.stringify(R.toRecordingFile({blocks:${JSON.stringify(blocks)},fps:25})));
+    const v=await fetch(${JSON.stringify(videoPath)}).then(r=>r.blob());const dt=new DataTransfer();dt.items.add(new File([JSON.stringify(file)],'door.scribecuerec'));dt.items.add(new File([v],'door.mkv',{type:'video/x-matroska'}));
+    window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));return 1})()`);
+  await wait(`document.body.classList.contains('mode-record')`);
+  await wait(`document.querySelector('video').readyState>=2`);
+  await js(`document.querySelectorAll('#list .row')[0].click();true`); await sleep(400);
+  for (const el of ['recSync', 'listSearch']) {
+    await key('r', 'KeyR', 82);
+    await sleep(600);
+    if (await js(`document.getElementById('recSessionDlg').open`)) { // first take: where to keep it
+      await js(`document.getElementById('recSessionBrowser').click();true`); await sleep(1000);
+      if (!await js(`document.getElementById('recGo').classList.contains('on')`)) await key('r', 'KeyR', 82);
+    }
+    await wait(`document.getElementById('recGo').classList.contains('on')`);
+    await js(`(()=>{const f=document.getElementById('${el}');f.disabled=false;for(let n=f;n;n=n.parentElement){n.hidden=false;if(n.tagName==='DETAILS')n.open=true;}f.focus();return true})()`);
+    assert.equal(await name(), el, `${el} takes focus`);
+    await esc();
+    await wait(`!document.getElementById('recGo').classList.contains('on')`);
+    assert.doesNotMatch(await js(`document.getElementById('recStatus').textContent`), /Saved/, `one Esc in ${el} discards the take`);
+    await expectTimeline(`${el} while recording`);
+    await js(`document.querySelector('video').currentTime=1;true`); await sleep(800);
+  }
+}
+
 assert.deepEqual(await js(`__errors`), []);
-console.log('Escape smoke passed at 6× slowdown');
+console.log(`Escape smoke passed at 6× slowdown${videoPath ? ', with a recording' : ''}`);
 ws.close();
