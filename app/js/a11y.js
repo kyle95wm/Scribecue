@@ -17,9 +17,9 @@ export function speakable(text, mac = true) {
 }
 
 // What a screen reader says for a block in the list.
-export function blockLabel({ n, start, secs, text, tooLong = false, overDialogue = false, ready = false }) {
+export function blockLabel({ n, start, secs, text, tooLong = false, overDialogue = false, ready = false, extended = false }) {
   const words = String(text || '').replace(/<[^>]*>|\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim();
-  return `Block ${n}, at ${start}, ${secs} seconds${tooLong ? ', too long to read in time' : ''}${overDialogue ? ', over dialogue' : ''}${ready ? ', reading ready' : ''}: ${words || 'empty'}`;
+  return `Block ${n}, at ${start}, ${secs} seconds${tooLong ? ', too long to read in time' : ''}${overDialogue ? ', over dialogue' : ''}${extended ? ', pauses the video' : ''}${ready ? ', reading ready' : ''}: ${words || 'empty'}`;
 }
 
 // After Esc closes a dialog, whether the focus stays where the browser put it back: under

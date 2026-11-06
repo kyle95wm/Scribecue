@@ -35,6 +35,7 @@ import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup } from './keymap.js';
+import { isExtended, holdsAt, extendedSecs, addedTime } from './extended.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, reviewGoogleKey, missingVoiceAdvice, hasGoogleKey } from './tts.js';
@@ -141,6 +142,7 @@ const S = {
   returnToStart: (() => { try { return localStorage.getItem('scribecue.returnToStart') === '1'; } catch { return false; } })(),
   // The total length shows the time remaining instead.
   remaining: (() => { try { return localStorage.getItem('scribecue.remaining') === '1'; } catch { return false; } })(),
+  extendedAll: false, // every block with a reading pauses the video
   resumeAfterEdit: false, // hold-to-mark paused playback; closing the editor resumes it
   rate: 1,
   fps: 25, // the video's frame rate, for timecode and frame steps (see setFps)
@@ -227,6 +229,7 @@ const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
   cleanComments(b.comments).length ? { comments: cleanComments(b.comments) } : {},
   b.say?.length ? { say: b.say } : {},
   cleanPickup(b.pickup) ? { pickup: cleanPickup(b.pickup) } : {},
+  b.extended === true ? { extended: true } : {},
   cleanNotes(b.notes) ? { notes: cleanNotes(b.notes) } : {});
 // What text to speech reads for a block: its text, with its "sounds like" words.
 const said = (c) => soundsLike(c.text, c.say);
@@ -248,13 +251,19 @@ function duration() {
 const scrub = scrubber(() => video.seeking, (t) => setTime(t));
 const now = () => (S.hasVideo ? scrub.target ?? video.currentTime : S.vt);
 const qcPlayer = createQcPlayer({ now, duck: (on) => duckAudio(on || !!tts.speaking), error: (message) => toast(message) });
-const isPlaying = () => (S.hasVideo ? !video.paused && !video.ended : S.vplaying);
+// Extended audio description: the programme stops at the block's start while it's read.
+// While it's held, playback still counts as playing, though the video is paused.
+let extHold = null, heardId = null, keepStart = null;
+const isExt = (c) => isExtended(c, S.extendedAll);
+const isPlaying = () => (S.hasVideo ? (!video.paused && !video.ended) || !!extHold : S.vplaying);
 // For return to start: where playback began, moved along by any jump while playing.
 let playStart = null;
 // While a lead-in plays or waits, the block it leads to, and a reading to start on reaching it.
 let leadTo = null, leadRead = null;
 
 function setTime(t) {
+  leaveHold();
+  heardId = null;
   scrub.clear();
   leadTo = null; leadRead = null;
   stopPreviousReading();
@@ -263,7 +272,7 @@ function setTime(t) {
   if (tts.speaking && Math.abs(t - now()) > 0.05) stopSpeech(); // a jump ends the reading
   if (S.hasVideo) video.currentTime = t;
   else S.vt = t;
-  if (isPlaying()) playStart = t;
+  if (isPlaying()) { playStart = t; keepStart = null; }
 }
 function seek(t, reveal = true) {
   setTime(t);
@@ -272,6 +281,7 @@ function seek(t, reveal = true) {
 // Seeks while dragging the playhead: see scrubber in nav.js.
 function scrubTo(t, reveal = true) {
   if (!S.hasVideo) return seek(t, reveal);
+  leaveHold();
   scrub.to(clamp(t, 0, duration()));
   if (reveal) ensureVisible(now());
   tlDirty = true;
@@ -281,6 +291,7 @@ function seekBy(d) {
   seek(now() + d);
 }
 function play() {
+  if (extHold) return; // it carries on when the reading ends
   stopPreviousReading();
   if (qc()) qcPlayer.unlock();
   if (S.hasVideo) {
@@ -306,13 +317,46 @@ function videoWaiting(on, seeking = false) {
 video.addEventListener('waiting', () => videoWaiting(true));
 video.addEventListener('seeking', () => videoWaiting(true, true));
 video.addEventListener('seeked', () => { videoWaiting(false); scrub.seeked(); });
-video.addEventListener('emptied', () => scrub.clear());
+video.addEventListener('emptied', () => { extHold = null; scrub.clear(); });
 for (const ev of ['playing', 'pause', 'emptied']) video.addEventListener(ev, () => videoWaiting(false));
 // Record mode plays the video itself, so where playback began is taken from the video.
-video.addEventListener('play', () => { playStart = video.currentTime; });
+video.addEventListener('play', () => { playStart = keepStart ?? video.currentTime; keepStart = null; });
 const returning = () => returnsToStart(S.returnToStart, S.mode);
 video.addEventListener('ended', () => { const t = stopAt(returning(), playStart, now()); if (t !== now()) seek(t); });
+// Stops the programme at the block's start, and carries on when the reading ends, or if
+// it can't be read. read(done): starts the reading, and calls done as it ends.
+function startHold(c, read) {
+  const h = { id: c.id };
+  extHold = h;
+  if (S.hasVideo) {
+    video.pause();
+    if (video.currentTime - c.start > 0.1) video.currentTime = c.start; // a slow frame went past it
+  } else {
+    S.vplaying = true;
+    S.vt = Math.min(S.vt, c.start);
+  }
+  updateInd();
+  read(() => {
+    if (extHold !== h) return;
+    extHold = null;
+    heardId = c.id;
+    carryOn();
+  });
+}
+function carryOn() {
+  if (S.hasVideo) { keepStart = playStart; play(); }
+  updateInd();
+}
+// A jump while the programme is held ends the reading, and playback carries on from there.
+function leaveHold() {
+  if (!extHold) return;
+  extHold = null;
+  stopSpeech();
+  qcPlayer.stop();
+  carryOn();
+}
 function pause() {
+  extHold = null;
   leadRead = null;
   stopPreviousReading();
   qcPlayer.stop();
@@ -557,8 +601,9 @@ function save() {
       notes: S.notes,
       words: S.words,
       comments: S.comments,
+      extendedAll: S.extendedAll,
       reviewId: S.reviewId, qcSettings: S.qcSettings, recording: S.recording,
-      cues: S.cues.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, notes }) => ({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, notes })),
+      cues: S.cues.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes }) => ({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes })),
     }));
   } catch { /* storage full or blocked */ }
 }
@@ -577,6 +622,7 @@ function loadSaved() {
       S.savedDirty = o.dirty !== false;
       S.projectMedia = o.projectMedia || null;
       S.notes = typeof o.notes === 'string' ? o.notes : '';
+      S.extendedAll = o.extendedAll === true;
       S.words = cleanWords(o.words);
       S.recording = cleanRecording(o.recording);
       return S.cues.length || S.comments.length;
@@ -719,6 +765,33 @@ $('edPickup').addEventListener('click', () => {
   updateEditor();
   if (c.pickup) $('edPickupNote').focus();
 });
+$('edExtended').addEventListener('click', () => {
+  const c = selCue();
+  if (!c || S.extendedAll) return;
+  pushUndo();
+  if (c.extended) delete c.extended;
+  else { c.extended = true; delete c.auto; delete c.fit; }
+  if (!c.extended) { adapt(c); fitAuto(c); }
+  changed(c.id);
+  tlDirty = true;
+  toast(`Block #${idx(c.id) + 1} ${c.extended ? 'pauses the video while it’s read' : 'reads over the video again'}`);
+});
+// Extended for the whole project, and how much it adds, shown in the text to speech settings.
+function showExtended() {
+  $('ttsExtendedAll').setAttribute('aria-pressed', String(S.extendedAll));
+  const { secs, blocks, exact } = extendedSecs(S.cues.filter((c) => spoken(c.text)), S.extendedAll, (c) => speechLength(said(c), c.speed, c.voice));
+  $('ttsExtendedTotal').textContent = blocks ? `${blocks === 1 ? '1 block pauses' : `${blocks} blocks pause`} the video, adding ${exact ? '' : 'about '}${addedTime(secs)} to the running time. Exports don’t include the pauses yet.` : '';
+}
+$('ttsExtendedAll').addEventListener('click', () => {
+  pushUndo();
+  S.extendedAll = !S.extendedAll;
+  // Back on, a block ends where its reading does.
+  if (!S.extendedAll) for (const c of S.cues) if (!c.extended) { adapt(c); fitAuto(c); }
+  changed();
+  tlDirty = true;
+  updateInd();
+  showExtended();
+});
 $('edPickupNote').addEventListener('focus', () => pushUndo(snapshot(), 'pickupNote'));
 $('edPickupNote').addEventListener('input', (e) => {
   const c = selCue();
@@ -843,7 +916,7 @@ function noteEdit(c) {
   edited.add(c);
 }
 function fitQc(c, secs) {
-  if (!c.auto || qcLocked()) return false;
+  if (!c.auto || qcLocked() || isExt(c)) return false;
   const i = idx(c.id);
   if (i < 0) return false;
   const { hi } = bounds(i);
@@ -934,6 +1007,7 @@ function split() {
   // The second half reads as the first did: same voice, volume, dip and chosen speed.
   const c2 = Object.assign(mk(t, c.end, b, c.speed), c.voice ? { voice: c.voice } : {}, blockDipOf(c),
     isVol(c.vol) ? { vol: c.vol } : {}, c.pinned ? { pinned: true } : {});
+  if (c.extended) c2.extended = true;
   if (c.say) c2.say = c.say.map((x) => [...x]); // each half keeps the words; unused ones do nothing
   c.end = t; c.text = a;
   delete c.auto; delete c.fit;
@@ -958,6 +1032,7 @@ function merge() {
   const more = (n.say || []).filter(([w]) => !words.has(w.toLocaleLowerCase()));
   if (n.comments?.length) c.comments = [...(c.comments || []), ...n.comments];
   if (n.notes) c.notes = [c.notes, n.notes].filter(Boolean).join('\n');
+  if (n.extended) c.extended = true;
   if (more.length) c.say = [...(c.say || []), ...more];
   delete c.auto; delete c.fit;
   S.cues.splice(i + 1, 1);
@@ -1014,6 +1089,10 @@ function updateEditor() {
   if (rec) recorder?.render();
   edTts.hidden = !(c && readingControls());
   $('edPickup').setAttribute('aria-pressed', String(!!c?.pickup));
+  const edExt = $('edExtended');
+  edExt.hidden = !c || !ttsOn();
+  edExt.disabled = S.extendedAll;
+  edExt.setAttribute('aria-pressed', String(!!c && isExt(c)));
   $('edPickupNote').hidden = !c?.pickup;
   if (c?.pickup && document.activeElement !== $('edPickupNote')) $('edPickupNote').value = c.pickup.note || '';
   edNotes.readOnly = qcLocked() || rec;
@@ -1070,7 +1149,7 @@ function updateEditor() {
     $('qcBlockInfo').textContent = live && S.qcSource === 'package' ? (liveVoiceHere(c) ? `Read here with ${voiceLabel(liveVoiceOf(c))}` : `Needs ${voiceLabel(liveVoiceOf(c))}`)
       : newVoice ? 'New voice · needs a fresh package' : autoMaking.has(c.id) ? 'Making reading…'
       : unread && !autoRewrites() ? 'Needs a Google key' : !r && previous ? 'Original reading out of date'
-      : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'New reading'} ${(voiceEnds.get(r) ?? r.secs).toFixed(1)} s${(voiceEnds.get(r) ?? r.secs) > c.end - c.start + 0.05 ? ' · runs past block' : ''}`
+      : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'New reading'} ${(voiceEnds.get(r) ?? r.secs).toFixed(1)} s${isExt(c) ? ' · pauses the video' : (voiceEnds.get(r) ?? r.secs) > c.end - c.start + 0.05 ? ' · runs past block' : ''}`
           : previous || !S.review?.byUid?.size ? 'Original reading missing' : rewriteSpec(S.review, c, reviewSettings()) ? 'New block · not read yet' : 'New block · no reading')
         : S.qcSource === 'preview' ? 'Approximate TTS preview' : 'Programme sound';
   }
@@ -1078,8 +1157,8 @@ function updateEditor() {
     // How long the voice takes to read it: "~" until it has actually been read.
     const { secs, exact } = speechLength(said(c), c.speed, c.voice);
     const s = document.createElement('span');
-    const tooLong = secs > c.end - c.start + 0.05;
-    s.textContent = `TTS ${exact ? '' : '~'}${secs.toFixed(1)} s${tooLong ? ' · too long' : ''}`;
+    const ext = isExt(c), tooLong = !ext && secs > c.end - c.start + 0.05;
+    s.textContent = `TTS ${exact ? '' : '~'}${secs.toFixed(1)} s${ext ? ' · pauses the video' : tooLong ? ' · too long' : ''}`;
     s.className = 'tts ' + (tooLong ? 'bad' : '');
     edStats.append(s);
     if (!exact) schedulePrefetch(c);
@@ -1420,8 +1499,10 @@ function fillRow(r, c, i) {
     + (ttsOn() && c.voice ? ` · ${blockVoiceName(c.voice)}` : '');
   // Red when the reading is longer than the block, with a sign for anyone who can't tell red.
   const reading = ttsOn() && !!spoken(c.text) ? speechLength(said(c), c.speed, c.voice) : null;
-  const over = !!reading && reading.secs > c.end - c.start + 0.05;
+  const ext = isExt(c) && (writing() || qc());
+  const over = !ext && !!reading && reading.secs > c.end - c.start + 0.05;
   if (over) dur += ' ⚠';
+  if (ext) dur += reading ? ` · pauses ${reading.exact ? '' : '~'}${reading.secs.toFixed(1)} s` : ' · extended';
   if (c.notes) dur += ' · notes';
   if (c.pickup) dur += ' · pickup';
   const clash = overDialogue(c) > 0;
@@ -1443,7 +1524,7 @@ function fillRow(r, c, i) {
       title: usingGoogle(c.voice) ? 'Reading kept: plays straight away, and isn\'t sent to Google again'
         : usingAudioVoice(c.voice) ? 'Reading kept: its length is exact, and it plays straight away' : 'Reading made: its length is exact' }));
   }
-  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, overDialogue: clash, ready }) + (c.notes ? ', has notes' : '') + (c.pickup ? ', pickup' : ''));
+  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, overDialogue: clash, ready, extended: ext }) + (c.notes ? ', has notes' : '') + (c.pickup ? ', pickup' : ''));
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
   r.hidden = false;
@@ -1744,6 +1825,7 @@ function drawCues(W) {
     el.style.width = w + 'px';
     el.classList.toggle('narrow', w < 36);
     el.classList.toggle('locked', following(c));
+    el.classList.toggle('extended', isExt(c) && (writing() || qc()));
     el.classList.toggle('sel', c.id === S.sel);
     el.classList.toggle('active', c.id === S.activeId);
     el.classList.toggle('faded', !matches(c, i));
@@ -2016,6 +2098,7 @@ const IND_TIPS = {
   loop: 'Loop: keep replaying the selected block. L loops until you finish editing; O leaves it on',
   returnToStart: 'Return to start is on: stopping puts the playhead back where playback began. Click for its settings',
   replay: 'Replay is on: Esc or ↵ after editing a block puts the playhead back at its start (⇧L). Click for its settings',
+  extended: 'Extended AD: the video pauses while a block is read, then carries on. Click for its settings',
   lead: 'Lead-in: hearing a block again starts this long before it. Click for its settings',
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H changes it; click for its settings',
   tts: 'Text to speech is on: hear blocks read aloud (V). Click for its settings, such as the voice and speed (⌥⇧V)',
@@ -2031,6 +2114,7 @@ function updateInd() {
     ...(!qc() ? [['offset', `H −${Math.round(S.offset * 1000)}ms`, false]] : []),
     ...(qc() ? [['qc', S.qcSource === 'package' ? (S.review?.proposals.length ? 'QC · SAVED READINGS' : 'QC · ORIGINAL READINGS') : S.qcSource === 'preview' ? 'QC · APPROXIMATE TTS' : 'QC · PROGRAMME SOUND', true]] : []),
     // Settings show only while they're on, and open their section of Settings.
+    ...(extHold ? [['extended', 'EXTENDED · READING', true]] : S.extendedAll && writing() ? [['extended', 'EXTENDED', true]] : []),
     ...(S.replay ? [['replay', 'REPLAY', true]] : []),
     ...(S.lead && S.mode !== 'record' ? [['lead', `LEAD ${S.lead} s`, true]] : []),
     ...(returning() ? [['returnToStart', 'RETURN', true]] : []),
@@ -2128,6 +2212,7 @@ ind.addEventListener('click', (e) => {
   else if (k === 'offset' || k === 'stt') showMarking();
   else if (k === 'tts') openTts();
   else if (k === 'qc') openQcPlayback();
+  else if (k === 'extended') { if (qc()) openQcPlayback(); else openTts(); }
   else if (k === 'replay' || k === 'lead' || k === 'returnToStart') showGeneral();
   else if (k === 'takes') {
     recorder.setHearing(!recorder.hearing);
@@ -2170,26 +2255,30 @@ function stopLoop() {
 // video playing alongside. Playback stops at the block's end, or where the reading
 // ends if it runs over. ⇧V then sets the block's end to where the reading finished.
 function speakBlock(fit) {
-  if (qc()) { const c = selCue() || cueAt(now()); if (!c) return; if (fit) return; leadBefore(c, seek); S.playUntil = S.qcSource === 'preview' || (S.qcSource === 'package' && liveRead(c)) ? null : c.end; play(); if (leadTo != null) leadRead = () => qcRead(c, true); else qcRead(c, true); return; }
+  if (qc()) { const c = selCue() || cueAt(now()); if (!c) return; if (fit) return; if (isExt(c) && S.qcSource !== 'video') return playCue(); leadBefore(c, seek); S.playUntil = S.qcSource === 'preview' || (S.qcSource === 'package' && liveRead(c)) ? null : c.end; play(); if (leadTo != null) leadRead = () => qcRead(c, true); else qcRead(c, true); return; }
   const guide = S.mode === 'record'; // a guide reading of the line, before taking it
   if (!writing() && !guide) return modeOnly('Text to speech', 'write');
   if (!tts.on && !guide) { openTts(); return toast('Turn on text to speech to hear blocks read aloud'); }
   const c = leadingTo() || cueAt(now()) || selCue();
   if (!c) return toast('No text block here — move the playhead into one or select one');
   if (!spoken(c.text)) return toast(onlyNotes(c.text) ? 'This block only has notes in [brackets], which aren’t read' : 'This block has no text to read yet');
+  const ext = !guide && isExt(c);
+  if (fit && ext) return toast('An extended block keeps the end you set, as the video pauses for its reading');
   select(c.id, { seek: false });
   if (S.loop) { S.loop = S.loopOnce = false; updateInd(); }
   S.playUntil = null;
   const id = c.id;
-  const read = () => speak(said(c), {
+  const reading = (after) => speak(said(c), {
     id, manual: true, speed: c.speed, voice: c.voice, gain: volGain(c),
     done: (secs) => {
+      after?.();
       const cur = S.cues[idx(id)];
       if (secs == null || !cur) return;
       if (fit) { pause(); fitToSpeech(cur, secs); return; }
       const room = cur.end - cur.start;
       if (now() >= cur.end) pause(); else S.playUntil = cur.end;
       if (guide) return;
+      if (ext) return toast(`Reading takes ${secs.toFixed(1)} s, and the video pauses for it`);
       // An auto block has just been refitted to this reading.
       if (cur.auto && room + 0.0005 >= secs) return toast(`Reading takes ${secs.toFixed(1)} s. The block now ends where the reading finishes`);
       toast(secs > room + 0.05
@@ -2197,6 +2286,7 @@ function speakBlock(fit) {
         : `Reading takes ${secs.toFixed(1)} s and fits, with ${(room - secs).toFixed(1)} s to spare`);
     },
   });
+  const read = () => (ext ? startHold(c, reading) : reading());
   // ⇧V is measuring, so it starts straight away.
   if (fit) { setTime(c.start); read(); } else {
     leadBefore(c, setTime, read);
@@ -2225,7 +2315,7 @@ function fitToSpeech(c, secs) {
 // Blocks marked auto take their end from how long the reading takes, until the end is
 // set by hand. It never runs into the next block.
 function fitAuto(c) {
-  if (S.loadingProject || S.makingReview || !c?.auto || !ttsOn() || !spoken(c.text)) return false;
+  if (S.loadingProject || S.makingReview || !c?.auto || !ttsOn() || !spoken(c.text) || isExt(c)) return false;
   const i = idx(c.id);
   if (i < 0) return false;
   const { hi } = bounds(i);
@@ -2235,8 +2325,9 @@ function fitAuto(c) {
   return true;
 }
 // With text to speech on, a block with text ends where its reading does, as in Frazier:
-// its length changes with its text and speed, not by hand.
-const following = (c) => ttsOn() && !!spoken(c.text);
+// its length changes with its text and speed, not by hand. An extended block is read while
+// the video is paused, so its end is its own.
+const following = (c) => ttsOn() && !!spoken(c.text) && !isExt(c);
 function adapt(c) {
   if (!following(c)) return;
   delete c.fit;
@@ -2277,7 +2368,7 @@ function nextFit(c, target, near) {
 // current speed when that's been measured, so the speed closes in on an exact fit.
 // force: fit even with the resize setting off, as Fit speeds to timings does.
 function fitSpeed(c) {
-  if (!c?.fit || !ttsOn() || !spoken(c.text)) return false;
+  if (!c?.fit || !ttsOn() || !spoken(c.text) || isExt(c)) return false;
   const at = c.speed ?? 1, target = c.end - c.start;
   let s;
   if (fitReadings(c).length) s = nextFit(c, target, fitNear(target));
@@ -2398,7 +2489,7 @@ async function updateAllTimings(ask = true) {
   let moved = 0, short = 0, estimated = 0;
   for (let i = 0; i < S.cues.length; i++) {
     const c = S.cues[i], next = S.cues[i + 1];
-    if (!spoken(c.text)) continue;
+    if (!spoken(c.text) || isExt(c)) continue;
     const { secs, exact } = speechLength(said(c), c.speed, c.voice);
     const hi = next ? Math.max(next.start, c.start + MIN_DUR) : Math.max(duration(), c.start + secs);
     const end = clamp(c.start + secs, c.start + MIN_DUR, hi);
@@ -2487,7 +2578,7 @@ async function fitBlock(c) {
 const ttsFitAll = $('ttsFitAll'), ttsFitStop = $('ttsFitStop'), ttsFitStatus = $('ttsFitStatus'), ttsFitBar = $('ttsFitBar');
 async function fitAllSpeeds(ask = true) {
   if (qc()) return toast('The script and timings are fixed in QC mode');
-  const blocks = S.cues.filter((c) => spoken(c.text) && !c.pinned);
+  const blocks = S.cues.filter((c) => spoken(c.text) && !c.pinned && !isExt(c));
   const kept = S.cues.filter((c) => spoken(c.text) && c.pinned).length;
   if (!blocks.length) {
     return (ttsFitStatus.textContent = kept ? 'Every block with text has a speed you picked, so there’s nothing to fit.' : 'There are no blocks with text yet.');
@@ -2603,6 +2694,7 @@ ttsFitStop.addEventListener('click', () => { measuring = false; stopSpeech(); })
 
 // Export description track: every block's Piper or Google reading in one WAV or MP3 file, each
 // at its block's start, as long as the video (or the last reading, without one).
+const extendedExportNote = () => (S.cues.some((c) => isExt(c) && spoken(c.text)) ? ' Pauses for extended blocks aren’t in exports yet, so their readings start at their usual times.' : '');
 const ttsExport = $('ttsExport'), ttsExportStatus = $('ttsExportStatus'), ttsExportBar = $('ttsExportBar');
 ttsExport.addEventListener('click', () => checkFirst(exportTrack));
 async function exportTrack() {
@@ -2627,7 +2719,7 @@ async function exportTrack() {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     report(ttsExportStatus, `Saved ${name}.` + (overlaps
       ? ` ${overlaps === 1 ? '1 reading runs' : `${overlaps} readings run`} into the next block, so they overlap in the file.`
-      : ''));
+      : '') + extendedExportNote());
   } catch (e) {
     report(ttsExportStatus, `Couldn’t export the description track: ${e.message}`);
   } finally {
@@ -2778,7 +2870,7 @@ async function exportMix() {
       $('ttsMixCmds').hidden = false;
     }
     const lufs = (v) => (Number.isFinite(v) ? `${v.toFixed(1)} LUFS` : 'silent');
-    report(ttsMixStatus, `Saved ${saved.join(', ')}. Loudness: ${lufs(done.loudness)}` + (done.was != null ? `, from ${lufs(done.was)}.` : '.'));
+    report(ttsMixStatus, `Saved ${saved.join(', ')}. Loudness: ${lufs(done.loudness)}` + (done.was != null ? `, from ${lufs(done.was)}.` : '.') + extendedExportNote());
   } catch (e) {
     if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
     if (e.stopped || mixStopped) ttsMixStatus.textContent = 'Stopped.'; // ffmpeg may answer first
@@ -3136,10 +3228,19 @@ selSay.addEventListener('click', () => { selSay.hidden = true; openSay(); });
 function liveSpeech(prevT, t, started) {
   if (!qc()) readAheadOf(t);
   else if (S.qcSource === 'package' && S.review?.live) readAheadOf(t, liveRead);
+  if (extHold) return;
+  if (heardId != null && cueAt(t)?.id !== heardId) heardId = null;
   if (qc()) return qcSpeech(prevT, t, started);
   if (!ttsOn() || !tts.live || tts.speaking?.manual || hold) return; // not over someone reading
   const a = cueAt(t);
   if (!a || tts.speaking?.id === a.id) return;
+  if (isExt(a)) {
+    // Read once, with the programme stopped. Past its start, the block plays on unread.
+    if (spoken(said(a)) && holdsAt(a.start, t, heardId === a.id)) {
+      startHold(a, (done) => speak(said(a), { id: a.id, speed: a.speed, voice: a.voice, gain: volGain(a), done }));
+    }
+    return;
+  }
   const jumped = started || t < prevT || t - prevT >= 0.5;
   if (!jumped && prevT <= a.start && t > a.start) speak(said(a), { id: a.id, speed: a.speed, voice: a.voice, gain: volGain(a) });
   else if (jumped && t > a.start && t - a.start < speechLength(said(a), a.speed, a.voice).secs - 0.1) {
@@ -3237,6 +3338,8 @@ function setMode(m, quiet = false) {
   if (!MODE_NAMES[m]) return;
   if (m !== 'qc' && S.reviewId && !qcEditable()) return toast('This QC package allows comments only. Open the writer’s project to edit');
   document.activeElement?.blur();
+  extHold = null;
+  heardId = null;
   stopSpeech();
   S.playUntil = null;
   if (m === 'qc') measuring = false;
@@ -3650,7 +3753,7 @@ function projectData() {
     recording: S.recording,
     media: m,
     settings: { mode: S.mode, offset: S.offset, ...reviewSettings(),
-      ttsDuck: tts.duck, ttsDipDb: tts.dipDb, ttsDipFade: tts.dipFade, ttsMix: tts.mix },
+      ttsDuck: tts.duck, ttsDipDb: tts.dipDb, ttsDipFade: tts.dipFade, ttsMix: tts.mix, extendedAll: S.extendedAll },
     view: { playhead: now(), ...(selIdx() >= 0 ? { selected: selIdx() } : {}) },
   });
 }
@@ -3820,6 +3923,7 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
   // on them, and exact dips from older projects become the difference from its dip.
   S.loadingProject = true;
   projectSound(p.settings);
+  S.extendedAll = p.settings.extendedAll === true;
   S.projectId = p.projectId || newIdentity();
   S.reviewHistory = p.reviewHistory || null;
   S.cues = p.blocks.map(revive);
@@ -4119,6 +4223,7 @@ async function endRecording() {
   S.projectId = newIdentity();
   S.reviewHistory = null;
   S.cues = [];
+  S.extendedAll = false;
   S.subName = 'untitled.srt';
   S.projectMedia = null;
   setMode('write', true);
@@ -4888,7 +4993,7 @@ function gapBlock(t = now(), whole = false) {
 // on, otherwise the block itself. 0 if there's too little to mention. Transcribing and
 // recording aren't timed around the dialogue, so it doesn't apply there.
 function overDialogue(c) {
-  if (!S.dialogue || !(writing() || qc()) || !c.text.trim()) return 0;
+  if (!S.dialogue || !(writing() || qc()) || !c.text.trim() || isExt(c)) return 0;
   if (ttsOn() && !spoken(c.text)) return 0;
   const end = ttsOn() ? c.start + speechLength(said(c), c.speed, c.voice).secs : c.end;
   const secs = speechIn(S.dialogue.spans, c.start, end);
@@ -5202,8 +5307,8 @@ video.addEventListener('loadedmetadata', () => {
 });
 video.addEventListener('error', () => { if (S.videoFile && video.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) showCodecAlert(S.videoFile, []); else toast('This file couldn’t be played'); });
 video.addEventListener('play', updateInd);
-video.addEventListener('pause', () => { qcPlayer.stop(); updateInd(); });
-video.addEventListener('seeking', () => qcPlayer.stop());
+video.addEventListener('pause', () => { if (!extHold) qcPlayer.stop(); updateInd(); });
+video.addEventListener('seeking', () => { if (!extHold) qcPlayer.stop(); });
 video.addEventListener('click', togglePlay);
 
 function openFiles(files) {
@@ -5271,13 +5376,14 @@ function configureQcAudio() {
   const entries = [];
   for (const c of S.cues) {
     const r = playbackReading(S.review, c, reviewSettings());
-    if (r) entries.push({ ...r, start: c.start, gain: volGain(c), ...blockDipOf(c), id: entries.length });
+    if (r) entries.push({ ...r, start: c.start, gain: volGain(c), ...blockDipOf(c), id: entries.length, uid: c.uid, held: isExt(c) });
   }
   qcPlayer.configure(S.review.file, entries);
 }
 let liveMissingSaid = '';
-function qcRead(c, manual = false) {
-  if (!qc() || S.qcSource === 'video') return;
+// after: runs as the reading ends. Returns whether it's reading.
+function qcRead(c, manual = false, after = null) {
+  if (!qc() || S.qcSource === 'video') return false;
   S.qcLast = c.id;
   const from = () => Math.max(0, now() - c.start), live = S.qcSource === 'package' && liveRead(c);
   if (S.qcSource === 'package' && !live) {
@@ -5302,8 +5408,9 @@ function qcRead(c, manual = false) {
   if (!voice) return toast('Choose a preview voice in QC playback');
   // Heard from its first word, so the reading's length is all of it.
   const whole = from() * spoken(said(c)).split(' ').length < speechLength(said(c), c.speed, voice).secs;
-  speak(said(c), { id: c.id, speed: c.speed, voice, gain: volGain(c), from,
+  return speak(said(c), { id: c.id, speed: c.speed, voice, gain: volGain(c), from: after ? null : from,
     done: (secs) => {
+      after?.();
       if (secs == null || !qc() || S.qcLast !== c.id) return;
       // A stand-in voice isn't the writer's reading, so only the block's own voice moves its end.
       if (whole && voice === requested && edited.has(c) && S.cues.includes(c) && fitQc(c, secs)) changed(c.id);
@@ -5311,12 +5418,25 @@ function qcRead(c, manual = false) {
     },
   });
 }
+// An extended block in QC: its reading from the package, or read here.
+function holdQc(c) {
+  if (S.qcSource === 'package' && !liveRead(c)) {
+    if (qcPlayer.has(c.uid)) startHold(c, (done) => qcPlayer.hold(c.uid, S.rate, mixLevels(tts.mix).reading, done));
+    return;
+  }
+  startHold(c, (done) => { if (!qcRead(c, false, done)) done(); });
+}
 function qcSpeech(prevT, t, started) {
   if (S.qcSource === 'package') {
     const ready = !S.hasVideo || (!video.seeking && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA);
     qcPlayer.sync(t, isPlaying() && ready, S.rate, mixLevels(tts.mix).reading);
-    if (!S.review?.live) return;
   }
+  const here = S.qcSource === 'video' ? null : cueAt(t);
+  if (isExt(here)) {
+    if (holdsAt(here.start, t, heardId === here.id)) holdQc(here);
+    return;
+  }
+  if (S.qcSource === 'package' && !S.review?.live) return;
   if (S.qcSource === 'video') return;
   const jumped = started || t < prevT || t - prevT >= 0.5;
   if (jumped) S.qcLast = null;
@@ -5704,7 +5824,7 @@ function tick(ts) {
   lastTs = ts;
   applyDuck(dt);
   if (S.hasVideo || !S.vplaying) stopSilence();
-  else if (soundStarted(ts)) {
+  else if (!extHold && soundStarted(ts)) {
     S.vt += dt * S.rate;
     if (S.vt >= duration()) { S.vt = duration(); S.vplaying = false; }
   }
@@ -5810,6 +5930,7 @@ function readingsChanged() {
 }
 initTts({
   toast,
+  panelOpened: () => showExtended(),
   rate: () => S.rate,
   duck: duckAudio,
   sample: () => spoken(selCue() ? said(selCue()) : ''),

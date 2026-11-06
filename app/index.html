@@ -157,6 +157,7 @@
           </div>
           <div class="edfoot">
           <div class="edtts write-only" id="edPickupRow">
+            <button id="edExtended" aria-pressed="false" hidden data-tip="Extended: the video pauses at this block's start while it's read, then carries on. Its end stays where you set it">Extended</button>
             <button id="edPickup" aria-pressed="false" data-tip="Pickup: ask the narrator to record this block again, in the next recording file. Lines you reword are asked for anyway">Pickup</button>
             <input id="edPickupNote" type="text" maxlength="500" spellcheck="true" autocomplete="off" hidden
               placeholder="Note for the narrator, such as how to say a name" aria-label="Note for the narrator"></div>
@@ -894,6 +895,10 @@ docker compose up -d --build</code></pre>
           <a href="https://github.com/kyle95wm/Scribecue/blob/main/Guides/INSTALL.md#more-lifelike-voices-kokoro" target="_blank" rel="noopener noreferrer">How to add Kokoro</a></p>
       </section>
       <label class="updopt"><input type="checkbox" id="ttsLive"> Read blocks aloud while playing</label>
+      <div class="updopt ttsextended">
+        <button id="ttsExtendedAll" aria-pressed="false" data-tip="The video pauses at the start of every block while it's read, then carries on. To pause for only some blocks, use Extended beside the block's text">Extended AD for this project</button>
+        <span id="ttsExtendedTotal" class="dim"></span>
+      </div>
       <label class="updopt"><input type="checkbox" id="ttsDuck"> Lower the original audio while a block is read</label>
       <div class="ttsgrid ttsdip">
         <label for="ttsDipDb">Lower it by</label>
@@ -917,7 +922,7 @@ docker compose up -d --build</code></pre>
       </div>
       <label class="updopt"><input type="checkbox" id="ttsNotes"> Don't read notes in [square brackets]</label>
       <p class="dim small">Each block ends where its reading ends. To make a block longer or shorter, change its speed.
-        Blocks opened from a file keep their timing until you edit them.</p>
+        Blocks opened from a file keep their timing until you edit them. Extended blocks keep the end you set.</p>
       <div class="ttsgrid">
         <label for="ttsImport">When you open a script</label>
         <select id="ttsImport">

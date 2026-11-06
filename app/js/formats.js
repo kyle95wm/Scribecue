@@ -59,8 +59,9 @@ const DIP_NOTE = 'NOTE Scribecue programme lowered by (dB):';
 const DIP_BY_NOTE = 'NOTE Scribecue programme lowered more than set by (dB):';
 const VOL_NOTE = 'NOTE Scribecue reading volume (%):';
 const SAY_NOTE = 'NOTE Scribecue sounds like:';
+const EXTENDED_NOTE = 'NOTE Scribecue extended block';
 // What a note says about the block after it: { speed }, { voice }, { dip }, { dipBy },
-// { vol } or { say: [[written, said], …] }.
+// { vol }, { extended } or { say: [[written, said], …] }.
 function readNote(block) {
   block = block.trim();
   const m = block.match(/^NOTE Scribecue text to speech speed: (\d+(?:\.\d+)?)$/);
@@ -73,6 +74,7 @@ function readNote(block) {
   if (by) return { dipBy: +by[1] };
   const vol = block.match(/^NOTE Scribecue reading volume \(%\): (\d+)$/);
   if (vol) return { vol: +vol[1] };
+  if (block === EXTENDED_NOTE) return { extended: true };
   if (block.startsWith(SAY_NOTE)) {
     const say = block.split('\n').slice(1).map((l) => l.split(' = ')).filter((p) => p.length >= 2 && p[0].trim())
       .map(([w, ...s]) => [w.trim(), s.join(' = ').trim()]).filter(([, s]) => s);
@@ -100,6 +102,7 @@ export function parseSubs(text) {
     if (notes.dipBy != null) cue.dipBy = notes.dipBy;
     if (notes.vol != null) cue.vol = notes.vol;
     if (notes.say) cue.say = notes.say;
+    if (notes.extended) cue.extended = true;
     notes = {};
     cues.push(cue);
   }
@@ -116,7 +119,7 @@ export function toSRT(cues) {
 export function toVTT(cues) {
   const say = (c) => (c.say?.length ? `${SAY_NOTE}\n${c.say.map(([w, s]) => `${w} = ${s}`).join('\n')}\n\n` : '');
   return 'WEBVTT\n\n' + cues.map((c, i) => (c.speed ? `${SPEED_NOTE} ${c.speed}\n\n` : '') + (c.voice ? `${VOICE_NOTE} ${c.voice}\n\n` : '') + (c.dip != null ? `${DIP_NOTE} ${c.dip}\n\n` : '') +
-    (c.dipBy ? `${DIP_BY_NOTE} ${c.dipBy > 0 ? '+' : ''}${c.dipBy}\n\n` : '') + (c.vol ? `${VOL_NOTE} ${c.vol}\n\n` : '') + say(c) +
+    (c.dipBy ? `${DIP_BY_NOTE} ${c.dipBy > 0 ? '+' : ''}${c.dipBy}\n\n` : '') + (c.vol ? `${VOL_NOTE} ${c.vol}\n\n` : '') + (c.extended ? `${EXTENDED_NOTE}\n\n` : '') + say(c) +
     `${i + 1}\n${fmtTime(c.start, '.')} --> ${fmtTime(c.end, '.')}\n${clean(c.text)}`).join('\n\n') + '\n';
 }
 

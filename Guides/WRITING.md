@@ -33,7 +33,8 @@ tag next to the end time shows this. To make a block longer or shorter, change i
 with `[` `]`, not its end. Moving the block, or changing its start, moves the whole block.
 
 **It never runs into the next block.** If the reading doesn't fit, its time shows in red,
-such as `TTS 2.9 s`, and so does the block's length in the list.
+such as `TTS 2.9 s`, and so does the block's length in the list. If there's no way to fit
+it, see [Extended AD](#extended-ad).
 
 - `~` before a time means it's an estimate. It becomes exact once the block has been read.
 - A dot (●) after a block's length means its reading is made, so the length is exact.
@@ -81,6 +82,25 @@ Both build on the settings and the slider: change those, and every block moves w
 
 Projects keep both, along with the settings they build on, so a project sounds the same
 on any computer. WebVTT exports keep them too.
+
+## Extended AD
+
+Use Extended AD when a description needs more time than the gap gives it. The video pauses
+at the block's start while the block is read, then carries on.
+
+| To pause for | Do this |
+|---------|---------|
+| One block | Click **Extended** in the open block. |
+| Every block | Turn on **Extended AD for this project** in the text to speech settings. |
+
+- Pressing `Space` during a pause stops the reading. Press it again to hear the block from the start.
+- Jumping elsewhere ends the pause and playback carries on from there.
+- Starting from the middle of an extended block plays on without reading it.
+- An extended block keeps the end you set, as its reading no longer has to fit.
+- The block's length in the list shows how long it pauses. The settings show the total.
+
+Exports and Record mode don't include the pauses yet. In exports, readings start at their
+usual times and may overlap what follows.
 
 ## Exporting the full mix
 
@@ -160,8 +180,8 @@ later in the text to speech settings.
 
 ## Good to know
 
-- **Saving:** block speeds, voices and sounds-like words are saved in projects and WebVTT
-  exports. SRT files can't hold them. Frazier `.adc` scripts bring their speeds and base
+- **Saving:** block speeds, voices, sounds-like words and Extended are saved in projects
+  and WebVTT exports. SRT files can't hold them. Frazier `.adc` scripts bring their speeds and base
   speed with them.
 - **Stored readings:** Piper, Kokoro and Google readings are kept in your browser, up to
   250 MB, so they play straight away next time and Google isn't asked again. The **Storage** section

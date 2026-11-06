@@ -1410,6 +1410,7 @@ export async function checkFfmpeg() {
 
 export function openTts() {
   render();
+  hooks.panelOpened?.();
   loadPiper(); // in case Piper was started since
   checkFfmpeg();
   if (googleKey()) loadGoogle(); // in case the key's voices have changed
