@@ -19,7 +19,7 @@ body:
     attributes:
       label: Scribecue version
       description: Skip this if you added the diagnostics. Otherwise, the version number in the bottom right of Scribecue.
-      placeholder: v0.78.1
+      placeholder: v0.87.0
   - type: dropdown
     id: where
     attributes:
@@ -55,9 +55,14 @@ body:
         - label: Video or audio (opening a file, playback, audio tracks, waveform)
         - label: Hold-to-mark or block timing
         - label: Speech to text (Whisper)
-        - label: Text to speech or Piper voices
+        - label: Text to speech (Piper, Kokoro, Google, Amazon Polly or browser voices)
+        - label: Extended AD
+        - label: Recording narration (takes, levels, the narration WAV)
+        - label: QC (packages, comments, return packages)
         - label: AI help
-        - label: Saving, autosave, projects, opening or exporting scripts
+        - label: Saving, autosave, projects, or opening scripts
+        - label: Exporting (scripts, the description track, the full mix, the extended video)
+        - label: ffmpeg
         - label: Working offline, updates or installing
         - label: Keyboard shortcuts
         - label: A screen reader or other assistive technology

@@ -28,7 +28,9 @@ body:
       options:
         - Transcribe
         - Write
-        - Both
+        - QC
+        - Record
+        - Several, or it doesn't matter
     validations:
       required: true
   - type: dropdown
@@ -39,7 +41,9 @@ body:
       options:
         - I write audio description
         - I transcribe or check existing audio description
-        - I narrate or produce it
+        - I review it (QC)
+        - I narrate it
+        - I produce or mix it
         - I'm a blind or partially sighted viewer or reviewer
         - Something else
     validations:

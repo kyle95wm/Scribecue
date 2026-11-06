@@ -10,8 +10,8 @@ body:
     id: version
     attributes:
       label: Scribecue version
-      description: The version number in the bottom right, such as v0.35.0. With a screen reader, it's a button near the end of the page.
-      placeholder: v0.35.0
+      description: The version number in the bottom right, such as v0.87.0. With a screen reader, it's a button near the end of the page.
+      placeholder: v0.87.0
     validations:
       required: true
   - type: dropdown
@@ -22,6 +22,7 @@ body:
         - The web version (scribecue.kyleadvoice.ca)
         - The web version, installed as an app
         - Running it myself with Docker
+        - Running it myself without Docker (for development)
     validations:
       required: true
   - type: input
@@ -36,9 +37,19 @@ body:
     id: browser
     attributes:
       label: Browser and operating system
-      placeholder: Chrome 140 on Windows 11
+      placeholder: Chrome 156 on Windows 11
     validations:
       required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - Transcribe
+        - Write
+        - QC
+        - Record
+        - Several, or it doesn't matter
   - type: textarea
     id: what
     attributes:
