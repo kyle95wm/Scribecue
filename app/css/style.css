@@ -561,6 +561,8 @@ body.mode-record { grid-template-rows: 44px minmax(0, 1fr) 290px 28px; }
 .cue.sel { background: var(--accent-bg); border-color: var(--accent); z-index: 2; }
 .cue.clash { box-shadow: inset 0 -4px 0 var(--warn); }
 .cue.extended { box-shadow: inset 4px 0 0 var(--ok); }
+.cue.extended .ci { left: 7px; }
+.cue.extended .ct { display: none; }
 .cue.extended.clash { box-shadow: inset 4px 0 0 var(--ok), inset 0 -4px 0 var(--warn); }
 .cue.marking { background: rgba(255, 79, 112, 0.18); border: 2px dashed var(--play); z-index: 3; pointer-events: none; }
 .cue .ci {

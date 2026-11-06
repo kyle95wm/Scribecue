@@ -157,7 +157,7 @@
           </div>
           <div class="edfoot">
           <div class="edtts write-only" id="edPickupRow">
-            <button id="edExtended" aria-pressed="false" hidden data-tip="Extended: the video pauses at this block's start while it's read, then carries on. Its end stays where you set it">Extended</button>
+            <button id="edExtended" aria-pressed="false" hidden data-tip="Extended: the video pauses at this block's start while it's read, then carries on. On the timeline, the block becomes a short marker">Extended</button>
             <button id="edPickup" aria-pressed="false" data-tip="Pickup: ask the narrator to record this block again, in the next recording file. Lines you reword are asked for anyway">Pickup</button>
             <input id="edPickupNote" type="text" maxlength="500" spellcheck="true" autocomplete="off" hidden
               placeholder="Note for the narrator, such as how to say a name" aria-label="Note for the narrator"></div>
@@ -922,7 +922,7 @@ docker compose up -d --build</code></pre>
       </div>
       <label class="updopt"><input type="checkbox" id="ttsNotes"> Don't read notes in [square brackets]</label>
       <p class="dim small">Each block ends where its reading ends. To make a block longer or shorter, change its speed.
-        Blocks opened from a file keep their timing until you edit them. Extended blocks keep the end you set.</p>
+        Blocks opened from a file keep their timing until you edit them.</p>
       <div class="ttsgrid">
         <label for="ttsImport">When you open a script</label>
         <select id="ttsImport">

@@ -95,9 +95,9 @@ at the block's start while the block is read, then carries on.
 
 - Pressing `Space` during a pause stops the reading. Press it again to hear the block from the start.
 - Jumping elsewhere ends the pause and playback carries on from there.
-- Starting from the middle of an extended block plays on without reading it.
-- An extended block keeps the end you set, as its reading no longer has to fit.
-- The block's length in the list shows how long it pauses. The settings show the total.
+- An extended block shows as a short marker on the timeline, as it takes none of the video's time. Drag it to move it.
+- Clicking **Extended** again gives the block its normal length back.
+- The list shows how long each block pauses. The settings show the total.
 
 Exports and Record mode don't include the pauses yet. In exports, readings start at their
 usual times and may overlap what follows.

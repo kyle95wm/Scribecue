@@ -47,7 +47,7 @@ raw, for the mixer to work with.
 Open the video first, so Scribecue can check the narrator has the same copy.
 
 [Extended AD](WRITING.md#extended-ad) pauses don't reach Record mode yet. Narrators record
-those blocks in their usual slots.
+those blocks over the moving video, in a slot as long as the reading, up to the next block.
 
 ## Recording
 
