@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -525,4 +525,57 @@ test('a take’s waveform grows as its sound arrives, the same as drawn from the
   assert.deepEqual([...trail.peaks], [...wavePeaks(pcm, 600)]);
   trail.add(new Float32Array(100).fill(0.9));
   assert.equal(trail.peaks.length, 600, 'a column shows once it’s full');
+});
+
+// ---- Extended blocks
+
+const held = [
+  { start: 1, end: 3, text: 'one' },
+  { start: 4, end: 4.1, text: 'two', extended: true },
+  { start: 5, end: 7, text: 'three' },
+  { start: 9, end: 9.1, text: 'four', extended: true },
+];
+
+test('a recording file says which blocks are extended, and survives the round trip', () => {
+  const file = toRecordingFile({ blocks: held });
+  const back = fromRecordingFile(JSON.parse(JSON.stringify(file)));
+  assert.deepEqual(back.blocks.map((b) => !!b.extended), [false, true, false, true]);
+  assert.equal(back.edited, false);
+});
+
+test('marking a block extended changes the fingerprint, and old files keep theirs', () => {
+  const plain = held.map(({ extended, ...b }) => b);
+  assert.notEqual(scriptPrint(held), scriptPrint(plain));
+  assert.equal(scriptPrint(plain), scriptPrint(JSON.parse(JSON.stringify(plain))));
+});
+
+test('an extended block has a slot with no end, and leaves the next block its start', () => {
+  const sl = slots(held);
+  assert.deepEqual(sl[1], { start: 4, end: Infinity, hold: true, mark: 4.1 });
+  assert.equal(prevEnd(sl, 0), 0);
+  assert.equal(prevEnd(sl, 1), 3);
+  assert.equal(prevEnd(sl, 2), 4);
+  assert.equal(runsOver({ start: 4, duration: 60 }, sl[1]), false);
+});
+
+test('the narration stretches by each extended take, from the block’s start', () => {
+  const takes = [{ start: 1, duration: 2 }, { start: 3.9, duration: 3.1 }, null, { start: 8.95, duration: 2.05 }];
+  const { starts, moved, pauses, added } = narrationTimeline(held, takes);
+  assert.deepEqual(pauses.map((p) => [p.at, +p.secs.toFixed(3)]), [[4, 3], [9, 2]]);
+  assert.deepEqual(starts.map((s) => +s.toFixed(3)), [1, 4, 8, 12]);
+  assert.deepEqual(moved.map((s) => +s.toFixed(3)), [0, 0, 3, 3]);
+  assert.equal(+added.toFixed(3), 5);
+});
+
+test('an extended block with no take pauses nothing', () => {
+  assert.equal(narrationTimeline(held, [null, null, null, null]).added, 0);
+});
+
+test('the narration’s note gives the pauses, and a changed block shows up when compared', () => {
+  const note = narrationNote({ blocks: held, pauses: [{ at: 4, secs: 3 }] });
+  assert.deepEqual(note.pauses, [{ at: 4, secs: 3 }]);
+  assert.equal(note.blocks[1].extended, true);
+  const plain = held.map(({ extended, ...b }) => b);
+  assert.deepEqual(compareScript(note, plain).lines.map((l) => l.line), [2, 4]);
+  assert.equal(compareScript(note, held).same, true);
 });

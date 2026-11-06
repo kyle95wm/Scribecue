@@ -99,7 +99,7 @@ at the block's start while the block is read, then carries on.
 - Clicking **Extended** again gives the block its normal length back.
 - The list shows how long each block pauses. The settings show the total.
 
-Record mode doesn't include the pauses yet.
+Narrators read extended blocks with the video stopped. See [Recording](RECORDING.md#extended-blocks).
 
 ### Extended blocks in exports
 

@@ -1528,7 +1528,7 @@ function fillRow(r, c, i) {
     + (ttsOn() && c.voice ? ` · ${blockVoiceName(c.voice)}` : '');
   // Red when the reading is longer than the block, with a sign for anyone who can't tell red.
   const reading = ttsOn() && !!spoken(c.text) ? speechLength(said(c), c.speed, c.voice) : null;
-  const ext = isExt(c) && (writing() || qc());
+  const ext = isExt(c) && S.mode !== 'transcribe';
   const over = !ext && !!reading && reading.secs > c.end - c.start + 0.05;
   if (over) dur += ' ⚠';
   if (ext) dur += reading ? ` · pauses ${reading.exact ? '' : '~'}${reading.secs.toFixed(1)} s` : ' · extended';
@@ -3374,7 +3374,7 @@ function liveSpeech(prevT, t, started) {
   if (qc()) return qcSpeech(prevT, t, started, jumped);
   if (!ttsOn() || !tts.live || tts.speaking?.manual || hold) return; // not over someone reading
   const a = cueAt(t);
-  const e = blockToHold(S.cues, prevT, t, jumped, (c) => isExt(c) && c.id !== heard?.id && !!spoken(said(c)));
+  const e = S.mode !== 'record' && blockToHold(S.cues, prevT, t, jumped, (c) => isExt(c) && c.id !== heard?.id && !!spoken(said(c)));
   if (e) return startHold(e, (done) => speak(said(e), { id: e.id, speed: e.speed, voice: e.voice, gain: volGain(e), done }));
   if (!a || isExt(a) || tts.speaking?.id === a.id) return;
   const gap = started || t < prevT || t - prevT >= 0.5;
@@ -4128,7 +4128,7 @@ function askRecordingFile() {
   $('recFileFps').textContent = String(S.fps);
   // Which version this is, and the lines it asks the narrator for again.
   const lines = narratorBlocks().filter((c) => c.text.trim()), picks = pickupsFor(lines, S.recording?.sent);
-  const nums = picks.flatMap((p, i) => (p ? [S.cues.indexOf(lines[i]) + 1] : []));
+  const nums = picks.flatMap((p, i) => (p ? [idx(lines[i].id) + 1] : []));
   const v = (S.recording?.version || 0) + 1;
   $('recFileVersion').textContent = v > 1
     ? `Version ${v}. ` + (nums.length ? `It asks for ${nums.length === 1 ? 'a pickup' : `${nums.length} pickups`}: block${nums.length === 1 ? '' : 's'} ${listNums(nums)}. Takes of the other blocks carry over.` : 'It asks for no pickups. Takes carry over.')
@@ -4140,11 +4140,7 @@ function askRecordingFile() {
 // The script as a narrator gets it: an extended block's marker is too short to record in,
 // so its slot runs as long as its reading, up to the next block.
 function narratorBlocks() {
-  return S.cues.map((c, i) => {
-    if (!isExt(c) || !spoken(c.text)) return c;
-    const next = S.cues[i + 1], end = c.start + speechLength(said(c), c.speed, c.voice).secs;
-    return { ...c, end: Math.max(c.end, next ? Math.min(end, next.start) : end) };
-  });
+  return S.cues.map((c) => (isExt(c) && spoken(c.text) ? { ...c, extended: true } : c));
 }
 function saveRecordingFile() {
   const start = readTime($('recFileStart').value.trim());
@@ -4300,6 +4296,7 @@ async function enterRecording(r, name, raw = null) {
   S.projectId = newIdentity();
   S.reviewHistory = null;
   S.cues = r.blocks.map((b) => Object.assign(revive(b), b.pickup ? { pickup: b.pickup } : {}));
+  S.extendedAll = false; // each block says, in a recording file
   S.handle = null;
   handleStore.set(null);
   showAutosave();

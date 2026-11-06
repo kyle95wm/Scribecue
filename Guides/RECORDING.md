@@ -13,6 +13,7 @@ raw, for the mixer to work with.
 - [Recording](#recording)
   - [Before you start](#before-you-start)
   - [Recording a block](#recording-a-block)
+  - [Extended blocks](#extended-blocks)
   - [Levels](#levels)
   - [Takes](#takes)
   - [Punching in](#punching-in)
@@ -46,8 +47,8 @@ raw, for the mixer to work with.
 
 Open the video first, so Scribecue can check the narrator has the same copy.
 
-[Extended AD](WRITING.md#extended-ad) pauses don't reach Record mode yet. Narrators record
-those blocks over the moving video, in a slot as long as the reading, up to the next block.
+[Extended blocks](WRITING.md#extended-ad) go in the file, and the narrator reads them with the
+video stopped. See [Extended blocks](#extended-blocks).
 
 ## Recording
 
@@ -100,6 +101,18 @@ The writer's notes for a block, such as how to say a name, show above its text.
 
 A block's **slot** is its time, from its start to its end. A take that runs past it isn't
 cut off. It's marked in red until you [trim or move it](#editing-a-take).
+
+### Extended blocks
+
+An extended block has no time limit. The video stops at its start, and you read at your own pace.
+
+1. Press `Enter` or `R`, as for any block.
+2. Read when the video stops.
+3. Press `Enter` or `Space` when you've finished.
+
+- When you play, the video stops for each extended take while it plays. Press `Space` to skip the rest.
+- Punching in doesn't work on an extended block. Record it again instead.
+- On the timeline, the take can run under the blocks after it. Those blocks aren't affected.
 
 ### Levels
 
@@ -274,6 +287,10 @@ The narration is one Broadcast WAV file:
   stamp**.
 - Marked at each block, with its number and first words, for DAWs that read markers,
   such as Reaper and Nuendo.
+
+With extended blocks, the WAV is longer than the programme. Each take sits where the video
+stops for it, ready for an extended video. A pause list comes with it, as a CSV. A pickup of
+an extended block can change the pauses after it, so export the narration again.
 
 A pickups WAV is the same, with only the pickups in it. Put it on its own track over the
 first narration, and mute the old takes under it. Its markers say `PICKUP`, with the
