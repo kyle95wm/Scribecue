@@ -139,3 +139,10 @@ test('a project keeps each block’s notes for the narrator, and drops blank or 
   assert.deepEqual(p.blocks.map((b) => b.notes ?? null), ['Siobhan: shi-VAWN.\nWarm, unhurried.', null, null, null]);
   assert.equal(fromProject({ ...saved, blocks: [{ start: 1, end: 2, text: 'A.', notes: 'x'.repeat(3000) }] }).blocks[0].notes.length, 2000);
 });
+
+test('an extended block keeps the length it had by hand', () => {
+  const blocks = [{ start: 1, end: 1.1, text: 'a', extended: true, ownSecs: 4 }, { start: 3, end: 4, text: 'b', ownSecs: -1 }];
+  const back = fromProject(JSON.parse(JSON.stringify(toProject({ ...state, blocks }))));
+  assert.equal(back.blocks[0].ownSecs, 4);
+  assert.equal('ownSecs' in back.blocks[1], false);
+});

@@ -2,7 +2,7 @@
 // ffmpeg of one's own. They should match what ffmpeg/server.py does in Docker.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ffmpegCommands, quote, CMD_VIDEOS } from '../app/js/ffcmd.js';
+import { ffmpegCommands, quote, CMD_VIDEOS, holdFilter, extendedCommand } from '../app/js/ffcmd.js';
 
 const names = { mix: 'Film - full mix.wav', out: 'Film - with audio description.mp4' };
 
@@ -32,4 +32,16 @@ test('WebM gets Opus, MKV keeps its attachments, and other files get no commands
 test('names are quoted so the shell takes them as they are', () => {
   assert.equal(quote('My "big" $film`.mp4'), '"My \\"big\\" \\$film\\`.mp4"');
   assert.equal(quote('Plain name.mp4'), '"Plain name.mp4"');
+});
+
+test('the filter that holds the picture adds up the pauses it has passed', () => {
+  const f = holdFilter([{ at: 5, secs: 2.5 }, { at: 9.25, secs: 1 }]);
+  assert.ok(f.startsWith('[0:v:0]setpts=PTS-STARTPTS+(gte(T\\,5.000000)*2.500000+gte(T\\,9.250000)*1.000000)/TB,'), f);
+  assert.ok(f.endsWith('tpad=stop=-1:stop_mode=clone,format=yuv420p[v]\n'), f);
+});
+
+test('the extended video command uses the filter file and suits the container', () => {
+  const c = extendedCommand({ video: 'a b.mp4', mix: 'mix.wav', filter: 'p.txt', out: 'out.mp4' });
+  assert.ok(c.startsWith('ffmpeg -i "a b.mp4" -i "mix.wav" -filter_complex_script "p.txt" -map "[v]" -map 1:a -c:v libx264'), c);
+  assert.match(extendedCommand({ video: 'a.webm', mix: 'm.wav', filter: 'p.txt', out: 'o.webm' }), /libvpx-vp9.*libopus/);
 });

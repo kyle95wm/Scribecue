@@ -400,7 +400,7 @@ button.clock { padding: 0; border: 0; background: none; color: inherit; }
 #edNotes:focus { color: var(--text); }
 #edNotes::placeholder { font-size: 13px; }
 #edNotes[hidden], .mode-transcribe #edNotes { display: none; }
-#edPickup[aria-pressed="true"], #edExtended[aria-pressed="true"], #ttsExtendedAll[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+#edPickup[aria-pressed="true"], #edExtended[aria-pressed="true"], #ttsExtendedAll[aria-pressed="true"], #ttsKeepPauses[aria-pressed="true"], #ttsExtNarration[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 #edExtended:disabled { opacity: 0.6; }
 .ttsextended { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 /* Original | Alt in Record mode's block editor, shaped like the mode switch. */

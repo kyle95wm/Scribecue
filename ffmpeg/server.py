@@ -6,6 +6,9 @@
 #   POST   /jobs                {"codec": "aac" | "ac3" | "eac3", "video": "mp4" | null,
 #                                "replace": false, "name": "Film - full mix"} -> {"id": "..."}
 #                                or {"copy": "webm" | "mp4", "video": "mp4", "name": "Film"}
+#                                or {"codec": "aac", "video": "mp4", "name": "Film",
+#                                    "pauses": [[120.5, 4.2], ...]}, seconds, for an
+#                                    extended video: the picture held at each pause
 #   PUT    /jobs/<id>/mix       the mix, a WAV, for the full mix
 #   PUT    /jobs/<id>/video     the video, with video set
 #   POST   /jobs/<id>/start
@@ -43,6 +46,8 @@ VIDEOS = {"mp4", "m4v", "mov", "mkv", "webm"}
 COPIES = {"webm", "mp4"}
 SCALE = "scale=-2:min(720\\,trunc(ih/2)*2)"
 CHUNK = 1 << 20
+MAX_JOB = 1 << 20  # a long film can have thousands of pauses to describe
+MAX_PAUSES = 20000
 STALE = 300  # seconds without a word from the page before a job is deleted
 
 jobs = {}
@@ -100,6 +105,28 @@ def probe(path):
     return audio, float(info.get("format", {}).get("duration") or 0)
 
 
+def sums(terms):
+    """Adds terms in halves: ffmpeg's expressions can't go too deep, as one long chain would."""
+    if len(terms) < 2:
+        return terms[0] if terms else "0"
+    mid = len(terms) // 2
+    return f"({sums(terms[:mid])}+{sums(terms[mid:])})"
+
+
+def hold_filter(pauses):
+    """The picture for an extended video. Each pause moves everything after it later, and
+    the frame before the gap fills it. The last frame then goes on as long as the sound."""
+    moved = sums([f"gte(T\\,{at:.6f})*{secs:.6f}" for at, secs in pauses])
+    return (f"[0:v:0]setpts=PTS-STARTPTS+{moved}/TB,fps=fps=source_fps:start_time=0,"
+            "tpad=stop=-1:stop_mode=clone,format=yuv420p[v]\n")
+
+
+def good_pauses(pauses):
+    return (isinstance(pauses, list) and 0 < len(pauses) <= MAX_PAUSES and all(
+        isinstance(p, list) and len(p) == 2 and all(type(v) in (int, float) and 0 <= v < 1e6 for v in p)
+        for p in pauses))
+
+
 def command(job):
     """The ffmpeg arguments for a job, and the duration to measure progress against."""
     folder, codec = job["dir"], job["codec"]
@@ -114,6 +141,20 @@ def command(job):
             os.path.join(folder, "out." + job["copy"]),
         ], probe(video)[1]
     mix = os.path.join(folder, "mix.wav")
+    if job.get("pauses"):
+        video = os.path.join(folder, "video." + job["video"])
+        script = os.path.join(folder, "pauses.txt")
+        with open(script, "w") as f:
+            f.write(hold_filter(job["pauses"]))
+        webm = job["video"] == "webm"
+        coded = (["-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "6", "-row-mt", "1", "-b:v", "0", "-crf", "30",
+                  "-c:a", "libopus", "-b:a", "192k"] if webm else
+                 ["-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-c:a", "aac", "-b:a", "256k"])
+        return [
+            "-i", video, "-i", mix, "-filter_complex_script", script, "-map", "[v]", "-map", "1:a",
+            *coded, "-shortest", "-map_metadata", "0",
+            os.path.join(folder, "out." + job["video"]),
+        ], probe(video)[1] + sum(p[1] for p in job["pauses"])
     args, ext = CODECS[codec]
     if not job["video"]:
         return ["-i", mix, "-vn", *args, os.path.join(folder, f"out.{ext}")], probe(mix)[1]
@@ -203,18 +244,20 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/jobs":
             try:
-                body = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length") or 0), 4096)) or "{}")
+                body = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length") or 0), MAX_JOB)) or "{}")
             except ValueError:
                 return self.reply(400, {"error": "not JSON"})
-            codec, video, copy = body.get("codec"), body.get("video"), body.get("copy")
+            codec, video, copy, pauses = body.get("codec"), body.get("video"), body.get("copy"), body.get("pauses")
             if (copy not in COPIES or video not in VIDEOS) if copy else (codec not in CODECS or (video and video not in VIDEOS)):
                 return self.reply(400, {"error": "unknown format"})
+            if pauses is not None and (not video or copy or not good_pauses(pauses)):
+                return self.reply(400, {"error": "unknown pauses"})
             name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", str(body.get("name") or "full mix"))[:200]
             id = secrets.token_hex(8)
             with lock:
                 clear()
                 os.makedirs(os.path.join(WORK, id))
-                jobs[id] = {"dir": os.path.join(WORK, id), "codec": codec, "video": video or None, "copy": copy or None,
+                jobs[id] = {"dir": os.path.join(WORK, id), "codec": codec, "video": video or None, "copy": copy or None, "pauses": pauses,
                             "replace": bool(body.get("replace")), "name": name, "state": "waiting", "done": 0, "error": None,
                             "seen": time.monotonic()}
             return self.reply(200, {"id": id})

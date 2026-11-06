@@ -261,3 +261,67 @@ test('for ffmpeg, the mix stays a WAV and the stems are still MP3s', async () =>
   assert.deepEqual(types, { mix: 'audio/wav', programme: 'audio/mpeg', readings: 'audio/mpeg' });
   assert.equal((await decode(m)).rate, 48000);
 });
+
+// ---- Pauses for extended blocks
+
+const rms = (a, from, to, rate) => {
+  let e = 0;
+  const i = Math.round(from * rate), j = Math.round(to * rate);
+  for (let k = i; k < j; k++) e += a[k] * a[k];
+  return Math.sqrt(e / (j - i));
+};
+
+test('at a pause the programme stops and picks up where it was', async () => {
+  const f = programme(4, 2, sine(0.5));
+  const m = await mix(f, { pauses: [{ at: 1, secs: 2 }] });
+  const { rate, l } = await decode(m);
+  assert.equal(l.length, 6 * rate);
+  assert.ok(rms(l, 0.1, 0.9, rate) > 0.3);
+  assert.equal(rms(l, 1.05, 2.95, rate), 0);
+  assert.ok(rms(l, 3.1, 5.9, rate) > 0.3);
+  // After the pause it's the same sound as without one, frame for frame.
+  const whole = await decode(await mix(f, {}));
+  const k = Math.round(3.5 * rate);
+  assert.ok(Math.abs(l[k] - whole.l[k - 2 * rate]) < 0.001);
+});
+
+test('the programme stops and starts without a click', async () => {
+  const { rate, l } = await decode(await mix(programme(2, 2, () => 0.5), { pauses: [{ at: 1, secs: 1 }] }));
+  let jump = 0;
+  for (let k = 1; k < l.length - 1000; k++) jump = Math.max(jump, Math.abs(l[k + 1] - l[k]));
+  assert.ok(jump < 0.01, `jumped by ${jump}`);
+  assert.ok(rate);
+});
+
+test('a reading plays through its pause, and the programme comes back at its level', async () => {
+  const m = await mix(programme(4, 2, sine(0.25)), { pauses: [{ at: 1, secs: 2 }], readings: readings([[1, 3, 0]], 0.5), fade: 0.25 });
+  const { rate, l } = await decode(m);
+  assert.ok(rms(l, 1.1, 2.9, rate) > 0.3);
+  const plain = await decode(await mix(programme(4, 2, sine(0.25)), {}));
+  assert.ok(Math.abs(rms(l, 3.2, 5.8, rate) - rms(plain.l, 1.2, 3.8, rate)) < 0.002);
+});
+
+test('pauses at the very start, together, and past the programme all happen', async () => {
+  const f = programme(2, 2, sine(0.5));
+  const m = await mix(f, { pauses: [{ at: 0, secs: 1 }, { at: 1, secs: 0.5 }, { at: 1, secs: 0.5 }, { at: 5, secs: 1 }] });
+  const { rate, l } = await decode(m);
+  assert.equal(l.length, 8 * rate); // the 2 s programme, 3 s to the last pause, 3 s of pauses
+  assert.equal(rms(l, 0, 0.99, rate), 0);
+  assert.ok(rms(l, 1.1, 1.9, rate) > 0.3);
+  assert.equal(rms(l, 2.05, 2.95, rate), 0);
+  assert.ok(rms(l, 3.1, 3.9, rate) > 0.3);
+  assert.equal(rms(l, 4.05, 8, rate), 0);
+});
+
+test('without the narration, it is the programme as it was with the pauses in it', async () => {
+  const { rate, l } = await decode(await mix(programme(3, 2, sine(0.5)), { pauses: [{ at: 1, secs: 1 }], ceiling: 0 }));
+  const plain = await decode(await mix(programme(3, 2, sine(0.5)), { ceiling: 0 }));
+  assert.ok(Math.abs(rms(l, 0.1, 0.9, rate) - rms(plain.l, 0.1, 0.9, rate)) < 0.0005);
+});
+
+test('stems and a loudness target keep the pauses', async () => {
+  const m = await mix(programme(3, 2, sine(0.25)), { pauses: [{ at: 1, secs: 1 }], readings: readings([[1, 2, 0]], 0.5), stems: true, target: -23 });
+  for (const part of ['mix', 'programme', 'readings']) assert.equal((await decode(m, part)).l.length, 4 * 48000, part);
+  const prog = await decode(m, 'programme');
+  assert.equal(rms(prog.l, 1.05, 1.95, 48000), 0);
+});

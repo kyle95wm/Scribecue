@@ -5,7 +5,7 @@ import { reviewedRewrite, speechKey, rereads, canReread, bundledFor, keyName } f
 import { offerLiveVoices, initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments, commentsAllowed } from './comments.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
-import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, parseTC } from './formats.js';
+import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
@@ -35,12 +35,12 @@ import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup } from './keymap.js';
-import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime } from './extended.js';
+import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList } from './extended.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
-import { ffmpegCommands } from './ffcmd.js';
+import { ffmpegCommands, holdFilter, extendedCommand } from './ffcmd.js';
 import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS } from './codecs.js';
 import { createLog, watchErrors, pictureWatch, report as diagReport } from './diagnostics.js';
 import { waveKey, loadWave, saveWave, loadSound, saveSound } from './wavestore.js';
@@ -255,6 +255,9 @@ const qcPlayer = createQcPlayer({ now, duck: (on) => duckAudio(on || !!tts.speak
 // While it's held, playback still counts as playing, though the video is paused.
 let extHold = null, heard = null, keepStart = null, jumpedHere = false;
 const isExt = (c) => isExtended(c, S.extendedAll);
+const hasExtended = () => S.cues.some((c) => isExt(c) && spoken(c.text));
+// Whether exports stop the programme for extended blocks.
+const withPauses = () => tts.keepPauses && hasExtended();
 const isPlaying = () => (S.hasVideo ? (!video.paused && !video.ended) || !!extHold : S.vplaying);
 // For return to start: where playback began, moved along by any jump while playing.
 let playStart = null;
@@ -772,23 +775,43 @@ $('edExtended').addEventListener('click', () => {
   const c = selCue();
   if (!c || S.extendedAll) return;
   pushUndo();
-  if (c.extended) delete c.extended; else c.extended = true;
-  adapt(c);
-  fitAuto(c);
+  if (c.extended) delete c.extended; else { holdLength(c); c.extended = true; }
+  settleExtended(c);
   changed(c.id);
   tlDirty = true;
   toast(`Block #${idx(c.id) + 1} ${c.extended ? 'pauses the video while it’s read' : 'reads over the video again'}`);
 });
+// An extended block is a short marker, so the length it had by hand is kept for when it
+// stops being one. A block that follows its reading goes back to following it.
+function holdLength(c) {
+  if (!c.auto && c.ownSecs == null) c.ownSecs = c.end - c.start;
+}
+function settleExtended(c) {
+  if (!isExt(c) && c.ownSecs != null) {
+    const { hi } = bounds(idx(c.id));
+    c.end = clamp(c.start + c.ownSecs, c.start + MIN_DUR, Math.max(hi, c.start + MIN_DUR));
+    delete c.ownSecs;
+    delete c.auto;
+    return;
+  }
+  adapt(c);
+  fitAuto(c);
+}
 // Extended for the whole project, and how much it adds, shown in the text to speech settings.
 function showExtended() {
   $('ttsExtendedAll').setAttribute('aria-pressed', String(S.extendedAll));
   const { secs, blocks, exact } = extendedSecs(S.cues.filter((c) => spoken(c.text)), S.extendedAll, (c) => speechLength(said(c), c.speed, c.voice));
-  $('ttsExtendedTotal').textContent = blocks ? `${blocks === 1 ? '1 block pauses' : `${blocks} blocks pause`} the video, adding ${exact ? '' : 'about '}${addedTime(secs)} to the running time. Exports don’t include the pauses yet.` : '';
+  $('ttsExtendedTotal').textContent = blocks ? `${blocks === 1 ? '1 block pauses' : `${blocks} blocks pause`} the video, adding ${exact ? '' : 'about '}${addedTime(secs)} to the running time.` : '';
+  const any = hasExtended();
+  $('ttsExtExports').hidden = $('ttsExtVideo').hidden = !any;
+  $('ttsMixLonger').hidden = !withPauses() || !tts.ffmpeg;
+  $('ttsMixInto').disabled = !tts.ffmpeg || withPauses();
 }
 $('ttsExtendedAll').addEventListener('click', () => {
   pushUndo();
+  if (!S.extendedAll) S.cues.forEach(holdLength);
   S.extendedAll = !S.extendedAll;
-  for (const c of S.cues) { adapt(c); fitAuto(c); }
+  S.cues.forEach(settleExtended);
   changed();
   tlDirty = true;
   updateInd();
@@ -2704,12 +2727,13 @@ document.addEventListener('keydown', (e) => { if (changeDlg.open) e.stopPropagat
 ttsFitStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
 
 // Export description track: every block's Piper or Google reading in one WAV or MP3 file, each
-// at its block's start, as long as the video (or the last reading, without one).
-const extendedExportNote = () => (S.cues.some((c) => isExt(c) && spoken(c.text)) ? ' Pauses for extended blocks aren’t in exports yet, so their readings start at their usual times.' : '');
+// at its block's start, as long as the video (or the last reading, without one), and
+// longer by the pauses of any extended blocks.
 const ttsExport = $('ttsExport'), ttsExportStatus = $('ttsExportStatus'), ttsExportBar = $('ttsExportBar');
 ttsExport.addEventListener('click', () => checkFirst(exportTrack));
 async function exportTrack() {
-  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice, gain: volGain(c) }));
+  const pausing = withPauses();
+  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice, gain: volGain(c), extended: pausing && isExt(c) }));
   if (!blocks.length) return (ttsExportStatus.textContent = 'There are no blocks with text yet.');
   pause();
   busy(ttsExport, ttsExportBar, true);
@@ -2730,7 +2754,7 @@ async function exportTrack() {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     report(ttsExportStatus, `Saved ${name}.` + (overlaps
       ? ` ${overlaps === 1 ? '1 reading runs' : `${overlaps} readings run`} into the next block, so they overlap in the file.`
-      : '') + extendedExportNote());
+      : ''));
   } catch (e) {
     report(ttsExportStatus, `Couldn’t export the description track: ${e.message}`);
   } finally {
@@ -2765,20 +2789,23 @@ function ffPut(path, blob, progress) {
     x.send(blob);
   });
 }
-async function ffmpegMix(mix, video, codec, name, show) {
+// With pauses, it's a new video, which takes far longer: at is how much of the bar comes first.
+async function ffmpegMix(mix, video, codec, name, show, pauses = null, at = 0.7) {
   const ext = video && video.name.split('.').pop().toLowerCase();
-  const { id } = await ffCall('POST', 'jobs', { codec, video: video ? ext : null, replace: tts.mixInto === 'replace', name });
+  const { id } = await ffCall('POST', 'jobs', { codec, video: video ? ext : null, replace: tts.mixInto === 'replace', name,
+    ...(pauses ? { pauses: pauses.map((p) => [p.at, p.secs]) } : {}) });
   ffJob = id;
   const total = mix.size + (video?.size || 0);
   const gb = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.round(n / 1e6)} MB`);
-  const sending = (sent) => show(0.7 + 0.15 * sent / total, `Sending to ffmpeg: ${gb(sent)} of ${gb(total)}`);
+  const sent = at + (1 - at) * (pauses ? 0.1 : 0.5);
+  const sending = (n) => show(at + (sent - at) * n / total, `Sending to ffmpeg: ${gb(n)} of ${gb(total)}`);
   await ffPut(`jobs/${id}/mix`, mix, (f) => sending(f * mix.size));
   if (video) await ffPut(`jobs/${id}/video`, video, (f) => sending(mix.size + f * video.size));
   await ffCall('POST', `jobs/${id}/start`);
   for (;;) {
     const j = await ffCall('GET', `jobs/${id}`);
     if (j.state === 'failed') throw new Error(`ffmpeg: ${j.error}`);
-    show(0.85 + 0.15 * j.done, `${video ? 'Putting it in the video' : 'Making the file'}: ${Math.round(j.done * 100)}%`);
+    show(sent + (1 - sent) * j.done, `${pauses ? 'Making the video' : video ? 'Putting it in the video' : 'Making the file'}: ${Math.round(j.done * 100)}%`);
     if (j.state === 'done') break;
     await new Promise((ok) => setTimeout(ok, 500));
   }
@@ -2810,11 +2837,32 @@ async function wholeProgramme(file) {
   const buf = await new OfflineAudioContext(2, 1, 48000).decodeAudioData(await file.arrayBuffer());
   return { planes: Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c)), rate: buf.sampleRate };
 }
+// Streams the programme through the mixer, or decodes it here if the mixer can't read it.
+async function mixProgramme(job, file, status, mixing) {
+  try {
+    return await runMix({ ...job, cmd: 'mix', file, track: S.track }, [], mixing);
+  } catch (e) {
+    if (!e.unsupported || file.size > LEGACY_LIMIT || S.track) throw e;
+    status.textContent = 'Reading the programme’s audio…';
+    const whole = await wholeProgramme(file);
+    if (mixStopped) throw stopped();
+    return runMix({ ...job, cmd: 'mixPlanes', ...whole }, [], mixing);
+  }
+}
+// An extended block is read during its pause, so it lowers nothing: the programme comes
+// back at its own level.
+const mixBlocks = (pausing) => S.cues.filter((c) => spoken(c.text)).map((c) => {
+  const extended = pausing && isExt(c);
+  return { start: c.start, text: said(c), speed: c.speed, voice: c.voice, dip: extended ? 0 : blockDip(c), gain: volGain(c), extended };
+});
+const mixing = () => !ttsMixStop.hidden || !ttsExtStop.hidden;
 ttsMixExport.addEventListener('click', () => checkFirst(exportMix));
 async function exportMix() {
   const file = S.videoFile;
   if (!file) return (ttsMixStatus.textContent = 'Open the programme’s video or audio first.');
-  const blocks = S.cues.filter((c) => spoken(c.text)).map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice, dip: blockDip(c), gain: volGain(c) }));
+  if (mixing()) return (ttsMixStatus.textContent = 'Wait for the extended video to finish first.');
+  const pausing = withPauses();
+  const blocks = mixBlocks(pausing);
   if (!blocks.length) return (ttsMixStatus.textContent = 'There are no blocks with text yet.');
   pause();
   busy(ttsMixExport, ttsMixBar, true);
@@ -2824,8 +2872,8 @@ async function exportMix() {
   const as = mixFormat(tts.ffmpeg || !mixFormat(tts.mixAs).ffmpeg ? tts.mixAs : 'wav');
   // In the video, if it's a video ffmpeg can put it in.
   const ext = file.name.split('.').pop().toLowerCase();
-  const into = tts.ffmpeg && tts.mixInto && FF_VIDEOS.includes(ext);
-  if (tts.ffmpeg && tts.mixInto && !into) return (ttsMixStatus.textContent = `ffmpeg can put the mix in an MP4, MOV, MKV or WebM video, not a .${ext} file.`);
+  const into = !pausing && tts.ffmpeg && tts.mixInto && FF_VIDEOS.includes(ext);
+  if (!pausing && tts.ffmpeg && tts.mixInto && !into) return (ttsMixStatus.textContent = `ffmpeg can put the mix in an MP4, MOV, MKV or WebM video, not a .${ext} file.`);
   const ff = !!(tts.ffmpeg && (as.ffmpeg || into));
   mixStopped = false;
   $('ttsMixCmds').hidden = true;
@@ -2836,23 +2884,15 @@ async function exportMix() {
     // Making the readings is the first 20% of the bar, and mixing the rest. Each reading
     // goes to the mixer as it is, at the level the voice gives it, as it plays.
     const made = await makeReadings(blocks, (k, n) => show(0.2 * k / n, `Making readings: ${k} of ${n}`));
-    const readings = made.map(({ start, w }, k) => ({ start, samples: w.samples, rate: w.rate, dip: blocks[k].dip, gain: blocks[k].gain }));
+    const { starts, pauses } = extendedTimeline(made.map(({ start, w }, k) => ({ start, secs: w.secs, extended: blocks[k].extended })));
+    const readings = made.map(({ w }, k) => ({ start: starts[k], samples: w.samples, rate: w.rate, dip: blocks[k].dip, gain: blocks[k].gain }));
     const levels = mixLevels(tts.mix), loud = LOUDNESS[tts.loudness] || LOUDNESS[''];
-    const job = { readings, fade: tts.dipFade, video: levels.video, reading: levels.reading,
+    const job = { readings, pauses, fade: tts.dipFade, video: levels.video, reading: levels.reading,
       kbps: as.kbps || 0, wavMix: ff, target: loud.lufs ?? null, ceiling: loud.ceiling, stems: !!tts.stems };
     // Meeting a loudness target mixes twice: measuring, then mixing.
-    const mixing = (f) => show(0.2 + (share - 0.2) * f, loud.lufs == null || f >= 0.5 ? `Mixing: ${Math.round(f * 100)}%` : `Measuring loudness: ${Math.round(f * 200)}%`);
-    mixing(0);
-    let done;
-    try {
-      done = await runMix({ ...job, cmd: 'mix', file, track: S.track }, [], mixing);
-    } catch (e) {
-      if (!e.unsupported || file.size > LEGACY_LIMIT || S.track) throw e;
-      ttsMixStatus.textContent = 'Reading the programme’s audio…';
-      const whole = await wholeProgramme(file);
-      if (mixStopped) throw stopped();
-      done = await runMix({ ...job, cmd: 'mixPlanes', ...whole }, [], mixing);
-    }
+    const progress = (f) => show(0.2 + (share - 0.2) * f, loud.lufs == null || f >= 0.5 ? `Mixing: ${Math.round(f * 100)}%` : `Measuring loudness: ${Math.round(f * 200)}%`);
+    progress(0);
+    const done = await mixProgramme(job, file, ttsMixStatus, progress);
     const names = { mix: 'full mix', programme: 'programme (lowered)', readings: 'readings' };
     const saved = [];
     for (const { part, blob } of done.files) {
@@ -2873,7 +2913,7 @@ async function exportMix() {
       await new Promise((ok) => setTimeout(ok, 300)); // browsers can drop downloads started together
     }
     // Without ffmpeg here, the commands to put the mix in the video with ffmpeg of one's own.
-    const cmds = !into && ffmpegCommands({ video: file.name, mix: saved[0], tracks: S.tracks.length || 1,
+    const cmds = !into && !pausing && ffmpegCommands({ video: file.name, mix: saved[0], tracks: S.tracks.length || 1,
       out: `${baseName()} - with audio description.${ext}` });
     if (cmds && S.hasVideo) {
       $('ttsCmdAdd').textContent = cmds.add;
@@ -2881,7 +2921,7 @@ async function exportMix() {
       $('ttsMixCmds').hidden = false;
     }
     const lufs = (v) => (Number.isFinite(v) ? `${v.toFixed(1)} LUFS` : 'silent');
-    report(ttsMixStatus, `Saved ${saved.join(', ')}. Loudness: ${lufs(done.loudness)}` + (done.was != null ? `, from ${lufs(done.was)}.` : '.') + extendedExportNote());
+    report(ttsMixStatus, `Saved ${saved.join(', ')}. Loudness: ${lufs(done.loudness)}` + (done.was != null ? `, from ${lufs(done.was)}.` : '.'));
   } catch (e) {
     if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
     if (e.stopped || mixStopped) ttsMixStatus.textContent = 'Stopped.'; // ffmpeg may answer first
@@ -2892,15 +2932,103 @@ async function exportMix() {
     ttsMixExport.disabled = !usingAudioVoice();
   }
 }
+// Export extended video: the mix, with or without the readings, goes to ffmpeg with the video
+// and the pauses. Without ffmpeg, the mix and a filter file, for a command to run yourself.
+const ttsExtVideoExport = $('ttsExtVideoExport'), ttsExtStatus = $('ttsExtStatus'), ttsExtBar = $('ttsExtBar'), ttsExtStop = $('ttsExtStop');
+const saveBlob = (blob, name) => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+};
+ttsExtVideoExport.addEventListener('click', () => checkFirst(exportExtended));
+async function exportExtended() {
+  const file = S.videoFile;
+  if (!file || !S.hasVideo) return report(ttsExtStatus, 'Open the programme’s video first.');
+  if (mixing()) return (ttsExtStatus.textContent = 'Wait for the full mix to finish first.');
+  const blocks = mixBlocks(true);
+  if (!blocks.some((b) => b.extended)) return report(ttsExtStatus, 'No block is extended yet.');
+  pause();
+  busy(ttsExtVideoExport, ttsExtBar, true);
+  ttsExtStop.hidden = false;
+  mixStopped = false;
+  $('ttsExtCmds').hidden = true;
+  const show = (f, text) => { if (mixStopped) throw stopped(); ttsExtBar.value = f; ttsExtStatus.textContent = text; };
+  try {
+    if (!HOSTED) await checkFfmpeg();
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (tts.ffmpeg && !FF_VIDEOS.includes(ext)) throw new Error(`ffmpeg can make an MP4, MOV, MKV or WebM video, not a .${ext} file`);
+    // With ffmpeg, the video takes the most time, so it gets most of the bar.
+    const share = tts.ffmpeg ? 0.3 : 1;
+    const narrate = tts.extNarration;
+    const made = await makeReadings(blocks, (k, n) => show(0.2 * share * k / n, `Making readings: ${k} of ${n}`));
+    const { starts, pauses } = extendedTimeline(made.map(({ start, w }, k) => ({ start, secs: w.secs, extended: blocks[k].extended })));
+    const readings = narrate ? made.map(({ w }, k) => ({ start: starts[k], samples: w.samples, rate: w.rate, dip: blocks[k].dip, gain: blocks[k].gain })) : [];
+    const levels = mixLevels(tts.mix), loud = LOUDNESS[tts.loudness] || LOUDNESS[''];
+    // Without the narration it's the programme as it is, for mixing later.
+    const job = { readings, pauses, fade: tts.dipFade, video: narrate ? levels.video : 1, reading: narrate ? levels.reading : 0,
+      kbps: 0, wavMix: true, target: narrate ? loud.lufs ?? null : null, ceiling: narrate ? loud.ceiling : 0, stems: false };
+    const done = await mixProgramme(job, file, ttsExtStatus, (f) => show(share * (0.2 + 0.8 * f), `Mixing: ${Math.round(f * 100)}%`));
+    const mix = done.files[0].blob, base = baseName(), plain = narrate ? '' : ', no narration';
+    if (tts.ffmpeg) {
+      const name = await ffmpegMix(mix, file, 'aac', `${base} - extended${plain}`, show, pauses, share);
+      return report(ttsExtStatus, `Saved ${name}.`);
+    }
+    // Without ffmpeg here, what ffmpeg of one's own needs.
+    const names = { mix: `${base} - extended audio${plain}.wav`, filter: `${base} - pauses for ffmpeg.txt`, out: `${base} - extended${plain}.${ext}` };
+    saveBlob(mix, names.mix);
+    await new Promise((ok) => setTimeout(ok, 300));
+    saveBlob(new Blob([holdFilter(pauses)], { type: 'text/plain' }), names.filter);
+    $('ttsExtCmd').textContent = extendedCommand({ video: file.name, mix: names.mix, filter: names.filter, out: names.out });
+    $('ttsExtCmds').hidden = false;
+    report(ttsExtStatus, `Saved ${names.mix} and ${names.filter}.`);
+  } catch (e) {
+    if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
+    if (e.stopped || mixStopped) ttsExtStatus.textContent = 'Stopped.';
+    else report(ttsExtStatus, `Couldn’t export the extended video: ${e.message}`);
+  } finally {
+    busy(ttsExtVideoExport, ttsExtBar, false);
+    ttsExtStop.hidden = true;
+    ttsExtVideoExport.disabled = !usingAudioVoice();
+  }
+}
+// The pause list: exact lengths where the readings can be made, and otherwise estimates.
+const ttsPauseList = $('ttsPauseList'), ttsPauseStatus = $('ttsPauseStatus');
+ttsPauseList.addEventListener('click', () => checkFirst(exportPauses));
+async function exportPauses() {
+  const cues = S.cues.filter((c) => isExt(c) && spoken(c.text));
+  if (!cues.length) return report(ttsPauseStatus, 'No block is extended yet.');
+  ttsPauseList.disabled = true;
+  try {
+    const blocks = cues.map((c) => ({ start: c.start, text: said(c), speed: c.speed, voice: c.voice }));
+    const audio = blocks.every((b) => usingAudioVoice(b.voice));
+    const secs = audio
+      ? (await makeReadings(blocks, (k, n) => { ttsPauseStatus.textContent = `Making readings: ${k} of ${n}`; })).map(({ w }) => w.secs)
+      : blocks.map((b) => speechLength(b.text, b.speed, b.voice).secs);
+    const { starts } = extendedTimeline(blocks.map((b, k) => ({ start: b.start, secs: secs[k], extended: true })));
+    const rows = cues.map((c, k) => ({ block: idx(c.id) + 1, programme: fmtTime(c.start, '.'), extended: fmtTime(starts[k], '.'), secs: secs[k], text: c.text }));
+    const name = `${baseName()} - pauses.csv`;
+    saveBlob(new Blob([pauseList(rows)], { type: 'text/csv;charset=utf-8' }), name);
+    report(ttsPauseStatus, `Saved ${name}.` + (audio ? '' : ' Lengths are estimates: use a Piper, Kokoro, Google or Polly voice for exact ones.'));
+  } catch (e) {
+    report(ttsPauseStatus, `Couldn’t export the pause list: ${e.message}`);
+  } finally {
+    ttsPauseList.disabled = false;
+  }
+}
+$('ttsExtCmdCopy').addEventListener('click', async () => toast(await copyText($('ttsExtCmd').textContent) ? 'Copied the command' : 'Couldn’t copy: the browser blocked clipboard access'));
 for (const [btn, code] of [['ttsCmdAddCopy', 'ttsCmdAdd'], ['ttsCmdReplaceCopy', 'ttsCmdReplace']]) {
   $(btn).addEventListener('click', async () => toast(await copyText($(code).textContent) ? 'Copied the command' : 'Couldn’t copy: the browser blocked clipboard access'));
 }
-ttsMixStop.addEventListener('click', () => {
-  mixStopped = true;
-  mixWorker?.stop();
-  ffXhr?.abort();
-  if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
-});
+for (const stop of [ttsMixStop, ttsExtStop]) {
+  stop.addEventListener('click', () => {
+    mixStopped = true;
+    mixWorker?.stop();
+    ffXhr?.abort();
+    if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
+  });
+}
 ttsAllStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
 // A job carries on when the settings close: it shows in the bottom bar.
 $('ttsDlg').addEventListener('close', () => { if (!jobActive) { ttsAllStatus.textContent = ''; ttsFitStatus.textContent = ''; ttsMakeStatus.textContent = ''; } });
@@ -4390,7 +4518,10 @@ function exportSubs(fmt) {
   checkFirst(() => writeSubs(fmt));
 }
 function writeSubs(fmt) {
-  const text = fmt === 'vtt' ? toVTT(S.cues) : toSRT(S.cues);
+  // Blocks marked extended are short on the timeline, but not in another tool.
+  const ext = hasExtended(), length = (c) => (spoken(c.text) ? speechLength(said(c), c.speed, c.voice) : { secs: 0, exact: true });
+  const cues = ext ? timedScript(S.cues, S.extendedAll, (c) => length(c).secs, withPauses()) : S.cues;
+  const text = fmt === 'vtt' ? toVTT(cues) : toSRT(cues);
   const name = `${baseName()}.${fmt}`;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
@@ -4398,7 +4529,9 @@ function writeSubs(fmt) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   const speeds = fmt === 'srt' && S.cues.some((c) => c.speed);
-  toast(`Exported ${name} (${S.cues.length} cues)` + (speeds ? '. SRT can’t store block speeds: export VTT to keep them' : ''));
+  const about = ext && S.cues.some((c) => isExt(c) && !length(c).exact);
+  toast(`Exported ${name} (${S.cues.length} cues)` + (withPauses() ? ', timed to the extended video' : '') + (speeds ? '. SRT can’t store block speeds: export VTT to keep them' : '') +
+    (about ? '. Some reading lengths are estimates' : ''));
 }
 
 // Scripts Scribecue opens: SRT, VTT, plain text, and Frazier's .adc files.
@@ -5373,6 +5506,18 @@ const actions = {
     ttsMixExport.scrollIntoView({ block: 'center' });
     if (!ttsMixExport.disabled) ttsMixExport.click();
   },
+  exportExtended: () => {
+    if (!writing()) return modeOnly('The extended video', 'write');
+    openTts();
+    ttsExtVideoExport.scrollIntoView({ block: 'center' });
+    if (!ttsExtVideoExport.disabled) ttsExtVideoExport.click();
+  },
+  exportPauses: () => {
+    if (!writing()) return modeOnly('The pause list', 'write');
+    openTts();
+    ttsPauseList.scrollIntoView({ block: 'center' });
+    if (!ttsPauseList.disabled) ttsPauseList.click();
+  },
   exportQc: () => (S.reviewId ? openQcExport() : checkFirst(openQcExport)),
   exportReturn: () => saveReturnPackage(),
   exportRecording: () => checkFirst(askRecordingFile),
@@ -5551,6 +5696,7 @@ const exportMenu = $('exportMenu');
 function toggleMenu(menu, open = menu.hidden) {
   closeMenus();
   if (!open) return;
+  if (menu === exportMenu) $('exportExtended').hidden = $('exportPauses').hidden = !hasExtended();
   // With alts recorded, the narration goes out as a zip.
   if (menu === exportMenu && S.mode === 'record') {
     const [name, what] = $('exportNarration').firstElementChild.children;

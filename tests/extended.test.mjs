@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, HOLD_WINDOW } from '../app/js/extended.js';
+import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList, HOLD_WINDOW } from '../app/js/extended.js';
 
 test('a block is extended when marked, or when the whole project is', () => {
   assert.equal(isExtended({ extended: true }), true);
@@ -54,4 +54,62 @@ test('added time reads as a running time', () => {
   assert.equal(addedTime(8), '0:08');
   assert.equal(addedTime(125.4), '2:05');
   assert.equal(addedTime(3725), '1:02:05');
+});
+
+test('each pause moves what comes after it, and nothing before', () => {
+  const { starts, pauses, added } = extendedTimeline([
+    { start: 2, secs: 1 }, { start: 5, secs: 3, extended: true }, { start: 5.05, secs: 1 }, { start: 9, secs: 2, extended: true }, { start: 20, secs: 1 },
+  ]);
+  assert.deepEqual(starts.map((s) => +s.toFixed(3)), [2, 5, 8.05, 12, 25]);
+  assert.deepEqual(pauses, [{ at: 5, secs: 3 }, { at: 9, secs: 2 }]);
+  assert.equal(added, 5);
+});
+
+test('two extended blocks at one moment read one after the other', () => {
+  const { starts, added } = extendedTimeline([{ start: 5, secs: 3, extended: true }, { start: 5, secs: 2, extended: true }]);
+  assert.deepEqual(starts, [5, 8]);
+  assert.equal(added, 5);
+});
+
+test('blocks marked extended with no reading add nothing, and without marks nothing moves', () => {
+  assert.deepEqual(extendedTimeline([{ start: 1, secs: 0, extended: true }, { start: 2, secs: 1 }]), { starts: [1, 2], pauses: [], added: 0 });
+});
+
+const lines = [
+  { start: 1, end: 2, text: 'plain' },
+  { start: 4, end: 4.1, text: 'held', extended: true },
+  { start: 4.5, end: 6, text: 'after' },
+];
+const lengths = (c) => (c.text === 'held' ? 3 : 1);
+
+test('on the extended timeline, a script shows real lengths and pauses nothing again', () => {
+  const out = timedScript(lines, false, lengths, true);
+  assert.deepEqual(out.map((c) => [c.start, c.end]), [[1, 2], [4, 7], [7.5, 9]]);
+  assert.ok(out.every((c) => !('extended' in c)));
+});
+
+test('with the original timing, a block ends with its reading or at the next block, still marked', () => {
+  const out = timedScript(lines, false, lengths, false);
+  assert.deepEqual(out[0], lines[0]);
+  assert.deepEqual([out[1].start, out[1].end, out[1].extended], [4, 4.5, true]);
+  const alone = timedScript([lines[1]], false, lengths, false);
+  assert.equal(alone[0].end, 7);
+  assert.equal(lines[1].end, 4.1, 'the blocks themselves are left alone');
+});
+
+test('a whole project extended is marked in the script, as a reopened file has no other way to know', () => {
+  const out = timedScript([{ start: 1, end: 1.1, text: 'a' }], true, () => 2, false);
+  assert.equal(out[0].extended, true);
+  assert.equal(out[0].end, 3);
+});
+
+test('a block with nothing to read keeps its length', () => {
+  const blank = { start: 1, end: 3, text: '', extended: true };
+  assert.deepEqual(timedScript([blank], false, () => 0, true).map((c) => [c.start, c.end]), [[1, 3]]);
+  assert.equal(timedScript([blank], false, () => 0, false)[0].end, 3);
+});
+
+test('the pause list is a CSV a spreadsheet opens safely', () => {
+  const csv = pauseList([{ block: 3, programme: '00:00:04.000', extended: '00:00:07.000', secs: 2.5, text: '=She says "go" now' }]);
+  assert.equal(csv, `Block,Programme time,Extended time,Pause (seconds),Text\r\n3,00:00:04.000,00:00:07.000,2.500,"'=She says ""go"" now"\r\n`);
 });

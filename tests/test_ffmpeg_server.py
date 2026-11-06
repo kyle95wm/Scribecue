@@ -87,6 +87,43 @@ if __name__ == "__main__":
 
 
 class Forgetting(unittest.TestCase):
+    def test_an_extended_video_holds_the_picture_and_uses_the_mix(self):
+        with tempfile.TemporaryDirectory() as d:
+            job = {"dir": d, "codec": "aac", "video": "mp4", "replace": False, "copy": None, "pauses": [[5, 2.5], [9.25, 1]]}
+            with mock.patch.object(server, "probe", return_value=(ENG, 60.0)):
+                args, secs = server.command(job)
+            self.assertEqual(secs, 63.5)  # progress counts the pauses
+            self.assertEqual(after(args, "-i"), [f"{d}/video.mp4", f"{d}/mix.wav"])
+            self.assertEqual(after(args, "-map"), ["[v]", "1:a"])
+            self.assertEqual(after(args, "-c:v"), ["libx264"])
+            self.assertIn("-shortest", args)
+            with open(after(args, "-filter_complex_script")[0]) as f:
+                text = f.read()
+            self.assertIn("(gte(T\\,5.000000)*2.500000+gte(T\\,9.250000)*1.000000)", text)
+            self.assertIn("fps=fps=source_fps:start_time=0", text)
+
+    def test_an_extended_webm_is_vp9_and_opus(self):
+        with tempfile.TemporaryDirectory() as d:
+            job = {"dir": d, "codec": "aac", "video": "webm", "replace": False, "copy": None, "pauses": [[5, 2.5]]}
+            with mock.patch.object(server, "probe", return_value=(ENG, 60.0)):
+                args, _ = server.command(job)
+            self.assertEqual(after(args, "-c:v"), ["libvpx-vp9"])
+            self.assertEqual(after(args, "-c:a"), ["libopus"])
+
+    def test_a_long_list_of_pauses_stays_shallow(self):
+        text = server.hold_filter([[k, 1] for k in range(4096)])
+        depth = most = 0
+        for ch in text[text.index("+(", 20):]:
+            depth += ch == "("
+            depth -= ch == ")"
+            most = max(most, depth)
+        self.assertLess(most, 20)
+
+    def test_pauses_are_checked(self):
+        self.assertTrue(server.good_pauses([[0, 1], [2.5, 3]]))
+        for bad in ([], "1", [[1]], [[1, "2);drop"]], [[-1, 2]], [[1, float("nan")]], [[True, 1]], [[0, 1]] * (server.MAX_PAUSES + 1)):
+            self.assertFalse(server.good_pauses(bad), bad)
+
     def test_a_job_the_page_stopped_asking_after_is_deleted(self):
         with tempfile.TemporaryDirectory() as work:
             for id in ("old", "new"):
