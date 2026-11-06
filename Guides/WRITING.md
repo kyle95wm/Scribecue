@@ -99,8 +99,32 @@ at the block's start while the block is read, then carries on.
 - Clicking **Extended** again gives the block its normal length back.
 - The list shows how long each block pauses. The settings show the total.
 
-Exports and Record mode don't include the pauses yet. In exports, readings start at their
-usual times and may overlap what follows.
+Record mode doesn't include the pauses yet.
+
+### Extended blocks in exports
+
+Exports stop the programme for each extended block, so they run longer than the video. The
+settings below are under **Extended blocks in exports**, in the text to speech settings.
+
+| Export | With pauses |
+|---------|---------|
+| Description track | Readings move later by the pauses before them. |
+| Full mix | The programme's sound stops during each pause. It can't go in the original video. |
+| SRT and WebVTT | Times match the extended video, and blocks show their full reading length. |
+
+To keep the video's timing instead, turn off **Keep the pauses**. Each reading then plays
+over the programme, and scripts keep the original times.
+
+For other editors, **Export → Pause list** saves a CSV of where the video stops and for how long.
+
+### Extended video
+
+**Export → Extended video** saves a new video that stops for each extended block. The
+picture holds while the block is read, then carries on.
+
+- **To mix it yourself:** turn off **Include the narration** first. You get the programme's sound at its own level, silent during each pause.
+- **It takes time:** the whole picture is made again, so a film can take as long as it runs.
+- **It needs ffmpeg:** in Docker, it's made for you. Without it, you get the audio and a filter file. Run the command Scribecue shows in a folder with those and the video.
 
 ## Exporting the full mix
 

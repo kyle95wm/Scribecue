@@ -64,12 +64,13 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     ...(cleanRecording(recording) ? { recording: cleanRecording(recording) } : {}),
     settings,
     view,
-    blocks: blocks.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes }) => ({
+    blocks: blocks.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, ownSecs, notes }) => ({
       ...(validIdentity(uid) ? { uid } : {}),
       start, end, text,
       ...(cleanNotes(notes) ? { notes: cleanNotes(notes) } : {}),
       ...(cleanPickup(pickup) ? { pickup: cleanPickup(pickup) } : {}),
       ...(extended === true ? { extended: true } : {}),
+      ...(num(ownSecs) && ownSecs > 0 ? { ownSecs } : {}),
       ...(Number.isSafeInteger(qcReading) && qcReading >= 8 ? { qcReading } : {}),
       ...(cleanComments(comments).length ? { comments: cleanComments(comments) } : {}),
       ...(speed ? { speed } : {}),
@@ -120,6 +121,7 @@ export function fromProject(json) {
       ...(b.pinned === true ? { pinned: true } : {}),
       ...(cleanPickup(b.pickup) ? { pickup: cleanPickup(b.pickup) } : {}),
       ...(b.extended === true ? { extended: true } : {}),
+      ...(num(b.ownSecs) && b.ownSecs > 0 ? { ownSecs: b.ownSecs } : {}),
     });
   }
   blocks.sort((a, z) => a.start - z.start);

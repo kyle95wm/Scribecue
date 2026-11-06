@@ -7,11 +7,12 @@
 //
 // in:  { cmd: 'mix', file, track, ...mix }        the programme, from the file
 //      { cmd: 'mixPlanes', planes, rate, ...mix }  the programme, decoded by the page
-//      mix: { readings, fade, video, reading, kbps, wavMix, target, ceiling, stems }
+//      mix: { readings, pauses, fade, video, reading, kbps, wavMix, target, ceiling, stems }
 //        readings: [{ start, samples, rate, dip, gain }], each reading as mono 16-bit
 //        samples, when it starts (seconds), how far the programme goes down under it (dB)
 //        and how loud it is against the others (1 as they are; optional),
-//        sorted by start; fade: seconds to go down that far, or back up; video, reading: levels from the
+//        sorted by start, on the mix's own time; pauses: where the programme stops, as
+//        [{ at, secs }] in its own time, sorted (optional); fade: seconds to go down that far, or back up; video, reading: levels from the
 //        mix slider; kbps: MP3s at this bitrate, or 0 for WAVs; wavMix: the mix as a WAV
 //        whatever kbps is, for ffmpeg to make into something else; target: the loudness to
 //        meet in LUFS, or null to leave it; ceiling: the highest peak, in dBFS; stems:
@@ -28,6 +29,8 @@ importScripts('wave-worker.js', '../vendor/lame.min.js');
 const LOOKAHEAD = 0.005, RELEASE = 0.1;
 // MP3 encoders add this many samples before the audio (see mp3.js).
 const MP3_DELAY = 1105;
+// How long the programme takes to stop at a pause, or start again, so neither clicks.
+const HOLD_FADE = 0.01;
 
 class Limiter {
   constructor(rate, ceiling, out) {
@@ -215,6 +218,7 @@ class Mixer {
     this.reading = job.reading * gain;
     this.rate = 0;
     this.n = 0; // frames written
+    this.pn = 0; // frames of the programme so far, which pauses set apart from those
     this.cursor = null;
     this.shift = 0;
     this.progress = 0;
@@ -224,6 +228,8 @@ class Mixer {
     this.from = 0;
     this.gain = job.video * gain;
     this.span = 0;
+    this.pause = 0; // the next pause, and where the last one was
+    this.held = -Infinity;
   }
 
   start(rate) {
@@ -242,6 +248,8 @@ class Mixer {
     });
     this.edges = this.said.map((r) => [r.at, r.end, r.dip]);
     this.first = 0; // the first reading that hasn't ended
+    this.holds = (job.pauses || []).map((p) => ({ at: Math.round(p.at * rate), n: Math.round(p.secs * rate) }));
+    this.edge = Math.max(1, Math.round(HOLD_FADE * rate));
   }
 
   add(t, planes, frames, rate) {
@@ -250,17 +258,19 @@ class Mixer {
     this.cursor = t + frames / rate;
     if (!this.rate) this.start(rate);
     const at = Math.round(t * this.rate);
-    if (at > this.n) this.frames(null, 0, at - this.n); // a gap in the programme: silence
-    const from = this.n ? 0 : Math.max(0, -at); // before the start, after an edit list's shift
+    if (at > this.pn) this.frames(null, 0, at - this.pn); // a gap in the programme: silence
+    const from = this.pn ? 0 : Math.max(0, -at); // before the start, after an edit list's shift
     this.frames(planes, from, frames);
   }
 
-  // Writes frames from..to of planes (or silence) mixed with the readings.
+  // Writes the programme's frames from..to of planes (or silence) mixed with the readings,
+  // stopping at each pause.
   frames(planes, from, to) {
     const ch = planes?.length || 0, c = Math.SQRT1_2;
     const [p0, p1, p2] = planes || [];
-    const [mix, prog, said] = this.parts || [];
+    const hs = this.holds;
     for (let k = from; k < to; k++) {
+      if (this.pause < hs.length && hs[this.pause].at <= this.pn) this.hold();
       let l = 0, r = 0;
       if (ch === 1) l = r = p0[k];
       else if (ch) {
@@ -270,24 +280,44 @@ class Mixer {
         if (ch > 2) { l += c * p2[k]; r += c * p2[k]; }
         for (let j = 4; j < ch; j++) { if (j % 2) r += c * planes[j][k]; else l += c * planes[j][k]; }
       }
-      const i = this.n++;
-      // Down while a reading plays and back up after, at the same pace as playback
-      // (stepDip in tts.js): going all the way down, or back up, takes the fade.
-      const ed = this.edges;
-      while (this.span < ed.length && ed[this.span][1] <= i) this.span++;
-      const target = this.span < ed.length && ed[this.span][0] <= i ? ed[this.span][2] : 0;
-      if (target !== this.to) { this.to = target; this.from = this.db; }
-      if (this.db !== target) {
-        const step = Math.max(this.from, target) * this.speed;
-        this.db = target > this.db ? Math.min(target, this.db + step) : Math.max(target, this.db - step);
+      if (hs.length) {
+        const p = this.pn, near = Math.min(p - this.held, this.pause < hs.length ? hs[this.pause].at - p : Infinity);
+        if (near < this.edge) { const v = near / this.edge; l *= v; r *= v; }
       }
-      if (this.db !== this.lastDb) { this.lastDb = this.db; this.gain = this.job.video * this.gainAll * 10 ** (-this.db / 20); }
-      const d = this.reads(i), pl = l * this.gain, pr = r * this.gain;
-      if (this.meter) this.meter.push(pl + d, pr + d);
-      else {
-        mix.push(pl + d, pr + d);
-        if (prog) { prog.push(pl, pr); said.push(d, d); }
-      }
+      this.pn++;
+      this.put(l, r);
+    }
+  }
+
+  // The pauses due now: nothing of the programme, with the readings going on.
+  hold() {
+    const hs = this.holds;
+    while (this.pause < hs.length && hs[this.pause].at <= this.pn) {
+      for (let k = hs[this.pause].n; k > 0; k--) this.put(0, 0);
+      this.held = hs[this.pause++].at;
+    }
+  }
+
+  // One frame of the programme, lowered under the readings, with them added.
+  put(l, r) {
+    const [mix, prog, said] = this.parts || [];
+    const i = this.n++;
+    // Down while a reading plays and back up after, at the same pace as playback
+    // (stepDip in tts.js): going all the way down, or back up, takes the fade.
+    const ed = this.edges;
+    while (this.span < ed.length && ed[this.span][1] <= i) this.span++;
+    const target = this.span < ed.length && ed[this.span][0] <= i ? ed[this.span][2] : 0;
+    if (target !== this.to) { this.to = target; this.from = this.db; }
+    if (this.db !== target) {
+      const step = Math.max(this.from, target) * this.speed;
+      this.db = target > this.db ? Math.min(target, this.db + step) : Math.max(target, this.db - step);
+    }
+    if (this.db !== this.lastDb) { this.lastDb = this.db; this.gain = this.job.video * this.gainAll * 10 ** (-this.db / 20); }
+    const d = this.reads(i), pl = l * this.gain, pr = r * this.gain;
+    if (this.meter) this.meter.push(pl + d, pr + d);
+    else {
+      mix.push(pl + d, pr + d);
+      if (prog) { prog.push(pl, pr); said.push(d, d); }
     }
   }
 
@@ -308,9 +338,13 @@ class Mixer {
     return (v / 32768) * this.reading;
   }
 
-  // Readings that go on past the end of the programme are kept whole.
+  // Pauses after the programme's sound has ended still happen, and readings that go on
+  // past its end are kept whole.
   end() {
     if (!this.rate) throw new Error('the programme has no audio');
+    const last = this.holds.at(-1);
+    if (last && last.at > this.pn) this.frames(null, 0, last.at - this.pn);
+    this.hold();
     const end = Math.max(0, ...this.said.map((r) => r.end));
     if (end > this.n) this.frames(null, 0, end - this.n);
   }

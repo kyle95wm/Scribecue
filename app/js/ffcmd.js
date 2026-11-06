@@ -23,3 +23,20 @@ export function ffmpegCommands({ video, mix, out, tracks = 1 }) {
     replace: `${start} -map 0:v -map 1:a ${subs} -c copy ${codec(0)} -disposition:a:0 default ${quote(out)}`,
   };
 }
+
+// The filter that holds the picture at each pause, as ffmpeg/server.py makes it, for a file
+// of its own: a film's pauses make it too long for a command. pauses: [{ at, secs }].
+const sums = (t) => (t.length < 2 ? t[0] ?? '0' : `(${sums(t.slice(0, t.length >> 1))}+${sums(t.slice(t.length >> 1))})`);
+export function holdFilter(pauses) {
+  const moved = sums(pauses.map(({ at, secs }) => `gte(T\\,${at.toFixed(6)})*${secs.toFixed(6)}`));
+  return `[0:v:0]setpts=PTS-STARTPTS+${moved}/TB,fps=fps=source_fps:start_time=0,tpad=stop=-1:stop_mode=clone,format=yuv420p[v]\n`;
+}
+
+// Makes an extended video from the video, the mix and that file. The picture has to be
+// encoded again, and it stops with the sound.
+export function extendedCommand({ video, mix, filter, out }) {
+  const coded = out.toLowerCase().endsWith('.webm')
+    ? '-c:v libvpx-vp9 -deadline realtime -cpu-used 6 -row-mt 1 -b:v 0 -crf 30 -c:a libopus -b:a 192k'
+    : '-c:v libx264 -preset veryfast -crf 18 -c:a aac -b:a 256k';
+  return `ffmpeg -i ${quote(video)} -i ${quote(mix)} -filter_complex_script ${quote(filter)} -map "[v]" -map 1:a ${coded} -shortest ${quote(out)}`;
+}

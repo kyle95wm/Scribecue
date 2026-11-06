@@ -449,6 +449,13 @@ try {
     await js(`(async () => { const t = await import('./js/tts.js'); t.setTtsOption('trackAs', 'mp3-96'); return 1; })()`);
     await exporting('Export description track, MP3', '#ttsExport', 'ttsExportStatus', 900);
     await exporting('Export the full mix, WAV', '#ttsMixExport', 'ttsMixStatus', 1800);
+    // The same with a pause for every block: without ffmpeg here, the extended video is the
+    // audio and a filter file.
+    await js(`document.getElementById('ttsExtendedAll').click(); 1`);
+    await exporting('Export description track, extended', '#ttsExport', 'ttsExportStatus', 900);
+    await exporting('Export the full mix, extended', '#ttsMixExport', 'ttsMixStatus', 1800);
+    await exporting('Export extended video, no ffmpeg', '#ttsExtVideoExport', 'ttsExtStatus', 1800);
+    await js(`document.getElementById('ttsExtendedAll').click(); 1`);
     await step('Export a QC package', async () => {
       await click('[data-act=exportQc]'); await sleep(500);
       const n = await saved();

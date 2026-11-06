@@ -80,6 +80,8 @@
             <div class="menuhead" id="expAudio">Finished audio</div>
             <button role="menuitem" data-act="exportTrack"><span><strong>Description track</strong><span class="dim">every reading in one WAV or MP3 file, with a Piper, Google or Amazon Polly voice</span></span></button>
             <button role="menuitem" data-act="exportMix"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></button>
+            <button role="menuitem" data-act="exportExtended" id="exportExtended" hidden><span><strong>Extended video</strong><span class="dim">a new video that stops while extended blocks are read</span></span></button>
+            <button role="menuitem" data-act="exportPauses" id="exportPauses" hidden><span><strong>Pause list</strong><span class="dim">where the video stops and for how long, as a CSV file</span></span></button>
           </div>
           <div role="group" class="menugroup check-export" aria-labelledby="expCheck">
             <div class="menuhead" id="expCheck">Before you send it</div>
@@ -972,6 +974,15 @@ docker compose up -d --build</code></pre>
       <p class="updstatus"><button id="ttsFitAll">Fit speeds to timings</button>
         <progress id="ttsFitBar" class="jobbar" max="1" value="0" hidden aria-label="Fitting speeds"></progress>
         <button id="ttsFitStop" hidden>Stop</button> <span id="ttsFitStatus" class="dim"></span></p>
+      <section id="ttsExtExports" hidden>
+        <h3>Extended blocks in exports</h3>
+        <p class="small">Exports stop the programme for each extended block while it's read, so they
+          run longer than the video. To keep the video's timing, turn this off: each reading then
+          plays over the programme.</p>
+        <p class="updstatus"><button id="ttsKeepPauses" aria-pressed="true" data-tip="Exports stop the programme while extended blocks are read. Turn this off to keep the video's timing">Keep the pauses</button>
+          <button id="ttsPauseList" data-tip="Save a list of the pauses, with their times and lengths, to place them in another editor">Export pause list</button>
+          <span id="ttsPauseStatus" class="dim"></span></p>
+      </section>
       <h3>Export description track</h3>
       <p class="small">Save every block's reading as one audio file, each starting at its block's start
         time, ready to mix with the programme. Readings peak at −8 dBFS, leaving headroom for
@@ -1031,6 +1042,8 @@ docker compose up -d --build</code></pre>
         <progress id="ttsMixBar" class="jobbar" max="1" value="0" hidden aria-label="Exporting the full mix"></progress>
         <button id="ttsMixStop" hidden>Stop</button> <span id="ttsMixStatus" class="dim"></span></p>
       <p id="ttsMixNote" class="dim small"></p>
+      <p id="ttsMixLonger" class="dim small" hidden>With the pauses, the mix is longer than the video, so it
+        can't go in it. Use Export extended video.</p>
       <div id="ttsMixCmds" class="ffcmds" hidden>
         <p>To put the mix in the video with <a href="https://ffmpeg.org" target="_blank" rel="noopener">ffmpeg</a>
           on your computer, run one of these in a folder with the video and the mix:</p>
@@ -1041,6 +1054,24 @@ docker compose up -d --build</code></pre>
         <p class="dim small">The picture and other tracks are copied as they are, so it's quick. In the video,
           the mix is AAC (Opus in a WebM).</p>
       </div>
+      <section id="ttsExtVideo" hidden>
+        <h3>Export extended video</h3>
+        <p class="small">Save a new video that stops for each extended block: the picture holds while the
+          block is read, then carries on. To mix it yourself, turn off Include the narration. You get the
+          programme's sound at its own level, silent during each pause.</p>
+        <p class="dim small">The whole picture is made again, so a film can take as long as it runs. This
+          needs ffmpeg. Without it, you get the audio and a command to run ffmpeg yourself.</p>
+        <p class="updstatus"><button id="ttsExtNarration" aria-pressed="true" data-tip="Turn this off for the programme's sound alone, to add the narration in an editor">Include the narration</button>
+          <button id="ttsExtVideoExport">Export extended video</button>
+          <progress id="ttsExtBar" class="jobbar" max="1" value="0" hidden aria-label="Exporting the extended video"></progress>
+          <button id="ttsExtStop" hidden>Stop</button> <span id="ttsExtStatus" class="dim"></span></p>
+        <div id="ttsExtCmds" class="ffcmds" hidden>
+          <p>To make the video with <a href="https://ffmpeg.org" target="_blank" rel="noopener">ffmpeg</a> on
+            your computer, run this in a folder with the video and both files you just saved:</p>
+          <p class="ffcmdhead">Extended video <button id="ttsExtCmdCopy">Copy</button></p>
+          <pre id="ttsExtCmd"></pre>
+        </div>
+      </section>
       <h3>Google Cloud voices</h3>
       <p class="small">Google's Standard voices, with your own Google Cloud key. Like Piper voices, they give
         exact lengths and can be exported as a description track. Each reading sends the block's text to

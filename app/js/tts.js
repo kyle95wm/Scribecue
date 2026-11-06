@@ -16,6 +16,7 @@
 import { HOSTED } from './config.js';
 import { TRACK_FORMATS, MIX_FORMATS } from './mp3.js';
 import { layTrackBlob, writeWav } from './audio.js';
+import { extendedTimeline } from './extended.js';
 import { POLLY_RATE, POLLY_REGION, POLLY_REGIONS, POLLY_KEY_PAGE, pollyRegionLabel, pollyRequest, pollyVoicesRequest, pollyVoiceList, pollyVoiceRecord, pollyLabel, pollyFailure, pollyThrottled } from './polly.js';
 
 export { writeWav, pcmToWav, resample, mixTrack, TRACK_PEAK_DB, TRACK_MAX_DB } from './audio.js';
@@ -472,11 +473,12 @@ if (!isDip(tts.dipDb) || tts.dipDb < 1) tts.dipDb = DEFAULTS.dipDb;
 if (!FADES.includes(tts.dipFade)) tts.dipFade = DEFAULTS.dipFade;
 if (!(tts.loudness in LOUDNESS)) tts.loudness = '';
 if (!['', 'add', 'replace'].includes(tts.mixInto)) tts.mixInto = '';
+for (const k of ['keepPauses', 'extNarration']) if (typeof tts[k] !== 'boolean') tts[k] = true;
 const rate = (speed) => atBase(speed, tts.base);
 
 const save = () => {
-  const { on, voice, base, live, duck, skipNotes, onImport, onChange, online, cps, mix, favourites, sample, trackAs, mixAs, dipDb, dipFade, loudness, stems, mixInto } = tts;
-  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, base, live, duck, skipNotes, onImport, onChange, online, cps, mix, favourites, sample, trackAs, mixAs, dipDb, dipFade, loudness, stems, mixInto })); } catch { /* ignore */ }
+  const { on, voice, base, live, duck, skipNotes, onImport, onChange, online, cps, mix, favourites, sample, trackAs, mixAs, dipDb, dipFade, loudness, stems, mixInto, keepPauses, extNarration } = tts;
+  try { localStorage.setItem(KEY, JSON.stringify({ on, voice, base, live, duck, skipNotes, onImport, onChange, online, cps, mix, favourites, sample, trackAs, mixAs, dipDb, dipFade, loudness, stems, mixInto, keepPauses, extNarration })); } catch { /* ignore */ }
 };
 
 // The mix between the video's sound and the readings, from −1 (only the video) to 1
@@ -1122,14 +1124,17 @@ export function readAhead(text, speed = 1, uri) {
   readAudio(text, speed, voiceOf(uri)).then(() => { if (!exact) hooks.changed(); }, () => {});
 }
 
-// The whole script as one audio file: each block's reading starts at the block's start.
-// blocks [{ start, text, speed, voice }], secs: total length. progress(done, total) as it
+// The whole script as one audio file: each block's reading starts at the block's start,
+// after the pauses of any before it marked extended.
+// blocks [{ start, text, speed, voice, extended }], secs: total length without the pauses. progress(done, total) as it
 // goes. Returns { samples, rate, overlaps }: mono 16-bit samples, and how many readings run
 // into the next one.
 export async function renderTrack(blocks, secs, progress = () => {}) {
   const made = await makeReadings(blocks, progress);
   // Laid out in a worker, as a long film makes a big track.
-  const readings = made.map(({ start, w }, k) => ({ start, samples: w.samples, rate: w.rate, secs: w.secs, gain: blocks[k].gain ?? 1 }));
+  const { starts, added } = extendedTimeline(made.map(({ start, w }, k) => ({ start, secs: w.secs, extended: blocks[k].extended })));
+  const readings = made.map(({ w }, k) => ({ start: starts[k], samples: w.samples, rate: w.rate, secs: w.secs, gain: blocks[k].gain ?? 1 }));
+  if (secs) secs += added;
   return new Promise((resolve, reject) => {
     let w;
     try { w = new Worker(new URL('./track-worker.js', import.meta.url), { type: 'module' }); } catch { return resolve(layTrackBlob(readings, secs)); }
@@ -1476,6 +1481,9 @@ function render(googleError = '') {
   $('ttsStems').checked = !!tts.stems;
   $('ttsDipDb').disabled = $('ttsDipFade').disabled = $('ttsDipCustom').disabled = !tts.duck;
   $('ttsMixExport').disabled = !piper;
+  $('ttsExtVideoExport').disabled = !piper;
+  $('ttsKeepPauses').setAttribute('aria-pressed', String(tts.keepPauses));
+  $('ttsExtNarration').setAttribute('aria-pressed', String(tts.extNarration));
   $('ttsMixNote').textContent = piper ? '' : 'Needs a Piper, Kokoro, Google or Amazon Polly voice: the browser\'s own voices can\'t be recorded.';
   $('ttsOnline').checked = tts.online;
   if (document.activeElement !== $('ttsSample')) $('ttsSample').value = testLine();
@@ -1510,6 +1518,7 @@ function renderFfmpeg() {
   for (const el of document.querySelectorAll('.ffonly')) el.hidden = el.disabled = !tts.ffmpeg;
   $('ttsMixAs').value = MIX_FORMATS[tts.mixAs] && (tts.ffmpeg || !MIX_FORMATS[tts.mixAs].ffmpeg) ? tts.mixAs : 'wav';
   $('ttsMixInto').value = tts.ffmpeg ? tts.mixInto : '';
+  hooks.panelOpened?.(); // what's offered can depend on ffmpeg
 }
 
 // Whether ffmpeg is running in Docker, for the full mix. Not in the web version.
@@ -1558,6 +1567,8 @@ export function initTts(h) {
   $('ttsTrackAs').addEventListener('change', (e) => set('trackAs', e.target.value));
   $('ttsMixAs').addEventListener('change', (e) => set('mixAs', e.target.value));
   $('ttsMixInto').addEventListener('change', (e) => set('mixInto', e.target.value));
+  $('ttsKeepPauses').addEventListener('click', () => { set('keepPauses', !tts.keepPauses); hooks.panelOpened?.(); });
+  $('ttsExtNarration').addEventListener('click', () => set('extNarration', !tts.extNarration));
   $('ttsDipDb').addEventListener('change', (e) => {
     dipCustom = e.target.value === 'custom';
     if (!dipCustom) return set('dipDb', +e.target.value);
