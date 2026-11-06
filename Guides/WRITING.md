@@ -85,7 +85,7 @@ on any computer. WebVTT exports keep them too.
 ## Exporting the full mix
 
 **Export → Full mix** saves the video's sound and the readings together in one file. It
-sounds just as it does when you play. It needs a Piper, Kokoro or Google voice.
+sounds just as it does when you play. It needs a Piper, Kokoro, Google or Amazon Polly voice.
 
 Choose how under **Export full mix**, in the text to speech settings:
 
@@ -141,7 +141,7 @@ These are in the text to speech settings. Each asks first, runs in the backgroun
   tick **Read each block silently first** for exact lengths.
 - **Fit speeds to timings:** the opposite. Every block keeps its timing, and its reading
   speeds up or slows down to fill it. Use it for a script whose timing is already right.
-- **Make all readings:** with a Piper, Kokoro or Google voice, makes every reading now, so
+- **Make all readings:** with a Piper, Kokoro, Google or Amazon Polly voice, makes every reading now, so
   each one plays straight away. Timings don't change.
 
 **When you change the voice or base speed,** every reading's length changes. Scribecue
@@ -163,14 +163,14 @@ later in the text to speech settings.
 - **Saving:** block speeds, voices and sounds-like words are saved in projects and WebVTT
   exports. SRT files can't hold them. Frazier `.adc` scripts bring their speeds and base
   speed with them.
-- **Stored readings:** Piper, Kokoro and Google readings are kept in your browser, up to
-  250 MB, so they play straight away next time and Google isn't asked again. The **Storage** section
+- **Stored readings:** Piper, Kokoro, Google and Amazon Polly readings are kept in your browser,
+  up to 250 MB, so they play straight away next time and Google or Amazon isn't asked again. The **Storage** section
   of Settings shows them and can clear them.
 - **Playback speed:** the voice follows the video's playback speed.
 
 ## Hand off for QC
 
 Scribecue [checks spelling and grammar](GETTING-STARTED.md#checking-spelling-and-grammar) first.
-Then choose **Export → QC package**. It keeps the audio of Google and Kokoro blocks, so
+Then choose **Export → QC package**. It keeps the audio of Google, Amazon Polly and Kokoro blocks, so
 reviewers need no key or Docker. Their computer reads Piper blocks. Built-in computer
 voices can't be used. See [QC review](QC.md#make-a-portable-qc-package).

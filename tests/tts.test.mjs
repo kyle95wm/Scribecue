@@ -4,6 +4,7 @@ import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVo
   splitReadingKey, piperVoiceList, kokoroVoiceList, readWav, voiceEnd, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
   toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice, voiceTitle } from '../app/js/tts.js';
+import { awsSignature, pollyRequest, pollyVoicesRequest, pollyVoiceList, pollyRate, ssmlText, pollyFailure, pollyThrottled, pollyHost, POLLY_REGIONS } from '../app/js/polly.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
 const voices = [
@@ -61,12 +62,12 @@ test('the voice menu lists Piper and Kokoro, then voices on this computer, then 
   const groups = groupVoices([...piper, ...kokoro, ...pickVoices(voices, { online: true, lang: 'en-US' })]);
   assert.deepEqual(groups.map(([label]) => label),
     ['Piper: natural voices on this computer', 'Kokoro: natural voices on this computer', 'Google Cloud: the text is sent to Google',
-      'On this computer', 'Online: the text is sent to the provider']);
+      'Amazon Polly: the text is sent to Amazon', 'On this computer', 'Online: the text is sent to the provider']);
   assert.deepEqual(groups[0][1].map((x) => x.name), ['Alba', 'Lessac']);
   assert.deepEqual(groups[1][1].map((x) => x.name), ['Heart']);
   assert.deepEqual(groups[2][1], []);
-  assert.deepEqual(groups[3][1].map((x) => x.name), ['Anna', 'Zed', 'Alex', 'Amélie']);
-  assert.deepEqual(groups[4][1].map((x) => x.name), ['Google UK']);
+  assert.deepEqual(groups[4][1].map((x) => x.name), ['Anna', 'Zed', 'Alex', 'Amélie']);
+  assert.deepEqual(groups[5][1].map((x) => x.name), ['Google UK']);
 });
 
 test('Kokoro voice names are made readable, with the language from the first letter', () => {
@@ -259,7 +260,7 @@ test('Google voices make audio, so they give exact lengths and export, as Piper 
   assert.equal(makesAudio(null), false);
   const groups = groupVoices([g, v('Google UK', 'en-GB', false)]);
   assert.deepEqual(groups[2][1], [g]);
-  assert.deepEqual(groups[4][1].map((x) => x.name), ['Google UK']);
+  assert.deepEqual(groups[5][1].map((x) => x.name), ['Google UK']);
 });
 
 test('a Google reading sends the text, voice and speed, with the key in a header, not the address', () => {
@@ -448,4 +449,111 @@ test('a reading’s key splits into its voice, speed and words, even with bars i
   assert.deepEqual(splitReadingKey('odd|voice|1|Words'), { voice: 'odd|voice', speed: 1, words: 'Words' });
   assert.deepEqual(splitReadingKey('google:a|1.5|Two\nlines'), { voice: 'google:a', speed: 1.5, words: 'Two\nlines' });
   assert.equal(splitReadingKey('no speed here'), null);
+});
+
+// ---- Amazon Polly
+
+const AWS_EXAMPLE = { region: 'us-east-1', service: 'service', key: 'AKIDEXAMPLE', secret: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY', amzDate: '20150830T123600Z' };
+const AWS_HEADERS = { host: 'example.amazonaws.com', 'x-amz-date': AWS_EXAMPLE.amzDate };
+const creds = { key: 'AKIDEXAMPLE', secret: 'secret', region: 'ca-central-1' };
+const matthew = pollyVoiceList({ Voices: [{ Id: 'Matthew', Name: 'Matthew', Gender: 'Male', LanguageCode: 'en-US', SupportedEngines: ['neural', 'standard', 'generative'] }] })[0];
+
+test('Polly signing matches AWS’s published Signature Version 4 examples', async () => {
+  // get-vanilla, post-vanilla and get-vanilla-query-order-key-case from AWS's test suite.
+  const sig = (req) => awsSignature({ ...AWS_EXAMPLE, path: '/', headers: AWS_HEADERS, ...req });
+  assert.equal(await sig({ method: 'GET' }), 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, SignedHeaders=host;x-amz-date, Signature=5fa00fa31553b73ebf1942676e86291e8372ff2a2260956d9b8aae1d763fbf31');
+  assert.match(await sig({ method: 'POST' }), /Signature=5da7c1a2acd57cee7505fc6676e4e544621c30862966e37dddb68e92efbe5d6b$/);
+  assert.match(await sig({ method: 'GET', query: { Param2: 'value2', Param1: 'value1' } }), /Signature=b97d918cfa904a5beff61c982a1b6f458b799221646efd99d3219ec94cdf2500$/);
+});
+
+test('A Polly reading asks for MP3 at the block’s speed, in the region of the key', async () => {
+  const { url, init } = await pollyRequest('Tom & "Jerry" <run>', matthew, 1.25, creds, new Date('2026-11-06T12:00:00.5Z'));
+  assert.equal(url, 'https://polly.ca-central-1.amazonaws.com/v1/speech');
+  assert.equal(init.method, 'POST');
+  assert.equal(init.credentials, 'omit');
+  const body = JSON.parse(init.body);
+  assert.equal(body.Engine, 'neural');
+  assert.equal(body.VoiceId, 'Matthew');
+  assert.equal(body.OutputFormat, 'mp3');
+  assert.equal(body.SampleRate, '24000');
+  assert.equal(body.TextType, 'ssml');
+  assert.equal(body.Text, '<speak><prosody rate="125%">Tom &amp; &quot;Jerry&quot; &lt;run&gt;</prosody></speak>');
+  assert.equal(init.headers['x-amz-date'], '20261106T120000Z');
+  assert.match(init.headers.authorization, /^AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE\/20261106\/ca-central-1\/polly\/aws4_request, SignedHeaders=content-type;host;x-amz-date, Signature=[0-9a-f]{64}$/);
+  assert.equal('host' in init.headers, false); // browsers refuse to set it
+});
+
+test('Polly speeds stay in what it accepts, and text can’t break the markup', () => {
+  assert.equal(pollyRate(1), 100);
+  assert.equal(pollyRate(0.85), 85);
+  assert.equal(pollyRate(2.4), 200);
+  assert.equal(pollyRate(0.1), 20);
+  assert.equal(pollyRate(undefined), 100);
+  assert.equal(ssmlText("it's\u0007 a </speak>"), 'it&apos;s  a &lt;/speak&gt;');
+  assert.equal(ssmlText('line\none'), 'line\none');
+});
+
+test('The voice list request signs the page it asks for', async () => {
+  const first = await pollyVoicesRequest(creds, '', new Date('2026-11-06T12:00:00Z'));
+  assert.equal(first.url, 'https://polly.ca-central-1.amazonaws.com/v1/voices');
+  assert.equal(first.init.body, undefined);
+  const next = await pollyVoicesRequest(creds, 'a+b/c=', new Date('2026-11-06T12:00:00Z'));
+  assert.equal(next.url, 'https://polly.ca-central-1.amazonaws.com/v1/voices?NextToken=a%2Bb%2Fc%3D');
+  assert.notEqual(next.init.headers.authorization, first.init.headers.authorization);
+});
+
+test('Polly’s voices become one voice per engine, Neural first, leaving out the rest', () => {
+  const list = pollyVoiceList({ Voices: [
+    { Id: 'Joanna', Name: 'Joanna', Gender: 'Female', LanguageCode: 'en-US', SupportedEngines: ['standard', 'neural'] },
+    { Id: 'Tiffany', Name: 'Tiffany', Gender: 'Female', LanguageCode: 'en-US', SupportedEngines: ['generative'] },
+    { Id: 'Lea', Name: 'Léa', Gender: 'Female', LanguageCode: 'fr-FR', SupportedEngines: ['neural'] },
+  ] }, ['en-CA']);
+  assert.deepEqual(list.map((x) => x.name), ['Polly Neural Joanna, female', 'Polly Standard Joanna, female']);
+  assert.deepEqual(list[0].polly, { id: 'Joanna', engine: 'neural' });
+  assert.equal(list[0].voiceURI, 'polly:neural:en-US:Joanna');
+  assert.equal(list[0].localService, false);
+  assert.equal(makesAudio(list[0]), true);
+  // No voices in the user's languages: all of them are offered.
+  assert.equal(pollyVoiceList({ Voices: [{ Id: 'Lea', Name: 'Léa', LanguageCode: 'fr-FR', SupportedEngines: ['neural'] }] }, ['en'])[0].name, 'Polly Neural Léa');
+  assert.deepEqual(pollyVoiceList(null), []);
+});
+
+test('Polly voices sit in their own group, and are kept like Google’s', () => {
+  const groups = groupVoices([matthew, v('Google UK', 'en-GB', false)]);
+  assert.deepEqual(groups.map(([label, list]) => [label, list.length]).filter(([, n]) => n), [
+    ['Amazon Polly: the text is sent to Amazon', 1], ['Online: the text is sent to the provider', 1]]);
+  const entries = [
+    { key: 'polly:neural:en-US:Matthew|1|Old', bytes: 50, at: 1 },
+    { key: 'piper:en_US-lessac-medium|1|New', bytes: 50, at: 2 },
+  ];
+  assert.deepEqual(overCap(entries, 60), ['piper:en_US-lessac-medium|1|New']);
+});
+
+test('A missing Polly voice says what to do', () => {
+  assert.equal(voiceLabel('polly:neural:en-US:Matthew'), 'Polly Neural Matthew (en-US)');
+  assert.equal(voiceLabel('polly:standard:en-GB:Amy'), 'Polly Standard Amy (en-GB)');
+  assert.match(missingVoiceAdvice('polly:neural:en-US:Matthew'), /Add your AWS key/);
+  assert.match(missingVoiceAdvice('polly:neural:en-US:Matthew', { pollyKey: true }), /doesn’t offer it/);
+});
+
+test('Amazon’s errors become something to act on', async () => {
+  const answer = (status, type, message) => ({ status, headers: new Headers({ 'x-amzn-ErrorType': type }), json: async () => ({ message }) });
+  assert.match(await pollyFailure(answer(403, 'UnrecognizedClientException:http://x', 'nope')), /didn’t accept the access key/);
+  assert.match(await pollyFailure(answer(403, 'InvalidSignatureException', 'The request signature we calculated does not match')), /secret key/);
+  assert.match(await pollyFailure(answer(403, 'InvalidSignatureException', 'Signature expired')), /clock/);
+  assert.match(await pollyFailure(answer(403, 'AccessDeniedException', 'User is not authorized')), /not authorized.*budget/);
+  assert.match(await pollyFailure(answer(400, 'EngineNotSupportedException', 'x')), /region/);
+  assert.equal(await pollyFailure(answer(500, 'ServiceFailureException', 'Oops')), 'Amazon answered 500: Oops');
+  assert.equal(pollyThrottled(answer(400, 'ThrottlingException', 'x')), true);
+  assert.equal(pollyThrottled({ status: 429, headers: new Headers() }), true);
+  assert.equal(pollyThrottled(answer(400, 'InvalidSsmlException', 'x')), false);
+});
+
+test('Every Polly region is allowed by the page’s security rules, in both copies', async () => {
+  const { readFile } = await import('node:fs/promises');
+  for (const file of ['app/index.html', 'nginx.conf']) {
+    const rules = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+    for (const [region] of POLLY_REGIONS) assert.ok(rules.includes(`https://${pollyHost(region)}`), `${region} in ${file}`);
+    assert.equal(rules.includes('*.amazonaws.com'), false);
+  }
 });

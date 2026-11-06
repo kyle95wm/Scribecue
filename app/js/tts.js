@@ -1,5 +1,5 @@
 // Text to speech for audio description work, off until the user turns it on.
-// Voices come from three places:
+// Voices come from four places:
 // - Piper, an optional container next to Scribecue (see docker-compose.yml), or in the
 //   web version, Piper running in the browser (piper-worker.js) with voices the user
 //   downloads. Its voices run on this computer and return audio, so lengths are exact
@@ -7,13 +7,16 @@
 // - Google Cloud's Standard voices, with the user's own API key. They also return audio,
 //   so they work like Piper, but each reading sends the block's text to Google. Adding
 //   the key is the opt-in.
+// - Amazon Polly's Neural and Standard voices, with the user's own AWS key, which work
+//   like Google's and send the block's text to Amazon (see polly.js).
 // - The browser's speech synthesis. By default only voices that run on this computer
 //   are offered; online voices send the text to their provider, so they need a
 //   separate opt-in.
 
 import { HOSTED } from './config.js';
 import { TRACK_FORMATS, MIX_FORMATS } from './mp3.js';
-import { layTrackBlob } from './audio.js';
+import { layTrackBlob, writeWav } from './audio.js';
+import { POLLY_RATE, POLLY_REGION, POLLY_REGIONS, POLLY_KEY_PAGE, pollyRequest, pollyVoicesRequest, pollyVoiceList, pollyVoiceRecord, pollyLabel, pollyFailure, pollyThrottled } from './polly.js';
 
 export { writeWav, pcmToWav, resample, mixTrack, TRACK_PEAK_DB, TRACK_MAX_DB } from './audio.js';
 
@@ -160,7 +163,7 @@ export function pickVoices(voices, { online = false, lang = 'en' } = {}) {
 export const reviewVoices = () => voices.map((v) => ({ id: v.voiceURI, name: voiceTitle(v), exportable: makesAudio(v) }));
 export async function reviewAudio(text, speed, uri) {
   const v = voices.find((v) => v.voiceURI === uri);
-  if (!v || !makesAudio(v)) throw new Error(`${voiceLabel(uri)} needs to be available as a Piper, Kokoro or Google Cloud voice to package its audio`);
+  if (!v || !makesAudio(v)) throw new Error(`${voiceLabel(uri)} needs to be available as a Piper, Kokoro, Google Cloud or Amazon Polly voice to package its audio`);
   const key = `${v.voiceURI}|${rate(speed)}|${spoken(text)}`;
   if (!spoken(text)) return null;
   const wav = await readAudio(text, speed, v, 'bulk');
@@ -173,28 +176,32 @@ export async function reviewAudio(text, speed, uri) {
 // more than one, as in "Eddy (English (United Kingdom))", and the menu already shows it.
 export const voiceTitle = (v) => (v?.name || '').replace(/\s*\([^()]*\([^()]*\)\)$/, '') || v?.name || '';
 
-// Splits voices for the menu: Piper, Kokoro, Google, the browser's voices on this
+// Splits voices for the menu: Piper, Kokoro, Google, Polly, the browser's voices on this
 // computer, then online ones.
 export function groupVoices(voices) {
   return [
     ['Piper: natural voices on this computer', voices.filter((v) => v.piper)],
     ['Kokoro: natural voices on this computer', voices.filter((v) => v.kokoro)],
     ['Google Cloud: the text is sent to Google', voices.filter((v) => v.google)],
+    ['Amazon Polly: the text is sent to Amazon', voices.filter((v) => v.polly)],
     ['On this computer', voices.filter((v) => v.localService && !v.piper && !v.kokoro)],
-    ['Online: the text is sent to the provider', voices.filter((v) => !v.localService && !v.google)],
+    ['Online: the text is sent to the provider', voices.filter(browserOnline)],
   ];
 }
+
+// A browser voice that sends the text to its provider, rather than one with a key of its own.
+const browserOnline = (v) => !v.localService && !v.google && !v.polly;
 
 // Favourite voices, pinned to the top of the voice list for switching between quickly:
 // voiceURIs, in the order they were added. Pinning one that's there takes it out.
 export const toggleFavourite = (favs, uri) => (favs.includes(uri) ? favs.filter((f) => f !== uri) : [...favs, uri]);
 // The favourites, each with its voice, or null while it isn't available (Piper not
-// running, no Google key, online voices off, or not in this browser).
+// running, no Google or AWS key, online voices off, or not in this browser).
 export const favouriteVoices = (favs, voices) => favs.map((uri) => ({ uri, voice: voices.find((v) => v.voiceURI === uri) || null }));
 
-// Voices that make their readings as audio, Piper's, Kokoro's and Google's: lengths are
+// Voices that make their readings as audio, Piper's, Kokoro's, Google's and Polly's: lengths are
 // exact, and a description track can be exported.
-export const makesAudio = (v) => !!(v?.piper || v?.kokoro || v?.google);
+export const makesAudio = (v) => !!(v?.piper || v?.kokoro || v?.google || v?.polly);
 
 // Google Cloud's voice list, as Scribecue's voice objects: only the Standard voices, in
 // the user's languages if it has any of those. "en-GB-Standard-A" becomes
@@ -213,12 +220,12 @@ export function googleVoiceList(json, langs = ['en']) {
 }
 
 // Which saved readings to remove so the rest fit in `cap` bytes: Piper's and Kokoro's go
-// before Google's, since they cost nothing to make again, and then the ones used longest
+// before Google's and Polly's, since they cost nothing to make again, and then the ones used longest
 // ago. entries [{ key, bytes, at }], each key starting with its voice.
 export function overCap(entries, cap) {
   let total = entries.reduce((n, e) => n + e.bytes, 0);
   const out = [];
-  const paid = (e) => (String(e.key).startsWith('google:') ? 1 : 0);
+  const paid = (e) => (/^(google|polly):/.test(String(e.key)) ? 1 : 0);
   for (const e of [...entries].sort((a, b) => paid(a) - paid(b) || a.at - b.at)) {
     if (total <= cap) break;
     out.push(e.key);
@@ -425,6 +432,7 @@ export const tts = {
   piper: [], // Piper voices, once the container has answered
   kokoro: [], // Kokoro voices, the same
   google: [], // Google Cloud voices, while there's a key
+  polly: [], // Amazon Polly voices, the same
   ffmpeg: '', // ffmpeg's version, while its container is running (Docker only)
   speaking: null, // { id, manual } of the block being read, while speaking
 };
@@ -442,6 +450,18 @@ export const isPersonalGoogleKey = (key) => !!key && key === googleKey();
 export const reviewGoogleKey = (bundled = '') => googleKey() || bundled;
 const langs = () => [...new Set([...(navigator.languages || []), navigator.language || 'en'])];
 tts.google = googleKey() ? googleVoiceList({ voices: googleStore().voices }, langs()) : [];
+// The AWS key and region, and the voice list they last gave, kept the same way.
+const PKEY = 'scribecue.pollyTts';
+const pollyStore = () => { try { return JSON.parse(localStorage.getItem(PKEY)) || {}; } catch { return {}; } };
+const pollyCreds = () => {
+  const { key = '', secret = '', region = POLLY_REGION } = pollyStore();
+  return key && secret ? { key, secret, region } : null;
+};
+export const hasPollyKey = () => !!pollyCreds();
+export const isPersonalPollyKey = (key) => !!key && key === pollyCreds()?.key;
+// As with Google: a review key belongs to its package, and the reviewer's own goes first.
+export const reviewPollyCreds = (bundled = null) => pollyCreds() || bundled;
+tts.polly = pollyCreds() ? pollyVoiceList({ Voices: pollyStore().voices }, langs()) : [];
 tts.cps = tts.cps && typeof tts.cps === 'object' ? tts.cps : {};
 tts.favourites = Array.isArray(tts.favourites) ? tts.favourites.filter((f) => typeof f === 'string') : [];
 tts.base = toBase(tts.base);
@@ -493,7 +513,7 @@ function setMeasured(key, secs) {
 
 function allowed() {
   const browser = pickVoices(tts.available ? speechSynthesis.getVoices() : [], { online: tts.online, lang: navigator.language || 'en' });
-  return [...tts.piper, ...tts.kokoro, ...tts.google, ...browser];
+  return [...tts.piper, ...tts.kokoro, ...tts.google, ...tts.polly, ...browser];
 }
 // The chosen voice, or a Piper or Kokoro voice if there is one, since they sound best.
 function currentVoice() {
@@ -504,18 +524,20 @@ function currentVoice() {
 function voiceOf(uri) {
   return (uri && voices.find((v) => v.voiceURI === uri)) || currentVoice();
 }
-// A voice that makes its readings as audio, with exact lengths: Piper, Kokoro or Google.
+// A voice that makes its readings as audio, with exact lengths: Piper, Kokoro, Google or Polly.
 // uri: a block's own voice, if it has one, as with the functions below.
 export const usingAudioVoice = (uri) => makesAudio(voiceOf(uri));
 
 // A voice's name from its id alone, for a voice that isn't available to ask: Google's
 // "google:en-US-Standard-C" is "Google Standard C (en-US)", Piper's "piper:en_US-lessac-medium"
-// is "Lessac (en-US)", Kokoro's "kokoro:bf_emma" is "Kokoro Emma (en-GB)", and a browser
-// voice's id ends in its name.
+// is "Lessac (en-US)", Kokoro's "kokoro:bf_emma" is "Kokoro Emma (en-GB)", Polly's are in
+// polly.js, and a browser voice's id ends in its name.
 export function voiceLabel(uri) {
   const s = String(uri || '');
   const g = s.match(/^google:([a-z]{2,3}-[A-Z]{2})-Standard-(\w+)$/);
   if (g) return `Google Standard ${g[2]} (${g[1]})`;
+  const p = pollyLabel(s);
+  if (p) return p;
   if (s.startsWith('piper:')) {
     const v = piperVoiceList({ [s.slice(6)]: 1 })[0];
     return v.lang ? `${v.name} (${v.lang})` : v.name;
@@ -527,10 +549,13 @@ export function voiceLabel(uri) {
   const last = s.split('.').pop() || s;
   return last.charAt(0).toUpperCase() + last.slice(1);
 }
-// Why a voice isn't available, and what to do: by kind, with or without a Google key.
-export function missingVoiceAdvice(uri, { googleKey = false, hosted = false } = {}) {
+// Why a voice isn't available, and what to do: by kind, with or without a key.
+export function missingVoiceAdvice(uri, { googleKey = false, pollyKey = false, hosted = false } = {}) {
   if (String(uri).startsWith('google:')) {
     return googleKey ? 'Your Google Cloud key doesn’t offer it here.' : 'Add your Google Cloud key in Settings, under Text to speech, to use it.';
+  }
+  if (String(uri).startsWith('polly:')) {
+    return pollyKey ? 'Your AWS key doesn’t offer it here.' : 'Add your AWS key in Settings, under Text to speech, to use it.';
   }
   if (String(uri).startsWith('piper:')) {
     return hosted ? 'Download it in Settings, under Text to speech.' : 'Piper isn’t running, or doesn’t have this voice. See INSTALL.md.';
@@ -550,14 +575,14 @@ function missingVoice() {
   const uri = tts.voice;
   if (!uri || !piperKnown || voices.some((v) => v.voiceURI === uri)) return '';
   // Browser voices can arrive late, so wait for some before saying one's missing.
-  if (!/^(google|piper|kokoro):/.test(uri) && tts.available && !speechSynthesis.getVoices().length) return '';
+  if (!/^(google|polly|piper|kokoro):/.test(uri) && tts.available && !speechSynthesis.getVoices().length) return '';
   return uri;
 }
 export function missingVoiceNote() {
   const uri = missingVoice();
   if (!uri) return '';
   const instead = currentVoice();
-  return `This project’s voice, ${voiceLabel(uri)}, isn’t available here. ${missingVoiceAdvice(uri, { googleKey: !!googleKey(), hosted: HOSTED })} ` +
+  return `This project’s voice, ${voiceLabel(uri)}, isn’t available here. ${missingVoiceAdvice(uri, { googleKey: !!googleKey(), pollyKey: hasPollyKey(), hosted: HOSTED })} ` +
     (instead ? `Until then, blocks are read with ${instead.name}.` : 'Until then, there’s no voice to read with.');
 }
 function checkVoice() {
@@ -568,14 +593,18 @@ function checkVoice() {
   // Short enough for the bottom bar: Settings has the whole story.
   hooks.toast(`${voiceLabel(uri)} isn’t available here${currentVoice() ? `, so ${currentVoice().name} is reading` : ''}. See Settings, under Text to speech`);
 }
-// A Google voice: every new reading is sent to Google, and counts against the user's allowance.
-export const usingGoogle = (uri) => !!voiceOf(uri)?.google;
-// Shows the warnings that a job reading every block may cost money, with a Google voice.
-export function showGoogleCost() {
-  const google = usingGoogle() || hooks.blockVoices().some((uri) => usingGoogle(uri));
-  for (const el of document.querySelectorAll('.googlecost')) el.hidden = !google;
+// Who reads with a paid voice, Google or Amazon, or '' for any other voice: every new reading
+// is sent to them, and counts against the user's allowance.
+export const cloudOf = (uri) => {
+  const v = voiceOf(uri);
+  return v?.google ? 'Google' : v?.polly ? 'Amazon' : '';
+};
+// Shows the warnings that a job reading every block may cost money, with a paid voice.
+export function showCloudCost() {
+  const paid = !!cloudOf() || hooks.blockVoices().some((uri) => cloudOf(uri));
+  for (const el of document.querySelectorAll('.cloudcost')) el.hidden = !paid;
 }
-export const anyVoices = () => tts.available || tts.piper.length > 0 || tts.kokoro.length > 0 || tts.google.length > 0;
+export const anyVoices = () => tts.available || tts.piper.length > 0 || tts.kokoro.length > 0 || tts.google.length > 0 || tts.polly.length > 0;
 const voiceKey = (uri) => voiceOf(uri)?.voiceURI || '';
 const measureKey = (text, speed, uri) => `${voiceKey(uri)}|${rate(speed)}|${spoken(text)}`;
 
@@ -597,7 +626,7 @@ export function duration(text, speed = 1, uri) {
   return { secs: estimate(text, tts.cps[voiceKey(uri)] || DEFAULT_CPS, rate(speed)), exact: false };
 }
 
-// ---- Voices that make audio: Piper and Google
+// ---- Voices that make audio: Piper, Google and Polly
 
 // Readings already made, by voice, speed and text: a promise of { samples, rate, secs, buf }.
 const audioCache = new Map();
@@ -842,10 +871,52 @@ export function setGoogleKey(key) {
   return loadGoogle();
 }
 
-// Readings by Piper, Kokoro and Google are kept in the browser, by voice, speed and text,
-// so a line that hasn't changed is never made twice: not when Scribecue is next opened, nor
-// to export. With Google, that saves characters, which it charges for past its free
-// allowance. Lines already read play straight away, and offline. Their lengths are loaded
+// ---- Amazon Polly
+
+// Asks Amazon for its voices, keeps the list, and offers them, as loadGoogle does.
+let pollyProblem = ''; // what went wrong the last time, for the settings
+export async function loadPolly() {
+  const creds = pollyCreds();
+  let error = '';
+  if (!creds) tts.polly = [];
+  else if (!globalThis.crypto?.subtle) error = 'Signing Amazon’s requests needs Scribecue at an https or localhost address';
+  else if (navigator.onLine !== false) {
+    try {
+      const list = [];
+      let next = '';
+      do {
+        const { url, init } = await pollyVoicesRequest(creds, next);
+        const r = await fetch(url, init);
+        if (!r.ok) throw new Error(await pollyFailure(r));
+        const page = await r.json();
+        list.push(...(page.Voices || []).map(pollyVoiceRecord));
+        next = page.NextToken || '';
+      } while (next);
+      try { localStorage.setItem(PKEY, JSON.stringify({ ...pollyStore(), voices: list })); } catch { /* ignore */ }
+      tts.polly = pollyVoiceList({ Voices: list }, langs());
+    } catch (e) { error = e.message === 'Failed to fetch' ? 'Couldn’t reach Amazon' : e.message; }
+  }
+  voices = allowed();
+  hooks.changed();
+  pollyProblem = error;
+  if ($('ttsDlg').open) render();
+  checkVoice();
+  return error;
+}
+
+export function setPolly(creds) {
+  try {
+    if (creds) localStorage.setItem(PKEY, JSON.stringify(creds));
+    else localStorage.removeItem(PKEY);
+  } catch { /* ignore */ }
+  if (!creds && currentVoice()?.polly) { stop(); tts.voice = ''; save(); }
+  return loadPolly();
+}
+
+// Readings by Piper, Kokoro, Google and Polly are kept in the browser, by voice, speed and
+// text, so a line that hasn't changed is never made twice: not when Scribecue is next opened,
+// nor to export. With Google and Polly, that saves characters, which they charge for past
+// their free allowances. Lines already read play straight away, and offline. Their lengths are loaded
 // as Scribecue opens, so they're exact straight away. At most SAVED_MAX bytes are kept
 // (see overCap).
 const SAVED_DB = 'scribecue-readings';
@@ -931,23 +1002,52 @@ async function keptOr(key, make) {
   return buf;
 }
 
-// A few readings at a time, so a long job doesn't send Google hundreds at once.
-const GOOGLE_AT_ONCE = 4;
-let googleBusy = 0;
-const googleWaiting = [];
-async function googleRead(words, voice, speed, urgent) {
-  if (googleBusy >= GOOGLE_AT_ONCE) await new Promise((go) => (urgent ? googleWaiting.unshift(go) : googleWaiting.push(go)));
-  googleBusy++;
-  try {
+// A few readings at a time, so a long job doesn't send hundreds at once: run(urgent, job)
+// starts job when there's room, with a reading someone is waiting for next in line.
+function fewAtOnce(most) {
+  let busy = 0;
+  const waiting = [];
+  return async (urgent, job) => {
+    if (busy >= most) await new Promise((go) => (urgent ? waiting.unshift(go) : waiting.push(go)));
+    busy++;
+    try { return await job(); } finally {
+      busy--;
+      waiting.shift()?.();
+    }
+  };
+}
+const googleTurn = fewAtOnce(4);
+function googleRead(words, voice, speed, urgent) {
+  return googleTurn(urgent, async () => {
     const { url, init } = googleRequest(words, voice, speed, googleKey());
     const r = await fetch(url, init);
     if (!r.ok) throw new Error(await googleFailure(r));
     const b64 = (await r.json()).audioContent || '';
     return Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)).buffer;
-  } finally {
-    googleBusy--;
-    googleWaiting.shift()?.();
-  }
+  });
+}
+
+// Fewer at once than Google, as Polly's Neural voices answer about eight requests a second.
+// It answers too many with a refusal, so wait a little longer each time and ask again.
+const pollyTurn = fewAtOnce(3);
+const POLLY_RETRIES = 4;
+export function pollyRead(words, voice, speed, urgent, creds = pollyCreds(), signal) {
+  return pollyTurn(urgent, async () => {
+    for (let tries = 0; ; tries++) {
+      const { url, init } = await pollyRequest(words, voice, speed, creds);
+      const r = await fetch(url, { ...init, signal });
+      if (r.ok) return pollyWav(await r.arrayBuffer());
+      if (tries >= POLLY_RETRIES || !pollyThrottled(r)) throw new Error(await pollyFailure(r));
+      await new Promise((go) => setTimeout(go, (2 ** tries) * 250 + Math.random() * 250));
+    }
+  });
+}
+// Readings are kept as WAV files, with exact lengths. Decoding happens off the page's thread.
+async function pollyWav(mp3) {
+  const audio = await new OfflineAudioContext(1, 1, POLLY_RATE).decodeAudioData(mp3);
+  const from = audio.getChannelData(0), pcm = new Int16Array(from.length);
+  for (let i = 0; i < from.length; i++) pcm[i] = Math.max(-1, Math.min(1, from[i])) * 32767;
+  return writeWav(pcm, POLLY_RATE).arrayBuffer();
 }
 
 // how: 'now' for a reading someone is waiting to hear, 'bulk' for one of many in a long
@@ -961,6 +1061,7 @@ function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background')
   if (!p) {
     let make;
     if (voice.google) make = () => googleRead(words, voice, speed, how === 'now');
+    else if (voice.polly) make = () => pollyRead(words, voice, speed, how === 'now');
     else if (voice.kokoro) make = () => fetch('tts/kokoro/synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1112,7 +1213,7 @@ function speakAudio(text, voice, { id, manual, silent, speed, gain, from, done }
     a.play().catch(() => finish(null));
   }, (e) => {
     if (current?.piper !== token) return;
-    hooks.toast(voice.google ? (navigator.onLine === false ? `You’re offline, so the Google voice can’t read. Choose a voice on this computer, or a Piper voice, in Settings` : e.message)
+    hooks.toast(voice.google || voice.polly ? (navigator.onLine === false ? `You’re offline, so the ${cloudOf(voice.voiceURI)} voice can’t read. Choose a voice on this computer, or a Piper voice, in Settings` : e.message)
       : voice.kokoro ? 'Kokoro isn’t answering. Is its container running? See INSTALL.md'
       : HOSTED ? 'The Piper voice couldn’t read that block. Try reloading the page'
       : 'Piper isn’t answering. Is its container running? See INSTALL.md');
@@ -1280,7 +1381,7 @@ function renderFavourites() {
       return b;
     }
     // Not available now: it stays, for when it is again, and can be taken out.
-    b.textContent = `${uri.replace(/^(piper|kokoro|google):/, '')} ×`;
+    b.textContent = `${pollyLabel(uri) || uri.replace(/^(piper|kokoro|google):/, '')} ×`;
     b.classList.add('gone');
     b.dataset.tip = 'Not available right now. Click to take it out of your favourites';
     b.addEventListener('click', () => setTtsOption('favourites', toggleFavourite(tts.favourites, uri)));
@@ -1295,7 +1396,7 @@ function fillVoices() {
   $('ttsNoVoices').hidden = !!voices.length || !anyVoices();
   $('ttsMissing').textContent = missingVoiceNote();
   $('ttsMissing').hidden = !$('ttsMissing').textContent;
-  $('ttsNoOnline').hidden = !tts.online || voices.some((v) => !v.localService && !v.google);
+  $('ttsNoOnline').hidden = !tts.online || voices.some(browserOnline);
   $('ttsNoVoices').textContent = tts.online
     ? 'This browser has no voices. Try Microsoft Edge or Google Chrome.'
     : 'No voices on this computer. Your system may need speech voices installed, or you can allow online voices below.';
@@ -1315,6 +1416,8 @@ function render(googleError = '') {
   const piper = usingAudioVoice();
   $('ttsPiperNote').textContent = currentVoice()?.google
     ? 'Google voice: lengths are exact as soon as a block has text, and you can export a description track. Each reading sends the block’s text to Google.'
+    : currentVoice()?.polly
+    ? 'Amazon Polly voice: lengths are exact as soon as a block has text, and you can export a description track. Each reading sends the block’s text to Amazon.'
     : currentVoice()?.kokoro
     ? 'Kokoro voice: lengths are exact as soon as a block has text, and you can export a description track.'
     : tts.piper.length || tts.kokoro.length
@@ -1328,10 +1431,22 @@ function render(googleError = '') {
     : tts.google.length ? `${tts.google.length} Standard voice${tts.google.length > 1 ? 's' : ''}, in the voice list above.`
     : 'No Standard voices yet. Reopen these settings once you’re online.');
   $('ttsGoogleStatus').classList.toggle('err', !!googleError);
+  // Half a key being typed in stays put until the other half arrives.
+  const creds = pollyCreds();
+  if (creds) {
+    for (const [id, value] of [['ttsPollyKey', creds.key], ['ttsPollySecret', creds.secret], ['ttsPollyRegion', creds.region]]) {
+      if (document.activeElement !== $(id)) $(id).value = value;
+    }
+  }
+  $('ttsPollyForget').hidden = !creds;
+  if (creds) $('ttsPollyStatus').textContent = pollyProblem || (
+    tts.polly.length ? `${tts.polly.length} voice${tts.polly.length > 1 ? 's' : ''}, in the voice list above.`
+    : 'No voices yet. Reopen these settings once you’re online.');
+  $('ttsPollyStatus').classList.toggle('err', !!creds && !!pollyProblem);
   // The tip is about adding Piper to the Docker setup, which the web version doesn't have.
   $('ttsTip').hidden = tts.piper.length > 0 || tts.kokoro.length > 0 || HOSTED;
   $('ttsAllExactRow').hidden = piper;
-  showGoogleCost();
+  showCloudCost();
   $('ttsExport').disabled = !piper;
   $('ttsMakeAll').disabled = !piper;
   // Blocks with their own voice, such as translated dialogue read by a second voice.
@@ -1339,8 +1454,8 @@ function render(googleError = '') {
   $('ttsBlockVoices').hidden = !own.length;
   const names = [...new Set(own)].map((uri) => voices.find((v) => v.voiceURI === uri)?.name || voiceLabel(uri));
   $('ttsBlockVoicesText').textContent = `${own.length === 1 ? '1 block has' : `${own.length} blocks have`} a voice of ${own.length === 1 ? 'its' : 'their'} own: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''}.`;
-  $('ttsMakeNote').textContent = piper ? '' : 'Needs a Piper, Kokoro or Google voice: the browser\'s own voices can\'t be kept.';
-  $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper, Kokoro or Google voice: the browser\'s own voices can\'t be recorded.';
+  $('ttsMakeNote').textContent = piper ? '' : 'Needs a Piper, Kokoro, Google or Amazon Polly voice: the browser\'s own voices can\'t be kept.';
+  $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper, Kokoro, Google or Amazon Polly voice: the browser\'s own voices can\'t be recorded.';
   $('ttsBody').classList.toggle('off', !tts.on);
   $('ttsBase').value = String(Math.round(tts.base * 100));
   $('ttsBaseOut').textContent = `${Math.round(tts.base * 100)}%`;
@@ -1361,7 +1476,7 @@ function render(googleError = '') {
   $('ttsStems').checked = !!tts.stems;
   $('ttsDipDb').disabled = $('ttsDipFade').disabled = $('ttsDipCustom').disabled = !tts.duck;
   $('ttsMixExport').disabled = !piper;
-  $('ttsMixNote').textContent = piper ? '' : 'Needs a Piper, Kokoro or Google voice: the browser\'s own voices can\'t be recorded.';
+  $('ttsMixNote').textContent = piper ? '' : 'Needs a Piper, Kokoro, Google or Amazon Polly voice: the browser\'s own voices can\'t be recorded.';
   $('ttsOnline').checked = tts.online;
   if (document.activeElement !== $('ttsSample')) $('ttsSample').value = testLine();
   $('ttsTest').disabled = !testLine().trim();
@@ -1413,6 +1528,7 @@ export function openTts() {
   loadPiper(); // in case Piper was started since
   checkFfmpeg();
   if (googleKey()) loadGoogle(); // in case the key's voices have changed
+  if (pollyCreds()) loadPolly();
   const d = $('ttsDlg');
   if (!d.open) d.showModal();
 }
@@ -1458,7 +1574,7 @@ export function initTts(h) {
   $('ttsStems').addEventListener('change', (e) => set('stems', e.target.checked));
   $('ttsOnline').addEventListener('change', (e) => {
     // Turning online voices off also drops an online voice that was chosen.
-    if (!e.target.checked && currentVoice() && !currentVoice().localService && !currentVoice().google) { stop(); tts.voice = ''; }
+    if (!e.target.checked && currentVoice() && browserOnline(currentVoice())) { stop(); tts.voice = ''; }
     set('online', e.target.checked);
   });
   // Test reads what's in Test text, the sample until it's changed. Emptied, Test does nothing.
@@ -1482,6 +1598,24 @@ export function initTts(h) {
     }
   });
   $('ttsGoogleForget').addEventListener('click', () => setGoogleKey(''));
+  $('ttsPollyGet').href = POLLY_KEY_PAGE;
+  $('ttsPollyRegion').append(...POLLY_REGIONS.map(([id, name]) => new Option(`${name}, ${id}`, id)));
+  // Both halves of the key are needed, so nothing happens until they're both in.
+  const pollyChanged = async () => {
+    const [key, secret, region] = ['ttsPollyKey', 'ttsPollySecret', 'ttsPollyRegion'].map((id) => $(id).value.trim());
+    if (!key && !secret) { $('ttsPollyStatus').textContent = ''; return pollyCreds() ? setPolly(null) : undefined; }
+    if (!key || !secret) { $('ttsPollyStatus').textContent = `Add the ${key ? 'secret' : 'access'} key too.`; return; }
+    $('ttsPollyStatus').textContent = 'Asking Amazon for its voices…';
+    const error = await setPolly({ key, secret, region });
+    if (!error && tts.polly.length && !makesAudio(currentVoice())) {
+      picked = null; tts.voice = tts.polly[0].voiceURI; save(); render(); hooks.changed();
+    }
+  };
+  for (const id of ['ttsPollyKey', 'ttsPollySecret', 'ttsPollyRegion']) $(id).addEventListener('change', pollyChanged);
+  $('ttsPollyForget').addEventListener('click', () => {
+    $('ttsPollyKey').value = $('ttsPollySecret').value = $('ttsPollyStatus').textContent = '';
+    setPolly(null);
+  });
   $('ttsClose').addEventListener('click', () => d.close());
   d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
   d.addEventListener('close', () => {

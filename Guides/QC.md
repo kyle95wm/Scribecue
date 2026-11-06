@@ -75,7 +75,7 @@ Click **QC** under the video to choose the source and check the project’s voic
 | Source | Use it for |
 | --- | --- |
 | **Programme sound** | A recorded description mix. Choose its track in Audio. No TTS is added. |
-| **Original readings** | The default for packages. Google and Kokoro blocks play the writer’s audio, with no key or Docker needed. Your computer reads Piper blocks. |
+| **Original readings** | The default for packages. Google, Amazon Polly and Kokoro blocks play the writer’s audio, with no key or Docker needed. Your computer reads Piper blocks. |
 | **Approximate TTS preview** | A project without packaged audio. Available project voices are used; missing voices use the preview voice you choose. |
 
 ![QC playback choices and voice availability](../docs/screenshots/qc-playback.png)
@@ -110,6 +110,7 @@ What happens to each voice:
 | Voice | In the package |
 | --- | --- |
 | **Google Cloud** | Its audio. The reviewer needs no key. |
+| **Amazon Polly** | Its audio. The reviewer needs no key. |
 | **Kokoro** | Its audio. The reviewer doesn't need Docker. |
 | **Piper** | No audio, so the file stays small. The reviewer's computer reads these blocks. |
 | Built-in and online browser voices | Can't be used. Choose another voice, or supply a recorded review mix. |
@@ -118,19 +119,19 @@ If a reviewer doesn't have a package's Piper voice, Scribecue offers to download
 the package opens. Click **QC** under the video to get it later. Without it, those blocks
 say **Needs** and the voice's name. Both people need Scribecue 0.83 or later.
 
-Google Cloud packaging sends text to Google and can use your quota or incur charges.
-The video is sent separately. Keys stay private unless you explicitly include a separate Google review key.
+Google Cloud and Amazon Polly packaging sends text to them and can use your quota or incur charges.
+The video is sent separately. Keys stay private unless you explicitly include a separate review key.
 
 Original readings keep their full length, including overlapping tails. Moving a block
 reuses its saved audio. Resizing also reuses it unless you change the reading speed;
 the inspector warns when a reading runs past the block’s end.
 
-### New Google readings
+### New readings
 
-For an editable package with Google voices, a changed block is read when you finish
+For an editable package with Google or Amazon Polly voices, a changed block is read when you finish
 editing it, as in Write mode. This covers new wording, a new speed, and blocks you add.
 
-- The new reading uses the block’s original Google voice. Added blocks use the package’s.
+- The new reading uses the block’s original voice. Added blocks use the package’s.
 - Change the words back, and the block uses the original reading again, with its length.
 - The voice list is hidden for these blocks, since a new voice would need a fresh package.
 - Readings are saved, so they replay offline, after moving a block, or after reopening.
@@ -140,16 +141,20 @@ Press V to hear a block. **Hear previous reading** plays the original alone.
 
 ![A new reading beside the original reading](../docs/screenshots/qc-google-rewrite.png)
 
-Readings use the reviewer’s Google key first. If it fails, or there isn’t one, the
-writer’s separate key in the package is used. Without either, the block says
-**Needs a Google key**. Packages with readings for added blocks need Scribecue 0.72 or later.
+Readings use the reviewer’s own key first. If it fails, Scribecue asks before using the
+writer’s separate key in the package. If there’s no key of your own, the package’s is used.
+Without either, the block says **Needs a Google key** or **Needs an AWS key**. Packages with
+readings for added blocks need Scribecue 0.72 or later. Packages with new Amazon Polly
+readings or an AWS key need the version that added them.
 
 To supply a key, turn on **Allow reviewers to edit blocks**, then **Include a separate
-Google review key** during export. Paste a new key made for this review; your main key
-is never filled in. Anyone with the package can read the included key. Delete it in
-Google Cloud when the review is done. See [Google keys](GOOGLE-VOICES.md#keys-for-qc-reviews).
+Google review key** or **Include a separate Amazon Polly review key** during export. Paste a
+new key made for this review; your main key is never filled in. Anyone with the package can
+read the included key. Delete it when the review is done. See
+[Google keys](GOOGLE-VOICES.md#keys-for-qc-reviews) and
+[AWS keys](POLLY-VOICES.md#keys-for-qc-reviews).
 
-New readings send the changed text to Google and need internet. Playing saved audio,
+New readings send the changed text to Google or Amazon and need internet. Playing saved audio,
 moving a block, or changing its volume makes no request. A block changed to another voice
 says **New voice · needs a fresh package**. To hear it, ask the writer for a fresh package; the review key isn't used for it. Piper blocks are read again by your computer after any change. Kokoro blocks still need a fresh package
 or an explicitly chosen approximate preview after wording or speed changes.
@@ -394,7 +399,7 @@ while typing, see [Keyboard shortcuts](SHORTCUTS.md).
 | No Comment button | Select QC, then open a block. Comments are hidden in all other modes. |
 | The note is on the wrong target | Check the target above the comment box. Use the block's Comment button for a block, or right-click the timeline for a time. Delete and repost a misplaced note. |
 | Two voices speak at once | Choose Programme sound for a recorded description mix, or choose the original soundtrack when playing packaged readings. |
-| No narration | Check Audio, volume and the QC playback source. Changed Google blocks need a Google key and internet. Other missing recordings need a fresh package from the writer. |
+| No narration | Check Audio, volume and the QC playback source. Changed Google and Amazon Polly blocks need a key and internet. Other missing recordings need a fresh package from the writer. |
 | “No open comments” | Try Show resolved. Also check you're opening the returned project, rather than the original file or an SRT export. |
 | All notes don't fit in the drawer | Scroll its comment list and use Previous / Next for further pages. |
 | Timing differs between copies | Confirm the picture cut and lead-in. Use original readings; substitute voices can have different lengths. |

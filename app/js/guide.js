@@ -4,7 +4,7 @@
 // when they're available; otherwise they open on GitHub as before.
 
 export const GUIDES = { 'README.md': 'Scribecue', 'GETTING-STARTED.md': 'Getting started', 'WRITING.md': 'Writing',
-  'VOICES.md': 'Voices', 'TRANSCRIBING.md': 'Transcribing', 'RECORDING.md': 'Recording', 'QC.md': 'QC review', 'SHORTCUTS.md': 'Shortcuts', 'AI.md': 'AI help', 'GOOGLE-VOICES.md': 'Google voices', 'INSTALL.md': 'Running it yourself', 'TROUBLESHOOTING.md': 'Troubleshooting' };
+  'VOICES.md': 'Voices', 'TRANSCRIBING.md': 'Transcribing', 'RECORDING.md': 'Recording', 'QC.md': 'QC review', 'SHORTCUTS.md': 'Shortcuts', 'AI.md': 'AI help', 'GOOGLE-VOICES.md': 'Google voices', 'POLLY-VOICES.md': 'Amazon Polly voices', 'INSTALL.md': 'Running it yourself', 'TROUBLESHOOTING.md': 'Troubleshooting' };
 export const REPO = 'https://github.com/kyle95wm/Scribecue/blob/main/';
 // Where a guide is in the repository: the README at the top, the others in Guides/.
 export const repoPath = (file) => (file === 'README.md' ? '' : 'Guides/') + file;

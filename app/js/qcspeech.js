@@ -1,5 +1,6 @@
 // QC synthesis is explicit. Playback, seeking and timing edits only look up audio.
-import { spoken, soundsLike, atBase, googleRequest, googleFailure, readWav, reviewGoogleKey } from './tts.js';
+import { spoken, soundsLike, atBase, googleRequest, googleFailure, readWav, reviewGoogleKey, reviewPollyCreds, pollyRead } from './tts.js';
+import { isPollyVoice, pollyVoiceOf } from './polly.js';
 
 export function speechSpec(key) {
   try {
@@ -14,18 +15,28 @@ export function speechSpec(key) {
 export const speechKey = (s) => JSON.stringify([s.voice, s.rate, s.words]);
 export const sameSpeech = (a, b) => !!a && !!b && speechKey(a) === speechKey(b);
 export const isGoogleStandard = (voice) => /^google:[a-z]{2,3}-[A-Z]{2}-Standard-[A-Z]$/.test(voice);
-export function googleRewrite(original, key) {
+// The voices QC can read again, each with a key of its own: Google's and Polly's.
+export const rereads = (voice) => isGoogleStandard(voice) || isPollyVoice(voice);
+// The speeds each one takes. Outside them, a reading would quietly be at the wrong speed.
+const rateFits = ({ voice, rate }) => rate >= (isPollyVoice(voice) ? .2 : .25) && rate <= (isPollyVoice(voice) ? 2 : 4);
+export function rewriteOf(original, key) {
   const before = speechSpec(original?.key), after = speechSpec(key);
-  if (!before || !after || !isGoogleStandard(before.voice) ||
-    original.voice !== before.voice || after.voice !== before.voice || !after.words || after.rate < .25 || after.rate > 4 || sameSpeech(before, after)) return null;
+  if (!before || !after || !rereads(before.voice) ||
+    original.voice !== before.voice || after.voice !== before.voice || !after.words || !rateFits(after) || sameSpeech(before, after)) return null;
   return after;
 }
-// A block the reviewer added has no original. It can only use a Google voice the package
-// already reads with (voices: a Set of them).
-export function googleAddition(voices, key) {
+// A block the reviewer added has no original. It can only use a voice the package already
+// reads with (voices: a Set of them).
+export function additionOf(voices, key) {
   const spec = speechSpec(key);
-  return spec && isGoogleStandard(spec.voice) && voices?.has(spec.voice) && spec.words && spec.rate >= .25 && spec.rate <= 4 ? spec : null;
+  return spec && rereads(spec.voice) && voices?.has(spec.voice) && spec.words && rateFits(spec) ? spec : null;
 }
+// Whose key reads a voice, for messages.
+export const keyName = (voice) => (isPollyVoice(voice) ? 'AWS' : 'Google');
+// The package's key for a voice: a Google key, or an AWS key with its secret and region.
+export const bundledFor = (access, voice) => (isPollyVoice(voice) ? access?.polly || null : access?.googleKey || '');
+// Whether a voice can be read here, with the reviewer's own key or the package's.
+export const canReread = (voice, access) => (isPollyVoice(voice) ? !!reviewPollyCreds(bundledFor(access, voice)) : !!reviewGoogleKey(bundledFor(access, voice)));
 // One explicit request at a time per reading. Fallback needs the reviewer's consent.
 const pending = new Map();
 export async function makeGoogleRewrite(spec, bundledKey = '', { useBundled = false } = {}) {
@@ -53,11 +64,33 @@ export async function makeGoogleRewrite(spec, bundledKey = '', { useBundled = fa
   pending.set(id, job);
   try { return await job; } finally { pending.delete(id); }
 }
-export async function reviewedRewrite(spec, bundledKey, offerFallback) {
-  const personalFirst = !!bundledKey && reviewGoogleKey(bundledKey) !== bundledKey;
-  try { return await makeGoogleRewrite(spec, bundledKey); }
+export async function makePollyRewrite(spec, bundled = null, { useBundled = false } = {}) {
+  const creds = useBundled ? bundled : reviewPollyCreds(bundled);
+  if (!creds) throw new Error('Add your AWS key in Text to speech settings, or ask the writer for a key in the QC package');
+  const id = JSON.stringify([creds.key, speechKey(spec)]);
+  if (pending.has(id)) return pending.get(id);
+  const job = (async () => {
+    try {
+      const buf = await pollyRead(spec.words, pollyVoiceOf(spec.voice), spec.rate, true, creds, AbortSignal.timeout(30000));
+      const wav = readWav(buf);
+      if (!(wav.secs > 0)) throw new Error('Amazon returned an empty reading');
+      return { blob: new Blob([buf], { type: 'audio/wav' }), secs: wav.secs, voice: spec.voice };
+    } catch (error) {
+      const message = error.name === 'TimeoutError' ? 'Amazon took too long to answer. Try the reading again'
+        : error.message === 'Failed to fetch' ? 'Couldn’t reach Amazon. Connect to the internet to make a new reading' : error.message;
+      throw new Error(message.split(creds.key).join('[key]').split(creds.secret).join('[key]'));
+    }
+  })();
+  pending.set(id, job);
+  try { return await job; } finally { pending.delete(id); }
+}
+// bundled: the package's key for this voice (see bundledFor).
+export async function reviewedRewrite(spec, bundled, offerFallback) {
+  const polly = isPollyVoice(spec.voice), make = polly ? makePollyRewrite : makeGoogleRewrite;
+  const personalFirst = !!bundled && (polly ? reviewPollyCreds(bundled) : reviewGoogleKey(bundled)) !== bundled;
+  try { return await make(spec, bundled); }
   catch (error) {
     if (!personalFirst || !await offerFallback(error.message)) throw error;
-    return makeGoogleRewrite(spec, bundledKey, { useBundled: true });
+    return make(spec, bundled, { useBundled: true });
   }
 }

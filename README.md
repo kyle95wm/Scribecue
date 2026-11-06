@@ -52,13 +52,14 @@ The guides also open inside Scribecue: press `?` and click **Guides**.
 
 - [Getting started](Guides/GETTING-STARTED.md): modes, the loop you work in, saving and exporting.
 - [Writing with text to speech](Guides/WRITING.md): hearing your lines, speeds and timing.
-- [Voices](Guides/VOICES.md): the voices on your computer, Piper, Kokoro and Google.
+- [Voices](Guides/VOICES.md): the voices on your computer, Piper, Kokoro, Google and Amazon Polly.
 - [Transcribing](Guides/TRANSCRIBING.md): marking existing audio description, and speech to text.
 - [QC review](Guides/QC.md): checking scripts and audio, comments, and review handoffs.
 - [Recording narration](Guides/RECORDING.md): the recording file, Record mode and the narration WAV.
 - [AI help](Guides/AI.md): drafting descriptions with an AI model.
 - [Keyboard shortcuts](Guides/SHORTCUTS.md): every key, and how to change them.
 - [Google voices](Guides/GOOGLE-VOICES.md): setting up Google Cloud voices without being billed.
+- [Amazon Polly voices](Guides/POLLY-VOICES.md): setting up Polly voices with a spending limit.
 - [Running it yourself](Guides/INSTALL.md): Docker, Piper, Kokoro, Whisper and Ollama.
 - [Troubleshooting](Guides/TROUBLESHOOTING.md): common problems, and what to do.
 
@@ -72,8 +73,8 @@ The guides also open inside Scribecue: press `?` and click **Guides**.
   - an [AI provider](Guides/AI.md), once you connect one, when you send a message or ask for a
     draft;
   - TMDB, when you click **Look up the cast** in AI help;
-  - [online voices and Google Cloud voices](Guides/VOICES.md), which send each line's text to be
-    read.
+  - [online, Google Cloud and Amazon Polly voices](Guides/VOICES.md), which send each line's text
+    to be read.
 - **Piper, Kokoro and speech to text run on your computer,** in your browser or in
   containers with no internet access. Your audio never leaves your computer.
 - **The web version** is downloaded from GitHub Pages the first time and when it updates.
