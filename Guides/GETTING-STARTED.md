@@ -77,7 +77,9 @@ for you, so step 3 is just checking it. [Transcribing](TRANSCRIBING.md) has the 
 
 ## Editing a block
 
-Click a block in the list to open it. `Esc` or `Enter` closes it, and it stays selected.
+Click a block in the list to open it. The playhead stays where it is while you edit.
+
+`Esc` or `Enter` closes the block and moves the playhead to it. The block stays selected.
 
 The open block shows its start and end, its text and, with text to speech on, its speed,
 voice and reading time. The buttons after the times move it:

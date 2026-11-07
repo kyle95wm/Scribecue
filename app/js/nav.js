@@ -15,6 +15,11 @@ export function blockFromPlayhead(cues, t, d, playing = false) {
   return t - cues[cur].start > (playing ? BACK_GRACE : AT) ? cur : cur - 1;
 }
 
+// Where the playhead goes when a block is closed with Esc or Enter. replay: the Replay
+// setting. clicked: the block was clicked open, so the playhead hasn't been to it yet.
+// 'heard' is where hearing the block starts, 'start' is its start, null stays put.
+export const afterEdit = (replay, clicked) => (replay ? 'heard' : clicked ? 'start' : null);
+
 // Keeping a copied audio track in step with the video (see syncAlt in app.js). Small
 // gaps close by playing the track a little faster or slower. The nudge is a fixed step,
 // started only once the gap is noticeable and stopped once it has closed, so the speed

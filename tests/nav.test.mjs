@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockFromPlayhead, BACK_GRACE, nudgeFor, nudges, NUDGE_START, takeFrom, stopAt, returnsToStart, scrubber, cleanLead, leadFrom, LEAD_MAX } from '../app/js/nav.js';
+import { afterEdit, blockFromPlayhead, BACK_GRACE, nudgeFor, nudges, NUDGE_START, takeFrom, stopAt, returnsToStart, scrubber, cleanLead, leadFrom, LEAD_MAX } from '../app/js/nav.js';
 
 const cues = [{ start: 2, end: 5 }, { start: 10, end: 14 }, { start: 20, end: 22 }];
 
@@ -12,6 +12,13 @@ test('back goes to the start of the block being played, then to the one before',
   assert.equal(blockFromPlayhead(cues, 16, -1, true), 1); // in the gap after: the block before it
   assert.equal(blockFromPlayhead(cues, 2, -1, false), -1); // at the first block's start
   assert.equal(blockFromPlayhead(cues, 1, -1, true), -1); // before any block
+});
+
+test('closing a block moves the playhead with Replay, or if the block was clicked open', () => {
+  assert.equal(afterEdit(true, true), 'heard');
+  assert.equal(afterEdit(true, false), 'heard');
+  assert.equal(afterEdit(false, true), 'start');
+  assert.equal(afterEdit(false, false), null);
 });
 
 test('next goes to the next block after the playhead', () => {

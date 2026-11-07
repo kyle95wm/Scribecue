@@ -23,7 +23,7 @@ import { takesInfo, clearTakes, unpackSession, rememberSession, browserFolder, c
 import { isSessionPackage, fromSession, SESSION_FILE } from './session.js';
 import { picker, refused } from './pickers.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
-import { blockFromPlayhead, nudgeFor, nudges, NUDGE, takeFrom, stopAt, returnsToStart, scrubber, cleanLead, leadFrom } from './nav.js';
+import { afterEdit, blockFromPlayhead, nudgeFor, nudges, NUDGE, takeFrom, stopAt, returnsToStart, scrubber, cleanLead, leadFrom } from './nav.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
@@ -278,12 +278,17 @@ function setTime(t) {
   else S.vt = t;
   if (isPlaying()) { playStart = t; keepStart = null; }
 }
+// The block clicked open in the list: the playhead goes to it when the block is closed.
+// Moving the playhead yourself in the meantime cancels that.
+let seekOnClose = null;
 function seek(t, reveal = true) {
+  seekOnClose = null;
   setTime(t);
   if (reveal) ensureVisible(now());
 }
 // Seeks while dragging the playhead: see scrubber in nav.js.
 function scrubTo(t, reveal = true) {
+  seekOnClose = null;
   if (!S.hasVideo) return seek(t, reveal);
   leaveHold();
   scrub.to(clamp(t, 0, duration()));
@@ -1235,8 +1240,16 @@ function closeEditor(finished = false) {
   if (finished) { edOpen = false; placeEditor(); }
   if (S.loopOnce) stopLoop();
   // With Replay on, the playhead goes back to the block just edited, or its lead-in, so it
-  // can be heard again, and playback carries on from there if it was playing.
-  if (finished && S.replay && selCue()) leadBefore(selCue(), seek);
+  // can be heard again, and playback carries on from there if it was playing. A block
+  // clicked open gets its playhead now, whether Replay is on or not.
+  if (finished) {
+    const c = selCue(), clicked = !!c && seekOnClose === c.id;
+    if (clicked) S.playUntil = null;
+    const go = c ? afterEdit(S.replay, clicked) : null;
+    if (go === 'heard') leadBefore(c, seek);
+    else if (go === 'start') seek(c.start);
+    seekOnClose = null;
+  }
   if (S.resumeAfterEdit) {
     S.resumeAfterEdit = false;
     play();
@@ -1254,7 +1267,7 @@ function setReplay(on, quiet = false) {
   S.replay = on;
   try { localStorage.setItem('scribecue.replay', on ? '1' : '0'); } catch { /* ignore */ }
   updateInd();
-  if (!quiet) toast(on ? 'Replay on: Esc or ↵ after editing a block goes back to its start' : 'Replay off: the playhead stays where it is after editing');
+  if (!quiet) toast(on ? 'Replay on: Esc or ↵ after editing a block goes back to its start' : 'Replay off: the playhead stays put, unless you clicked the block to open it');
 }
 
 function setLead(v) {
@@ -1652,8 +1665,11 @@ list.addEventListener('click', (e) => {
   if (qcLocked()) { select(+r.dataset.id, { toTop: false }); openEditor(); return; }
   if (S.mode === 'record') { select(+r.dataset.id, { toTop: false }); return; } // the script is locked
   if (e.target.closest('.rowdel')) { e.target.blur(); del(S.cues[idx(+r.dataset.id)]); return; }
-  // One click opens the block, ready to type, as in Frazier.
-  select(+r.dataset.id, { toTop: false });
+  // One click opens the block, ready to type, as in Frazier. The playhead stays where it
+  // is while typing, and goes to the block when it's closed.
+  const id = +r.dataset.id;
+  select(id, { seek: false, toTop: false });
+  seekOnClose = id;
   editText();
 });
 
