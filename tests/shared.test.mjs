@@ -1,0 +1,97 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { SharedProject, retype } from '../app/js/shared.js';
+import { cleanComments } from '../app/js/comments.js';
+import * as Y from '../app/vendor/yjs.js';
+
+const uid = (n) => `0000000${n}-0000-4000-8000-000000000000`.slice(-36);
+const blocks = () => [
+  { uid: uid(1), start: 1, end: 3, text: 'Mara opens a door.', voice: 'v1', comments: cleanComments([{ text: 'Colour?', author: 'Sam', created: '2026-11-08T00:00:00Z' }]) },
+  { uid: uid(2), start: 5, end: 7, text: 'She steps outside.', auto: true, notes: 'Softly', edited: { by: 'Kyle', at: '2026-11-08T00:00:00Z', who: 'kyle-browser-1' } },
+];
+const timeline = () => cleanComments([{ text: 'Music too loud', author: 'Sam', created: '2026-11-08T00:01:00Z', time: 4 }], true);
+// Two people, each with their own copy, passing updates both ways.
+const pair = () => {
+  const a = new SharedProject(), b = new SharedProject();
+  a.doc.on('update', (u, origin) => { if (origin !== 'remote') b.apply(u); });
+  b.doc.on('update', (u, origin) => { if (origin !== 'remote') a.apply(u); });
+  return [a, b];
+};
+
+test('a project goes in and comes back out the same, leaving local-only parts behind', () => {
+  const s = new SharedProject(), list = blocks();
+  list[0].pickup = { note: 'again' }; list[0].qcReading = 99; list[0].id = 7; list[1].fit = false;
+  s.write(list, timeline());
+  const out = s.read();
+  assert.deepEqual(out.blocks, blocks().map(({ ...b }) => b));
+  assert.deepEqual(out.comments, timeline());
+  assert.equal(s.write(list, timeline()), 0, 'writing it again changes nothing');
+});
+
+test('edits reach the other copy; only others’ changes are reported', () => {
+  const [a, b] = pair(), seen = [], mine = [];
+  b.observe((uids, tl) => seen.push([uids, tl]));
+  a.observe((uids) => mine.push(uids));
+  a.write(blocks(), timeline());
+  assert.deepEqual(b.read(), a.read());
+  assert.equal(mine.length, 0, 'your own edits are not reported back');
+  seen.length = 0;
+  const list = a.read().blocks; list[1].text = 'She steps out.'; list[1].start = 4.5;
+  a.write(list, timeline(), [uid(2)]);
+  assert.deepEqual(seen, [[[uid(2)], false]]);
+  assert.equal(b.read().blocks[1].text, 'She steps out.');
+});
+
+test('two people typing in the same block keep both their words', () => {
+  const [a, b] = pair();
+  a.write(blocks(), []);
+  // Offline from each other for a moment: both edit block 1, then swap updates.
+  const a2 = new SharedProject(), b2 = new SharedProject();
+  a2.apply(a.update()); b2.apply(a.update());
+  const one = a2.read().blocks, two = b2.read().blocks;
+  one[0].text = 'Mara slowly opens a door.'; two[0].text = 'Mara opens a red door.';
+  a2.write(one, [], [uid(1)]); b2.write(two, [], [uid(1)]);
+  a2.apply(b2.update()); b2.apply(a2.update());
+  assert.equal(a2.read().blocks[0].text, 'Mara slowly opens a red door.');
+  assert.deepEqual(a2.read(), b2.read());
+});
+
+test('blocks and comments that go are removed on both sides; comments added on both are kept', () => {
+  const [a, b] = pair();
+  a.write(blocks(), timeline());
+  const list = b.read().blocks.slice(0, 1);
+  list[0].comments = [...list[0].comments, ...cleanComments([{ text: 'Second', author: 'Kyle', created: '2026-11-08T00:02:00Z' }])];
+  b.write(list, []);
+  assert.deepEqual(a.read().blocks.map((x) => x.uid), [uid(1)]);
+  assert.deepEqual(a.read().blocks[0].comments.map((c) => c.text), ['Colour?', 'Second']);
+  assert.deepEqual(a.read().comments, [], 'the timeline comment went with the whole-project write');
+  // Writing one block leaves the rest, and timeline comments, alone.
+  a.write(blocks(), timeline());
+  const one = a.read().blocks.filter((x) => x.uid === uid(2));
+  one[0].text = 'Changed';
+  b.write(one, [], [uid(2)]);
+  assert.equal(a.read().blocks.length, 2);
+  assert.equal(a.read().comments.length, 1);
+});
+
+test('retype changes text at one place', () => {
+  const doc = new Y.Doc(), t = doc.getText('t');
+  t.insert(0, 'The cat sat.');
+  const ops = [];
+  t.observe((e) => ops.push(e.delta));
+  retype(t, 'The black cat sat.');
+  assert.equal(t.toString(), 'The black cat sat.');
+  assert.deepEqual(ops[0], [{ retain: 4 }, { insert: 'black ' }]);
+  retype(t, '');
+  assert.equal(t.toString(), '');
+});
+
+test('1,500 blocks over two hours go in quickly enough to split into steps', () => {
+  const list = Array.from({ length: 1500 }, (_, i) => ({ uid: crypto.randomUUID(), start: i * 4.8, end: i * 4.8 + 3, text: `Block ${i} describes the scene in some detail.` }));
+  const s = new SharedProject(), t = performance.now();
+  s.write(list, []);
+  const ms = performance.now() - t;
+  assert.equal(s.read().blocks.length, 1500);
+  assert.ok(ms < 1000, `took ${Math.round(ms)} ms`);
+  assert.ok(s.update().length < 400_000, `update is ${s.update().length} bytes`);
+});

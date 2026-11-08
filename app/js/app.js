@@ -584,8 +584,28 @@ function noteEdits(id) {
   }
   editors = editorCount(S.cues);
 }
+// The shared copy for working with others (shared.js). Until sharing ships it's a developer
+// setting, scribecue.sharedCopy in this browser's storage, so Yjs only loads when it's on.
+let shared = null, sharedList = null, sharedProjectId = null;
+const sharedOn = (() => { try { return localStorage.getItem('scribecue.sharedCopy') === '1'; } catch { return false; } })();
+if (sharedOn) import('./shared.js').then(({ SharedProject }) => {
+  shared = new SharedProject(); sharedProjectId = S.projectId; sharedList = S.cues;
+  shared.write(S.cues, S.comments);
+  window.scribecueShared = shared; // for the developer tests
+}).catch(() => { /* stays off */ });
+function noteShared(id) {
+  if (!shared) return;
+  if (S.projectId !== sharedProjectId) {
+    shared = new shared.constructor(); sharedProjectId = S.projectId; sharedList = null;
+    window.scribecueShared = shared;
+  }
+  const c = id == null ? null : S.cues[idx(id)];
+  if (S.cues !== sharedList || !c) { sharedList = S.cues; shared.write(S.cues, S.comments); }
+  else shared.write(S.cues, S.comments, [c.uid]);
+}
 function changed(id = null) {
   noteEdits(id);
+  noteShared(id);
   stopPreviousReading();
   S.lastChange = Date.now();
   S.changeGen = (S.changeGen || 0) + 1;
