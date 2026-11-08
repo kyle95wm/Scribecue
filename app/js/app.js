@@ -645,7 +645,17 @@ let sharedIn = null, sharedStarting = null, sharedUndo = null, sharedToken = nul
 // The shared copy, Yjs and the connection load only for a project that's shared, so a
 // project of your own runs as it would without sharing. `all`, for the developer tests, keeps
 // a shared copy for every project, linking this browser's tabs.
-const sharedSetting = (() => { try { return localStorage.getItem('scribecue.sharedCopy'); } catch { return null; } })();
+// Opening a share link turns sharing on in this browser, so people it's sent to can open it
+// before sharing is on for everyone.
+const shareLinkIn = (hash) => /(?:^#|[#&])share=[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{12}\.[A-Za-z0-9_-]{22}(?:&|$)/.test(hash);
+const sharedSetting = (() => {
+  try {
+    const v = localStorage.getItem('scribecue.sharedCopy');
+    if (v || !shareLinkIn(location.hash)) return v;
+    localStorage.setItem('scribecue.sharedCopy', '1');
+    return '1';
+  } catch { return null; }
+})();
 const sharedOn = sharedSetting === '1' || sharedSetting === 'all', sharedEvery = sharedSetting === 'all';
 let copyLib = null;
 const loadCopy = () => (copyLib ||= Promise.all([import('./shared.js'), import('./relayclient.js')]).then(([a, c]) => Object.assign(sharedLib, a, c)));
@@ -919,6 +929,13 @@ if (sharedOn) {
       openShareLink();
     })
     .catch(() => { /* stays off */ });
+} else {
+  // A share link pasted into an open tab: sharing turns on, and the page opens it.
+  window.addEventListener('hashchange', () => {
+    if (!shareLinkIn(location.hash)) return;
+    try { localStorage.setItem('scribecue.sharedCopy', '1'); } catch { return; }
+    location.reload();
+  });
 }
 function noteShared(id) {
   if (!sharedLib || sharedIn) return;

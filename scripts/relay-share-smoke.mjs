@@ -31,7 +31,7 @@ async function browser(port) {
   const fill = (sel, v) => js(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});e.focus();e.value=${JSON.stringify(v)};e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
   return { ws, send, js, wait, watch, open, type, report, shot, click, fill };
 }
-const settings = (name, cues) => `localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',reviewer:${JSON.stringify(name)},sharedCopy:'1',relay:${JSON.stringify(RELAY)},setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);
+const settings = (name, cues, on = true) => `localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',reviewer:${JSON.stringify(name)},${on ? "sharedCopy:'1'," : ''}relay:${JSON.stringify(RELAY)},setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);
   localStorage.setItem('scribecue.v1',JSON.stringify({dirty:false,projectId:crypto.randomUUID(),cues:${cues}}));Storage.prototype.setItem=()=>{};location.reload();true`;
 const online = `window.scribecueRelay?.status==='online' && !window.scribecueRelay.unsent()`;
 const rowText = (n) => `[...document.querySelectorAll('#list .row')][${n}]?.textContent||''`;
@@ -41,11 +41,14 @@ try {
   await a.send('Page.navigate', { url: site }); await b.send('Page.navigate', { url: site }); await sleep(800);
   // Neither has a name yet: each is asked for one before sharing or joining.
   await a.js(settings('', `Array.from({length:1500},(_,i)=>({uid:crypto.randomUUID(),start:i*4.8,end:i*4.8+3,text:'Block number '+(i+1)+' describes the scene.'}))`));
-  await b.js(settings('', '[]'));
+  // B hasn't turned sharing on: opening the link does that.
+  await b.js(settings('', '[]', false));
   await a.wait(`window.scribecueSharing && !document.getElementById('shareBtn').hidden`, 'A ready');
   // A project not yet shared has no shared copy: Yjs loads once it's shared.
   assert.equal(await a.js(`!!window.scribecueShared || performance.getEntriesByType('resource').some(e=>/yjs\\.js/.test(e.name))`), false, 'nothing of the shared copy loaded yet');
-  await b.wait(`window.scribecueSharing && !document.getElementById('shareBtn').hidden`, 'B ready');
+  await b.wait(`document.getElementById('list') && document.readyState==='complete'`, 'B ready');
+  await sleep(1500);
+  assert.equal(await b.js(`!!window.scribecueSharing || !document.getElementById('shareBtn').hidden || performance.getEntriesByType('resource').some(e=>/shar/.test(e.name))`), false, 'sharing is off for B');
   await a.watch(); await b.watch();
 
   // A shares from the dialog: an edit link with its password.
@@ -72,6 +75,8 @@ try {
   // B opens the link: a wrong password is refused, the right one brings the whole script.
   await b.js(`window.confirm=()=>true;location.href=${JSON.stringify(edit)};true`);
   await b.wait(`document.getElementById('joinDlg').open`, 'join dialog');
+  assert.equal(await b.js(`localStorage.getItem('scribecue.sharedCopy')`), '1', 'the link turned sharing on');
+  await b.watch();
   await b.shot('join');
   await b.fill('#joinPassword', 'blue');
   await b.click('#joinOpen');
