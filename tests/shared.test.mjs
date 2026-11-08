@@ -152,14 +152,14 @@ test('undo takes back only your own changes, step by step, and redo puts them ba
   // Step 2: A deletes block 2.
   const two = undo.step();
   a.write(a.read().blocks.slice(0, 1), timeline());
-  assert.deepEqual(undo.depth(), { script: 2, comments: 0 });
+  assert.deepEqual(undo.depth(), { script: 2, comments: 0, review: 0 });
 
   const back2 = undo.undoTo(two);
-  assert.deepEqual(back2, { script: 1, comments: 0 }, 'block 2 had no comments');
+  assert.deepEqual(back2, { script: 1, comments: 0, review: 0 }, 'block 2 had no comments');
   assert.deepEqual(b.read().blocks.map((x) => [x.uid, x.start]), [[uid(1), 1], [uid(2), 4]], 'block 2 is back, where B moved it');
   const back1 = undo.undoTo(one);
   assert.equal(b.read().blocks[0].text, 'Now Mara opens a door.', 'A’s typing went as one step; B’s word stayed');
-  assert.deepEqual(undo.undoTo(one), { script: 0, comments: 0 }, 'nothing else of A’s to undo');
+  assert.deepEqual(undo.undoTo(one), { script: 0, comments: 0, review: 0 }, 'nothing else of A’s to undo');
 
   assert.deepEqual(undo.redo(back1), back1);
   assert.equal(b.read().blocks[0].text, 'Now Mara opens a door slowly, smiling.');
@@ -183,4 +183,34 @@ test('undo of a comment leaves others’ comments alone', () => {
   b.write(l, timeline(), [uid(2)]);
   undo.undoTo(mark);
   assert.deepEqual(b.read().blocks[1].comments.map((c) => c.text), ['Agreed']);
+});
+
+test('a reviewer’s block changes become suggestions; the script stays as it was', () => {
+  const [owner, reviewer] = pair();
+  owner.write(blocks(), timeline());
+  const seen = [];
+  owner.observe((uids, tl, suggestions) => seen.push([uids, suggestions]));
+  const me = { link: 'rev1', name: 'Sam' };
+  const list = reviewer.read().blocks;
+  list[0].text = 'Mara opens a red door.';
+  list[1].edited = { by: 'Sam', at: '2026-11-09T00:00:00Z' }; // a stamp alone isn't a change
+  list.push({ uid: uid(3), start: 9, end: 10, text: 'New block.' });
+  reviewer.write(list, timeline(), null, { script: false });
+  reviewer.propose(list.slice(1), null, me, 'T'); // block 1 left out: suggested for removal
+  assert.equal(owner.read().blocks[0].text, 'Mara opens a door.', 'the script is unchanged');
+  const byUid = new Map(owner.readProposals().map((p) => [p.uid, p]));
+  assert.deepEqual([...byUid.keys()].sort(), [uid(1), uid(3)]);
+  assert.equal(byUid.get(uid(1)).block, null);
+  assert.deepEqual(byUid.get(uid(3)), { uid: uid(3), by: 'rev1', name: 'Sam', at: 'T', block: { text: 'New block.', start: 9, end: 10 } });
+  assert.deepEqual(seen.at(-1)[1], true, 'the owner hears about suggestions');
+  // Changing block 1 instead of removing it replaces that suggestion; changing it back drops it.
+  reviewer.propose(list, [uid(1)], me, 'T2');
+  assert.equal(owner.proposals.get(uid(1)).block.text, 'Mara opens a red door.');
+  list[0].text = 'Mara opens a door.';
+  reviewer.propose(list, [uid(1)], me);
+  assert.equal(owner.proposals.has(uid(1)), false);
+  assert.deepEqual([...reviewer.myProposals('rev1').keys()], [uid(3)]);
+  // Accepting or rejecting clears it, for everyone.
+  owner.clearProposals([uid(3)]);
+  assert.equal(reviewer.readProposals().length, 0);
 });

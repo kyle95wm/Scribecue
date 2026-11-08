@@ -42,7 +42,11 @@ export class RelayClient {
   }
   // The owner's new list of links, or ending the project on the relay. Only when online:
   // a list sent while offline goes again on reconnecting (see onLinks in app.js).
-  sendLinks(links) { if (this.synced && this.role === 'owner') this.#send({ type: 'links', id: this.nextId++, links }); }
+  async sendLinks(links) {
+    if (!this.synced || this.role !== 'owner') return;
+    await this.#readLinks(links); // this side takes the new list at once, to accept new links' changes
+    this.#send({ type: 'links', id: this.nextId++, links });
+  }
   deleteRoom() { if (this.synced && this.role === 'owner') { this.#send({ type: 'delete-room' }); return true; } return false; }
   // Changes not yet kept by the relay.
   unsent() { return DOCS.reduce((n, d) => n + this.pending[d].length, 0); }

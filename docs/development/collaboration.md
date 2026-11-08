@@ -216,11 +216,25 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   17–20 ms a character, a change reaching the other person in about 0.25 s, no long tasks
   beyond the app's own start.
 
+### Reviewers and commenters
+
+- The shared copy has a third document, `review`: suggested block changes, one per block,
+  under `proposals`. Each has the reviewer's link, name, editor id and the block as they
+  want it (or `null` to remove it).
+- Can review: works in QC only. Block edits go into `review`, never the script; their own
+  suggestions show in their copy on top of the script. Comments reach everyone at once.
+- Can comment: QC only, comments only. Their block changes go nowhere.
+- The owner and Can edit see suggestions in Pending review, in Write as well as QC, as they
+  arrive. **Apply choices** puts accepted ones in the script, credited to the reviewer, and
+  clears every chosen one for everyone. A suggestion that changes needs choosing again.
+- A returned QC review comes first: suggestions wait while one is open.
+- In a shared project, "Edited by" shows from the start.
+- `scripts/relay-review-smoke.mjs` runs a reviewer and a commenter against an owner at 6×
+  with 1,500 blocks. Measured: a suggestion reached the owner within 1 s of starting to
+  type; no long tasks over 75 ms for the owner.
+
 ### Still to do
 
-- 4d: Can review edits arrive in Pending review. Can comment changes only comments. Until
-  then, the app doesn't stop those links from editing blocks in Write; the relay refuses
-  their block changes, so they stay on that computer.
 - User guides, once sharing is switched on for everyone.
 - Before calling it end-to-end encrypted: get the key handling reviewed. Decide on a new
   project key when a link is turned off. Rate-limit new rooms at Cloudflare.

@@ -33,25 +33,31 @@ export function retype(text, next) {
 const commentOrder = (a, z) => a.created.localeCompare(z.created) || a.id.localeCompare(z.id);
 const plainComments = (list, timed) => cleanComments(list.map(({ block, ...c }) => c).sort(commentOrder), timed);
 
-// The project is two Yjs documents, so the sharing service can tell who may change what:
-// `script` holds the blocks, `comments` the comments. Everyone who can comment can write the
-// second; only those who can edit can write the first.
-export const DOCS = ['script', 'comments'];
+// The project is three Yjs documents, so the sharing service can tell who may change what:
+// `script` holds the blocks, `comments` the comments, and `review` reviewers' suggested
+// block changes, waiting in Pending review. Those who can edit write all three; reviewers
+// the last two; commenters only comments.
+export const DOCS = ['script', 'comments', 'review'];
+// A block as it's compared: what's shared, without who changed it last.
+const body = (b) => { const { edited, ...rest } = shareable(b); return rest; };
 
 export class SharedProject {
   constructor() {
-    this.docs = { script: new Y.Doc(), comments: new Y.Doc() };
+    this.docs = { script: new Y.Doc(), comments: new Y.Doc(), review: new Y.Doc() };
     this.blocks = this.docs.script.getMap('blocks');
     this.comments = this.docs.comments.getMap('comments');
+    // By block uid: { uid, by (link id), name, who (editor id), at, block (null: remove it) }.
+    this.proposals = this.docs.review.getMap('proposals');
   }
 
   // Copies blocks and comments in, as this person's change. `only` is a list of block uids
   // to check; leave it out to check them all, including blocks and comments that went.
   // Returns how many blocks and comments changed.
-  write(blocks, timeline = [], only = null) {
+  // `script: false` leaves the blocks alone, for those who can't change them.
+  write(blocks, timeline = [], only = null, { script = true } = {}) {
     let n = 0;
     const list = only ? blocks.filter((b) => only.includes(b.uid)) : blocks;
-    this.docs.script.transact(() => {
+    if (script) this.docs.script.transact(() => {
       for (const b of list) n += this.#writeBlock(b);
       if (!only) {
         const kept = new Set(blocks.map((b) => b.uid));
@@ -88,6 +94,32 @@ export class SharedProject {
     return n;
   }
 
+  // A reviewer's block changes, as suggestions rather than changes to the script: each block
+  // that differs from the script's gets one, and one that's back as it was loses it. Without
+  // `only`, blocks gone from the list are suggested for removal. `me`: { link, name, who }.
+  propose(blocks, only, me, at = new Date().toISOString()) {
+    const list = only ? blocks.filter((b) => only.includes(b.uid)) : blocks;
+    const uids = only || [...new Set([...this.blocks.keys(), ...blocks.map((b) => b.uid)])];
+    const script = this.readBlocks(uids), wanted = new Map(list.map((b) => [b.uid, body(b)]));
+    if (!only) for (const uid of this.blocks.keys()) if (!wanted.has(uid)) wanted.set(uid, null);
+    let n = 0;
+    this.docs.review.transact(() => {
+      for (const [uid, want] of wanted) {
+        const was = script.get(uid), old = this.proposals.get(uid);
+        const unchanged = want ? !!was && same(body(was), want) : !was;
+        if (unchanged) { if (old?.by === me.link) { this.proposals.delete(uid); n++; } continue; }
+        if (old && old.by === me.link && same(old.block, want)) continue;
+        this.proposals.set(uid, { uid, by: me.link, name: me.name || '', at, ...(me.who ? { who: me.who } : {}), block: want });
+        n++;
+      }
+    }, LOCAL);
+    return n;
+  }
+  readProposals() { return [...this.proposals.values()]; }
+  // This person's suggestions, by block uid: the block, or null to remove it.
+  myProposals(link) { return new Map([...this.proposals.values()].filter((p) => p.by === link).map((p) => [p.uid, p.block])); }
+  clearProposals(uids) { this.docs.review.transact(() => { for (const uid of uids) this.proposals.delete(uid); }, LOCAL); }
+
   // Some blocks as plain values, by uid: null for a block that's gone. With their comments.
   readBlocks(uids) {
     const byBlock = new Map(uids.map((uid) => [uid, []]));
@@ -121,8 +153,9 @@ export class SharedProject {
     return { blocks, comments: plainComments(timeline, true) };
   }
 
-  // Calls `fn` with the uids of blocks changed by someone else, and whether timeline
-  // comments changed. A block whose comments changed counts as changed.
+  // Calls `fn(uids, timeline, suggestions)` with the uids of blocks changed by someone else,
+  // whether timeline comments changed, and whether it's suggestions that changed. A block
+  // whose comments changed counts as changed.
   observe(fn) {
     const handler = (events, tx) => {
       if (tx.origin === LOCAL) return;
@@ -143,19 +176,23 @@ export class SharedProject {
           if (t?._item?.parentSub) uids.add(t._item.parentSub);
         }
       }
-      fn([...uids], timeline);
+      fn([...uids], timeline, false);
     };
     const onComments = (e, tx) => handler([e], tx); // the comments document's own changes
+    // Suggestions: the blocks they're for, and that they changed.
+    const onProposals = (e, tx) => { if (tx.origin !== LOCAL) fn([...e.keysChanged], false, true); };
     this.blocks.observeDeep(handler);
     this.comments.observe(onComments);
-    return () => { this.blocks.unobserveDeep(handler); this.comments.unobserve(onComments); };
+    this.proposals.observe(onProposals);
+    return () => { this.blocks.unobserveDeep(handler); this.comments.unobserve(onComments); this.proposals.unobserve(onProposals); };
   }
 
   // Undo and redo of this person's own changes only: others' changes stay. `step()` starts
   // a step and returns where it starts; until the next, typing a sentence stays one step.
   // `undoTo(mark)` undoes back to it and says how far, for `redo` to go forward again.
   undoer() {
-    const managers = Object.fromEntries(DOCS.map((d) => [d, new Y.UndoManager(d === 'script' ? this.blocks : this.comments, { trackedOrigins: new Set([LOCAL]), captureTimeout: Infinity })]));
+    const scope = { script: this.blocks, comments: this.comments, review: this.proposals };
+    const managers = Object.fromEntries(DOCS.map((d) => [d, new Y.UndoManager(scope[d], { trackedOrigins: new Set([LOCAL]), captureTimeout: Infinity })]));
     const each = (fn) => Object.fromEntries(DOCS.map((d) => [d, fn(managers[d], d)]));
     return {
       step: () => each((um) => { um.stopCapturing(); return um.undoStack.length; }),

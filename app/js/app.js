@@ -5,7 +5,7 @@ import { reviewedRewrite, speechKey, rereads, canReread, bundledFor, keyName } f
 import { offerLiveVoices, initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments, commentsAllowed } from './comments.js';
 import { cleanEdited, stampEdits, seedEdits, editorCount, editedLine, blockSig } from './edits.js';
-import { savedName, saveName, editorId } from './profile.js';
+import { savedName, saveName, editorId, validEditorId } from './profile.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
 import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
@@ -15,7 +15,7 @@ import { initCheck, openCheck, checkFirst } from './proofdialog.js';
 import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
 import { collaborationJob, retainHistory } from './collaboration.js';
 import { initReviewCompare, openReviewCompare, finishReview } from './qcreviewdrawer.js';
-import { initPending, startPending, addPending, endPending, pendingGhost } from './qcpending.js';
+import { initPending, startPending, addPending, endPending, pendingGhost, livePending } from './qcpending.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanNotes, cleanWords, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
 import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, sameVideo, compareScript, newProjectId, pickupsFor, takesKey } from './recording.js';
 import { readNote } from './bwf.js';
@@ -82,7 +82,11 @@ const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform);
 const writing = () => S.mode === 'write';
 const qc = () => S.mode === 'qc';
 const canComment = () => commentsAllowed(S.mode);
-const qcEditable = () => S.reviewId ? reviewAllowsEdits(S.review) : !!S.reviewAudio;
+// In a project shared with you, your link decides: Can review edits in QC, as suggestions;
+// Can comment only comments. (myShare: what this browser keeps for the project open.)
+let myShare = null;
+const sharedLimited = () => myShare?.role === 'review' || myShare?.role === 'comment';
+const qcEditable = () => myShare?.role === 'comment' ? false : myShare?.role === 'review' ? true : S.reviewId ? reviewAllowsEdits(S.review) : !!S.reviewAudio;
 const qcLocked = () => qc() && !qcEditable();
 const readingControls = () => ttsOn() || (qc() && qcEditable());
 // QC blocks whose new reading is being made on its own, and what that has set (see autoRewrite).
@@ -644,6 +648,7 @@ async function startShared() {
   shared = null; sharedUndo = null; sharedStarting = id; unlinkTabs(); stopRelay();
   // A project shared on the relay keeps its copy in this browser between visits.
   const record = sharedLib.getShare(id);
+  myShare = record; syncQcPermission();
   const saved = record ? await handleStore.get('shared:' + id) : null;
   if (sharedToken !== token) return; // started again meanwhile
   if (saved) try { for (const d of sharedLib.DOCS) if (saved[d]) copy.apply(d, saved[d], 'saved'); } catch { /* starts again from the relay */ }
@@ -659,7 +664,8 @@ async function startShared() {
   // starting to share sends the script; one whose copy here is lost takes the relay's.
   const fresh = !!record && !saved && !joined && (record.link !== 'owner' || record.created);
   if (joined) applyShared([...new Set([...shared.blocks.keys(), ...S.cues.map((c) => c.uid)])], true);
-  else if (!fresh) shared.write(S.cues, S.comments);
+  else if (!fresh) writeShared(null);
+  if (!record) endLive(); else refreshLive();
   // Undo from here on takes back this tab's changes only; earlier steps undo as before.
   sharedUndo = shared.undoer();
   if (record) startRelay(record, copy, fresh, saved?.seq || 0);
@@ -672,7 +678,7 @@ async function startRelay(record, copy, fresh, seq) {
   const create = owner && !record.created ? await sharedLib.signedLinks(record) : null;
   if (shared !== copy) return;
   let keep = 0;
-  const persist = () => { clearTimeout(keep); keep = setTimeout(() => handleStore.set({ script: copy.update('script'), comments: copy.update('comments'), seq: client.seq }, 'shared:' + id), 1500); };
+  const persist = () => { clearTimeout(keep); keep = setTimeout(() => handleStore.set({ ...Object.fromEntries(sharedLib.DOCS.map((d) => [d, copy.update(d)])), seq: client.seq }, 'shared:' + id), 1500); };
   const client = relay = new sharedLib.RelayClient({
     url: record.relay, room: record.room, who: sharedLib.who(record), shared: copy, create, seed: !fresh,
     onStatus: (status, detail) => {
@@ -689,6 +695,8 @@ async function startRelay(record, copy, fresh, seq) {
       if (status === 'ended') {
         toast(detail === 'room-deleted' ? 'This project is no longer shared. Your copy stays here' : 'This project is no longer shared with you. Your copy stays here');
         sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
+        // A plain project from now on: no limits, no suggestions.
+        myShare = null; syncQcPermission(); endLive();
         queueMicrotask(stopRelay);
       }
       window.dispatchEvent(new CustomEvent('scribecue-relay', { detail: { status, detail } }));
@@ -798,8 +806,15 @@ function noteShared(id) {
   if (S.projectId !== (shared ? sharedProjectId : sharedStarting)) { startShared(); return; }
   if (!shared) return;
   const c = id == null ? null : S.cues[idx(id)];
-  if (S.cues !== sharedList || !c) { sharedList = S.cues; shared.write(S.cues, S.comments); }
-  else shared.write(S.cues, S.comments, [c.uid]);
+  if (S.cues !== sharedList || !c) { sharedList = S.cues; writeShared(null); }
+  else writeShared([c.uid]);
+}
+// Copies this person's changes in: block changes into the script, or as suggestions for a
+// reviewer; a commenter's go no further than their comments.
+function writeShared(only) {
+  const role = myShare?.role;
+  shared.write(S.cues, S.comments, only, { script: role !== 'review' && role !== 'comment' });
+  if (role === 'review') shared.propose(S.cues, only, { link: myShare.link, name: savedName(), who: editorId() });
 }
 // The caret, after someone else's letters arrive in the text being typed: it stays with the
 // letters around it.
@@ -815,9 +830,19 @@ function keepCaret(was, now) {
 }
 // Puts others' changes into the script: blocks by uid, with their comments, and the timeline
 // comments. Pickups, readings and selection here stay as they are.
-function applyShared(uids, timeline) {
+function applyShared(uids, timeline, suggestions = false) {
   if (!uids.length && !timeline) return;
+  // Suggestions are for the owner and editors to choose from; a reviewer sees their own.
+  if (suggestions && myShare?.role !== 'review') { refreshLive(); return; }
   const incoming = shared.readBlocks(uids);
+  if (myShare?.role === 'review') {
+    const mine = shared.myProposals(myShare.link);
+    for (const uid of uids) {
+      if (!mine.has(uid)) continue;
+      const p = mine.get(uid), now = incoming.get(uid);
+      incoming.set(uid, p ? { ...p, uid, ...(now?.edited ? { edited: now.edited } : {}), ...(now?.comments ? { comments: now.comments } : {}) } : null);
+    }
+  }
   const at = new Map(S.cues.map((c, i) => [c.uid, i]));
   let one = null, many = false, gone = false;
   for (const [uid, b] of incoming) {
@@ -843,6 +868,61 @@ function applyShared(uids, timeline) {
   sharedIn = new Set(uids);
   try { changed(gone || many || timeline || one == null ? null : one); } finally { sharedIn = null; }
   if (lostSel) select(null, { seek: false });
+  if (!suggestions) refreshLive();
+}
+// Reviewers' suggestions, in Pending review for the owner and editors, as they come.
+const LIVE = { name: 'Suggestions', live: true };
+let liveCount = 0;
+const blockBody = (c) => Object.fromEntries(['text', ...sharedLib.SHARED_FIELDS].filter((k) => k !== 'edited' && c[k] !== undefined && c[k] !== null && c[k] !== false).map((k) => [k, c[k]]));
+function endLive() { if (livePending(LIVE, [])) liveCount = 0; }
+function refreshLive() {
+  if (!shared || !myShare || (myShare.role !== 'owner' && myShare.role !== 'edit')) return;
+  const at = new Map(S.cues.map((c) => [c.uid, c]));
+  const items = shared.readProposals().map((p) => {
+    const c = at.get(p.uid), ours = c ? blockBody(c) : null;
+    const theirs = p.block ? { ...p.block, edited: { by: p.name || 'a reviewer', suggested: true } } : null;
+    return { kind: 'block', uid: p.uid, conflict: false, start: Math.min(c?.start ?? Infinity, p.block?.start ?? Infinity), ours, theirs, name: p.name };
+  }).filter((i) => (i.ours || i.theirs) && JSON.stringify(i.ours) !== JSON.stringify(i.theirs && blockBody(i.theirs)))
+    .sort((a, z) => a.start - z.start);
+  if (!livePending(LIVE, items)) return;
+  if (items.length > liveCount) {
+    const names = [...new Set(items.map((i) => i.name).filter(Boolean))];
+    toast(`${names.length === 1 ? names[0] : 'Reviewers'} suggested ${items.length === 1 ? 'a block change' : items.length + ' block changes'}. See Pending review`);
+  }
+  liveCount = items.length;
+}
+// The owner's or an editor's choices: accepted suggestions go into the script, credited to
+// whoever suggested them; every suggestion chosen leaves the list, for everyone.
+function acceptLive(decisions) {
+  const props = new Map(shared.readProposals().map((p) => [p.uid, p])), done = [];
+  pushUndo();
+  for (const d of decisions) {
+    if (d.kind !== 'block') continue;
+    done.push(d.uid);
+    const p = props.get(d.uid);
+    if (!p || d.choice !== 'remote') continue;
+    const i = S.cues.findIndex((c) => c.uid === d.uid), block = p.block && { ...p.block, ...(d.edit || {}) };
+    if (!block) {
+      if (i < 0) continue;
+      const c = S.cues[i];
+      if (edit?.id === c.id) { edit = null; edText.blur(); }
+      if (S.sel === c.id) select(null, { seek: false });
+      S.cues.splice(i, 1);
+      continue;
+    }
+    let c = S.cues[i];
+    if (!c) { c = revive({ uid: d.uid, ...block }); S.cues.push(c); }
+    c.text = block.text;
+    for (const k of sharedLib.SHARED_FIELDS) if (k !== 'edited') { if (k in block) c[k] = block[k]; else delete c[k]; }
+    const stamp = { by: p.name, at: p.at, who: p.who };
+    if (validEditorId(p.who)) c.edited = Object.fromEntries(Object.entries(stamp).filter(([, v]) => v));
+    editSigs.set(c.uid, blockSig(c));
+  }
+  changed();
+  shared.clearProposals(done);
+  liveCount = 0;
+  refreshLive();
+  toast('Done. Accepted changes are in the script for everyone');
 }
 function changed(id = null) {
   noteEdits(id);
@@ -1450,7 +1530,8 @@ function updateEditor() {
   if (rec) { if (document.activeElement !== edText) edText.value = alt ? recorder.altText(i) : c.text; }
   else if (!edit || edit.id !== c.id) edText.value = c.text;
   edStats.textContent = '';
-  const editedBy = editedLine(c.edited, editors);
+  // A shared project shows it from the start: others are working on it.
+  const editedBy = editedLine(c.edited, myShare ? Math.max(editors, 2) : editors);
   $('edEdited').textContent = editedBy; $('edEdited').hidden = !editedBy;
   $('qcPrevious').hidden = true;
   $('qcBlockInfo').textContent = '';
@@ -2170,8 +2251,9 @@ function drawCues(W) {
   if (g && g.end >= t0 && g.start <= t1) {
     if (!ghostEl) {
       ghostEl = document.createElement('div'); ghostEl.className = 'cue ghost';
-      ghostEl.innerHTML = '<span class="ci"></span><span class="ct"></span>'; ghostEl.children[0].textContent = 'Returned';
+      ghostEl.innerHTML = '<span class="ci"></span><span class="ct"></span>';
     }
+    ghostEl.children[0].textContent = g.edited?.suggested ? 'Suggested' : 'Returned';
     const w = Math.max(2, (g.end - g.start) * S.pps);
     ghostEl.style.left = (g.start - t0) * S.pps + 'px'; ghostEl.style.width = w + 'px';
     ghostEl.classList.toggle('narrow', w < 36); ghostEl.children[1].textContent = g.text;
@@ -3748,13 +3830,14 @@ mixEl.addEventListener('dblclick', () => { setMix(0); duckAudio(); showMix(); })
 
 // Package permissions are read from the source file, including after browser recovery.
 function syncQcPermission() {
-  const lockedPackage = !!S.reviewId && !qcEditable();
+  const lockedPackage = (!!S.reviewId && !qcEditable()) || sharedLimited();
   document.body.classList.toggle('qc-editing', qc() && qcEditable());
   document.body.classList.toggle('qc-package', !!S.reviewId);
   const authoring = !S.reviewId && !!S.reviewAudio;
-  $('qcPermission').textContent = authoring ? 'Authoring project' : qcEditable() ? 'Edits allowed' : 'Comments only';
-  $('qcPermission').dataset.tip = authoring ? 'Your authoring project: edit in QC or Write, with the original readings kept for reference' : S.reviewId ? 'Chosen when the QC package was created' : 'Use Write or Transcribe to edit a plain project';
-  $('qcPermissionInfo').textContent = authoring ? 'This is your authoring project. You can edit in QC or Write. Changed readings stay available as previous readings.' : qcEditable()
+  $('qcPermission').textContent = myShare?.role === 'review' ? 'Suggestions' : authoring ? 'Authoring project' : qcEditable() ? 'Edits allowed' : 'Comments only';
+  $('qcPermission').dataset.tip = myShare?.role === 'review' ? 'Your block changes go to the owner as suggestions, in Pending review' : myShare?.role === 'comment' ? 'Your link allows comments only' : authoring ? 'Your authoring project: edit in QC or Write, with the original readings kept for reference' : S.reviewId ? 'Chosen when the QC package was created' : 'Use Write or Transcribe to edit a plain project';
+  $('qcPermissionInfo').textContent = myShare?.role === 'review' ? 'You’re reviewing a shared project. Your block changes go to its owner as suggestions; your comments reach everyone at once.'
+    : myShare?.role === 'comment' ? 'You can comment on this shared project. The script and timings stay fixed.' : authoring ? 'This is your authoring project. You can edit in QC or Write. Changed readings stay available as previous readings.' : qcEditable()
     ? (packageRereads() ? 'The package creator allows block edits. A changed Google or Amazon Polly block gets a new reading, and its end moves to fit.'
       : 'The package creator allows block edits. Timings change only when you edit them. Changed readings are marked out of date.')
     : S.reviewId ? 'The package creator allows comments only. The script and timings stay fixed.'
@@ -3770,6 +3853,7 @@ function modeOnly(feature, mode) {
 function setMode(m, quiet = false) {
   if (!MODE_NAMES[m]) return;
   if (m !== 'qc' && S.reviewId && !qcEditable()) return toast('This QC package allows comments only. Open the writer’s project to edit');
+  if (m !== 'qc' && sharedLimited()) return toast(myShare.role === 'review' ? 'Your link is for reviewing: suggest changes in QC' : 'Your link is for comments: add them in QC');
   document.activeElement?.blur();
   extHold = null;
   heard = null;
@@ -6552,7 +6636,7 @@ initReviewCompare({
   apply: (file, handle, name, generation) => openProject(new File([file], name), handle, true, generation),
 });
 initPending({
-  time: tc, readTime, toast, authoring: () => !S.reviewId, finish: finishReview,
+  time: tc, readTime, toast, authoring: () => !S.reviewId, finish: (file, decisions) => (file === LIVE ? acceptLive(decisions) : finishReview(file, decisions)),
   numbers: () => new Map(S.cues.map((c, i) => [c.uid, i + 1])),
   redraw: () => { tlDirty = true; },
   // Show the change: select your block, and bring both versions into view.

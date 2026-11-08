@@ -1252,14 +1252,15 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 #reviewCompareDlg { width: min(820px, 92vw); }
 /* Pending review: a returned review's block changes, in a tab above the script. */
 .listtabs { display: none; }
-.mode-qc .listtabs:not([hidden]) { display: grid; grid-template-columns: 1fr 1fr; margin: 8px 10px 0; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); }
+.mode-qc .listtabs:not([hidden]), .mode-write .listtabs.live:not([hidden]) { display: grid; grid-template-columns: 1fr 1fr; margin: 8px 10px 0; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); }
 .listtabs button { justify-content: center; padding: 2px 12px; border: 0; border-radius: 999px; background: none; color: var(--dim); font: 12px var(--sans); }
 .listtabs button:hover { background: none; color: var(--text); }
 .listtabs button.on { background: var(--accent); color: var(--bg); font-weight: 600; }
 .listtabs .pcount { margin-left: 4px; font-family: var(--mono); }
 .pendingpane { display: none; }
-.mode-qc .listwrap.pending-on > .search, .mode-qc .listwrap.pending-on > #list { display: none; }
-.mode-qc .listwrap.pending-on > .pendingpane { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.mode-qc .listwrap.pending-on > .search, .mode-qc .listwrap.pending-on > #list,
+.mode-write .listwrap.pending-on.live > .search, .mode-write .listwrap.pending-on.live > #list { display: none; }
+.mode-qc .listwrap.pending-on > .pendingpane, .mode-write .listwrap.pending-on.live > .pendingpane { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .prow .pick { width: 26px; height: 22px; padding: 0; justify-content: center; color: var(--faint); background: none; border: 1px solid var(--line); border-radius: 4px; }
 .prow .pick svg { width: 14px; height: 14px; fill: currentColor; }
 .prow .pick.remote:hover { color: var(--ok); border-color: var(--ok); background: none; }

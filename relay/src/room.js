@@ -241,7 +241,8 @@ export class Room {
     await this.storage.put('meta', meta);
     for (const other of this.sockets()) {
       const s = other.state;
-      if (!s?.role || s.role === 'owner') continue;
+      if (other === socket || !s?.role) continue;
+      if (s.role === 'owner') { send(other, { type: 'links', links: m.links }); continue; } // the owner's other tabs
       const l = next.links.get(s.link);
       if (!l || l.role !== s.role || l.pub !== s.pub) fail(other, 'link-off', true);
       else send(other, { type: 'links', links: m.links });
