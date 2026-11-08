@@ -263,3 +263,30 @@ test('the window for new projects slides: old ones leave it, refusals don’t co
   assert.deepEqual(later.times, [1002, 1101]);
   assert.equal(takeSlot('junk', 5, 1, 100).ok, true, 'damaged storage starts again');
 });
+
+test('numbered changes are kept and passed on with their browser and number', async () => {
+  const { join, o, owner, editor } = await start();
+  const { s } = await join('ed1', editor);
+  const bytes = new Uint8Array([4, 5, 6]), dev = 'abcdefghijkl';
+  o.got.length = 0;
+  const [ack] = await s.say({ type: 'update', doc: 'script', id: 1, dev, n: 3, data: b64(bytes), sig: await editor.sign(signed.update(ROOM, 'script', bytes, dev, 3)) });
+  assert.equal(ack.type, 'ack');
+  assert.deepEqual([o.got[0].dev, o.got[0].n], [dev, 3]);
+  // Signed without the number, or in the old form, it doesn't check out.
+  assert.equal((await s.say({ type: 'update', doc: 'script', dev, n: 4, data: b64(bytes), sig: await editor.sign(signed.update(ROOM, 'script', bytes)) }))[0].code, 'bad-signature');
+  assert.equal((await s.say({ type: 'update', doc: 'script', dev, n: 0, data: b64(bytes), sig: 'x' }))[0].code, 'bad-message');
+  assert.equal((await s.say({ type: 'update', doc: 'script', dev: 'short', n: 1, data: b64(bytes), sig: 'x' }))[0].code, 'bad-message');
+  const [snap] = await o.say({ type: 'snapshot', doc: 'script', upTo: 1, id: 2, dev: 'ownerdevice1', n: 1, data: b64(bytes), sig: await owner.sign(signed.snapshot(ROOM, 'script', 1, bytes, 'ownerdevice1', 1)) });
+  assert.equal(snap.type, 'ack');
+  const synced = await s.say({ type: 'sync', since: 0 });
+  assert.deepEqual(synced.filter((m) => m.type === 'snapshot').map((m) => [m.dev, m.n]), [['ownerdevice1', 1]]);
+});
+
+test('a link turned off may carry the last number of each of its browsers', async () => {
+  const { o, owner, links } = await start();
+  const off = (upTo) => links.map((l) => (l.id === 'ed1' ? { id: l.id, role: l.role, pub: l.pub, off: true, upTo } : l));
+  assert.equal((await o.say({ type: 'links', id: 1, links: await linksFor(owner, 2, off({ abcdefghijkl: 4 })) }))[0].type, 'ack');
+  assert.equal((await o.say({ type: 'links', id: 2, links: await linksFor(owner, 3, off({ abcdefghijkl: -1 })) }))[0].code, 'bad-message');
+  const many = Object.fromEntries(Array.from({ length: LIMITS.devices + 1 }, (_, i) => [`device${String(i).padStart(5, '0')}`, 1]));
+  assert.equal((await o.say({ type: 'links', id: 3, links: await linksFor(owner, 3, off(many)) }))[0].code, 'bad-message');
+});

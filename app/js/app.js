@@ -670,19 +670,19 @@ async function startShared() {
   if (!record) endLive(); else refreshLive();
   // Undo from here on takes back this tab's changes only; earlier steps undo as before.
   sharedUndo = shared.undoer();
-  if (record) startRelay(record, copy, fresh, saved?.seq || 0);
+  if (record) startRelay(record, copy, fresh, saved?.seq || 0, saved?.seen);
 }
 // The connection to the relay for a shared project, and keeping its copy in this browser.
 let relay = null, relayOff = () => {};
 function stopRelay() { relay?.stop(); relay = null; relayOff(); relayOff = () => {}; window.scribecueRelay = null; shareUi?.update(); if (here.length) { here = []; showHere(); } }
-async function startRelay(record, copy, fresh, seq) {
+async function startRelay(record, copy, fresh, seq, seen) {
   const id = S.projectId, owner = record.link === 'owner';
   const create = owner && !record.created ? await sharedLib.signedLinks(record) : null;
   if (shared !== copy) return;
   let keep = 0;
   const persist = () => {
     clearTimeout(keep);
-    keep = setTimeout(() => { if (relay === client) handleStore.set({ ...Object.fromEntries(sharedLib.DOCS.map((d) => [d, copy.update(d)])), seq: client.safeSeq, room: record.room }, 'shared:' + id); }, 1500);
+    keep = setTimeout(() => { if (relay === client) handleStore.set({ ...Object.fromEntries(sharedLib.DOCS.map((d) => [d, copy.update(d)])), seq: client.safeSeq, seen: client.seen, room: record.room }, 'shared:' + id); }, 1500);
   };
   const client = relay = new sharedLib.RelayClient({
     url: record.relay, room: record.room, who: sharedLib.who(record), shared: copy, create, seed: !fresh,
@@ -690,10 +690,9 @@ async function startRelay(record, copy, fresh, seq) {
     onStatus: (status, detail) => {
       if (relay !== client) return;
       if (status === 'online') {
-        const now = sharedLib.getShare(id);
+        let now = sharedLib.getShare(id);
         if (now && create && !now.created) { now.created = true; sharedLib.setShare(id, now); }
-        // Links changed while offline: the relay gets the newest list now.
-        if (now && owner && client.links && now.n > client.links.n) sharedLib.signedLinks(now).then((l) => client.sendLinks(l));
+        if (now && owner) ownerOnline(client, id, now);
         // Just joined: the relay's copy is the project. Blocks only here go.
         if (fresh) { fresh = false; applyShared([...new Set([...copy.blocks.keys(), ...S.cues.map((c) => c.uid)])], true); }
         persist();
@@ -709,12 +708,35 @@ async function startRelay(record, copy, fresh, seq) {
     },
   });
   client.seq = seq;
+  if (seen && typeof seen === 'object') client.seen = seen;
   lastPresence = '';
   queueMicrotask(notePresence); // once `relay` is this client
   const off = copy.onUpdate(persist);
   relayOff = () => { off(); clearTimeout(keep); };
   window.scribecueRelay = client; // for the developer tests
   client.start();
+}
+// The owner back online: links turned off while offline get where each stops, now that this
+// side is up to date, and the relay gets the newest list. Then links turned off are sealed.
+async function ownerOnline(client, id, now) {
+  const settled = sharedLib.settle(now, client.seen);
+  if (settled !== now) sharedLib.setShare(id, settled);
+  if (client.links && settled.n > client.links.n && !(await client.sendLinks(await sharedLib.signedLinks(settled)))) return;
+  await sealLinks(client, id);
+}
+// A link turned off: the owner sends the whole of each document, which holds all the link
+// did, then marks it sealed, so nothing more from it counts. Tried again on reconnecting.
+async function sealLinks(client, id) {
+  if (client.sealing || relay !== client) return;
+  const ids = sharedLib.unsealed(sharedLib.getShare(id) || { links: [] });
+  if (!ids.length) return;
+  client.sealing = true;
+  try {
+    if (!(await client.compact()) || relay !== client) return;
+    const next = sharedLib.sealLinks(sharedLib.getShare(id), ids);
+    sharedLib.setShare(id, next);
+    await client.sendLinks(await sharedLib.signedLinks(next));
+  } finally { client.sealing = false; }
 }
 // Who else is here, in a shared project: from the relay, by connection. This person's own
 // presence goes to them as it changes: name, mode, the selected block and whether it's open
@@ -776,6 +798,16 @@ function showOthersHere(c) {
 
 // Starting to share this project, changing its links, and joining one from a link.
 let shareUi = null, joinUi = null;
+// The last numbers had from each link, when this side has everything from the relay; else
+// null, and a link turned off gets them on reconnecting.
+const upToDate = () => (relay?.synced ? relay.seen : null);
+// The owner's changed list to the relay, when online, then sealing any link it turned off.
+// Offline, both happen on reconnecting.
+async function sendNewLinks(id, record) {
+  const client = relay;
+  if (client?.status !== 'online') return;
+  if (await client.sendLinks(await sharedLib.signedLinks(record))) await sealLinks(client, id);
+}
 const sharingTools = {
   async start(passwords) {
     const record = await sharedLib.startSharing(S.projectId, sharedLib.relayUrl(), passwords);
@@ -806,14 +838,14 @@ const sharingTools = {
   async make(role, password) {
     const id = S.projectId, record = sharedLib.getShare(id);
     if (!record) { await sharingTools.start({ [role]: password }); return; }
-    const next = await sharedLib.addLink(record, role, password);
+    const next = await sharedLib.addLink(record, role, password, undefined, upToDate());
     sharedLib.setShare(id, next);
-    if (relay?.status === 'online') relay.sendLinks(await sharedLib.signedLinks(next));
+    sendNewLinks(id, next);
   },
   async turnOff(linkId) {
-    const id = S.projectId, next = sharedLib.removeLink(sharedLib.getShare(id), linkId);
+    const id = S.projectId, next = sharedLib.removeLink(sharedLib.getShare(id), linkId, upToDate());
     sharedLib.setShare(id, next);
-    if (relay?.status === 'online') relay.sendLinks(await sharedLib.signedLinks(next));
+    sendNewLinks(id, next);
     toast('Link turned off. It no longer opens this project');
   },
   // The owner ends sharing: the relay deletes its copy. This one stays, as a plain project.

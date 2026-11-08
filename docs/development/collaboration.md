@@ -180,6 +180,10 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   list, with that link marked off and its box removed. Its sockets close, and it can't
   sign in again. It stays on the list so the changes it made still check out for people
   who open the project later. It keeps whatever it already copied.
+- Each change carries a random id for the browser that sent it and a number that counts
+  up. The list says the last number the owner had from each of a link's browsers when it
+  went off. Then the owner sends each document whole and marks the link sealed: nothing
+  from it counts any more.
 - That also adds a project key. Changes are sealed with the newest key and start with its
   number. The signed list carries the keys each link that's on lacks, encrypted with that
   link's wrapping key. The link turned off never gets them. A change sealed with a key not
@@ -261,42 +265,14 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   line in the editor: "Sam is editing" in the accent colour, or "Sam has it open". Code is
   in `relayclient.js` (`setPresence`, `onPresence`) and `showHere` in `app.js`.
 
-### Security review (2026-11-08, our own)
+### Security
 
-What holds:
-
-- The relay never has the project keys, link secrets or passwords. It can't read changes,
-  boxes or wrapped keys.
-- Every change is signed by the link or owner that made it, over the room, document and
-  sealed bytes. The seal is bound to the room, document and key number. A change can't be
-  moved to another room or document, or opened with an older key.
-- Boxes are bound to their room, link and role, so a link can't be given another role.
-- Clients ignore a links list older than one they've seen.
-
-What a dishonest relay, or someone who had a link, could still do:
-
-- **Someone with the link (secret and box) can guess its password offline.** PBKDF2 at
-  600,000 rounds slows this. Passwords need 6 characters; longer is safer.
-- **A link turned off still has its signing key and the old project keys.** With the
-  relay's help, it could add changes that look as if made before it was turned off. A
-  fix needs each link to number its own changes in what it signs.
-- **The relay can hold back, replay or reorder changes**, or serve an older links list to
-  someone joining for the first time. Yjs makes replays harmless. Holding back is denial
-  of service, which an honest relay is trusted not to do.
-- **Who's here is shared with everyone in the project**, including names and which block
-  each person has open. The relay sees only that a connection sent something, and when.
-- **Permissions are per document.** A commenter can change or delete anyone's comments,
-  and an editor can rewrite anything, including with a snapshot.
-- **Keys live in this browser's storage**, like the project itself. A script running in
-  the page could read them. The CSP allows only Scribecue's own scripts.
-- **Links made before project keys could change** have no wrapping key. After a link is
-  turned off, they can't read new changes. Make them again.
+The keys, messages, the relay's rules, what it protects against and its known limits are
+in [sharing-design.md](sharing-design.md).
 
 ### Still to do
 
 - User guides, once sharing is switched on for everyone.
-- Before calling it end-to-end encrypted: an outside review of the key handling, and each
-  link numbering its own changes.
 - Keep file exports and recovery usable without the relay.
 
 ## Validation

@@ -36,8 +36,10 @@ const join = (label, bytes) => {
 };
 export const signed = {
   auth: (room, nonce) => enc.encode(`scribecue-relay:auth:${room}:${nonce}`),
-  update: (room, doc, data) => join(`scribecue-relay:update:${room}:${doc}:`, data),
-  snapshot: (room, doc, upTo, data) => join(`scribecue-relay:snapshot:${room}:${doc}:${upTo}:`, data),
+  // A change carries the browser that made it (`dev`, new each time the project opens) and
+  // its number there (`n`, counting up). Without them, as sent before numbering, the old form.
+  update: (room, doc, data, dev, n) => join(dev ? `scribecue-relay:change:${room}:${doc}:${dev}:${n}:` : `scribecue-relay:update:${room}:${doc}:`, data),
+  snapshot: (room, doc, upTo, data, dev, n) => join(dev ? `scribecue-relay:whole:${room}:${doc}:${upTo}:${dev}:${n}:` : `scribecue-relay:snapshot:${room}:${doc}:${upTo}:`, data),
   links: (text) => enc.encode(`scribecue-relay:links:${text}`),
 };
 // Who may write each document. The relay refuses other writes; clients check again.
@@ -61,6 +63,7 @@ export async function newOwner(project = null) {
 }
 export const newProjectKey = () => random(32);
 export const MAX_KEYS = 255; // a change says which key sealed it in one byte
+export const DEVICES = 50; // browsers kept for each link turned off, as the relay allows
 // The project keys, newest last, from a record made before there could be more than one.
 export const keysOf = (o) => (Array.isArray(o.keys) && o.keys.length ? o.keys : [o.projectKey]);
 
@@ -129,7 +132,7 @@ export async function signLinks(owner, n, links) {
     wraps.owner = await wrapKeys(owner.room, 'owner', owner.ow, keys, 0);
     for (const l of links) if (!l.off && l.w && (l.from ?? keys.length) < keys.length) wraps[l.id] = await wrapKeys(owner.room, l.id, l.w, keys, l.from);
   }
-  const text = JSON.stringify({ room: owner.room, n, links: links.map(({ id, role, pub, box, off }) => (off ? { id, role, pub, off: true } : { id, role, pub, box })), wraps });
+  const text = JSON.stringify({ room: owner.room, n, links: links.map(({ id, role, pub, box, off, upTo, sealed }) => (off ? { id, role, pub, off: true, upTo: upTo || {}, ...(sealed ? { sealed: true } : {}) } : { id, role, pub, box })), wraps });
   const sign = await signer(owner.ownerPriv);
   return { text, sig: await sign(signed.links(text)) };
 }
@@ -156,8 +159,15 @@ export async function readLinks(room, ownerPub, { text, sig } = {}, verify = ver
   const o = JSON.parse(text);
   if (o.room !== room || !Array.isArray(o.links)) throw new Error('bad links');
   const out = new Map([['owner', { role: 'owner', pub: ownerPub }]]);
-  // A link turned off is kept, marked off: changes it made before it was turned off still count.
-  for (const l of o.links) if (ROLES.includes(l?.role) && typeof l.pub === 'string' && l.id !== 'owner') out.set(l.id, { role: l.role, pub: l.pub, ...(l.off === true ? { off: true } : {}) });
+  // A link turned off is kept, marked off: changes it made before it was turned off still count,
+  // up to the last number the owner had from each of its browsers (`upTo`). One turned off
+  // before changes had numbers has none. Once `sealed`, nothing from it counts.
+  for (const l of o.links) {
+    if (!ROLES.includes(l?.role) || typeof l.pub !== 'string' || l.id === 'owner') continue;
+    const upTo = l.off === true && l.upTo && typeof l.upTo === 'object' && !Array.isArray(l.upTo)
+      ? Object.fromEntries(Object.entries(l.upTo).filter(([, n]) => Number.isSafeInteger(n) && n >= 0)) : null;
+    out.set(l.id, { role: l.role, pub: l.pub, ...(l.off === true ? { off: true, ...(upTo ? { upTo } : {}), ...(l.sealed === true ? { sealed: true } : {}) } : {}) });
+  }
   const wraps = o.wraps && typeof o.wraps === 'object' && !Array.isArray(o.wraps) ? o.wraps : {};
   return { n: o.n, links: out, wraps };
 }

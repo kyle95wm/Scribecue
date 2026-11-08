@@ -25,7 +25,7 @@ test('the owner shares, adds and replaces links, and turns one off', async () =>
   // Links turned off stay, marked off, with only what checks their earlier changes.
   const off = r.links.filter((l) => l.off);
   assert.deepEqual(off.map((l) => l.role).sort(), ['comment', 'edit']);
-  for (const l of off) assert.deepEqual(Object.keys(l).sort(), ['id', 'off', 'pub', 'role']);
+  for (const l of off) assert.deepEqual(Object.keys(l).sort(), ['id', 'off', 'pub', 'role', 'upTo']);
   const list = await readLinks(r.room, r.ownerPub, await sharing.signedLinks(r));
   assert.equal(list.n, 4);
   assert.deepEqual([...list.links.values()].filter((l) => !l.off).map((l) => l.role).sort(), ['edit', 'owner']);
@@ -63,4 +63,40 @@ test('joining opens the box with the password, and is kept by project', async ()
   assert.equal(sharing.relayUrl(storage), sharing.DEFAULT_RELAY);
   storage.setItem('scribecue.relay', 'wss://share.example');
   assert.equal(sharing.relayUrl(storage), 'wss://share.example');
+});
+
+test('a link turned off keeps the last number of each of its browsers', async () => {
+  let r = await sharing.startSharing(crypto.randomUUID(), 'ws://relay', { edit: 'a', comment: 'b' }, fast);
+  const [ed, co] = r.links;
+  const seen = { [ed.id]: { devA: 7, devB: 2 } };
+  r = sharing.removeLink(r, ed.id, seen);
+  seen[ed.id].devA = 9; // later changes don't move it
+  assert.deepEqual(r.links.find((l) => l.id === ed.id).upTo, { devA: 7, devB: 2 });
+  // Offline: filled in when the connection is up to date, before the list goes out.
+  r = sharing.removeLink(r, co.id);
+  assert.equal(r.links.find((l) => l.id === co.id).upTo, null);
+  const settled = sharing.settle(r, { [co.id]: { devC: 4 } });
+  assert.deepEqual(settled.links.find((l) => l.id === co.id).upTo, { devC: 4 });
+  assert.deepEqual(settled.links.find((l) => l.id === ed.id).upTo, { devA: 7, devB: 2 });
+  assert.equal(sharing.settle(settled, {}), settled, 'nothing left to fill in');
+  const list = await readLinks(r.room, r.ownerPub, await sharing.signedLinks(settled));
+  assert.deepEqual(list.links.get(co.id).upTo, { devC: 4 });
+  // Signed before it was filled in, as when making the room: nothing from it counts.
+  assert.deepEqual((await readLinks(r.room, r.ownerPub, await sharing.signedLinks(r))).links.get(co.id).upTo, {});
+});
+
+test('links turned off are sealed once their last numbers are known', async () => {
+  let r = await sharing.startSharing(crypto.randomUUID(), 'ws://relay', { edit: 'a', comment: 'b', review: 'c' }, fast);
+  const [ed, co] = r.links;
+  r = sharing.removeLink(r, ed.id, {});
+  r = sharing.removeLink(r, co.id); // offline: not yet
+  assert.deepEqual(sharing.unsealed(r), [ed.id]);
+  const n = r.n;
+  r = sharing.sealLinks(r, [ed.id]);
+  assert.equal(r.n, n + 1);
+  assert.deepEqual(sharing.unsealed(r), []);
+  assert.deepEqual(sharing.unsealed(sharing.settle(r, {})), [co.id]);
+  const list = await readLinks(r.room, r.ownerPub, await sharing.signedLinks(r));
+  assert.equal(list.links.get(ed.id).sealed, true);
+  assert.equal(list.links.get(co.id).sealed, undefined);
 });
