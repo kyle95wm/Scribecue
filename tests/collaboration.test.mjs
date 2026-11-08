@@ -55,6 +55,7 @@ test('different additions with the same identity conflict', () => {
 
 test('notes, comments, settings, media and recording versions cannot silently overwrite each other', () => {
   for (const field of ['notes', 'comments', 'settings', 'media', 'recording']) {
+    if (field === 'comments') continue; // merged one by one: see the next test
     const [b, l, r] = copies();
     const values = {
       notes: ['Local', 'Remote'],
@@ -69,6 +70,24 @@ test('notes, comments, settings, media and recording versions cannot silently ov
     if (field === 'settings') { delete ours.mode; delete theirs.mode; }
     assert.deepEqual(ours, theirs);
   }
+});
+
+test('comments merge one by one; only two different changes to the same comment need a choice', () => {
+  const [b, l, r] = copies();
+  const shared = { id: '11111111-1111-4111-8111-111111111111', text: 'Shared', time: 1 };
+  for (const p of [b, l, r]) p.comments = [structuredClone(shared)];
+  l.comments.push({ text: 'Local', time: 2 });
+  r.comments.push({ text: 'Remote', time: 3 });
+  r.comments[0].resolved = true;
+  const merged = mergeProjects(b, l, r);
+  assert.deepEqual(merged.conflicts, []);
+  assert.deepEqual(merged.project.comments.map((c) => [c.text, c.resolved]), [['Shared', true], ['Local', false], ['Remote', false]]);
+  // Deleted on one side, untouched on the other: it goes.
+  const gone = structuredClone(r); gone.comments = [];
+  assert.deepEqual(mergeProjects(b, l, gone).project.comments.map((c) => c.text), ['Local']);
+  // Both changed the same comment: the whole list needs a choice, as before.
+  l.comments[0].text = 'Local wording';
+  assert.deepEqual(mergeProjects(b, l, r).conflicts, [{ kind: 'project', field: 'comments' }]);
 });
 
 test('save time, property order and personal view or mode do not create conflicts', () => {

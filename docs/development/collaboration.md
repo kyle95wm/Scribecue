@@ -24,8 +24,10 @@ a combined QC package. There is no separate project-copy interface or file type.
   tab (`qcpending.js`) for an explicit accept or reject. An accepted change can carry the
   user's edits to its wording and times (`edit` on the resolution). Block comments merge
   separately from script corrections, so a returned comment cannot revert an author’s
-  independent text or timing change. Simultaneous changes to the same comment list still
-  need an explicit choice.
+  independent text or timing change. Comments have ids (`cleanComments` in `comments.js`;
+  older ones get an id derived from their content, so both copies agree) and merge one by
+  one (`mergeComments`). Only different changes to the same comment, or a deletion against
+  a change, make the whole list a conflict that needs an explicit choice.
 - Choices are applied together on accept, by merging again against the current project.
   Blocks edited locally while the list was open come back as conflicts. Pending choices
   are kept in memory only.
@@ -115,7 +117,6 @@ Write, narrators in Record. Do not introduce another parallel review mode or han
 
 Before adding that service:
 
-- Give comments stable identities for safe merging of concurrent reviews.
 - Define durable revision storage and ancestry. Bounded file baselines are not a server history.
 - Use established authentication components for users, devices, invitations and membership.
 - Check current membership and action permissions on every server operation.

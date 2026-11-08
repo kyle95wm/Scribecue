@@ -1,4 +1,4 @@
-import { commentEntries } from './comments.js';
+import { commentEntries, newCommentId } from './comments.js';
 import { savedName, saveName } from './profile.js';
 const $ = (id) => document.getElementById(id);
 let hooks, timeline = false, page = 0, showResolved = false;
@@ -87,7 +87,7 @@ export function initComments(h) {
     if (!timeline && !block) return;
     hooks.change(() => {
       const comments = timeline ? hooks.comments() : (block.comments ||= []);
-      comments.push({ text, author, created: new Date().toISOString(), resolved: false, ...(timeline ? { time } : {}) });
+      comments.push({ id: newCommentId(), text, author, created: new Date().toISOString(), resolved: false, ...(timeline ? { time } : {}) });
     });
     $('commentText').value = ''; $('commentStatus').textContent = 'Comment posted'; $('commentText').focus();
   };

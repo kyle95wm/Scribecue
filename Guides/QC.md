@@ -333,7 +333,8 @@ explains what each optional service sends.
 Each change says who returned it, if they saved a name. After you accept, an open block
 shows who changed it last.
 
-Comments don't need a choice. Changes marked **Both changed** are blocks you also edited.
+Comments need a choice only if you and the reviewer changed the same comment.
+Changes marked **Both changed** are blocks you also edited.
 A split or merge shows as more than one change, so accept or reject them together.
 **Close** stops without changing anything. Switch to **Blocks** to check the script meanwhile.
 Choices aren't kept if you reload the page. Compare the review again to pick up where you left off.
