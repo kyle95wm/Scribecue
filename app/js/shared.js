@@ -144,6 +144,20 @@ export class SharedProject {
     return () => { this.blocks.unobserveDeep(handler); this.comments.unobserve(onComments); };
   }
 
+  // Undo and redo of this person's own changes only: others' changes stay. Each step lasts
+  // until `step()` starts the next, so typing a sentence stays one step, as in the app.
+  undoer() {
+    const um = new Y.UndoManager([this.blocks, this.comments], { trackedOrigins: new Set([LOCAL]), captureTimeout: Infinity });
+    return {
+      step: () => um.stopCapturing(),
+      depth: () => um.undoStack.length,
+      redoDepth: () => um.redoStack.length,
+      undo: () => um.undo() != null,
+      redo: () => um.redo() != null,
+      clear: () => um.clear(),
+    };
+  }
+
   update() { return Y.encodeStateAsUpdate(this.doc); }
   apply(update, origin = 'remote') { Y.applyUpdate(this.doc, update, origin); }
 }

@@ -136,3 +136,51 @@ test('a tab still waiting never hands on its empty copy', async () => {
   assert.equal(await lb.ready, false, 'a has nothing to hand on yet');
   la.stop(); lb.stop();
 });
+
+test('undo takes back only your own changes, step by step, and redo puts them back', () => {
+  const [a, b] = pair();
+  a.write(blocks(), timeline());
+  const undo = a.undoer();
+  // Step 1: A types in block 1, in several writes, as typing does.
+  undo.step();
+  for (const text of ['Mara opens a door slowly.', 'Mara opens a door slowly, smiling.']) {
+    const list = a.read().blocks; list[0].text = text; a.write(list, timeline(), [uid(1)]);
+  }
+  // B types in the same block, and moves block 2.
+  let list = b.read().blocks; list[0].text = 'Now Mara opens a door slowly, smiling.'; list[1].start = 4;
+  b.write(list, timeline());
+  // Step 2: A deletes block 2.
+  undo.step();
+  a.write(a.read().blocks.slice(0, 1), timeline());
+  assert.equal(undo.depth(), 2);
+
+  assert.ok(undo.undo());
+  assert.deepEqual(b.read().blocks.map((x) => [x.uid, x.start]), [[uid(1), 1], [uid(2), 4]], 'block 2 is back, where B moved it');
+  assert.ok(undo.undo());
+  assert.equal(b.read().blocks[0].text, 'Now Mara opens a door.', 'A’s typing went as one step; B’s word stayed');
+  assert.equal(undo.undo(), false, 'nothing else of A’s to undo');
+  assert.equal(undo.depth(), 0);
+
+  assert.ok(undo.redo());
+  assert.equal(b.read().blocks[0].text, 'Now Mara opens a door slowly, smiling.');
+  assert.ok(undo.redo());
+  assert.equal(b.read().blocks.length, 1);
+  assert.deepEqual(a.read(), b.read());
+});
+
+test('undo of a comment leaves others’ comments alone', () => {
+  const [a, b] = pair();
+  a.write(blocks(), timeline());
+  const undo = a.undoer();
+  undo.step();
+  {
+    const l = a.read().blocks;
+    l[1].comments = cleanComments([{ text: 'Too fast', author: 'Kyle', created: '2026-11-08T00:03:00Z' }]);
+    a.write(l, timeline(), [uid(2)]);
+  }
+  const l = b.read().blocks;
+  l[1].comments = [...l[1].comments, ...cleanComments([{ text: 'Agreed', author: 'Sam', created: '2026-11-08T00:04:00Z' }])];
+  b.write(l, timeline(), [uid(2)]);
+  undo.undo();
+  assert.deepEqual(b.read().blocks[1].comments.map((c) => c.text), ['Agreed']);
+});
