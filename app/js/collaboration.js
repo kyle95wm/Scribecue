@@ -1,6 +1,7 @@
 // Local collaboration primitives. No transport, account state or permission enforcement.
 // Merge saved project snapshots against their exact shared ancestor, never by position.
 import { fromProject, toProject, cleanWords, validIdentity, HISTORY_LIMIT, HISTORY_CHARS } from './project.js';
+import { mergeComments } from './comments.js';
 
 const equal = (a, b) => {
   if (a === b) return true;
@@ -62,6 +63,9 @@ export function mergeProjects(base, local, remote, progress = () => {}, resoluti
     conflicts.push(target);
     return ours;
   };
+  // Comments merge one by one. Only two different changes to the same comment need a choice.
+  const commentsOf = (before = [], ours = [], theirs = [], target) =>
+    mergeComments(before, ours, theirs, equal) ?? choose(before, ours, theirs, target);
   const maps = [b, l, r].map((p) => new Map(p.blocks.map((block) => [block.uid, block])));
   const ids = new Set(maps.flatMap((m) => [...m.keys()]));
   let done = 0;
@@ -74,7 +78,7 @@ export function mergeProjects(base, local, remote, progress = () => {}, resoluti
       const mine = body(ours);
       const block = choose(body(before), mine, body(theirs), { kind: 'block', uid });
       const edited = block === mine ? ours.edited : theirs.edited;
-      const comments = choose(before.comments || [], ours.comments || [], theirs.comments || [], { kind: 'block-comments', uid });
+      const comments = commentsOf(before.comments, ours.comments, theirs.comments, { kind: 'block-comments', uid });
       result = { ...block, ...(edited ? { edited } : {}), ...(comments.length ? { comments } : {}) };
     } else result = choose(before, ours, theirs, { kind: 'block', uid });
     if (result) blocks.push(result);
@@ -84,9 +88,10 @@ export function mergeProjects(base, local, remote, progress = () => {}, resoluti
   const sharedSettings = ({ mode, ...settings }) => settings;
   const project = toProject({ ...l, projectId: local.projectId, app: typeof local.app === 'string' ? local.app : '',
     blocks: blocks.sort((a, z) => a.start - z.start || a.uid.localeCompare(z.uid)) });
-  for (const field of ['notes', 'comments', 'media', 'recording']) {
+  for (const field of ['notes', 'media', 'recording']) {
     project[field] = choose(b[field], l[field], r[field], { kind: 'project', field });
   }
+  project.comments = commentsOf(b.comments, l.comments, r.comments, { kind: 'project', field: 'comments' });
   // Words people added are only ever added to, so both sides' count.
   const words = cleanWords([...(l.words || []), ...(r.words || [])]);
   if (words.length) project.words = words;

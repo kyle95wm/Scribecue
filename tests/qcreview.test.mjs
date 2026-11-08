@@ -212,13 +212,23 @@ test('returned block comments combine with author corrections made after sending
 });
 
 test('conflicting block comments are resolved separately from the author’s script changes', async () => {
-  const {original,local,remote}=await setup(false);
-  local.blocks[0].text='Author correction';local.blocks[0].comments=[{text:'Local note'}];remote.blocks[0].comments=[{text:'Returned note'}];
+  const p=project(); p.blocks[0].comments=[{text:'First note',author:'Sam'}];
+  const original=await readReview(await buildReview(p,make,{handoff:true}));
+  const local=toProject(fromProject(original.project)),remote=structuredClone(original.project);
+  local.blocks[0].text='Author correction';local.blocks[0].comments[0].text='Local note';remote.blocks[0].comments[0].text='Returned note';
   const review=await returned(original,remote),result=await compareReturnedReview(local,review);
   assert.deepEqual(result.conflicts,[{kind:'block-comments',uid:local.blocks[0].uid}]);
   const resolved=await compareReturnedReview(local,review,{resolutions:[{...result.conflicts[0],choice:'remote'}]});
   assert.equal(resolved.project.blocks[0].text,'Author correction');
   assert.equal(resolved.project.blocks[0].comments[0].text,'Returned note');
+});
+
+test('comments added on both sides of a review are all kept, with no choice to make', async () => {
+  const {original,local,remote}=await setup(false);
+  local.blocks[0].comments=[{text:'Local note'}];remote.blocks[0].comments=[{text:'Returned note'}];
+  const result=await compareReturnedReview(local,await returned(original,remote));
+  assert.deepEqual(result.conflicts,[]);
+  assert.deepEqual(result.project.blocks[0].comments.map((c)=>c.text),['Local note','Returned note']);
 });
 
 test('a comments-only review saved by an older Scribecue, without who changed each block, is still accepted', async () => {
