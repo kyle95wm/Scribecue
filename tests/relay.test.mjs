@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Room, b64, unb64, signed, LIMITS, takeSlot } from '../relay/src/room.js';
+import { Room, b64, unb64, signed, LIMITS, takeSlot, PROTOCOL } from '../relay/src/room.js';
 
 const subtle = crypto.subtle;
 const noise = (n) => Uint8Array.from({ length: n }, (_, i) => (i * 7919 + (i >> 8)) & 255);
@@ -43,13 +43,13 @@ async function start() {
   const env = setup(), owner = await keys(), editor = await keys(), commenter = await keys();
   const links = [{ id: 'ed1', role: 'edit', pub: editor.pub, box: 'box-ed' }, { id: 'co1', role: 'comment', pub: commenter.pub, box: 'box-co' }];
   const o = env.connect();
-  const [welcome] = await o.say({ type: 'create', owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(o))), links: await linksFor(owner, 1, links) });
+  const [welcome] = await o.say({ type: 'create', v: 2, owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(o))), links: await linksFor(owner, 1, links) });
   assert.equal(welcome.type, 'welcome');
   const join = async (link, k) => {
     const s = env.connect();
     const n = nonce(s);
-    const [box] = await s.say({ type: 'box', link });
-    const [w] = await s.say({ type: 'auth', link, sig: await k.sign(signed.auth(ROOM, n)) });
+    const [box] = await s.say({ type: 'box', v: 2, link });
+    const [w] = await s.say({ type: 'auth', v: 2, link, sig: await k.sign(signed.auth(ROOM, n)) });
     return { s, box, w };
   };
   const update = async (s, k, doc, bytes) => s.say({ type: 'update', doc, id: 1, data: b64(bytes), sig: await k.sign(signed.update(ROOM, doc, bytes)) });
@@ -83,14 +83,14 @@ test('wrong keys, unknown links and missing sign-in are refused', async () => {
   const { s, w } = await join('ed1', commenter);
   assert.deepEqual([w.code, s.closed], ['bad-signature', 'bad-signature']);
   const x = connect();
-  assert.equal((await x.say({ type: 'box', link: 'nope' }))[0].code, 'no-link');
+  assert.equal((await x.say({ type: 'box', v: 2, link: 'nope' }))[0].code, 'no-link');
   assert.equal((await x.say({ type: 'sync' }))[0].code, 'not-signed-in');
   // A second create can't take the room over.
   const y = connect();
-  assert.equal((await y.say({ type: 'create', owner: editor.pub, sig: await editor.sign(signed.auth(ROOM, nonce(y))), links: await linksFor(editor, 1, []) }))[0].code, 'room-exists');
+  assert.equal((await y.say({ type: 'create', v: 2, owner: editor.pub, sig: await editor.sign(signed.auth(ROOM, nonce(y))), links: await linksFor(editor, 1, []) }))[0].code, 'room-exists');
   // A challenge is for one socket: another's signature doesn't fit.
   const a = connect(), b = connect();
-  const [r] = await b.say({ type: 'auth', link: 'owner', sig: await owner.sign(signed.auth(ROOM, nonce(a))) });
+  const [r] = await b.say({ type: 'auth', v: 2, link: 'owner', sig: await owner.sign(signed.auth(ROOM, nonce(a))) });
   assert.equal(r.code, 'bad-signature');
   assert.equal((await connect().say('nonsense'))[0].code, 'bad-message');
 });
@@ -180,12 +180,12 @@ test('making a room too often is refused, and nothing is kept', async () => {
   const env = setup({ mayCreate: async (socket) => { asked++; return socket.address === 'calm'; } });
   const owner = await keys();
   const s = env.connect(); s.address = 'busy';
-  const [refused] = await s.say({ type: 'create', owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(s))), links: await linksFor(owner, 1, []) });
+  const [refused] = await s.say({ type: 'create', v: 2, owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(s))), links: await linksFor(owner, 1, []) });
   assert.equal(refused.code, 'busy');
   assert.equal(s.closed, 'busy');
   assert.equal(await env.storage.get('meta'), undefined);
   const t = env.connect(); t.address = 'calm';
-  const [welcome] = await t.say({ type: 'create', owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(t))), links: await linksFor(owner, 1, []) });
+  const [welcome] = await t.say({ type: 'create', v: 2, owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(t))), links: await linksFor(owner, 1, []) });
   assert.equal(welcome.type, 'welcome');
   assert.equal(asked, 2);
 });
@@ -243,7 +243,7 @@ test('the owner deletes the project; an idle one is deleted after six months', a
 
   let t = 1_000_000;
   const env = setup({ now: () => t }), owner = await keys(), s = env.connect();
-  await s.say({ type: 'create', owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(s))), links: await linksFor(owner, 1, []) });
+  await s.say({ type: 'create', v: 2, owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(s))), links: await linksFor(owner, 1, []) });
   t += LIMITS.idle - 1;
   await env.room.alarm();
   assert.ok(env.storage.m.size > 0, 'not yet');
@@ -289,4 +289,20 @@ test('a link turned off may carry the last number of each of its browsers', asyn
   assert.equal((await o.say({ type: 'links', id: 2, links: await linksFor(owner, 3, off({ abcdefghijkl: -1 })) }))[0].code, 'bad-message');
   const many = Object.fromEntries(Array.from({ length: LIMITS.devices + 1 }, (_, i) => [`device${String(i).padStart(5, '0')}`, 1]));
   assert.equal((await o.say({ type: 'links', id: 3, links: await linksFor(owner, 3, off(many)) }))[0].code, 'bad-message');
+});
+
+test('a browser that speaks another version is told which side to update', async () => {
+  const { connect, join, editor } = await start();
+  const s = connect();
+  assert.equal(s.got[0].protocol, PROTOCOL.max, 'the challenge says the relay’s version');
+  // Before versions, browsers sent none.
+  const [old] = await s.say({ type: 'box', link: 'ed1' });
+  assert.equal(old.code, 'old-app');
+  assert.equal(s.closed, 'old-app');
+  const t = connect();
+  const [newer] = await t.say({ type: 'auth', v: PROTOCOL.max + 1, link: 'ed1', sig: await editor.sign(signed.auth(ROOM, nonce(t))) });
+  assert.equal(newer.code, 'old-relay');
+  assert.equal(t.closed, 'old-relay');
+  const { w } = await join('ed1', editor);
+  assert.equal(w.type, 'welcome', 'the same version signs in');
 });

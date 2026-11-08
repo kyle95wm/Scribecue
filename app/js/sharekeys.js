@@ -49,6 +49,8 @@ export const WRITERS = {
   review: ['owner', 'edit', 'review'],
 };
 export const ROLES = ['edit', 'review', 'comment'];
+// The version of the relay's protocol this browser speaks (relay/src/room.js, PROTOCOL).
+export const PROTOCOL = 2;
 
 async function newSigningKey() {
   const k = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);

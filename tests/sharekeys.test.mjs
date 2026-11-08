@@ -48,6 +48,7 @@ test('what gets signed matches the relay, byte for byte', () => {
   assert.deepEqual(keys.signed.snapshot('r', 'script', 4, data, 'dev', 2), relay.signed.snapshot('r', 'script', 4, data, 'dev', 2));
   assert.notDeepEqual(keys.signed.update('r', 'script', data, 'dev', 2), keys.signed.update('r', 'script', data), 'numbered and old forms differ');
   assert.equal(keys.DEVICES, relay.LIMITS.devices);
+  assert.ok(keys.PROTOCOL >= relay.PROTOCOL.min && keys.PROTOCOL <= relay.PROTOCOL.max, 'the app speaks a version the relay takes');
   assert.deepEqual(keys.signed.links('t'), relay.signed.links('t'));
   assert.deepEqual(keys.WRITERS, relay.WRITERS);
   assert.deepEqual(keys.ROLES, relay.ROLES);

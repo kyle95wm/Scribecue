@@ -21,6 +21,10 @@ export const WRITERS = {
   review: ['owner', 'edit', 'review'],
 };
 export const ROLES = ['edit', 'review', 'comment'];
+// Which versions of the protocol this relay speaks. Browsers say theirs (`v`) when they ask
+// for a box, make a room or sign in; one outside this range is told which side to update.
+// 2: changes numbered by browser, links turned off sealed. Before it, browsers sent none.
+export const PROTOCOL = { min: 2, max: 2 };
 export const LIMITS = {
   message: 2_000_000, // characters in one message
   room: 64 * 1024 * 1024, // bytes kept for one project
@@ -130,7 +134,7 @@ export class Room {
   open(socket) {
     const nonce = this.random();
     socket.state = { nonce };
-    send(socket, { type: 'challenge', room: this.id, nonce });
+    send(socket, { type: 'challenge', room: this.id, nonce, protocol: PROTOCOL.max });
   }
 
   // Messages are handled one at a time, in order, so changes get their numbers in order.
@@ -148,6 +152,11 @@ export class Room {
       if (!m || typeof m.type !== 'string') throw new Error();
     } catch { return fail(socket, 'bad-message'); }
     const state = socket.state || {};
+    if (['box', 'create', 'auth'].includes(m.type)) {
+      const v = Number.isSafeInteger(m.v) ? m.v : 1;
+      if (v < PROTOCOL.min) return fail(socket, 'old-app', true);
+      if (v > PROTOCOL.max) return fail(socket, 'old-relay', true);
+    }
     try {
       if (m.type === 'box') return await this.#box(socket, m);
       if (m.type === 'create') return await this.#create(socket, state, m);

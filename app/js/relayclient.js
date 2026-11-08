@@ -3,17 +3,22 @@
 // It reconnects by itself, keeps changes made while offline until the relay has them, and
 // now and then sends a whole document so the relay can drop the changes before it.
 import * as Y from '../vendor/yjs.js';
-import { b64, unb64, signed, signer, verifier, readLinks, projectCipher, unwrapKeys, keysOf, WRITERS, DEVICES } from './sharekeys.js';
+import { b64, unb64, signed, signer, verifier, readLinks, projectCipher, unwrapKeys, keysOf, WRITERS, DEVICES, PROTOCOL } from './sharekeys.js';
 import { DOCS } from './shared.js';
 
 const ENDS = new Set(['link-off', 'room-deleted', 'no-room', 'bad-signature', 'room-exists']);
+// This browser and the relay speak different versions: 'old-app' when Scribecue needs
+// updating, 'old-relay' when the relay does. Trying again won't help, but nothing is lost.
+export const OUTDATED = new Set(['old-app', 'old-relay']);
+// The relay's version, from its challenge: one from before versions says none.
+const relayTooOld = (m) => (Number.isSafeInteger(m.protocol) ? m.protocol : 1) < PROTOCOL;
 
 export class RelayClient {
   // `who`: { link ('owner' or a link id), priv, ownerPub, keys (or projectKey), w }. `create`: the signed
   // links, to make the room first. `seed`: send everything already in the copy, as when
   // making the room or coming back to it; Yjs ignores what the relay already has.
   // `onStatus(status, detail)`: 'connecting', 'online',
-  // 'offline' or 'ended'.
+  // 'offline', 'ended', or 'old-app' or 'old-relay' (see OUTDATED).
   constructor({ url, room, who, shared, create = null, seed = !!create, onStatus = () => {}, onLinks = () => {}, onPresence = () => {}, WebSocket = globalThis.WebSocket, snapshotEvery = 200, flushMs = 150, retryMs = 1000, connectMs = 20_000, presenceMs = 250, heartbeatMs = 20_000, timers = globalThis }) {
     Object.assign(this, { url, room, who, shared, create, onStatus, onLinks, onPresence, WebSocket, snapshotEvery, flushMs, retryMs, connectMs, presenceMs, heartbeatMs, timers });
     this.people = new Map(); // connection id → { name, mode, block, editing, by, role, at }
@@ -152,6 +157,7 @@ export class RelayClient {
   // Changes not yet kept by the relay.
   unsent() { return DOCS.reduce((n, d) => n + this.pending[d].length, 0); }
 
+  #outdated(code) { this.#set(code); this.stop(); }
   #set(status, detail) { if (this.status !== status || detail) { this.status = status; this.onStatus(status, detail); } }
 
   #connect() {
@@ -187,9 +193,10 @@ export class RelayClient {
     if (ws !== this.ws) return;
     const m = JSON.parse(text);
     if (m.type === 'challenge') {
+      if (relayTooOld(m)) { this.#outdated('old-relay'); return; }
       const sig = await this.sign(signed.auth(this.room, m.nonce));
-      if (this.create && !this.created) this.#send({ type: 'create', owner: this.who.ownerPub, sig, links: this.create });
-      else this.#send({ type: 'auth', link: this.who.link, sig });
+      if (this.create && !this.created) this.#send({ type: 'create', v: PROTOCOL, owner: this.who.ownerPub, sig, links: this.create });
+      else this.#send({ type: 'auth', v: PROTOCOL, link: this.who.link, sig });
     } else if (m.type === 'welcome') {
       this.created = true;
       await this.#readLinks(m.links);
@@ -227,6 +234,7 @@ export class RelayClient {
       this.#maybeSnapshot();
     } else if (m.type === 'error') {
       if (ENDS.has(m.code)) { this.#set('ended', m.code); this.stop(); return; }
+      if (OUTDATED.has(m.code)) { this.#outdated(m.code); return; }
       // Refused, such as a full room: what was sent waits, and goes again with the next change.
       this.inflight.clear(); this.failures++; this.#wake();
       this.onStatus(this.status, m.code);
@@ -335,7 +343,8 @@ export class RelayClient {
 }
 
 // A link's box, fetched before signing in. Resolves { role, box }, or rejects with the
-// relay's reason ('no-link' when the link was turned off) or 'offline'.
+// relay's reason ('no-link' when the link was turned off, 'old-app' or 'old-relay' when
+// Scribecue or the relay needs updating) or 'offline'.
 export function fetchBox(url, room, id, { WebSocket = globalThis.WebSocket, wait = 10_000 } = {}) {
   return new Promise((resolve, reject) => {
     let ws;
@@ -345,7 +354,10 @@ export function fetchBox(url, room, id, { WebSocket = globalThis.WebSocket, wait
     ws.onmessage = (e) => {
       let m;
       try { m = JSON.parse(e.data); } catch { return; }
-      if (m.type === 'challenge') ws.send(JSON.stringify({ type: 'box', link: id }));
+      if (m.type === 'challenge') {
+        if (relayTooOld(m)) done(reject, new Error('old-relay'));
+        else ws.send(JSON.stringify({ type: 'box', v: PROTOCOL, link: id }));
+      }
       else if (m.type === 'box') done(resolve, { role: m.role, box: m.box });
       else if (m.type === 'error') done(reject, new Error(m.code));
     };

@@ -11,6 +11,8 @@ export const STATUS_TEXT = {
   online: ['Shared', 'Connected. Changes reach others as you make them.'],
   connecting: ['Connecting', 'Connecting to the sharing service…'],
   offline: ['Offline', 'Offline. Your changes are kept here and sent when you’re back online.'],
+  'old-app': ['Update needed', 'This version of Scribecue can’t connect to the sharing service. Update Scribecue and open the project again. Your changes are kept here.'],
+  'old-relay': ['Update needed', 'The sharing service needs updating before this project connects. Your changes are kept here.'],
 };
 
 // `deps`: $, toast, record(), status(), base(), name(), setName(v), make(role, password),
@@ -117,6 +119,8 @@ export function joinDialog(deps) {
     'no-link': 'This link has been turned off. Ask for a new one',
     'bad-link': 'This link is incomplete. Copy all of it and try again',
     offline: 'Couldn’t reach the sharing service. Try again when you’re online',
+    'old-app': 'Update Scribecue to open this link',
+    'old-relay': 'The sharing service needs updating before this link opens',
   };
   let busy = false;
   async function open() {

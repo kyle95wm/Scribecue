@@ -36,7 +36,7 @@ const links = async (owner, n, list) => { const text = JSON.stringify({ room, n,
 const owner = await keys(), editor = await keys(), commenter = await keys();
 const list = [{ id: 'ed', role: 'edit', pub: editor.pub, box: 'sealed-ed' }, { id: 'co', role: 'comment', pub: commenter.pub, box: 'sealed-co' }];
 const o = await connect();
-o.say({ type: 'create', owner: owner.pub, sig: await owner.sign(signed.auth(room, o.nonce)), links: await links(owner, 1, list) });
+o.say({ type: 'create', v: 2, owner: owner.pub, sig: await owner.sign(signed.auth(room, o.nonce)), links: await links(owner, 1, list) });
 assert.equal((await o.next('welcome')).role, 'owner');
 const first = new TextEncoder().encode('first change');
 o.say({ type: 'update', doc: 'script', id: 1, data: b64(first), sig: await owner.sign(signed.update(room, 'script', first)) });
@@ -44,9 +44,9 @@ assert.equal((await o.next('ack')).seq, 1);
 
 // The editor fetches its box, signs in and catches up.
 const e = await connect();
-e.say({ type: 'box', link: 'ed' });
+e.say({ type: 'box', v: 2, link: 'ed' });
 assert.equal((await e.next('box')).box, 'sealed-ed');
-e.say({ type: 'auth', link: 'ed', sig: await editor.sign(signed.auth(room, e.nonce)) });
+e.say({ type: 'auth', v: 2, link: 'ed', sig: await editor.sign(signed.auth(room, e.nonce)) });
 assert.equal((await e.next('welcome')).role, 'edit');
 e.say({ type: 'sync', since: 0 });
 assert.equal(new TextDecoder().decode(unb64((await e.next('update')).data)), 'first change');
@@ -65,7 +65,7 @@ t = performance.now();
 o.say({ type: 'snapshot', doc: 'script', upTo: 2, data: b64(big), sig: await owner.sign(signed.snapshot(room, 'script', 2, big)) });
 assert.equal((await o.next('ack')).seq, 2);
 const c = await connect();
-c.say({ type: 'auth', link: 'co', sig: await commenter.sign(signed.auth(room, c.nonce)) });
+c.say({ type: 'auth', v: 2, link: 'co', sig: await commenter.sign(signed.auth(room, c.nonce)) });
 await c.next('welcome');
 c.say({ type: 'sync', since: 0 });
 const snap = await c.next('snapshot');
@@ -87,7 +87,7 @@ o.say({ type: 'delete-room' });
 assert.equal(await c.closed, 'room-deleted');
 assert.equal(await o.closed, 'room-deleted');
 const gone = await connect();
-gone.say({ type: 'auth', link: 'owner', sig: await owner.sign(signed.auth(room, gone.nonce)) });
+gone.say({ type: 'auth', v: 2, link: 'owner', sig: await owner.sign(signed.auth(room, gone.nonce)) });
 assert.equal((await gone.next('welcome')).code, 'no-room');
 console.log(`Relay smoke passed: a change reached the other person in ${Math.round(liveMs)} ms; a 260 KB snapshot went up and came back in ${Math.round(snapMs)} ms`);
 process.exit(0);
