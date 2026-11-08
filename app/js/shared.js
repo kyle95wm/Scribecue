@@ -8,11 +8,11 @@ import * as Y from '../vendor/yjs.js';
 import { cleanComments } from './comments.js';
 
 export const LOCAL = 'local';
-const FIELDS = ['start', 'end', 'speed', 'voice', 'dip', 'dipBy', 'vol', 'auto', 'fit', 'pinned', 'say', 'extended', 'notes', 'edited'];
+export const SHARED_FIELDS = ['start', 'end', 'speed', 'voice', 'dip', 'dipBy', 'vol', 'auto', 'fit', 'pinned', 'say', 'extended', 'notes', 'edited'];
 // What's shared about a block, as plain values: what a change is compared by.
 const shareable = (b) => {
   const o = { text: b.text || '' };
-  for (const k of FIELDS) if (b[k] !== undefined && b[k] !== null && b[k] !== false) o[k] = b[k];
+  for (const k of SHARED_FIELDS) if (b[k] !== undefined && b[k] !== null && b[k] !== false) o[k] = b[k];
   return o;
 };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -29,6 +29,9 @@ export function retype(text, next) {
   if (was.length - start - end) text.delete(start, was.length - start - end);
   if (next.length - start - end) text.insert(start, next.slice(start, next.length - end));
 }
+
+const commentOrder = (a, z) => a.created.localeCompare(z.created) || a.id.localeCompare(z.id);
+const plainComments = (list, timed) => cleanComments(list.map(({ block, ...c }) => c).sort(commentOrder), timed);
 
 export class SharedProject {
   constructor(doc = new Y.Doc()) {
@@ -71,12 +74,28 @@ export class SharedProject {
     }
     const want = shareable(b);
     if (m.get('text').toString() !== want.text) { retype(m.get('text'), want.text); n++; }
-    for (const k of FIELDS) {
+    for (const k of SHARED_FIELDS) {
       if (k in want) { if (!same(m.get(k), want[k])) { m.set(k, want[k]); n++; } }
       else if (m.has(k)) { m.delete(k); n++; }
     }
     return n;
   }
+
+  // Some blocks as plain values, by uid: null for a block that's gone. With their comments.
+  readBlocks(uids) {
+    const byBlock = new Map(uids.map((uid) => [uid, []]));
+    for (const c of this.comments.values()) if (c.block && byBlock.has(c.block)) byBlock.get(c.block).push(c);
+    return new Map(uids.map((uid) => {
+      const m = this.blocks.get(uid);
+      if (!m) return [uid, null];
+      const b = { uid, text: m.get('text').toString() };
+      for (const k of SHARED_FIELDS) if (m.has(k)) b[k] = m.get(k);
+      const comments = plainComments(byBlock.get(uid), false);
+      if (comments.length) b.comments = comments;
+      return [uid, b];
+    }));
+  }
+  readTimeline() { return plainComments([...this.comments.values()].filter((c) => !c.block), true); }
 
   // The blocks and comments as plain values, in time order, as the app keeps them.
   read() {
@@ -85,16 +104,14 @@ export class SharedProject {
       if (c.block) { if (!byBlock.has(c.block)) byBlock.set(c.block, []); byBlock.get(c.block).push(c); }
       else timeline.push(c);
     }
-    const order = (a, z) => a.created.localeCompare(z.created) || a.id.localeCompare(z.id);
-    const plain = (list, timed) => cleanComments(list.map(({ block, ...c }) => c).sort(order), timed);
     const blocks = [...this.blocks.entries()].map(([uid, m]) => {
       const b = { uid, text: m.get('text').toString() };
-      for (const k of FIELDS) if (m.has(k)) b[k] = m.get(k);
-      const comments = plain(byBlock.get(uid) || [], false);
+      for (const k of SHARED_FIELDS) if (m.has(k)) b[k] = m.get(k);
+      const comments = plainComments(byBlock.get(uid) || [], false);
       if (comments.length) b.comments = comments;
       return b;
     }).sort((a, z) => a.start - z.start || a.uid.localeCompare(z.uid));
-    return { blocks, comments: plain(timeline, true) };
+    return { blocks, comments: plainComments(timeline, true) };
   }
 
   // Calls `fn` with the uids of blocks changed by someone else, and whether timeline
@@ -129,4 +146,29 @@ export class SharedProject {
 
   update() { return Y.encodeStateAsUpdate(this.doc); }
   apply(update, origin = 'remote') { Y.applyUpdate(this.doc, update, origin); }
+}
+
+// Links the shared copies of the same project in this browser's other tabs: the stand-in for
+// the sharing service until it exists. A tab that opens asks the others for their copy and
+// waits up to `wait` ms: `ready` says whether one came. It only answers others once ready,
+// so an empty copy is never handed on.
+export function linkTabs(shared, name, { Channel = globalThis.BroadcastChannel, wait = 400 } = {}) {
+  if (!Channel) return { ready: Promise.resolve(false), stop: () => {} };
+  const channel = new Channel(`scribecue-shared:${name}`);
+  const send = (type, update) => { try { channel.postMessage({ type, update }); } catch { /* closed */ } };
+  const onUpdate = (update, origin) => { if (origin !== 'remote') send('update', update); };
+  let answering = false, joined;
+  const ready = new Promise((resolve) => { joined = resolve; setTimeout(() => resolve(false), wait); })
+    .then((got) => { answering = true; return got; });
+  shared.doc.on('update', onUpdate);
+  channel.onmessage = ({ data }) => {
+    if (!data || typeof data !== 'object') return;
+    if (data.type === 'hello') { if (answering) send('state', shared.update()); }
+    else if ((data.type === 'update' || data.type === 'state') && data.update instanceof Uint8Array) {
+      try { shared.apply(data.update); } catch { return; /* a damaged update changes nothing */ }
+      if (data.type === 'state') joined(true);
+    }
+  };
+  send('hello');
+  return { ready, stop: () => { shared.doc.off('update', onUpdate); channel.close(); } };
 }

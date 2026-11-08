@@ -110,7 +110,7 @@ with a plain exported script can still edit that script outside the review workf
   still holds the key; writers delete it after the review. Combined packages, author audio
   attachments and author JSON leave it out.
 
-## Shared copy (Yjs), not yet switched on
+## Shared copy (Yjs) and two tabs, not yet switched on
 
 Live sharing will send changes as Yjs updates. `shared.js` keeps a Yjs document of the
 project's blocks and comments; the app's own blocks stay the source it edits.
@@ -122,10 +122,27 @@ project's blocks and comments; the app's own blocks stay the source it edits.
   uid or `null` for timeline comments.
 - `changed()` copies edits in (`noteShared` in `app.js`): one block when it knows which,
   otherwise the whole script. Another project starts a new document.
-- `observe()` reports others' changes by block uid; the app doesn't apply them yet.
+- `observe()` reports others' changes by block uid. `applyShared` in `app.js` puts them into
+  the script in place: only those blocks and their comments, with no undo step, no
+  "edited by" stamp, no new reading. The caret in a block being typed stays with the letters
+  around it (`keepCaret`).
+- Tabs of one browser with the same project open share changes over `BroadcastChannel`
+  (`linkTabs`), as the sharing service will. A tab that opens asks for another tab's copy
+  and waits up to 400 ms. If one comes, it takes that copy; otherwise it starts its own.
+  Tabs only answer once their own copy is ready. Two tabs opening at the same moment can
+  each start their own, which then conflict at block level: the service will avoid this
+  by always handing out its copy.
+- Undo still puts back the whole script as it was, which can undo changes from another tab.
+  A toast says so. Undo that only undoes your own changes comes next.
 - It only runs with `scribecue.sharedCopy` set to `1` in the browser's storage. Yjs then
   loads on demand; otherwise it never loads.
 - Yjs is bundled by `scripts/vendor-yjs.sh` into `app/vendor/yjs.js`, at a fixed version.
+- `scripts/two-tab-smoke.mjs` opens two tabs at 6× with 1,500 blocks: joining, typing in
+  the same block at once, carets, deleting, commenting and names. Two Scribecue tabs in one
+  headless browser slow each other a lot (14 → 72 ms a character with sharing off), so
+  compare its typing time with that, not with one tab. Sharing added about 10–15 ms.
+- `SHARED_COPY=1 scripts/slow-chromium.sh tour` runs the 1-CPU tour with it on: like `main`,
+  with bulk changes (find and replace, undo) about 60 ms slower.
 - `scripts/shared-smoke.mjs` checks it at 6× with 1,500 blocks. Measured: whole-script copy
   7–8 ms, one block 0–2 ms, about 3–5 ms more per typed character, no added long tasks.
 
