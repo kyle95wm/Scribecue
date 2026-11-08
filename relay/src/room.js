@@ -5,7 +5,8 @@
 // The owner signs the list of links: each link's id, role, public key and its "box" (the
 // project key and link key, encrypted with the link's secret and password). The relay checks
 // signatures so it can refuse writes a link may not make, and receiving clients check them
-// again.
+// again. A link turned off stays on the list, marked off and without its box: it can't sign
+// in, but the changes it made before still check out for whoever opens the project later.
 //
 // This file has no Cloudflare in it: storage and sockets are passed in, so it runs in Node
 // for the tests. See index.js for the Worker and Durable Object around it.
@@ -20,7 +21,8 @@ export const ROLES = ['edit', 'review', 'comment'];
 export const LIMITS = {
   message: 2_000_000, // characters in one message
   room: 64 * 1024 * 1024, // bytes kept for one project
-  links: 30,
+  links: 30, // links on at once
+  offLinks: 200, // links turned off, kept so their earlier changes still check out
   idle: 180 * 24 * 3600 * 1000, // a project nobody opens for this long is deleted
 };
 const CHUNK = 100_000; // stored values stay well under the storage's own limit
@@ -58,12 +60,15 @@ export async function readLinks(room, owner, signedLinks, verify) {
   if (typeof text !== 'string' || typeof sig !== 'string' || text.length > 200_000) throw new Error('bad links');
   if (!(await verify(owner, unb64(sig), signed.links(text)))) throw new Error('links not signed by the owner');
   const o = JSON.parse(text);
-  if (o.room !== room || !Number.isSafeInteger(o.n) || o.n < 1 || !Array.isArray(o.links) || o.links.length > LIMITS.links) throw new Error('bad links');
+  if (o.room !== room || !Number.isSafeInteger(o.n) || o.n < 1 || !Array.isArray(o.links)) throw new Error('bad links');
+  const off = o.links.filter((l) => l?.off === true).length;
+  if (o.links.length - off > LIMITS.links || off > LIMITS.offLinks) throw new Error('bad links');
   const links = new Map();
   for (const l of o.links) {
-    if (!validId(l?.id) || l.id === 'owner' || links.has(l.id) || !ROLES.includes(l.role) || typeof l.pub !== 'string' || typeof l.box !== 'string' || l.box.length > 4000) throw new Error('bad link');
+    if (!validId(l?.id) || l.id === 'owner' || links.has(l.id) || !ROLES.includes(l.role) || typeof l.pub !== 'string') throw new Error('bad link');
+    if (l.off !== true && (typeof l.box !== 'string' || l.box.length > 4000)) throw new Error('bad link');
     unb64(l.pub);
-    links.set(l.id, { role: l.role, pub: l.pub, box: l.box });
+    links.set(l.id, l.off === true ? { role: l.role, pub: l.pub, off: true } : { role: l.role, pub: l.pub, box: l.box });
   }
   return { n: o.n, links };
 }
@@ -122,7 +127,7 @@ export class Room {
       if (state.role !== 'owner') {
         const meta = await this.storage.get('meta');
         const l = meta && (await this.#links(meta)).links.get(state.link);
-        if (!l || l.role !== state.role || l.pub !== state.pub) return fail(socket, 'link-off', true);
+        if (!l || l.off || l.role !== state.role || l.pub !== state.pub) return fail(socket, 'link-off', true);
       }
       if (m.type === 'sync') return await this.#sync(socket, m);
       if (m.type === 'update') return await this.#update(socket, state, m);
@@ -146,7 +151,7 @@ export class Room {
   async #box(socket, m) {
     const meta = await this.storage.get('meta');
     const l = meta && validId(m.link) && (await this.#links(meta)).links.get(m.link);
-    if (!l) return fail(socket, 'no-link');
+    if (!l || l.off) return fail(socket, 'no-link');
     send(socket, { type: 'box', link: m.link, role: l.role, box: l.box });
   }
 
@@ -169,7 +174,7 @@ export class Room {
     if (m.link === 'owner') { role = 'owner'; pub = meta.owner; }
     else {
       const l = validId(m.link) && (await this.#links(meta)).links.get(m.link);
-      if (!l) return fail(socket, 'link-off', true);
+      if (!l || l.off) return fail(socket, 'link-off', true);
       ({ role, pub } = l);
     }
     if (typeof m.sig !== 'string' || !state.nonce || !(await this.verify(pub, unb64(m.sig), signed.auth(this.id, state.nonce)))) return fail(socket, 'bad-signature', true);
@@ -244,7 +249,7 @@ export class Room {
       if (other === socket || !s?.role) continue;
       if (s.role === 'owner') { send(other, { type: 'links', links: m.links }); continue; } // the owner's other tabs
       const l = next.links.get(s.link);
-      if (!l || l.role !== s.role || l.pub !== s.pub) fail(other, 'link-off', true);
+      if (!l || l.off || l.role !== s.role || l.pub !== s.pub) fail(other, 'link-off', true);
       else send(other, { type: 'links', links: m.links });
     }
     send(socket, { type: 'ack', id: m.id ?? null, seq: meta.seq });

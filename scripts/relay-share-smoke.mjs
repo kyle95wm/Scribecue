@@ -1,13 +1,14 @@
 // Two people sharing a project through the relay, each in their own headless, muted Chrome at
 // 6× CPU slowdown, with 1,500 blocks over two hours, through the Share and join dialogs. A
 // makes an edit link; B opens it (a wrong password first); typing passes both ways; B reloads
-// and is still in; B goes offline, edits, and catches up; A turns the link off, then stops
-// sharing. Takes screenshots of both dialogs if given a folder.
-// Needs the relay running locally (`npm run dev` in relay/).
+// and is still in; B goes offline, edits, and catches up; A turns the link off, makes a new
+// one that B opens again, then stops sharing. Takes screenshots of both dialogs if given a folder.
+// Uses the relay at RELAY, by default one running locally (`npm run dev` in relay/).
 // Usage: node scripts/relay-share-smoke.mjs <A's DevTools port> <B's DevTools port> <site url> [screenshot folder]
 import assert from 'node:assert/strict';
 const [,, portA, portB, site, shots] = process.argv;
 import { writeFileSync } from 'node:fs';
+const RELAY = process.env.RELAY || 'ws://127.0.0.1:8787';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function browser(port) {
   const t = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find((x) => x.type === 'page');
@@ -17,7 +18,7 @@ async function browser(port) {
   ws.addEventListener('message', (e) => { const m = JSON.parse(e.data); if (m.id) { pending.get(m.id)?.(m); pending.delete(m.id); } });
   const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
   const js = async (expression) => { const m = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, userGesture: true }); if (m.result?.exceptionDetails) throw Error(JSON.stringify(m.result.exceptionDetails).slice(0, 500)); return m.result.result.value; };
-  const wait = async (expression, what = expression, tries = 160) => { for (let i = 0; i < tries; i++) { if (await js(expression).catch(() => false)) return; await sleep(250); } throw Error('Timed out: ' + what); };
+  const wait = async (expression, what = expression, tries = 160) => { const t0 = performance.now(); for (let i = 0; i < tries; i++) { if (await js(expression).catch(() => false)) { if (process.env.VERBOSE) console.error(`${what}: ${Math.round(performance.now() - t0)} ms`); return; } await sleep(250); } throw Error('Timed out: ' + what); };
   await send('Network.enable'); await send('Network.setBypassServiceWorker', { bypass: true }); await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Emulation.setCPUThrottlingRate', { rate: 6 });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
@@ -30,8 +31,8 @@ async function browser(port) {
   const fill = (sel, v) => js(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});e.focus();e.value=${JSON.stringify(v)};e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
   return { ws, send, js, wait, watch, open, type, report, shot, click, fill };
 }
-const settings = (name, cues) => `localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',reviewer:${JSON.stringify(name)},sharedCopy:'1',setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);
-  localStorage.setItem('scribecue.v1',JSON.stringify({dirty:false,projectId:crypto.randomUUID(),cues:${cues}}));location.reload();true`;
+const settings = (name, cues) => `localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',reviewer:${JSON.stringify(name)},sharedCopy:'1',relay:${JSON.stringify(RELAY)},setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);
+  localStorage.setItem('scribecue.v1',JSON.stringify({dirty:false,projectId:crypto.randomUUID(),cues:${cues}}));Storage.prototype.setItem=()=>{};location.reload();true`;
 const online = `window.scribecueRelay?.status==='online' && !window.scribecueRelay.unsent()`;
 const rowText = (n) => `[...document.querySelectorAll('#list .row')][${n}]?.textContent||''`;
 
@@ -92,19 +93,22 @@ try {
 
   // B reloads: still in the project, still connected, nothing to type again.
   await sleep(1800); // B's copy is kept a moment after each change
-  await b.js(`location.reload();true`);
-  await b.wait(`${online} && (${rowText(2)}).includes('Sam typed this.')`, 'B back after reloading');
+  await b.js(`window.__old=true;location.reload();true`);
+  await b.wait(`!window.__old && ${online} && (${rowText(2)}).includes('Sam typed this.')`, 'B back after reloading');
   await b.watch();
 
   // B goes offline and edits; it arrives once B is back.
+  // Chrome's offline mode doesn't always stop a new WebSocket, so B's tries to reconnect go
+  // nowhere until it's back.
   await b.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
-  await b.js(`window.scribecueRelay.ws.close();true`);
+  await b.js(`(()=>{const r=window.scribecueRelay;r.__ws=r.WebSocket;r.WebSocket=class{constructor(){return new r.__ws('ws://127.0.0.1:9')}};r.ws.close();return true})()`);
   await b.wait(`window.scribecueRelay.status!=='online'`, 'B offline');
   await b.open(3);
   await b.type(' Written offline.');
   await b.js(`document.activeElement.blur();true`);
   await sleep(500);
   assert.ok(!(await a.js(rowText(3))).includes('Written offline.'));
+  await b.js(`(()=>{const r=window.scribecueRelay;r.WebSocket=r.__ws;return true})()`);
   await b.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
   await a.wait(`(${rowText(3)}).includes('Written offline.')`, 'A gets B’s offline edit', 240);
   const same = async () => JSON.stringify(await a.js(`scribecueShared.read()`)) === JSON.stringify(await b.js(`scribecueShared.read()`));
@@ -116,6 +120,20 @@ try {
   await a.js(`[...document.querySelectorAll('#shareLinks button')].find(b=>b.textContent==='Turn off').click();true`);
   await b.wait(`!window.scribecueRelay && document.getElementById('shareState').hidden`, 'B is let go');
   assert.equal(await b.js(`document.querySelectorAll('#list .row').length`), 1500, 'B keeps its copy');
+  // A makes a new link and B opens it: B starts again from the relay's copy, not the one it kept.
+  await sleep(1800);
+  await a.fill('#sharePw-edit', 'red door');
+  await a.click('#sharePw-edit + button');
+  await a.wait(`document.querySelector('.sharelink') && ${online}`, 'A’s new link');
+  const again = await a.js(`document.querySelector('.sharelink').value`);
+  await b.js(`window.confirm=()=>true;location.href=${JSON.stringify(again)};true`);
+  await b.wait(`document.getElementById('joinDlg').open`, 'join dialog again');
+  await b.fill('#joinPassword', 'red door');
+  await b.click('#joinOpen');
+  await b.wait(`document.querySelectorAll('#list .row').length===1500 && (${rowText(3)}).includes('Written offline.') && ${online}`, 'B back in with the whole script');
+  await sleep(800);
+  assert.equal(await a.js(`scribecueShared.blocks.size`), 1500, 'A’s copy is whole');
+  assert.ok(await same(), 'both copies agree again');
   // A stops sharing: back to a plain project.
   await a.js(`window.confirm=()=>true;document.getElementById('shareStop').click();true`);
   await a.wait(`!window.scribecueRelay && !Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.'))`, 'A stopped sharing');

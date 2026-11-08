@@ -91,7 +91,7 @@ export function parseLink(hash) {
 
 // The owner's signed list of links: { text, sig }, with `n` higher each time it changes.
 export async function signLinks(owner, n, links) {
-  const text = JSON.stringify({ room: owner.room, n, links: links.map(({ id, role, pub, box }) => ({ id, role, pub, box })) });
+  const text = JSON.stringify({ room: owner.room, n, links: links.map(({ id, role, pub, box, off }) => (off ? { id, role, pub, off: true } : { id, role, pub, box })) });
   const sign = await signer(owner.ownerPriv);
   return { text, sig: await sign(signed.links(text)) };
 }
@@ -118,7 +118,8 @@ export async function readLinks(room, ownerPub, { text, sig } = {}, verify = ver
   const o = JSON.parse(text);
   if (o.room !== room || !Array.isArray(o.links)) throw new Error('bad links');
   const out = new Map([['owner', { role: 'owner', pub: ownerPub }]]);
-  for (const l of o.links) if (ROLES.includes(l?.role) && typeof l.pub === 'string' && l.id !== 'owner') out.set(l.id, { role: l.role, pub: l.pub });
+  // A link turned off is kept, marked off: changes it made before it was turned off still count.
+  for (const l of o.links) if (ROLES.includes(l?.role) && typeof l.pub === 'string' && l.id !== 'owner') out.set(l.id, { role: l.role, pub: l.pub, ...(l.off === true ? { off: true } : {}) });
   return { n: o.n, links: out };
 }
 

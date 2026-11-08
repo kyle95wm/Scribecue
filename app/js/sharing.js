@@ -4,8 +4,9 @@
 import { newOwner, newLink, openBox, signLinks, parseLink, linkUrl, ROLES } from './sharekeys.js';
 import { fetchBox } from './relayclient.js';
 
-// The relay runs locally until it's deployed. A developer setting points elsewhere.
-export const DEFAULT_RELAY = 'ws://127.0.0.1:8787';
+// Scribecue's relay. A developer setting points elsewhere, such as ws://127.0.0.1:8787 for
+// one run locally with `npm run dev` in relay/.
+export const DEFAULT_RELAY = 'wss://share.kyleadvoice.ca';
 export function relayUrl(storage = globalThis.localStorage) {
   try { return storage.getItem('scribecue.relay') || DEFAULT_RELAY; } catch { return DEFAULT_RELAY; }
 }
@@ -33,12 +34,15 @@ export async function startSharing(project, relay, passwords, opts) {
   return { relay, room: owner.room, link: 'owner', role: 'owner', priv: owner.ownerPriv, ownerPub: owner.ownerPub, projectKey: owner.projectKey, project, links, n: 1, created: false };
 }
 // One link per role: a new one for a role replaces the old, which stops working. Each change
-// to the list counts up, so the relay and others can tell the newest.
+// to the list counts up, so the relay and others can tell the newest. A link turned off stays
+// on the list, marked off, so the changes it made still count; only its key to check them is
+// kept.
+const turnOff = (l) => (l.off ? l : { id: l.id, role: l.role, pub: l.pub, off: true });
 export async function addLink(record, role, password, opts) {
   const link = await newLink({ room: record.room, projectKey: record.projectKey, ownerPub: record.ownerPub, project: record.project }, role, password, opts);
-  return { ...record, n: record.n + 1, links: [...record.links.filter((l) => l.role !== role), link] };
+  return { ...record, n: record.n + 1, links: [...record.links.map((l) => (l.role === role ? turnOff(l) : l)), link] };
 }
-export const removeLink = (record, id) => ({ ...record, n: record.n + 1, links: record.links.filter((l) => l.id !== id) });
+export const removeLink = (record, id) => ({ ...record, n: record.n + 1, links: record.links.map((l) => (l.id === id ? turnOff(l) : l)) });
 
 // The project that has joined or shares this room, if any, among those kept here.
 export function shareForRoom(room, storage = globalThis.localStorage) {
@@ -55,7 +59,7 @@ export function shareForRoom(room, storage = globalThis.localStorage) {
 
 // The owner's signed list, as the relay and others need it.
 export const signedLinks = (r) => signLinks({ room: r.room, ownerPriv: r.priv }, r.n, r.links);
-export const linksOf = (r, base) => (r.links || []).map((l) => ({ id: l.id, role: l.role, url: linkUrl(base, r.room, l.id, l.secret) }));
+export const linksOf = (r, base) => (r.links || []).filter((l) => !l.off).map((l) => ({ id: l.id, role: l.role, url: linkUrl(base, r.room, l.id, l.secret) }));
 
 // The keys a connection signs in with.
 export const who = (r) => ({ link: r.link, priv: r.priv, ownerPub: r.ownerPub, projectKey: r.projectKey });

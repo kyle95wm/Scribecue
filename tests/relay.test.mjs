@@ -148,6 +148,21 @@ test('turning a link off closes its socket and stops it signing in', async () =>
   assert.equal((await o.say({ type: 'links', links: await linksFor(commenter, 3, []) }))[0].code, 'bad-message');
 });
 
+test('a link marked off can’t sign in or get its box, but stays on the list', async () => {
+  const { join, o, owner, editor, links } = await start();
+  const ed = await join('ed1', editor);
+  const off = [{ id: 'ed1', role: 'edit', pub: editor.pub, off: true }, links[1]];
+  assert.equal((await o.say({ type: 'links', links: await linksFor(owner, 2, off) }))[0].type, 'ack');
+  assert.equal(ed.s.closed, 'link-off');
+  const again = await join('ed1', editor);
+  assert.equal(again.box.code, 'no-link');
+  assert.equal(again.w.code, 'link-off');
+  // Off links don't count towards the links that can be on at once.
+  const many = Array.from({ length: LIMITS.links }, (_, i) => ({ id: 'x' + i, role: 'comment', pub: editor.pub, box: 'b' }));
+  assert.equal((await o.say({ type: 'links', links: await linksFor(owner, 3, [...off, ...many.slice(1)]) }))[0].type, 'ack');
+  assert.equal((await o.say({ type: 'links', links: await linksFor(owner, 4, [...off, ...many, links[1]]) }))[0].code, 'bad-message');
+});
+
 test('a socket from before a link went off is closed at its next message', async () => {
   const { join, update, o, owner, editor, links, storage } = await start();
   const ed = await join('ed1', editor);
