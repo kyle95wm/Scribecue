@@ -1,7 +1,9 @@
 // Two people sharing a project through the relay, each in their own headless, muted Chrome at
 // 6× CPU slowdown, with 1,500 blocks over two hours, through the Share and join dialogs. A
 // makes an edit link; B opens it (a wrong password first); typing passes both ways; B reloads
-// and is still in; B goes offline, edits, and catches up; A turns the link off, makes a new
+// and is still in; B goes offline, edits, and catches up; A shares a separate Google key, which
+// B reads Google voices with, then takes it out (Google's answers are stubbed in both pages, so
+// no real key is used); A turns the link off, makes a new
 // one that B opens again, then stops sharing. Takes screenshots of both dialogs if given a folder.
 // Uses the relay at RELAY, by default one running locally (`npm run dev` in relay/).
 // Usage: node scripts/relay-share-smoke.mjs <A's DevTools port> <B's DevTools port> <site url> [screenshot folder]
@@ -34,6 +36,11 @@ async function browser(port) {
 const settings = (name, cues, on = true) => `localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',reviewer:${JSON.stringify(name)},${on ? "sharedCopy:'1'," : ''}relay:${JSON.stringify(RELAY)},setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);
   localStorage.setItem('scribecue.v1',JSON.stringify({dirty:false,projectId:crypto.randomUUID(),cues:${cues}}));Storage.prototype.setItem=()=>{};location.reload();true`;
 const online = `window.scribecueRelay?.status==='online' && !window.scribecueRelay.unsent()`;
+// Google's answers, without a real key: only "separate-test-key" is accepted.
+const stubGoogle = `(()=>{const f=window.fetch;window.__googleKeys=[];window.fetch=(u,i)=>{if(!String(u).includes('texttospeech.googleapis.com'))return f(u,i);const k=i?.headers?.['x-goog-api-key'];__googleKeys.push(k);
+  if(k!=='separate-test-key')return Promise.resolve(new Response(JSON.stringify({error:{message:'API key not valid. Please pass a valid API key.'}}),{status:400}));
+  return Promise.resolve(new Response(JSON.stringify(String(u).endsWith('/voices')?{voices:[{name:'en-US-Standard-C',languageCodes:['en-US'],ssmlGender:'FEMALE'}]}:{audioContent:''})))};return true})()`;
+const googleVoices = (site) => `import(${JSON.stringify(new URL('js/tts.js', site).href)}).then(m=>m.usingProjectGoogleKey()?m.tts.google.length:-1)`;
 const rowText = (n) => `[...document.querySelectorAll('#list .row')][${n}]?.textContent||''`;
 
 const a = await browser(portA), b = await browser(portB);
@@ -148,6 +155,32 @@ try {
   await sleep(800);
   assert.ok(await same(), 'both copies agree');
 
+  // A lets B use a separate Google key: a wrong one is refused, the right one reaches B, whose
+  // Google voices read with it. Taking it out tells B.
+  await a.js(stubGoogle); await b.js(stubGoogle);
+  await a.click('#shareBtn');
+  await a.wait(`!document.getElementById('shareGoogle').hidden`, 'A sees Google voices in the dialog');
+  await a.click('#shareGoogleOn');
+  await a.wait(`!document.getElementById('shareGoogleRow').hidden && document.activeElement?.id==='shareGoogleKey'`, 'the key field opens');
+  await a.shot('share-google-key');
+  await a.fill('#shareGoogleKey', 'wrong-test-key');
+  await a.click('#shareGoogleSave');
+  await a.wait(`/didn’t accept that key/.test(document.getElementById('toast').textContent)`, 'a wrong key is refused');
+  assert.equal(await a.js(`scribecueShared.googleKey()`), '', 'nothing shared');
+  await a.fill('#shareGoogleKey', 'separate-test-key');
+  t0 = performance.now();
+  await a.click('#shareGoogleSave');
+  await a.wait(`document.getElementById('shareGoogleOn').getAttribute('aria-pressed')==='true' && !document.getElementById('shareGoogleRow').offsetParent`, 'A shared the key, and the field goes');
+  await b.wait(`${googleVoices(site)}.then(n=>n===1)`, 'B reads Google voices with it');
+  const keyMs = performance.now() - t0;
+  assert.equal(await b.js(`__googleKeys.every(k=>k==='separate-test-key')`), true, 'B asked Google with the project’s key');
+  await a.shot('share-google');
+  await a.click('#shareGoogleOn');
+  await a.wait(`document.getElementById('shareGoogleOn').getAttribute('aria-pressed')==='false' && scribecueShared.googleKey()===''`, 'A takes the key out');
+  await b.wait(`/Google key was taken out/.test(document.getElementById('toast').textContent)`, 'B is told');
+  assert.equal(await b.js(`import(${JSON.stringify(new URL('js/tts.js', site).href)}).then(m=>m.tts.google.length)`), 0, 'B has no Google voices now');
+  await a.js(`document.getElementById('shareClose').click();true`);
+
   // A turns the link off: B is told, keeps its copy, and is no longer connected. A's list
   // says where B's changes stop: B's last number.
   const [bDev, bN] = await b.js(`[scribecueRelay.dev, scribecueRelay.n]`);
@@ -186,6 +219,6 @@ try {
   await a.wait(`!window.scribecueRelay && !Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.'))`, 'A stopped sharing');
   await a.js(`document.getElementById('shareClose').click();true`);
 
-  console.log(`Relay share smoke passed at 6× with 1,500 blocks: sharing took ${Math.round(shareMs)} ms, joining ${Math.round(joinMs)} ms; A typed ${(aMs / 17).toFixed(1)} ms a character; it reached B in ${Math.round(reachMs)} ms; A ${await a.report()}; B ${await b.report()} since reloading`);
+  console.log(`Relay share smoke passed at 6× with 1,500 blocks: sharing took ${Math.round(shareMs)} ms, joining ${Math.round(joinMs)} ms; A typed ${(aMs / 17).toFixed(1)} ms a character; it reached B in ${Math.round(reachMs)} ms; a shared Google key reached B in ${Math.round(keyMs)} ms; A ${await a.report()}; B ${await b.report()} since reloading`);
 } finally { a.ws.close(); b.ws.close(); }
 process.exit(0);

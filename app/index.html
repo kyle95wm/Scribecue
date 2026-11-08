@@ -721,6 +721,12 @@ docker compose up -d --build</code></pre>
     <p id="shareIntro"></p>
     <p id="shareNameRow" class="updstatus" hidden><label for="shareName">Your name</label> <input id="shareName" autocomplete="name" spellcheck="false" maxlength="60"></p>
     <div id="shareLinks"></div>
+    <section id="shareGoogle" class="sharerow" hidden>
+      <h3>Google voices</h3>
+      <p id="shareGoogleInfo" class="dim small"></p>
+      <p class="updstatus sharerowline"><button id="shareGoogleOn" aria-pressed="false">Let others use a separate Google key</button></p>
+      <p id="shareGoogleRow" class="updstatus sharerowline" hidden><label for="shareGoogleKey">Separate key</label> <input id="shareGoogleKey" type="password" autocomplete="off" spellcheck="false"> <button id="shareGoogleSave">Share key</button></p>
+    </section>
     <p id="sharePrivacy" class="dim small">The project is encrypted on this computer before it’s sent, so the sharing service can’t read it. People with a link and its password can. Everyone in the project sees each other’s names and which block each has open.</p>
     <p id="shareStatus" class="dim small" role="status"></p>
     <div class="updbtns"><button id="shareStop" hidden>Stop sharing</button><button id="shareLeave" hidden>Leave</button><button id="shareClose">Close</button></div>

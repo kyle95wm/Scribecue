@@ -214,3 +214,26 @@ test('a reviewer’s block changes become suggestions; the script stays as it wa
   owner.clearProposals([uid(3)]);
   assert.equal(reviewer.readProposals().length, 0);
 });
+
+test('the owner’s separate Google key reaches everyone, apart from the blocks and undo', () => {
+  const [a, b] = pair(), keys = [], seen = [];
+  b.onGoogleKey((k) => keys.push(k));
+  b.observe((uids) => seen.push(uids));
+  a.write(blocks(), timeline());
+  seen.length = 0;
+  const undo = a.undoer(); undo.step();
+  a.setGoogleKey('separate-test-key');
+  assert.equal(b.googleKey(), 'separate-test-key');
+  assert.deepEqual(keys, ['separate-test-key']);
+  assert.deepEqual(seen, [], 'no block counts as changed');
+  assert.deepEqual(b.read(), a.read(), 'the blocks read the same');
+  undo.undoTo({ script: 0, comments: 0, review: 0 });
+  assert.equal(b.googleKey(), 'separate-test-key', 'undo leaves it');
+  a.setGoogleKey('');
+  assert.equal(b.googleKey(), '');
+  assert.deepEqual(keys, ['separate-test-key', '']);
+  // A newcomer gets it with the rest of the script.
+  a.setGoogleKey('separate-test-key');
+  const c = new SharedProject(); c.apply('script', a.update('script'));
+  assert.equal(c.googleKey(), 'separate-test-key');
+});
