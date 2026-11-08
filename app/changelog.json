@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.92.2",
+    "date": "2026-11-08",
+    "notes": "## Sharing projects: early testing\n\n- If someone sends you a link to a shared project, opening it lets you join.\n- Sharing is still being tested. Nothing else changes."
+  },
+  {
     "version": "0.92.1",
     "date": "2026-11-08",
     "notes": "## Sharing projects: getting ready\n\n- More groundwork for sharing a project with others, live. It's not switched on yet.\n- Nothing changes in how Scribecue works for you."
