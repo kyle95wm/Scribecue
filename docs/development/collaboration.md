@@ -122,6 +122,11 @@ project's blocks and comments; the app's own blocks stay the source it edits.
   uid or `null` for timeline comments.
 - `changed()` copies edits in (`noteShared` in `app.js`): one block when it knows which,
   otherwise the whole script. Another project starts a new document.
+- Others see a block once it's done, not letter by letter. While the text field has focus,
+  the relay client holds back `script` and `review` changes (`hold`), and sends them when
+  it loses focus: Enter, Esc, ↑ ↓ to another block, or a click elsewhere. Comments still go
+  at once. What's typed is still merged into the copy here, so others' changes to the same
+  block arrive while typing, and both stay. Presence still shows who is editing which block.
 - `observe()` reports others' changes by block uid. `applyShared` in `app.js` puts them into
   the script in place: only those blocks and their comments, with no undo step, no
   "edited by" stamp, no new reading. The caret in a block being typed stays with the letters
@@ -252,8 +257,8 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
 - `scripts/relay-share-smoke.mjs` runs two browsers at 6× with 1,500 blocks through the
   relay at `RELAY` (local by default) and the dialogs. It covers who's here, reloading,
   going offline, a link turned off and a new one opened. Measured: sharing 0.8–1.3 s,
-  joining 0.7–1.2 s, typing 17–25 ms a character, a change reaching the other person in
-  about 0.25 s. The longest task is about 100 ms for the owner, and about 300 ms for
+  joining 0.7–1.2 s, typing 17–25 ms a character, a block reaching the other person
+  about 0.25 s after it's closed. The longest task is about 100 ms for the owner, and about 300 ms for
   someone filling their copy as they join.
 
 ### Reviewers and commenters
