@@ -110,6 +110,25 @@ with a plain exported script can still edit that script outside the review workf
   still holds the key; writers delete it after the review. Combined packages, author audio
   attachments and author JSON leave it out.
 
+## Shared copy (Yjs), not yet switched on
+
+Live sharing will send changes as Yjs updates. `shared.js` keeps a Yjs document of the
+project's blocks and comments; the app's own blocks stay the source it edits.
+
+- Each block is a `Y.Map` under `blocks`, keyed by uid, with its text as `Y.Text` so two
+  people typing in one block merge letter by letter. Other shared fields (times, voice,
+  speed, levels, notes, `edited`) take the latest change. Pickups, readings and `id` stay local.
+- Comments are plain values under `comments`, keyed by id, with `block` set to the block's
+  uid or `null` for timeline comments.
+- `changed()` copies edits in (`noteShared` in `app.js`): one block when it knows which,
+  otherwise the whole script. Another project starts a new document.
+- `observe()` reports others' changes by block uid; the app doesn't apply them yet.
+- It only runs with `scribecue.sharedCopy` set to `1` in the browser's storage. Yjs then
+  loads on demand; otherwise it never loads.
+- Yjs is bundled by `scripts/vendor-yjs.sh` into `app/vendor/yjs.js`, at a fixed version.
+- `scripts/shared-smoke.mjs` checks it at 6× with 1,500 blocks. Measured: whole-script copy
+  7–8 ms, one block 0–2 ms, about 3–5 ms more per typed character, no added long tasks.
+
 ## Next: optional sharing service
 
 Invitations and access would belong to the project. Reviewers work in QC, writers in
