@@ -31,7 +31,8 @@ Ask the person sending the review for:
 Use a current version of Scribecue on both computers so both can read and save comments.
 
 For several reviewers, name each copy and agree who combines the findings. New QC
-packages keep a starting point for comparing returned reviews. There is no live shared review.
+packages keep a starting point for comparing returned reviews. To review live instead, see
+[Sharing a project](SHARING.md).
 
 ## Open a review copy
 

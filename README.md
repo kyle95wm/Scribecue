@@ -57,6 +57,7 @@ The guides also open inside Scribecue: press `?` and click **Guides**.
 - [QC review](Guides/QC.md): checking scripts and audio, comments, and review handoffs.
 - [Recording narration](Guides/RECORDING.md): the recording file, Record mode and the narration WAV.
 - [AI help](Guides/AI.md): drafting descriptions with an AI model.
+- [Sharing a project](Guides/SHARING.md): working on a project with others, live. Being tested.
 - [Keyboard shortcuts](Guides/SHORTCUTS.md): every key, and how to change them.
 - [Google voices](Guides/GOOGLE-VOICES.md): setting up Google Cloud voices without being billed.
 - [Amazon Polly voices](Guides/POLLY-VOICES.md): setting up Polly voices with a spending limit.
@@ -66,7 +67,7 @@ The guides also open inside Scribecue: press `?` and click **Guides**.
 ## Privacy
 
 - **Your files stay on your computer.** Video, audio and scripts are opened from your disk
-  and never uploaded.
+  and never uploaded. A script you share goes to the sharing service encrypted.
 - **Nothing else is contacted unless you turn it on.** A strict security policy blocks the
   page from reaching other sites, except for things you choose to use:
   - the [update check](#updating) in the Docker version, if you agree to it;
@@ -74,7 +75,9 @@ The guides also open inside Scribecue: press `?` and click **Guides**.
     draft;
   - TMDB, when you click **Look up the cast** in AI help;
   - [online, Google Cloud and Amazon Polly voices](Guides/VOICES.md), which send each line's text
-    to be read.
+    to be read;
+  - the [sharing service](Guides/SHARING.md), once you share a project or open a shared one.
+    It can't read what it passes on.
 - **Piper, Kokoro and speech to text run on your computer,** in your browser or in
   containers with no internet access. Your audio never leaves your computer.
 - **The web version** is downloaded from GitHub Pages the first time and when it updates.

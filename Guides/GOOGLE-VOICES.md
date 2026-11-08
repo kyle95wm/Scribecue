@@ -71,6 +71,9 @@ Anyone with the package can read its included key, including the copy sent back 
 Google Cloud when it is no longer needed. A separate key in the same Google project
 uses that project’s allowance.
 
+A shared project can have a separate key in the same way. See
+[Sharing a project](SHARING.md#voices).
+
 ## Never being billed
 
 Standard voices have a free allowance of characters each month, which is plenty for most
