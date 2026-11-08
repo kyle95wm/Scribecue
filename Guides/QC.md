@@ -330,6 +330,9 @@ explains what each optional service sends.
 7. Click **Accept review** (**Save combined review** for a QC package). Your choices and the
    reviewer's comments are applied together.
 
+Each change says who returned it, if they saved a name. After you accept, an open block
+shows who changed it last.
+
 Comments don't need a choice. Changes marked **Both changed** are blocks you also edited.
 A split or merge shows as more than one change, so accept or reject them together.
 **Close** stops without changing anything. Switch to **Blocks** to check the script meanwhile.

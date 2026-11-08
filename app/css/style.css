@@ -395,6 +395,8 @@ button.clock { padding: 0; border: 0; background: none; color: inherit; }
 .edfoot #edPickupRow { flex: 1; }
 #qcCommentRow { margin-left: auto; }
 .mode-qc #qcCommentRow { flex: 1; }
+#edEdited { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#edEdited[hidden] { display: none; }
 /* Notes for the narrator, above the text: smaller, so the text stays the main thing. */
 #edNotes { display: block; margin-bottom: 6px; font: 13px/1.4 var(--sans); color: var(--dim); padding: 4px 8px; border-radius: 4px; field-sizing: content; min-height: calc(1.4em + 10px); max-height: 8.4em; }
 #edNotes:focus { color: var(--text); }

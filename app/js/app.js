@@ -4,6 +4,8 @@ import { REVIEW_EXT, isReview, openReview, resaveReview, liveBlock, reviewAllows
 import { reviewedRewrite, speechKey, rereads, canReread, bundledFor, keyName } from './qcspeech.js';
 import { offerLiveVoices, initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments, commentsAllowed } from './comments.js';
+import { cleanEdited, stampEdits, seedEdits, editorCount, editedLine } from './edits.js';
+import { savedName, editorId } from './profile.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
 import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
@@ -230,7 +232,8 @@ const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
   b.say?.length ? { say: b.say } : {},
   cleanPickup(b.pickup) ? { pickup: cleanPickup(b.pickup) } : {},
   b.extended === true ? { extended: true } : {},
-  cleanNotes(b.notes) ? { notes: cleanNotes(b.notes) } : {});
+  cleanNotes(b.notes) ? { notes: cleanNotes(b.notes) } : {},
+  cleanEdited(b.edited) ? { edited: cleanEdited(b.edited) } : {});
 // What text to speech reads for a block: its text, with its "sounds like" words.
 const said = (c) => soundsLike(c.text, c.say);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -567,7 +570,22 @@ function doRedo() {
 
 let saveTimer = 0;
 let commentTimes = [], commentEnd = 0;
+// Who last changed each block. Edits change the list in place; opening a file or undoing
+// replaces it, and keeps the names it had. Record mode leaves the script as it is.
+const editSigs = new Map();
+let editList = null, editors = 0;
+function noteEdits(id) {
+  if (S.cues !== editList || S.mode === 'record') { editList = S.cues; seedEdits(S.cues, editSigs); }
+  else {
+    const c = id == null ? null : S.cues[idx(id)];
+    if (id != null && !c) return;
+    const name = savedName();
+    stampEdits(S.cues, editSigs, { ...(name ? { by: name } : {}), at: new Date().toISOString(), who: editorId() }, c ? c.uid : null);
+  }
+  editors = editorCount(S.cues);
+}
 function changed(id = null) {
+  noteEdits(id);
   stopPreviousReading();
   S.lastChange = Date.now();
   S.changeGen = (S.changeGen || 0) + 1;
@@ -614,7 +632,7 @@ function save() {
       comments: S.comments,
       extendedAll: S.extendedAll,
       reviewId: S.reviewId, qcSettings: S.qcSettings, recording: S.recording,
-      cues: S.cues.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes }) => ({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes })),
+      cues: S.cues.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes, edited }) => ({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes, edited })),
     }));
   } catch { /* storage full or blocked */ }
 }
@@ -1171,6 +1189,8 @@ function updateEditor() {
   if (rec) { if (document.activeElement !== edText) edText.value = alt ? recorder.altText(i) : c.text; }
   else if (!edit || edit.id !== c.id) edText.value = c.text;
   edStats.textContent = '';
+  const editedBy = editedLine(c.edited, editors);
+  $('edEdited').textContent = editedBy; $('edEdited').hidden = !editedBy;
   $('qcPrevious').hidden = true;
   $('qcBlockInfo').textContent = '';
   if (qc()) {

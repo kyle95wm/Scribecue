@@ -220,3 +220,15 @@ test('conflicting block comments are resolved separately from the author’s scr
   assert.equal(resolved.project.blocks[0].text,'Author correction');
   assert.equal(resolved.project.blocks[0].comments[0].text,'Returned note');
 });
+
+test('a comments-only review saved by an older Scribecue, without who changed each block, is still accepted', async () => {
+  const p = project(); p.blocks.forEach((b) => { b.edited = { by: 'Kyle', at: '2026-11-07T14:00:00.000Z', who: 'kyle-browser-1' }; });
+  const original = await readReview(await buildReview(p, make, { handoff: true }));
+  const local = toProject(fromProject(original.project)), remote = structuredClone(original.project);
+  remote.blocks.forEach((b) => delete b.edited);
+  remote.blocks[0].comments = [{ text: 'Lovely', author: 'Sam' }];
+  const result = await compareReturnedReview(local, await returned(original, remote));
+  assert.deepEqual(result.conflicts, []);
+  assert.equal(result.project.blocks[0].comments[0].text, 'Lovely');
+  assert.equal(result.project.blocks[0].edited.by, 'Kyle', 'the writer keeps the names');
+});

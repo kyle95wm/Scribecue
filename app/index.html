@@ -125,6 +125,7 @@
             </span>
             <span id="edAuto" class="autotag" hidden data-tip="This block's end follows the reading as you type. Set the end yourself and it stays where you put it">auto</span>
             <span id="edDur" class="dim"></span>
+            <span id="edEdited" class="dim" hidden data-tip="The last person to change this block. Shown once more than one person has worked on the project. Set your name in Settings, under General"></span>
             <span id="edClash" hidden data-tip="Subtitles can stay up after the words end, so check it by ear"></span>
             <span class="grow"></span>
             <span class="modesw edaltsw" id="edAltSw" role="radiogroup" aria-label="Wording to record">
@@ -566,7 +567,7 @@ docker compose up -d --build</code></pre>
       <p>Click QC under the video to choose programme sound, original readings or an approximate TTS preview. Packaged readings need no key. Piper blocks are read on your computer.</p>
       <p>Click Comment in a block, or right-click the timeline to leave a note. Save and return the reviewed file.</p>
       <div class="ttsgrid"><label for="wzName">Your name</label><input id="wzName" autocomplete="name" maxlength="100" spellcheck="false" placeholder="optional"></div>
-      <p class="dim small">Fills in your name on comments. Leave it blank if you'd rather not. It stays in this browser, and you can change it in Settings, under General.</p>
+      <p class="dim small">Goes on your comments and on blocks you change. Leave it blank if you'd rather not. It stays in this browser, and you can change it in Settings, under General.</p>
     </section>
     <section data-step="transcribe" hidden>
       <h2>Hold-to-mark</h2>
@@ -1276,7 +1277,7 @@ docker compose up -d --build</code></pre>
       <p class="updstatus"><label for="setName" class="small">Name</label>
         <input id="setName" autocomplete="name" maxlength="100" spellcheck="false" placeholder="optional">
         <button id="setNameForget">Forget</button> <span id="setNameStatus" class="dim small" role="status"></span></p>
-      <p class="dim small">Fills in your name on comments, so you don't type it each time. It stays in this browser.</p>
+      <p class="dim small">Goes on your comments and on the blocks you change, so others can see who did what. It stays in this browser until a project or package you share carries it.</p>
       <h3>Editing</h3>
       <label class="updopt"><input type="checkbox" id="setReplay"> Replay: after editing a block, go back to its start</label>
       <p class="dim small">When you press <kbd>Esc</kbd> or <kbd>↵</kbd>, the playhead goes back to the start of

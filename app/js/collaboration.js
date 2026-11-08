@@ -69,10 +69,13 @@ export function mergeProjects(base, local, remote, progress = () => {}, resoluti
     const [before, ours, theirs] = maps.map((m) => m.get(uid));
     let result;
     if (before && ours && theirs) {
-      const body = ({ comments, ...block }) => block;
-      const block = choose(body(before), body(ours), body(theirs), { kind: 'block', uid });
+      // Who last changed a block isn't a change of its own: it goes with the side whose block is kept.
+      const body = ({ comments, edited, ...block }) => block;
+      const mine = body(ours);
+      const block = choose(body(before), mine, body(theirs), { kind: 'block', uid });
+      const edited = block === mine ? ours.edited : theirs.edited;
       const comments = choose(before.comments || [], ours.comments || [], theirs.comments || [], { kind: 'block-comments', uid });
-      result = { ...block, ...(comments.length ? { comments } : {}) };
+      result = { ...block, ...(edited ? { edited } : {}), ...(comments.length ? { comments } : {}) };
     } else result = choose(before, ours, theirs, { kind: 'block', uid });
     if (result) blocks.push(result);
     if (++done % 128 === 0) progress(done, ids.size);
