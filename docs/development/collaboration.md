@@ -221,6 +221,9 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
 - The relay is at `wss://share.kyleadvoice.ca`. The developer setting `scribecue.relay`
   points elsewhere, such as `ws://127.0.0.1:8787` for `npm run dev` in `relay/`. The CSP
   allows both.
+- The Docker copy uses the same relay. It runs at `localhost`, which the relay accepts, and
+  `nginx.conf` allows it in the CSP. A copy served from another address needs that address
+  added to `ORIGINS` in `relay/wrangler.toml`.
 
 ### Share dialog
 
