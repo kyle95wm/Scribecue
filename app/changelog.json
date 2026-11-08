@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.92.0",
+    "date": "2026-11-08",
+    "notes": "## Coming soon: sharing projects\n\n- This release lays the groundwork for sharing a project with others, live.\n- Nothing changes in how Scribecue works for you yet."
+  },
+  {
     "version": "0.91.0",
     "date": "2026-11-08",
     "notes": "## New: see who changed a block\n\n- Once someone else has edited a project too, an open block shows who changed it last.\n- Your own projects look the same as before.\n- Pending review says who returned each change.\n- Set your name in Settings, under General.\n\n## Changed: comments in returned reviews\n\n- Comments you and a reviewer both added are all kept.\n- You only choose when you both changed the same comment.\n- Writers and reviewers should both update before swapping QC packages."
