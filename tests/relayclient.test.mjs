@@ -85,6 +85,28 @@ test('a link joins, catches up, and changes pass both ways', async () => {
   c.stop(); o.stop();
 });
 
+test('a block being typed reaches others once it’s done; comments and their typing still arrive', async () => {
+  const { mine, o, join, edit } = await share();
+  const { s, c } = await join(edit);
+  c.hold(true);
+  const list = s.read().blocks;
+  for (const t of ['Mara opens a r door.', 'Mara opens a re door.', 'Mara opens a red door.']) { list[0].text = t; s.write(list, [], [uid(1)]); await sleep(20); }
+  list[1].comments = [{ id: crypto.randomUUID(), text: 'Too fast?', author: 'Sam', created: '2026-11-08T00:00:00Z' }];
+  s.write(list, [], [uid(2)]);
+  await until(() => mine.read().blocks[1].comments?.length === 1, 'the comment arrives');
+  // The owner changes the same block meanwhile: it reaches the one typing, and both stay.
+  const theirs = mine.read().blocks; theirs[0].text = 'Mara opens a door. Rain.';
+  mine.write(theirs, [], [uid(1)]);
+  await until(() => s.read().blocks[0].text.includes('Rain'), 'the owner’s change arrives while typing');
+  await sleep(50);
+  assert.equal(mine.read().blocks[0].text, 'Mara opens a door. Rain.', 'nothing typed has left yet');
+  assert.equal(await c.compact(), false, 'no whole copy goes with the typing in it');
+  c.hold(false);
+  await until(() => mine.read().blocks[0].text === 'Mara opens a red door. Rain.', 'the typing arrives once done');
+  assert.deepEqual(s.read(), mine.read());
+  c.stop(); o.stop();
+});
+
 test('a comment link changes comments only; its block edits never leave', async () => {
   const { mine, o, join, comment, net, owner } = await share();
   const { s, c } = await join(comment);

@@ -1,6 +1,7 @@
 // Two people sharing a project through the relay, each in their own headless, muted Chrome at
 // 6× CPU slowdown, with 1,500 blocks over two hours, through the Share and join dialogs. A
-// makes an edit link; B opens it (a wrong password first); typing passes both ways; B reloads
+// makes an edit link; B opens it (a wrong password first); typing passes both ways, once each
+// block is done; B reloads
 // and is still in; B goes offline, edits, and catches up; A shares a separate Google key, which
 // B reads Google voices with, then takes it out (Google's answers are stubbed in both pages, so
 // no real key is used); A turns the link off, makes a new
@@ -99,13 +100,16 @@ try {
   assert.equal(await b.js(`location.hash`), '', 'the link leaves the address bar');
   assert.equal(await b.js(rowText(1)), await a.js(rowText(1)));
 
-  // Typing both ways.
+  // Typing both ways. Others see a block once it's done, not letter by letter.
   await a.open(1);
   const aMs = await a.type(' Kyle typed this.');
-  t0 = performance.now();
-  await b.wait(`(${rowText(1)}).includes('Kyle typed this.')`, 'B sees A’s typing');
-  const reachMs = performance.now() - t0;
+  await sleep(1500);
+  assert.ok(!(await b.js(rowText(1))).includes('Kyle typed'), 'B doesn’t see A’s letters while A types');
+  await b.wait(`document.querySelector('#list .here .who.editing')`, 'B sees that A is editing');
   await a.js(`document.activeElement.blur();true`);
+  t0 = performance.now();
+  await b.wait(`(${rowText(1)}).includes('Kyle typed this.')`, 'B sees A’s block once done');
+  const reachMs = performance.now() - t0;
   await b.open(2);
   await b.type(' Sam typed this.');
   await b.js(`document.activeElement.blur();true`);

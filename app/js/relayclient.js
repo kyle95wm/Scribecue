@@ -10,6 +10,8 @@ import { DOCS } from './shared.js';
 const ENDS = new Set(['link-off', 'room-deleted', 'no-room', 'bad-signature', 'room-exists']);
 // This browser and the relay speak different versions: 'old-app' when Scribecue needs
 // updating, 'old-relay' when the relay does. Trying again won't help, but nothing is lost.
+// What waits while a block is being typed (see hold).
+const HELD = new Set(['script', 'review']);
 export const OUTDATED = new Set(['old-app', 'old-relay']);
 
 
@@ -29,7 +31,7 @@ export class RelayClient {
     this.waiters = []; this.failures = 0; // waiting for the relay to answer, as compact() does
     this.held = []; // changes waiting for a project key this side doesn't have yet
     this.counts = Object.fromEntries(DOCS.map((d) => [d, 0])); // changes since the last snapshot
-    this.nextId = 1; this.delay = retryMs; this.stopped = false; this.synced = false;
+    this.nextId = 1; this.delay = retryMs; this.stopped = false; this.synced = false; this.holding = false;
     // Each change this side sends is numbered, for this browser (`dev`, new each time).
     this.dev = b64(crypto.getRandomValues(new Uint8Array(9))); this.n = 0;
     // The last number had from each browser of each link, so the owner can say where a link
@@ -50,6 +52,14 @@ export class RelayClient {
   }
 
   start() { this.ready.then(() => this.#connect()); return this; }
+  // While someone types in a block, their changes to the script and suggestions wait here,
+  // so others see the block once it's done rather than letter by letter. `hold(false)`
+  // sends them. Comments still go at once.
+  hold(on) {
+    if (this.holding === !!on) return;
+    this.holding = !!on;
+    if (!on) this.#schedule();
+  }
   stop() {
     this.stopped = true; this.off();
     this.timers.clearTimeout(this.flushTimer); this.timers.clearTimeout(this.retryTimer); this.timers.clearTimeout(this.connectTimer);
@@ -74,6 +84,8 @@ export class RelayClient {
   // as when offline or still waiting for a project key.
   async compact() {
     if (!this.synced || this.held.length || this.snapshotting) return false;
+    if (this.holding && [...HELD].some((d) => this.pending[d].length)) return false; // a block being typed
+
     const upTo = this.seq, ws = this.ws, ids = [];
     if (upTo < 1) return true;
     this.snapshotting = true;
@@ -311,7 +323,7 @@ export class RelayClient {
       const list = this.pending[doc];
       const waiting = [...this.inflight.values()].filter((s) => s.doc === doc).reduce((n, s) => n + s.count, 0);
       const fresh = list.length - waiting;
-      if (fresh <= 0) continue;
+      if (fresh <= 0 || (this.holding && HELD.has(doc))) continue;
       if (!WRITERS[doc].includes(this.role)) { list.length = 0; continue; } // not this link's to change
       const merged = Y.mergeUpdates(list.slice(waiting));
       const data = await this.cipher.seal(doc, merged);

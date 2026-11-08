@@ -752,6 +752,7 @@ async function startRelay(record, copy, fresh, seq, seen) {
   const off = copy.onUpdate(persist);
   relayOff = () => { off(); clearTimeout(keep); };
   window.scribecueRelay = client; // for the developer tests
+  if (edit) client.hold(true); // sharing started while a block is being typed
   client.start();
 }
 // The owner back online: links turned off while offline get where each stops, now that this
@@ -1887,6 +1888,7 @@ edText.addEventListener('focus', () => {
   if (qcLocked() || S.mode === 'record') return;
   if (!c) { edText.blur(); return; }
   edit = { id: c.id, orig: c.text, pushed: false };
+  relay?.hold(true); // others see the block once it's done, not letter by letter
   editor.classList.add('editing');
   notePresence();
 });
@@ -1905,6 +1907,7 @@ edText.addEventListener('input', () => {
 edText.addEventListener('blur', () => {
   const was = edit && S.cues.find((c) => c.id === edit.id);
   edit = null;
+  relay?.hold(false);
   editor.classList.remove('editing');
   notePresence();
   updateEditor();
