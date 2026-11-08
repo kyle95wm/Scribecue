@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.93.0",
+    "date": "2026-11-08",
+    "notes": "## Sharing projects: Google voices for everyone\n\n- If you share a project, you can let the others use a separate Google key. They hear and use its Google voices without a key of their own.\n- Find it in the Share dialog, under Google voices.\n- Sharing is still being tested."
+  },
+  {
     "version": "0.92.2",
     "date": "2026-11-08",
     "notes": "## Sharing projects: early testing\n\n- If someone sends you a link to a shared project, opening it lets you join.\n- Sharing is still being tested. Nothing else changes."
