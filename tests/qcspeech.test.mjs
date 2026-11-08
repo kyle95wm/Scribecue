@@ -185,10 +185,10 @@ test('Polly voices can be read again in review, at speeds Polly takes', async ()
   assert.equal(rewriteSpec(await pollySetup({}, false), { ...b, text: 'Mara leaves.' }, s), null, 'comments-only packages');
 });
 
-test('a Polly review key stays with an editable package, and leaves on return', async () => {
+test('a Polly review key stays with a saved editable package', async () => {
   const r = await pollySetup();
   assert.deepEqual(r.reviewAccess, { polly: reviewKey });
-  assert.equal((await readReview(resaveReview(r, r.project))).reviewAccess, null, 'Return package');
+  assert.equal((await readReview(resaveReview(r, r.project))).reviewAccess, null, 'left out unless asked for');
   assert.deepEqual((await readReview(resaveReview(r, r.project, { includeReviewKey: true }))).reviewAccess, { polly: reviewKey });
   assert.equal((await pollySetup({})).reviewAccess, null);
   await assert.rejects(pollySetup({ pollyReviewKey: reviewKey }, false), /editable/);

@@ -113,14 +113,10 @@ try {
   }
   await openQC();assert.ok((await js(`document.getElementById('qcKeyInfo').textContent`)).startsWith('Your Google key'));
   await click('qcPlaybackClose');
-  // A reviewer sends the package back from Export, where the script formats aren't offered.
-  await click('exportBtn');
-  const menu=await js(`(()=>{const shown=a=>!!document.querySelector('#exportMenu [data-act='+a+']').offsetParent;return{ret:shown('exportReturn'),srt:shown('exportSrt'),vtt:shown('exportVtt'),qc:shown('exportQc')}})()`);
-  assert.deepEqual(menu,{ret:true,srt:false,vtt:false,qc:false});
-  assert.equal(await js(`(()=>{document.querySelector('#exportMenu [data-act=exportQc]').click();return document.getElementById('qcExportDlg').open})()`),false,'an editable package cannot make a new QC package');
-  await js(`document.querySelector('#exportMenu [data-act=exportReturn]').click();true`);
-  const returned=await js(`(async()=>{const r=await(await import('./js/qc.js')).readReview(await __download);return{key:r.reviewAccess,proposals:r.proposals.length}})()`);
-  assert.equal(returned.key,null);assert.equal(returned.proposals,5);
+  // A reviewer sends the saved package back, so QC has no Export menu to choose from.
+  assert.equal(await js(`document.getElementById('exportBtn').offsetParent`),null,'Export is hidden for a QC package in QC');
+  await key('KeyE','e');
+  assert.match(await js(`document.getElementById('toast').textContent`),/save the QC package/);
   assert.equal(await js('__calls.length'),calls);
   // Restore the working package, then replay with no network and no lost key setting.
   await send('Page.reload');await wait(`document.querySelectorAll('#list .row').length===2`);await sleep(700);

@@ -207,7 +207,7 @@ Your project is your master copy, so keep it. The other files are made for one p
 | --- | --- | --- |
 | A reviewer, for a text to speech review | [QC package](QC.md#make-a-portable-qc-package) (`.scribecueqc`) | **Export → QC package** |
 | A reviewer, for a recorded mix | Project (`.scribecue`) and a review mix | `Ctrl/Cmd+S` |
-| The writer, after a review | Return package (`.scribecueqc`), or the saved project if that's what you were sent | **Export → Return package** |
+| The writer, after a review | The package or project you were sent, saved with your review | `Ctrl/Cmd+S` |
 | A narrator | [Recording file](RECORDING.md#making-the-recording-file) (`.scribecuerec`) | **Export → Recording file** |
 | Your other computer, partway through recording | [Session package](RECORDING.md#moving-to-another-computer) (`.scribesession`) | **Export → Session package** |
 | A mixer | [Narration WAV](RECORDING.md#exporting-the-narration), or a Narration zip with alts | **Export**, in Record mode |

@@ -241,7 +241,6 @@ change the policy's end date.
 - **Costs:** the review key's readings go on your bill.
 - **If a key gets out:** delete it. Only the spending limit caps what it can cost.
 - **Over the limit:** the block stops your own voices as well, until next month.
-- **Return packages** leave the key out.
 
 ## If something goes wrong
 

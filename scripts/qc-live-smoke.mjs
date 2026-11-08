@@ -80,9 +80,10 @@ try {
   await click('edComment');
   await js(`document.getElementById('commentText').value='Check this name';document.getElementById('commentPost').click();document.getElementById('commentsClose').click();true`);
   await sleep(500);
-  await js(`document.querySelector('[data-act=exportMenu]').click();true`); await sleep(200);
-  await js(`window.__download=null;document.querySelector('[data-act=exportReturn]').click();true`); await wait(`!!window.__download`);
-  await js(`(async()=>{window.__returned=await fetch(__download).then(r=>r.blob());return 1})()`);
+  // The reviewer saves the package and sends that file back.
+  await js(`window.__saved=null;document.body.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyS',key:'s',metaKey:true,bubbles:true,cancelable:true}));true`);
+  await wait(`!!window.__saved`);
+  await js(`window.__returned=new Blob([__saved]);true`);
   await openFiles(`[__writer]`);
   await wait(`!document.body.classList.contains('qc-package')&&document.getElementById('subName').textContent.includes('writer')`);
   await js(`document.querySelector('#modeSw [data-mode=qc]').click();true`); await sleep(300);

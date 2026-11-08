@@ -32,7 +32,7 @@ export function refreshQc() {
   $('qcSourcePackage').textContent = review?.proposals.length ? 'Saved readings' : 'Original readings';
   const rereading = h.package() && review?.permissions.allowEdits ? [...new Set([...review.rereadVoices].map(keyName))] : [];
   $('qcKeyInfo').hidden = !rereading.length;
-  $('qcKeyInfo').textContent = `${rereading.map((name) => keyNote(name, review)).join(' ')} Only changed wording or speed needs ${rereading.map((name) => (name === 'AWS' ? 'Amazon' : name)).join(' or ')}. Saved readings play offline. Save keeps the review key for continued work; Export → Return package leaves it out.`;
+  $('qcKeyInfo').textContent = `${rereading.map((name) => keyNote(name, review)).join(' ')} Only changed wording or speed needs ${rereading.map((name) => (name === 'AWS' ? 'Amazon' : name)).join(' or ')}. Saved readings play offline. The saved package keeps the review key. The writer can delete it when the review is done.`;
   const select = $('qcPreviewVoice'), selected = select.value;
   select.replaceChildren(...reviewVoices().map((v) => new Option(v.name, v.id)));
   select.value = reviewVoices().some((v) => v.id === selected) ? selected : chosenVoice();

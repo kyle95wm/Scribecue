@@ -28,12 +28,20 @@ test('every Export item sits in a named group', () => {
   const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
   const menu = html.slice(html.indexOf('id="exportMenu"'), html.indexOf('id="qcPermission"'));
   const groups = menu.split('role="group"').slice(1);
-  assert.equal(groups.length, 8);
+  assert.equal(groups.length, 7);
   for (const g of groups) {
     const id = /aria-labelledby="(\w+)"/.exec(g)?.[1];
     assert.ok(id && g.includes(`class="menuhead" id="${id}"`), `group ${id} has no heading`);
   }
   assert.equal(groups.join('').match(/role="menuitem"/g).length, menu.match(/role="menuitem"/g).length);
+});
+
+test('a reviewer with a QC package open in QC has no Export menu: they save and send the package', () => {
+  const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../app/css/style.css', import.meta.url), 'utf8');
+  assert.match(html, /<span class="navwrap export-wrap">\s*<button data-act="exportMenu"/);
+  assert.match(css, /\.mode-qc\.qc-package \.export-wrap \{ display: none; \}/);
+  assert.ok(!html.includes('exportReturn'), 'no Return package item');
 });
 
 test('Esc out of a dialog goes to the timeline, unless a dialog, block or drawer is still in use', () => {

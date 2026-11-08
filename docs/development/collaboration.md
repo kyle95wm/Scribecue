@@ -96,8 +96,9 @@ with a plain exported script can still edit that script outside the review workf
   clip. Proposed clips must have valid bindings and hashes too. Audio stays sliced;
   package parsing and comparison run in workers.
 - Working saves and recovery keep the review key. `resaveReview` strips it by default;
-  only working saves opt in. Export → Return package, combined packages and author audio
-  attachments leave it out. Neither returned projects nor author JSON hold the key.
+  only working saves opt in. Reviewers send their working save back, so a returned package
+  still holds the key; writers delete it after the review. Combined packages, author audio
+  attachments and author JSON leave it out.
 
 ## Next: optional sharing service
 

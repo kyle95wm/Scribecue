@@ -1234,9 +1234,8 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .mode-qc.qc-editing .qc-edit-only { display: revert; }
 
 .qc-package .qc-export { display: none; }
-/* A reviewer with a QC package open sends back a return package, not a script. */
-body:not(.mode-qc) .return-export, body:not(.qc-package) .return-export { display: none; }
-.mode-qc.qc-package .script-export { display: none; }
+/* A reviewer with a QC package open saves it and sends it back: nothing to export. */
+.mode-qc.qc-package .export-wrap { display: none; }
 
 /* Returned QC reviews reuse the dialog and pressed-button controls. */
 #reviewCompareDlg { width: min(820px, 92vw); }

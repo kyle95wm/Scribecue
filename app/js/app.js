@@ -4526,7 +4526,7 @@ function fileKeys(e) {
 
 function exportSubs(fmt) {
   if (S.mode === 'record') return toast('The script is locked in Record mode');
-  if (qc() && S.reviewId) return toast('To send your review back, choose Export, then Return package');
+  if (qc() && S.reviewId) return toast('To send your review back, save the QC package and send that file');
   if (!S.cues.length) return toast('Nothing to export yet');
   checkFirst(() => writeSubs(fmt));
 }
@@ -5532,7 +5532,6 @@ const actions = {
     if (!ttsPauseList.disabled) ttsPauseList.click();
   },
   exportQc: () => (S.reviewId ? openQcExport() : checkFirst(openQcExport)),
-  exportReturn: () => saveReturnPackage(),
   exportRecording: () => checkFirst(askRecordingFile),
   checkSpelling: () => openCheck(),
   exportNarration: () => recorder.exportWav(),
@@ -5617,16 +5616,6 @@ function qcSpeech(prevT, t, started, leapt) {
   if (!c || isExt(c) || tts.speaking?.id === c.id || S.qcLast === c.id) return;
   if (S.qcSource === 'package' && !liveRead(c)) return;
   if (jumped || (prevT <= c.start && t > c.start)) qcRead(c);
-}
-// What a reviewer sends back: the package without any bundled review key.
-function saveReturnPackage() {
-  if (!S.reviewId) return toast('Open a QC package to save a return package');
-  if (!S.review) return toast('Reopen the QC package to restore its original readings');
-  const file = resaveReview(S.review, projectData());
-  const a = document.createElement('a'), url = URL.createObjectURL(file);
-  a.href = url; a.download = baseName() + '-returned' + REVIEW_EXT; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
-  toast('Return package saved without the review key. Your working copy keeps it');
 }
 initQc({
   package: () => !!S.reviewId,
