@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.89.0",
+    "date": "2026-11-07",
+    "notes": "## Changed: sending a QC review back\n\n- Save the QC package with `Ctrl/Cmd+S` and send that file back to the writer.\n- **Export → Return package** is gone. With a QC package open in QC, there's no Export menu.\n- Check spelling and grammar with `Alt+Shift+K`.\n- The file you send back keeps any review key. Writers: delete the key when the review is done."
+  },
+  {
     "version": "0.88.0",
     "date": "2026-11-07",
     "notes": "## Changed: clicking a block\n\n- Clicking a block in the list opens it and leaves the playhead where it is.\n- `Esc` or `Enter` closes the block and moves the playhead to it.\n- This works with Replay on or off.\n- Record mode and locked QC packages still jump on the click."
