@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
   splitReadingKey, piperVoiceList, kokoroVoiceList, readWav, voiceEnd, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
-  toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice, voiceTitle } from '../app/js/tts.js';
+  toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice, voiceTitle, voiceLanguages, inLanguage, baseLang } from '../app/js/tts.js';
 import { awsSignature, pollyRequest, pollyVoicesRequest, pollyVoiceList, pollyRate, ssmlText, pollyFailure, pollyThrottled, pollyHost, POLLY_REGIONS, pollyRegionLabel } from '../app/js/polly.js';
 
 const v = (name, lang, localService, extra = {}) => ({ name, lang, localService, voiceURI: name, ...extra });
@@ -12,8 +12,9 @@ const voices = [
   v('Alex', 'en-GB', true), v('Anna', 'en-US', true),
 ];
 
-test('text to speech is off until turned on', () => {
+test('text to speech is off until turned on, showing English voices', () => {
   assert.equal(tts.on, false);
+  assert.equal(tts.language, 'en');
   assert.equal(tts.online, false);
 });
 
@@ -571,4 +572,18 @@ test('Every Polly region is allowed by the page’s security rules, in both copi
     for (const [region] of POLLY_REGIONS) assert.ok(rules.includes(`https://${pollyHost(region)}`), `${region} in ${file}`);
     assert.equal(rules.includes('*.amazonaws.com'), false);
   }
+});
+
+test('the Language menu lists each language once, the user’s own first', () => {
+  const langs = voiceLanguages([...voices, v('Thorsten', 'de_DE', true), v('Odd', '', true)], 'fr-CA');
+  assert.deepEqual(langs.map((l) => l.code), ['fr', 'en', 'de']);
+  assert.equal(langs.find((l) => l.code === 'en').count, 4);
+  assert.equal(langs.find((l) => l.code === 'en').name, 'English');
+  assert.equal(baseLang({ lang: 'en_GB' }), 'en');
+});
+
+test('filtering by language keeps every English voice, and the one chosen', () => {
+  assert.deepEqual(inLanguage(voices, 'en').map((x) => x.name), ['Zed', 'Google UK', 'Alex', 'Anna']);
+  assert.deepEqual(inLanguage(voices, 'fr', 'Zed').map((x) => x.name), ['Zed', 'Amélie']);
+  assert.equal(inLanguage(voices, '').length, voices.length);
 });

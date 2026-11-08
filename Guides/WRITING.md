@@ -9,6 +9,8 @@ speech** and tick **Turn on text to speech**. `TTS` shows under the video while 
 
 - **Pick a voice,** and click **Test** to hear it read the **Test text**. Nothing changes
   until you click **Apply**, so you can try as many as you like.
+- **Language:** only English voices show at first. Pick another language, or **All
+  languages**. It narrows the **Natural voices** downloads too. Favourites always show.
 - **Favourites:** click ☆ beside a voice to pin it to the top of the list, with a button
   for one-click switching. Click ★ to unpin it.
 

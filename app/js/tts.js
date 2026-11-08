@@ -200,6 +200,22 @@ export const toggleFavourite = (favs, uri) => (favs.includes(uri) ? favs.filter(
 // running, no Google or AWS key, online voices off, or not in this browser).
 export const favouriteVoices = (favs, voices) => favs.map((uri) => ({ uri, voice: voices.find((v) => v.voiceURI === uri) || null }));
 
+// A voice's language, without its country: "en" for en-GB and en_US.
+export const baseLang = (v) => String(v?.lang || '').toLowerCase().split(/[-_]/)[0];
+const langNames = (() => { try { return new Intl.DisplayNames(['en'], { type: 'language' }); } catch { return null; } })();
+export const languageName = (code) => { try { return langNames?.of(code) || code; } catch { return code; } };
+// The languages among some voices, for the Language menu: [{ code, name, count }], the
+// user's own first, then by name.
+export function voiceLanguages(voices, lang = 'en') {
+  const mine = String(lang).toLowerCase().split(/[-_]/)[0];
+  const counts = new Map();
+  for (const v of voices) { const c = baseLang(v); if (c) counts.set(c, (counts.get(c) || 0) + 1); }
+  return [...counts].map(([code, count]) => ({ code, name: languageName(code), count }))
+    .sort((a, b) => (b.code === mine) - (a.code === mine) || a.name.localeCompare(b.name));
+}
+// Voices in a language ('' for all). The one chosen stays, so the menu can still show it.
+export const inLanguage = (voices, code, keep = '') => (code ? voices.filter((v) => baseLang(v) === code || v.voiceURI === keep) : voices);
+
 // Voices that make their readings as audio, Piper's, Kokoro's, Google's and Polly's: lengths are
 // exact, and a description track can be exported.
 export const makesAudio = (v) => !!(v?.piper || v?.kokoro || v?.google || v?.polly);
@@ -424,7 +440,7 @@ export const LOUDNESS = {
   online: { lufs: -16, ceiling: -1 }, // podcasts and the web
   streaming: { lufs: -14, ceiling: -1 }, // streaming services
 };
-const DEFAULTS = { on: false, voice: '', base: 1, live: true, duck: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [], sample: null, trackAs: 'wav', mixAs: 'wav', dipDb: 10, dipFade: 0.25, loudness: '', stems: false, mixInto: '' };
+const DEFAULTS = { on: false, voice: '', base: 1, live: true, duck: true, skipNotes: false, onImport: 'ask', onChange: 'ask', online: false, cps: {}, mix: 0, favourites: [], language: 'en', sample: null, trackAs: 'wav', mixAs: 'wav', dipDb: 10, dipFade: 0.25, loudness: '', stems: false, mixInto: '' };
 const $ = (id) => document.getElementById(id);
 
 export const tts = {
@@ -785,8 +801,10 @@ function renderWeb() {
   if (!HOSTED || !webPiper.offered) return;
   const sel = $('ttsWebVoice');
   // Voices in the user's language first, as with the container.
-  const offered = pickVoices(piperVoiceList(webPiper.offered), { lang: navigator.language || 'en' });
-  const keep = sel.value || tts.voice.replace(/^piper:/, '') || offered[0]?.piper;
+  const every = pickVoices(piperVoiceList(webPiper.offered), { lang: navigator.language || 'en' });
+  const keep0 = sel.value || tts.voice.replace(/^piper:/, '');
+  const offered = inLanguage(every, shownLanguage(), 'piper:' + keep0);
+  const keep = [...offered].some((v) => v.piper === keep0) ? keep0 : offered[0]?.piper;
   sel.textContent = '';
   for (const v of offered) {
     const o = document.createElement('option');
@@ -1287,7 +1305,8 @@ export function speak(text, { id = null, manual = false, silent = false, speed =
 }
 
 // Fills a voice menu (the panel's, or the welcome wizard's) with the voices on offer.
-export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
+// language: only voices in it (the panel's Language menu); favourites are always shown.
+export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI, { language = '' } = {}) {
   voices = allowed();
   sel.textContent = '';
   // Favourites first, so they're at hand at the top of a long list. They're also in their
@@ -1304,9 +1323,12 @@ export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI) {
     }
     sel.append(g);
   }
-  for (const [label, list] of groupVoices(voices)) {
+  for (const [label, all] of groupVoices(voices)) {
     const online = label.startsWith('Online'), google = label.startsWith('Google');
     if (online && !tts.online) continue;
+    const list = inLanguage(all, language, selected);
+    // Filtered out entirely: leave the group out, rather than saying none are installed.
+    if (all.length && !list.length) continue;
     const g = document.createElement('optgroup');
     const away = (online || google) && navigator.onLine === false; // they can't be reached
     g.label = away ? `${google ? 'Google Cloud' : 'Online'}: unavailable while you’re offline` : label;
@@ -1394,8 +1416,23 @@ function renderFavourites() {
   }));
 }
 
+// The Language menu: every language among the voices here and the Piper voices on offer.
+const shownLanguage = () => (typeof tts.language === 'string' ? tts.language : 'en');
+function fillLanguages() {
+  const sel = $('ttsLang');
+  const all = [...allowed().filter((v) => tts.online || !browserOnline(v)),
+    ...(HOSTED && webPiper.offered ? piperVoiceList(webPiper.offered) : [])];
+  const seen = new Set();
+  const list = voiceLanguages(all.filter((v) => !seen.has(v.voiceURI) && seen.add(v.voiceURI)), navigator.language || 'en');
+  sel.replaceChildren(new Option('All languages', ''), ...list.map((l) => new Option(l.name, l.code)));
+  // A language whose voices have gone (Piper stopped, say) stays chosen, so it comes back.
+  if (tts.language && !list.some((l) => l.code === tts.language)) sel.add(new Option(languageName(tts.language), tts.language));
+  sel.value = shownLanguage();
+}
+
 function fillVoices() {
-  fillVoiceSelect($('ttsVoice'), shownVoice());
+  fillLanguages();
+  fillVoiceSelect($('ttsVoice'), shownVoice(), { language: shownLanguage() });
   renderFavourites();
   renderApply();
   $('ttsNoVoices').hidden = !!voices.length || !anyVoices();
@@ -1549,6 +1586,12 @@ export function initTts(h) {
   const set = (k, v) => { tts[k] = v; save(); render(); hooks.changed(); warmUp(); };
   $('ttsOn').addEventListener('change', (e) => { if (!e.target.checked) stop(); set('on', e.target.checked); });
   $('ttsVoice').addEventListener('change', (e) => pickVoice(e.target.value));
+  $('ttsLang').addEventListener('change', (e) => {
+    tts.language = e.target.value;
+    save();
+    fillVoices();
+    renderWeb();
+  });
   $('ttsApply').addEventListener('click', () => { if (picked) changeReading('voice', picked); });
   $('ttsFav').addEventListener('click', () => {
     const cur = shownVoice();
