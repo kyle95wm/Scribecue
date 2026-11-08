@@ -231,6 +231,8 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   **Stop sharing** deletes the relay's copy; the owner's stays as a plain project.
 - Opening a link asks for its password and the person's name. Can edit opens in Write; Can
   review and Can comment open in QC. The link leaves the address bar once used.
+- Sharing or joining needs a name, since others see it. Both dialogs say what others see,
+  and that the sharing service can't read the project.
 - Someone who joined can **Leave**: their copy stays as a project of its own.
 - Links changed while offline reach the relay on reconnecting.
 - `scripts/relay-share-smoke.mjs` runs two browsers at 6× with 1,500 blocks through the

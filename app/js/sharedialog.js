@@ -21,6 +21,12 @@ export function shareDialog(deps) {
   const { $ } = deps;
   const dlg = $('shareDlg'), list = $('shareLinks');
   let busy = false;
+  // A name is needed to share: others see it. One typed but not yet kept counts.
+  const named = () => {
+    const typed = $('shareName').value.trim();
+    if (typed && typed !== deps.name()) deps.setName(typed);
+    return !!deps.name();
+  };
 
   function row(role, link) {
     const t = ROLE_TEXT[role];
@@ -50,6 +56,7 @@ export function shareDialog(deps) {
       label.htmlFor = pw.id; label.textContent = 'Password';
       make.textContent = 'Make link';
       const go = () => {
+        if (!named()) { deps.toast('Add your name first, so others know who’s here'); $('shareName').focus(); return; }
         if (pw.value.length < 6) { deps.toast('Use a password of at least 6 characters'); pw.focus(); return; }
         run(() => deps.make(role, pw.value));
       };
@@ -127,7 +134,9 @@ export function joinDialog(deps) {
     if (busy) return;
     const pw = $('joinPassword').value;
     if (!pw) { $('joinPassword').focus(); return; }
-    if ($('joinName').value.trim()) deps.setName($('joinName').value);
+    // Others see the name, so it's needed.
+    if (!$('joinName').value.trim()) { $('joinStatus').textContent = 'Add your name, so others know who’s here'; $('joinName').focus(); return; }
+    deps.setName($('joinName').value);
     busy = true; $('joinOpen').disabled = true; $('joinStatus').textContent = 'Opening…';
     try {
       const ok = await deps.join(pw);
@@ -138,7 +147,7 @@ export function joinDialog(deps) {
     } finally { busy = false; $('joinOpen').disabled = false; }
   }
   $('joinOpen').addEventListener('click', open);
-  $('joinPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); open(); } });
+  for (const id of ['joinPassword', 'joinName']) $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); open(); } });
   $('joinCancel').addEventListener('click', () => dlg.close());
   return {
     open() {
