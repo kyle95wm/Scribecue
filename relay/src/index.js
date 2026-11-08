@@ -3,16 +3,25 @@
 // in room.js. Sockets sleep between messages (WebSocket hibernation), so an open project
 // with nobody typing costs nothing.
 import { DurableObject } from 'cloudflare:workers';
-import { Room, validRoom } from './room.js';
+import { Room, validRoom, takeSlot, NEW_ROOMS } from './room.js';
 
 const local = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 // Browsers send the page's origin: only Scribecue's own pages may connect. Other programs
 // send none; they can't be stopped this way, and get no further without a link anyway.
-// Each address may open so many connections, and make so many new projects, a minute
-// (CONNECTS and NEW_ROOMS in wrangler.toml). Without those bindings there's no limit.
+// Each address may open so many connections a minute (CONNECTS in wrangler.toml), counted
+// roughly by Cloudflare where it connects. New projects are counted exactly, by a limiter
+// object for each address (LIMITER), since each project is its own room object. A limit that
+// fails lets the request through, and says why in the Worker's log.
 const allowed = (origin, env) => !origin || local.test(origin) || String(env.ORIGINS || '').split(',').map((s) => s.trim()).includes(origin);
 const address = (request) => request.headers.get('CF-Connecting-IP') || 'unknown';
-const under = async (limiter, key) => { try { return !limiter || (await limiter.limit({ key })).success; } catch { return true; } };
+const under = async (limiter, key) => {
+  if (!limiter) return true;
+  try { return (await limiter.limit({ key })).success; } catch (e) { console.error('connection limit failed:', e?.message || e); return true; }
+};
+async function newRoomAllowed(env, address) {
+  if (!env.LIMITER) return true;
+  try { return await env.LIMITER.get(env.LIMITER.idFromName('new-room:' + address)).take(NEW_ROOMS.limit, NEW_ROOMS.period); } catch (e) { console.error('new project limit failed:', e?.message || e); return true; }
+}
 const text = (body, status) => new Response(body, { status, headers: { 'content-type': 'text/plain; charset=utf-8' } });
 
 export default {
@@ -54,7 +63,7 @@ export class RoomObject extends DurableObject {
         id,
         storage: this.ctx.storage,
         sockets: () => this.ctx.getWebSockets().map((ws) => this.wrap(ws)),
-        mayCreate: (socket) => under(this.env.NEW_ROOMS, socket.address),
+        mayCreate: (socket) => newRoomAllowed(this.env, socket.address),
       }));
     }
     return this.rooms.get(id);
@@ -83,4 +92,17 @@ export class RoomObject extends DurableObject {
     // Deleting needs no id: any room object here will do.
     await new Room({ id: null, storage: this.ctx.storage, sockets: () => [] }).alarm();
   }
+}
+
+// Counts what one address does, such as making projects, in a window that slides. It forgets
+// the address once the window has passed.
+export class LimiterObject extends DurableObject {
+  async take(limit, period) {
+    const now = Date.now();
+    const { ok, times } = takeSlot(await this.ctx.storage.get('times'), now, limit, period);
+    await this.ctx.storage.put('times', times);
+    await this.ctx.storage.setAlarm(now + period);
+    return ok;
+  }
+  async alarm() { await this.ctx.storage.deleteAll(); }
 }

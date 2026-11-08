@@ -184,8 +184,9 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   number. The signed list carries the keys each link that's on lacks, encrypted with that
   link's wrapping key. The link turned off never gets them. A change sealed with a key not
   yet here waits until it arrives.
-- Each address may open 120 connections and make 5 new projects a minute. Cloudflare's
-  rate-limit bindings count them, so the counts are per Cloudflare location.
+- Each address may open about 120 connections a minute, counted roughly by Cloudflare's
+  rate-limit binding where it connects. It may make 10 new projects an hour, counted
+  exactly by a limiter object for that address.
 - The relay sees room ids, link ids and roles, sizes and times. It never sees text, names
   or titles.
 - A room nobody opens for 180 days is deleted. The owner can delete it at once.

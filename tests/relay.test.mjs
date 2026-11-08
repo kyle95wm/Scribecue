@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Room, b64, unb64, signed, LIMITS } from '../relay/src/room.js';
+import { Room, b64, unb64, signed, LIMITS, takeSlot } from '../relay/src/room.js';
 
 const subtle = crypto.subtle;
 const noise = (n) => Uint8Array.from({ length: n }, (_, i) => (i * 7919 + (i >> 8)) & 255);
@@ -230,4 +230,16 @@ test('the owner deletes the project; an idle one is deleted after six months', a
   t += 1;
   await env.room.alarm();
   assert.equal(env.storage.m.size, 0);
+});
+
+test('the window for new projects slides: old ones leave it, refusals don’t count', () => {
+  let times = [];
+  for (let i = 0; i < 3; i++) { const r = takeSlot(times, 1000 + i, 3, 100); assert.equal(r.ok, true); times = r.times; }
+  const full = takeSlot(times, 1050, 3, 100);
+  assert.equal(full.ok, false);
+  assert.deepEqual(full.times, times, 'a refusal isn’t counted');
+  const later = takeSlot(times, 1101, 3, 100);
+  assert.equal(later.ok, true, 'the first has left the window');
+  assert.deepEqual(later.times, [1002, 1101]);
+  assert.equal(takeSlot('junk', 5, 1, 100).ok, true, 'damaged storage starts again');
 });
