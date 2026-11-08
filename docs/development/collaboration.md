@@ -152,25 +152,46 @@ project's blocks and comments; the app's own blocks stay the source it edits.
 - `scripts/shared-smoke.mjs` checks it at 6× with 1,500 blocks. Measured: whole-script copy
   7–8 ms, one block 0–2 ms, about 3–5 ms more per typed character, no added long tasks.
 
-## Next: optional sharing service
+## Relay, not yet used by the app
 
-Invitations and access would belong to the project. Reviewers work in QC, writers in
-Write, narrators in Record. Do not introduce another parallel review mode or handoff UI.
+`relay/` is the sharing service: a Cloudflare Worker with one Durable Object per shared
+project (a room). See `relay/README.md` to run or deploy it. The rules are in
+`relay/src/room.js`, which has no Cloudflare in it and is tested in Node.
 
-Before adding that service:
+- There are no accounts. The owner is whoever starts sharing and holds the owner key.
+  Each link has its own key pair and a role: `edit`, `review` or `comment`.
+- The owner signs the list of links. Each entry has the link's public key and its box: the
+  project key and link key, encrypted with the link's secret and password. The secret stays
+  in the link's `#` part, so it never reaches the relay.
+- Signing in: the relay sends a challenge. The client signs it with the owner key or its
+  link key. Before that, a client may fetch its link's box to get that key.
+- The project is three Yjs documents, each with its own writers. The relay refuses other
+  writes, and clients check the signatures again.
 
-- Define durable revision storage and ancestry. Bounded file baselines are not a server history.
-- Use established authentication components for users, devices, invitations and membership.
-- Check current membership and action permissions on every server operation.
-- Separate script, comment and recording writes. With encrypted content, the service
-  cannot inspect a payload to determine whether a reviewer changed a script. Bind scopes
-  to signed operations and validate them on receiving clients too.
-- Choose a reviewed encryption protocol and libraries. Specify device verification,
-  recovery and key rotation before promising end-to-end encryption.
-- Removing a member must block future writes and key access. It cannot erase old copies.
-- Keep project content and titles out of service logs. State what metadata remains visible.
-- Sync only an explicit project payload, without provider keys, device handles or local paths.
-- Keep file exports and recovery usable without the service.
+  | Document | Who writes it |
+  |---|---|
+  | `script` | owner, edit |
+  | `comments` | owner, edit, review, comment |
+  | `review` (block edits for Pending review) | owner, edit, review |
+
+- Changes are numbered in order and kept. A writer can send a snapshot of a document up to
+  a change; the changes before it are then dropped.
+- Turning a link off: the owner sends a new signed list. That link's sockets close, and it
+  can't sign in again. It keeps whatever it already copied, and the project key doesn't
+  change yet.
+- The relay sees room ids, link ids and roles, sizes and times. It never sees text, names
+  or titles.
+- A room nobody opens for 180 days is deleted. The owner can delete it at once.
+
+### Still to do
+
+- 4b: the app connects its shared copy to the relay, with each change encrypted (AES-GCM)
+  and signed (Ed25519). Content Security Policy needs the relay's address.
+- 4c: the share dialog, the three link types, passwords, turning links off, opening a link.
+- 4d: Can review edits arrive in Pending review. Can comment changes only comments.
+- Before calling it end-to-end encrypted: get the key handling reviewed. Decide on a new
+  project key when a link is turned off. Rate-limit new rooms at Cloudflare.
+- Keep file exports and recovery usable without the relay.
 
 ## Validation
 
@@ -184,6 +205,8 @@ Before adding that service:
   reviewer restrictions at 6× slowdown.
 - `scripts/collaboration-smoke.mjs <port> <site URL> [test-video.mp4]` checks identity
   persistence, split/merge/undo and worker comparison of 1,500 blocks covering two hours.
+- `node --test tests/relay.test.mjs` checks the relay's rules. `scripts/relay-smoke.mjs`
+  runs them over real WebSockets against `npm run dev` in `relay/`.
 - `scripts/qcspeech-smoke.mjs <port> <site URL> [screenshot path]` checks personal-key
   priority, accepted/declined fallback, cached replay, recovery and key-free returns at 6×.
   It stubs Google responses; no live credentials or paid requests are used.

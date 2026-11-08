@@ -1,0 +1,19 @@
+# Scribecue's relay. Run it locally with `npm run dev`; see README.md here.
+name = "scribecue-relay"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "RoomObject"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RoomObject"]
+
+[vars]
+# Pages that may connect, besides localhost.
+ORIGINS = "https://scribecue.kyleadvoice.ca"
+
+# Where it's served once deployed. Uncomment after choosing the name.
+# routes = [{ pattern = "share.kyleadvoice.ca", custom_domain = true }]
