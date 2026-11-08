@@ -41,6 +41,6 @@ Durable Objects with SQLite storage are on Cloudflare's free plan.
 | One project | 64 MB |
 | Links on at once | 30 |
 | Links turned off, kept for checking | 200 |
-| Connections from one address | 120 a minute |
-| New projects from one address | 5 a minute |
+| Connections from one address | about 120 a minute |
+| New projects from one address | 10 an hour |
 | Deleted after nobody opens it for | 180 days |

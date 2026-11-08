@@ -87,6 +87,13 @@ export function ed25519(subtle = crypto.subtle) {
   };
 }
 
+// A sliding window: whether one more fits in `limit` per `period` ms, and the times to keep.
+export function takeSlot(times, now, limit, period) {
+  const recent = (Array.isArray(times) ? times : []).filter((t) => typeof t === 'number' && t > now - period && t <= now);
+  return recent.length < limit ? { ok: true, times: [...recent, now] } : { ok: false, times: recent };
+}
+export const NEW_ROOMS = { limit: 10, period: 3600_000 }; // per address
+
 // `storage`: get, put, delete (a key or list of keys), list({ prefix, start, end }) → Map,
 // deleteAll, setAlarm. `sockets()`: the open sockets, each with send(text), close(code,
 // reason) and a `state` object that survives the room going to sleep. `mayCreate(socket)`:

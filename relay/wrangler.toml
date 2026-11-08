@@ -10,20 +10,23 @@ workers_dev = false
 name = "ROOMS"
 class_name = "RoomObject"
 
+[[durable_objects.bindings]]
+name = "LIMITER"
+class_name = "LimiterObject"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RoomObject"]
 
-# How fast one address may connect, and make new projects. Each counts per minute.
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["LimiterObject"]
+
+# How fast one address may connect, roughly. New projects are counted by LIMITER.
 [[ratelimits]]
 name = "CONNECTS"
 namespace_id = "1001"
 simple = { limit = 120, period = 60 }
-
-[[ratelimits]]
-name = "NEW_ROOMS"
-namespace_id = "1002"
-simple = { limit = 5, period = 60 }
 
 [vars]
 # Pages that may connect, besides localhost.
