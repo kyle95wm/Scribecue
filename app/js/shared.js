@@ -45,6 +45,9 @@ export class SharedProject {
   constructor() {
     this.docs = { script: new Y.Doc(), comments: new Y.Doc(), review: new Y.Doc() };
     this.blocks = this.docs.script.getMap('blocks');
+    // Shared with the project: `googleKey`, a separate Google key the owner lets others read
+    // Google voices with. In the script, so only those who can edit change it.
+    this.access = this.docs.script.getMap('access');
     this.comments = this.docs.comments.getMap('comments');
     // By block uid: { uid, by (link id), name, who (editor id), at, block (null: remove it) }.
     this.proposals = this.docs.review.getMap('proposals');
@@ -137,6 +140,18 @@ export class SharedProject {
   readTimeline() { return plainComments([...this.comments.values()].filter((c) => !c.block), true); }
 
   // The blocks and comments as plain values, in time order, as the app keeps them.
+  // The owner's separate Google key for this project, or ''. Setting '' takes it out.
+  googleKey() { const k = this.access.get('googleKey'); return typeof k === 'string' ? k : ''; }
+  setGoogleKey(key) {
+    this.docs.script.transact(() => { if (key) this.access.set('googleKey', key); else this.access.delete('googleKey'); }, LOCAL);
+  }
+  // Calls `fn(key)` when the key changes, from anyone. Returns a function that stops it.
+  onGoogleKey(fn) {
+    const h = (e) => { if (e.keysChanged.has('googleKey')) fn(this.googleKey()); };
+    this.access.observe(h);
+    return () => this.access.unobserve(h);
+  }
+
   read() {
     const byBlock = new Map(), timeline = [];
     for (const c of this.comments.values()) {

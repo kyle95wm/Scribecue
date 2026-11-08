@@ -74,7 +74,9 @@ The owner signs a list: `{ room, n, links, wraps }`.
 ## Changes
 
 A project is three Yjs documents: `script`, `comments` and `review`. A change is a Yjs
-update, or a whole document (a snapshot).
+update, or a whole document (a snapshot). The `script` document can also hold a separate
+Google key the owner chose to share. Like everything else, the relay can't read it, but
+anyone with a link can.
 
 1. It's encrypted with the newest project key: one byte for the key's number, a 12-byte
    IV, then the AES-GCM output. It's bound to the room, document and key number

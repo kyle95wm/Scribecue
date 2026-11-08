@@ -463,8 +463,19 @@ const googleStore = () => { try { return JSON.parse(localStorage.getItem(GKEY)) 
 const googleKey = () => googleStore().key || '';
 export const hasGoogleKey = () => !!googleKey();
 export const isPersonalGoogleKey = (key) => !!key && key === googleKey();
+// A shared project's separate Google key, from its owner, for those without a key of their
+// own. It belongs to the project: never kept in the settings.
+let projectKey = '';
+const readKey = () => googleKey() || projectKey;
+export const usingProjectGoogleKey = () => !googleKey() && !!projectKey;
+export function setProjectGoogleKey(key) {
+  key = typeof key === 'string' ? key : '';
+  if (key === projectKey) return;
+  projectKey = key;
+  if (!googleKey()) loadGoogle();
+}
 // A review key belongs to its package. It never replaces the reviewer's setting.
-export const reviewGoogleKey = (bundled = '') => googleKey() || bundled;
+export const reviewGoogleKey = (bundled = '') => googleKey() || bundled || projectKey;
 const langs = () => [...new Set([...(navigator.languages || []), navigator.language || 'en'])];
 tts.google = googleKey() ? googleVoiceList({ voices: googleStore().voices }, langs()) : [];
 // The AWS key and region, and the voice list they last gave, kept the same way.
@@ -600,7 +611,7 @@ export function missingVoiceNote() {
   const uri = missingVoice();
   if (!uri) return '';
   const instead = currentVoice();
-  return `This project’s voice, ${voiceLabel(uri)}, isn’t available here. ${missingVoiceAdvice(uri, { googleKey: !!googleKey(), pollyKey: hasPollyKey(), hosted: HOSTED })} ` +
+  return `This project’s voice, ${voiceLabel(uri)}, isn’t available here. ${missingVoiceAdvice(uri, { googleKey: !!readKey(), pollyKey: hasPollyKey(), hosted: HOSTED })} ` +
     (instead ? `Until then, blocks are read with ${instead.name}.` : 'Until then, there’s no voice to read with.');
 }
 function checkVoice() {
@@ -861,19 +872,33 @@ export async function loadPiper() {
 
 // Asks Google for the voices the key can use, keeps the list, and offers them. With no
 // key, they're dropped. Returns an error message, or ''.
+async function googleVoices(key) {
+  const r = await fetch(`${GOOGLE}/voices`, { ...GOOGLE_FETCH, headers: { 'x-goog-api-key': key } });
+  if (!r.ok) throw new Error(await googleFailure(r));
+  return ((await r.json()).voices || []).filter((v) => /-Standard-/.test(v.name || ''))
+    .map(({ name, languageCodes, ssmlGender }) => ({ name, languageCodes, ssmlGender }));
+}
+const reachFailure = (e) => (e.message === 'Failed to fetch' ? 'Couldn’t reach Google' : e.message);
+// Whether a key works, before it's shared: an error message, or ''.
+export async function checkGoogleKey(key) {
+  try { await googleVoices(key); return ''; } catch (e) {
+    const msg = reachFailure(e).split(key).join('[key]');
+    return /^Google didn’t accept the key/.test(msg) ? 'Google didn’t accept that key. Check you copied all of it' : msg;
+  }
+}
+// A refused key that's the shared project's isn't in your settings: its owner can fix it.
+const ownerFixes = (msg) => (usingProjectGoogleKey() && /^Google didn’t accept the key/.test(msg) ? 'Google didn’t accept this shared project’s key. Ask its owner to check it' : msg);
 export async function loadGoogle() {
-  const key = googleKey();
+  const key = readKey(), own = key === googleKey();
   let error = '';
   if (!key) tts.google = [];
   else if (navigator.onLine !== false) {
     try {
-      const r = await fetch(`${GOOGLE}/voices`, { ...GOOGLE_FETCH, headers: { 'x-goog-api-key': key } });
-      if (!r.ok) throw new Error(await googleFailure(r));
-      const list = ((await r.json()).voices || []).filter((v) => /-Standard-/.test(v.name || ''))
-        .map(({ name, languageCodes, ssmlGender }) => ({ name, languageCodes, ssmlGender }));
-      try { localStorage.setItem(GKEY, JSON.stringify({ key, voices: list })); } catch { /* ignore */ }
+      const list = await googleVoices(key);
+      if (key !== readKey()) return ''; // the key changed meanwhile: its own load follows
+      if (own) try { localStorage.setItem(GKEY, JSON.stringify({ key, voices: list })); } catch { /* ignore */ }
       tts.google = googleVoiceList({ voices: list }, langs());
-    } catch (e) { error = e.message === 'Failed to fetch' ? 'Couldn’t reach Google' : e.message; }
+    } catch (e) { error = ownerFixes(reachFailure(e).split(key).join('[key]')); }
   }
   voices = allowed();
   hooks.changed();
@@ -887,7 +912,7 @@ export function setGoogleKey(key) {
     if (key) localStorage.setItem(GKEY, JSON.stringify({ key }));
     else localStorage.removeItem(GKEY);
   } catch { /* ignore */ }
-  if (!key && currentVoice()?.google) { stop(); tts.voice = ''; save(); }
+  if (!key && !projectKey && currentVoice()?.google) { stop(); tts.voice = ''; save(); }
   return loadGoogle();
 }
 
@@ -1039,9 +1064,9 @@ function fewAtOnce(most) {
 const googleTurn = fewAtOnce(4);
 function googleRead(words, voice, speed, urgent) {
   return googleTurn(urgent, async () => {
-    const { url, init } = googleRequest(words, voice, speed, googleKey());
+    const { url, init } = googleRequest(words, voice, speed, readKey());
     const r = await fetch(url, init);
-    if (!r.ok) throw new Error(await googleFailure(r));
+    if (!r.ok) throw new Error(ownerFixes(await googleFailure(r)));
     const b64 = (await r.json()).audioContent || '';
     return Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)).buffer;
   });
@@ -1469,7 +1494,7 @@ function render(googleError = '') {
   const key = googleKey();
   if (document.activeElement !== $('ttsGoogleKey')) $('ttsGoogleKey').value = key;
   $('ttsGoogleForget').hidden = !key;
-  $('ttsGoogleStatus').textContent = googleError || (!key ? ''
+  $('ttsGoogleStatus').textContent = googleError || (!key ? (projectKey ? `Google voices are read with this shared project’s key${tts.google.length ? `: ${tts.google.length} Standard voices, in the voice list above` : ''}. Add your own key to use it instead.` : '')
     : tts.google.length ? `${tts.google.length} Standard voice${tts.google.length > 1 ? 's' : ''}, in the voice list above.`
     : 'No Standard voices yet. Reopen these settings once you’re online.');
   $('ttsGoogleStatus').classList.toggle('err', !!googleError);
@@ -1574,7 +1599,7 @@ export function openTts() {
   hooks.panelOpened?.();
   loadPiper(); // in case Piper was started since
   checkFfmpeg();
-  if (googleKey()) loadGoogle(); // in case the key's voices have changed
+  if (readKey()) loadGoogle(); // in case the key's voices have changed
   if (pollyCreds()) loadPolly();
   const d = $('ttsDlg');
   if (!d.open) d.showModal();

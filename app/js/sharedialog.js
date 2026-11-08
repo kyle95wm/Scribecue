@@ -16,11 +16,12 @@ export const STATUS_TEXT = {
 };
 
 // `deps`: $, toast, record(), status(), base(), name(), setName(v), make(role, password),
-// turnOff(id), stop(), leave().
+// turnOff(id), stop(), leave(), googleKey() (null with no shared copy), shareGoogleKey(key)
+// → resolves to '' or what's wrong.
 export function shareDialog(deps) {
   const { $ } = deps;
   const dlg = $('shareDlg'), list = $('shareLinks');
-  let busy = false;
+  let busy = false, keyOpen = false;
   // A name is needed to share: others see it. One typed but not yet kept counts.
   const named = () => {
     const typed = $('shareName').value.trim();
@@ -89,11 +90,47 @@ export function shareDialog(deps) {
     for (const b of list.querySelectorAll('button, input:not([readonly])')) b.disabled = busy;
     const status = r ? STATUS_TEXT[deps.status()] : null;
     $('shareStatus').textContent = busy ? 'Working…' : status ? status[1] : '';
+    // The owner can let others read Google voices with a separate key of the project's.
+    const key = owner && r ? deps.googleKey() : null;
+    $('shareGoogle').hidden = key == null;
+    if (key != null) {
+      const on = !!key;
+      if (on) keyOpen = false;
+      $('shareGoogleOn').setAttribute('aria-pressed', String(on || keyOpen));
+      $('shareGoogleRow').hidden = on || !keyOpen;
+      if (on) $('shareGoogleOn').dataset.tip = 'Take the key out. Others need their own key for Google voices again';
+      else delete $('shareGoogleOn').dataset.tip;
+      $('shareGoogleInfo').textContent = on
+        ? 'Others read this project’s Google voices with the separate key you shared. Anyone with a link can read it. Delete it in Google Cloud when you’re done.'
+        : keyOpen
+          ? 'Create a separate key for this project, limited to Text-to-Speech, and paste it here. Others’ readings use it and count against its allowance. Anyone with a link can read it.'
+          : 'Others need their own Google key to hear Google voices, unless you share a separate one.';
+      for (const id of ['shareGoogleOn', 'shareGoogleKey', 'shareGoogleSave']) $(id).disabled = busy;
+    }
     $('shareStop').hidden = !r || !owner;
     $('shareLeave').hidden = !r || owner;
   }
 
   $('shareName').addEventListener('change', () => deps.setName($('shareName').value));
+  $('shareGoogleOn').addEventListener('click', () => {
+    if (deps.googleKey()) {
+      run(async () => { await deps.shareGoogleKey(''); });
+      return;
+    }
+    keyOpen = !keyOpen; render();
+    if (keyOpen) $('shareGoogleKey').focus();
+  });
+  const shareKey = () => {
+    const key = $('shareGoogleKey').value.trim();
+    if (!key) { deps.toast('Paste the separate key first'); $('shareGoogleKey').focus(); return; }
+    run(async () => {
+      const problem = await deps.shareGoogleKey(key);
+      if (problem) { deps.toast(problem); return; }
+      $('shareGoogleKey').value = '';
+    });
+  };
+  $('shareGoogleSave').addEventListener('click', shareKey);
+  $('shareGoogleKey').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); shareKey(); } });
   $('shareClose').addEventListener('click', () => dlg.close());
   $('shareStop').addEventListener('click', () => {
     if (!confirm('Stop sharing this project? Every link stops working, and the copy on the sharing service is deleted. Your copy stays here.')) return;

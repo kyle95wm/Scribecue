@@ -241,6 +241,14 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   and that the sharing service can't read the project.
 - Someone who joined can **Leave**: their copy stays as a project of its own.
 - Links changed while offline reach the relay on reconnecting.
+- **Google voices:** the owner can share a separate Google key, so others hear and use the
+  project's Google voices without a key of their own. It's checked with Google first, and
+  the owner's main key is refused, as for QC packages. It lives in the `script` document
+  under `access`, so everyone with a link can read it and only those who can edit change
+  it. It's never kept in anyone's settings, and undo leaves it alone.
+- Someone with their own key reads with theirs. Others read with the project's, and its
+  readings count against its allowance. Taking it out tells them, and their Google voices
+  fall back to another voice until they add a key.
 - `scripts/relay-share-smoke.mjs` runs two browsers at 6× with 1,500 blocks through the
   relay at `RELAY` (local by default) and the dialogs. It covers who's here, reloading,
   going offline, a link turned off and a new one opened. Measured: sharing 0.8–1.3 s,

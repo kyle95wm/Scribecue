@@ -40,7 +40,7 @@ import { comboOf, lookup } from './keymap.js';
 import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList } from './extended.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
-import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey } from './tts.js';
+import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey, isPersonalGoogleKey, checkGoogleKey, setProjectGoogleKey, usingProjectGoogleKey } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands, holdFilter, extendedCommand } from './ffcmd.js';
 import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS } from './codecs.js';
@@ -659,9 +659,20 @@ const sharedSetting = (() => {
 const sharedOn = sharedSetting === '1' || sharedSetting === 'all', sharedEvery = sharedSetting === 'all';
 let copyLib = null;
 const loadCopy = () => (copyLib ||= Promise.all([import('./shared.js'), import('./relayclient.js')]).then(([a, c]) => Object.assign(sharedLib, a, c)));
+// The separate Google key the owner shared with the project, read with by those who have no
+// key of their own. Taking it out tells them, as their Google voices stop.
+let projectGoogleKey = '';
+function noteGoogleKey(key, quiet = false) {
+  const was = projectGoogleKey;
+  projectGoogleKey = key;
+  setProjectGoogleKey(key);
+  if (!quiet && was && !key && myShare && myShare.link !== 'owner' && !hasGoogleKey()) toast('The project’s Google key was taken out. Google voices need your own key now');
+  shareUi?.update();
+}
 async function startShared() {
   const id = S.projectId, token = sharedToken = {};
   shared = null; sharedUndo = null; sharedStarting = id; unlinkTabs(); unlinkTabs = () => {}; stopRelay();
+  noteGoogleKey('', true);
   window.scribecueShared = null;
   // A project shared on the relay keeps its copy in this browser between visits.
   const record = sharedLib.getShare(id);
@@ -681,6 +692,8 @@ async function startShared() {
   if (sharedToken !== token) return; // another project opened meanwhile, and started its own
   shared = copy; sharedProjectId = id; sharedList = S.cues; sharedUndo = null;
   shared.observe(applyShared);
+  shared.onGoogleKey((key) => { if (shared === copy) noteGoogleKey(key); });
+  noteGoogleKey(shared.googleKey(), true);
   window.scribecueShared = shared; // for the developer tests
   // Another tab had it open: take its copy as it is. Joined but not kept here yet: take the
   // relay's. Otherwise start the copy from this script, or bring it up to date. The owner
@@ -882,6 +895,23 @@ const sharingTools = {
     await startShared();
     toast('Stopped sharing. Your copy stays here');
   },
+  // The owner lets others read Google voices with a separate key, or takes it out.
+  // Resolves to '' or what's wrong with the key.
+  async shareGoogleKey(key) {
+    const copy = shared;
+    if (!copy) throw new Error('offline');
+    if (key) {
+      if (/\s/.test(key) || key.length > 512) return 'That doesn’t look like a Google key. Copy all of it and try again';
+      if (isPersonalGoogleKey(key)) return 'Use a separate key. This is your main Google key';
+      const problem = await checkGoogleKey(key);
+      if (problem) return problem;
+      if (shared !== copy) throw new Error('offline');
+    }
+    copy.setGoogleKey(key);
+    noteGoogleKey(key, true);
+    toast(key ? 'Google key shared. Others can now hear and use this project’s Google voices' : 'Google key taken out. Delete it in Google Cloud too');
+    return '';
+  },
   // Someone who joined leaves: their copy stays, as a project of its own.
   async leave() {
     const id = S.projectId;
@@ -912,6 +942,7 @@ if (sharedOn) {
         status: () => relay?.status || 'connecting',
         name: () => savedName(), setName: (v) => saveName(v),
         make: sharingTools.make, turnOff: sharingTools.turnOff, stop: sharingTools.stop, leave: sharingTools.leave,
+        googleKey: () => (shared ? shared.googleKey() : null), shareGoogleKey: sharingTools.shareGoogleKey,
       });
       joinUi = ui.joinDialog({
         $, name: () => savedName(), setName: (v) => saveName(v),
@@ -5111,7 +5142,7 @@ function askVoices(adc, name) {
   const here = reviewVoices().map((v) => v.id);
   const away = voiceList.filter((v) => !here.includes(v.uri));
   $('voiceScriptNote').textContent = away.length
-    ? `${andList(away.map((v) => voiceLabel(v.uri)))} ${away.length === 1 ? 'isn’t' : 'aren’t'} available here. ${missingVoiceAdvice(away[0].uri, { googleKey: hasGoogleKey(), pollyKey: hasPollyKey(), hosted: HOSTED }).replace(/\bit\b/, away.length === 1 ? 'it' : 'them')} Until then, blocks are read with ${chosenVoiceName()}.`
+    ? `${andList(away.map((v) => voiceLabel(v.uri)))} ${away.length === 1 ? 'isn’t' : 'aren’t'} available here. ${missingVoiceAdvice(away[0].uri, { googleKey: hasGoogleKey() || usingProjectGoogleKey(), pollyKey: hasPollyKey(), hosted: HOSTED }).replace(/\bit\b/, away.length === 1 ? 'it' : 'them')} Until then, blocks are read with ${chosenVoiceName()}.`
     : (main ? `The project reads with ${voiceLabel(main.uri)}${own.length ? ', and blocks keep their own voices' : ''}.` : 'Blocks keep their own voices.')
       + (voiceList.some((v) => cloudOf(v.uri) === 'Google') ? ' Each reading sends the block’s text to Google.' : '');
   $('voiceAsk').hidden = false;
