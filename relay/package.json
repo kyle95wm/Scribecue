@@ -1,0 +1,13 @@
+{
+  "name": "scribecue-relay",
+  "private": true,
+  "description": "Passes encrypted changes between people working on a shared Scribecue project.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8787",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.152.0"
+  }
+}
