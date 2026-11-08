@@ -63,7 +63,8 @@ try {
  const before=await js(`window.scribecueShared.doc.guid`);
  await js(`(()=>{const dt=new DataTransfer();dt.items.add(new File([JSON.stringify({scribecue:1,projectId:crypto.randomUUID(),blocks:[{uid:crypto.randomUUID(),start:1,end:2,text:'Only one'}]})],'other.scribecue'));window.confirm=()=>true;window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));return true})()`);
  await wait(`JSON.parse(localStorage.getItem('scribecue.v1')).cues.length===1`);
- assert.notEqual(await js(`window.scribecueShared.doc.guid`),before);
+ // The new copy starts once it has asked other tabs for theirs.
+ await wait(`window.scribecueShared.doc.guid!==${JSON.stringify(before)}`);
  assert.equal(await matches(),true,'after opening another project');
 
  const long=await js(`__long`);

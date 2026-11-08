@@ -4,7 +4,7 @@ import { REVIEW_EXT, isReview, openReview, resaveReview, liveBlock, reviewAllows
 import { reviewedRewrite, speechKey, rereads, canReread, bundledFor, keyName } from './qcspeech.js';
 import { offerLiveVoices, initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments, commentsAllowed } from './comments.js';
-import { cleanEdited, stampEdits, seedEdits, editorCount, editedLine } from './edits.js';
+import { cleanEdited, stampEdits, seedEdits, editorCount, editedLine, blockSig } from './edits.js';
 import { savedName, editorId } from './profile.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
 import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
@@ -555,7 +555,7 @@ function doUndo() {
   redoStack.push(snapshot());
   restore(undoStack.pop());
   lastUndoTag = null;
-  toast('Undo');
+  toast(sharedOthers ? 'Undo. While sharing, this can undo changes from your other tab too' : 'Undo');
 }
 function doRedo() {
   if (!redoStack.length) return toast('Nothing to redo');
@@ -575,6 +575,12 @@ let commentTimes = [], commentEnd = 0;
 const editSigs = new Map();
 let editList = null, editors = 0;
 function noteEdits(id) {
+  // Someone else's changes keep their name: remember how the blocks look, without stamping.
+  if (sharedIn) {
+    for (const c of S.cues) if (sharedIn.has(c.uid)) editSigs.set(c.uid, blockSig(c));
+    editors = editorCount(S.cues);
+    return;
+  }
   if (S.cues !== editList || S.mode === 'record') { editList = S.cues; seedEdits(S.cues, editSigs); }
   else {
     const c = id == null ? null : S.cues[idx(id)];
@@ -586,22 +592,77 @@ function noteEdits(id) {
 }
 // The shared copy for working with others (shared.js). Until sharing ships it's a developer
 // setting, scribecue.sharedCopy in this browser's storage, so Yjs only loads when it's on.
-let shared = null, sharedList = null, sharedProjectId = null;
+// Tabs of this browser with the same project open share changes, as the service will.
+let shared = null, sharedLib = null, sharedList = null, sharedProjectId = null, unlinkTabs = () => {};
+let sharedIn = null, sharedOthers = false, sharedStarting = null; // uids being applied from others; whether any came
 const sharedOn = (() => { try { return localStorage.getItem('scribecue.sharedCopy') === '1'; } catch { return false; } })();
-if (sharedOn) import('./shared.js').then(({ SharedProject }) => {
-  shared = new SharedProject(); sharedProjectId = S.projectId; sharedList = S.cues;
-  shared.write(S.cues, S.comments);
+async function startShared() {
+  const copy = new sharedLib.SharedProject(), id = S.projectId;
+  shared = null; sharedStarting = id; unlinkTabs();
+  const link = sharedLib.linkTabs(copy, id);
+  unlinkTabs = link.stop;
+  const joined = await link.ready;
+  if (S.projectId !== id) return; // another project opened meanwhile, and started its own
+  shared = copy; sharedProjectId = id; sharedList = S.cues; sharedOthers = false;
+  shared.observe(applyShared);
   window.scribecueShared = shared; // for the developer tests
-}).catch(() => { /* stays off */ });
+  // Another tab had it open: take its copy as it is. Otherwise start the copy from this script.
+  if (joined) applyShared([...new Set([...shared.blocks.keys(), ...S.cues.map((c) => c.uid)])], true);
+  else shared.write(S.cues, S.comments);
+}
+if (sharedOn) import('./shared.js').then((lib) => { sharedLib = lib; startShared(); }).catch(() => { /* stays off */ });
 function noteShared(id) {
+  if (!sharedLib || sharedIn) return;
+  // A different project starts its own copy. Edits while it starts are in the script it reads.
+  if (S.projectId !== (shared ? sharedProjectId : sharedStarting)) { startShared(); return; }
   if (!shared) return;
-  if (S.projectId !== sharedProjectId) {
-    shared = new shared.constructor(); sharedProjectId = S.projectId; sharedList = null;
-    window.scribecueShared = shared;
-  }
   const c = id == null ? null : S.cues[idx(id)];
   if (S.cues !== sharedList || !c) { sharedList = S.cues; shared.write(S.cues, S.comments); }
   else shared.write(S.cues, S.comments, [c.uid]);
+}
+// The caret, after someone else's letters arrive in the text being typed: it stays with the
+// letters around it.
+function keepCaret(was, now) {
+  const [a, b] = [edText.selectionStart, edText.selectionEnd];
+  let start = 0;
+  while (start < was.length && start < now.length && was[start] === now[start]) start++;
+  let end = 0;
+  while (end < was.length - start && end < now.length - start && was[was.length - 1 - end] === now[now.length - 1 - end]) end++;
+  const move = (p) => p <= start ? p : p >= was.length - end ? p + now.length - was.length : start + (now.length - start - end);
+  edText.value = now;
+  edText.setSelectionRange(move(a), move(b));
+}
+// Puts others' changes into the script: blocks by uid, with their comments, and the timeline
+// comments. Pickups, readings and selection here stay as they are.
+function applyShared(uids, timeline) {
+  if (!uids.length && !timeline) return;
+  sharedOthers = true;
+  const incoming = shared.readBlocks(uids);
+  const at = new Map(S.cues.map((c, i) => [c.uid, i]));
+  let one = null, many = false, gone = false;
+  for (const [uid, b] of incoming) {
+    const i = at.get(uid);
+    if (!b) { gone ||= i != null; continue; }
+    if (i == null) { S.cues.push(revive(b)); many = true; continue; }
+    const c = S.cues[i], was = c.text;
+    c.text = b.text;
+    for (const k of sharedLib.SHARED_FIELDS) if (k in b) c[k] = b[k]; else delete c[k];
+    if (b.comments) c.comments = b.comments; else delete c.comments;
+    if (edit?.id === c.id && document.activeElement === edText && was !== c.text) keepCaret(was, c.text);
+    if (one == null) one = c.id; else many = true;
+  }
+  let lostSel = false;
+  if (gone) for (let i = S.cues.length - 1; i >= 0; i--) {
+    const c = S.cues[i];
+    if (!incoming.has(c.uid) || incoming.get(c.uid)) continue;
+    if (edit?.id === c.id) { edit = null; edText.blur(); }
+    lostSel ||= c.id === S.sel;
+    S.cues.splice(i, 1);
+  }
+  if (timeline) S.comments = shared.readTimeline();
+  sharedIn = new Set(uids);
+  try { changed(gone || many || timeline || one == null ? null : one); } finally { sharedIn = null; }
+  if (lostSel) select(null, { seek: false });
 }
 function changed(id = null) {
   noteEdits(id);
@@ -631,7 +692,7 @@ function changed(id = null) {
   updateEditor();
   refreshComments();
   configureQcAudio();
-  if (id != null) { const c = S.cues[idx(id)]; if (c && qc() && !qcLocked()) noteEdit(c); scheduleAutoRewrite(id); }
+  if (id != null && !sharedIn) { const c = S.cues[idx(id)]; if (c && qc() && !qcLocked()) noteEdit(c); scheduleAutoRewrite(id); }
   S.activeId = undefined; // force overlay/active refresh
   tlDirty = true;
   clearTimeout(saveTimer);

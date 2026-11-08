@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SharedProject, retype } from '../app/js/shared.js';
+import { SharedProject, retype, linkTabs } from '../app/js/shared.js';
 import { cleanComments } from '../app/js/comments.js';
 import * as Y from '../app/vendor/yjs.js';
 
@@ -94,4 +94,45 @@ test('1,500 blocks over two hours go in quickly enough to split into steps', () 
   assert.equal(s.read().blocks.length, 1500);
   assert.ok(ms < 1000, `took ${Math.round(ms)} ms`);
   assert.ok(s.update().length < 400_000, `update is ${s.update().length} bytes`);
+});
+
+test('a tab that opens takes the copy another tab already has, then edits flow both ways', async () => {
+  const name = crypto.randomUUID(), tick = () => new Promise((r) => setTimeout(r, 20));
+  const a = new SharedProject(), la = linkTabs(a, name, { wait: 30 });
+  assert.equal(await la.ready, false, 'nobody else had it open');
+  a.write(blocks(), timeline());
+  const b = new SharedProject(), lb = linkTabs(b, name, { wait: 500 });
+  assert.equal(await lb.ready, true);
+  assert.deepEqual(b.read(), a.read());
+  const seen = [];
+  a.observe((uids) => seen.push(...uids));
+  const list = b.read().blocks; list[0].text = 'Mara opens a blue door.';
+  b.write(list, timeline(), [uid(1)]);
+  await tick();
+  assert.equal(a.read().blocks[0].text, 'Mara opens a blue door.');
+  assert.deepEqual(seen, [uid(1)]);
+  // Typing in the same block from both tabs at once keeps both.
+  const one = a.read().blocks, two = b.read().blocks;
+  one[0].text = 'Mara slowly opens a blue door.'; two[0].text = 'Mara opens a blue door again.';
+  a.write(one, [], [uid(1)]); b.write(two, [], [uid(1)]);
+  await tick();
+  assert.equal(a.read().blocks[0].text, 'Mara slowly opens a blue door again.');
+  assert.deepEqual(a.read(), b.read());
+  // Other projects, and damaged messages, are ignored.
+  const other = new SharedProject(), lo = linkTabs(other, crypto.randomUUID(), { wait: 30 });
+  assert.equal(await lo.ready, false);
+  const raw = new BroadcastChannel(`scribecue-shared:${name}`);
+  raw.postMessage({ type: 'update', update: new Uint8Array([1, 2, 3]) }); raw.postMessage('nonsense');
+  await tick();
+  assert.deepEqual(a.read(), b.read());
+  for (const l of [la, lb, lo]) l.stop();
+  raw.close();
+});
+
+test('a tab still waiting never hands on its empty copy', async () => {
+  const name = crypto.randomUUID();
+  const a = new SharedProject(), la = linkTabs(a, name, { wait: 300 });
+  const b = new SharedProject(), lb = linkTabs(b, name, { wait: 30 });
+  assert.equal(await lb.ready, false, 'a has nothing to hand on yet');
+  la.stop(); lb.stop();
 });

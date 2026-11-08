@@ -14,6 +14,7 @@
 #           slow responses and memory. About 15 minutes. It uses all the CPU unless you give
 #           a number: a tour's cpus default to "all". To limit the whole browser instead of
 #           slowing the page, use a slowdown of 1. The two together overstate delays.
+#           SHARED_COPY=1 before the command turns on the shared copy for live sharing.
 #   blocks: how many blocks the script has (default 1500)
 #   slowdown: how much to slow the page, as in DevTools (default 6)
 #   sections: some of waveform,write,modes,panels,tts,exports,record (default all)
@@ -126,7 +127,7 @@ if [ "${1:-}" = tour ]; then
   limit=
   [ "$cpus" = all ] || limit="--cpus=$cpus"
   # shellcheck disable=SC2086 # no limit means no option at all
-  docker run --rm $limit --shm-size=1g -e PROFILE="${PROFILE:-}" -v "$(pwd):/repo:ro" -v "$dir:/film:ro" -w /repo \
+  docker run --rm $limit --shm-size=1g -e PROFILE="${PROFILE:-}" -e SHARED_COPY="${SHARED_COPY:-}" -v "$(pwd):/repo:ro" -v "$dir:/film:ro" -w /repo \
     scribecue-slow-chromium node scripts/slow-tour.mjs "$film" "${3:-1500}" "${4:-6}" "${5:-}"
   exit 0
 fi
