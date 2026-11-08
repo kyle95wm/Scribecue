@@ -7,6 +7,9 @@
 // signatures so it can refuse writes a link may not make, and receiving clients check them
 // again. A link turned off stays on the list, marked off and without its box: it can't sign
 // in, but the changes it made before still check out for whoever opens the project later.
+// Each change carries the browser that made it and its number there; the list says where a
+// link turned off stopped, so clients can tell its earlier changes from later ones. The design
+// is in docs/development/sharing-design.md.
 //
 // This file has no Cloudflare in it: storage and sockets are passed in, so it runs in Node
 // for the tests. See index.js for the Worker and Durable Object around it.
@@ -24,6 +27,8 @@ export const LIMITS = {
   presence: 4000, // characters in one presence message
   links: 30, // links on at once
   offLinks: 200, // links turned off, kept so their earlier changes still check out
+  devices: 50, // browsers whose last change is kept for each link turned off
+  linksText: 500_000, // characters in the owner's signed list
   idle: 180 * 24 * 3600 * 1000, // a project nobody opens for this long is deleted
 };
 const CHUNK = 100_000; // stored values stay well under the storage's own limit
@@ -47,18 +52,33 @@ const join = (label, bytes) => {
 // What each signature covers. Clients sign the same bytes.
 export const signed = {
   auth: (room, nonce) => enc.encode(`scribecue-relay:auth:${room}:${nonce}`),
-  update: (room, doc, data) => join(`scribecue-relay:update:${room}:${doc}:`, data),
-  snapshot: (room, doc, upTo, data) => join(`scribecue-relay:snapshot:${room}:${doc}:${upTo}:`, data),
+  // A change carries the browser that made it (`dev`, new each time the project opens) and
+  // its number there (`n`, counting up). Without them, as sent before numbering, the old form.
+  update: (room, doc, data, dev, n) => join(dev ? `scribecue-relay:change:${room}:${doc}:${dev}:${n}:` : `scribecue-relay:update:${room}:${doc}:`, data),
+  snapshot: (room, doc, upTo, data, dev, n) => join(dev ? `scribecue-relay:whole:${room}:${doc}:${upTo}:${dev}:${n}:` : `scribecue-relay:snapshot:${room}:${doc}:${upTo}:`, data),
   links: (text) => enc.encode(`scribecue-relay:links:${text}`),
 };
 export const validRoom = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{22}$/.test(id);
 const validId = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id);
+const validDev = (d) => typeof d === 'string' && /^[A-Za-z0-9_-]{8,22}$/.test(d);
+// A change's browser and number, checked: {} for one sent before numbering.
+function numbering(m) {
+  if (m.dev === undefined && m.n === undefined) return {};
+  if (!validDev(m.dev) || !Number.isSafeInteger(m.n) || m.n < 1) throw new Error('bad numbering');
+  return { dev: m.dev, n: m.n };
+}
+// The last number of each browser of a link turned off: { dev: n }.
+export function validUpTo(upTo) {
+  if (!upTo || typeof upTo !== 'object' || Array.isArray(upTo)) return false;
+  const e = Object.entries(upTo);
+  return e.length <= LIMITS.devices && e.every(([d, n]) => validDev(d) && Number.isSafeInteger(n) && n >= 0);
+}
 const seqKey = (n) => 'u:' + String(n).padStart(15, '0');
 
 // The owner's signed list of links, checked: { text, sig } → { n, links: Map(id → link) }.
 export async function readLinks(room, owner, signedLinks, verify) {
   const { text, sig } = signedLinks || {};
-  if (typeof text !== 'string' || typeof sig !== 'string' || text.length > 200_000) throw new Error('bad links');
+  if (typeof text !== 'string' || typeof sig !== 'string' || text.length > LIMITS.linksText) throw new Error('bad links');
   if (!(await verify(owner, unb64(sig), signed.links(text)))) throw new Error('links not signed by the owner');
   const o = JSON.parse(text);
   if (o.room !== room || !Number.isSafeInteger(o.n) || o.n < 1 || !Array.isArray(o.links)) throw new Error('bad links');
@@ -68,6 +88,7 @@ export async function readLinks(room, owner, signedLinks, verify) {
   for (const l of o.links) {
     if (!validId(l?.id) || l.id === 'owner' || links.has(l.id) || !ROLES.includes(l.role) || typeof l.pub !== 'string') throw new Error('bad link');
     if (l.off !== true && (typeof l.box !== 'string' || l.box.length > 4000)) throw new Error('bad link');
+    if (l.off === true && l.upTo !== undefined && !validUpTo(l.upTo)) throw new Error('bad link');
     unb64(l.pub);
     links.set(l.id, l.off === true ? { role: l.role, pub: l.pub, off: true } : { role: l.role, pub: l.pub, box: l.box });
   }
@@ -203,10 +224,10 @@ export class Room {
       const s = await this.storage.get('snap:' + doc);
       if (!s || s.upTo <= since) continue;
       const parts = await this.storage.list({ prefix: `snap:${doc}:` });
-      send(socket, { type: 'snapshot', doc, upTo: s.upTo, by: s.by, sig: s.sig, data: [...parts.values()].join('') });
+      send(socket, { type: 'snapshot', doc, upTo: s.upTo, by: s.by, ...numbering(s), sig: s.sig, data: [...parts.values()].join('') });
     }
     const updates = await this.storage.list({ start: seqKey(since + 1), end: 'u;' });
-    for (const [key, u] of updates) send(socket, { type: 'update', seq: Number(key.slice(2)), doc: u.doc, by: u.by, sig: u.sig, data: u.data });
+    for (const [key, u] of updates) send(socket, { type: 'update', seq: Number(key.slice(2)), doc: u.doc, by: u.by, ...numbering(u), sig: u.sig, data: u.data });
     send(socket, { type: 'synced', seq: meta.seq });
   }
 
@@ -226,15 +247,15 @@ export class Room {
 
   async #update(socket, state, m) {
     if (!WRITERS[m.doc]?.includes(state.role)) return fail(socket, 'not-allowed', false, m.doc);
-    const data = unb64(m.data);
-    if (typeof m.sig !== 'string' || !(await this.verify(state.pub, unb64(m.sig), signed.update(this.id, m.doc, data)))) return fail(socket, 'bad-signature');
+    const data = unb64(m.data), num = numbering(m);
+    if (typeof m.sig !== 'string' || !(await this.verify(state.pub, unb64(m.sig), signed.update(this.id, m.doc, data, num.dev, num.n)))) return fail(socket, 'bad-signature');
     const meta = await this.storage.get('meta');
     if (meta.bytes + data.length > LIMITS.room) return fail(socket, 'room-full');
     const seq = meta.seq + 1;
     meta.seq = seq; meta.bytes += data.length;
     await this.#touch(meta, false);
-    await this.storage.put({ [seqKey(seq)]: { doc: m.doc, by: state.link, sig: m.sig, data: m.data, size: data.length }, meta });
-    const out = { type: 'update', seq, doc: m.doc, by: state.link, sig: m.sig, data: m.data };
+    await this.storage.put({ [seqKey(seq)]: { doc: m.doc, by: state.link, ...num, sig: m.sig, data: m.data, size: data.length }, meta });
+    const out = { type: 'update', seq, doc: m.doc, by: state.link, ...num, sig: m.sig, data: m.data };
     for (const other of this.sockets()) if (other !== socket && other.state?.role) send(other, out);
     send(socket, { type: 'ack', id: m.id ?? null, seq });
   }
@@ -243,9 +264,11 @@ export class Room {
   async #snapshot(socket, state, m) {
     if (!WRITERS[m.doc]?.includes(state.role)) return fail(socket, 'not-allowed', false, m.doc);
     const meta = await this.storage.get('meta'), old = await this.storage.get('snap:' + m.doc);
-    if (!Number.isSafeInteger(m.upTo) || m.upTo < 1 || m.upTo > meta.seq || (old && m.upTo <= old.upTo)) return fail(socket, 'stale-snapshot');
-    const data = unb64(m.data);
-    if (typeof m.sig !== 'string' || !(await this.verify(state.pub, unb64(m.sig), signed.snapshot(this.id, m.doc, m.upTo, data)))) return fail(socket, 'bad-signature');
+    // One up to the same change may replace the last, as the owner's does after a link is
+    // turned off.
+    if (!Number.isSafeInteger(m.upTo) || m.upTo < 1 || m.upTo > meta.seq || (old && m.upTo < old.upTo)) return fail(socket, 'stale-snapshot');
+    const data = unb64(m.data), num = numbering(m);
+    if (typeof m.sig !== 'string' || !(await this.verify(state.pub, unb64(m.sig), signed.snapshot(this.id, m.doc, m.upTo, data, num.dev, num.n)))) return fail(socket, 'bad-signature');
     const gone = [], drop = await this.storage.list({ start: seqKey(1), end: seqKey(m.upTo + 1) });
     let freed = old?.size || 0;
     for (const [key, u] of drop) if (u.doc === m.doc) { gone.push(key); freed += u.size; }
@@ -256,7 +279,7 @@ export class Room {
     // Old parts first: the new ones may reuse their keys.
     for (let i = 0; i < gone.length; i += 128) await this.storage.delete(gone.slice(i, i + 128));
     meta.bytes += data.length - freed;
-    await this.storage.put({ ...parts, ['snap:' + m.doc]: { upTo: m.upTo, by: state.link, sig: m.sig, size: data.length, parts: Object.keys(parts).length }, meta });
+    await this.storage.put({ ...parts, ['snap:' + m.doc]: { upTo: m.upTo, by: state.link, ...num, sig: m.sig, size: data.length, parts: Object.keys(parts).length }, meta });
     send(socket, { type: 'ack', id: m.id ?? null, seq: m.upTo });
   }
 

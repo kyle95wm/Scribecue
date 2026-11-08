@@ -3,7 +3,7 @@
 // It reconnects by itself, keeps changes made while offline until the relay has them, and
 // now and then sends a whole document so the relay can drop the changes before it.
 import * as Y from '../vendor/yjs.js';
-import { b64, unb64, signed, signer, verifier, readLinks, projectCipher, unwrapKeys, keysOf, WRITERS } from './sharekeys.js';
+import { b64, unb64, signed, signer, verifier, readLinks, projectCipher, unwrapKeys, keysOf, WRITERS, DEVICES } from './sharekeys.js';
 import { DOCS } from './shared.js';
 
 const ENDS = new Set(['link-off', 'room-deleted', 'no-room', 'bad-signature', 'room-exists']);
@@ -21,9 +21,16 @@ export class RelayClient {
     this.seq = 0; this.role = null; this.links = null; this.status = null;
     this.pending = Object.fromEntries(DOCS.map((d) => [d, []])); // changes the relay doesn't have yet
     this.inflight = new Map(); // message id → { doc, count }
+    this.waiters = []; this.failures = 0; // waiting for the relay to answer, as compact() does
     this.held = []; // changes waiting for a project key this side doesn't have yet
     this.counts = Object.fromEntries(DOCS.map((d) => [d, 0])); // changes since the last snapshot
     this.nextId = 1; this.delay = retryMs; this.stopped = false; this.synced = false;
+    // Each change this side sends is numbered, for this browser (`dev`, new each time).
+    this.dev = b64(crypto.getRandomValues(new Uint8Array(9))); this.n = 0;
+    // The last number had from each browser of each link, so the owner can say where a link
+    // turned off stops ({ link: { dev: n } }; app.js keeps it with the copy), and the
+    // signature of each numbered change had, so no number counts twice.
+    this.seen = {}; this.sigs = new Map();
     this.verify = verifier();
     this.ready = (async () => {
       this.sign = await signer(who.priv);
@@ -43,14 +50,55 @@ export class RelayClient {
     this.timers.clearTimeout(this.flushTimer); this.timers.clearTimeout(this.retryTimer); this.timers.clearTimeout(this.connectTimer);
     this.timers.clearTimeout(this.presenceTimer); this.timers.clearTimeout(this.heartbeat);
     try { this.ws?.close(1000, 'done'); } catch { /* closed */ }
+    this.#wake();
   }
   // The owner's new list of links, or ending the project on the relay. Only when online:
   // a list sent while offline goes again on reconnecting (see onLinks in app.js).
+  // Resolves true once the relay has it.
   async sendLinks(links) {
-    if (!this.synced || this.role !== 'owner') return;
+    if (!this.synced || this.role !== 'owner') return false;
     await this.#readLinks(links); // this side takes the new list at once, to accept new links' changes
-    this.#send({ type: 'links', id: this.nextId++, links });
+    const id = this.nextId++;
+    this.inflight.set(id, { doc: null, count: 0, links: true });
+    this.#send({ type: 'links', id, links });
+    return this.#answered([id]);
   }
+  // Sends each document this side may write, whole, up to the latest change, so the relay
+  // drops the changes before it: as after a link is turned off, so that none of its changes
+  // are needed any more. Resolves true once the relay has them all; false if it can't now,
+  // as when offline or still waiting for a project key.
+  async compact() {
+    if (!this.synced || this.held.length || this.snapshotting) return false;
+    const upTo = this.seq, ws = this.ws, ids = [];
+    if (upTo < 1) return true;
+    this.snapshotting = true;
+    try {
+      for (const doc of DOCS) {
+        if (!WRITERS[doc].includes(this.role)) continue;
+        const data = await this.cipher.seal(doc, this.shared.update(doc));
+        const n = ++this.n, sig = await this.sign(signed.snapshot(this.room, doc, upTo, data, this.dev, n));
+        if (this.ws !== ws || !this.synced) return false;
+        const id = this.nextId++;
+        ids.push(id);
+        this.inflight.set(id, { doc, count: 0, snapshot: true });
+        this.#send({ type: 'snapshot', doc, upTo, id, dev: this.dev, n, data: b64(data), sig });
+      }
+    } finally { this.snapshotting = false; }
+    return this.#answered(ids);
+  }
+  // Waits for the relay to answer messages `ids`: true if it took them all.
+  #answered(ids) {
+    const ws = this.ws, failures = this.failures;
+    return new Promise((resolve) => {
+      const check = () => {
+        if (ids.some((id) => this.inflight.has(id)) && this.ws === ws && !this.stopped) return false;
+        resolve(this.ws === ws && this.failures === failures && !this.stopped);
+        return true;
+      };
+      if (!check()) this.waiters.push(check);
+    });
+  }
+  #wake() { this.waiters = this.waiters.filter((check) => !check()); }
   // Back online: tries again now, rather than after the wait between tries.
   reconnect() {
     if (this.stopped || !this.status || this.status === 'online' || this.status === 'ended') return;
@@ -109,7 +157,7 @@ export class RelayClient {
   #connect() {
     if (this.stopped) return;
     this.#set('connecting');
-    this.synced = false; this.inflight.clear();
+    this.synced = false; this.inflight.clear(); this.#wake();
     const ws = this.ws = new this.WebSocket(`${this.url.replace(/\/$/, '')}/rooms/${this.room}`);
     // Messages are handled one at a time, in order: checking a signature takes a moment.
     let queue = Promise.resolve(), heard = false;
@@ -172,14 +220,15 @@ export class RelayClient {
       if (sent) {
         this.inflight.delete(m.id);
         if (sent.count) this.pending[sent.doc].splice(0, sent.count);
-        if (sent.snapshot) this.counts[sent.doc] = 0; else this.counts[sent.doc]++;
+        if (sent.snapshot) this.counts[sent.doc] = 0; else if (sent.doc) this.counts[sent.doc]++;
       }
       this.seq = Math.max(this.seq, m.seq);
+      this.#wake();
       this.#maybeSnapshot();
     } else if (m.type === 'error') {
       if (ENDS.has(m.code)) { this.#set('ended', m.code); this.stop(); return; }
       // Refused, such as a full room: what was sent waits, and goes again with the next change.
-      this.inflight.clear();
+      this.inflight.clear(); this.failures++; this.#wake();
       this.onStatus(this.status, m.code);
     }
   }
@@ -204,15 +253,33 @@ export class RelayClient {
     if (!DOCS.includes(m.doc)) return;
     const by = this.links?.links.get(m.by);
     if (!by || !WRITERS[m.doc].includes(by.role)) return;
+    const num = typeof m.dev === 'string' && /^[A-Za-z0-9_-]{8,22}$/.test(m.dev) && Number.isSafeInteger(m.n) && m.n >= 1 ? { dev: m.dev, n: m.n } : null;
+    // A link turned off: only changes numbered up to where the owner said it stopped. Once
+    // sealed, the owner's whole copy holds all it did, and nothing from it counts.
+    if (by.off && (by.sealed || (by.upTo && !(num && num.n <= (by.upTo[num.dev] ?? 0))))) return;
     const data = unb64(m.data);
-    const what = m.type === 'update' ? signed.update(this.room, m.doc, data) : signed.snapshot(this.room, m.doc, m.upTo, data);
+    const what = m.type === 'update' ? signed.update(this.room, m.doc, data, num?.dev, num?.n) : signed.snapshot(this.room, m.doc, m.upTo, data, num?.dev, num?.n);
     if (!(await this.verify(by.pub, m.sig, what))) return;
+    const key = num && `${m.by}:${num.dev}:${num.n}`;
+    if (num && this.sigs.has(key) && this.sigs.get(key) !== m.sig) return; // a second change with the same number
     // One sealed with a project key this side doesn't have yet is kept until it arrives.
     let plain;
     try { plain = await this.cipher.open(m.doc, data); } catch { if (data[0] > this.cipher.count) this.held.push(m); return; }
     try { this.shared.apply(m.doc, plain, 'relay'); } catch { return; }
+    if (num) this.#note(m.by, num, key, m.sig);
     if (m.type === 'update') { this.seq = Math.max(this.seq, m.seq); this.counts[m.doc]++; }
     else { this.seq = Math.max(this.seq, m.upTo); this.counts[m.doc] = 0; }
+  }
+
+  #note(by, { dev, n }, key, sig) {
+    this.sigs.set(key, sig);
+    if (this.sigs.size > 100_000) this.sigs.delete(this.sigs.keys().next().value);
+    if (by === 'owner') return;
+    const devs = this.seen[by] ||= {};
+    const last = Math.max(devs[dev] ?? 0, n);
+    delete devs[dev]; devs[dev] = last; // newest last
+    const all = Object.keys(devs);
+    if (all.length > DEVICES) delete devs[all[0]];
   }
 
   #schedule() {
@@ -240,11 +307,11 @@ export class RelayClient {
       if (!WRITERS[doc].includes(this.role)) { list.length = 0; continue; } // not this link's to change
       const merged = Y.mergeUpdates(list.slice(waiting));
       const data = await this.cipher.seal(doc, merged);
-      const sig = await this.sign(signed.update(this.room, doc, data));
+      const n = ++this.n, sig = await this.sign(signed.update(this.room, doc, data, this.dev, n));
       if (this.ws !== ws || !this.synced) return;
       const id = this.nextId++;
       this.inflight.set(id, { doc, count: fresh });
-      this.#send({ type: 'update', doc, id, data: b64(data), sig });
+      this.#send({ type: 'update', doc, id, dev: this.dev, n, data: b64(data), sig });
     }
   }
 
@@ -256,11 +323,11 @@ export class RelayClient {
       try {
         const upTo = this.seq, ws = this.ws;
         const data = await this.cipher.seal(doc, this.shared.update(doc));
-        const sig = await this.sign(signed.snapshot(this.room, doc, upTo, data));
+        const n = ++this.n, sig = await this.sign(signed.snapshot(this.room, doc, upTo, data, this.dev, n));
         if (this.ws !== ws || !this.synced) return;
         const id = this.nextId++;
         this.inflight.set(id, { doc, count: 0, snapshot: true });
-        this.#send({ type: 'snapshot', doc, upTo, id, data: b64(data), sig });
+        this.#send({ type: 'snapshot', doc, upTo, id, dev: this.dev, n, data: b64(data), sig });
       } finally { this.snapshotting = false; }
       return;
     }

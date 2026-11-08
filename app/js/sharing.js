@@ -37,20 +37,33 @@ export async function startSharing(project, relay, passwords, opts) {
 // to the list counts up, so the relay and others can tell the newest. A link turned off stays
 // on the list, marked off, so the changes it made still count; only its key to check them is
 // kept. Changes from then on use a new project key, which the link turned off never gets.
-const turnOff = (l) => (l.off ? l : { id: l.id, role: l.role, pub: l.pub, off: true });
+//
+// `seen`: the last number had from each browser of each link ({ link: { dev: n } }, from
+// the connection, when it's up to date). A link turned off keeps them as `upTo`: changes
+// signed with higher numbers came after, and don't count. Without `seen`, as when offline,
+// they're filled in by settle() before the list goes to the relay.
+const turnOff = (l, seen) => (l.off ? l : { id: l.id, role: l.role, pub: l.pub, off: true, upTo: seen ? { ...(seen[l.id] || {}) } : null });
+export function settle(record, seen) {
+  if (!record.links.some((l) => l.off && l.upTo === null)) return record;
+  return { ...record, links: record.links.map((l) => (l.off && l.upTo === null ? { ...l, upTo: { ...(seen[l.id] || {}) } } : l)) };
+}
 function withNewKey(record) {
   const keys = keysOf(record);
   return { ...record, keys: keys.length < MAX_KEYS ? [...keys, newProjectKey()] : keys, ow: record.ow || newProjectKey() };
 }
-export async function addLink(record, role, password, opts) {
+// Links turned off, once the owner's whole copy is on the relay: it holds everything they
+// did, so nothing more from them counts, whatever its number.
+export const unsealed = (record) => record.links.filter((l) => l.off && l.upTo !== null && !l.sealed).map((l) => l.id);
+export const sealLinks = (record, ids) => ({ ...record, n: record.n + 1, links: record.links.map((l) => (ids.includes(l.id) && l.off ? { ...l, sealed: true } : l)) });
+export async function addLink(record, role, password, opts, seen = null) {
   const replaces = record.links.some((l) => l.role === role && !l.off);
   const next = replaces ? withNewKey(record) : record;
   const link = await newLink({ room: next.room, keys: keysOf(next), ownerPub: next.ownerPub, project: next.project }, role, password, opts);
-  return { ...next, n: next.n + 1, links: [...next.links.map((l) => (l.role === role ? turnOff(l) : l)), link] };
+  return { ...next, n: next.n + 1, links: [...next.links.map((l) => (l.role === role ? turnOff(l, seen) : l)), link] };
 }
-export function removeLink(record, id) {
+export function removeLink(record, id, seen = null) {
   const next = withNewKey(record);
-  return { ...next, n: next.n + 1, links: next.links.map((l) => (l.id === id ? turnOff(l) : l)) };
+  return { ...next, n: next.n + 1, links: next.links.map((l) => (l.id === id ? turnOff(l, seen) : l)) };
 }
 
 // The project that has joined or shares this room, if any, among those kept here.

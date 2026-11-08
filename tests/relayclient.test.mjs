@@ -68,7 +68,7 @@ async function share() {
     await until(() => c.status === 'online', 'joined');
     return { s, c };
   };
-  return { net, owner, edit, comment, list, mine, o, join, statuses };
+  return { net, owner, edit, comment, list, mine, o, join, make, statuses };
 }
 
 test('a link joins, catches up, and changes pass both ways', async () => {
@@ -173,13 +173,56 @@ test('changes made through a link before it’s turned off reach those who open 
   const l = s.read().blocks; l[0].text = 'Written before the link went off.';
   s.write(l, [], [uid(1)]);
   await until(() => !c.unsent() && mine.read().blocks[0].text === l[0].text, 'the owner has it');
-  // Turned off, as the app does it: still on the list, marked off.
-  const off = list.map((x) => (x === edit ? { id: x.id, role: x.role, pub: x.pub, off: true } : x));
+  // Turned off, as the app does it: still on the list, marked off, with the last number the
+  // owner had from it.
+  assert.deepEqual(o.seen[edit.id], { [c.dev]: c.n });
+  const off = list.map((x) => (x === edit ? { id: x.id, role: x.role, pub: x.pub, off: true, upTo: { ...o.seen[edit.id] } } : x));
   await o.sendLinks(await keys.signLinks(owner, 2, off));
   await until(() => c.status === 'ended');
   const late = await join(list[1]);
   await until(() => late.s.read().blocks[0].text === 'Written before the link went off.', 'the comment link has it');
   assert.deepEqual(late.s.read(), mine.read());
+});
+
+test('a link turned off counts only up to its last number, and each number once', async () => {
+  const { mine, o, join, make, edit, owner, list, net } = await share();
+  const { s, c } = await join(edit);
+  const l = s.read().blocks; l[0].text = 'Written before the link went off.';
+  s.write(l, [], [uid(1)]);
+  await until(() => !c.unsent() && mine.read().blocks[0].text === l[0].text, 'the owner has it');
+  const off = list.map((x) => (x === edit ? { id: x.id, role: x.role, pub: x.pub, off: true, upTo: { ...o.seen[edit.id] } } : x));
+  await o.sendLinks(await keys.signLinks(owner, 2, off));
+  await until(() => c.status === 'ended');
+  // Changes signed with the link's key after it went off, as someone who kept the key might
+  // have the relay add them.
+  const { priv } = await keys.openBox({ room: owner.room, ...edit }, 'pw', fast);
+  const sign = await keys.signer(priv), cipher = await keys.projectCipher(owner.keys, owner.room);
+  const store = net.stores.get(owner.room).m, meta = store.get('meta');
+  const forge = async (text, dev, n) => {
+    const x = new SharedProject();
+    x.apply('script', mine.update('script'));
+    const b = x.read().blocks; b[1].text = text;
+    x.write(b, [], [uid(2)]);
+    const data = await cipher.seal('script', x.update('script'));
+    const sig = await sign(keys.signed.update(owner.room, 'script', data, dev, n));
+    meta.seq++;
+    store.set('u:' + String(meta.seq).padStart(15, '0'), { doc: 'script', by: edit.id, ...(dev ? { dev, n } : {}), sig, data: keys.b64(data), size: data.length });
+  };
+  await forge('Numbered after it went off.', c.dev, c.n + 1);
+  await forge('From a browser it never used.', 'AAAAAAAAAAAA', 1);
+  await forge('In the form from before numbers.');
+  await forge('The same number, a different change.', c.dev, c.n);
+  const late = await join(list[1]);
+  await sleep(30);
+  assert.equal(late.s.read().blocks[0].text, 'Written before the link went off.', 'what came before counts');
+  assert.equal(late.s.read().blocks[1].text, 'She steps outside.', 'none of the later ones count');
+  assert.deepEqual(late.s.read(), mine.read());
+  // The owner, opening the project again with nothing kept, doesn't take them either.
+  const back = new SharedProject();
+  const o2 = make(back, { link: 'owner', priv: owner.ownerPriv, ownerPub: owner.ownerPub, keys: owner.keys, w: owner.ow });
+  await until(() => o2.status === 'online', 'the owner is back');
+  await sleep(30);
+  assert.deepEqual(back.read(), mine.read());
 });
 
 test('turning a link off adds a project key that only the links still on get', async () => {
@@ -262,4 +305,43 @@ test('a link the owner adds is accepted at once by the owner’s side', async ()
   l[0].comments = [{ id: crypto.randomUUID(), text: 'From the new link', author: 'Ann', created: '2026-11-08T00:00:00Z' }];
   s.write(l, [], [uid(1)], { script: false });
   await until(() => mine.read().blocks[0].comments?.length === 1, 'the owner takes the new link’s comment');
+});
+
+test('once the owner seals a link turned off, its old changes are gone and nothing from it counts', async () => {
+  const { mine, o, join, edit, owner, list, net } = await share();
+  const { s, c } = await join(edit);
+  for (const text of ['First take.', 'Second take.']) {
+    const l = s.read().blocks; l[0].text = text;
+    s.write(l, [], [uid(1)]);
+    await until(() => !c.unsent() && mine.read().blocks[0].text === text, 'the owner has it');
+  }
+  const store = net.stores.get(owner.room).m;
+  const fromLink = () => [...store.entries()].filter(([k, v]) => k.startsWith('u:') && v.by === edit.id).length;
+  assert.ok(fromLink() >= 2);
+  const off = list.map((x) => (x === edit ? { id: x.id, role: x.role, pub: x.pub, off: true, upTo: { ...o.seen[edit.id] } } : x));
+  assert.equal(await o.sendLinks(await keys.signLinks(owner, 2, off)), true, 'the relay took the list');
+  assert.equal(await o.compact(), true, 'the relay took the whole copy');
+  assert.equal(fromLink(), 0, 'the link’s changes are gone from the relay');
+  assert.equal(store.get('snap:script').by, 'owner');
+  const sealed = off.map((x) => (x.off ? { ...x, sealed: true } : x));
+  assert.equal(await o.sendLinks(await keys.signLinks(owner, 3, sealed)), true);
+  // A change under a number it really used, now with other words: before sealing it would
+  // count for someone who never saw the first; now nothing from the link does.
+  const { priv } = await keys.openBox({ room: owner.room, ...edit }, 'pw', fast);
+  const sign = await keys.signer(priv), cipher = await keys.projectCipher(owner.keys, owner.room);
+  const x = new SharedProject();
+  x.apply('script', mine.update('script'));
+  const b = x.read().blocks; b[1].text = 'Slipped in later.';
+  x.write(b, [], [uid(2)]);
+  const data = await cipher.seal('script', x.update('script'));
+  const n = o.seen[edit.id][c.dev];
+  const meta = store.get('meta'); meta.seq++;
+  store.set('u:' + String(meta.seq).padStart(15, '0'), { doc: 'script', by: edit.id, dev: c.dev, n, sig: await sign(keys.signed.update(owner.room, 'script', data, c.dev, n)), data: keys.b64(data), size: data.length });
+  const late = await join(list[1]);
+  await sleep(30);
+  assert.equal(late.s.read().blocks[0].text, 'Second take.', 'the owner’s copy has what the link did');
+  assert.equal(late.s.read().blocks[1].text, 'She steps outside.', 'the change slipped in doesn’t count');
+  assert.deepEqual(late.s.read(), mine.read());
+  // Sealing again with nothing new is fine: the same point replaces the last copy.
+  assert.equal(await o.compact(), true);
 });

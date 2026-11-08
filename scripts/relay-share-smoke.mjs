@@ -132,11 +132,17 @@ try {
   await sleep(800);
   assert.ok(await same(), 'both copies agree');
 
-  // A turns the link off: B is told, keeps its copy, and is no longer connected.
+  // A turns the link off: B is told, keeps its copy, and is no longer connected. A's list
+  // says where B's changes stop: B's last number.
+  const [bDev, bN] = await b.js(`[scribecueRelay.dev, scribecueRelay.n]`);
   await a.click('#shareBtn');
   await a.js(`[...document.querySelectorAll('#shareLinks button')].find(b=>b.textContent==='Turn off').click();true`);
   await b.wait(`!window.scribecueRelay && document.getElementById('shareState').hidden`, 'B is let go');
   assert.equal(await b.js(`document.querySelectorAll('#list .row').length`), 1500, 'B keeps its copy');
+  const offLink = `JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>k.startsWith('scribecue.share.')))).links.find(l=>l.off)`;
+  assert.equal((await a.js(offLink)).upTo[bDev], bN, 'the link turned off stops at B’s last number');
+  // Then A sends its whole copy and seals the link: nothing more from it counts.
+  await a.wait(`${offLink}.sealed===true && scribecueRelay.links.links.get(${offLink}.id).sealed===true`, 'A seals the link');
   // A makes a new link and B opens it: B starts again from the relay's copy, not the one it kept.
   await sleep(1800);
   await a.fill('#sharePw-edit', 'red door');
