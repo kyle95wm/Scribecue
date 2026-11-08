@@ -223,10 +223,12 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   review and Can comment open in QC. The link leaves the address bar once used.
 - Someone who joined can **Leave**: their copy stays as a project of its own.
 - Links changed while offline reach the relay on reconnecting.
-- `scripts/relay-share-smoke.mjs` runs two browsers at 6× with 1,500 blocks through a
-  local relay and the dialogs. Measured: sharing 0.8–1.1 s, joining 0.7–1 s, typing
-  17–20 ms a character, a change reaching the other person in about 0.25 s, no long tasks
-  beyond the app's own start.
+- `scripts/relay-share-smoke.mjs` runs two browsers at 6× with 1,500 blocks through the
+  relay at `RELAY` (local by default) and the dialogs. It covers who's here, reloading,
+  going offline, a link turned off and a new one opened. Measured: sharing 0.8–1.3 s,
+  joining 0.7–1.2 s, typing 17–25 ms a character, a change reaching the other person in
+  about 0.25 s. The longest task is about 100 ms for the owner, and about 300 ms for
+  someone filling their copy as they join.
 
 ### Reviewers and commenters
 
@@ -244,6 +246,20 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
 - `scripts/relay-review-smoke.mjs` runs a reviewer and a commenter against an owner at 6×
   with 1,500 blocks. Measured: a suggestion reached the owner within 1 s of starting to
   type; no long tasks over 75 ms for the owner.
+
+### Who's here
+
+- Each connection sends its person's name, mode, selected block and whether it's open for
+  editing. It goes encrypted with the project key, at most 4 times a second, and again
+  every 20 seconds.
+- The relay passes it to the others with the connection's id and link, and never keeps
+  it. When a connection closes, it tells the others it's gone. Two tabs of one link are
+  two people here.
+- Someone new hears from everyone, since each answers a newcomer. Anyone not heard from
+  for a minute, or whose link goes off, stops showing.
+- The app shows initials next to the Shared tag, on the blocks people have selected, and a
+  line in the editor: "Sam is editing" in the accent colour, or "Sam has it open". Code is
+  in `relayclient.js` (`setPresence`, `onPresence`) and `showHere` in `app.js`.
 
 ### Security review (2026-11-08, our own)
 
@@ -267,6 +283,8 @@ What a dishonest relay, or someone who had a link, could still do:
 - **The relay can hold back, replay or reorder changes**, or serve an older links list to
   someone joining for the first time. Yjs makes replays harmless. Holding back is denial
   of service, which an honest relay is trusted not to do.
+- **Who's here is shared with everyone in the project**, including names and which block
+  each person has open. The relay sees only that a connection sent something, and when.
 - **Permissions are per document.** A commenter can change or delete anyone's comments,
   and an editor can rewrite anything, including with a snapshot.
 - **Keys live in this browser's storage**, like the project itself. A script running in

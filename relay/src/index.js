@@ -84,8 +84,17 @@ export class RoomObject extends DurableObject {
     await this.room(id).message(this.wrap(ws), message);
   }
 
+  // A connection closed: answer it, then tell the others in its room it's gone.
   async webSocketClose(ws, code) {
     try { ws.close(code === 1005 ? 1000 : code, 'closed'); } catch { /* already closed */ }
+    this.gone(ws);
+  }
+  async webSocketError(ws) { this.gone(ws); }
+  gone(ws) {
+    try {
+      const { id } = ws.deserializeAttachment() || {};
+      if (validRoom(id)) this.room(id).close(this.wrap(ws));
+    } catch (e) { console.error('saying a connection went failed:', e?.message || e); }
   }
 
   async alarm() {

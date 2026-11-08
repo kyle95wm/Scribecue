@@ -890,6 +890,15 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 /* Sharing: the header tag, and a row per link in the Share dialog. */
 #shareState { align-self: center; white-space: nowrap; flex-shrink: 0; }
 #shareState.offline { border-color: var(--warn); color: var(--warn); }
+/* Who else is in a shared project: their initials, in the header and on the blocks they have
+   open. Someone editing a block shows in the accent colour. */
+#sharePeople { display: flex; gap: 3px; align-self: center; flex-shrink: 0; }
+#sharePeople[hidden], #edOthers[hidden] { display: none; }
+.here { display: inline-flex; gap: 3px; }
+.who { padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; color: var(--dim); font: 11px var(--mono); line-height: 15px; white-space: nowrap; }
+.who.editing { border-color: var(--accent); color: var(--accent); }
+#edOthers { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
+#edOthers.editing { color: var(--accent); }
 .sharerow p { margin: 4px 0; }
 .sharerowline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .sharerowline input[type="password"] { flex: 1 1 140px; min-width: 0; }

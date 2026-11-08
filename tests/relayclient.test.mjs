@@ -46,7 +46,7 @@ function network() {
       setTimeout(() => room.open(this.server));
     }
     send(t) { if (this.closed) throw new Error('closed'); this.room.message(this.server, t); }
-    close() { if (this.closed) return; this.closed = true; open.delete(this.server); setTimeout(() => this.onclose?.({})); }
+    close() { if (this.closed) return; this.closed = true; open.delete(this.server); this.room.close(this.server); setTimeout(() => this.onclose?.({})); }
   }
   return { WebSocket: FakeSocket, stores, drop: () => { for (const s of [...open]) s.close(); } };
 }
@@ -225,6 +225,32 @@ test('a change sealed with a key not yet here waits for it, rather than being lo
   await until(() => s.read().blocks[0].text === 'Sealed with the second key.', 'opened once the key came');
   assert.equal(c.held.length, 0);
   assert.equal(c.safeSeq, c.seq);
+});
+
+test('people see who else is here and where, and see them go', async () => {
+  const { o, join, edit, comment, owner, list } = await share();
+  const seen = new Map();
+  const watch = (name) => (people) => seen.set(name, people);
+  const a = await join(edit, { onPresence: watch('edit') });
+  const b = await join(comment, { onPresence: watch('comment') });
+  a.c.setPresence({ name: 'Sam', mode: 'write', block: uid(1), editing: true });
+  b.c.setPresence({ name: 'Ana', mode: 'qc', block: uid(2), editing: false, extra: 'x'.repeat(100) });
+  await until(() => seen.get('edit')?.length === 1 && seen.get('comment')?.length === 1, 'each sees the other');
+  assert.deepEqual(seen.get('edit').map(({ name, mode, block, editing, by, role }) => ({ name, mode, block, editing, by, role })), [{ name: 'Ana', mode: 'qc', block: uid(2), editing: false, by: comment.id, role: 'comment' }]);
+  assert.equal(seen.get('comment')[0].name, 'Sam');
+  // Moving on shows at once.
+  a.c.setPresence({ name: 'Sam', mode: 'write', block: uid(2), editing: false });
+  await until(() => seen.get('comment')[0].block === uid(2), 'the move');
+  // Turning the comment link off: the others stop showing it.
+  await o.sendLinks(await keys.signLinks(owner, 2, [edit]));
+  await until(() => seen.get('edit').length === 0, 'gone once its link is off');
+  // Leaving: shown as gone at once, not after a minute.
+  b.c.stop();
+  const c = await join(list[0], { onPresence: watch('again') });
+  c.c.setPresence({ name: 'Sam on a laptop', mode: 'write', block: '', editing: false });
+  await until(() => seen.get('edit').some((p) => p.name === 'Sam on a laptop'), 'a second tab of one link is someone else here');
+  c.c.stop();
+  await until(() => !seen.get('edit').some((p) => p.name === 'Sam on a laptop'), 'gone when its connection closes');
 });
 
 test('a link the owner adds is accepted at once by the owner’s side', async () => {

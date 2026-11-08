@@ -674,7 +674,7 @@ async function startShared() {
 }
 // The connection to the relay for a shared project, and keeping its copy in this browser.
 let relay = null, relayOff = () => {};
-function stopRelay() { relay?.stop(); relay = null; relayOff(); relayOff = () => {}; window.scribecueRelay = null; shareUi?.update(); }
+function stopRelay() { relay?.stop(); relay = null; relayOff(); relayOff = () => {}; window.scribecueRelay = null; shareUi?.update(); if (here.length) { here = []; showHere(); } }
 async function startRelay(record, copy, fresh, seq) {
   const id = S.projectId, owner = record.link === 'owner';
   const create = owner && !record.created ? await sharedLib.signedLinks(record) : null;
@@ -686,6 +686,7 @@ async function startRelay(record, copy, fresh, seq) {
   };
   const client = relay = new sharedLib.RelayClient({
     url: record.relay, room: record.room, who: sharedLib.who(record), shared: copy, create, seed: !fresh,
+    onPresence: (people) => { if (relay === client) { here = people; showHere(); } },
     onStatus: (status, detail) => {
       if (relay !== client) return;
       if (status === 'online') {
@@ -708,11 +709,71 @@ async function startRelay(record, copy, fresh, seq) {
     },
   });
   client.seq = seq;
+  lastPresence = '';
+  queueMicrotask(notePresence); // once `relay` is this client
   const off = copy.onUpdate(persist);
   relayOff = () => { off(); clearTimeout(keep); };
   window.scribecueRelay = client; // for the developer tests
   client.start();
 }
+// Who else is here, in a shared project: from the relay, by connection. This person's own
+// presence goes to them as it changes: name, mode, the selected block and whether it's open
+// for editing.
+let here = [], lastPresence = '';
+const initials = (name) => (name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => [...w][0]).join('') || '?').toUpperCase();
+const hereLine = (p) => `${p.name || 'Someone'}, in ${MODE_NAMES[p.mode] || 'Scribecue'}`;
+function notePresence() {
+  if (!relay) return;
+  const c = selCue();
+  const me = { name: savedName() || '', mode: S.mode, block: c?.uid || '', editing: !!edit && document.activeElement === edText };
+  const json = JSON.stringify(me);
+  if (json === lastPresence) return;
+  lastPresence = json;
+  relay.setPresence(me);
+}
+function whoChip(p) {
+  const chip = document.createElement('span');
+  chip.className = 'who' + (p.editing ? ' editing' : '');
+  chip.textContent = initials(p.name || '');
+  return chip;
+}
+const placed = new Set(); // rows showing who's in them
+function showHere() {
+  const people = $('sharePeople');
+  people.hidden = !here.length;
+  people.replaceChildren(...here.slice(0, 4).map(whoChip), ...(here.length > 4 ? [Object.assign(document.createElement('span'), { className: 'who', textContent: `+${here.length - 4}` })] : []));
+  people.dataset.tip = here.map((p) => hereLine(p) + (p.editing ? ', editing' : '')).join('; ');
+  people.setAttribute('aria-label', here.length === 1 ? `1 other person here: ${here[0].name || 'Someone'}` : `${here.length} other people here`);
+  // A badge on each block someone has selected.
+  for (const r of placed) r.querySelector('.here')?.remove();
+  placed.clear();
+  const byBlock = new Map();
+  for (const p of here) if (p.block) byBlock.set(p.block, [...(byBlock.get(p.block) || []), p]);
+  if (byBlock.size) for (const c of S.cues) {
+    const ps = byBlock.get(c.uid), r = ps && rowMap.get(c.id);
+    if (!r) continue;
+    const badge = document.createElement('span');
+    badge.className = 'here';
+    badge.dataset.tip = ps.map((p) => `${p.name || 'Someone'} ${p.editing ? 'is editing' : 'has it open'}`).join('; ');
+    badge.append(...ps.slice(0, 3).map(whoChip));
+    r.querySelector('.rh').insertBefore(badge, r.querySelector('.rowdel'));
+    placed.add(r);
+  }
+  const c = selCue();
+  if (c) showOthersHere(c);
+}
+// In the editor: who else has this block open.
+function showOthersHere(c) {
+  const el = $('edOthers'), ps = here.filter((p) => p.block && p.block === c.uid);
+  el.hidden = !ps.length;
+  if (!ps.length) return;
+  const names = ps.map((p) => p.name || 'Someone');
+  const list = names.length < 3 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+  const editing = ps.some((p) => p.editing);
+  el.textContent = `${list} ${editing ? (ps.length === 1 ? 'is editing' : 'are editing') : (ps.length === 1 ? 'has it open' : 'have it open')}`;
+  el.classList.toggle('editing', editing);
+}
+
 // Starting to share this project, changing its links, and joining one from a link.
 let shareUi = null, joinUi = null;
 const sharingTools = {
@@ -1018,6 +1079,7 @@ function loadSaved() {
 // toTop: the block's row goes to the top of the list, so the blocks after it show below.
 // Not for a row just clicked, which stays where it is under the pointer.
 function select(id, { seek: doSeek = true, reveal = true, toTop = true } = {}) {
+  queueMicrotask(notePresence);
   if (S.sel !== id) {
     rowMap.get(S.sel)?.classList.remove('sel');
     rowMap.get(S.sel)?.setAttribute('aria-selected', 'false');
@@ -1545,6 +1607,7 @@ function updateEditor() {
   // A shared project shows it from the start: others are working on it.
   const editedBy = editedLine(c.edited, myShare ? Math.max(editors, 2) : editors);
   $('edEdited').textContent = editedBy; $('edEdited').hidden = !editedBy;
+  showOthersHere(c);
   $('qcPrevious').hidden = true;
   $('qcBlockInfo').textContent = '';
   if (qc()) {
@@ -1730,6 +1793,7 @@ edText.addEventListener('focus', () => {
   if (!c) { edText.blur(); return; }
   edit = { id: c.id, orig: c.text, pushed: false };
   editor.classList.add('editing');
+  notePresence();
 });
 edText.addEventListener('input', () => {
   if (S.mode === 'record') { if (recorder.side) recorder.setAltText(selIdx(), edText.value); return; }
@@ -1747,6 +1811,7 @@ edText.addEventListener('blur', () => {
   const was = edit && S.cues.find((c) => c.id === edit.id);
   edit = null;
   editor.classList.remove('editing');
+  notePresence();
   updateEditor();
   // The block just edited, even when another one is now selected: with a Google voice,
   // this is when it's read.
@@ -2005,6 +2070,7 @@ function renderList() {
   });
   if (rowMap.has(S.sel)) list.setAttribute('aria-activedescendant', `blk-${S.sel}`);
   placeEditor();
+  if (here.length) showHere(); // new rows show who's in them too
   showFilter();
   tlDirty = true;
 }
@@ -3864,6 +3930,7 @@ function modeOnly(feature, mode) {
 }
 function setMode(m, quiet = false) {
   if (!MODE_NAMES[m]) return;
+  queueMicrotask(notePresence);
   if (m !== 'qc' && S.reviewId && !qcEditable()) return toast('This QC package allows comments only. Open the writer’s project to edit');
   if (m !== 'qc' && sharedLimited()) return toast(myShare.role === 'review' ? 'Your link is for reviewing: suggest changes in QC' : 'Your link is for comments: add them in QC');
   document.activeElement?.blur();
