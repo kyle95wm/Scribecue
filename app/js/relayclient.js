@@ -3,13 +3,13 @@
 // It reconnects by itself, keeps changes made while offline until the relay has them, and
 // now and then sends a whole document so the relay can drop the changes before it.
 import * as Y from '../vendor/yjs.js';
-import { b64, unb64, signed, signer, verifier, readLinks, projectCipher, WRITERS } from './sharekeys.js';
+import { b64, unb64, signed, signer, verifier, readLinks, projectCipher, unwrapKeys, keysOf, WRITERS } from './sharekeys.js';
 import { DOCS } from './shared.js';
 
 const ENDS = new Set(['link-off', 'room-deleted', 'no-room', 'bad-signature', 'room-exists']);
 
 export class RelayClient {
-  // `who`: { link ('owner' or a link id), priv, ownerPub, projectKey }. `create`: the signed
+  // `who`: { link ('owner' or a link id), priv, ownerPub, keys (or projectKey), w }. `create`: the signed
   // links, to make the room first. `seed`: send everything already in the copy, as when
   // making the room or coming back to it; Yjs ignores what the relay already has.
   // `onStatus(status, detail)`: 'connecting', 'online',
@@ -19,12 +19,13 @@ export class RelayClient {
     this.seq = 0; this.role = null; this.links = null; this.status = null;
     this.pending = Object.fromEntries(DOCS.map((d) => [d, []])); // changes the relay doesn't have yet
     this.inflight = new Map(); // message id → { doc, count }
+    this.held = []; // changes waiting for a project key this side doesn't have yet
     this.counts = Object.fromEntries(DOCS.map((d) => [d, 0])); // changes since the last snapshot
     this.nextId = 1; this.delay = retryMs; this.stopped = false; this.synced = false;
     this.verify = verifier();
     this.ready = (async () => {
       this.sign = await signer(who.priv);
-      this.cipher = await projectCipher(who.projectKey, room);
+      this.cipher = await projectCipher(keysOf(who), room);
     })();
     if (seed) for (const d of DOCS) this.pending[d].push(shared.update(d));
     this.off = shared.onUpdate((doc, update, origin) => {
@@ -57,6 +58,8 @@ export class RelayClient {
     try { old?.close(); } catch { /* closed */ }
   }
   deleteRoom() { if (this.synced && this.role === 'owner') { this.#send({ type: 'delete-room' }); return true; } return false; }
+  // How far this side has everything from the relay: before any change it's still holding.
+  get safeSeq() { return this.held.reduce((n, m) => Math.min(n, (m.seq ?? m.upTo) - 1), this.seq); }
   // Changes not yet kept by the relay.
   unsent() { return DOCS.reduce((n, d) => n + this.pending[d].length, 0); }
 
@@ -101,7 +104,9 @@ export class RelayClient {
       this.created = true;
       await this.#readLinks(m.links);
       this.role = m.role;
-      this.#send({ type: 'sync', since: this.seq });
+      const since = this.safeSeq;
+      this.held.length = 0; // the relay sends them again
+      this.#send({ type: 'sync', since });
     } else if (m.type === 'links') {
       await this.#readLinks(m.links);
     } else if (m.type === 'update' || m.type === 'snapshot') {
@@ -133,6 +138,14 @@ export class RelayClient {
     const read = await readLinks(this.room, this.who.ownerPub, links, this.verify);
     if (this.links && read.n < this.links.n) return; // an older list
     this.links = read;
+    // Project keys added since this side's were made, as when a link was turned off.
+    const wrapped = read.wraps[this.who.link];
+    if (wrapped && this.who.w) {
+      await this.ready;
+      this.keys = await unwrapKeys(this.room, this.who.link, this.who.w, wrapped, this.keys || keysOf(this.who));
+      this.cipher.setKeys(this.keys);
+      for (const m of this.held.splice(0)) await this.#receive(m);
+    }
     this.onLinks(read);
   }
 
@@ -144,8 +157,9 @@ export class RelayClient {
     const data = unb64(m.data);
     const what = m.type === 'update' ? signed.update(this.room, m.doc, data) : signed.snapshot(this.room, m.doc, m.upTo, data);
     if (!(await this.verify(by.pub, m.sig, what))) return;
+    // One sealed with a project key this side doesn't have yet is kept until it arrives.
     let plain;
-    try { plain = await this.cipher.open(m.doc, data); } catch { return; }
+    try { plain = await this.cipher.open(m.doc, data); } catch { if (data[0] > this.cipher.count) this.held.push(m); return; }
     try { this.shared.apply(m.doc, plain, 'relay'); } catch { return; }
     if (m.type === 'update') { this.seq = Math.max(this.seq, m.seq); this.counts[m.doc]++; }
     else { this.seq = Math.max(this.seq, m.upTo); this.counts[m.doc] = 0; }

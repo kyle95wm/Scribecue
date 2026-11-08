@@ -134,7 +134,15 @@ try {
   await sleep(800);
   assert.equal(await a.js(`scribecueShared.blocks.size`), 1500, 'A’s copy is whole');
   assert.ok(await same(), 'both copies agree again');
+  // A's changes now use the project key added when the first link went off; B has it.
+  assert.equal(await a.js(`scribecueRelay.cipher.count`), 2, 'a second key since the link went off');
+  await a.js(`document.getElementById('shareClose').click();true`);
+  await a.open(4);
+  await a.type(' After the new key.');
+  await a.js(`document.activeElement.blur();true`);
+  await b.wait(`(${rowText(4)}).includes('After the new key.')`, 'B reads changes sealed with the new key');
   // A stops sharing: back to a plain project.
+  await a.click('#shareBtn');
   await a.js(`window.confirm=()=>true;document.getElementById('shareStop').click();true`);
   await a.wait(`!window.scribecueRelay && !Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.'))`, 'A stopped sharing');
   await a.js(`document.getElementById('shareClose').click();true`);

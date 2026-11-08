@@ -89,10 +89,11 @@ export function ed25519(subtle = crypto.subtle) {
 
 // `storage`: get, put, delete (a key or list of keys), list({ prefix, start, end }) → Map,
 // deleteAll, setAlarm. `sockets()`: the open sockets, each with send(text), close(code,
-// reason) and a `state` object that survives the room going to sleep.
+// reason) and a `state` object that survives the room going to sleep. `mayCreate(socket)`:
+// whether this socket may make a new room now, to limit how fast one address can make them.
 export class Room {
-  constructor({ id, storage, sockets, verify = ed25519(), now = () => Date.now(), random = () => b64(crypto.getRandomValues(new Uint8Array(24))) }) {
-    Object.assign(this, { id, storage, sockets, verify, now, random });
+  constructor({ id, storage, sockets, verify = ed25519(), now = () => Date.now(), random = () => b64(crypto.getRandomValues(new Uint8Array(24))), mayCreate = async () => true }) {
+    Object.assign(this, { id, storage, sockets, verify, now, random, mayCreate });
     this.queue = Promise.resolve();
   }
 
@@ -160,6 +161,7 @@ export class Room {
     if (typeof m.owner !== 'string' || typeof m.sig !== 'string') return fail(socket, 'bad-message', true);
     if (!(await this.verify(m.owner, unb64(m.sig), signed.auth(this.id, state.nonce)))) return fail(socket, 'bad-signature', true);
     const links = await readLinks(this.id, m.owner, m.links, this.verify);
+    if (!(await this.mayCreate(socket))) return fail(socket, 'busy', true);
     const now = this.now();
     await this.storage.put('meta', { owner: m.owner, links: m.links, n: links.n, seq: 0, bytes: 0, created: now, touched: now });
     await this.storage.setAlarm(now + LIMITS.idle);

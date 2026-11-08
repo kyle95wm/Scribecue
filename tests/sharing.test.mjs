@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as sharing from '../app/js/sharing.js';
-import { readLinks, parseLink } from '../app/js/sharekeys.js';
+import { readLinks, unwrapKeys, parseLink } from '../app/js/sharekeys.js';
 
 const fast = { iterations: 1000 };
 function memory() {
@@ -21,6 +21,7 @@ test('the owner shares, adds and replaces links, and turns one off', async () =>
   assert.notEqual(on().find((l) => l.role === 'edit').id, first, 'a new edit link replaces the old');
   r = sharing.removeLink(r, on().find((l) => l.role === 'comment').id);
   assert.equal(r.n, 4);
+  assert.equal(r.keys.length, 3, 'replacing a link and turning one off each add a project key');
   // Links turned off stay, marked off, with only what checks their earlier changes.
   const off = r.links.filter((l) => l.off);
   assert.deepEqual(off.map((l) => l.role).sort(), ['comment', 'edit']);
@@ -29,6 +30,10 @@ test('the owner shares, adds and replaces links, and turns one off', async () =>
   assert.equal(list.n, 4);
   assert.deepEqual([...list.links.values()].filter((l) => !l.off).map((l) => l.role).sort(), ['edit', 'owner']);
   assert.equal(list.links.get(first).off, true);
+  // The link still on gets the keys its box lacks; the owner gets all of them.
+  const ed = on().find((l) => l.role === 'edit');
+  assert.deepEqual(Object.keys(list.wraps).sort(), ['owner', ed.id].sort());
+  assert.deepEqual(await unwrapKeys(r.room, ed.id, ed.w, list.wraps[ed.id], r.keys.slice(0, ed.from)), r.keys);
   assert.equal(sharing.linksOf(r, 'https://example.test/app/').length, 1, 'only links that are on show');
   const [url] = sharing.linksOf(r, 'https://example.test/app/');
   assert.equal(parseLink(new URL(url.url).hash).room, r.room);

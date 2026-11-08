@@ -1,12 +1,17 @@
 // Keys for sharing a project, with the browser's own Web Crypto: nothing here leaves this
 // computer unencrypted.
 //
-// - The project key (AES-GCM) encrypts every change. The relay never has it.
+// - The project key (AES-GCM) encrypts every change. The relay never has it. Turning a link
+//   off adds a new one, which that link never gets: changes are sealed with the newest, and
+//   say which they used, so older ones still open.
 // - The owner key (Ed25519) signs the list of links and the owner's changes.
 // - Each link has its own key (Ed25519) to sign in and sign its changes, and a box: the
-//   project key, the link's key and the owner's public key, encrypted with a key made from
-//   the link's secret and its password (PBKDF2). The secret is in the link after `#`, so
-//   browsers never send it; the relay keeps the box and hands it to whoever asks for it.
+//   project keys, the link's key, its wrapping key and the owner's public key, encrypted
+//   with a key made from the link's secret and its password (PBKDF2). The secret is in the
+//   link after `#`, so browsers never send it; the relay keeps the box and hands it to
+//   whoever asks for it.
+// - Project keys added after a link was made reach it in the owner's signed list, encrypted
+//   with that link's wrapping key. The owner has a wrapping key too, for their other tabs.
 // The relay checks the same signatures (relay/src/room.js): `signed` must match it.
 
 const subtle = globalThis.crypto.subtle;
@@ -48,12 +53,16 @@ async function newSigningKey() {
   return { pub: b64(new Uint8Array(await subtle.exportKey('raw', k.publicKey))), priv: b64(new Uint8Array(await subtle.exportKey('pkcs8', k.privateKey))) };
 }
 
-// A new shared project: its room on the relay, the owner's key and the project key.
-// `project` is the project's id, which people who join take too.
+// A new shared project: its room on the relay, the owner's key, the first project key and
+// the owner's wrapping key. `project` is the project's id, which people who join take too.
 export async function newOwner(project = null) {
-  const owner = await newSigningKey();
-  return { room: random(16), ownerPub: owner.pub, ownerPriv: owner.priv, projectKey: random(32), project };
+  const owner = await newSigningKey(), projectKey = random(32);
+  return { room: random(16), ownerPub: owner.pub, ownerPriv: owner.priv, projectKey, keys: [projectKey], ow: random(32), project };
 }
+export const newProjectKey = () => random(32);
+export const MAX_KEYS = 255; // a change says which key sealed it in one byte
+// The project keys, newest last, from a record made before there could be more than one.
+export const keysOf = (o) => (Array.isArray(o.keys) && o.keys.length ? o.keys : [o.projectKey]);
 
 const boxLabel = (room, id, role) => enc.encode(`scribecue-box:${room}:${id}:${role}`);
 async function boxKey(room, id, secret, password, iterations) {
@@ -62,14 +71,15 @@ async function boxKey(room, id, secret, password, iterations) {
 }
 
 // A new link for `role`, locked with `password`. The owner keeps `secret` to show the link
-// again; the relay gets { id, role, pub, box }.
+// again, `w` to send it newer project keys, and `from`, how many keys its box has. The relay
+// gets { id, role, pub, box }.
 export async function newLink(owner, role, password, { iterations = ITERATIONS } = {}) {
   if (!ROLES.includes(role)) throw new Error('unknown role');
-  const id = random(9), secret = random(16), key = await newSigningKey();
+  const id = random(9), secret = random(16), w = random(32), key = await newSigningKey(), keys = keysOf(owner);
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const inside = enc.encode(JSON.stringify({ k: owner.projectKey, sk: key.priv, owner: owner.ownerPub, p: owner.project || null }));
+  const inside = enc.encode(JSON.stringify({ k: keys, w, sk: key.priv, owner: owner.ownerPub, p: owner.project || null }));
   const sealed = new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv, additionalData: boxLabel(owner.room, id, role) }, await boxKey(owner.room, id, secret, password, iterations), inside));
-  return { id, secret, role, pub: key.pub, box: b64(new Uint8Array([...iv, ...sealed])) };
+  return { id, secret, w, from: keys.length, role, pub: key.pub, box: b64(new Uint8Array([...iv, ...sealed])) };
 }
 
 // Opens a link's box with its secret and password. Throws 'wrong-password' if they don't fit.
@@ -77,8 +87,8 @@ export async function openBox({ room, id, secret, role, box }, password, { itera
   const bytes = unb64(box);
   try {
     const inside = await subtle.decrypt({ name: 'AES-GCM', iv: bytes.subarray(0, 12), additionalData: boxLabel(room, id, role) }, await boxKey(room, id, secret, password, iterations), bytes.subarray(12));
-    const o = JSON.parse(dec.decode(inside));
-    return { projectKey: o.k, priv: o.sk, ownerPub: o.owner, project: o.p || null };
+    const o = JSON.parse(dec.decode(inside)), keys = [o.k].flat();
+    return { projectKey: keys[0], keys, w: o.w || null, priv: o.sk, ownerPub: o.owner, project: o.p || null };
   } catch { throw new Error('wrong-password'); }
 }
 
@@ -89,9 +99,37 @@ export function parseLink(hash) {
   return m ? { room: m[1], id: m[2], secret: m[3] } : null;
 }
 
-// The owner's signed list of links: { text, sig }, with `n` higher each time it changes.
+// Project keys for one link (or the owner) that its box doesn't have: from key `from` on,
+// encrypted with its wrapping key `w`.
+const wrapLabel = (room, id) => enc.encode(`scribecue-keys:${room}:${id}`);
+const aes = (raw, use) => subtle.importKey('raw', unb64(raw), 'AES-GCM', false, use);
+export async function wrapKeys(room, id, w, keys, from) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const sealed = new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv, additionalData: wrapLabel(room, id) }, await aes(w, ['encrypt']), enc.encode(JSON.stringify({ from, keys: keys.slice(from) }))));
+  return b64(new Uint8Array([...iv, ...sealed]));
+}
+// Adds what a wrapped list holds to `keys`. Something that doesn't open is left out.
+export async function unwrapKeys(room, id, w, wrapped, keys) {
+  try {
+    const bytes = unb64(wrapped);
+    const o = JSON.parse(dec.decode(await subtle.decrypt({ name: 'AES-GCM', iv: bytes.subarray(0, 12), additionalData: wrapLabel(room, id) }, await aes(w, ['decrypt']), bytes.subarray(12))));
+    if (!Number.isSafeInteger(o.from) || o.from < 0 || o.from > keys.length || !Array.isArray(o.keys)) return keys;
+    const out = [...keys];
+    o.keys.forEach((k, i) => { if (typeof k === 'string' && o.from + i < MAX_KEYS) out[o.from + i] = k; });
+    return out;
+  } catch { return keys; }
+}
+
+// The owner's signed list of links: { text, sig }, with `n` higher each time it changes. With
+// the owner's `keys` and wrapping key `ow`, it carries the keys each link that's on lacks.
 export async function signLinks(owner, n, links) {
-  const text = JSON.stringify({ room: owner.room, n, links: links.map(({ id, role, pub, box, off }) => (off ? { id, role, pub, off: true } : { id, role, pub, box })) });
+  const wraps = {};
+  if (owner.keys && owner.ow) {
+    const keys = keysOf(owner);
+    wraps.owner = await wrapKeys(owner.room, 'owner', owner.ow, keys, 0);
+    for (const l of links) if (!l.off && l.w && (l.from ?? keys.length) < keys.length) wraps[l.id] = await wrapKeys(owner.room, l.id, l.w, keys, l.from);
+  }
+  const text = JSON.stringify({ room: owner.room, n, links: links.map(({ id, role, pub, box, off }) => (off ? { id, role, pub, off: true } : { id, role, pub, box })), wraps });
   const sign = await signer(owner.ownerPriv);
   return { text, sig: await sign(signed.links(text)) };
 }
@@ -120,24 +158,35 @@ export async function readLinks(room, ownerPub, { text, sig } = {}, verify = ver
   const out = new Map([['owner', { role: 'owner', pub: ownerPub }]]);
   // A link turned off is kept, marked off: changes it made before it was turned off still count.
   for (const l of o.links) if (ROLES.includes(l?.role) && typeof l.pub === 'string' && l.id !== 'owner') out.set(l.id, { role: l.role, pub: l.pub, ...(l.off === true ? { off: true } : {}) });
-  return { n: o.n, links: out };
+  const wraps = o.wraps && typeof o.wraps === 'object' && !Array.isArray(o.wraps) ? o.wraps : {};
+  return { n: o.n, links: out, wraps };
 }
 
-// Encrypts and decrypts changes with the project key. Each is bound to its room and document,
-// so a change can't be moved to another.
-export async function projectCipher(projectKey, room) {
-  const key = await subtle.importKey('raw', unb64(projectKey), 'AES-GCM', false, ['encrypt', 'decrypt']);
-  const label = (doc) => enc.encode(`scribecue-change:${room}:${doc}`);
+// Encrypts and decrypts changes with the project keys (or one key, as before there could be
+// more). A change starts with the number of the key that sealed it, the newest known, and is
+// bound to its room, document and that number, so it can't be moved to another. Changes
+// from before keys had numbers still open with the first key.
+export async function projectCipher(projectKeys, room) {
+  let keys = [projectKeys].flat();
+  const imported = new Map();
+  const key = (i) => { if (!imported.has(keys[i])) imported.set(keys[i], aes(keys[i], ['encrypt', 'decrypt'])); return imported.get(keys[i]); };
+  const label = (doc, v) => enc.encode(v ? `scribecue-change:${room}:${doc}:${v}` : `scribecue-change:${room}:${doc}`);
+  const open = async (k, doc, v, bytes) => new Uint8Array(await subtle.decrypt({ name: 'AES-GCM', iv: bytes.subarray(0, 12), additionalData: label(doc, v) }, await k, bytes.subarray(12)));
   return {
+    // Takes newer keys as they arrive; never forgets one.
+    setKeys(next) { if (next.length > keys.length) keys = [...next]; },
+    get count() { return keys.length; },
     async seal(doc, bytes) {
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const ct = new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv, additionalData: label(doc) }, key, bytes));
-      const out = new Uint8Array(12 + ct.length);
-      out.set(iv); out.set(ct, 12);
+      const v = keys.length, iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv, additionalData: label(doc, v) }, await key(v - 1), bytes));
+      const out = new Uint8Array(13 + ct.length);
+      out[0] = v; out.set(iv, 1); out.set(ct, 13);
       return out;
     },
     async open(doc, bytes) {
-      return new Uint8Array(await subtle.decrypt({ name: 'AES-GCM', iv: bytes.subarray(0, 12), additionalData: label(doc) }, key, bytes.subarray(12)));
+      const v = bytes[0];
+      if (v >= 1 && v <= keys.length) try { return await open(key(v - 1), doc, v, bytes.subarray(1)); } catch { /* maybe from before numbers */ }
+      return open(key(0), doc, 0, bytes);
     },
   };
 }

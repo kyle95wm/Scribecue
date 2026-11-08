@@ -682,7 +682,7 @@ async function startRelay(record, copy, fresh, seq) {
   let keep = 0;
   const persist = () => {
     clearTimeout(keep);
-    keep = setTimeout(() => { if (relay === client) handleStore.set({ ...Object.fromEntries(sharedLib.DOCS.map((d) => [d, copy.update(d)])), seq: client.seq, room: record.room }, 'shared:' + id); }, 1500);
+    keep = setTimeout(() => { if (relay === client) handleStore.set({ ...Object.fromEntries(sharedLib.DOCS.map((d) => [d, copy.update(d)])), seq: client.safeSeq, room: record.room }, 'shared:' + id); }, 1500);
   };
   const client = relay = new sharedLib.RelayClient({
     url: record.relay, room: record.room, who: sharedLib.who(record), shared: copy, create, seed: !fresh,
