@@ -39,8 +39,9 @@ const rowText = (n) => `[...document.querySelectorAll('#list .row')][${n}]?.text
 const a = await browser(portA), b = await browser(portB);
 try {
   await a.send('Page.navigate', { url: site }); await b.send('Page.navigate', { url: site }); await sleep(800);
-  await a.js(settings('Kyle', `Array.from({length:1500},(_,i)=>({uid:crypto.randomUUID(),start:i*4.8,end:i*4.8+3,text:'Block number '+(i+1)+' describes the scene.'}))`));
-  await b.js(settings('Sam', '[]'));
+  // Neither has a name yet: each is asked for one before sharing or joining.
+  await a.js(settings('', `Array.from({length:1500},(_,i)=>({uid:crypto.randomUUID(),start:i*4.8,end:i*4.8+3,text:'Block number '+(i+1)+' describes the scene.'}))`));
+  await b.js(settings('', '[]'));
   await a.wait(`window.scribecueSharing && !document.getElementById('shareBtn').hidden`, 'A ready');
   // A project not yet shared has no shared copy: Yjs loads once it's shared.
   assert.equal(await a.js(`!!window.scribecueShared || performance.getEntriesByType('resource').some(e=>/yjs\\.js/.test(e.name))`), false, 'nothing of the shared copy loaded yet');
@@ -52,8 +53,13 @@ try {
   await a.click('#shareBtn');
   await a.wait(`document.getElementById('shareDlg').open`, 'Share dialog');
   await a.shot('share-empty');
-  let t0 = performance.now();
+  assert.equal(await a.js(`/can’t read it/.test(document.getElementById('sharePrivacy').textContent)`), true, 'the privacy note shows');
   await a.fill('#sharePw-edit', 'blue door');
+  await a.click('#sharePw-edit + button');
+  await a.wait(`document.activeElement?.id==='shareName' && /Add your name/.test(document.getElementById('toast').textContent)`, 'A is asked for a name');
+  assert.equal(await a.js(`!!document.querySelector('.sharelink')`), false, 'no link without a name');
+  await a.fill('#shareName', 'Kyle');
+  let t0 = performance.now();
   await a.click('#sharePw-edit + button');
   await a.wait(`document.querySelector('.sharelink') && ${online}`, 'A online with the link made');
   const shareMs = performance.now() - t0;
@@ -68,6 +74,9 @@ try {
   await b.wait(`document.getElementById('joinDlg').open`, 'join dialog');
   await b.shot('join');
   await b.fill('#joinPassword', 'blue');
+  await b.click('#joinOpen');
+  await b.wait(`/Add your name/.test(document.getElementById('joinStatus').textContent) && document.activeElement?.id==='joinName'`, 'B is asked for a name');
+  await b.fill('#joinName', 'Sam');
   await b.click('#joinOpen');
   await b.wait(`/doesn’t open/.test(document.getElementById('joinStatus').textContent)`, 'wrong password refused');
   t0 = performance.now();
