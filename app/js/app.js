@@ -521,6 +521,8 @@ function pushUndo(snap = snapshot(), tag = null) {
   const t = performance.now();
   if (tag && tag === lastUndoTag && t - lastUndoTime < 1000) { lastUndoTime = t; return; }
   lastUndoTag = tag; lastUndoTime = t;
+  // While shared, the step also starts a new step in the shared copy's own undo.
+  if (sharedUndo) { sharedUndo.step(); snap = { ...snap, shared: sharedUndo, depth: sharedUndo.depth() }; }
   undoStack.push(snap);
   if (undoStack.length > 300) undoStack.shift();
   redoStack.length = 0;
@@ -549,20 +551,62 @@ function qcUndoAllowed(snap) {
   if (script(JSON.parse(snap.data).cues) === script(S.cues)) return true;
   toast('This review allows comments only. Block changes cannot be undone here'); return false;
 }
+// While shared, undo takes back only this computer's changes, so others' words stay. The
+// script's own steps still say where each step starts; parts not shared (pickups, review
+// audio) come back from the step as before.
+const sharedStep = (snap) => sharedUndo && snap.shared === sharedUndo;
+function restoreLocal(snap) {
+  if (qcLocked()) return;
+  const o = JSON.parse(snap.data), keep = new Set(['id', 'uid', 'text', 'comments', ...sharedLib.SHARED_FIELDS]);
+  S.reviewHistory = snap.reviewHistory;
+  if (!S.reviewId) { S.reviewAudio = snap.reviewAudio || null; S.review = snap.authorReadings || null; S.qcSource = S.review ? 'package' : 'video'; syncQcPermission(); }
+  S.extendedAll = o.extendedAll === true;
+  const was = new Map(o.cues.map((b) => [b.uid, b]));
+  for (const c of S.cues) {
+    const b = was.get(c.uid);
+    if (!b) continue;
+    for (const k of new Set([...Object.keys(c), ...Object.keys(b)])) if (!keep.has(k)) { if (k in b) c[k] = b[k]; else delete c[k]; }
+  }
+  updateInd();
+  changed();
+  // Selection by uid: a block that came back has a new id here.
+  const uid = o.cues.find((b) => b.id === o.sel)?.uid, c = uid && S.cues.find((b) => b.uid === uid);
+  select(c ? c.id : null, { seek: false });
+}
 function doUndo() {
   if (!undoStack.length) return toast('Nothing to undo');
-  if (!qcUndoAllowed(undoStack.at(-1))) return;
-  redoStack.push(snapshot());
-  restore(undoStack.pop());
+  const snap = undoStack.at(-1);
+  if (sharedStep(snap)) {
+    undoStack.pop();
+    let n = 0;
+    while (sharedUndo.depth() > snap.depth && sharedUndo.undo()) n++;
+    redoStack.push({ ...snapshot(), shared: sharedUndo, redo: n });
+    restoreLocal(snap);
+  } else {
+    if (!qcUndoAllowed(snap)) return;
+    redoStack.push(snapshot());
+    restore(undoStack.pop());
+  }
   lastUndoTag = null;
-  toast(sharedOthers ? 'Undo. While sharing, this can undo changes from your other tab too' : 'Undo');
+  if (edit) edit.pushed = false;
+  toast('Undo');
 }
 function doRedo() {
   if (!redoStack.length) return toast('Nothing to redo');
-  if (!qcUndoAllowed(redoStack.at(-1))) return;
-  undoStack.push(snapshot());
-  restore(redoStack.pop());
+  const snap = redoStack.at(-1);
+  if (sharedStep(snap)) {
+    redoStack.pop();
+    const depth = sharedUndo.depth();
+    for (let i = 0; i < snap.redo && sharedUndo.redo(); i++);
+    undoStack.push({ ...snapshot(), shared: sharedUndo, depth });
+    restoreLocal(snap);
+  } else {
+    if (!qcUndoAllowed(snap)) return;
+    undoStack.push(snapshot());
+    restore(redoStack.pop());
+  }
   lastUndoTag = null;
+  if (edit) edit.pushed = false;
   toast('Redo');
 }
 
@@ -594,21 +638,23 @@ function noteEdits(id) {
 // setting, scribecue.sharedCopy in this browser's storage, so Yjs only loads when it's on.
 // Tabs of this browser with the same project open share changes, as the service will.
 let shared = null, sharedLib = null, sharedList = null, sharedProjectId = null, unlinkTabs = () => {};
-let sharedIn = null, sharedOthers = false, sharedStarting = null; // uids being applied from others; whether any came
+let sharedIn = null, sharedStarting = null, sharedUndo = null; // uids being applied from others; undo of this tab's changes
 const sharedOn = (() => { try { return localStorage.getItem('scribecue.sharedCopy') === '1'; } catch { return false; } })();
 async function startShared() {
   const copy = new sharedLib.SharedProject(), id = S.projectId;
-  shared = null; sharedStarting = id; unlinkTabs();
+  shared = null; sharedUndo = null; sharedStarting = id; unlinkTabs();
   const link = sharedLib.linkTabs(copy, id);
   unlinkTabs = link.stop;
   const joined = await link.ready;
   if (S.projectId !== id) return; // another project opened meanwhile, and started its own
-  shared = copy; sharedProjectId = id; sharedList = S.cues; sharedOthers = false;
+  shared = copy; sharedProjectId = id; sharedList = S.cues; sharedUndo = null;
   shared.observe(applyShared);
   window.scribecueShared = shared; // for the developer tests
   // Another tab had it open: take its copy as it is. Otherwise start the copy from this script.
   if (joined) applyShared([...new Set([...shared.blocks.keys(), ...S.cues.map((c) => c.uid)])], true);
   else shared.write(S.cues, S.comments);
+  // Undo from here on takes back this tab's changes only; earlier steps undo as before.
+  sharedUndo = shared.undoer();
 }
 if (sharedOn) import('./shared.js').then((lib) => { sharedLib = lib; startShared(); }).catch(() => { /* stays off */ });
 function noteShared(id) {
@@ -636,7 +682,6 @@ function keepCaret(was, now) {
 // comments. Pickups, readings and selection here stay as they are.
 function applyShared(uids, timeline) {
   if (!uids.length && !timeline) return;
-  sharedOthers = true;
   const incoming = shared.readBlocks(uids);
   const at = new Map(S.cues.map((c, i) => [c.uid, i]));
   let one = null, many = false, gone = false;

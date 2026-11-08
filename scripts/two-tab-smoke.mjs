@@ -1,6 +1,7 @@
 // Two tabs with the shared copy on, in headless, muted Chrome at 6× CPU slowdown, with 1,500
 // blocks over two hours: a second tab takes the first's copy; typing, typing in the same block
-// at once, deleting and commenting reach the other tab; the caret stays put; names stay right.
+// at once, deleting and commenting reach the other tab; the caret stays put; names stay right;
+// undo and redo take back only that tab's own changes.
 // Usage: node scripts/two-tab-smoke.mjs <devtools port> <site url>
 import assert from 'node:assert/strict';
 const [,, port, site] = process.argv;
@@ -81,6 +82,38 @@ try {
   const names = await a.js(`window.scribecueShared.read().blocks.slice(0,2).map(b=>b.edited?.by||'')`);
   assert.deepEqual(names, ['', 'Sam'], 'block 2 was last changed by Sam, block 1 by no one');
 
+  // A types in block 10, then B types in it too. A's undo takes back A's words only, in both
+  // tabs; the next undo brings back block 4; redo deletes it again.
+  const undoKey = (t, shift = false) => t.js(`document.activeElement?.blur();document.dispatchEvent(new KeyboardEvent('keydown',{key:${shift ? "'Z'" : "'z'"},code:'KeyZ',ctrlKey:true,metaKey:true,shiftKey:${shift},bubbles:true}));true`);
+  const ten = await a.js(`window.scribecueShared.read().blocks[9].uid`);
+  const textOf = (t) => t.js(`window.scribecueShared.read().blocks.find(b=>b.uid===${JSON.stringify(ten)}).text`);
+  await a.js(`localStorage.setItem('scribecue.reviewer','Kyle');localStorage.setItem('scribecue.editor','kyle-tab-a-0001');true`);
+  await a.open(9);
+  await typeIn(a, ' Undo me.');
+  await a.js(`document.activeElement.blur();true`);
+  await b.wait(`window.scribecueShared.read().blocks[9].text.endsWith('Undo me.')`, 'B sees A’s words');
+  await b.js(`localStorage.setItem('scribecue.reviewer','Sam');localStorage.setItem('scribecue.editor','sam-tab-b-00001');true`);
+  await b.open(9);
+  await b.js(`document.getElementById('edText').setSelectionRange(0,0);true`);
+  await typeIn(b, 'Sam: ');
+  await b.js(`document.activeElement.blur();true`);
+  await a.wait(`window.scribecueShared.read().blocks[9].text.startsWith('Sam: ')`, 'A sees B’s words');
+  const t0 = performance.now();
+  await undoKey(a);
+  await b.wait(`!window.scribecueShared.read().blocks[9].text.includes('Undo me.')`, 'A’s undo reaches B');
+  const undoMs = performance.now() - t0;
+  assert.equal(await textOf(a), 'Sam: Block number 11 describes the scene.', 'A’s words went; B’s stayed');
+  assert.equal(await textOf(b), 'Sam: Block number 11 describes the scene.');
+  assert.ok((await a.text(9)).includes('Sam: Block number 11'), 'A’s list shows it');
+  await undoKey(a);
+  await b.wait(`window.scribecueShared.read().blocks.length===1500`, 'block 4 comes back in B');
+  assert.ok((await a.text(3)).includes('Block number 4'), 'A’s list has block 4 again');
+  await undoKey(a, true);
+  await b.wait(`window.scribecueShared.read().blocks.length===1499`, 'redo deletes it again in B');
+  await sleep(600);
+  assert.equal(await textOf(b), 'Sam: Block number 11 describes the scene.', 'redoing one step leaves the other undone');
+  assert.ok(await same(), 'copies agree after undo and redo');
+
   const report = async (t) => { const long = await t.js(`__long`); assert.deepEqual(await t.js(`__errors`), []); return `${long.length} long tasks${long.length ? ` (longest ${Math.round(Math.max(...long))} ms)` : ''}`; };
-  console.log(`Two-tab smoke passed at 6× slowdown with 1,500 blocks: A typed ${(aMs / 12).toFixed(1)} ms a character; A ${await report(a)}; B ${await report(b)}`);
+  console.log(`Two-tab smoke passed at 6× slowdown with 1,500 blocks: A typed ${(aMs / 12).toFixed(1)} ms a character; undo reached B in ${Math.round(undoMs)} ms; A ${await report(a)}; B ${await report(b)}`);
 } finally { a.close(); b?.close(); }
