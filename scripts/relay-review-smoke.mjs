@@ -50,8 +50,10 @@ try {
   await a.send('Page.navigate', { url: site }); await b.send('Page.navigate', { url: site }); await sleep(800);
   await a.js(settings('Kyle', `Array.from({length:1500},(_,i)=>({uid:crypto.randomUUID(),start:i*4.8,end:i*4.8+3,text:'Block number '+(i+1)+' describes the scene.'}))`));
   await b.js(settings('Sam', '[]'));
-  await a.wait(`window.scribecueSharing && window.scribecueShared`, 'A ready');
-  await b.wait(`window.scribecueSharing && window.scribecueShared`, 'B ready');
+  await a.wait(`window.scribecueSharing && !document.getElementById('shareBtn').hidden`, 'A ready');
+  // A project not yet shared has no shared copy: Yjs loads once it's shared.
+  assert.equal(await a.js(`!!window.scribecueShared || performance.getEntriesByType('resource').some(e=>/yjs\\.js/.test(e.name))`), false, 'nothing of the shared copy loaded yet');
+  await b.wait(`window.scribecueSharing && !document.getElementById('shareBtn').hidden`, 'B ready');
   await a.watch(); await b.watch();
 
   // A makes a review link and a comment link.

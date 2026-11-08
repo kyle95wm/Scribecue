@@ -25,7 +25,7 @@ const matches=async()=>{await sleep(700);return js(`(()=>{
   const got=JSON.stringify(out.blocks.map(c=>[c.uid,c.start,c.end,c.text,(c.comments||[]).map(x=>x.id+x.text)]));
   return want===got && JSON.stringify((saved.comments||[]).map(c=>c.id))===JSON.stringify(out.comments.map(c=>c.id)) ? true : {want:want.slice(0,300),got:got.slice(0,300),n:[saved.cues.length,out.blocks.length]};
 })()`);};
-const setup=on=>js(`localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',reviewer:'Kyle',${on?"sharedCopy:'1',":''}setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);
+const setup=on=>js(`localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',reviewer:'Kyle',${on?"sharedCopy:'all',":''}setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);
   localStorage.setItem('scribecue.v1',JSON.stringify({dirty:false,projectId:crypto.randomUUID(),cues:Array.from({length:1500},(_,i)=>({uid:crypto.randomUUID(),start:i*4.8,end:i*4.8+3,text:'Block number '+(i+1)+' describes the scene.',...(i%50===0?{comments:[{text:'Check '+i,author:'Sam',created:'2026-11-08T00:00:00Z'}]}:{})}))}));location.reload();true`);
 try {
  await send('Network.enable');await send('Network.setBypassServiceWorker',{bypass:true});
@@ -64,7 +64,7 @@ try {
  await js(`(()=>{const dt=new DataTransfer();dt.items.add(new File([JSON.stringify({scribecue:1,projectId:crypto.randomUUID(),blocks:[{uid:crypto.randomUUID(),start:1,end:2,text:'Only one'}]})],'other.scribecue'));window.confirm=()=>true;window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));return true})()`);
  await wait(`JSON.parse(localStorage.getItem('scribecue.v1')).cues.length===1`);
  // The new copy starts once it has asked other tabs for theirs.
- await wait(`window.scribecueShared.docs.script.guid!==${JSON.stringify(before)}`);
+ await wait(`window.scribecueShared?.docs.script.guid!==undefined && window.scribecueShared.docs.script.guid!==${JSON.stringify(before)}`);
  assert.equal(await matches(),true,'after opening another project');
 
  const long=await js(`__long`);

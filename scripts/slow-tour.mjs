@@ -240,7 +240,7 @@ const script = Array.from({ length: BLOCKS }, (_, i) => {
 
 const SETTINGS = { proof: '{"warn":false}', welcome: '1', seenVersion: '999.0.0', updates: '0', mode: 'write', setupModes: '{"write":true,"transcribe":true,"qc":true,"record":true}', loops: '{"write":true,"transcribe":true}',
   // SHARED_COPY=1 turns on the shared copy for live sharing (shared.js).
-  ...(process.env.SHARED_COPY === '1' ? { sharedCopy: '1' } : {}) };
+  ...(process.env.SHARED_COPY === '1' ? { sharedCopy: 'all' } : {}) };
 try {
   await send('Runtime.enable');
   await send('Page.enable');

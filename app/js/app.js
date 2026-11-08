@@ -642,13 +642,24 @@ function noteEdits(id) {
 // Tabs of this browser with the same project open share changes, as the service will.
 let shared = null, sharedLib = null, sharedList = null, sharedProjectId = null, unlinkTabs = () => {};
 let sharedIn = null, sharedStarting = null, sharedUndo = null, sharedToken = null; // uids being applied from others; undo of this tab's changes
-const sharedOn = (() => { try { return localStorage.getItem('scribecue.sharedCopy') === '1'; } catch { return false; } })();
+// The shared copy, Yjs and the connection load only for a project that's shared, so a
+// project of your own runs as it would without sharing. `all`, for the developer tests, keeps
+// a shared copy for every project, linking this browser's tabs.
+const sharedSetting = (() => { try { return localStorage.getItem('scribecue.sharedCopy'); } catch { return null; } })();
+const sharedOn = sharedSetting === '1' || sharedSetting === 'all', sharedEvery = sharedSetting === 'all';
+let copyLib = null;
+const loadCopy = () => (copyLib ||= Promise.all([import('./shared.js'), import('./relayclient.js')]).then(([a, c]) => Object.assign(sharedLib, a, c)));
 async function startShared() {
-  const copy = new sharedLib.SharedProject(), id = S.projectId, token = sharedToken = {};
-  shared = null; sharedUndo = null; sharedStarting = id; unlinkTabs(); stopRelay();
+  const id = S.projectId, token = sharedToken = {};
+  shared = null; sharedUndo = null; sharedStarting = id; unlinkTabs(); unlinkTabs = () => {}; stopRelay();
+  window.scribecueShared = null;
   // A project shared on the relay keeps its copy in this browser between visits.
   const record = sharedLib.getShare(id);
   myShare = record; syncQcPermission();
+  if (!record && !sharedEvery) { endLive(); return; } // a project of its own: no shared copy
+  try { await loadCopy(); } catch { copyLib = null; if (sharedToken === token) toast('Couldn’t load sharing. Reload Scribecue to try again'); return; }
+  if (sharedToken !== token) return; // started again meanwhile
+  const copy = new sharedLib.SharedProject();
   // A copy kept for another room, as from a link since turned off, isn't this one's.
   let saved = record ? await handleStore.get('shared:' + id) : null;
   if (saved && saved.room !== record.room) saved = null;
@@ -706,7 +717,7 @@ async function startRelay(record, copy, fresh, seq, seen) {
         sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
         // A plain project from now on: no limits, no suggestions.
         myShare = null; syncQcPermission(); endLive();
-        queueMicrotask(stopRelay);
+        queueMicrotask(startShared); // a project of its own from now on
       }
       window.dispatchEvent(new CustomEvent('scribecue-relay', { detail: { status, detail } }));
     },
@@ -880,9 +891,9 @@ function openShareLink() {
   joinUi.open();
 }
 if (sharedOn) {
-  Promise.all([import('./shared.js'), import('./sharing.js'), import('./relayclient.js'), import('./sharekeys.js'), import('./sharedialog.js')])
-    .then(([a, b, c, d, ui]) => {
-      sharedLib = { ...a, ...b, ...c, parseLink: d.parseLink };
+  Promise.all([import('./sharing.js'), import('./sharekeys.js'), import('./sharedialog.js')])
+    .then(([b, d, ui]) => {
+      sharedLib = { ...b, parseLink: d.parseLink };
       window.scribecueSharing = sharingTools;
       shareUi = ui.shareDialog({
         $, toast,

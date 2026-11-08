@@ -1,8 +1,9 @@
 // What this browser knows about shared projects: for each one it shares or has joined, the
 // keys to reach it on the relay. Kept in this browser's storage, like API keys, so a project
 // opens again without its password.
-import { newOwner, newLink, openBox, signLinks, parseLink, linkUrl, newProjectKey, keysOf, MAX_KEYS, ROLES } from './sharekeys.js';
-import { fetchBox } from './relayclient.js';
+// It loads without Yjs: the shared copy and the connection (shared.js, relayclient.js) load
+// only for a project that's shared.
+import { newOwner, newLink, openBox, signLinks, parseLink, linkUrl, newProjectKey, keysOf, MAX_KEYS, ROLES, PROTOCOL, relayTooOld } from './sharekeys.js';
 
 // Scribecue's relay. A developer setting points elsewhere, such as ws://127.0.0.1:8787 for
 // one run locally with `npm run dev` in relay/.
@@ -94,4 +95,27 @@ export async function joinShare(hash, password, relay, { fetch = fetchBox, ...op
   const { role, box } = await fetch(relay, l.room, l.id);
   const opened = await openBox({ room: l.room, id: l.id, secret: l.secret, role, box }, password, opts);
   return { relay, room: l.room, link: l.id, secret: l.secret, role, priv: opened.priv, ownerPub: opened.ownerPub, projectKey: opened.projectKey, keys: opened.keys, w: opened.w, project: opened.project };
+}
+
+// A link's box, fetched before signing in. Resolves { role, box }, or rejects with the
+// relay's reason ('no-link' when the link was turned off, 'old-app' or 'old-relay' when
+// Scribecue or the relay needs updating) or 'offline'.
+export function fetchBox(url, room, id, { WebSocket = globalThis.WebSocket, wait = 10_000 } = {}) {
+  return new Promise((resolve, reject) => {
+    let ws;
+    const timer = setTimeout(() => { reject(new Error('offline')); try { ws.close(); } catch { /* closed */ } }, wait);
+    const done = (fn, v) => { clearTimeout(timer); try { ws.close(1000, 'done'); } catch { /* closed */ } fn(v); };
+    try { ws = new WebSocket(`${url.replace(/\/$/, '')}/rooms/${room}`); } catch { clearTimeout(timer); reject(new Error('offline')); return; }
+    ws.onmessage = (e) => {
+      let m;
+      try { m = JSON.parse(e.data); } catch { return; }
+      if (m.type === 'challenge') {
+        if (relayTooOld(m)) done(reject, new Error('old-relay'));
+        else ws.send(JSON.stringify({ type: 'box', v: PROTOCOL, link: id }));
+      }
+      else if (m.type === 'box') done(resolve, { role: m.role, box: m.box });
+      else if (m.type === 'error') done(reject, new Error(m.code));
+    };
+    ws.onclose = () => { clearTimeout(timer); reject(new Error('offline')); };
+  });
 }

@@ -139,16 +139,20 @@ project's blocks and comments; the app's own blocks stay the source it edits.
   audio) from the snapshot. Typing a sentence and holding a nudge key stay one step each.
   Steps from before the copy started undo the old way. Undo while sharing measured 39–48 ms
   at 6× with 1,500 blocks, against 31–34 ms without.
-- It only runs with `scribecue.sharedCopy` set to `1` in the browser's storage. Yjs then
-  loads on demand; otherwise it never loads.
+- It only runs with `scribecue.sharedCopy` set in the browser's storage. With `1`, the
+  shared copy, Yjs and the connection load only for a project that's shared, or once
+  someone shares or opens a link. A project of your own runs as it does without sharing.
+  With `all`, every project gets a shared copy, so this browser's tabs stay in step; the
+  tests below use it.
 - Yjs is bundled by `scripts/vendor-yjs.sh` into `app/vendor/yjs.js`, at a fixed version.
 - `scripts/two-tab-smoke.mjs` opens two tabs at 6× with 1,500 blocks: joining, typing in
   the same block at once, carets, deleting, commenting, names, and undo and redo. Two
   Scribecue tabs in one headless browser slow each other a lot (14 → 72 ms a character with
   sharing off), so compare its typing time with that, not with one tab. Sharing added about
   10–15 ms. A's undo reached the other tab in about 60 ms.
-- `SHARED_COPY=1 scripts/slow-chromium.sh tour` runs the 1-CPU tour with it on: like `main`,
-  with bulk changes (find and replace, undo) about 60 ms slower.
+- `SHARED_COPY=1 scripts/slow-chromium.sh tour` runs the 1-CPU tour with a shared copy for
+  every project: like `main`, with bulk changes (find and replace, undo) about 60 ms
+  slower.
 - `scripts/shared-smoke.mjs` checks it at 6× with 1,500 blocks. Measured: whole-script copy
   7–8 ms, one block 0–2 ms, about 3–5 ms more per typed character, no added long tasks.
 
