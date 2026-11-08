@@ -51,6 +51,9 @@ export const WRITERS = {
 export const ROLES = ['edit', 'review', 'comment'];
 // The version of the relay's protocol this browser speaks (relay/src/room.js, PROTOCOL).
 export const PROTOCOL = 2;
+// Whether the relay's challenge says a version older than this browser's: one from before
+// versions says none.
+export const relayTooOld = (m) => (Number.isSafeInteger(m.protocol) ? m.protocol : 1) < PROTOCOL;
 
 async function newSigningKey() {
   const k = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
