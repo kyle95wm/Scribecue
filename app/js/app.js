@@ -5,7 +5,7 @@ import { reviewedRewrite, speechKey, rereads, canReread, bundledFor, keyName } f
 import { offerLiveVoices, initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
 import { cleanComments, commentsAllowed } from './comments.js';
 import { cleanEdited, stampEdits, seedEdits, editorCount, editedLine, blockSig } from './edits.js';
-import { savedName, editorId } from './profile.js';
+import { savedName, saveName, editorId } from './profile.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
 import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
@@ -666,7 +666,7 @@ async function startShared() {
 }
 // The connection to the relay for a shared project, and keeping its copy in this browser.
 let relay = null, relayOff = () => {};
-function stopRelay() { relay?.stop(); relay = null; relayOff(); relayOff = () => {}; window.scribecueRelay = null; }
+function stopRelay() { relay?.stop(); relay = null; relayOff(); relayOff = () => {}; window.scribecueRelay = null; shareUi?.update(); }
 async function startRelay(record, copy, fresh, seq) {
   const id = S.projectId, owner = record.link === 'owner';
   const create = owner && !record.created ? await sharedLib.signedLinks(record) : null;
@@ -678,7 +678,10 @@ async function startRelay(record, copy, fresh, seq) {
     onStatus: (status, detail) => {
       if (relay !== client) return;
       if (status === 'online') {
-        if (create && !record.created) { record.created = true; sharedLib.setShare(id, record); }
+        const now = sharedLib.getShare(id);
+        if (now && create && !now.created) { now.created = true; sharedLib.setShare(id, now); }
+        // Links changed while offline: the relay gets the newest list now.
+        if (now && owner && client.links && now.n > client.links.n) sharedLib.signedLinks(now).then((l) => client.sendLinks(l));
         // Just joined: the relay's copy is the project. Blocks only here go.
         if (fresh) { fresh = false; applyShared([...new Set([...copy.blocks.keys(), ...S.cues.map((c) => c.uid)])], true); }
         persist();
@@ -686,6 +689,7 @@ async function startRelay(record, copy, fresh, seq) {
       if (status === 'ended') {
         toast(detail === 'room-deleted' ? 'This project is no longer shared. Your copy stays here' : 'This project is no longer shared with you. Your copy stays here');
         sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
+        queueMicrotask(stopRelay);
       }
       window.dispatchEvent(new CustomEvent('scribecue-relay', { detail: { status, detail } }));
     },
@@ -695,7 +699,8 @@ async function startRelay(record, copy, fresh, seq) {
   window.scribecueRelay = client; // for the developer tests
   client.start();
 }
-// Until the share dialog exists: start sharing this project, or join one from a link.
+// Starting to share this project, changing its links, and joining one from a link.
+let shareUi = null, joinUi = null;
 const sharingTools = {
   async start(passwords) {
     const record = await sharedLib.startSharing(S.projectId, sharedLib.relayUrl(), passwords);
@@ -714,12 +719,77 @@ const sharingTools = {
     S.reviewHistory = null; S.cues = []; S.comments = []; S.handle = null; handleStore.set(null);
     changed(); // starts its shared copy, which fills from the relay
     select(null);
+    setMode(record.role === 'edit' ? 'write' : 'qc', true);
     return true;
   },
+  // A link for `role` with its password, starting to share if this is the first.
+  async make(role, password) {
+    const id = S.projectId, record = sharedLib.getShare(id);
+    if (!record) { await sharingTools.start({ [role]: password }); return; }
+    const next = await sharedLib.addLink(record, role, password);
+    sharedLib.setShare(id, next);
+    if (relay?.status === 'online') relay.sendLinks(await sharedLib.signedLinks(next));
+  },
+  async turnOff(linkId) {
+    const id = S.projectId, next = sharedLib.removeLink(sharedLib.getShare(id), linkId);
+    sharedLib.setShare(id, next);
+    if (relay?.status === 'online') relay.sendLinks(await sharedLib.signedLinks(next));
+    toast('Link turned off. It no longer opens this project');
+  },
+  // The owner ends sharing: the relay deletes its copy. This one stays, as a plain project.
+  async stop() {
+    if (!relay?.deleteRoom()) throw new Error('offline');
+    const id = S.projectId;
+    stopRelay();
+    sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
+    await startShared();
+    toast('Stopped sharing. Your copy stays here');
+  },
+  // Someone who joined leaves: their copy stays, as a project of its own.
+  async leave() {
+    const id = S.projectId;
+    stopRelay();
+    sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
+    S.projectId = newIdentity();
+    changed();
+    toast('Left the shared project. Your copy stays here');
+  },
 };
+// A share link opened in this browser: ask for its password, unless it's the project here.
+function openShareLink() {
+  const l = sharedLib.parseLink(location.hash);
+  if (!l) return;
+  const clear = () => history.replaceState(null, '', location.pathname + location.search);
+  if (sharedLib.shareForRoom(l.room)?.project === S.projectId) { clear(); return; }
+  joinUi.open();
+}
 if (sharedOn) {
-  Promise.all([import('./shared.js'), import('./sharing.js'), import('./relayclient.js')])
-    .then(([a, b, c]) => { sharedLib = { ...a, ...b, ...c }; window.scribecueSharing = sharingTools; startShared(); })
+  Promise.all([import('./shared.js'), import('./sharing.js'), import('./relayclient.js'), import('./sharekeys.js'), import('./sharedialog.js')])
+    .then(([a, b, c, d, ui]) => {
+      sharedLib = { ...a, ...b, ...c, parseLink: d.parseLink };
+      window.scribecueSharing = sharingTools;
+      shareUi = ui.shareDialog({
+        $, toast,
+        record: () => sharedLib.getShare(S.projectId),
+        links: () => { const r = sharedLib.getShare(S.projectId); return r ? sharedLib.linksOf(r, location.href) : []; },
+        status: () => relay?.status || 'connecting',
+        name: () => savedName(), setName: (v) => saveName(v),
+        make: sharingTools.make, turnOff: sharingTools.turnOff, stop: sharingTools.stop, leave: sharingTools.leave,
+      });
+      joinUi = ui.joinDialog({
+        $, name: () => savedName(), setName: (v) => saveName(v),
+        join: async (password) => {
+          const ok = await sharingTools.join(location.href, password);
+          if (ok) { history.replaceState(null, '', location.pathname + location.search); toast('Opened the shared project. Open your copy of the video to watch along'); }
+          return ok;
+        },
+      });
+      window.addEventListener('scribecue-relay', () => shareUi.update());
+      window.addEventListener('hashchange', openShareLink);
+      $('shareBtn').hidden = false;
+      startShared();
+      openShareLink();
+    })
     .catch(() => { /* stays off */ });
 }
 function noteShared(id) {
@@ -5753,6 +5823,7 @@ const actions = {
   settings: () => showGeneral(),
   newProject: () => startAgain(),
   comments: () => toggleComments(),
+  share: () => shareUi?.open(),
   ai: () => { if (qc()) return; if (!$('commentsDrawer').hidden) toggleComments(false); toggleAi(); },
 };
 
