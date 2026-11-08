@@ -59,7 +59,7 @@ async function share() {
   const make = (shared, who, extra = {}) => { const c = new RelayClient({ url: 'ws://relay', room: owner.room, who, shared, WebSocket: net.WebSocket, flushMs: 5, retryMs: 10, onStatus: (s, d) => statuses.push([who.link, s, d]), ...extra }).start(); clients.push(c); return c; };
   const mine = new SharedProject();
   mine.write(blocks(), []);
-  const o = make(mine, { link: 'owner', priv: owner.ownerPriv, ownerPub: owner.ownerPub, projectKey: owner.projectKey }, { create: await keys.signLinks(owner, 1, list) });
+  const o = make(mine, { link: 'owner', priv: owner.ownerPriv, ownerPub: owner.ownerPub, keys: owner.keys, w: owner.ow }, { create: await keys.signLinks(owner, 1, list) });
   await until(() => o.status === 'online' && !o.unsent(), 'owner online with the script sent');
   const join = async (link, extra) => {
     const opened = await keys.openBox({ room: owner.room, ...link }, 'pw', fast);
@@ -180,6 +180,51 @@ test('changes made through a link before it’s turned off reach those who open 
   const late = await join(list[1]);
   await until(() => late.s.read().blocks[0].text === 'Written before the link went off.', 'the comment link has it');
   assert.deepEqual(late.s.read(), mine.read());
+});
+
+test('turning a link off adds a project key that only the links still on get', async () => {
+  const { mine, o, join, edit, comment, owner, list, net } = await share();
+  const { c: gone } = await join(edit);
+  const stays = await join(comment);
+  // Turned off, with a new project key, as the app does it.
+  const next = { ...owner, keys: [...owner.keys, keys.newProjectKey()] };
+  const off = list.map((x) => (x === edit ? { id: x.id, role: x.role, pub: x.pub, off: true } : x));
+  await o.sendLinks(await keys.signLinks(next, 2, off));
+  await until(() => gone.status === 'ended' && o.cipher.count === 2 && stays.c.cipher.count === 2, 'the new key reached the owner and the link still on');
+  // The owner's next change uses it: the link still on reads it; the old key doesn't open it.
+  const l = mine.read().blocks; l[1].text = 'After the link went off.';
+  mine.write(l, [], [uid(2)]);
+  await until(() => stays.s.read().blocks[1].text === 'After the link went off.', 'the link still on has it');
+  const store = net.stores.get(owner.room).m, last = [...store.keys()].filter((k) => k.startsWith('u:')).sort().at(-1);
+  const sealed = keys.unb64(store.get(last).data);
+  assert.equal(sealed[0], 2, 'sealed with the second key');
+  const old = await keys.projectCipher(owner.keys, owner.room);
+  await assert.rejects(() => old.open(store.get(last).doc, sealed));
+  // A link made now gets every key in its box, so it reads all of it.
+  const later = await keys.newLink(next, 'review', 'pw', fast);
+  await o.sendLinks(await keys.signLinks(next, 3, [...off, later]));
+  const late = await join(later);
+  await until(() => late.s.read().blocks[1].text === 'After the link went off.', 'a new link reads it');
+  assert.deepEqual(late.s.read(), mine.read());
+});
+
+test('a change sealed with a key not yet here waits for it, rather than being lost', async () => {
+  const { mine, o, join, edit, owner, list } = await share();
+  const { s, c } = await join(edit);
+  const next = { ...owner, keys: [...owner.keys, keys.newProjectKey()] };
+  // A list without the new key for the edit link, as for a link made before keys could change.
+  const bare = list.map((x) => ({ ...x, w: undefined }));
+  await o.sendLinks(await keys.signLinks(next, 2, bare));
+  await until(() => o.cipher.count === 2);
+  const l = mine.read().blocks; l[0].text = 'Sealed with the second key.';
+  mine.write(l, [], [uid(1)]);
+  await until(() => c.held.length === 1, 'the edit link holds it');
+  assert.equal(c.safeSeq, c.held[0].seq - 1, 'kept as not yet had');
+  assert.notEqual(s.read().blocks[0].text, 'Sealed with the second key.');
+  await o.sendLinks(await keys.signLinks(next, 3, list));
+  await until(() => s.read().blocks[0].text === 'Sealed with the second key.', 'opened once the key came');
+  assert.equal(c.held.length, 0);
+  assert.equal(c.safeSeq, c.seq);
 });
 
 test('a link the owner adds is accepted at once by the owner’s side', async () => {

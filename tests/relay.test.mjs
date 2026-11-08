@@ -23,9 +23,9 @@ function memory() {
     async setAlarm(t) { this.alarm = t; },
   };
 }
-function setup({ now = () => 1_000_000 } = {}) {
+function setup({ now = () => 1_000_000, mayCreate } = {}) {
   const storage = memory(), open = new Set();
-  const room = new Room({ id: ROOM, storage, sockets: () => open, now });
+  const room = new Room({ id: ROOM, storage, sockets: () => open, now, mayCreate });
   const connect = () => {
     const s = { got: [], closed: null, state: {}, send(t) { this.got.push(JSON.parse(t)); }, close(code, why) { this.closed = why; open.delete(this); } };
     open.add(s); room.open(s);
@@ -173,6 +173,21 @@ test('a socket from before a link went off is closed at its next message', async
   assert.equal((await update(ed.s, editor, 'script', new Uint8Array([1])))[0].code, 'link-off');
   assert.equal(ed.s.closed, 'link-off');
   assert.equal(o.closed, null);
+});
+
+test('making a room too often is refused, and nothing is kept', async () => {
+  let asked = 0;
+  const env = setup({ mayCreate: async (socket) => { asked++; return socket.address === 'calm'; } });
+  const owner = await keys();
+  const s = env.connect(); s.address = 'busy';
+  const [refused] = await s.say({ type: 'create', owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(s))), links: await linksFor(owner, 1, []) });
+  assert.equal(refused.code, 'busy');
+  assert.equal(s.closed, 'busy');
+  assert.equal(await env.storage.get('meta'), undefined);
+  const t = env.connect(); t.address = 'calm';
+  const [welcome] = await t.say({ type: 'create', owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(t))), links: await linksFor(owner, 1, []) });
+  assert.equal(welcome.type, 'welcome');
+  assert.equal(asked, 2);
 });
 
 test('a full room refuses more; too big a message is refused', async () => {

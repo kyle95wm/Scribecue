@@ -63,3 +63,29 @@ test('changes are encrypted for one room and document', async () => {
   assert.ok(await verify(owner.ownerPub, sig, sealed));
   assert.equal(await verify(owner.ownerPub, sig, data), false);
 });
+
+test('changes sealed before keys had numbers still open; newer keys are added, never lost', async () => {
+  const room = 'AAAAAAAAAAAAAAAAAAAAAA', k1 = keys.newProjectKey(), k2 = keys.newProjectKey();
+  // As sealed before: iv and ciphertext, bound to room and document only.
+  const raw = await crypto.subtle.importKey('raw', keys.unb64(k1), 'AES-GCM', false, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(`scribecue-change:${room}:script`) }, raw, new Uint8Array([1, 2, 3])));
+  const c = await keys.projectCipher(k1, room);
+  assert.deepEqual([...await c.open('script', new Uint8Array([...iv, ...ct]))], [1, 2, 3]);
+  c.setKeys([k1, k2]);
+  const sealed = await c.seal('script', new Uint8Array([4]));
+  assert.equal(sealed[0], 2);
+  c.setKeys([k1]); // an older list changes nothing
+  assert.equal(c.count, 2);
+  assert.deepEqual([...await c.open('script', sealed)], [4]);
+  await assert.rejects(() => c.open('comments', sealed), 'bound to its document');
+});
+
+test('wrapped keys open only with the right wrapping key, room and link', async () => {
+  const room = 'AAAAAAAAAAAAAAAAAAAAAA', w = keys.newProjectKey(), all = [keys.newProjectKey(), keys.newProjectKey(), keys.newProjectKey()];
+  const wrapped = await keys.wrapKeys(room, 'ed1', w, all, 1);
+  assert.deepEqual(await keys.unwrapKeys(room, 'ed1', w, wrapped, [all[0]]), all);
+  assert.deepEqual(await keys.unwrapKeys(room, 'ed2', w, wrapped, [all[0]]), [all[0]], 'another link');
+  assert.deepEqual(await keys.unwrapKeys(room, 'ed1', keys.newProjectKey(), wrapped, [all[0]]), [all[0]], 'another key');
+  assert.deepEqual(await keys.unwrapKeys(room, 'ed1', w, 'junk', [all[0]]), [all[0]]);
+});
