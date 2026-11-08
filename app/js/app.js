@@ -522,7 +522,7 @@ function pushUndo(snap = snapshot(), tag = null) {
   if (tag && tag === lastUndoTag && t - lastUndoTime < 1000) { lastUndoTime = t; return; }
   lastUndoTag = tag; lastUndoTime = t;
   // While shared, the step also starts a new step in the shared copy's own undo.
-  if (sharedUndo) { sharedUndo.step(); snap = { ...snap, shared: sharedUndo, depth: sharedUndo.depth() }; }
+  if (sharedUndo) snap = { ...snap, shared: sharedUndo, mark: sharedUndo.step() };
   undoStack.push(snap);
   if (undoStack.length > 300) undoStack.shift();
   redoStack.length = 0;
@@ -578,9 +578,8 @@ function doUndo() {
   const snap = undoStack.at(-1);
   if (sharedStep(snap)) {
     undoStack.pop();
-    let n = 0;
-    while (sharedUndo.depth() > snap.depth && sharedUndo.undo()) n++;
-    redoStack.push({ ...snapshot(), shared: sharedUndo, redo: n });
+    const back = sharedUndo.undoTo(snap.mark);
+    redoStack.push({ ...snapshot(), shared: sharedUndo, redo: back });
     restoreLocal(snap);
   } else {
     if (!qcUndoAllowed(snap)) return;
@@ -596,9 +595,9 @@ function doRedo() {
   const snap = redoStack.at(-1);
   if (sharedStep(snap)) {
     redoStack.pop();
-    const depth = sharedUndo.depth();
-    for (let i = 0; i < snap.redo && sharedUndo.redo(); i++);
-    undoStack.push({ ...snapshot(), shared: sharedUndo, depth });
+    const mark = sharedUndo.depth();
+    sharedUndo.redo(snap.redo);
+    undoStack.push({ ...snapshot(), shared: sharedUndo, mark });
     restoreLocal(snap);
   } else {
     if (!qcUndoAllowed(snap)) return;
@@ -638,25 +637,91 @@ function noteEdits(id) {
 // setting, scribecue.sharedCopy in this browser's storage, so Yjs only loads when it's on.
 // Tabs of this browser with the same project open share changes, as the service will.
 let shared = null, sharedLib = null, sharedList = null, sharedProjectId = null, unlinkTabs = () => {};
-let sharedIn = null, sharedStarting = null, sharedUndo = null; // uids being applied from others; undo of this tab's changes
+let sharedIn = null, sharedStarting = null, sharedUndo = null, sharedToken = null; // uids being applied from others; undo of this tab's changes
 const sharedOn = (() => { try { return localStorage.getItem('scribecue.sharedCopy') === '1'; } catch { return false; } })();
 async function startShared() {
-  const copy = new sharedLib.SharedProject(), id = S.projectId;
-  shared = null; sharedUndo = null; sharedStarting = id; unlinkTabs();
+  const copy = new sharedLib.SharedProject(), id = S.projectId, token = sharedToken = {};
+  shared = null; sharedUndo = null; sharedStarting = id; unlinkTabs(); stopRelay();
+  // A project shared on the relay keeps its copy in this browser between visits.
+  const record = sharedLib.getShare(id);
+  const saved = record ? await handleStore.get('shared:' + id) : null;
+  if (sharedToken !== token) return; // started again meanwhile
+  if (saved) try { for (const d of sharedLib.DOCS) if (saved[d]) copy.apply(d, saved[d], 'saved'); } catch { /* starts again from the relay */ }
   const link = sharedLib.linkTabs(copy, id);
   unlinkTabs = link.stop;
   const joined = await link.ready;
-  if (S.projectId !== id) return; // another project opened meanwhile, and started its own
+  if (sharedToken !== token) return; // another project opened meanwhile, and started its own
   shared = copy; sharedProjectId = id; sharedList = S.cues; sharedUndo = null;
   shared.observe(applyShared);
   window.scribecueShared = shared; // for the developer tests
-  // Another tab had it open: take its copy as it is. Otherwise start the copy from this script.
+  // Another tab had it open: take its copy as it is. Joined but not kept here yet: take the
+  // relay's. Otherwise start the copy from this script, or bring it up to date. The owner
+  // starting to share sends the script; one whose copy here is lost takes the relay's.
+  const fresh = !!record && !saved && !joined && (record.link !== 'owner' || record.created);
   if (joined) applyShared([...new Set([...shared.blocks.keys(), ...S.cues.map((c) => c.uid)])], true);
-  else shared.write(S.cues, S.comments);
+  else if (!fresh) shared.write(S.cues, S.comments);
   // Undo from here on takes back this tab's changes only; earlier steps undo as before.
   sharedUndo = shared.undoer();
+  if (record) startRelay(record, copy, fresh, saved?.seq || 0);
 }
-if (sharedOn) import('./shared.js').then((lib) => { sharedLib = lib; startShared(); }).catch(() => { /* stays off */ });
+// The connection to the relay for a shared project, and keeping its copy in this browser.
+let relay = null, relayOff = () => {};
+function stopRelay() { relay?.stop(); relay = null; relayOff(); relayOff = () => {}; window.scribecueRelay = null; }
+async function startRelay(record, copy, fresh, seq) {
+  const id = S.projectId, owner = record.link === 'owner';
+  const create = owner && !record.created ? await sharedLib.signedLinks(record) : null;
+  if (shared !== copy) return;
+  let keep = 0;
+  const persist = () => { clearTimeout(keep); keep = setTimeout(() => handleStore.set({ script: copy.update('script'), comments: copy.update('comments'), seq: client.seq }, 'shared:' + id), 1500); };
+  const client = relay = new sharedLib.RelayClient({
+    url: record.relay, room: record.room, who: sharedLib.who(record), shared: copy, create, seed: !fresh,
+    onStatus: (status, detail) => {
+      if (relay !== client) return;
+      if (status === 'online') {
+        if (create && !record.created) { record.created = true; sharedLib.setShare(id, record); }
+        // Just joined: the relay's copy is the project. Blocks only here go.
+        if (fresh) { fresh = false; applyShared([...new Set([...copy.blocks.keys(), ...S.cues.map((c) => c.uid)])], true); }
+        persist();
+      }
+      if (status === 'ended') {
+        toast(detail === 'room-deleted' ? 'This project is no longer shared. Your copy stays here' : 'This project is no longer shared with you. Your copy stays here');
+        sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
+      }
+      window.dispatchEvent(new CustomEvent('scribecue-relay', { detail: { status, detail } }));
+    },
+  });
+  client.seq = seq;
+  relayOff = copy.onUpdate(persist);
+  window.scribecueRelay = client; // for the developer tests
+  client.start();
+}
+// Until the share dialog exists: start sharing this project, or join one from a link.
+const sharingTools = {
+  async start(passwords) {
+    const record = await sharedLib.startSharing(S.projectId, sharedLib.relayUrl(), passwords);
+    sharedLib.setShare(S.projectId, record);
+    await startShared();
+    return sharedLib.linksOf(record, location.href);
+  },
+  async join(url, password) {
+    const record = await sharedLib.joinShare(new URL(url).hash, password, sharedLib.relayUrl());
+    if (!okToReplace('Open the shared project')) return false;
+    await stopJob();
+    await endRecording();
+    undoStack.length = 0; redoStack.length = 0;
+    S.projectId = record.project || newIdentity();
+    sharedLib.setShare(S.projectId, record);
+    S.reviewHistory = null; S.cues = []; S.comments = []; S.handle = null; handleStore.set(null);
+    changed(); // starts its shared copy, which fills from the relay
+    select(null);
+    return true;
+  },
+};
+if (sharedOn) {
+  Promise.all([import('./shared.js'), import('./sharing.js'), import('./relayclient.js')])
+    .then(([a, b, c]) => { sharedLib = { ...a, ...b, ...c }; window.scribecueSharing = sharingTools; startShared(); })
+    .catch(() => { /* stays off */ });
+}
 function noteShared(id) {
   if (!sharedLib || sharedIn) return;
   // A different project starts its own copy. Edits while it starts are in the script it reads.

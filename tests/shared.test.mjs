@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SharedProject, retype, linkTabs } from '../app/js/shared.js';
+import { SharedProject, retype, linkTabs, DOCS } from '../app/js/shared.js';
 import { cleanComments } from '../app/js/comments.js';
 import * as Y from '../app/vendor/yjs.js';
 
@@ -13,8 +13,8 @@ const timeline = () => cleanComments([{ text: 'Music too loud', author: 'Sam', c
 // Two people, each with their own copy, passing updates both ways.
 const pair = () => {
   const a = new SharedProject(), b = new SharedProject();
-  a.doc.on('update', (u, origin) => { if (origin !== 'remote') b.apply(u); });
-  b.doc.on('update', (u, origin) => { if (origin !== 'remote') a.apply(u); });
+  a.onUpdate((doc, u, origin) => { if (origin !== 'remote') b.apply(doc, u); });
+  b.onUpdate((doc, u, origin) => { if (origin !== 'remote') a.apply(doc, u); });
   return [a, b];
 };
 
@@ -47,11 +47,11 @@ test('two people typing in the same block keep both their words', () => {
   a.write(blocks(), []);
   // Offline from each other for a moment: both edit block 1, then swap updates.
   const a2 = new SharedProject(), b2 = new SharedProject();
-  a2.apply(a.update()); b2.apply(a.update());
+  for (const d of DOCS) { a2.apply(d, a.update(d)); b2.apply(d, a.update(d)); }
   const one = a2.read().blocks, two = b2.read().blocks;
   one[0].text = 'Mara slowly opens a door.'; two[0].text = 'Mara opens a red door.';
   a2.write(one, [], [uid(1)]); b2.write(two, [], [uid(1)]);
-  a2.apply(b2.update()); b2.apply(a2.update());
+  for (const d of DOCS) { a2.apply(d, b2.update(d)); b2.apply(d, a2.update(d)); }
   assert.equal(a2.read().blocks[0].text, 'Mara slowly opens a red door.');
   assert.deepEqual(a2.read(), b2.read());
 });
@@ -93,7 +93,7 @@ test('1,500 blocks over two hours go in quickly enough to split into steps', () 
   const ms = performance.now() - t;
   assert.equal(s.read().blocks.length, 1500);
   assert.ok(ms < 1000, `took ${Math.round(ms)} ms`);
-  assert.ok(s.update().length < 400_000, `update is ${s.update().length} bytes`);
+  assert.ok(s.update('script').length < 400_000, `update is ${s.update('script').length} bytes`);
 });
 
 test('a tab that opens takes the copy another tab already has, then edits flow both ways', async () => {
@@ -122,7 +122,7 @@ test('a tab that opens takes the copy another tab already has, then edits flow b
   const other = new SharedProject(), lo = linkTabs(other, crypto.randomUUID(), { wait: 30 });
   assert.equal(await lo.ready, false);
   const raw = new BroadcastChannel(`scribecue-shared:${name}`);
-  raw.postMessage({ type: 'update', update: new Uint8Array([1, 2, 3]) }); raw.postMessage('nonsense');
+  raw.postMessage({ type: 'update', doc: 'script', update: new Uint8Array([1, 2, 3]) }); raw.postMessage('nonsense');
   await tick();
   assert.deepEqual(a.read(), b.read());
   for (const l of [la, lb, lo]) l.stop();
@@ -142,7 +142,7 @@ test('undo takes back only your own changes, step by step, and redo puts them ba
   a.write(blocks(), timeline());
   const undo = a.undoer();
   // Step 1: A types in block 1, in several writes, as typing does.
-  undo.step();
+  const one = undo.step();
   for (const text of ['Mara opens a door slowly.', 'Mara opens a door slowly, smiling.']) {
     const list = a.read().blocks; list[0].text = text; a.write(list, timeline(), [uid(1)]);
   }
@@ -150,20 +150,20 @@ test('undo takes back only your own changes, step by step, and redo puts them ba
   let list = b.read().blocks; list[0].text = 'Now Mara opens a door slowly, smiling.'; list[1].start = 4;
   b.write(list, timeline());
   // Step 2: A deletes block 2.
-  undo.step();
+  const two = undo.step();
   a.write(a.read().blocks.slice(0, 1), timeline());
-  assert.equal(undo.depth(), 2);
+  assert.deepEqual(undo.depth(), { script: 2, comments: 0 });
 
-  assert.ok(undo.undo());
+  const back2 = undo.undoTo(two);
+  assert.deepEqual(back2, { script: 1, comments: 0 }, 'block 2 had no comments');
   assert.deepEqual(b.read().blocks.map((x) => [x.uid, x.start]), [[uid(1), 1], [uid(2), 4]], 'block 2 is back, where B moved it');
-  assert.ok(undo.undo());
+  const back1 = undo.undoTo(one);
   assert.equal(b.read().blocks[0].text, 'Now Mara opens a door.', 'A’s typing went as one step; B’s word stayed');
-  assert.equal(undo.undo(), false, 'nothing else of A’s to undo');
-  assert.equal(undo.depth(), 0);
+  assert.deepEqual(undo.undoTo(one), { script: 0, comments: 0 }, 'nothing else of A’s to undo');
 
-  assert.ok(undo.redo());
+  assert.deepEqual(undo.redo(back1), back1);
   assert.equal(b.read().blocks[0].text, 'Now Mara opens a door slowly, smiling.');
-  assert.ok(undo.redo());
+  undo.redo(back2);
   assert.equal(b.read().blocks.length, 1);
   assert.deepEqual(a.read(), b.read());
 });
@@ -172,7 +172,7 @@ test('undo of a comment leaves others’ comments alone', () => {
   const [a, b] = pair();
   a.write(blocks(), timeline());
   const undo = a.undoer();
-  undo.step();
+  const mark = undo.step();
   {
     const l = a.read().blocks;
     l[1].comments = cleanComments([{ text: 'Too fast', author: 'Kyle', created: '2026-11-08T00:03:00Z' }]);
@@ -181,6 +181,6 @@ test('undo of a comment leaves others’ comments alone', () => {
   const l = b.read().blocks;
   l[1].comments = [...l[1].comments, ...cleanComments([{ text: 'Agreed', author: 'Sam', created: '2026-11-08T00:04:00Z' }])];
   b.write(l, timeline(), [uid(2)]);
-  undo.undo();
+  undo.undoTo(mark);
   assert.deepEqual(b.read().blocks[1].comments.map((c) => c.text), ['Agreed']);
 });
