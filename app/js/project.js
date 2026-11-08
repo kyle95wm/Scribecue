@@ -1,4 +1,5 @@
 import { cleanComments } from './comments.js';
+import { cleanEdited } from './edits.js';
 
 // Scribecue project files (.scribecue): a whole piece of work in one JSON file, so you
 // can keep several projects and pick up where you left off. SRT and VTT exports are for
@@ -64,8 +65,9 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     ...(cleanRecording(recording) ? { recording: cleanRecording(recording) } : {}),
     settings,
     view,
-    blocks: blocks.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, ownSecs, notes }) => ({
+    blocks: blocks.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, ownSecs, notes, edited }) => ({
       ...(validIdentity(uid) ? { uid } : {}),
+      ...(cleanEdited(edited) ? { edited: cleanEdited(edited) } : {}),
       start, end, text,
       ...(cleanNotes(notes) ? { notes: cleanNotes(notes) } : {}),
       ...(cleanPickup(pickup) ? { pickup: cleanPickup(pickup) } : {}),
@@ -103,6 +105,7 @@ export function fromProject(json) {
     }
     blocks.push({
       ...(validIdentity(b.uid) ? { uid: b.uid } : {}),
+      ...(cleanEdited(b.edited) ? { edited: cleanEdited(b.edited) } : {}),
       ...(cleanComments(b.comments).length ? { comments: cleanComments(b.comments) } : {}),
       ...(Number.isSafeInteger(b.qcReading) && b.qcReading >= 8 ? { qcReading: b.qcReading } : {}),
       start: Math.max(0, b.start),

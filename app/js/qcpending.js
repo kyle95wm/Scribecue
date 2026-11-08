@@ -28,6 +28,8 @@ function describe(block, withText = true) {
     block.dipBy != null && `Dip adjustment: ${String(block.dipBy).replace('-', '−')} dB`, block.pickup && `Pickup: ${block.pickup.note || 'Marked'}`,
     block.say?.length && `Sounds like: ${block.say.map(([a, b]) => `${a} → ${b}`).join('; ')}`].filter(Boolean).join('\n');
 }
+// The reviewer's name, when their package carries one.
+const returned = (block) => block?.edited?.by ? `Returned by ${block.edited.by}` : 'Returned';
 const span = (cls, text) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; return s; };
 // The reviewer's version, with its wording and times open to change before accepting.
 const shown = (item) => review.edits.has(key(item)) ? { ...item.theirs, ...review.edits.get(key(item)) } : item.theirs;
@@ -38,7 +40,7 @@ function editable(item) {
   const times = document.createElement('div'); times.className = 'ptimes';
   const reset = document.createElement('button'); reset.className = 'preset'; reset.textContent = 'Use as returned'; reset.hidden = !review.edits.has(key(item));
   reset.dataset.tip = 'Undo your edits to the returned version';
-  times.append(span('pl', 'Returned'), time('start', 'Returned start'), span('dim', '–'), time('end', 'Returned end'), reset);
+  times.append(span('pl', returned(item.theirs)), time('start', 'Returned start'), span('dim', '–'), time('end', 'Returned end'), reset);
   d.append(times, text);
   const rest = describe(block, false);
   if (rest) { const tx = document.createElement('div'); tx.className = 'tx'; tx.textContent = rest; d.append(tx); }
@@ -49,7 +51,7 @@ function side(label, item, value, missing) {
   if (label === 'Returned' && item.kind === 'block' && value) return editable(item);
   const d = document.createElement('div'); d.className = 'pside';
   const block = item.kind === 'block' ? value : item.block;
-  d.append(span('pl', label), span('pt', block ? `${h.time(block.start)} – ${h.time(block.end)}` : ''));
+  d.append(span('pl', label === 'Returned' ? returned(item.kind === 'block' ? value : null) : label), span('pt', block ? `${h.time(block.start)} – ${h.time(block.end)}` : ''));
   const tx = document.createElement('div'); tx.className = 'tx';
   tx.textContent = item.kind === 'block' ? value ? describe(value) : missing : comments(value);
   d.append(tx); return d;

@@ -71,6 +71,14 @@ Hashes check a file against a locally retained baseline. They do not authenticat
 reviewer, provide account permissions or make the file format tamper-proof. Someone
 with a plain exported script can still edit that script outside the review workflow.
 
+- Each block keeps who last changed its script (`edited`: name, time and a random browser
+  id, in `edits.js`). Changes are noticed in `changed()` by comparing each block with how it
+  last looked; opening a file or undoing replaces the list and stamps nothing. Record mode
+  never stamps. The name shows on an open block only once two or more people have changed
+  blocks, so a project of your own looks the same. Merging ignores `edited` when comparing
+  and keeps the one from the side whose block is kept. Pending review names the reviewer.
+  `scripts/edits-smoke.mjs` checks it at 6× with 1,500 blocks.
+
 ## Optional Google review access
 
 - Version 4 manifests add readings for blocks added in review: a proposal with `blockUid`
