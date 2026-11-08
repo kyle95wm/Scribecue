@@ -197,17 +197,31 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   `scribecue.share.<project id>`, so it opens again without the password.
 - The shared copy is kept in IndexedDB (`shared:<project id>`) between visits. Without
   it, a person who joined takes the relay's copy rather than starting a rival one.
-- Until the share dialog exists, `window.scribecueSharing.start({ edit, comment })` and
-  `.join(url, password)` start and join sharing. The relay address is
-  `scribecue.relay`, `ws://127.0.0.1:8787` by default, and the CSP allows only that.
+- The relay address is `scribecue.relay`, `ws://127.0.0.1:8787` by default, and the CSP
+  allows only that.
+
+### Share dialog
+
+- With the developer setting on, the header has **Share** (not in Record mode) and a tag
+  that says Shared, Connecting or Offline. Code is in `sharedialog.js`.
+- The owner makes one link per role, each with a password of at least 6 characters. A new
+  link for a role replaces the old one. **Turn off** stops a link; its users keep their copy.
+  **Stop sharing** deletes the relay's copy; the owner's stays as a plain project.
+- Opening a link asks for its password and the person's name. Can edit opens in Write; Can
+  review and Can comment open in QC. The link leaves the address bar once used.
+- Someone who joined can **Leave**: their copy stays as a project of its own.
+- Links changed while offline reach the relay on reconnecting.
 - `scripts/relay-share-smoke.mjs` runs two browsers at 6× with 1,500 blocks through a
-  local relay. Measured: sharing 1.1 s, joining 1 s, typing 17 ms a character, a change
-  reaching the other person in about 0.25 s, no long tasks beyond the app's own start.
+  local relay and the dialogs. Measured: sharing 0.8–1.1 s, joining 0.7–1 s, typing
+  17–20 ms a character, a change reaching the other person in about 0.25 s, no long tasks
+  beyond the app's own start.
 
 ### Still to do
 
-- 4c: the share dialog, the three link types, passwords, turning links off, opening a link.
-- 4d: Can review edits arrive in Pending review. Can comment changes only comments.
+- 4d: Can review edits arrive in Pending review. Can comment changes only comments. Until
+  then, the app doesn't stop those links from editing blocks in Write; the relay refuses
+  their block changes, so they stay on that computer.
+- User guides, once sharing is switched on for everyone.
 - Before calling it end-to-end encrypted: get the key handling reviewed. Decide on a new
   project key when a link is turned off. Rate-limit new rooms at Cloudflare.
 - Deploy the relay, then add its address to the CSP.

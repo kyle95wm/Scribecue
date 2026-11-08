@@ -1,11 +1,13 @@
 // Two people sharing a project through the relay, each in their own headless, muted Chrome at
-// 6× CPU slowdown, with 1,500 blocks over two hours. A shares; B joins from the edit link (a
-// wrong password first); typing passes both ways; B reloads and is still in; B goes offline,
-// edits, and catches up.
+// 6× CPU slowdown, with 1,500 blocks over two hours, through the Share and join dialogs. A
+// makes an edit link; B opens it (a wrong password first); typing passes both ways; B reloads
+// and is still in; B goes offline, edits, and catches up; A turns the link off, then stops
+// sharing. Takes screenshots of both dialogs if given a folder.
 // Needs the relay running locally (`npm run dev` in relay/).
-// Usage: node scripts/relay-share-smoke.mjs <A's DevTools port> <B's DevTools port> <site url>
+// Usage: node scripts/relay-share-smoke.mjs <A's DevTools port> <B's DevTools port> <site url> [screenshot folder]
 import assert from 'node:assert/strict';
-const [,, portA, portB, site] = process.argv;
+const [,, portA, portB, site, shots] = process.argv;
+import { writeFileSync } from 'node:fs';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function browser(port) {
   const t = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find((x) => x.type === 'page');
@@ -16,14 +18,17 @@ async function browser(port) {
   const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
   const js = async (expression) => { const m = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, userGesture: true }); if (m.result?.exceptionDetails) throw Error(JSON.stringify(m.result.exceptionDetails).slice(0, 500)); return m.result.result.value; };
   const wait = async (expression, what = expression, tries = 160) => { for (let i = 0; i < tries; i++) { if (await js(expression).catch(() => false)) return; await sleep(250); } throw Error('Timed out: ' + what); };
-  await send('Network.enable'); await send('Network.setBypassServiceWorker', { bypass: true });
+  await send('Network.enable'); await send('Network.setBypassServiceWorker', { bypass: true }); await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Emulation.setCPUThrottlingRate', { rate: 6 });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   const watch = () => js(`window.__errors=[];addEventListener('error',e=>__errors.push(e.message));window.__long=[];new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'});true`);
   const open = async (n) => { await js(`document.activeElement?.blur();[...document.querySelectorAll('#list .row')][${n}].click();true`); await sleep(300); };
   const type = async (s) => { const t0 = performance.now(); for (const ch of s) await send('Input.insertText', { text: ch }); return performance.now() - t0; };
   const report = async () => { const long = await js(`__long`); assert.deepEqual(await js(`__errors`), []); return `${long.length} long tasks${long.length ? ` (longest ${Math.round(Math.max(...long))} ms)` : ''}`; };
-  return { ws, send, js, wait, watch, open, type, report };
+  const shot = async (name) => { if (!shots) return; const m = await send('Page.captureScreenshot', { format: 'png' }); writeFileSync(`${shots}/${name}.png`, Buffer.from(m.result.data, 'base64')); };
+  const click = (sel) => js(`document.querySelector(${JSON.stringify(sel)}).click();true`);
+  const fill = (sel, v) => js(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});e.focus();e.value=${JSON.stringify(v)};e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
+  return { ws, send, js, wait, watch, open, type, report, shot, click, fill };
 }
 const settings = (name, cues) => `localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',reviewer:${JSON.stringify(name)},sharedCopy:'1',setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);
   localStorage.setItem('scribecue.v1',JSON.stringify({dirty:false,projectId:crypto.randomUUID(),cues:${cues}}));location.reload();true`;
@@ -39,20 +44,35 @@ try {
   await b.wait(`window.scribecueSharing && window.scribecueShared`, 'B ready');
   await a.watch(); await b.watch();
 
-  // A shares. Making the links takes a moment: each password is stretched on purpose.
+  // A shares from the dialog: an edit link with its password.
+  assert.equal(await a.js(`!document.getElementById('shareBtn').hidden`), true, 'Share shows');
+  await a.click('#shareBtn');
+  await a.wait(`document.getElementById('shareDlg').open`, 'Share dialog');
+  await a.shot('share-empty');
   let t0 = performance.now();
-  const links = await a.js(`scribecueSharing.start({edit:'blue door',comment:'red door'})`);
-  await a.wait(online, 'A online with the script sent');
+  await a.fill('#sharePw-edit', 'blue door');
+  await a.click('#sharePw-edit + button');
+  await a.wait(`document.querySelector('.sharelink') && ${online}`, 'A online with the link made');
   const shareMs = performance.now() - t0;
-  const edit = links.find((l) => l.role === 'edit').url;
+  assert.equal(await a.js(`document.getElementById('shareState').textContent`), 'Shared');
+  const edit = await a.js(`document.querySelector('.sharelink').value`);
+  assert.match(edit, /#share=/);
+  await a.shot('share-link');
+  await a.js(`document.getElementById('shareClose').click();true`);
 
-  // B joins: a wrong password is refused, the right one brings the whole script.
-  await b.js(`window.confirm=()=>true;true`);
-  assert.equal(await b.js(`scribecueSharing.join(${JSON.stringify(edit)},'blue').then(()=>'joined',e=>e.message)`), 'wrong-password');
+  // B opens the link: a wrong password is refused, the right one brings the whole script.
+  await b.js(`window.confirm=()=>true;location.href=${JSON.stringify(edit)};true`);
+  await b.wait(`document.getElementById('joinDlg').open`, 'join dialog');
+  await b.shot('join');
+  await b.fill('#joinPassword', 'blue');
+  await b.click('#joinOpen');
+  await b.wait(`/doesn’t open/.test(document.getElementById('joinStatus').textContent)`, 'wrong password refused');
   t0 = performance.now();
-  assert.equal(await b.js(`scribecueSharing.join(${JSON.stringify(edit)},'blue door')`), true);
+  await b.fill('#joinPassword', 'blue door');
+  await b.click('#joinOpen');
   await b.wait(`document.querySelectorAll('#list .row').length===1500 && ${online}`, 'B has the whole script');
   const joinMs = performance.now() - t0;
+  assert.equal(await b.js(`location.hash`), '', 'the link leaves the address bar');
   assert.equal(await b.js(rowText(1)), await a.js(rowText(1)));
 
   // Typing both ways.
@@ -90,6 +110,16 @@ try {
   const same = async () => JSON.stringify(await a.js(`scribecueShared.read()`)) === JSON.stringify(await b.js(`scribecueShared.read()`));
   await sleep(800);
   assert.ok(await same(), 'both copies agree');
+
+  // A turns the link off: B is told, keeps its copy, and is no longer connected.
+  await a.click('#shareBtn');
+  await a.js(`[...document.querySelectorAll('#shareLinks button')].find(b=>b.textContent==='Turn off').click();true`);
+  await b.wait(`!window.scribecueRelay && document.getElementById('shareState').hidden`, 'B is let go');
+  assert.equal(await b.js(`document.querySelectorAll('#list .row').length`), 1500, 'B keeps its copy');
+  // A stops sharing: back to a plain project.
+  await a.js(`window.confirm=()=>true;document.getElementById('shareStop').click();true`);
+  await a.wait(`!window.scribecueRelay && !Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.'))`, 'A stopped sharing');
+  await a.js(`document.getElementById('shareClose').click();true`);
 
   console.log(`Relay share smoke passed at 6× with 1,500 blocks: sharing took ${Math.round(shareMs)} ms, joining ${Math.round(joinMs)} ms; A typed ${(aMs / 17).toFixed(1)} ms a character; it reached B in ${Math.round(reachMs)} ms; A ${await a.report()}; B ${await b.report()} since reloading`);
 } finally { a.ws.close(); b.ws.close(); }

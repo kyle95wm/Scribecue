@@ -887,6 +887,15 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 #edStats .tts { white-space: nowrap; }
 .autotag { padding: 0 5px; border: 1px solid var(--cue); border-radius: 4px; color: var(--cue); font: 11px var(--mono); }
 .autotag[hidden] { display: none; }
+/* Sharing: the header tag, and a row per link in the Share dialog. */
+#shareState { align-self: center; white-space: nowrap; flex-shrink: 0; }
+#shareState.offline { border-color: var(--warn); color: var(--warn); }
+.sharerow p { margin: 4px 0; }
+.sharerowline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.sharerowline input[type="password"] { flex: 1 1 140px; min-width: 0; }
+.sharelink { flex: 1 1 240px; min-width: 0; font: 12px var(--mono); }
+#shareNameRow, #joinNameRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#shareNameRow[hidden] { display: none; }
 #list .over { color: var(--bad); }
 #list .clash { color: var(--warn); }
 #list .ready { color: var(--accent); }

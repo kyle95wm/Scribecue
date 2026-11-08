@@ -32,6 +32,27 @@ export async function startSharing(project, relay, passwords, opts) {
   for (const role of ROLES) if (typeof passwords[role] === 'string') links.push(await newLink(owner, role, passwords[role], opts));
   return { relay, room: owner.room, link: 'owner', role: 'owner', priv: owner.ownerPriv, ownerPub: owner.ownerPub, projectKey: owner.projectKey, project, links, n: 1, created: false };
 }
+// One link per role: a new one for a role replaces the old, which stops working. Each change
+// to the list counts up, so the relay and others can tell the newest.
+export async function addLink(record, role, password, opts) {
+  const link = await newLink({ room: record.room, projectKey: record.projectKey, ownerPub: record.ownerPub, project: record.project }, role, password, opts);
+  return { ...record, n: record.n + 1, links: [...record.links.filter((l) => l.role !== role), link] };
+}
+export const removeLink = (record, id) => ({ ...record, n: record.n + 1, links: record.links.filter((l) => l.id !== id) });
+
+// The project that has joined or shares this room, if any, among those kept here.
+export function shareForRoom(room, storage = globalThis.localStorage) {
+  try {
+    for (let i = 0; i < storage.length; i++) {
+      const k = storage.key(i);
+      if (!k?.startsWith('scribecue.share.')) continue;
+      const project = k.slice('scribecue.share.'.length), r = getShare(project, storage);
+      if (r?.room === room) return { project, record: r };
+    }
+  } catch { /* blocked */ }
+  return null;
+}
+
 // The owner's signed list, as the relay and others need it.
 export const signedLinks = (r) => signLinks({ room: r.room, ownerPriv: r.priv }, r.n, r.links);
 export const linksOf = (r, base) => (r.links || []).map((l) => ({ id: l.id, role: l.role, url: linkUrl(base, r.room, l.id, l.secret) }));

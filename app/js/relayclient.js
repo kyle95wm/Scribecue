@@ -40,6 +40,10 @@ export class RelayClient {
     this.timers.clearTimeout(this.flushTimer); this.timers.clearTimeout(this.retryTimer);
     try { this.ws?.close(1000, 'done'); } catch { /* closed */ }
   }
+  // The owner's new list of links, or ending the project on the relay. Only when online:
+  // a list sent while offline goes again on reconnecting (see onLinks in app.js).
+  sendLinks(links) { if (this.synced && this.role === 'owner') this.#send({ type: 'links', id: this.nextId++, links }); }
+  deleteRoom() { if (this.synced && this.role === 'owner') { this.#send({ type: 'delete-room' }); return true; } return false; }
   // Changes not yet kept by the relay.
   unsent() { return DOCS.reduce((n, d) => n + this.pending[d].length, 0); }
 
