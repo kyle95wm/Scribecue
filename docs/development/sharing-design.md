@@ -98,9 +98,9 @@ All are JSON over one WebSocket per open project.
 
 | From the browser | Fields |
 |---|---|
-| `box` | `link` |
-| `create` | `owner`, `sig`, `links` |
-| `auth` | `link` (or `owner`), `sig` |
+| `box` | `v`, `link` |
+| `create` | `v`, `owner`, `sig`, `links` |
+| `auth` | `v`, `link` (or `owner`), `sig` |
 | `sync` | `since` |
 | `update` | `doc`, `id`, `dev`, `n`, `data`, `sig` |
 | `snapshot` | `doc`, `upTo`, `id`, `dev`, `n`, `data`, `sig` |
@@ -110,7 +110,7 @@ All are JSON over one WebSocket per open project.
 
 | From the relay | Fields |
 |---|---|
-| `challenge` | `room`, `nonce` |
+| `challenge` | `room`, `nonce`, `protocol` |
 | `box` | `link`, `role`, `box` |
 | `welcome` | `role`, `links`, `seq` |
 | `update` | `seq`, `doc`, `by`, `dev`, `n`, `data`, `sig` |
@@ -122,8 +122,25 @@ All are JSON over one WebSocket per open project.
 | `gone` | `sid` |
 | `error` | `code`, sometimes `detail` |
 
+## Versions
+
+The relay and each browser speak a version of this protocol. It's now 2: changes numbered
+by browser, and links turned off sealed.
+
+- The relay's challenge says its version (`protocol`). Each browser says its own (`v`)
+  when it asks for a box, makes a room or signs in. One that says none is version 1.
+- The relay takes a range of versions (`PROTOCOL` in `room.js`). A browser below it gets
+  `old-app`; one above it gets `old-relay`. A browser newer than the relay's version stops
+  with `old-relay` itself.
+- Either way, the browser stops trying. The header tag says **Update needed**, and the
+  project and its changes stay in that browser.
+- Raise the version for any change older browsers can't take part in safely. Raise the
+  relay's lowest version when older browsers would weaken what newer ones check, as
+  version 1 browsers would by taking changes from links turned off.
+
 ## What the relay checks
 
+- A box, a new room or signing in: the browser speaks a version the relay takes.
 - Signing in: the challenge is signed by the owner key, or by a link that's on.
 - Each message after that: the link is still on, with the same role and key.
 - A change or snapshot: the role may write that document, and the signature checks out.

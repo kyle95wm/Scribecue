@@ -184,6 +184,8 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   up. The list says the last number the owner had from each of a link's browsers when it
   went off. Then the owner sends each document whole and marks the link sealed: nothing
   from it counts any more.
+- The relay and browsers check each other's protocol version. When they don't match, the
+  browser stops trying, the header tag says **Update needed**, and the project stays.
 - That also adds a project key. Changes are sealed with the newest key and start with its
   number. The signed list carries the keys each link that's on lacks, encrypted with that
   link's wrapping key. The link turned off never gets them. A change sealed with a key not
@@ -219,7 +221,7 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
 ### Share dialog
 
 - With the developer setting on, the header has **Share** (not in Record mode) and a tag
-  that says Shared, Connecting or Offline. Code is in `sharedialog.js`.
+  that says Shared, Connecting, Offline or Update needed. Code is in `sharedialog.js`.
 - The owner makes one link per role, each with a password of at least 6 characters. A new
   link for a role replaces the old one. **Turn off** stops a link; its users keep their copy.
   **Stop sharing** deletes the relay's copy; the owner's stays as a plain project.

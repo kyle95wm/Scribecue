@@ -697,6 +697,10 @@ async function startRelay(record, copy, fresh, seq, seen) {
         if (fresh) { fresh = false; applyShared([...new Set([...copy.blocks.keys(), ...S.cues.map((c) => c.uid)])], true); }
         persist();
       }
+      // Scribecue and the relay speak different versions: nothing is lost, and the tag says
+      // which needs updating. It connects again once it's updated and reopened.
+      if (status === 'old-app') toast('Update Scribecue to keep working on this shared project. Your changes stay here');
+      if (status === 'old-relay') toast('The sharing service needs updating before this project connects. Your changes stay here');
       if (status === 'ended') {
         toast(detail === 'room-deleted' ? 'This project is no longer shared. Your copy stays here' : 'This project is no longer shared with you. Your copy stays here');
         sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);

@@ -1,9 +1,9 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import * as keys from '../app/js/sharekeys.js';
-import { RelayClient } from '../app/js/relayclient.js';
+import { RelayClient, fetchBox } from '../app/js/relayclient.js';
 import { SharedProject } from '../app/js/shared.js';
-import { Room } from '../relay/src/room.js';
+import { Room, PROTOCOL } from '../relay/src/room.js';
 
 const fast = { iterations: 1000 };
 const clients = [];
@@ -344,4 +344,27 @@ test('once the owner seals a link turned off, its old changes are gone and nothi
   assert.deepEqual(late.s.read(), mine.read());
   // Sealing again with nothing new is fine: the same point replaces the last copy.
   assert.equal(await o.compact(), true);
+});
+
+test('a relay or browser on another version stops trying, and says which needs updating', async () => {
+  const { o, join, edit, owner, mine, net } = await share();
+  const was = { ...PROTOCOL };
+  try {
+    // A relay that needs this browser to be newer.
+    PROTOCOL.min = keys.PROTOCOL + 1; PROTOCOL.max = keys.PROTOCOL + 1;
+    await assert.rejects(fetchBox('ws://relay', owner.room, edit.id, { WebSocket: net.WebSocket }), /old-app/);
+    o.reconnect(); net.drop();
+    await until(() => o.status === 'old-app', 'the owner is told to update');
+    // An older relay, from before this browser's version.
+    PROTOCOL.min = 1; PROTOCOL.max = keys.PROTOCOL - 1;
+    await assert.rejects(fetchBox('ws://relay', owner.room, edit.id, { WebSocket: net.WebSocket }), /old-relay/);
+    const statuses = [];
+    const opened = await keys.openBox({ room: owner.room, ...edit }, 'pw', fast);
+    const c = new RelayClient({ url: 'ws://relay', room: owner.room, who: { link: edit.id, ...opened }, shared: new SharedProject(), WebSocket: net.WebSocket, retryMs: 10, onStatus: (s) => statuses.push(s) }).start();
+    clients.push(c);
+    await until(() => c.status === 'old-relay', 'the relay is out of date');
+    await sleep(50);
+    assert.deepEqual(statuses, ['connecting', 'old-relay'], 'it doesn’t try again');
+    assert.ok(mine.read().blocks.length, 'the copy is still there');
+  } finally { Object.assign(PROTOCOL, was); }
 });
