@@ -244,7 +244,8 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   review and Can comment open in QC. The link leaves the address bar once used.
 - Sharing or joining needs a name, since others see it. Both dialogs say what others see,
   and that the sharing service can't read the project.
-- Someone who joined can **Leave**: their copy stays as a project of its own.
+- Someone who joined can **Leave**. By default the project goes from this browser, undo
+  included, and a new one starts. **Keep a copy here** keeps it as a project of their own.
 - Links changed while offline reach the relay on reconnecting.
 - **Google voices:** the owner can share a separate Google key, so others hear and use the
   project's Google voices without a key of their own. It's checked with Google first, and

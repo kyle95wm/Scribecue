@@ -926,14 +926,21 @@ const sharingTools = {
     toast(key ? 'Google key shared. Others can now hear and use this project’s Google voices' : 'Google key taken out. Delete it in Google Cloud too');
     return '';
   },
-  // Someone who joined leaves: their copy stays, as a project of its own.
-  async leave() {
+  // Someone who joined leaves. `keep`: their copy stays, as a project of its own; otherwise
+  // it goes from this browser, undo included, and a new project starts.
+  async leave(keep = false) {
     const id = S.projectId;
     stopRelay();
     sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
-    S.projectId = newIdentity();
-    changed();
-    toast('Left the shared project. Your copy stays here');
+    if (keep) {
+      S.projectId = newIdentity();
+      changed();
+      toast('Left the shared project. Your copy stays here');
+      return;
+    }
+    newProject(false);
+    undoStack.length = 0; redoStack.length = 0;
+    toast('Left the shared project. It’s no longer in this browser');
   },
 };
 // A share link opened in this browser: ask for its password, unless it's the project here.

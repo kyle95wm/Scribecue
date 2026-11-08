@@ -119,7 +119,7 @@ delete it in Google Cloud when you're done. Click the button again to take it ou
 | Stop one link | **Turn off**, in Share | It stops working. People using it keep their copy |
 | Replace a link | **Turn off**, then **Make link** | Only people with the new link and password can open it |
 | Stop sharing | **Stop sharing**, in Share | Every link stops working, and the sharing service's copy is deleted. Your copy stays |
-| Leave someone's project | **Leave**, in Share | You keep a copy, but changes no longer pass either way |
+| Leave someone's project | **Leave**, in Share | The project is removed from this browser. To keep it as your own, click **Keep a copy here** first |
 
 ## Privacy
 

@@ -136,9 +136,28 @@ export function shareDialog(deps) {
     if (!confirm('Stop sharing this project? Every link stops working, and the copy on the sharing service is deleted. Your copy stays here.')) return;
     run(() => deps.stop());
   });
+  // Leaving: without a copy unless asked for, so the project doesn't stay on a computer by
+  // accident.
+  const leaveDlg = $('leaveDlg'), keep = $('leaveKeep');
+  const showKeep = () => {
+    const on = keep.getAttribute('aria-pressed') === 'true';
+    $('leaveWhat').textContent = on
+      ? 'The project stays here as a project of your own.'
+      : 'The project is removed from this browser, and a new one starts. A project file you saved stays where you saved it.';
+    keep.dataset.tip = on ? 'Don’t keep the project here' : 'Keep the project here, as a project of your own';
+  };
   $('shareLeave').addEventListener('click', () => {
-    if (!confirm('Leave this shared project? You keep a copy here, but you won’t see others’ changes, and yours won’t reach them.')) return;
-    run(async () => { await deps.leave(); dlg.close(); });
+    keep.setAttribute('aria-pressed', 'false');
+    showKeep();
+    leaveDlg.showModal();
+    $('leaveCancel').focus();
+  });
+  keep.addEventListener('click', () => { keep.setAttribute('aria-pressed', String(keep.getAttribute('aria-pressed') !== 'true')); showKeep(); });
+  $('leaveCancel').addEventListener('click', () => leaveDlg.close());
+  $('leaveGo').addEventListener('click', () => {
+    const copy = keep.getAttribute('aria-pressed') === 'true';
+    leaveDlg.close();
+    run(async () => { await deps.leave(copy); dlg.close(); });
   });
 
   return {
