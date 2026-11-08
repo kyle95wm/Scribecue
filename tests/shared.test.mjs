@@ -237,3 +237,22 @@ test('the owner’s separate Google key reaches everyone, apart from the blocks 
   const c = new SharedProject(); c.apply('script', a.update('script'));
   assert.equal(c.googleKey(), 'separate-test-key');
 });
+
+test('the project’s voice reaches everyone, once for each change, and undo leaves it', () => {
+  const [a, b] = pair(), voices = [], seen = [];
+  b.onVoice((v) => voices.push(v));
+  b.onGoogleKey(() => voices.push('key?'));
+  b.observe((uids) => seen.push(uids));
+  a.write(blocks(), timeline());
+  seen.length = 0;
+  const undo = a.undoer(); undo.step();
+  a.setVoice('google:en-US-Standard-C');
+  a.setVoice('google:en-US-Standard-C'); // the same again changes nothing
+  assert.equal(b.voice(), 'google:en-US-Standard-C');
+  assert.deepEqual(voices, ['google:en-US-Standard-C']);
+  assert.deepEqual(seen, [], 'no block counts as changed');
+  undo.undoTo({ script: 0, comments: 0, review: 0 });
+  assert.equal(b.voice(), 'google:en-US-Standard-C', 'undo leaves it');
+  const c = new SharedProject(); c.apply('script', a.update('script'));
+  assert.equal(c.voice(), 'google:en-US-Standard-C', 'a newcomer gets it');
+});

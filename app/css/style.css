@@ -881,6 +881,7 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
   border-radius: 6px;
   padding: 4px 6px;
 }
+.ttsgrid select:disabled, .updbox select:disabled, .favs .fav:disabled { color: var(--dim); cursor: default; }
 .updopt + .updopt { margin-top: 6px; }
 .warnbox { padding: 8px 10px; border: 1px solid var(--warn); border-radius: 6px; color: var(--warn); font-size: 13px; }
 .warnbox[hidden] { display: none; }

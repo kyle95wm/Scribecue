@@ -474,6 +474,21 @@ export function setProjectGoogleKey(key) {
   projectKey = key;
   if (!googleKey()) loadGoogle();
 }
+// In a shared project, only its owner changes its voices: everyone else reads with them.
+const voiceLocked = () => !!hooks.voiceLocked?.();
+export const VOICE_LOCKED = 'Only this shared project’s owner changes its voices';
+// A shared project's voice, from its owner: it reads with that, here too. Kept in the
+// settings, as opening a project does.
+export function useProjectVoice(uri) {
+  if (!uri || uri === tts.voice) return;
+  picked = null;
+  tts.voice = uri;
+  save();
+  warmUp();
+  if ($('ttsDlg').open) render();
+  hooks.changed();
+  checkVoice();
+}
 // A review key belongs to its package. It never replaces the reviewer's setting.
 export const reviewGoogleKey = (bundled = '') => googleKey() || bundled || projectKey;
 const langs = () => [...new Set([...(navigator.languages || []), navigator.language || 'en'])];
@@ -784,7 +799,7 @@ export async function downloadVoice(voice, { choose = true } = {}) {
   navigator.storage?.persist?.().catch(() => {});
   try {
     await ask('download', { voice });
-    if (choose) { tts.voice = 'piper:' + voice; save(); }
+    if (choose && !voiceLocked()) { tts.voice = 'piper:' + voice; save(); }
     hooks.toast(choose ? 'Voice downloaded. It’s now chosen, and works offline' : 'Voice downloaded. It works offline');
   } catch (e) {
     hooks.toast(`The voice didn’t download: ${e.message}`);
@@ -802,7 +817,7 @@ async function removeVoice(voice) {
     p.w.terminate();
     for (const a of p.asks.values()) a.reject(new Error('The voice was removed'));
   }
-  if (tts.voice === 'piper:' + voice) { tts.voice = ''; save(); }
+  if (tts.voice === 'piper:' + voice && !voiceLocked()) { tts.voice = ''; save(); }
   await loadPiper();
 }
 
@@ -912,7 +927,7 @@ export function setGoogleKey(key) {
     if (key) localStorage.setItem(GKEY, JSON.stringify({ key }));
     else localStorage.removeItem(GKEY);
   } catch { /* ignore */ }
-  if (!key && !projectKey && currentVoice()?.google) { stop(); tts.voice = ''; save(); }
+  if (!key && !projectKey && currentVoice()?.google && !voiceLocked()) { stop(); tts.voice = ''; save(); }
   return loadGoogle();
 }
 
@@ -954,7 +969,7 @@ export function setPolly(creds) {
     if (creds) localStorage.setItem(PKEY, JSON.stringify(creds));
     else localStorage.removeItem(PKEY);
   } catch { /* ignore */ }
-  if (!creds && currentVoice()?.polly) { stop(); tts.voice = ''; save(); }
+  if (!creds && currentVoice()?.polly && !voiceLocked()) { stop(); tts.voice = ''; save(); }
   return loadPolly();
 }
 
@@ -1393,6 +1408,7 @@ const testLine = () => (typeof tts.sample === 'string' ? tts.sample : SAMPLE);
 let picked = null;
 const shownVoice = () => picked ?? currentVoice()?.voiceURI ?? '';
 function pickVoice(uri) {
+  if (voiceLocked()) uri = null;
   picked = uri && uri !== currentVoice()?.voiceURI ? uri : null;
   $('ttsVoice').value = shownVoice();
   stop();
@@ -1429,6 +1445,7 @@ function renderFavourites() {
       b.textContent = `${v.name} (${v.lang})`;
       b.setAttribute('aria-pressed', String(uri === cur));
       b.dataset.tip = 'Pick this voice, to try it and apply it';
+      b.disabled = voiceLocked();
       b.addEventListener('click', () => pickVoice(uri));
       return b;
     }
@@ -1458,6 +1475,11 @@ function fillLanguages() {
 function fillVoices() {
   fillLanguages();
   fillVoiceSelect($('ttsVoice'), shownVoice(), { language: shownLanguage() });
+  const locked = voiceLocked();
+  for (const id of ['ttsVoice', 'ttsLang']) $(id).disabled = locked;
+  $('ttsVoiceLocked').hidden = !locked;
+  const uri = tts.voice || chosenVoice();
+  $('ttsVoiceLocked').textContent = locked ? `This shared project reads with ${voiceTitle(voices.find((v) => v.voiceURI === uri)) || voiceLabel(uri)}. Only its owner changes its voices.` : '';
   renderFavourites();
   renderApply();
   $('ttsNoVoices').hidden = !!voices.length || !anyVoices();
@@ -1519,6 +1541,7 @@ function render(googleError = '') {
   // Blocks with their own voice, such as translated dialogue read by a second voice.
   const own = hooks.blockVoices();
   $('ttsBlockVoices').hidden = !own.length;
+  $('ttsReplaceVoices').hidden = voiceLocked();
   const names = [...new Set(own)].map((uri) => voices.find((v) => v.voiceURI === uri)?.name || voiceLabel(uri));
   $('ttsBlockVoicesText').textContent = `${own.length === 1 ? '1 block has' : `${own.length} blocks have`} a voice of ${own.length === 1 ? 'its' : 'their'} own: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''}.`;
   $('ttsMakeNote').textContent = piper ? '' : 'Needs a Piper, Kokoro, Google or Amazon Polly voice: the browser\'s own voices can\'t be kept.';
@@ -1565,6 +1588,7 @@ function changeReading(k, v) {
 }
 
 export function setTtsOption(k, v) {
+  if (k === 'voice' && voiceLocked()) return hooks.toast(VOICE_LOCKED);
   if (['voice', 'base', 'skipNotes'].includes(k) && hooks.canChangeReading && !hooks.canChangeReading()) return hooks.toast('Switch to Write mode to change the project’s voice or reading settings');
   if (k === 'voice') picked = null;
   tts[k] = v;
@@ -1654,7 +1678,7 @@ export function initTts(h) {
   $('ttsStems').addEventListener('change', (e) => set('stems', e.target.checked));
   $('ttsOnline').addEventListener('change', (e) => {
     // Turning online voices off also drops an online voice that was chosen.
-    if (!e.target.checked && currentVoice() && browserOnline(currentVoice())) { stop(); tts.voice = ''; }
+    if (!e.target.checked && currentVoice() && browserOnline(currentVoice()) && !voiceLocked()) { stop(); tts.voice = ''; }
     set('online', e.target.checked);
   });
   // Test reads what's in Test text, the sample until it's changed. Emptied, Test does nothing.
@@ -1673,7 +1697,7 @@ export function initTts(h) {
   $('ttsGoogleKey').addEventListener('change', async (e) => {
     $('ttsGoogleStatus').textContent = e.target.value.trim() ? 'Asking Google for its voices…' : '';
     const error = await setGoogleKey(e.target.value.trim());
-    if (!error && tts.google.length && !makesAudio(currentVoice())) {
+    if (!error && tts.google.length && !makesAudio(currentVoice()) && !voiceLocked()) {
       picked = null; tts.voice = tts.google[0].voiceURI; save(); render(); hooks.changed();
     }
   });
@@ -1687,7 +1711,7 @@ export function initTts(h) {
     if (!key || !secret) { $('ttsPollyStatus').textContent = `Add the ${key ? 'secret' : 'access'} key too.`; return; }
     $('ttsPollyStatus').textContent = 'Asking Amazon for its voices…';
     const error = await setPolly({ key, secret, region });
-    if (!error && tts.polly.length && !makesAudio(currentVoice())) {
+    if (!error && tts.polly.length && !makesAudio(currentVoice()) && !voiceLocked()) {
       picked = null; tts.voice = tts.polly[0].voiceURI; save(); render(); hooks.changed();
     }
   };
