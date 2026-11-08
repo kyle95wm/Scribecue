@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.94.0",
+    "date": "2026-11-08",
+    "notes": "## Sharing projects: voices and typing\n\n- Others see a block once you've finished it, not each letter as you type.\n- A shared project reads with its owner's voices. Only the owner can change them.\n- Sharing is still being tested."
+  },
+  {
     "version": "0.93.0",
     "date": "2026-11-08",
     "notes": "## Sharing projects: Google voices for everyone\n\n- If you share a project, you can let the others use a separate Google key. They hear and use its Google voices without a key of their own.\n- Find it in the Share dialog, under Google voices.\n- Sharing is still being tested."
