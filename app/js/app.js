@@ -40,7 +40,7 @@ import { comboOf, lookup } from './keymap.js';
 import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList } from './extended.js';
 import { initKeys, keyChanges, openKeys } from './keys.js';
 import { VERSION } from './update.js';
-import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey, isPersonalGoogleKey, checkGoogleKey, setProjectGoogleKey, usingProjectGoogleKey } from './tts.js';
+import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey, isPersonalGoogleKey, checkGoogleKey, setProjectGoogleKey, usingProjectGoogleKey, useProjectVoice, VOICE_LOCKED } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands, holdFilter, extendedCommand } from './ffcmd.js';
 import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS } from './codecs.js';
@@ -669,6 +669,17 @@ function noteGoogleKey(key, quiet = false) {
   if (!quiet && was && !key && myShare && myShare.link !== 'owner' && !hasGoogleKey()) toast('The project’s Google key was taken out. Google voices need your own key now');
   shareUi?.update();
 }
+// The project's voice: the owner's, for everyone. Only the owner changes it, or a block's own
+// voice; others read with them, as with a QC package's voices.
+const voiceLocked = () => !!shared && !!myShare && myShare.link !== 'owner' && !S.loadingProject;
+function shareVoice() {
+  if (shared && myShare?.link === 'owner') shared.setVoice(readingSettings().ttsVoice);
+}
+function noteProjectVoice(uri) {
+  if (myShare?.link === 'owner') { if (uri !== readingSettings().ttsVoice) shareVoice(); return; }
+  if (uri && voiceLocked()) useProjectVoice(uri);
+  updateEditor();
+}
 async function startShared() {
   const id = S.projectId, token = sharedToken = {};
   shared = null; sharedUndo = null; sharedStarting = id; unlinkTabs(); unlinkTabs = () => {}; stopRelay();
@@ -694,6 +705,8 @@ async function startShared() {
   shared.observe(applyShared);
   shared.onGoogleKey((key) => { if (shared === copy) noteGoogleKey(key); });
   noteGoogleKey(shared.googleKey(), true);
+  shared.onVoice((uri) => { if (shared === copy) noteProjectVoice(uri); });
+  noteProjectVoice(shared.voice());
   window.scribecueShared = shared; // for the developer tests
   // Another tab had it open: take its copy as it is. Joined but not kept here yet: take the
   // relay's. Otherwise start the copy from this script, or bring it up to date. The owner
@@ -1687,7 +1700,7 @@ function updateEditor() {
   edAuto.hidden = !(c.auto && ttsOn());
   edDur.textContent = `${(c.end - c.start).toFixed(3)} s`;
   edSpeedWrap.hidden = !readingControls();
-  edVoiceWrap.hidden = !readingControls() || voiceFixed(c);
+  edVoiceWrap.hidden = !readingControls() || voiceFixed(c) || voiceLocked();
   if (readingControls() && document.activeElement !== edVoice) fillEdVoice(c);
   edDipWrap.hidden = !(ttsOn() && tts.duck);
   if (!edDipWrap.hidden && document.activeElement !== edDip && document.activeElement !== edDipCustom) fillEdDip(c);
@@ -3633,6 +3646,7 @@ edVoice.addEventListener('change', () => {
 });
 function setBlockVoice(c, uri) {
   if (qcLocked()) return;
+  if (voiceLocked()) { toast(VOICE_LOCKED); return; }
   pushUndo(undefined, 'voice-' + c.id);
   if (uri) c.voice = uri; else delete c.voice;
   fitAuto(c);
@@ -3738,7 +3752,7 @@ edVolBox.addEventListener('blur', () => setTypedVol(true));
 // Replace all voices: every block reads with the voice chosen in Settings again.
 $('ttsReplaceVoices').addEventListener('click', () => {
   const own = S.cues.filter((c) => c.voice);
-  if (!own.length) return;
+  if (!own.length || voiceLocked()) return;
   pushUndo();
   for (const c of own) { delete c.voice; fitAuto(c); }
   changed();
@@ -5133,7 +5147,7 @@ const andList = (a) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} and ${a.at(
 const blocksOf = (n) => `${n} block${n === 1 ? '' : 's'}`;
 function askVoices(adc, name) {
   voiceList = adc ? scriptVoices({ cues: S.cues, voice: adc.voice }) : [];
-  if (!ttsOn() || !voiceList.length || (voiceList.length === 1 && voiceList[0].main && [tts.voice, chosenVoice()].includes(voiceList[0].uri))) return Promise.resolve();
+  if (!ttsOn() || voiceLocked() || !voiceList.length || (voiceList.length === 1 && voiceList[0].main && [tts.voice, chosenVoice()].includes(voiceList[0].uri))) return Promise.resolve();
   const main = voiceList.find((v) => v.main), own = voiceList.filter((v) => !v.main);
   $('voiceWhat').textContent = main
     ? `${name} reads with ${voiceLabel(main.uri)}${own.length ? `, and ${andList(own.map((v) => `${blocksOf(v.blocks)} with ${voiceLabel(v.uri)}`))}` : ''}.`
@@ -6630,6 +6644,7 @@ function readingsChanged() {
   if (wait > 0) { readingsTimer = setTimeout(() => { readingsTimer = 0; readingsChanged(); }, wait); return; }
   const t0 = performance.now();
   fitAllAuto(); refreshList(); updateEditor(); updateInd(); refreshQc(); tlDirty = true;
+  shareVoice();
   // On a slower computer or in a long script this takes longer, so it comes round less
   // often, and most of the time still goes to making the readings.
   readingsAt = performance.now() + Math.max(0, (performance.now() - t0) * 4 - READINGS_EVERY);
@@ -6643,6 +6658,7 @@ initTts({
   changed: readingsChanged,
   readingChanged,
   canChangeReading: () => !qc() || S.loadingProject,
+  voiceLocked,
   blockVoices: () => S.cues.filter((c) => c.voice).map((c) => c.voice),
 });
 initTour();

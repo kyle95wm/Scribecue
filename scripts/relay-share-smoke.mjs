@@ -1,11 +1,10 @@
 // Two people sharing a project through the relay, each in their own headless, muted Chrome at
 // 6× CPU slowdown, with 1,500 blocks over two hours, through the Share and join dialogs. A
 // makes an edit link; B opens it (a wrong password first); typing passes both ways, once each
-// block is done; B reloads
-// and is still in; B goes offline, edits, and catches up; A shares a separate Google key, which
-// B reads Google voices with, then takes it out (Google's answers are stubbed in both pages, so
-// no real key is used); A turns the link off, makes a new
-// one that B opens again, then stops sharing. Takes screenshots of both dialogs if given a folder.
+// block is done; B reloads and is still in; B goes offline, edits, and catches up; A shares a
+// separate Google key, which B reads Google voices with (Google's answers are stubbed in both
+// pages, so no real key is used); A's voice becomes B's, which B can't change; A takes the key
+// out; A turns the link off, makes a new one that B opens again, then stops sharing. Takes screenshots of both dialogs if given a folder.
 // Uses the relay at RELAY, by default one running locally (`npm run dev` in relay/).
 // Usage: node scripts/relay-share-smoke.mjs <A's DevTools port> <B's DevTools port> <site url> [screenshot folder]
 import assert from 'node:assert/strict';
@@ -179,6 +178,28 @@ try {
   const keyMs = performance.now() - t0;
   assert.equal(await b.js(`__googleKeys.every(k=>k==='separate-test-key')`), true, 'B asked Google with the project’s key');
   await a.shot('share-google');
+
+  // The project's voice is A's: it reaches B, whose voice and block voices are locked.
+  const ttsJs = JSON.stringify(new URL('js/tts.js', site).href);
+  t0 = performance.now();
+  await a.js(`import(${ttsJs}).then(m=>{m.tts.on=true;m.setTtsOption('voice','google:en-US-Standard-C');return true})`);
+  await b.wait(`import(${ttsJs}).then(m=>m.tts.voice==='google:en-US-Standard-C')`, 'B reads with A’s voice');
+  const voiceMs = performance.now() - t0;
+  await b.js(`import(${ttsJs}).then(m=>{m.tts.on=true;m.setTtsOption('voice','piper:en_US-lessac-medium');return true})`);
+  await b.wait(`/Only this shared project’s owner changes its voices/.test(document.getElementById('toast').textContent)`, 'B can’t change it');
+  assert.equal(await b.js(`import(${ttsJs}).then(m=>m.tts.voice)`), 'google:en-US-Standard-C');
+  await b.open(4);
+  assert.equal(await b.js(`document.getElementById('edVoiceWrap').hidden`), true, 'no block voice menu for B');
+  await a.open(4);
+  assert.equal(await a.js(`document.getElementById('edVoiceWrap').hidden`), false, 'A has the block voice menu');
+  await a.js(`document.activeElement?.blur();true`); await b.js(`document.activeElement?.blur();true`);
+  await b.js(`import(${ttsJs}).then(m=>{m.openTts();return true})`);
+  await b.wait(`!document.getElementById('ttsVoiceLocked').hidden && document.getElementById('ttsVoice').disabled`, 'B’s Settings say the owner sets the voice');
+  await b.shot('voice-locked');
+  await a.js(`import(${ttsJs}).then(m=>{m.openTts();return true})`);
+  await a.wait(`document.getElementById('ttsVoiceLocked').hidden && !document.getElementById('ttsVoice').disabled`, 'A’s Settings are as before');
+  await a.shot('voice-owner');
+  await a.js(`document.getElementById('ttsDlg').close();true`); await b.js(`document.getElementById('ttsDlg').close();true`);
   await a.click('#shareGoogleOn');
   await a.wait(`document.getElementById('shareGoogleOn').getAttribute('aria-pressed')==='false' && scribecueShared.googleKey()===''`, 'A takes the key out');
   await b.wait(`/Google key was taken out/.test(document.getElementById('toast').textContent)`, 'B is told');
@@ -223,6 +244,6 @@ try {
   await a.wait(`!window.scribecueRelay && !Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.'))`, 'A stopped sharing');
   await a.js(`document.getElementById('shareClose').click();true`);
 
-  console.log(`Relay share smoke passed at 6× with 1,500 blocks: sharing took ${Math.round(shareMs)} ms, joining ${Math.round(joinMs)} ms; A typed ${(aMs / 17).toFixed(1)} ms a character; it reached B in ${Math.round(reachMs)} ms; a shared Google key reached B in ${Math.round(keyMs)} ms; A ${await a.report()}; B ${await b.report()} since reloading`);
+  console.log(`Relay share smoke passed at 6× with 1,500 blocks: sharing took ${Math.round(shareMs)} ms, joining ${Math.round(joinMs)} ms; A typed ${(aMs / 17).toFixed(1)} ms a character; it reached B in ${Math.round(reachMs)} ms; a shared Google key reached B in ${Math.round(keyMs)} ms, the project's voice in ${Math.round(voiceMs)} ms; A ${await a.report()}; B ${await b.report()} since reloading`);
 } finally { a.ws.close(); b.ws.close(); }
 process.exit(0);

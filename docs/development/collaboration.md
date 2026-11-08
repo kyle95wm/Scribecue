@@ -254,6 +254,10 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
 - Someone with their own key reads with theirs. Others read with the project's, and its
   readings count against its allowance. Taking it out tells them, and their Google voices
   fall back to another voice until they add a key.
+- **Voices:** the owner's voice in Settings goes in `access` as `voice`, and everyone else
+  reads with it, as with a QC package. Only the owner changes it or a block's own voice.
+  Others' Settings show the voice but can't change it, and their block editor has no voice
+  menu. A voice that isn't available to them falls back as when opening a project.
 - `scripts/relay-share-smoke.mjs` runs two browsers at 6× with 1,500 blocks through the
   relay at `RELAY` (local by default) and the dialogs. It covers who's here, reloading,
   going offline, a link turned off and a new one opened. Measured: sharing 0.8–1.3 s,

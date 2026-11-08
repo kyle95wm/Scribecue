@@ -46,7 +46,8 @@ export class SharedProject {
     this.docs = { script: new Y.Doc(), comments: new Y.Doc(), review: new Y.Doc() };
     this.blocks = this.docs.script.getMap('blocks');
     // Shared with the project: `googleKey`, a separate Google key the owner lets others read
-    // Google voices with. In the script, so only those who can edit change it.
+    // Google voices with, and `voice`, the voice the project reads with. In the script, so
+    // only those who can edit change it; the app lets only the owner.
     this.access = this.docs.script.getMap('access');
     this.comments = this.docs.comments.getMap('comments');
     // By block uid: { uid, by (link id), name, who (editor id), at, block (null: remove it) }.
@@ -139,19 +140,27 @@ export class SharedProject {
   }
   readTimeline() { return plainComments([...this.comments.values()].filter((c) => !c.block), true); }
 
-  // The blocks and comments as plain values, in time order, as the app keeps them.
   // The owner's separate Google key for this project, or ''. Setting '' takes it out.
-  googleKey() { const k = this.access.get('googleKey'); return typeof k === 'string' ? k : ''; }
-  setGoogleKey(key) {
-    this.docs.script.transact(() => { if (key) this.access.set('googleKey', key); else this.access.delete('googleKey'); }, LOCAL);
-  }
+  googleKey() { return this.#access('googleKey'); }
+  setGoogleKey(key) { this.#setAccess('googleKey', key); }
   // Calls `fn(key)` when the key changes, from anyone. Returns a function that stops it.
-  onGoogleKey(fn) {
-    const h = (e) => { if (e.keysChanged.has('googleKey')) fn(this.googleKey()); };
+  onGoogleKey(fn) { return this.#onAccess('googleKey', fn); }
+  // The project's voice, as the owner chose it in Settings, or ''. Others read with it.
+  voice() { return this.#access('voice'); }
+  setVoice(uri) { this.#setAccess('voice', uri); }
+  onVoice(fn) { return this.#onAccess('voice', fn); }
+  #access(k) { const v = this.access.get(k); return typeof v === 'string' ? v : ''; }
+  #setAccess(k, v) {
+    if (this.#access(k) === (v || '')) return;
+    this.docs.script.transact(() => { if (v) this.access.set(k, v); else this.access.delete(k); }, LOCAL);
+  }
+  #onAccess(k, fn) {
+    const h = (e) => { if (e.keysChanged.has(k)) fn(this.#access(k)); };
     this.access.observe(h);
     return () => this.access.unobserve(h);
   }
 
+  // The blocks and comments as plain values, in time order, as the app keeps them.
   read() {
     const byBlock = new Map(), timeline = [];
     for (const c of this.comments.values()) {
