@@ -28,8 +28,8 @@ function describe(block, withText = true) {
     block.dipBy != null && `Dip adjustment: ${String(block.dipBy).replace('-', '−')} dB`, block.pickup && `Pickup: ${block.pickup.note || 'Marked'}`,
     block.say?.length && `Sounds like: ${block.say.map(([a, b]) => `${a} → ${b}`).join('; ')}`].filter(Boolean).join('\n');
 }
-// The reviewer's name, when their package carries one.
-const returned = (block) => block?.edited?.by ? `Returned by ${block.edited.by}` : 'Returned';
+// The reviewer's name, when their package carries one, or a suggestion from a shared project.
+const returned = (block) => block?.edited?.suggested ? `Suggested by ${block.edited.by}` : block?.edited?.by ? `Returned by ${block.edited.by}` : 'Returned';
 const span = (cls, text) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; return s; };
 // The reviewer's version, with its wording and times open to change before accepting.
 const shown = (item) => review.edits.has(key(item)) ? { ...item.theirs, ...review.edits.get(key(item)) } : item.theirs;
@@ -115,6 +115,12 @@ function refresh(...rows) {
 }
 function summary() {
   $('listTabs').hidden = !review;
+  // Suggestions in a shared project come while writing too, and apply without saving a file.
+  const live = !!review?.file?.live;
+  $('listTabs').classList.toggle('live', live);
+  document.querySelector('.listwrap').classList.toggle('live', live);
+  $('pendingAccept').dataset.tip = live ? 'Apply your choices to the script, for everyone' : 'Apply your choices and the reviewer\'s comments, then save';
+  $('tabPending').dataset.tip = live ? 'Block changes suggested by reviewers, to accept or reject' : 'Block changes in the returned review, to accept or reject';
   $('pendingCount').textContent = review ? String(open()) : '';
   document.querySelector('.listwrap').classList.toggle('pending-on', !!review && tab === 'pending');
   for (const [id, name] of [['tabBlocks', 'blocks'], ['tabPending', 'pending']]) {
@@ -123,10 +129,10 @@ function summary() {
   if (!review) return;
   const list = $('pendingList'), left = open();
   if (at >= 0) list.setAttribute('aria-activedescendant', `pending-${at}`); else list.removeAttribute('aria-activedescendant');
-  $('pendingStatus').textContent = left ? `${left} of ${review.items.length} to choose` : 'All chosen. Accept the review to apply them.';
+  $('pendingStatus').textContent = left ? `${left} of ${review.items.length} to choose` : live ? 'All chosen. Apply your choices.' : 'All chosen. Accept the review to apply them.';
   $('pendingRestOk').disabled = $('pendingRestNo').disabled = !left;
   $('pendingAccept').disabled = left > 0;
-  $('pendingAccept').textContent = h.authoring() ? 'Accept review' : 'Save combined review';
+  $('pendingAccept').textContent = live ? 'Apply choices' : h.authoring() ? 'Accept review' : 'Save combined review';
 }
 function show(name) { tab = name; summary(); h.redraw(); }
 function choose(i) {
@@ -148,6 +154,22 @@ export function addPending(items) {
     ...items.filter((c) => !known.has(key(c)))].sort((a, z) => a.start - z.start);
   for (const c of items) { review.choices.delete(key(c)); review.edits.delete(key(c)); }
   at = -1; render(); show('pending'); const first = review.items.findIndex((c) => !review.choices.has(key(c))); if (first >= 0) choose(first);
+}
+// Suggestions from people reviewing a shared project, as they come: the list follows them,
+// keeping choices already made unless that suggestion changed. Returns false while a
+// returned review is open, which comes first.
+export function livePending(file, items) {
+  if (review && review.file !== file) return false;
+  if (!items.length) { endPending(); return true; }
+  if (!review) { review = { file, items, choices: new Map(), edits: new Map() }; at = -1; render(); summary(); h.redraw(); return true; }
+  const old = new Map(review.items.map((c) => [key(c), c]));
+  for (const k of [...review.choices.keys()]) {
+    const now = items.find((c) => key(c) === k);
+    if (!now || JSON.stringify(now.theirs) !== JSON.stringify(old.get(k)?.theirs)) { review.choices.delete(k); review.edits.delete(k); }
+  }
+  review.items = items; at = Math.min(at, items.length - 1);
+  render(); summary(); h.redraw();
+  return true;
 }
 export function endPending() { if (!review) return; review = null; at = -1; tab = 'blocks'; $('pendingList').replaceChildren(); summary(); h.redraw(); }
 

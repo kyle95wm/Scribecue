@@ -146,3 +146,14 @@ test('turning a link off ends it; a damaged or unsigned change is ignored', asyn
   assert.equal(other.c.status, 'online');
   o.stop(); other.c.stop();
 });
+
+test('a link the owner adds is accepted at once by the owner’s side', async () => {
+  const { mine, o, join, owner, list } = await share();
+  const review = await keys.newLink({ ...owner }, 'review', 'pw', fast);
+  await o.sendLinks(await keys.signLinks(owner, 2, [...list, review]));
+  const { s } = await join(review);
+  const l = s.read().blocks;
+  l[0].comments = [{ id: crypto.randomUUID(), text: 'From the new link', author: 'Ann', created: '2026-11-08T00:00:00Z' }];
+  s.write(l, [], [uid(1)], { script: false });
+  await until(() => mine.read().blocks[0].comments?.length === 1, 'the owner takes the new link’s comment');
+});
