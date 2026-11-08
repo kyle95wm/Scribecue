@@ -190,6 +190,26 @@ test('making a room too often is refused, and nothing is kept', async () => {
   assert.equal(asked, 2);
 });
 
+test('presence passes to the others, unkept; a closed connection is said to be gone', async () => {
+  const { join, o, editor, commenter, storage, room, connect } = await start();
+  const ed = await join('ed1', editor), co = await join('co1', commenter);
+  const before = storage.m.size;
+  await ed.s.say({ type: 'presence', data: 'sealed-bytes' });
+  const got = co.s.got.at(-1);
+  assert.deepEqual({ ...got, sid: typeof got.sid }, { type: 'presence', sid: 'string', by: 'ed1', data: 'sealed-bytes' });
+  assert.equal(o.got.at(-1).sid, got.sid, 'the owner gets it too');
+  assert.equal(ed.s.got.length, 0, 'not back to the sender');
+  assert.equal(storage.m.size, before, 'nothing kept');
+  assert.notEqual(got.sid, (await (async () => { await co.s.say({ type: 'presence', data: 'x' }); return ed.s.got.at(-1).sid; })()), 'each connection has its own id');
+  assert.equal((await ed.s.say({ type: 'presence', data: 'x'.repeat(LIMITS.presence + 1) }))[0].code, 'too-big');
+  const stranger = connect();
+  assert.equal((await stranger.say({ type: 'presence', data: 'x' }))[0].code, 'not-signed-in');
+  room.close(ed.s);
+  assert.deepEqual(co.s.got.at(-1), { type: 'gone', sid: got.sid });
+  room.close(stranger); // never signed in: nothing to say
+  assert.deepEqual(co.s.got.at(-1), { type: 'gone', sid: got.sid });
+});
+
 test('a full room refuses more; too big a message is refused', async () => {
   const { update, o, owner } = await start();
   const was = LIMITS.room;

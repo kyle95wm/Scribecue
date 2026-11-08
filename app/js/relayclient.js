@@ -14,8 +14,10 @@ export class RelayClient {
   // making the room or coming back to it; Yjs ignores what the relay already has.
   // `onStatus(status, detail)`: 'connecting', 'online',
   // 'offline' or 'ended'.
-  constructor({ url, room, who, shared, create = null, seed = !!create, onStatus = () => {}, onLinks = () => {}, WebSocket = globalThis.WebSocket, snapshotEvery = 200, flushMs = 150, retryMs = 1000, connectMs = 20_000, timers = globalThis }) {
-    Object.assign(this, { url, room, who, shared, create, onStatus, onLinks, WebSocket, snapshotEvery, flushMs, retryMs, connectMs, timers });
+  constructor({ url, room, who, shared, create = null, seed = !!create, onStatus = () => {}, onLinks = () => {}, onPresence = () => {}, WebSocket = globalThis.WebSocket, snapshotEvery = 200, flushMs = 150, retryMs = 1000, connectMs = 20_000, presenceMs = 250, heartbeatMs = 20_000, timers = globalThis }) {
+    Object.assign(this, { url, room, who, shared, create, onStatus, onLinks, onPresence, WebSocket, snapshotEvery, flushMs, retryMs, connectMs, presenceMs, heartbeatMs, timers });
+    this.people = new Map(); // connection id → { name, mode, block, editing, by, role, at }
+    this.me = null; // this person's presence, as last given
     this.seq = 0; this.role = null; this.links = null; this.status = null;
     this.pending = Object.fromEntries(DOCS.map((d) => [d, []])); // changes the relay doesn't have yet
     this.inflight = new Map(); // message id → { doc, count }
@@ -39,6 +41,7 @@ export class RelayClient {
   stop() {
     this.stopped = true; this.off();
     this.timers.clearTimeout(this.flushTimer); this.timers.clearTimeout(this.retryTimer); this.timers.clearTimeout(this.connectTimer);
+    this.timers.clearTimeout(this.presenceTimer); this.timers.clearTimeout(this.heartbeat);
     try { this.ws?.close(1000, 'done'); } catch { /* closed */ }
   }
   // The owner's new list of links, or ending the project on the relay. Only when online:
@@ -58,6 +61,44 @@ export class RelayClient {
     try { old?.close(); } catch { /* closed */ }
   }
   deleteRoom() { if (this.synced && this.role === 'owner') { this.#send({ type: 'delete-room' }); return true; } return false; }
+  // Where this person is, for the others: { name, mode, block, editing }. Sent when online,
+  // at most every `presenceMs`, and again every `heartbeatMs` so others know it's still here.
+  setPresence(me) {
+    this.me = me;
+    if (this.presenceTimer) { this.presenceDue = true; return; }
+    this.#sendPresence();
+  }
+  async #sendPresence() {
+    if (this.stopped) return;
+    this.timers.clearTimeout(this.heartbeat);
+    this.heartbeat = this.timers.setTimeout(() => { this.#expire(); this.#sendPresence(); }, this.heartbeatMs);
+    if (!this.me || !this.synced) return;
+    this.presenceDue = false;
+    this.presenceTimer = this.timers.setTimeout(() => { this.presenceTimer = 0; if (this.presenceDue) this.#sendPresence(); }, this.presenceMs);
+    const ws = this.ws;
+    const data = await this.cipher.seal('presence', new TextEncoder().encode(JSON.stringify(this.me)));
+    if (ws === this.ws && this.synced) this.#send({ type: 'presence', data: b64(data) });
+  }
+  #canBeHere(by) { const l = this.links?.links.get(by); return !!l && !l.off; }
+  async #presence(m) {
+    if (typeof m.sid !== 'string' || !this.#canBeHere(m.by)) return;
+    let p;
+    try { p = JSON.parse(new TextDecoder().decode(await this.cipher.open('presence', unb64(m.data)))); } catch { return; }
+    if (!p || typeof p !== 'object') return;
+    const text = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+    const fresh = !this.people.has(m.sid);
+    this.people.set(m.sid, { name: text(p.name, 60), mode: text(p.mode, 12), block: text(p.block, 64), editing: p.editing === true, by: m.by, role: this.links.links.get(m.by).role, at: Date.now() });
+    this.#people();
+    if (fresh) this.setPresence(this.me); // someone new: they hear from this person too
+  }
+  #expire() {
+    let gone = false;
+    for (const [sid, p] of this.people) if (Date.now() - p.at > this.heartbeatMs * 3) { this.people.delete(sid); gone = true; }
+    if (gone) this.#people();
+  }
+  #forget() { if (this.people.size) { this.people.clear(); this.#people(); } }
+  #people() { this.onPresence([...this.people.entries()].map(([sid, p]) => ({ sid, ...p }))); }
+
   // How far this side has everything from the relay: before any change it's still holding.
   get safeSeq() { return this.held.reduce((n, m) => Math.min(n, (m.seq ?? m.upTo) - 1), this.seq); }
   // Changes not yet kept by the relay.
@@ -84,6 +125,7 @@ export class RelayClient {
     ws.onclose = () => {
       if (this.ws !== ws) return;
       this.synced = false;
+      this.#forget(); // while not connected, nobody shows as here
       if (this.stopped || this.status === 'ended') return;
       this.#set('offline');
       this.retryTimer = this.timers.setTimeout(() => this.#connect(), this.delay);
@@ -109,12 +151,20 @@ export class RelayClient {
       this.#send({ type: 'sync', since });
     } else if (m.type === 'links') {
       await this.#readLinks(m.links);
+      // Someone whose link went off is no longer here.
+      for (const [sid, p] of this.people) if (!this.#canBeHere(p.by)) this.people.delete(sid);
+      this.#people();
+    } else if (m.type === 'presence') {
+      await this.#presence(m);
+    } else if (m.type === 'gone') {
+      if (this.people.delete(m.sid)) this.#people();
     } else if (m.type === 'update' || m.type === 'snapshot') {
       await this.#receive(m);
     } else if (m.type === 'synced') {
       this.synced = true; this.delay = this.retryMs;
       this.seq = Math.max(this.seq, m.seq);
       this.#set('online');
+      this.#sendPresence(); // others learn this person is here, and answer with theirs
       this.#flush();
       this.#maybeSnapshot();
     } else if (m.type === 'ack') {

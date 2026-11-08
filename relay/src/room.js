@@ -21,6 +21,7 @@ export const ROLES = ['edit', 'review', 'comment'];
 export const LIMITS = {
   message: 2_000_000, // characters in one message
   room: 64 * 1024 * 1024, // bytes kept for one project
+  presence: 4000, // characters in one presence message
   links: 30, // links on at once
   offLinks: 200, // links turned off, kept so their earlier changes still check out
   idle: 180 * 24 * 3600 * 1000, // a project nobody opens for this long is deleted
@@ -138,6 +139,7 @@ export class Room {
         if (!l || l.off || l.role !== state.role || l.pub !== state.pub) return fail(socket, 'link-off', true);
       }
       if (m.type === 'sync') return await this.#sync(socket, m);
+      if (m.type === 'presence') return this.#presence(socket, state, m);
       if (m.type === 'update') return await this.#update(socket, state, m);
       if (m.type === 'snapshot') return await this.#snapshot(socket, state, m);
       if (m.type === 'links') return await this.#setLinks(socket, state, m);
@@ -172,7 +174,7 @@ export class Room {
     const now = this.now();
     await this.storage.put('meta', { owner: m.owner, links: m.links, n: links.n, seq: 0, bytes: 0, created: now, touched: now });
     await this.storage.setAlarm(now + LIMITS.idle);
-    socket.state = { role: 'owner', link: 'owner', pub: m.owner };
+    socket.state = { role: 'owner', link: 'owner', pub: m.owner, sid: this.random().slice(0, 12) };
     send(socket, { type: 'welcome', role: 'owner', links: m.links, seq: 0 });
   }
 
@@ -187,7 +189,7 @@ export class Room {
       ({ role, pub } = l);
     }
     if (typeof m.sig !== 'string' || !state.nonce || !(await this.verify(pub, unb64(m.sig), signed.auth(this.id, state.nonce)))) return fail(socket, 'bad-signature', true);
-    socket.state = { role, link: m.link, pub };
+    socket.state = { role, link: m.link, pub, sid: this.random().slice(0, 12) };
     await this.#touch(meta);
     send(socket, { type: 'welcome', role, links: meta.links, seq: meta.seq });
   }
@@ -206,6 +208,20 @@ export class Room {
     const updates = await this.storage.list({ start: seqKey(since + 1), end: 'u;' });
     for (const [key, u] of updates) send(socket, { type: 'update', seq: Number(key.slice(2)), doc: u.doc, by: u.by, sig: u.sig, data: u.data });
     send(socket, { type: 'synced', seq: meta.seq });
+  }
+
+  // Who's here and where, encrypted: passed to the others now, and never kept. Each
+  // connection has its own id, so two tabs of one link are two people here.
+  #presence(socket, state, m) {
+    if (typeof m.data !== 'string' || m.data.length > LIMITS.presence) return fail(socket, 'too-big');
+    const out = { type: 'presence', sid: state.sid, by: state.link, data: m.data };
+    for (const other of this.sockets()) if (other !== socket && other.state?.role) send(other, out);
+  }
+  // A connection closed: the others stop showing it.
+  close(socket) {
+    const sid = socket.state?.sid;
+    if (!sid || !socket.state.role) return;
+    for (const other of this.sockets()) if (other !== socket && other.state?.role) send(other, { type: 'gone', sid });
   }
 
   async #update(socket, state, m) {

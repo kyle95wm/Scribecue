@@ -92,6 +92,7 @@
       </span>
       <span id="qcPermission" class="autotag qc-only" aria-live="polite">Comments only</span>
       <span id="shareState" class="autotag" hidden aria-live="polite"></span>
+      <span id="sharePeople" hidden></span>
       <button data-act="share" id="shareBtn" class="not-record" hidden data-tip="Share this project with a link and a password, to work on it together">Share</button>
       <button data-act="comments" id="commentsBtn" aria-pressed="false" aria-controls="commentsDrawer" data-tip="Comments on blocks and timeline times, saved with the project (⌥⇧C)">Comments</button>
       <button data-act="ai" id="aiBtn" class="tip-end" data-tip="AI help: chat about the scene and draft descriptions (⌥⇧A)">AI</button>
@@ -128,6 +129,7 @@
             <span id="edAuto" class="autotag" hidden data-tip="This block's end follows the reading as you type. Set the end yourself and it stays where you put it">auto</span>
             <span id="edDur" class="dim"></span>
             <span id="edEdited" class="dim" hidden data-tip="The last person to change this block. Shown once more than one person has worked on the project, or it’s shared. Set your name in Settings, under General"></span>
+            <span id="edOthers" hidden aria-live="polite" data-tip="Others in this shared project who have this block open"></span>
             <span id="edClash" hidden data-tip="Subtitles can stay up after the words end, so check it by ear"></span>
             <span class="grow"></span>
             <span class="modesw edaltsw" id="edAltSw" role="radiogroup" aria-label="Wording to record">

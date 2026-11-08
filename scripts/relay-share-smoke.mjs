@@ -91,6 +91,21 @@ try {
   await a.open(2);
   assert.match(await a.js(`document.getElementById('edEdited').textContent`), /Sam/);
 
+  // Who's here: A sees Sam, on the block Sam has open, editing it while Sam types there.
+  await a.wait(`document.querySelector('#sharePeople .who')?.textContent==='S'`, 'A sees Sam here');
+  await b.open(5);
+  await b.js(`edText.focus();true`).catch(() => b.js(`document.getElementById('edText').focus();true`));
+  await a.wait(`[...document.querySelectorAll('#list .row')][5]?.querySelector('.here .who.editing')`, 'A sees Sam editing block 6');
+  await a.open(5);
+  await a.wait(`/Sam is editing/.test(document.getElementById('edOthers').textContent)`, 'A’s editor says Sam is editing it');
+  await a.shot('presence');
+  await b.js(`document.activeElement.blur();true`);
+  await a.js(`document.activeElement.blur();true`);
+  await a.open(3);
+  await a.wait(`!document.querySelector('#list .here .who.editing') && document.querySelector('#list .here .who')`, 'Sam stops editing, still there');
+  await a.shot('presence-row');
+  await a.js(`document.activeElement.blur();true`);
+
   // B reloads: still in the project, still connected, nothing to type again.
   await sleep(1800); // B's copy is kept a moment after each change
   await b.js(`window.__old=true;location.reload();true`);
@@ -100,9 +115,11 @@ try {
   // B goes offline and edits; it arrives once B is back.
   // Chrome's offline mode doesn't always stop a new WebSocket, so B's tries to reconnect go
   // nowhere until it's back.
-  await b.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  // Closed before going offline: Chrome's offline mode can hold the close up for a minute.
   await b.js(`(()=>{const r=window.scribecueRelay;r.__ws=r.WebSocket;r.WebSocket=class{constructor(){return new r.__ws('ws://127.0.0.1:9')}};r.ws.close();return true})()`);
   await b.wait(`window.scribecueRelay.status!=='online'`, 'B offline');
+  await b.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await a.wait(`document.getElementById('sharePeople').hidden`, 'A no longer shows Sam');
   await b.open(3);
   await b.type(' Written offline.');
   await b.js(`document.activeElement.blur();true`);
