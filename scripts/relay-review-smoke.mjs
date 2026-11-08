@@ -1,8 +1,8 @@
 // Reviewing and commenting on a shared project, in two headless, muted Chromes at 6× CPU
 // slowdown with 1,500 blocks. A shares a review link and a comment link. B reviews: stays in
 // QC, and its block change reaches A as a suggestion in Pending review, not in the script; A
-// accepts one, credited to B, and rejects another, which B's copy then drops. B leaves and
-// opens the comment link: comments only.
+// accepts one, credited to B, and rejects another, which B's copy then drops. B leaves with a
+// copy and opens the comment link: comments only. B leaves again, without a copy, the default.
 // Uses the relay at RELAY, by default one running locally (`npm run dev` in relay/).
 // Usage: node scripts/relay-review-smoke.mjs <A's DevTools port> <B's DevTools port> <site url> [screenshot folder]
 import assert from 'node:assert/strict';
@@ -107,10 +107,16 @@ try {
   await b.js(`document.getElementById('edComment').click();document.getElementById('commentText').value='Pause here?';document.getElementById('commentPost').click();true`);
   await a.wait(`window.scribecueShared.read().blocks[5].comments?.[0]?.text==='Pause here?'`, 'A gets B’s comment');
 
-  // B leaves, then opens the comment link: comments only.
+  // B leaves, keeping a copy (not the default), then opens the comment link: comments only.
   await b.click('#shareBtn');
-  await b.js(`window.confirm=()=>true;document.getElementById('shareLeave').click();true`);
+  await b.click('#shareLeave');
+  assert.equal(await b.js(`document.getElementById('leaveDlg').open && document.getElementById('leaveKeep').getAttribute('aria-pressed')`), 'false', 'no copy is kept unless asked');
+  await b.shot('leave');
+  await b.click('#leaveKeep');
+  await b.shot('leave-keep');
+  await b.click('#leaveGo');
   await b.wait(`!window.scribecueRelay && !document.querySelector('#modeSw [data-mode=write]').disabled`, 'B left');
+  assert.equal(await b.js(`document.querySelectorAll('#list .row').length`), 1500, 'B kept a copy');
   await joinWith(b, comment, 'grey door');
   assert.equal(await b.js(`document.getElementById('qcPermission').textContent`), 'Comments only');
   await b.open(7);
@@ -120,6 +126,20 @@ try {
   await sleep(500);
   assert.equal(await a.js(`window.scribecueShared.readProposals().length`), 0, 'no suggestions from the commenter');
 
-  console.log(`Relay review smoke passed at 6× with 1,500 blocks: a suggestion reached A in ${Math.round(suggestMs)} ms; A ${await a.report()}; B ${await b.report()}`);
+  // B leaves again, as it starts: without a copy. Nothing of the project stays, undo included.
+  await b.click('#shareBtn');
+  await b.click('#shareLeave');
+  const t1 = performance.now();
+  await b.click('#leaveGo');
+  await b.wait(`!window.scribecueRelay && document.querySelectorAll('#list .row').length===0`, 'B left without a copy');
+  const leaveMs = performance.now() - t1;
+  await sleep(1500);
+  await b.js(`document.body.focus();document.dispatchEvent(new KeyboardEvent('keydown',{key:'z',code:'KeyZ',metaKey:true,ctrlKey:true,bubbles:true}));true`);
+  await sleep(500);
+  assert.equal(await b.js(`document.querySelectorAll('#list .row').length`), 0, 'undo doesn’t bring it back');
+  assert.equal(await b.js(`Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.'))`), false, 'no link kept');
+  assert.equal(await b.js(`(JSON.parse(localStorage.getItem('scribecue.v1')||'{}').cues||[]).length`), 0, 'no blocks kept');
+
+  console.log(`Relay review smoke passed at 6× with 1,500 blocks: a suggestion reached A in ${Math.round(suggestMs)} ms; leaving without a copy took ${Math.round(leaveMs)} ms; A ${await a.report()}; B ${await b.report()}`);
 } finally { a.ws.close(); b.ws.close(); }
 process.exit(0);

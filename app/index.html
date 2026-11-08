@@ -731,6 +731,13 @@ docker compose up -d --build</code></pre>
     <p id="shareStatus" class="dim small" role="status"></p>
     <div class="updbtns"><button id="shareStop" hidden>Stop sharing</button><button id="shareLeave" hidden>Leave</button><button id="shareClose">Close</button></div>
   </dialog>
+  <dialog id="leaveDlg" class="updbox" aria-labelledby="leaveTitle">
+    <h2 id="leaveTitle">Leave this shared project?</h2>
+    <p>You won’t see others’ changes, and yours won’t reach them.</p>
+    <p class="updstatus"><button id="leaveKeep" aria-pressed="false">Keep a copy here</button></p>
+    <p id="leaveWhat" class="dim small" role="status"></p>
+    <div class="updbtns"><button id="leaveGo" class="hl">Leave</button><button id="leaveCancel">Cancel</button></div>
+  </dialog>
   <dialog id="joinDlg" class="updbox" aria-labelledby="joinTitle">
     <h2 id="joinTitle">Open a shared project</h2>
     <p>Someone shared a Scribecue project with you. Enter the password they sent with the link.</p>
