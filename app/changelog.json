@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.91.0",
+    "date": "2026-11-08",
+    "notes": "## New: see who changed a block\n\n- Once someone else has edited a project too, an open block shows who changed it last.\n- Your own projects look the same as before.\n- Pending review says who returned each change.\n- Set your name in Settings, under General.\n\n## Changed: comments in returned reviews\n\n- Comments you and a reviewer both added are all kept.\n- You only choose when you both changed the same comment.\n- Writers and reviewers should both update before swapping QC packages."
+  },
+  {
     "version": "0.90.0",
     "date": "2026-11-07",
     "notes": "## New: filter voices by language\n\n- Pick a **Language** above the voice list in the text to speech settings.\n- It starts on English. Choose **All languages** to see every voice.\n- It narrows the Piper voices you can download too.\n- Favourites and your chosen voice always show."
