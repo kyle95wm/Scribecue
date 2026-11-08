@@ -26,6 +26,7 @@ equivalent, or Google's own guide,
   - [7. Test it](#7-test-it)
   - [8. Turn billing back on](#8-turn-billing-back-on)
 - [What happens from then on](#what-happens-from-then-on)
+- [Pausing the shutoff](#pausing-the-shutoff)
 - [Privacy](#privacy)
 - [If something goes wrong](#if-something-goes-wrong)
 
@@ -271,6 +272,28 @@ in a month.
   back off at the next budget message, since you're still over $1.
 - **The setup itself costs nothing:** the function only runs when a budget message
   arrives, well within Cloud Run's free allowance.
+
+## Pausing the shutoff
+
+To let spending go past $1 for a while, disconnect the budget from the function. Everything
+else stays set up, so turning it back on is one checkbox.
+
+**To pause it:**
+
+1. Open **Billing**, then **Budgets & caps**, and open `Scribecue stop`.
+2. Under **Actions**, untick **Connect a Pub/Sub topic to this budget**, and save.
+3. If billing is off, link it again, as in step 8. Do this after step 2, or the next
+   budget message turns it straight back off.
+
+You still get the budget emails, so you'll know when you go past $1. Google bills you for
+anything past the free allowance until you turn the shutoff back on.
+
+**To turn it back on:** tick the box again and choose
+`projects/YOUR-PROJECT-ID/topics/stop-billing`. It works from the next budget message,
+within a few hours.
+
+To allow more spending but keep a limit, change the budget's **Amount** instead, and leave
+the box ticked.
 
 ## Privacy
 
