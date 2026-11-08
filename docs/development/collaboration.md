@@ -152,7 +152,7 @@ project's blocks and comments; the app's own blocks stay the source it edits.
 - `scripts/shared-smoke.mjs` checks it at 6× with 1,500 blocks. Measured: whole-script copy
   7–8 ms, one block 0–2 ms, about 3–5 ms more per typed character, no added long tasks.
 
-## Relay, not yet used by the app
+## Relay
 
 `relay/` is the sharing service: a Cloudflare Worker with one Durable Object per shared
 project (a room). See `relay/README.md` to run or deploy it. The rules are in
@@ -183,14 +183,34 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   or titles.
 - A room nobody opens for 180 days is deleted. The owner can delete it at once.
 
+### The app on the relay, behind the developer setting
+
+- The shared copy is two Yjs documents, `script` and `comments`, so the relay can tell
+  them apart. Undo keeps a mark in each.
+- `sharekeys.js` makes the keys, links and boxes with Web Crypto. Each change is encrypted
+  with AES-GCM, bound to its room and document, then signed with Ed25519. Passwords are
+  stretched with PBKDF2 (600,000 rounds).
+- `relayclient.js` sends this person's changes and puts in others' once their signature
+  and role check out. It reconnects by itself and keeps changes made offline until the
+  relay has them. After 200 changes to a document it sends the whole document.
+- `sharing.js` keeps what this browser needs for each shared project in its storage, under
+  `scribecue.share.<project id>`, so it opens again without the password.
+- The shared copy is kept in IndexedDB (`shared:<project id>`) between visits. Without
+  it, a person who joined takes the relay's copy rather than starting a rival one.
+- Until the share dialog exists, `window.scribecueSharing.start({ edit, comment })` and
+  `.join(url, password)` start and join sharing. The relay address is
+  `scribecue.relay`, `ws://127.0.0.1:8787` by default, and the CSP allows only that.
+- `scripts/relay-share-smoke.mjs` runs two browsers at 6× with 1,500 blocks through a
+  local relay. Measured: sharing 1.1 s, joining 1 s, typing 17 ms a character, a change
+  reaching the other person in about 0.25 s, no long tasks beyond the app's own start.
+
 ### Still to do
 
-- 4b: the app connects its shared copy to the relay, with each change encrypted (AES-GCM)
-  and signed (Ed25519). Content Security Policy needs the relay's address.
 - 4c: the share dialog, the three link types, passwords, turning links off, opening a link.
 - 4d: Can review edits arrive in Pending review. Can comment changes only comments.
 - Before calling it end-to-end encrypted: get the key handling reviewed. Decide on a new
   project key when a link is turned off. Rate-limit new rooms at Cloudflare.
+- Deploy the relay, then add its address to the CSP.
 - Keep file exports and recovery usable without the relay.
 
 ## Validation
@@ -205,7 +225,8 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   reviewer restrictions at 6× slowdown.
 - `scripts/collaboration-smoke.mjs <port> <site URL> [test-video.mp4]` checks identity
   persistence, split/merge/undo and worker comparison of 1,500 blocks covering two hours.
-- `node --test tests/relay.test.mjs` checks the relay's rules. `scripts/relay-smoke.mjs`
+- `node --test tests/relay.test.mjs tests/relayclient.test.mjs tests/sharekeys.test.mjs`
+  checks the relay's rules, the connection and the keys. `scripts/relay-smoke.mjs`
   runs them over real WebSockets against `npm run dev` in `relay/`.
 - `scripts/qcspeech-smoke.mjs <port> <site URL> [screenshot path]` checks personal-key
   priority, accepted/declined fallback, cached replay, recovery and key-free returns at 6×.

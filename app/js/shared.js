@@ -33,11 +33,16 @@ export function retype(text, next) {
 const commentOrder = (a, z) => a.created.localeCompare(z.created) || a.id.localeCompare(z.id);
 const plainComments = (list, timed) => cleanComments(list.map(({ block, ...c }) => c).sort(commentOrder), timed);
 
+// The project is two Yjs documents, so the sharing service can tell who may change what:
+// `script` holds the blocks, `comments` the comments. Everyone who can comment can write the
+// second; only those who can edit can write the first.
+export const DOCS = ['script', 'comments'];
+
 export class SharedProject {
-  constructor(doc = new Y.Doc()) {
-    this.doc = doc;
-    this.blocks = doc.getMap('blocks');
-    this.comments = doc.getMap('comments');
+  constructor() {
+    this.docs = { script: new Y.Doc(), comments: new Y.Doc() };
+    this.blocks = this.docs.script.getMap('blocks');
+    this.comments = this.docs.comments.getMap('comments');
   }
 
   // Copies blocks and comments in, as this person's change. `only` is a list of block uids
@@ -45,16 +50,18 @@ export class SharedProject {
   // Returns how many blocks and comments changed.
   write(blocks, timeline = [], only = null) {
     let n = 0;
-    this.doc.transact(() => {
-      const list = only ? blocks.filter((b) => only.includes(b.uid)) : blocks;
+    const list = only ? blocks.filter((b) => only.includes(b.uid)) : blocks;
+    this.docs.script.transact(() => {
       for (const b of list) n += this.#writeBlock(b);
-      const wanted = new Map();
-      for (const b of list) for (const c of b.comments || []) wanted.set(c.id, { ...c, block: b.uid });
       if (!only) {
         const kept = new Set(blocks.map((b) => b.uid));
         for (const uid of [...this.blocks.keys()]) if (!kept.has(uid)) { this.blocks.delete(uid); n++; }
-        for (const c of timeline) wanted.set(c.id, { ...c, block: null });
       }
+    }, LOCAL);
+    this.docs.comments.transact(() => {
+      const wanted = new Map();
+      for (const b of list) for (const c of b.comments || []) wanted.set(c.id, { ...c, block: b.uid });
+      if (!only) for (const c of timeline) wanted.set(c.id, { ...c, block: null });
       for (const [id, c] of wanted) if (!same(this.comments.get(id), c)) { this.comments.set(id, c); n++; }
       // A comment goes when it's gone from the blocks checked, or from the whole project.
       for (const [id, c] of [...this.comments.entries()]) {
@@ -138,28 +145,35 @@ export class SharedProject {
       }
       fn([...uids], timeline);
     };
-    const onComments = (e, tx) => handler([e], tx);
+    const onComments = (e, tx) => handler([e], tx); // the comments document's own changes
     this.blocks.observeDeep(handler);
     this.comments.observe(onComments);
     return () => { this.blocks.unobserveDeep(handler); this.comments.unobserve(onComments); };
   }
 
-  // Undo and redo of this person's own changes only: others' changes stay. Each step lasts
-  // until `step()` starts the next, so typing a sentence stays one step, as in the app.
+  // Undo and redo of this person's own changes only: others' changes stay. `step()` starts
+  // a step and returns where it starts; until the next, typing a sentence stays one step.
+  // `undoTo(mark)` undoes back to it and says how far, for `redo` to go forward again.
   undoer() {
-    const um = new Y.UndoManager([this.blocks, this.comments], { trackedOrigins: new Set([LOCAL]), captureTimeout: Infinity });
+    const managers = Object.fromEntries(DOCS.map((d) => [d, new Y.UndoManager(d === 'script' ? this.blocks : this.comments, { trackedOrigins: new Set([LOCAL]), captureTimeout: Infinity })]));
+    const each = (fn) => Object.fromEntries(DOCS.map((d) => [d, fn(managers[d], d)]));
     return {
-      step: () => um.stopCapturing(),
-      depth: () => um.undoStack.length,
-      redoDepth: () => um.redoStack.length,
-      undo: () => um.undo() != null,
-      redo: () => um.redo() != null,
-      clear: () => um.clear(),
+      step: () => each((um) => { um.stopCapturing(); return um.undoStack.length; }),
+      undoTo: (mark) => each((um, d) => { let n = 0; while (um.undoStack.length > mark[d] && um.undo()) n++; return n; }),
+      redo: (counts) => each((um, d) => { let n = 0; while (n < counts[d] && um.redo()) n++; return n; }),
+      depth: () => each((um) => um.undoStack.length),
+      clear: () => each((um) => um.clear()),
     };
   }
 
-  update() { return Y.encodeStateAsUpdate(this.doc); }
-  apply(update, origin = 'remote') { Y.applyUpdate(this.doc, update, origin); }
+  // A document's whole state, or changes to it, as Yjs updates.
+  update(doc) { return Y.encodeStateAsUpdate(this.docs[doc]); }
+  apply(doc, update, origin = 'remote') { Y.applyUpdate(this.docs[doc], update, origin); }
+  // Calls `fn(doc, update, origin)` for every change to either document.
+  onUpdate(fn) {
+    const off = DOCS.map((d) => { const h = (u, origin) => fn(d, u, origin); this.docs[d].on('update', h); return () => this.docs[d].off('update', h); });
+    return () => off.forEach((f) => f());
+  }
 }
 
 // Links the shared copies of the same project in this browser's other tabs: the stand-in for
@@ -169,20 +183,21 @@ export class SharedProject {
 export function linkTabs(shared, name, { Channel = globalThis.BroadcastChannel, wait = 400 } = {}) {
   if (!Channel) return { ready: Promise.resolve(false), stop: () => {} };
   const channel = new Channel(`scribecue-shared:${name}`);
-  const send = (type, update) => { try { channel.postMessage({ type, update }); } catch { /* closed */ } };
-  const onUpdate = (update, origin) => { if (origin !== 'remote') send('update', update); };
+  const send = (type, doc, update) => { try { channel.postMessage({ type, doc, update }); } catch { /* closed */ } };
   let answering = false, joined;
   const ready = new Promise((resolve) => { joined = resolve; setTimeout(() => resolve(false), wait); })
     .then((got) => { answering = true; return got; });
-  shared.doc.on('update', onUpdate);
+  const off = shared.onUpdate((doc, update, origin) => { if (origin !== 'remote') send('update', doc, update); });
   channel.onmessage = ({ data }) => {
     if (!data || typeof data !== 'object') return;
-    if (data.type === 'hello') { if (answering) send('state', shared.update()); }
-    else if ((data.type === 'update' || data.type === 'state') && data.update instanceof Uint8Array) {
-      try { shared.apply(data.update); } catch { return; /* a damaged update changes nothing */ }
-      if (data.type === 'state') joined(true);
+    if (data.type === 'hello') { if (answering) try { channel.postMessage({ type: 'state', updates: DOCS.map((d) => shared.update(d)) }); } catch { /* closed */ } }
+    else if (data.type === 'update' && DOCS.includes(data.doc) && data.update instanceof Uint8Array) {
+      try { shared.apply(data.doc, data.update); } catch { /* a damaged update changes nothing */ }
+    } else if (data.type === 'state' && Array.isArray(data.updates) && data.updates.length === DOCS.length && data.updates.every((u) => u instanceof Uint8Array)) {
+      try { DOCS.forEach((d, i) => shared.apply(d, data.updates[i])); } catch { return; }
+      joined(true);
     }
   };
   send('hello');
-  return { ready, stop: () => { shared.doc.off('update', onUpdate); channel.close(); } };
+  return { ready, stop: () => { off(); channel.close(); } };
 }
