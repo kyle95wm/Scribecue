@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.90.0",
+    "date": "2026-11-07",
+    "notes": "## New: filter voices by language\n\n- Pick a **Language** above the voice list in the text to speech settings.\n- It starts on English. Choose **All languages** to see every voice.\n- It narrows the Piper voices you can download too.\n- Favourites and your chosen voice always show."
+  },
+  {
     "version": "0.89.0",
     "date": "2026-11-07",
     "notes": "## Changed: sending a QC review back\n\n- Save the QC package with `Ctrl/Cmd+S` and send that file back to the writer.\n- **Export → Return package** is gone. With a QC package open in QC, there's no Export menu.\n- Check spelling and grammar with `Alt+Shift+K`.\n- The file you send back keeps any review key. Writers: delete the key when the review is done."
