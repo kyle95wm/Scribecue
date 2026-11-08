@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.94.1",
+    "date": "2026-11-08",
+    "notes": "## Sharing projects\n\n- Leaving a shared project now asks whether to keep a copy. It doesn't keep one unless you choose to.\n- A new guide, Sharing a project, explains how sharing works. Press ? and click Guides.\n- Sharing is still being tested."
+  },
+  {
     "version": "0.94.0",
     "date": "2026-11-08",
     "notes": "## Sharing projects: voices and typing\n\n- Others see a block once you've finished it, not each letter as you type.\n- A shared project reads with its owner's voices. Only the owner can change them.\n- Sharing is still being tested."
