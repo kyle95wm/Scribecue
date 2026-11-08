@@ -36,7 +36,8 @@ export async function prepareReviewBaseline(project, readings, allowEdits = fals
   return { project: toProject({ ...fromProject(project), app: project.app,
     reviewHistory: { version: 1, checkpoints: [checkpoint] } }), baselineId: id };
 }
-const scriptOnly = (project) => project.blocks.map(({ comments, qcReading, ...b }) => b);
+// Who last changed a block isn't part of the script: an older Scribecue drops it when saving.
+const scriptOnly = (project) => project.blocks.map(({ comments, qcReading, edited, ...b }) => b);
 export async function compareReturnedReview(local, returned, { progress = () => {}, resolutions = [], localPermission = null } = {}) {
   const history = cleanReviewHistory(local.reviewHistory);
   const checkpoint = history?.checkpoints.find((c) => c.id === returned.baselineId);
