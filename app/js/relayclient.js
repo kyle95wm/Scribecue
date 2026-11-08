@@ -14,8 +14,8 @@ export class RelayClient {
   // making the room or coming back to it; Yjs ignores what the relay already has.
   // `onStatus(status, detail)`: 'connecting', 'online',
   // 'offline' or 'ended'.
-  constructor({ url, room, who, shared, create = null, seed = !!create, onStatus = () => {}, onLinks = () => {}, WebSocket = globalThis.WebSocket, snapshotEvery = 200, flushMs = 150, retryMs = 1000, timers = globalThis }) {
-    Object.assign(this, { url, room, who, shared, create, onStatus, onLinks, WebSocket, snapshotEvery, flushMs, retryMs, timers });
+  constructor({ url, room, who, shared, create = null, seed = !!create, onStatus = () => {}, onLinks = () => {}, WebSocket = globalThis.WebSocket, snapshotEvery = 200, flushMs = 150, retryMs = 1000, connectMs = 20_000, timers = globalThis }) {
+    Object.assign(this, { url, room, who, shared, create, onStatus, onLinks, WebSocket, snapshotEvery, flushMs, retryMs, connectMs, timers });
     this.seq = 0; this.role = null; this.links = null; this.status = null;
     this.pending = Object.fromEntries(DOCS.map((d) => [d, []])); // changes the relay doesn't have yet
     this.inflight = new Map(); // message id → { doc, count }
@@ -37,7 +37,7 @@ export class RelayClient {
   start() { this.ready.then(() => this.#connect()); return this; }
   stop() {
     this.stopped = true; this.off();
-    this.timers.clearTimeout(this.flushTimer); this.timers.clearTimeout(this.retryTimer);
+    this.timers.clearTimeout(this.flushTimer); this.timers.clearTimeout(this.retryTimer); this.timers.clearTimeout(this.connectTimer);
     try { this.ws?.close(1000, 'done'); } catch { /* closed */ }
   }
   // The owner's new list of links, or ending the project on the relay. Only when online:
@@ -46,6 +46,15 @@ export class RelayClient {
     if (!this.synced || this.role !== 'owner') return;
     await this.#readLinks(links); // this side takes the new list at once, to accept new links' changes
     this.#send({ type: 'links', id: this.nextId++, links });
+  }
+  // Back online: tries again now, rather than after the wait between tries.
+  reconnect() {
+    if (this.stopped || !this.status || this.status === 'online' || this.status === 'ended') return;
+    this.timers.clearTimeout(this.retryTimer);
+    this.delay = this.retryMs;
+    const old = this.ws;
+    this.#connect();
+    try { old?.close(); } catch { /* closed */ }
   }
   deleteRoom() { if (this.synced && this.role === 'owner') { this.#send({ type: 'delete-room' }); return true; } return false; }
   // Changes not yet kept by the relay.
@@ -59,8 +68,16 @@ export class RelayClient {
     this.synced = false; this.inflight.clear();
     const ws = this.ws = new this.WebSocket(`${this.url.replace(/\/$/, '')}/rooms/${this.room}`);
     // Messages are handled one at a time, in order: checking a signature takes a moment.
-    let queue = Promise.resolve();
-    ws.onmessage = (e) => { queue = queue.then(() => this.#message(ws, e.data)).catch(() => {}); };
+    let queue = Promise.resolve(), heard = false;
+    ws.onmessage = (e) => { heard = true; queue = queue.then(() => this.#message(ws, e.data)).catch(() => {}); };
+    // One that neither connects nor fails, as can happen offline, is given up on.
+    this.timers.clearTimeout(this.connectTimer);
+    this.connectTimer = this.timers.setTimeout(() => {
+      if (this.ws !== ws || heard) return;
+      const retry = ws.onclose; ws.onclose = null;
+      try { ws.close(); } catch { /* closed */ }
+      retry();
+    }, this.connectMs);
     ws.onclose = () => {
       if (this.ws !== ws) return;
       this.synced = false;

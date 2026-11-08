@@ -2,6 +2,9 @@
 name = "scribecue-relay"
 main = "src/index.js"
 compatibility_date = "2026-10-01"
+# Where it's served. Cloudflare makes the DNS record and certificate.
+routes = [{ pattern = "share.kyleadvoice.ca", custom_domain = true }]
+workers_dev = false
 
 [[durable_objects.bindings]]
 name = "ROOMS"
@@ -14,6 +17,3 @@ new_sqlite_classes = ["RoomObject"]
 [vars]
 # Pages that may connect, besides localhost.
 ORIGINS = "https://scribecue.kyleadvoice.ca"
-
-# Where it's served once deployed. Uncomment after choosing the name.
-# routes = [{ pattern = "share.kyleadvoice.ca", custom_domain = true }]

@@ -649,7 +649,9 @@ async function startShared() {
   // A project shared on the relay keeps its copy in this browser between visits.
   const record = sharedLib.getShare(id);
   myShare = record; syncQcPermission();
-  const saved = record ? await handleStore.get('shared:' + id) : null;
+  // A copy kept for another room, as from a link since turned off, isn't this one's.
+  let saved = record ? await handleStore.get('shared:' + id) : null;
+  if (saved && saved.room !== record.room) saved = null;
   if (sharedToken !== token) return; // started again meanwhile
   if (saved) try { for (const d of sharedLib.DOCS) if (saved[d]) copy.apply(d, saved[d], 'saved'); } catch { /* starts again from the relay */ }
   const link = sharedLib.linkTabs(copy, id);
@@ -678,7 +680,10 @@ async function startRelay(record, copy, fresh, seq) {
   const create = owner && !record.created ? await sharedLib.signedLinks(record) : null;
   if (shared !== copy) return;
   let keep = 0;
-  const persist = () => { clearTimeout(keep); keep = setTimeout(() => handleStore.set({ ...Object.fromEntries(sharedLib.DOCS.map((d) => [d, copy.update(d)])), seq: client.seq }, 'shared:' + id), 1500); };
+  const persist = () => {
+    clearTimeout(keep);
+    keep = setTimeout(() => { if (relay === client) handleStore.set({ ...Object.fromEntries(sharedLib.DOCS.map((d) => [d, copy.update(d)])), seq: client.seq, room: record.room }, 'shared:' + id); }, 1500);
+  };
   const client = relay = new sharedLib.RelayClient({
     url: record.relay, room: record.room, who: sharedLib.who(record), shared: copy, create, seed: !fresh,
     onStatus: (status, detail) => {
@@ -703,7 +708,8 @@ async function startRelay(record, copy, fresh, seq) {
     },
   });
   client.seq = seq;
-  relayOff = copy.onUpdate(persist);
+  const off = copy.onUpdate(persist);
+  relayOff = () => { off(); clearTimeout(keep); };
   window.scribecueRelay = client; // for the developer tests
   client.start();
 }
@@ -721,11 +727,16 @@ const sharingTools = {
     if (!okToReplace('Open the shared project')) return false;
     await stopJob();
     await endRecording();
+    const id = record.project || newIdentity();
+    await handleStore.set(null, 'shared:' + id); // anything kept from before is out of date
     undoStack.length = 0; redoStack.length = 0;
-    S.projectId = record.project || newIdentity();
+    S.projectId = id;
     sharedLib.setShare(S.projectId, record);
     S.reviewHistory = null; S.cues = []; S.comments = []; S.handle = null; handleStore.set(null);
-    changed(); // starts its shared copy, which fills from the relay
+    // Starts its shared copy, which fills from the relay, even when it's the project already
+    // here, as when opening a new link to it.
+    stopRelay(); shared = null; sharedStarting = null;
+    changed();
     select(null);
     setMode(record.role === 'edit' ? 'write' : 'qc', true);
     return true;
@@ -794,6 +805,7 @@ if (sharedOn) {
       });
       window.addEventListener('scribecue-relay', () => shareUi.update());
       window.addEventListener('hashchange', openShareLink);
+      window.addEventListener('online', () => relay?.reconnect());
       $('shareBtn').hidden = false;
       startShared();
       openShareLink();

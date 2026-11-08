@@ -3,11 +3,12 @@
 // QC, and its block change reaches A as a suggestion in Pending review, not in the script; A
 // accepts one, credited to B, and rejects another, which B's copy then drops. B leaves and
 // opens the comment link: comments only.
-// Needs the relay running locally (`npm run dev` in relay/).
+// Uses the relay at RELAY, by default one running locally (`npm run dev` in relay/).
 // Usage: node scripts/relay-review-smoke.mjs <A's DevTools port> <B's DevTools port> <site url> [screenshot folder]
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 const [,, portA, portB, site, shots] = process.argv;
+const RELAY = process.env.RELAY || 'ws://127.0.0.1:8787';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function browser(port) {
   const t = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find((x) => x.type === 'page');
@@ -30,8 +31,8 @@ async function browser(port) {
   const fill = (sel, v) => js(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});e.focus();e.value=${JSON.stringify(v)};e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
   return { ws, send, js, wait, watch, open, type, report, shot, click, fill };
 }
-const settings = (name, cues) => `localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',reviewer:${JSON.stringify(name)},sharedCopy:'1',setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);
-  localStorage.setItem('scribecue.v1',JSON.stringify({dirty:false,projectId:crypto.randomUUID(),cues:${cues}}));location.reload();true`;
+const settings = (name, cues) => `localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',reviewer:${JSON.stringify(name)},sharedCopy:'1',relay:${JSON.stringify(RELAY)},setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);
+  localStorage.setItem('scribecue.v1',JSON.stringify({dirty:false,projectId:crypto.randomUUID(),cues:${cues}}));Storage.prototype.setItem=()=>{};location.reload();true`;
 const online = `window.scribecueRelay?.status==='online' && !window.scribecueRelay.unsent()`;
 const rowText = (n) => `[...document.querySelectorAll('#list .row')][${n}]?.textContent||''`;
 

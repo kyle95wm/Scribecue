@@ -113,6 +113,26 @@ test('changes made while offline arrive once it reconnects', async () => {
   c.stop(); o.stop();
 });
 
+test('coming back online tries again at once, not after the wait between tries', async () => {
+  const { join, edit, net } = await share();
+  const { c } = await join(edit, { retryMs: 60_000 });
+  net.drop();
+  await until(() => c.status === 'offline');
+  c.reconnect();
+  await until(() => c.status === 'online', 'online again well before a minute');
+  c.reconnect(); // online already: nothing happens
+  assert.equal(c.status, 'online');
+});
+
+test('a connection that hangs is given up on and tried again', async () => {
+  const { join, edit, net } = await share();
+  let hang = 1;
+  class Flaky extends net.WebSocket { constructor(url) { if (hang-- > 0) return { send() { throw new Error('closed'); }, close() {} }; super(url); } }
+  const { c } = await join(edit, { WebSocket: Flaky, connectMs: 30 });
+  assert.equal(c.status, 'online');
+  assert.equal(hang, -1, 'a second try connected');
+});
+
 test('the relay keeps only the latest whole copy and the changes after it', async () => {
   const { mine, o, join, edit, net, owner } = await share();
   const { s, c } = await join(edit, { snapshotEvery: 5 });
@@ -145,6 +165,21 @@ test('turning a link off ends it; a damaged or unsigned change is ignored', asyn
   assert.deepEqual(other.s.read(), mine.read());
   assert.equal(other.c.status, 'online');
   o.stop(); other.c.stop();
+});
+
+test('changes made through a link before it’s turned off reach those who open it later', async () => {
+  const { mine, o, join, edit, owner, list } = await share();
+  const { s, c } = await join(edit);
+  const l = s.read().blocks; l[0].text = 'Written before the link went off.';
+  s.write(l, [], [uid(1)]);
+  await until(() => !c.unsent() && mine.read().blocks[0].text === l[0].text, 'the owner has it');
+  // Turned off, as the app does it: still on the list, marked off.
+  const off = list.map((x) => (x === edit ? { id: x.id, role: x.role, pub: x.pub, off: true } : x));
+  await o.sendLinks(await keys.signLinks(owner, 2, off));
+  await until(() => c.status === 'ended');
+  const late = await join(list[1]);
+  await until(() => late.s.read().blocks[0].text === 'Written before the link went off.', 'the comment link has it');
+  assert.deepEqual(late.s.read(), mine.read());
 });
 
 test('a link the owner adds is accepted at once by the owner’s side', async () => {

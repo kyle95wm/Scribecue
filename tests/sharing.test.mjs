@@ -16,13 +16,20 @@ test('the owner shares, adds and replaces links, and turns one off', async () =>
   r = await sharing.addLink(r, 'comment', 'b', fast);
   const first = r.links.find((l) => l.role === 'edit').id;
   r = await sharing.addLink(r, 'edit', 'c', fast);
-  assert.deepEqual(r.links.map((l) => l.role).sort(), ['comment', 'edit']);
-  assert.notEqual(r.links.find((l) => l.role === 'edit').id, first, 'a new edit link replaces the old');
-  r = sharing.removeLink(r, r.links.find((l) => l.role === 'comment').id);
+  const on = () => r.links.filter((l) => !l.off);
+  assert.deepEqual(on().map((l) => l.role).sort(), ['comment', 'edit']);
+  assert.notEqual(on().find((l) => l.role === 'edit').id, first, 'a new edit link replaces the old');
+  r = sharing.removeLink(r, on().find((l) => l.role === 'comment').id);
   assert.equal(r.n, 4);
+  // Links turned off stay, marked off, with only what checks their earlier changes.
+  const off = r.links.filter((l) => l.off);
+  assert.deepEqual(off.map((l) => l.role).sort(), ['comment', 'edit']);
+  for (const l of off) assert.deepEqual(Object.keys(l).sort(), ['id', 'off', 'pub', 'role']);
   const list = await readLinks(r.room, r.ownerPub, await sharing.signedLinks(r));
   assert.equal(list.n, 4);
-  assert.deepEqual([...list.links.values()].map((l) => l.role).sort(), ['edit', 'owner']);
+  assert.deepEqual([...list.links.values()].filter((l) => !l.off).map((l) => l.role).sort(), ['edit', 'owner']);
+  assert.equal(list.links.get(first).off, true);
+  assert.equal(sharing.linksOf(r, 'https://example.test/app/').length, 1, 'only links that are on show');
   const [url] = sharing.linksOf(r, 'https://example.test/app/');
   assert.equal(parseLink(new URL(url.url).hash).room, r.room);
 });

@@ -176,9 +176,10 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
 
 - Changes are numbered in order and kept. A writer can send a snapshot of a document up to
   a change; the changes before it are then dropped.
-- Turning a link off: the owner sends a new signed list. That link's sockets close, and it
-  can't sign in again. It keeps whatever it already copied, and the project key doesn't
-  change yet.
+- Turning a link off: the owner sends a new signed list, with that link marked off and its
+  box removed. Its sockets close, and it can't sign in again. It stays on the list so the
+  changes it made still check out for people who open the project later. It keeps
+  whatever it already copied, and the project key doesn't change yet.
 - The relay sees room ids, link ids and roles, sizes and times. It never sees text, names
   or titles.
 - A room nobody opens for 180 days is deleted. The owner can delete it at once.
@@ -192,13 +193,17 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   stretched with PBKDF2 (600,000 rounds).
 - `relayclient.js` sends this person's changes and puts in others' once their signature
   and role check out. It reconnects by itself and keeps changes made offline until the
-  relay has them. After 200 changes to a document it sends the whole document.
+  relay has them. It tries again at once when the browser is back online, and gives up
+  on an attempt that hangs for 20 seconds. After 200 changes to a document it sends the
+  whole document.
 - `sharing.js` keeps what this browser needs for each shared project in its storage, under
   `scribecue.share.<project id>`, so it opens again without the password.
-- The shared copy is kept in IndexedDB (`shared:<project id>`) between visits. Without
-  it, a person who joined takes the relay's copy rather than starting a rival one.
-- The relay address is `scribecue.relay`, `ws://127.0.0.1:8787` by default, and the CSP
-  allows only that.
+- The shared copy is kept in IndexedDB (`shared:<project id>`) between visits, with its
+  room. A copy kept for another room is ignored, and joining clears it. Without one, a
+  person who joined takes the relay's copy rather than starting a rival one.
+- The relay is at `wss://share.kyleadvoice.ca`. The developer setting `scribecue.relay`
+  points elsewhere, such as `ws://127.0.0.1:8787` for `npm run dev` in `relay/`. The CSP
+  allows both.
 
 ### Share dialog
 
@@ -237,8 +242,8 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
 
 - User guides, once sharing is switched on for everyone.
 - Before calling it end-to-end encrypted: get the key handling reviewed. Decide on a new
-  project key when a link is turned off. Rate-limit new rooms at Cloudflare.
-- Deploy the relay, then add its address to the CSP.
+  project key when a link is turned off. A link turned off still has its signing key, so a
+  dishonest relay could add changes signed by it. Rate-limit new rooms at Cloudflare.
 - Keep file exports and recovery usable without the relay.
 
 ## Validation
