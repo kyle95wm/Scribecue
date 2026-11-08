@@ -8,7 +8,7 @@ export const ROLE_TEXT = {
   comment: { name: 'Can comment', what: 'Works in QC. Adds and answers comments only.' },
 };
 export const STATUS_TEXT = {
-  online: ['Shared', 'Connected. Changes reach others as you make them.'],
+  online: ['Shared', 'Connected. Others see each block once you’ve finished it.'],
   connecting: ['Connecting', 'Connecting to the sharing service…'],
   offline: ['Offline', 'Offline. Your changes are kept here and sent when you’re back online.'],
   'old-app': ['Update needed', 'This version of Scribecue can’t connect to the sharing service. Update Scribecue and open the project again. Your changes are kept here.'],
