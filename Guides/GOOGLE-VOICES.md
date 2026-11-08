@@ -172,7 +172,9 @@ several times a day either way.
    (IAM)** ticked.
 5. **Billing:** **Request-based**.
 6. **Service scaling:** **Auto scaling**, minimum `0`, maximum `1`. One copy is all it
-   needs, and the maximum guarantees it can never scale up.
+   needs, and the maximum guarantees it can never scale up. If there's also a **Revision
+   scaling** setting, set its minimum to `0` too. A minimum of 1 keeps the function
+   running all day, which costs about $10 a month.
 7. **Ingress:** leave it on **All**. With authentication required, only Google's trigger
    can call it.
 8. Click **Create**.
@@ -271,7 +273,8 @@ in a month.
   start of the next month. Within the same month, the function turns billing straight
   back off at the next budget message, since you're still over $1.
 - **The setup itself costs nothing:** the function only runs when a budget message
-  arrives, well within Cloud Run's free allowance.
+  arrives, well within Cloud Run's free allowance. If **Reports** shows Cloud Run costing
+  money every day, a minimum instance is still set. Set it to `0`, as in step 4.
 
 ## Pausing the shutoff
 
