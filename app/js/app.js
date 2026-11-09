@@ -777,6 +777,12 @@ async function startRelay(record, copy, fresh, seq, seen) {
       // which needs updating. It connects again once it's updated and reopened.
       if (status === 'old-app') toast('Update Scribecue to keep working on this shared project. Your changes stay here');
       if (status === 'old-relay') toast('The sharing service needs updating before this project connects. Your changes stay here');
+      // The relay refused a change: too big for it, or the project is full there. Said once.
+      if ((detail === 'too-big' || detail === 'room-full') && !client.told) {
+        client.told = true;
+        toast(detail === 'too-big' ? 'This change is too big for the sharing service, so others don’t get it. It stays here'
+          : 'This shared project is full on the sharing service, so others don’t get your latest changes. They stay here');
+      }
       if (status === 'ended') {
         sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
         myShare = null; sharedQcSource(); syncQcPermission(); showAutosave(); endLive();

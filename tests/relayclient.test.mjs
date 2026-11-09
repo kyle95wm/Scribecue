@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as keys from '../app/js/sharekeys.js';
 import { RelayClient, fetchBox } from '../app/js/relayclient.js';
 import { SharedProject } from '../app/js/shared.js';
-import { Room, PROTOCOL } from '../relay/src/room.js';
+import { Room, PROTOCOL, LIMITS } from '../relay/src/room.js';
 
 const fast = { iterations: 1000 };
 const clients = [];
@@ -45,10 +45,11 @@ function network() {
       this.room = room; open.add(this.server);
       setTimeout(() => room.open(this.server));
     }
-    send(t) { if (this.closed) throw new Error('closed'); this.room.message(this.server, t); }
+    send(t) { if (this.closed) throw new Error('closed'); net.biggest = Math.max(net.biggest, t.length); net.hook?.(t, this.room); this.room.message(this.server, t); }
     close() { if (this.closed) return; this.closed = true; open.delete(this.server); this.room.close(this.server); setTimeout(() => this.onclose?.({})); }
   }
-  return { WebSocket: FakeSocket, stores, drop: () => { for (const s of [...open]) s.close(); } };
+  const net = { WebSocket: FakeSocket, stores, rooms, biggest: 0, hook: null, drop: () => { for (const s of [...open]) s.close(); } };
+  return net;
 }
 
 async function share() {
@@ -368,6 +369,50 @@ test('once the owner seals a link turned off, its old changes are gone and nothi
   assert.equal(await o.compact(), true);
 });
 
+// A script longer than the relay takes in one message: 3,000 blocks of 1,000 characters.
+const longScript = () => Array.from({ length: 3000 }, (_, i) => ({ uid: uid(10_000 + i), start: i * 5, end: i * 5 + 3, text: Array.from({ length: 1000 }, (_, j) => 'abcdefghijklmnopqrstuvwxyz '[(i * 31 + j * 7 + (j >> 3)) % 27]).join('') }));
+
+test('a script too long for one message goes in parts, both ways, and still works with a relay on version 2', async () => {
+  const { mine, o, join, edit, net } = await share();
+  net.biggest = 0;
+  mine.write(longScript(), []);
+  await until(() => !o.unsent(), 'the long script sent');
+  assert.ok(net.biggest <= 300_000, 'each message sent is short');
+  assert.ok([...[...net.stores.values()][0].m.keys()].some((k) => k.startsWith('p:')), 'the relay keeps it in pieces');
+  const { s } = await join(edit);
+  await until(() => s.read().blocks.length === 3000, 'the joiner has it all');
+  assert.deepEqual(s.read(), mine.read());
+  // A relay on version 2 gets it whole, as before, so a short change still goes.
+  const was = { ...PROTOCOL };
+  try {
+    PROTOCOL.max = 2;
+    net.drop();
+    const { s: older } = await join(edit);
+    await until(() => older.read().blocks.length === 3000, 'joined through a relay on version 2');
+    const list = older.read().blocks; list[0].text = 'Short and sweet.';
+    older.write(list, [], [list[0].uid]);
+    await until(() => mine.read().blocks[0].text === 'Short and sweet.', 'a change through it arrives');
+  } finally { Object.assign(PROTOCOL, was); }
+});
+
+test('a long change whose parts the relay loses goes again; one the relay can’t take says so', async () => {
+  const { mine, o, net, statuses } = await share();
+  let lost = false;
+  net.hook = (t, room) => { if (!lost && t.includes('"type":"part"') && t.includes('"i":1,')) { lost = true; room.partial.clear(); } };
+  mine.write(longScript(), []);
+  await until(() => lost && !o.unsent(), 'sent again after a part went missing');
+  net.hook = null;
+  const was = LIMITS.whole;
+  LIMITS.whole = 1000;
+  try {
+    const list = mine.read().blocks.map((b) => ({ ...b, text: b.text.toUpperCase() }));
+    mine.write(list, []);
+    await until(() => statuses.some(([, , d]) => d === 'too-big'), 'told it’s too big');
+    assert.equal(o.status, 'online', 'still connected');
+    assert.ok(o.unsent(), 'the change waits here');
+  } finally { LIMITS.whole = was; }
+});
+
 test('a relay or browser on another version stops trying, and says which needs updating', async () => {
   const { o, join, edit, owner, mine, net } = await share();
   const was = { ...PROTOCOL };
@@ -378,7 +423,7 @@ test('a relay or browser on another version stops trying, and says which needs u
     o.reconnect(); net.drop();
     await until(() => o.status === 'old-app', 'the owner is told to update');
     // An older relay, from before this browser's version.
-    PROTOCOL.min = 1; PROTOCOL.max = keys.PROTOCOL - 1;
+    PROTOCOL.min = 1; PROTOCOL.max = keys.PROTOCOL_MIN - 1;
     await assert.rejects(fetchBox('ws://relay', owner.room, edit.id, { WebSocket: net.WebSocket }), /old-relay/);
     const statuses = [];
     const opened = await keys.openBox({ room: owner.room, ...edit }, 'pw', fast);

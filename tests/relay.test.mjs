@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Room, b64, unb64, signed, LIMITS, takeSlot, PROTOCOL } from '../relay/src/room.js';
+import { Room, b64, unb64, signed, LIMITS, takeSlot, PROTOCOL, PART } from '../relay/src/room.js';
 
 const subtle = crypto.subtle;
 const noise = (n) => Uint8Array.from({ length: n }, (_, i) => (i * 7919 + (i >> 8)) & 255);
@@ -39,17 +39,18 @@ async function linksFor(owner, n, list) {
   const text = JSON.stringify({ room: ROOM, n, links: list });
   return { text, sig: await owner.sign(signed.links(text)) };
 }
-async function start(opts) {
+async function start(opts = {}) {
+  const v = opts.v ?? 2;
   const env = setup(opts), owner = await keys(), editor = await keys(), commenter = await keys();
   const links = [{ id: 'ed1', role: 'edit', pub: editor.pub, box: 'box-ed' }, { id: 'co1', role: 'comment', pub: commenter.pub, box: 'box-co' }];
   const o = env.connect();
-  const [welcome] = await o.say({ type: 'create', v: 2, owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(o))), links: await linksFor(owner, 1, links) });
+  const [welcome] = await o.say({ type: 'create', v, owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(o))), links: await linksFor(owner, 1, links) });
   assert.equal(welcome.type, 'welcome');
-  const join = async (link, k) => {
+  const join = async (link, k, jv = 2) => {
     const s = env.connect();
     const n = nonce(s);
-    const [box] = await s.say({ type: 'box', v: 2, link });
-    const [w] = await s.say({ type: 'auth', v: 2, link, sig: await k.sign(signed.auth(ROOM, n)) });
+    const [box] = await s.say({ type: 'box', v: jv, link });
+    const [w] = await s.say({ type: 'auth', v: jv, link, sig: await k.sign(signed.auth(ROOM, n)) });
     return { s, box, w };
   };
   const update = async (s, k, doc, bytes) => s.say({ type: 'update', doc, id: 1, data: b64(bytes), sig: await k.sign(signed.update(ROOM, doc, bytes)) });
@@ -266,6 +267,66 @@ test('a full room refuses more; too big a message is refused', async () => {
     assert.equal((await update(o, owner, 'script', new Uint8Array(8)))[0].code, 'room-full');
   } finally { LIMITS.room = was; }
   assert.equal((await o.say({ type: 'update', data: 'x'.repeat(LIMITS.message) }))[0].code, 'too-big');
+});
+
+// A message in parts, as a version 3 browser sends a long one.
+const inParts = (text, id = 1) => {
+  const of = Math.ceil(text.length / PART);
+  return Array.from({ length: of }, (_, i) => JSON.stringify({ type: 'part', id, i, of, text: text.slice(i * PART, (i + 1) * PART) }));
+};
+const together = (got) => got.filter((m) => m.type === 'part').map((m) => m.text).join('');
+
+test('a long change comes in parts, is kept in pieces, and goes out in parts or whole', async () => {
+  const { o, owner, editor, join, storage, room } = await start({ v: 3 });
+  const bytes = noise(LIMITS.message), data = b64(bytes);
+  const text = JSON.stringify({ type: 'update', doc: 'script', id: 7, data, sig: await owner.sign(signed.update(ROOM, 'script', bytes)) });
+  const parts = inParts(text);
+  assert.ok(text.length > LIMITS.message && parts.length > 2);
+  o.got.length = 0;
+  for (const p of parts.slice(0, -1)) await room.message(o, p);
+  assert.deepEqual(o.got, [], 'nothing until the last part');
+  await room.message(o, parts.at(-1));
+  assert.deepEqual(o.got, [{ type: 'ack', id: 7, seq: 1 }]);
+  assert.ok([...storage.m.keys()].filter((k) => k.startsWith('p:')).length > 1, 'kept in pieces');
+  assert.ok([...storage.m.values()].every((v) => JSON.stringify(v).length < 200_000), 'each stored value is small');
+  // A version 3 browser gets it back in parts, each short; a version 2 browser whole.
+  const three = await join('ed1', editor, 3);
+  const got = await three.s.say({ type: 'sync', since: 0 });
+  assert.ok(got.filter((m) => m.type === 'part').length > 2 && got.every((m) => JSON.stringify(m).length < PART + 200));
+  assert.equal(JSON.parse(together(got)).data, data);
+  assert.equal(got.at(-1).type, 'synced');
+  const two = await join('ed1', editor, 2);
+  const whole = await two.s.say({ type: 'sync', since: 0 });
+  assert.deepEqual(whole.map((m) => m.type), ['update', 'synced']);
+  assert.equal(whole[0].data, data);
+  // A whole copy after it drops its pieces.
+  const small = new Uint8Array([1]);
+  await o.say({ type: 'snapshot', doc: 'script', upTo: 1, id: 8, data: b64(small), sig: await owner.sign(signed.snapshot(ROOM, 'script', 1, small)) });
+  assert.deepEqual([...storage.m.keys()].filter((k) => k.startsWith('p:')), [], 'the pieces went with the change');
+});
+
+test('a part out of order is refused; a long message too long in all is refused without closing', async () => {
+  const { o, owner, room } = await start({ v: 3 });
+  const bytes = noise(LIMITS.message);
+  const text = JSON.stringify({ type: 'update', doc: 'script', id: 7, data: b64(bytes), sig: await owner.sign(signed.update(ROOM, 'script', bytes)) });
+  const parts = inParts(text);
+  assert.equal((await o.say({ type: 'part', id: 1, i: 1, of: parts.length, text: 'x' }))[0].code, 'part-lost');
+  await room.message(o, parts[0]);
+  o.got.length = 0;
+  await room.message(o, parts[2]);
+  assert.equal(o.got[0].code, 'part-lost', 'a part skipped');
+  const was = LIMITS.whole;
+  LIMITS.whole = text.length - 1;
+  try {
+    o.got.length = 0;
+    for (const p of parts) await room.message(o, p);
+    assert.deepEqual(o.got.map((m) => m.code), ['too-big']);
+    assert.equal(o.closed, null, 'still connected, to say so');
+  } finally { LIMITS.whole = was; }
+  // Parts only once signed in.
+  const { connect } = await start();
+  const s = connect();
+  assert.equal((await s.say(JSON.parse(parts[0])))[0].code, 'not-signed-in');
 });
 
 test('changes keep their order when they arrive together', async () => {

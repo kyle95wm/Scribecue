@@ -52,11 +52,15 @@ export const WRITERS = {
   review: ['owner', 'edit', 'review'],
 };
 export const ROLES = ['edit', 'review', 'comment'];
-// The version of the relay's protocol this browser speaks (relay/src/room.js, PROTOCOL).
-export const PROTOCOL = 2;
-// Whether the relay's challenge says a version older than this browser's: one from before
-// versions says none.
-export const relayTooOld = (m) => (Number.isSafeInteger(m.protocol) ? m.protocol : 1) < PROTOCOL;
+// The versions of the relay's protocol this browser speaks (relay/src/room.js, PROTOCOL).
+// From 3, a long message goes in parts of PART characters; a relay on 2 gets it whole.
+export const PROTOCOL = 3, PROTOCOL_MIN = 2, PART = 256_000;
+// The relay's version, from its challenge: one from before versions says none.
+const relayVersion = (m) => (Number.isSafeInteger(m.protocol) ? m.protocol : 1);
+// Whether the relay is older than any version this browser speaks.
+export const relayTooOld = (m) => relayVersion(m) < PROTOCOL_MIN;
+// The version to speak with this relay: the newest both know.
+export const versionWith = (m) => Math.min(PROTOCOL, relayVersion(m));
 
 async function newSigningKey() {
   const k = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);

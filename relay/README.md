@@ -37,7 +37,7 @@ Durable Objects with SQLite storage are on Cloudflare's free plan.
 
 | What | Limit |
 |---|---|
-| One message | 2 MB |
+| One message | 2 MB, or 24 MB sent in parts |
 | One project | 64 MB |
 | Links on at once | 30 |
 | Links turned off, kept for checking | 200 |

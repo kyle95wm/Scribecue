@@ -3,7 +3,7 @@
 // opens again without its password.
 // It loads without Yjs: the shared copy and the connection (shared.js, relayclient.js) load
 // only for a project that's shared.
-import { newOwner, newLink, openBox, signLinks, parseLink, linkUrl, newProjectKey, keysOf, MAX_KEYS, ROLES, PROTOCOL, relayTooOld, recoveryKey, openRecovery, readLinks, b64 } from './sharekeys.js';
+import { newOwner, newLink, openBox, signLinks, parseLink, linkUrl, newProjectKey, keysOf, MAX_KEYS, ROLES, versionWith, relayTooOld, recoveryKey, openRecovery, readLinks, b64 } from './sharekeys.js';
 
 // Scribecue's relay. A developer setting points elsewhere, such as ws://127.0.0.1:8787 for
 // one run locally with `npm run dev` in relay/.
@@ -264,7 +264,7 @@ export function fetchBox(url, room, id, { WebSocket = globalThis.WebSocket, wait
       try { m = JSON.parse(e.data); } catch { return; }
       if (m.type === 'challenge') {
         if (relayTooOld(m)) done(reject, new Error('old-relay'));
-        else ws.send(JSON.stringify({ type: 'box', v: PROTOCOL, link: id }));
+        else ws.send(JSON.stringify({ type: 'box', v: versionWith(m), link: id }));
       }
       else if (m.type === 'box') done(resolve, { role: m.role, box: m.box, links: m.links });
       else if (m.type === 'error') done(reject, new Error(m.code));

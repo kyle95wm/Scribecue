@@ -240,5 +240,6 @@ relay don't match, the header says **Update needed**, and nothing is lost.
 | "This link has been turned off" | Ask for a new link |
 | "This link has expired" | Ask for a new link |
 | "This link is incomplete" | Copy all of the link and try again |
+| "…full on the sharing service" or "…too big for the sharing service" | Your changes stay on this computer but don't reach the others. Start a new shared project from a saved copy |
 
 See also [Troubleshooting](TROUBLESHOOTING.md).

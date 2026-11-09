@@ -3,7 +3,7 @@
 // It reconnects by itself, keeps changes made while offline until the relay has them, and
 // now and then sends a whole document so the relay can drop the changes before it.
 import * as Y from '../vendor/yjs.js';
-import { b64, unb64, signed, signer, verifier, readLinks, projectCipher, unwrapKeys, keysOf, WRITERS, DEVICES, PROTOCOL, relayTooOld } from './sharekeys.js';
+import { b64, unb64, signed, signer, verifier, readLinks, projectCipher, unwrapKeys, keysOf, WRITERS, DEVICES, PART, relayTooOld, versionWith } from './sharekeys.js';
 export { fetchBox } from './sharing.js'; // kept here too, for the tests
 import { DOCS } from './shared.js';
 
@@ -13,6 +13,7 @@ const ENDS = new Set(['link-off', 'link-expired', 'room-deleted', 'no-room', 'ba
 // What waits while a block is being typed (see hold).
 const HELD = new Set(['script', 'review']);
 export const OUTDATED = new Set(['old-app', 'old-relay']);
+const MOST_PARTS = 400; // of a long message from the relay: about 100 million characters
 
 
 export class RelayClient {
@@ -176,6 +177,7 @@ export class RelayClient {
     if (this.stopped) return;
     this.#set('connecting');
     this.synced = false; this.inflight.clear(); this.#wake();
+    this.v = 0; this.partial = null; this.partId = 0;
     const ws = this.ws = new this.WebSocket(`${this.url.replace(/\/$/, '')}/rooms/${this.room}`);
     // Messages are handled one at a time, in order: checking a signature takes a moment.
     let queue = Promise.resolve(), heard = false;
@@ -199,16 +201,38 @@ export class RelayClient {
     };
   }
 
-  #send(m) { try { this.ws.send(JSON.stringify(m)); } catch { /* closed: sent again on reconnecting */ } }
+  // A long message goes in parts, to a relay that takes them (version 3 on).
+  #send(m) {
+    try {
+      const text = JSON.stringify(m);
+      if (text.length <= PART || this.v < 3) { this.ws.send(text); return; }
+      const id = ++this.partId, of = Math.ceil(text.length / PART);
+      for (let i = 0; i < of; i++) this.ws.send(JSON.stringify({ type: 'part', id, i, of, text: text.slice(i * PART, (i + 1) * PART) }));
+    } catch { /* closed: sent again on reconnecting */ }
+  }
+  // One part of a long message from the relay: the whole of it once the last arrives.
+  #part(m) {
+    if (!Number.isSafeInteger(m.i) || !Number.isSafeInteger(m.of) || m.of > MOST_PARTS || typeof m.text !== 'string') return null;
+    if (m.i === 0) this.partial = { id: m.id, of: m.of, texts: [] };
+    const p = this.partial;
+    if (!p || p.id !== m.id || p.of !== m.of || p.texts.length !== m.i) { this.partial = null; return null; }
+    p.texts.push(m.text);
+    if (p.texts.length < p.of) return null;
+    this.partial = null;
+    return p.texts.join('');
+  }
 
   async #message(ws, text) {
     if (ws !== this.ws) return;
     const m = JSON.parse(text);
+    if (m.type === 'part') { const whole = this.#part(m); if (whole) await this.#message(ws, whole); return; }
     if (m.type === 'challenge') {
       if (relayTooOld(m)) { this.#outdated('old-relay'); return; }
       const sig = await this.sign(signed.auth(this.room, m.nonce));
-      if (this.create && !this.created) this.#send({ type: 'create', v: PROTOCOL, owner: this.who.ownerPub, sig, links: this.create });
-      else this.#send({ type: 'auth', v: PROTOCOL, link: this.who.link, sig });
+      const v = versionWith(m);
+      if (this.create && !this.created) this.#send({ type: 'create', v, owner: this.who.ownerPub, sig, links: this.create });
+      else this.#send({ type: 'auth', v, link: this.who.link, sig });
+      this.v = v; // parts only once signed in
     } else if (m.type === 'welcome') {
       this.created = true;
       await this.#readLinks(m.links);
@@ -248,7 +272,9 @@ export class RelayClient {
       if (ENDS.has(m.code)) { this.#set('ended', m.code); this.stop(); return; }
       if (OUTDATED.has(m.code)) { this.#outdated(m.code); return; }
       // Refused, such as a full room: what was sent waits, and goes again with the next change.
+      // A long message missing a part, as when the relay slept between them, goes again now.
       this.inflight.clear(); this.failures++; this.#wake();
+      if (m.code === 'part-lost') { this.#schedule(); return; }
       this.onStatus(this.status, m.code);
     }
   }

@@ -28,9 +28,13 @@ export const ROLES = ['edit', 'review', 'comment'];
 // Which versions of the protocol this relay speaks. Browsers say theirs (`v`) when they ask
 // for a box, make a room or sign in; one outside this range is told which side to update.
 // 2: changes numbered by browser, links turned off sealed. Before it, browsers sent none.
-export const PROTOCOL = { min: 2, max: 2 };
+// 3: a message longer than PART goes in parts, both ways. Version 2 browsers still connect:
+// they send and get whole messages, as before.
+export const PROTOCOL = { min: 2, max: 3 };
+export const PART = 256_000; // characters in each part of a long message
 export const LIMITS = {
-  message: 2_000_000, // characters in one message
+  message: 2_000_000, // characters in one message, or one part
+  whole: 24_000_000, // characters in a message put together from parts
   room: 64 * 1024 * 1024, // bytes kept for one project
   presence: 4000, // characters in one presence message
   links: 30, // links on at once
@@ -85,6 +89,10 @@ export function validUpTo(upTo) {
 // Whether a link has expired by `now`.
 export const expired = (l, now) => l?.expires !== undefined && now >= l.expires;
 const seqKey = (n) => 'u:' + String(n).padStart(15, '0');
+// A long change is kept in pieces, as whole copies are: its record says how many.
+const piecesOf = (seq) => `p:${String(seq).padStart(15, '0')}:`;
+const pieceKey = (seq, i) => piecesOf(seq) + String(i).padStart(4, '0');
+const pieces = (data) => Array.from({ length: Math.ceil(data.length / CHUNK) }, (_, i) => data.slice(i * CHUNK, (i + 1) * CHUNK));
 
 // The owner's signed list of links, checked: { text, sig } → { n, links: Map(id → link) }.
 export async function readLinks(room, owner, signedLinks, verify) {
@@ -144,6 +152,7 @@ export class Room {
   constructor({ id, storage, sockets, verify = ed25519(), now = () => Date.now(), random = () => b64(crypto.getRandomValues(new Uint8Array(24))), mayCreate = async () => true }) {
     Object.assign(this, { id, storage, sockets, verify, now, random, mayCreate });
     this.queue = Promise.resolve();
+    this.partial = new Map(); // connection id → the parts of a long message so far
   }
 
   // A socket opens: it gets a challenge to sign.
@@ -160,14 +169,17 @@ export class Room {
     return run;
   }
 
-  async #handle(socket, text) {
+  // `whole`: a message put together from parts. One too long is refused, and the browser
+  // stays connected to say so.
+  async #handle(socket, text, whole = false) {
     let m;
     try {
-      if (typeof text !== 'string' || text.length > LIMITS.message) return fail(socket, 'too-big', true);
+      if (typeof text !== 'string' || text.length > (whole ? LIMITS.whole : LIMITS.message)) return fail(socket, 'too-big', !whole);
       m = JSON.parse(text);
-      if (!m || typeof m.type !== 'string') throw new Error();
+      if (!m || typeof m.type !== 'string' || (whole && m.type === 'part')) throw new Error();
     } catch { return fail(socket, 'bad-message'); }
     const state = socket.state || {};
+    if (m.type === 'part') return this.#part(socket, state, m);
     if (['box', 'create', 'auth'].includes(m.type)) {
       const v = Number.isSafeInteger(m.v) ? m.v : 1;
       if (v < PROTOCOL.min) return fail(socket, 'old-app', true);
@@ -195,6 +207,22 @@ export class Room {
     } catch (e) {
       return fail(socket, 'bad-message', false, String(e?.message || e).slice(0, 200));
     }
+  }
+
+  // One part of a long message, in order. The last puts it together and handles it.
+  #part(socket, state, m) {
+    if (!state.role) return fail(socket, 'not-signed-in', true);
+    if (!Number.isSafeInteger(m.i) || !Number.isSafeInteger(m.of) || m.of < 2 || m.i < 0 || m.i >= m.of || typeof m.text !== 'string') return fail(socket, 'bad-message');
+    if (m.of > Math.ceil(LIMITS.whole / PART)) { this.partial.delete(state.sid); return m.i === 0 ? fail(socket, 'too-big') : undefined; }
+    let p = this.partial.get(state.sid);
+    if (m.i === 0) this.partial.set(state.sid, p = { id: m.id, of: m.of, texts: [], size: 0 });
+    // A part missing, as when the room slept between them: the browser sends it all again.
+    if (!p || p.id !== m.id || p.of !== m.of || p.texts.length !== m.i) { this.partial.delete(state.sid); return fail(socket, 'part-lost'); }
+    p.texts.push(m.text); p.size += m.text.length;
+    if (p.size > LIMITS.whole) { this.partial.delete(state.sid); return fail(socket, 'too-big'); }
+    if (p.texts.length < p.of) return;
+    this.partial.delete(state.sid);
+    return this.#handle(socket, p.texts.join(''), true);
   }
 
   async #links(meta) {
@@ -226,7 +254,7 @@ export class Room {
     const now = this.now();
     await this.storage.put('meta', { owner: m.owner, links: m.links, n: links.n, seq: 0, bytes: 0, created: now, touched: now });
     await this.storage.setAlarm(now + LIMITS.idle);
-    socket.state = { role: 'owner', link: 'owner', pub: m.owner, sid: this.random().slice(0, 12) };
+    socket.state = { role: 'owner', link: 'owner', pub: m.owner, sid: this.random().slice(0, 12), v: m.v };
     send(socket, { type: 'welcome', role: 'owner', links: m.links, seq: 0 });
   }
 
@@ -242,7 +270,7 @@ export class Room {
       ({ role, pub, expires } = l);
     }
     if (typeof m.sig !== 'string' || !state.nonce || !(await this.verify(pub, unb64(m.sig), signed.auth(this.id, state.nonce)))) return fail(socket, 'bad-signature', true);
-    socket.state = { role, link: m.link, pub, ...(expires !== undefined ? { expires } : {}), sid: this.random().slice(0, 12) };
+    socket.state = { role, link: m.link, pub, ...(expires !== undefined ? { expires } : {}), sid: this.random().slice(0, 12), v: m.v };
     await this.#touch(meta);
     send(socket, { type: 'welcome', role, links: meta.links, seq: meta.seq });
   }
@@ -259,7 +287,11 @@ export class Room {
       send(socket, { type: 'snapshot', doc, upTo: s.upTo, by: s.by, ...numbering(s), sig: s.sig, data: [...parts.values()].join('') });
     }
     const updates = await this.storage.list({ start: seqKey(since + 1), end: 'u;' });
-    for (const [key, u] of updates) send(socket, { type: 'update', seq: Number(key.slice(2)), doc: u.doc, by: u.by, ...numbering(u), sig: u.sig, data: u.data });
+    for (const [key, u] of updates) {
+      const seq = Number(key.slice(2));
+      const data = u.parts ? [...(await this.storage.list({ prefix: piecesOf(seq) })).values()].join('') : u.data;
+      send(socket, { type: 'update', seq, doc: u.doc, by: u.by, ...numbering(u), sig: u.sig, data });
+    }
     send(socket, { type: 'synced', seq: meta.seq });
   }
 
@@ -283,6 +315,7 @@ export class Room {
   // A connection closed: the others stop showing it.
   close(socket) {
     const sid = socket.state?.sid;
+    this.partial.delete(sid);
     if (!sid || !socket.state.role) return;
     for (const other of this.#others(socket)) send(other, { type: 'gone', sid });
   }
@@ -296,7 +329,14 @@ export class Room {
     const seq = meta.seq + 1;
     meta.seq = seq; meta.bytes += data.length;
     await this.#touch(meta, false);
-    await this.storage.put({ [seqKey(seq)]: { doc: m.doc, by: state.link, ...num, sig: m.sig, data: m.data, size: data.length }, meta });
+    const record = { doc: m.doc, by: state.link, ...num, sig: m.sig, size: data.length };
+    if (m.data.length <= CHUNK) record.data = m.data;
+    else {
+      const all = pieces(m.data);
+      record.parts = all.length;
+      await this.#putAll(Object.fromEntries(all.map((t, i) => [pieceKey(seq, i), t])));
+    }
+    await this.storage.put({ [seqKey(seq)]: record, meta });
     const out = { type: 'update', seq, doc: m.doc, by: state.link, ...num, sig: m.sig, data: m.data };
     for (const other of this.#others(socket)) send(other, out);
     send(socket, { type: 'ack', id: m.id ?? null, seq });
@@ -313,15 +353,19 @@ export class Room {
     if (typeof m.sig !== 'string' || !(await this.verify(state.pub, unb64(m.sig), signed.snapshot(this.id, m.doc, m.upTo, data, num.dev, num.n)))) return fail(socket, 'bad-signature');
     const gone = [], drop = await this.storage.list({ start: seqKey(1), end: seqKey(m.upTo + 1) });
     let freed = old?.size || 0;
-    for (const [key, u] of drop) if (u.doc === m.doc) { gone.push(key); freed += u.size; }
+    for (const [key, u] of drop) {
+      if (u.doc !== m.doc) continue;
+      gone.push(key); freed += u.size;
+      for (let i = 0; i < (u.parts || 0); i++) gone.push(pieceKey(Number(key.slice(2)), i));
+    }
     if (meta.bytes - freed + data.length > LIMITS.room) return fail(socket, 'room-full');
     if (old) for (let i = 0; i < old.parts; i++) gone.push(`snap:${m.doc}:${String(i).padStart(4, '0')}`);
-    const parts = {};
-    for (let i = 0; i * CHUNK < m.data.length; i++) parts[`snap:${m.doc}:${String(i).padStart(4, '0')}`] = m.data.slice(i * CHUNK, (i + 1) * CHUNK);
+    const parts = Object.fromEntries(pieces(m.data).map((t, i) => [`snap:${m.doc}:${String(i).padStart(4, '0')}`, t]));
     // Old parts first: the new ones may reuse their keys.
     for (let i = 0; i < gone.length; i += 128) await this.storage.delete(gone.slice(i, i + 128));
     meta.bytes += data.length - freed;
-    await this.storage.put({ ...parts, ['snap:' + m.doc]: { upTo: m.upTo, by: state.link, ...num, sig: m.sig, size: data.length, parts: Object.keys(parts).length }, meta });
+    await this.#putAll(parts);
+    await this.storage.put({ ['snap:' + m.doc]: { upTo: m.upTo, by: state.link, ...num, sig: m.sig, size: data.length, parts: Object.keys(parts).length }, meta });
     send(socket, { type: 'ack', id: m.id ?? null, seq: m.upTo });
   }
 
@@ -350,6 +394,12 @@ export class Room {
     send(socket, { type: 'ack', id: m.id ?? null, seq: meta.seq });
   }
 
+  // Storage takes at most 128 keys at a time.
+  async #putAll(values) {
+    const all = Object.entries(values);
+    for (let i = 0; i < all.length; i += 100) await this.storage.put(Object.fromEntries(all.slice(i, i + 100)));
+  }
+
   async #deleteRoom(socket, state) {
     if (state.role !== 'owner') return fail(socket, 'not-allowed');
     await this.storage.deleteAll();
@@ -375,7 +425,16 @@ export class Room {
   }
 }
 
-function send(socket, m) { try { socket.send(JSON.stringify(m)); } catch { /* it closed */ } }
+// A long message goes in parts to a browser that takes them (version 3 on), whole to others.
+let partId = 0;
+function send(socket, m) {
+  try {
+    const text = JSON.stringify(m);
+    if (text.length <= PART || !(socket.state?.v >= 3)) { socket.send(text); return; }
+    const id = ++partId, of = Math.ceil(text.length / PART);
+    for (let i = 0; i < of; i++) socket.send(JSON.stringify({ type: 'part', id, i, of, text: text.slice(i * PART, (i + 1) * PART) }));
+  } catch { /* it closed */ }
+}
 function fail(socket, code, close = false, detail) {
   send(socket, { type: 'error', code, ...(detail ? { detail } : {}) });
   if (close) try { socket.close(4000, code); } catch { /* it closed */ }

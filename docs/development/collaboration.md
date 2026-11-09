@@ -198,6 +198,7 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   from it counts any more.
 - The relay and browsers check each other's protocol version. When they don't match, the
   browser stops trying, the header tag says **Update needed**, and the project stays.
+- A message too long for one goes in parts, so a long script shares like a short one.
 - That also adds a project key. Changes are sealed with the newest key and start with its
   number. The signed list carries the keys each link that's on lacks, encrypted with that
   link's wrapping key. The link turned off never gets them. A change sealed with a key not

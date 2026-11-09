@@ -112,6 +112,7 @@ All are JSON over one WebSocket per open project.
 | `links` | `id`, `links` (owner only) |
 | `presence` | `data` |
 | `delete-room` | (owner only) |
+| `part` | `id`, `i`, `of`, `text` (version 3, either way) |
 
 | From the relay | Fields |
 |---|---|
@@ -129,8 +130,16 @@ All are JSON over one WebSocket per open project.
 
 ## Versions
 
-The relay and each browser speak a version of this protocol. It's now 2: changes numbered
-by browser, and links turned off sealed.
+The relay and each browser speak a version of this protocol. It's now 3.
+
+- 2: changes numbered by browser, and links turned off sealed.
+- 3: a message longer than 256,000 characters goes as `part` messages, in order, both
+  ways. The relay puts them together and handles the whole. It keeps a long change in
+  pieces, as it does whole copies. A part out of order gets `part-lost`, and the browser
+  sends it all again. Too long in all gets `too-big`, and the socket stays open.
+- Each side speaks the newest version both know. A version 2 browser, or a browser with a
+  version 2 relay, sends and gets whole messages, as before. So version 3 needs no update
+  on either side first.
 
 - The relay's challenge says its version (`protocol`). Each browser says its own (`v`)
   when it asks for a box, makes a room or signs in. One that says none is version 1.
@@ -154,7 +163,8 @@ by browser, and links turned off sealed.
 - A change or snapshot: the role may write that document, and the signature checks out.
 - A list of links: it's from the owner, newer than the last, and within the limits.
 - A snapshot: its point isn't before the last snapshot's. The changes before it go.
-- Size: 2 MB a message, 64 MB a project, 30 links on and 200 off.
+- Size: 2 MB a message or part, 24 MB put together from parts, 64 MB a project, 30 links
+  on and 200 off.
 - Rate: about 120 connections a minute and 10 new projects an hour from one address.
 
 The relay is trusted only to pass things on and to keep them. Everything it checks,
