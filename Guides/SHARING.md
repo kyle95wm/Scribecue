@@ -128,8 +128,9 @@ To make one:
 4. Keep the link and the password somewhere safe, apart from each other, such as a password
    manager.
 
-To use it, open the link and type its password. The project opens with you as its owner,
-with all its links.
+To use it, open the link. Scribecue asks you to **Take back this project**. Type its
+password and click **Take back project**. The project opens with you as its owner, with all
+its links.
 
 A recovery link made in Docker opens the web version. To open it in Docker instead, change
 the start of the link, before the `#`, to your Docker address, such as `http://localhost:8484/`.
@@ -225,6 +226,7 @@ relay don't match, the header says **Update needed**, and nothing is lost.
 | **Connecting** or **Offline** in the header | Check you're online. Your changes are kept, and sent once it connects |
 | **Update needed** | Update Scribecue and open the project again. Your changes are kept |
 | "That password doesn't open this link" | Check the password with the person who sent it |
+| "That isn't this recovery link's password" | Use the password you chose when making the recovery link |
 | "This link has been turned off" | Ask for a new link |
 | "This link has expired" | Ask for a new link |
 | "This link is incomplete" | Copy all of the link and try again |
