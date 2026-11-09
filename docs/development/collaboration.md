@@ -232,6 +232,9 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
 - The Docker copy uses the same relay. It runs at `localhost`, which the relay accepts, and
   `nginx.conf` allows it in the CSP. A copy served from another address needs that address
   added to `ORIGINS` in `relay/wrangler.toml`.
+- Links made at a localhost address use the web version's address (`linkBase` in
+  `sharing.js`), so others can open them. Not with `scribecue.relay` set: the web version
+  wouldn't find the project on another relay.
 
 ### Share dialog
 

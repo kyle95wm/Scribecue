@@ -894,7 +894,7 @@ const sharingTools = {
     const record = await sharedLib.startSharing(S.projectId, sharedLib.relayUrl(), passwords, undefined, expires);
     sharedLib.setShare(S.projectId, record);
     await startShared();
-    return sharedLib.linksOf(record, location.href);
+    return sharedLib.linksOf(record, sharedLib.linkBase(location.href));
   },
   async join(url, password) {
     const record = await sharedLib.joinShare(new URL(url).hash, password, sharedLib.relayUrl());
@@ -1004,13 +1004,14 @@ if (sharedOn) {
       shareUi = ui.shareDialog({
         $, toast,
         record: () => sharedLib.getShare(S.projectId),
-        links: () => { const r = sharedLib.getShare(S.projectId); return r ? sharedLib.linksOf(r, location.href) : []; },
+        links: () => { const r = sharedLib.getShare(S.projectId); return r ? sharedLib.linksOf(r, sharedLib.linkBase(location.href)) : []; },
         status: () => relay?.status || 'connecting',
         name: () => savedName(), setName: (v) => saveName(v),
         make: sharingTools.make, turnOff: sharingTools.turnOff, stop: sharingTools.stop, leave: sharingTools.leave,
         googleKey: () => (shared ? shared.googleKey() : null), shareGoogleKey: sharingTools.shareGoogleKey,
         // When this person's own link stops working, if it does.
-        recovery: () => { const r = sharedLib.getShare(S.projectId); return r ? sharedLib.recoveryUrl(r, location.href) : null; },
+        recovery: () => { const r = sharedLib.getShare(S.projectId); return r ? sharedLib.recoveryUrl(r, sharedLib.linkBase(location.href)) : null; },
+        webLinks: () => sharedLib.linksGoToWeb(location.href),
         makeRecovery: sharingTools.makeRecovery, turnOffRecovery: sharingTools.turnOffRecovery, recoveryMin: sharedLib.RECOVERY_MIN,
         myExpiry: () => (myShare && myShare.link !== 'owner' ? relay?.links?.links.get(myShare.link)?.expires ?? null : null),
         maxDays: sharedLib.MAX_DAYS,
