@@ -61,3 +61,14 @@ test('messages show in a slice under the header, not in the footer', () => {
   assert.ok(!footer.includes('id="toast"'));
   assert.ok(footer.includes('id="announce"'), 'screen readers still hear messages');
 });
+
+test('a running job shows its progress and Stop in a slice under the header, above messages', () => {
+  const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
+  const at = html.indexOf('id="jobBox"');
+  assert.ok(at > html.indexOf('</header>') && at < html.indexOf('<main>'), 'the job slice sits between the header and the main area');
+  assert.ok(at < html.indexOf('id="toast"'), 'messages show under a running job');
+  const box = html.slice(at, html.indexOf('</div>', at));
+  for (const id of ['jobText', 'jobBar', 'jobStop']) assert.ok(box.includes(`id="${id}"`), id);
+  const footer = html.slice(html.indexOf('<footer class="status">'), html.indexOf('</footer>'));
+  assert.ok(!footer.includes('id="jobBox"'));
+});

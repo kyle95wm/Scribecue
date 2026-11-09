@@ -634,7 +634,7 @@ function checkVoice() {
   if (!uri) { missingSaid = ''; return; }
   if (!tts.on || missingSaid === uri) return;
   missingSaid = uri;
-  // Short enough for the bottom bar: Settings has the whole story.
+  // Short enough for one message: Settings has the whole story.
   hooks.toast(`${voiceLabel(uri)} isn’t available here${currentVoice() ? `, so ${currentVoice().name} is reading` : ''}. See Settings, under Text to speech`);
 }
 // Who reads with a paid voice, Google or Amazon, or '' for any other voice: every new reading

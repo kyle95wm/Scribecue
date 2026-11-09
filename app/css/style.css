@@ -662,13 +662,19 @@ body.mode-record { grid-template-rows: 44px minmax(0, 1fr) 290px 28px; }
   border-top: 1px solid var(--line);
   font-size: 12px;
 }
-/* Messages: a slice that drops in under the header, over the top of the list and video. */
-#toast {
+/* Messages and running jobs: slices that drop in under the header, over the top of the
+   list and video. A job's slice stays until it ends; messages show under it. */
+.slices {
   position: fixed;
   top: 44px;
   left: 0;
   right: 0;
   z-index: 15;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none; /* clicks reach what's under it, unless a slice does something */
+}
+#toast {
   padding: 4px 16px;
   background: var(--accent);
   color: var(--bg);
@@ -678,17 +684,46 @@ body.mode-record { grid-template-rows: 44px minmax(0, 1fr) 290px 28px; }
   overflow: hidden;
   text-overflow: ellipsis;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
-  pointer-events: none; /* clicks reach what's under it, unless the message does something */
+  pointer-events: none;
   transition: opacity 0.3s, transform 0.3s;
 }
 #toast.fade { opacity: 0; transform: translateY(-8px); }
+.jobbox:not([hidden]) + #toast { border-top: 1px solid color-mix(in srgb, var(--bg) 25%, transparent); }
 #toast.act.fade { pointer-events: none; }
 #toast.act { pointer-events: auto; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { #toast { transition: opacity 0.3s; } #toast.fade { transform: none; } }
-/* A job running in the background, such as fitting speeds to a script just opened. */
-.jobbox { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; color: var(--text); white-space: nowrap; }
+/* A job running in the background, such as updating all timings: the same slice as a
+   message, with its progress and Stop. */
+.jobbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 4px 16px;
+  background: var(--accent);
+  color: var(--bg);
+  font: 600 13px/18px var(--sans);
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+}
 .jobbox[hidden] { display: none; }
-.jobbox .jobbar { width: 120px; }
+#jobText { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.jobbox .jobbar {
+  flex-shrink: 0;
+  width: 160px;
+  height: 8px;
+  appearance: none;
+  border: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg) 25%, transparent);
+}
+.jobbox .jobbar::-webkit-progress-bar { background: transparent; }
+.jobbox .jobbar::-webkit-progress-value { background: var(--bg); }
+.jobbox .jobbar::-moz-progress-bar { background: var(--bg); }
+#jobStop { flex-shrink: 0; padding: 0 10px; font: 600 12px/18px var(--sans); color: var(--bg); background: transparent; border-color: var(--bg); }
+#jobStop:hover { color: var(--accent); background: var(--bg); }
 /* The mix between the video's sound and the readings, under the video. */
 .mixbox { display: inline-flex; align-items: center; gap: 6px; font: 11px var(--mono); color: var(--dim); white-space: nowrap; }
 .mixbox[hidden] { display: none; }

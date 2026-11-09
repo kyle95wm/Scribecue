@@ -3223,12 +3223,12 @@ function busy(btn, bar, on) {
 }
 let measuring = false;
 // Update all timings and Fit speeds to timings run in the background, one at a time, so
-// work can carry on while they do. Their progress shows in the bottom bar, with Stop,
+// work can carry on while they do. Their progress shows in a slice under the header, with Stop,
 // wherever they were started, and in the text to speech settings too.
 const jobBox = $('jobBox'), jobBar = $('jobBar'), jobText = $('jobText');
 let jobActive = false;
 async function asJob(fn) {
-  if (jobActive) return toast('Another job is running. Wait for it to finish, or press Stop in the bottom bar');
+  if (jobActive) return toast('Another job is running. Wait for it to finish, or press Stop at the top');
   jobActive = true;
   try { return await fn(); } finally { jobActive = false; jobBox.hidden = true; }
 }
@@ -3457,7 +3457,7 @@ ttsFitAll.addEventListener('click', () => asJob(() => fitAllSpeeds()));
 
 // Opening a script in Write mode with text to speech on: ask what to do with its
 // timings, or do what was chosen before. It runs in the background, with its progress
-// and Stop in the bottom bar, so the script can be worked on meanwhile.
+// and Stop under the header, so the script can be worked on meanwhile.
 const importDlg = $('importDlg');
 function runImportChoice(choice) {
   if (choice !== 'fit' && choice !== 'ends') return;
@@ -3819,7 +3819,7 @@ for (const stop of [ttsMixStop, ttsExtStop]) {
   });
 }
 ttsAllStop.addEventListener('click', () => { measuring = false; stopSpeech(); });
-// A job carries on when the settings close: it shows in the bottom bar.
+// A job carries on when the settings close: it shows under the header.
 $('ttsDlg').addEventListener('close', () => { if (!jobActive) { ttsAllStatus.textContent = ''; ttsFitStatus.textContent = ''; ttsMakeStatus.textContent = ''; } });
 
 // A block's own speed. Setting it to normal leaves the block without one.
