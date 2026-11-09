@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.96.3",
+    "date": "2026-11-09",
+    "notes": "## Messages at the top\n\n- Messages now appear in an orange bar at the top, just under the header, instead of at the bottom of the window.\n- They still disappear after a few seconds.\n- You can click through a message to what's under it, unless the message itself is a link."
+  },
+  {
     "version": "0.96.2",
     "date": "2026-11-09",
     "notes": "## Recovery links\n\n- Opening a recovery link now says Take back this project, and asks for the recovery password.\n- Once you're in, Scribecue says you're the project's owner again.\n- A link that's turned off or has expired says so as soon as you open it, before you type a password.\n- Sharing is still being tested."
