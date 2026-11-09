@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.97.0",
+    "date": "2026-11-09",
+    "notes": "## Saving shared projects\n\n- In a project shared with you, there's no Save or Export. Your changes reach the project as you make them.\n- Only the project's owner saves it to a file or exports it.\n- Ctrl/Cmd+S and Ctrl/Cmd+E say so instead.\n- Sharing is still being tested."
+  },
+  {
     "version": "0.96.3",
     "date": "2026-11-09",
     "notes": "## Messages at the top\n\n- Messages now appear in an orange bar at the top, just under the header, instead of at the bottom of the window.\n- They still disappear after a few seconds.\n- You can click through a message to what's under it, unless the message itself is a link."
