@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.99.0",
+    "date": "2026-11-09",
+    "notes": "## Sharing for everyone\n\n- Anyone can now share a project. Click **Share** in the header, choose a kind of link and set a password.\n- There is nothing to turn on first.\n- See the sharing guide for the kinds of link, privacy and limits."
+  },
+  {
     "version": "0.98.6",
     "date": "2026-11-09",
     "notes": "## Shared projects: no lost changes\n\n- If someone deletes a block before your change to it reaches them, your version now waits in Pending review. Accept it to bring the block back for everyone.\n- Opening a shared project after looking at one of its QC packages now closes the package's review.\n- Sharing is still being tested."
