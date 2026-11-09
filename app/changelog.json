@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.96.2",
+    "date": "2026-11-09",
+    "notes": "## Recovery links\n\n- Opening a recovery link now says Take back this project, and asks for the recovery password.\n- Once you're in, Scribecue says you're the project's owner again.\n- A link that's turned off or has expired says so as soon as you open it, before you type a password.\n- Sharing is still being tested."
+  },
+  {
     "version": "0.96.1",
     "date": "2026-11-09",
     "notes": "## Sharing from Docker\n\n- Share links and recovery links made in Docker now open the web version, so anyone you send them to can use them.\n- You stay the project's owner in Docker.\n- To open a recovery link in Docker, change the start of the link, before the #, to your Docker address.\n- Sharing is still being tested."
