@@ -153,10 +153,10 @@ the start of the link, before the `#`, to your Docker address, such as `http://l
 
 | To | Click | What happens |
 |---|---|---|
-| Stop one link | **Turn off**, in Share | It stops working. People using it keep their copy |
+| Stop one link | **Turn off**, in Share | It stops working. The project closes for people using it, and nothing of it stays on their computer |
 | Let a link expire | Set **Expires after** when making it | It stops working then, as if turned off. Its row in Share says when |
 | Replace a link | **Turn off**, then **Make link** | Only people with the new link and password can open it |
-| Stop sharing | **Stop sharing**, in Share | Every link stops working, and the sharing service's copy is deleted. Your copy stays |
+| Stop sharing | **Stop sharing**, in Share | Every link stops working, and the sharing service's copy is deleted. The project closes for everyone else. Your copy stays |
 | Leave someone's project | **Leave**, in Share | The project is removed from this browser. To keep it as your own, click **Keep a copy here** first |
 | Work on something else | **New**, or open another project | The shared project stays in this browser. Open its link to come back to it |
 

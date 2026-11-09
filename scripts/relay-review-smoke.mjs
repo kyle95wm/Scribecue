@@ -206,6 +206,19 @@ try {
   assert.equal(await b.js(`Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.'))`), false, 'no link kept');
   assert.equal(await b.js(`(JSON.parse(localStorage.getItem('scribecue.v1')||'{}').cues||[]).length`), 0, 'no blocks kept');
 
+  // B opens the comment link again, and A stops sharing: the project closes for B, and
+  // nothing of it stays in B's browser. A keeps its copy.
+  await joinWith(b, comment, 'grey door');
+  await a.click('#shareBtn');
+  await a.js(`window.confirm=()=>true;document.getElementById('shareStop').click();true`);
+  await a.wait(`!window.scribecueRelay && !Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.'))`, 'A stopped sharing');
+  await a.js(`document.getElementById('shareClose').click();true`);
+  await b.wait(`!window.scribecueRelay && document.querySelectorAll('#list .row').length===0`, 'the project closes for B');
+  assert.match(await b.js(`document.getElementById('toast').textContent`), /owner stopped sharing/);
+  assert.equal(await b.js(`Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.')) || (JSON.parse(localStorage.getItem('scribecue.v1')||'{}').cues||[]).length>0`), false, 'nothing of it stays');
+  assert.equal(await b.js(`document.querySelector('#modeSw [data-mode=write]').disabled`), false, 'B is no longer limited');
+  assert.equal(await a.js(`document.querySelectorAll('#list .row').length`), 1500, 'A keeps its copy');
+
   console.log(`Relay review smoke passed at 6× with 1,500 blocks: a suggestion reached A in ${Math.round(suggestMs)} ms; leaving without a copy took ${Math.round(leaveMs)} ms; A ${await a.report()}; B ${await b.report()}`);
 } finally { a.ws.close(); b.ws.close(); }
 process.exit(0);

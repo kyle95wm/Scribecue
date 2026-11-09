@@ -207,18 +207,19 @@ try {
   assert.equal(await b.js(`import(${JSON.stringify(new URL('js/tts.js', site).href)}).then(m=>m.tts.google.length)`), 0, 'B has no Google voices now');
   await a.js(`document.getElementById('shareClose').click();true`);
 
-  // A turns the link off: B is told, keeps its copy, and is no longer connected. A's list
+  // A turns the link off: B is told, the project closes for B, and B is no longer connected. A's list
   // says where B's changes stop: B's last number.
   const [bDev, bN] = await b.js(`[scribecueRelay.dev, scribecueRelay.n]`);
   await a.click('#shareBtn');
   await a.js(`[...document.querySelectorAll('#shareLinks button')].find(b=>b.textContent==='Turn off').click();true`);
   await b.wait(`!window.scribecueRelay && document.getElementById('shareState').hidden`, 'B is let go');
-  assert.equal(await b.js(`document.querySelectorAll('#list .row').length`), 1500, 'B keeps its copy');
+  await b.wait(`document.querySelectorAll('#list .row').length===0`, 'the project closes for B');
+  assert.equal(await b.js(`Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.')) || (JSON.parse(localStorage.getItem('scribecue.v1')||'{}').cues||[]).length>0`), false, 'nothing of it stays');
   const offLink = `JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>k.startsWith('scribecue.share.')))).links.find(l=>l.off)`;
   assert.equal((await a.js(offLink)).upTo[bDev], bN, 'the link turned off stops at B’s last number');
   // Then A sends its whole copy and seals the link: nothing more from it counts.
   await a.wait(`${offLink}.sealed===true && scribecueRelay.links.links.get(${offLink}.id).sealed===true`, 'A seals the link');
-  // A makes a new link and B opens it: B starts again from the relay's copy, not the one it kept.
+  // A makes a new link and B opens it: B starts again from the relay's copy.
   await sleep(1800);
   await a.fill('#sharePw-edit', 'red door');
   await a.click('#sharePw-edit ~ button');
@@ -269,7 +270,8 @@ try {
   t0 = performance.now();
   await b.wait(`!window.scribecueRelay && /link to this project has expired/.test(document.getElementById('toast').textContent)`, 'B is told its link expired');
   const expiredMs = performance.now() - t0;
-  assert.equal(await b.js(`document.querySelectorAll('#list .row').length`), 1500, 'B keeps its copy');
+  await b.wait(`document.querySelectorAll('#list .row').length===0`, 'the project closes for B');
+  assert.equal(await b.js(`Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.')) || (JSON.parse(localStorage.getItem('scribecue.v1')||'{}').cues||[]).length>0`), false, 'nothing of it stays');
   await a.wait(`JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>k.startsWith('scribecue.share.')))).links.filter(l=>!l.off).length===0`, 'A turns the expired link off');
   await a.wait(`document.getElementById('sharePw-edit')`, 'A’s dialog offers a new link');
   assert.equal(await a.js(`scribecueRelay.cipher.count`), 4, 'a new project key once it expired');

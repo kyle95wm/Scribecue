@@ -66,7 +66,7 @@ export function shareDialog(deps) {
         catch { url.focus(); deps.toast('Select the link and copy it'); }
       });
       const off = document.createElement('button'); off.textContent = 'Turn off';
-      off.dataset.tip = 'The link stops working. People using it keep the copy they have';
+      off.dataset.tip = 'The link stops working. The project closes for people using it';
       off.addEventListener('click', () => run(() => deps.turnOff(link.id)));
       line.append(url, copy, off);
       if (link.expires) {
@@ -220,7 +220,7 @@ export function shareDialog(deps) {
   $('shareGoogleKey').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); shareKey(); } });
   $('shareClose').addEventListener('click', () => dlg.close());
   $('shareStop').addEventListener('click', () => {
-    if (!confirm('Stop sharing this project? Every link stops working, and the copy on the sharing service is deleted. Your copy stays here.')) return;
+    if (!confirm('Stop sharing this project? Every link stops working, the project closes for everyone else, and the copy on the sharing service is deleted. Your copy stays here.')) return;
     run(() => deps.stop());
   });
   // Leaving: without a copy unless asked for, so the project doesn't stay on a computer by

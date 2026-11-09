@@ -767,13 +767,22 @@ async function startRelay(record, copy, fresh, seq, seen) {
       if (status === 'old-app') toast('Update Scribecue to keep working on this shared project. Your changes stay here');
       if (status === 'old-relay') toast('The sharing service needs updating before this project connects. Your changes stay here');
       if (status === 'ended') {
-        toast(detail === 'room-deleted' ? 'This project is no longer shared. Your copy stays here'
-          : detail === 'link-expired' ? 'Your link to this project has expired. Your copy stays here'
-            : 'This project is no longer shared with you. Your copy stays here');
         sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
-        // A plain project from now on: no limits, no suggestions.
         myShare = null; sharedQcSource(); syncQcPermission(); showAutosave(); endLive();
-        queueMicrotask(startShared); // a project of its own from now on
+        if (owner) {
+          // The owner's own project, stopped from another of their browsers: it stays here,
+          // as a plain project.
+          toast('This project is no longer shared. Your copy stays here');
+          queueMicrotask(startShared);
+        } else {
+          // Someone else's: it closes, and nothing of it stays in this browser.
+          stopRelay();
+          newProject(false);
+          undoStack.length = 0; redoStack.length = 0;
+          toast(detail === 'room-deleted' ? 'The owner stopped sharing this project. It’s no longer in this browser'
+            : detail === 'link-expired' ? 'Your link to this project has expired. The project is no longer in this browser'
+              : 'This project is no longer shared with you. It’s no longer in this browser');
+        }
       }
       window.dispatchEvent(new CustomEvent('scribecue-relay', { detail: { status, detail } }));
     },
@@ -955,7 +964,7 @@ const sharingTools = {
     const id = S.projectId, next = sharedLib.removeLink(sharedLib.getShare(id), linkId, upToDate());
     sharedLib.setShare(id, next);
     sendNewLinks(id, next);
-    toast('Link turned off. It no longer opens this project');
+    toast('Link turned off. The project closes for anyone using it');
   },
   // The recovery link, made or turned off.
   async makeRecovery(password) {
