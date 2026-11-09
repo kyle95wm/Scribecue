@@ -26,12 +26,20 @@ export function dropShare(project, storage = globalThis.localStorage) {
   try { storage.removeItem(key(project)); } catch { /* blocked */ }
 }
 
+// When a link made now stops working, `days` from now; null for never.
+export const DAY = 86_400_000;
+export const MAX_DAYS = 365;
+export const expiryIn = (days, now = Date.now()) => (Number.isInteger(days) && days >= 1 && days <= MAX_DAYS ? now + days * DAY : null);
+const dated = (link, expires) => (Number.isSafeInteger(expires) ? { ...link, expires } : link);
+export const isExpired = (l, now = Date.now()) => Number.isSafeInteger(l.expires) && now >= l.expires;
+
 // Starts sharing a project: a room, and a link for each role given a password.
 // `passwords`: { edit, review, comment }, each a password or left out for no link.
-export async function startSharing(project, relay, passwords, opts) {
+// `expires`: for each role, when its link stops working, if it does.
+export async function startSharing(project, relay, passwords, opts, expires = {}) {
   const owner = await newOwner(project);
   const links = [];
-  for (const role of ROLES) if (typeof passwords[role] === 'string') links.push(await newLink(owner, role, passwords[role], opts));
+  for (const role of ROLES) if (typeof passwords[role] === 'string') links.push(dated(await newLink(owner, role, passwords[role], opts), expires[role]));
   return { relay, room: owner.room, link: 'owner', role: 'owner', priv: owner.ownerPriv, ownerPub: owner.ownerPub, projectKey: owner.projectKey, keys: owner.keys, ow: owner.ow, project, links, n: 1, created: false };
 }
 // One link per role: a new one for a role replaces the old, which stops working. Each change
@@ -56,15 +64,31 @@ function withNewKey(record) {
 // did, so nothing more from them counts, whatever its number.
 export const unsealed = (record) => record.links.filter((l) => l.off && l.upTo !== null && !l.sealed).map((l) => l.id);
 export const sealLinks = (record, ids) => ({ ...record, n: record.n + 1, links: record.links.map((l) => (ids.includes(l.id) && l.off ? { ...l, sealed: true } : l)) });
-export async function addLink(record, role, password, opts, seen = null) {
+export async function addLink(record, role, password, opts, seen = null, expires = null) {
   const replaces = record.links.some((l) => l.role === role && !l.off);
   const next = replaces ? withNewKey(record) : record;
-  const link = await newLink({ room: next.room, keys: keysOf(next), ownerPub: next.ownerPub, project: next.project }, role, password, opts);
+  const link = dated(await newLink({ room: next.room, keys: keysOf(next), ownerPub: next.ownerPub, project: next.project }, role, password, opts), expires);
   return { ...next, n: next.n + 1, links: [...next.links.map((l) => (l.role === role ? turnOff(l, seen) : l)), link] };
 }
 export function removeLink(record, id, seen = null) {
   const next = withNewKey(record);
   return { ...next, n: next.n + 1, links: next.links.map((l) => (l.id === id ? turnOff(l, seen) : l)) };
+}
+// Links that have expired, turned off as if by hand, so they can't read anything new. The
+// relay already refuses them; this makes it so whatever the relay does. The same record if
+// none has.
+export function expireLinks(record, now = Date.now(), seen = null) {
+  const ids = record.links.filter((l) => !l.off && isExpired(l, now)).map((l) => l.id);
+  if (!ids.length) return record;
+  const next = withNewKey(record);
+  // It keeps when it expired, so someone opening it is told that rather than that it was
+  // turned off.
+  return { ...next, n: next.n + 1, links: next.links.map((l) => (ids.includes(l.id) ? { ...turnOff(l, seen), expires: l.expires } : l)) };
+}
+// When the next link expires, if one does.
+export function nextExpiry(record) {
+  const times = record.links.filter((l) => !l.off && Number.isSafeInteger(l.expires)).map((l) => l.expires);
+  return times.length ? Math.min(...times) : null;
 }
 
 // The project that has joined or shares this room, if any, among those kept here.
@@ -82,7 +106,7 @@ export function shareForRoom(room, storage = globalThis.localStorage) {
 
 // The owner's signed list, as the relay and others need it.
 export const signedLinks = (r) => signLinks({ room: r.room, ownerPriv: r.priv, keys: keysOf(r), ow: r.ow }, r.n, r.links);
-export const linksOf = (r, base) => (r.links || []).filter((l) => !l.off).map((l) => ({ id: l.id, role: l.role, url: linkUrl(base, r.room, l.id, l.secret) }));
+export const linksOf = (r, base, now = Date.now()) => (r.links || []).filter((l) => !l.off && !isExpired(l, now)).map((l) => ({ id: l.id, role: l.role, url: linkUrl(base, r.room, l.id, l.secret), expires: l.expires ?? null }));
 
 // The keys a connection signs in with.
 export const who = (r) => ({ link: r.link, priv: r.priv, ownerPub: r.ownerPub, projectKey: r.projectKey, keys: keysOf(r), w: r.link === 'owner' ? r.ow : r.w });

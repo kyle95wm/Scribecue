@@ -239,6 +239,8 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
   that says Shared, Connecting, Offline or Update needed. Code is in `sharedialog.js`.
 - The owner makes one link per role, each with a password of at least 6 characters. A new
   link for a role replaces the old one. **Turn off** stops a link; its users keep their copy.
+- A link can expire after 1 to 365 days (**Expires after**). Its row says when. The relay
+  refuses it after that, and the owner turns it off once online.
   **Stop sharing** deletes the relay's copy; the owner's stays as a plain project.
 - Opening a link asks for its password and the person's name. Can edit opens in Write; Can
   review and Can comment open in QC. The link leaves the address bar once used.

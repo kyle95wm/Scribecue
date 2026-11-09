@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as sharing from '../app/js/sharing.js';
 import { readLinks, unwrapKeys, parseLink } from '../app/js/sharekeys.js';
+import { readLinks as relayReadLinks, ed25519 } from '../relay/src/room.js';
+import { readDays, expiryText } from '../app/js/sharedialog.js';
 
 const fast = { iterations: 1000 };
 function memory() {
@@ -99,4 +101,42 @@ test('links turned off are sealed once their last numbers are known', async () =
   const list = await readLinks(r.room, r.ownerPub, await sharing.signedLinks(r));
   assert.equal(list.links.get(ed.id).sealed, true);
   assert.equal(list.links.get(co.id).sealed, undefined);
+});
+
+test('a link can expire after a number of days, and is then turned off with a new key', async () => {
+  const now = Date.UTC(2026, 10, 8, 12), project = crypto.randomUUID();
+  assert.equal(sharing.expiryIn(7, now), now + 7 * sharing.DAY);
+  for (const bad of [null, 0, 1.5, sharing.MAX_DAYS + 1]) assert.equal(sharing.expiryIn(bad, now), null);
+  let r = await sharing.startSharing(project, 'ws://relay', { edit: 'a' }, fast, { edit: now + sharing.DAY });
+  r = await sharing.addLink(r, 'comment', 'b', fast, null, now + 3 * sharing.DAY);
+  r = await sharing.addLink(r, 'review', 'c', fast);
+  assert.equal(sharing.nextExpiry(r), now + sharing.DAY);
+  // The relay reads when each expires from the owner's signed list; links without one never do.
+  const signedList = await sharing.signedLinks(r);
+  const relayList = await relayReadLinks(r.room, r.ownerPub, signedList, ed25519());
+  assert.deepEqual([...relayList.links.values()].map((l) => [l.role, l.expires]), [['edit', now + sharing.DAY], ['comment', now + 3 * sharing.DAY], ['review', undefined]]);
+  assert.equal((await readLinks(r.room, r.ownerPub, signedList)).links.get(r.links[0].id).expires, now + sharing.DAY, 'people in the project can see it too');
+  // Not yet: nothing changes. After a day: the edit link goes off, with a new project key.
+  assert.equal(sharing.expireLinks(r, now), r);
+  assert.equal(sharing.linksOf(r, 'https://x.test/', now).length, 3);
+  assert.equal(sharing.linksOf(r, 'https://x.test/', now + sharing.DAY).length, 2, 'an expired link no longer shows');
+  const later = sharing.expireLinks(r, now + sharing.DAY, { [r.links[0].id]: { dev12345: 4 } });
+  assert.equal(later.n, r.n + 1);
+  assert.equal(later.keys.length, r.keys.length + 1);
+  assert.deepEqual(later.links.map((l) => [l.role, !!l.off]), [['edit', true], ['comment', false], ['review', false]]);
+  assert.deepEqual(later.links[0].upTo, { dev12345: 4 });
+  assert.equal(later.links[0].expires, now + sharing.DAY, 'it keeps when it expired');
+  assert.equal((await relayReadLinks(r.room, r.ownerPub, await sharing.signedLinks(later), ed25519())).links.get(r.links[0].id).expires, now + sharing.DAY);
+  assert.equal(sharing.nextExpiry(later), now + 3 * sharing.DAY);
+  assert.equal(sharing.nextExpiry(sharing.expireLinks(later, now + 3 * sharing.DAY)), null);
+});
+
+test('the days typed for a link are checked, and its expiry reads plainly', () => {
+  assert.equal(readDays('', 365), null);
+  assert.equal(readDays(' 7 ', 365), 7);
+  for (const bad of ['0', '1.5', '366', 'soon', '-2']) assert.ok(Number.isNaN(readDays(bad, 365)), bad);
+  const now = Date.UTC(2026, 10, 8, 12);
+  assert.match(expiryText(now + 7 * 86_400_000, now), /^Expires .+, in 7 days$/);
+  assert.match(expiryText(now + 86_400_000, now), /, in 1 day$/);
+  assert.match(expiryText(now + 3_600_000, now), /, within a day$/);
 });

@@ -4,7 +4,8 @@
 // block is done; B reloads and is still in; B goes offline, edits, and catches up; A shares a
 // separate Google key, which B reads Google voices with (Google's answers are stubbed in both
 // pages, so no real key is used); A's voice becomes B's, which B can't change; A takes the key
-// out; A turns the link off, makes a new one that B opens again, then stops sharing. Takes screenshots of both dialogs if given a folder.
+// out; A turns the link off, makes a new one that B opens again; a link that expires lets B go
+// and is turned off; then A stops sharing. Takes screenshots of both dialogs if given a folder.
 // Uses the relay at RELAY, by default one running locally (`npm run dev` in relay/).
 // Usage: node scripts/relay-share-smoke.mjs <A's DevTools port> <B's DevTools port> <site url> [screenshot folder]
 import assert from 'node:assert/strict';
@@ -65,12 +66,12 @@ try {
   await a.shot('share-empty');
   assert.equal(await a.js(`/can’t read it/.test(document.getElementById('sharePrivacy').textContent)`), true, 'the privacy note shows');
   await a.fill('#sharePw-edit', 'blue door');
-  await a.click('#sharePw-edit + button');
+  await a.click('#sharePw-edit ~ button');
   await a.wait(`document.activeElement?.id==='shareName' && /Add your name/.test(document.getElementById('toast').textContent)`, 'A is asked for a name');
   assert.equal(await a.js(`!!document.querySelector('.sharelink')`), false, 'no link without a name');
   await a.fill('#shareName', 'Kyle');
   let t0 = performance.now();
-  await a.click('#sharePw-edit + button');
+  await a.click('#sharePw-edit ~ button');
   await a.wait(`document.querySelector('.sharelink') && ${online}`, 'A online with the link made');
   const shareMs = performance.now() - t0;
   assert.equal(await a.js(`document.getElementById('shareState').textContent`), 'Shared');
@@ -220,7 +221,7 @@ try {
   // A makes a new link and B opens it: B starts again from the relay's copy, not the one it kept.
   await sleep(1800);
   await a.fill('#sharePw-edit', 'red door');
-  await a.click('#sharePw-edit + button');
+  await a.click('#sharePw-edit ~ button');
   await a.wait(`document.querySelector('.sharelink') && ${online}`, 'A’s new link');
   const again = await a.js(`document.querySelector('.sharelink').value`);
   await b.js(`window.confirm=()=>true;location.href=${JSON.stringify(again)};true`);
@@ -238,12 +239,54 @@ try {
   await a.type(' After the new key.');
   await a.js(`document.activeElement.blur();true`);
   await b.wait(`(${rowText(4)}).includes('After the new key.')`, 'B reads changes sealed with the new key');
+
+  // A replaces the link with one that expires after a day; B opens it.
+  await a.click('#shareBtn');
+  await a.js(`[...document.querySelectorAll('#shareLinks button')].find(b=>b.textContent==='Turn off').click();true`);
+  await a.wait(`document.getElementById('sharePw-edit')`, 'A’s link is off');
+  await b.wait(`!window.scribecueRelay`, 'B is let go again');
+  await a.fill('#sharePw-edit', 'green door');
+  await a.fill('#shareDays-edit', '400');
+  await a.click('#sharePw-edit ~ button');
+  await a.wait(`/from 1 to 365/.test(document.getElementById('toast').textContent) && !document.querySelector('.sharelink')`, 'too many days are refused');
+  await a.fill('#shareDays-edit', '1');
+  await a.click('#sharePw-edit ~ button');
+  await a.wait(`document.querySelector('.sharelink') && /in 1 day$/.test(document.querySelector('.shareexpiry')?.textContent) && ${online}`, 'A’s link says when it expires');
+  await a.shot('share-expiry');
+  const dated = await a.js(`document.querySelector('.sharelink').value`);
+  await b.js(`window.confirm=()=>true;location.href=${JSON.stringify(dated)};true`);
+  await b.wait(`document.getElementById('joinDlg').open`, 'join dialog for the dated link');
+  await b.fill('#joinPassword', 'green door');
+  await b.click('#joinOpen');
+  await b.wait(`document.querySelectorAll('#list .row').length===1500 && ${online}`, 'B in with the dated link');
+  await b.click('#shareBtn');
+  await b.wait(`/Your link expires .+, in 1 day\./.test(document.getElementById('shareIntro').textContent)`, 'B is told when its link expires');
+  await b.shot('share-expiry-joined');
+  await b.js(`document.getElementById('shareClose').click();true`);
+  // As if a day went by: A's link now expires in a few seconds. A sends the list on
+  // reconnecting, then turns the link off once it has expired.
+  await a.js(`(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('scribecue.share.')),r=JSON.parse(localStorage.getItem(k)),l=r.links.find(l=>!l.off);l.expires=Date.now()+6000;r.n++;localStorage.setItem(k,JSON.stringify(r));scribecueRelay.ws.close();return true})()`);
+  t0 = performance.now();
+  await b.wait(`!window.scribecueRelay && /link to this project has expired/.test(document.getElementById('toast').textContent)`, 'B is told its link expired');
+  const expiredMs = performance.now() - t0;
+  assert.equal(await b.js(`document.querySelectorAll('#list .row').length`), 1500, 'B keeps its copy');
+  await a.wait(`JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>k.startsWith('scribecue.share.')))).links.filter(l=>!l.off).length===0`, 'A turns the expired link off');
+  await a.wait(`document.getElementById('sharePw-edit')`, 'A’s dialog offers a new link');
+  assert.equal(await a.js(`scribecueRelay.cipher.count`), 4, 'a new project key once it expired');
+  // Opening it again says it expired.
+  await b.js(`window.confirm=()=>true;location.href=${JSON.stringify(dated)};true`);
+  await b.wait(`document.getElementById('joinDlg').open`, 'join dialog for the expired link');
+  await b.fill('#joinPassword', 'green door');
+  await b.click('#joinOpen');
+  await b.wait(`/has expired/.test(document.getElementById('joinStatus').textContent)`, 'B is told the link expired');
+  await b.js(`document.getElementById('joinDlg').close();true`);
+  await a.js(`document.getElementById('shareClose').click();true`);
   // A stops sharing: back to a plain project.
   await a.click('#shareBtn');
   await a.js(`window.confirm=()=>true;document.getElementById('shareStop').click();true`);
   await a.wait(`!window.scribecueRelay && !Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.'))`, 'A stopped sharing');
   await a.js(`document.getElementById('shareClose').click();true`);
 
-  console.log(`Relay share smoke passed at 6× with 1,500 blocks: sharing took ${Math.round(shareMs)} ms, joining ${Math.round(joinMs)} ms; A typed ${(aMs / 17).toFixed(1)} ms a character; it reached B in ${Math.round(reachMs)} ms; a shared Google key reached B in ${Math.round(keyMs)} ms, the project's voice in ${Math.round(voiceMs)} ms; A ${await a.report()}; B ${await b.report()} since reloading`);
+  console.log(`Relay share smoke passed at 6× with 1,500 blocks: sharing took ${Math.round(shareMs)} ms, joining ${Math.round(joinMs)} ms; A typed ${(aMs / 17).toFixed(1)} ms a character; it reached B in ${Math.round(reachMs)} ms; a shared Google key reached B in ${Math.round(keyMs)} ms, the project's voice in ${Math.round(voiceMs)} ms; an expired link let B go ${Math.round(expiredMs)} ms after it was set to; A ${await a.report()}; B ${await b.report()} since reloading`);
 } finally { a.ws.close(); b.ws.close(); }
 process.exit(0);

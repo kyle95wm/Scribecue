@@ -137,7 +137,7 @@ export async function signLinks(owner, n, links) {
     wraps.owner = await wrapKeys(owner.room, 'owner', owner.ow, keys, 0);
     for (const l of links) if (!l.off && l.w && (l.from ?? keys.length) < keys.length) wraps[l.id] = await wrapKeys(owner.room, l.id, l.w, keys, l.from);
   }
-  const text = JSON.stringify({ room: owner.room, n, links: links.map(({ id, role, pub, box, off, upTo, sealed }) => (off ? { id, role, pub, off: true, upTo: upTo || {}, ...(sealed ? { sealed: true } : {}) } : { id, role, pub, box })), wraps });
+  const text = JSON.stringify({ room: owner.room, n, links: links.map(({ id, role, pub, box, off, upTo, sealed, expires }) => (off ? { id, role, pub, off: true, upTo: upTo || {}, ...(sealed ? { sealed: true } : {}), ...(Number.isSafeInteger(expires) ? { expires } : {}) } : { id, role, pub, box, ...(Number.isSafeInteger(expires) ? { expires } : {}) })), wraps });
   const sign = await signer(owner.ownerPriv);
   return { text, sig: await sign(signed.links(text)) };
 }
@@ -171,7 +171,7 @@ export async function readLinks(room, ownerPub, { text, sig } = {}, verify = ver
     if (!ROLES.includes(l?.role) || typeof l.pub !== 'string' || l.id === 'owner') continue;
     const upTo = l.off === true && l.upTo && typeof l.upTo === 'object' && !Array.isArray(l.upTo)
       ? Object.fromEntries(Object.entries(l.upTo).filter(([, n]) => Number.isSafeInteger(n) && n >= 0)) : null;
-    out.set(l.id, { role: l.role, pub: l.pub, ...(l.off === true ? { off: true, ...(upTo ? { upTo } : {}), ...(l.sealed === true ? { sealed: true } : {}) } : {}) });
+    out.set(l.id, { role: l.role, pub: l.pub, ...(l.off === true ? { off: true, ...(upTo ? { upTo } : {}), ...(l.sealed === true ? { sealed: true } : {}) } : Number.isSafeInteger(l.expires) ? { expires: l.expires } : {}) });
   }
   const wraps = o.wraps && typeof o.wraps === 'object' && !Array.isArray(o.wraps) ? o.wraps : {};
   return { n: o.n, links: out, wraps };

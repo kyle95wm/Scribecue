@@ -721,7 +721,7 @@ async function startShared() {
 }
 // The connection to the relay for a shared project, and keeping its copy in this browser.
 let relay = null, relayOff = () => {};
-function stopRelay() { relay?.stop(); relay = null; relayOff(); relayOff = () => {}; window.scribecueRelay = null; shareUi?.update(); if (here.length) { here = []; showHere(); } }
+function stopRelay() { clearTimeout(expiryTimer); relay?.stop(); relay = null; relayOff(); relayOff = () => {}; window.scribecueRelay = null; shareUi?.update(); if (here.length) { here = []; showHere(); } }
 async function startRelay(record, copy, fresh, seq, seen) {
   const id = S.projectId, owner = record.link === 'owner';
   const create = owner && !record.created ? await sharedLib.signedLinks(record) : null;
@@ -734,6 +734,7 @@ async function startRelay(record, copy, fresh, seq, seen) {
   const client = relay = new sharedLib.RelayClient({
     url: record.relay, room: record.room, who: sharedLib.who(record), shared: copy, create, seed: !fresh,
     onPresence: (people) => { if (relay === client) { here = people; showHere(); } },
+    onLinks: () => { if (relay === client) shareUi?.update(); },
     onStatus: (status, detail) => {
       if (relay !== client) return;
       if (status === 'online') {
@@ -749,7 +750,9 @@ async function startRelay(record, copy, fresh, seq, seen) {
       if (status === 'old-app') toast('Update Scribecue to keep working on this shared project. Your changes stay here');
       if (status === 'old-relay') toast('The sharing service needs updating before this project connects. Your changes stay here');
       if (status === 'ended') {
-        toast(detail === 'room-deleted' ? 'This project is no longer shared. Your copy stays here' : 'This project is no longer shared with you. Your copy stays here');
+        toast(detail === 'room-deleted' ? 'This project is no longer shared. Your copy stays here'
+          : detail === 'link-expired' ? 'Your link to this project has expired. Your copy stays here'
+            : 'This project is no longer shared with you. Your copy stays here');
         sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
         // A plain project from now on: no limits, no suggestions.
         myShare = null; syncQcPermission(); endLive();
@@ -771,11 +774,27 @@ async function startRelay(record, copy, fresh, seq, seen) {
 // The owner back online: links turned off while offline get where each stops, now that this
 // side is up to date, and the relay gets the newest list. Then links turned off are sealed.
 async function ownerOnline(client, id, now) {
+  now = expireNow(id, now, client);
   const settled = sharedLib.settle(now, client.seen);
   if (settled !== now) sharedLib.setShare(id, settled);
   if (client.links && settled.n > client.links.n && !(await client.sendLinks(await sharedLib.signedLinks(settled)))) return;
   await sealLinks(client, id);
 }
+// Links that have expired are turned off, as by hand, once the owner is up to date. While
+// online, this happens again when the next one expires. Returns the record as it is now.
+function expireNow(id, now, client) {
+  clearTimeout(expiryTimer);
+  const next = sharedLib.expireLinks(now, Date.now(), client.synced ? client.seen : null);
+  if (next !== now) { sharedLib.setShare(id, next); shareUi?.update(); }
+  const at = sharedLib.nextExpiry(next);
+  if (at != null) expiryTimer = setTimeout(() => {
+    if (relay !== client || client.status !== 'online') return;
+    const before = sharedLib.getShare(id), after = before && expireNow(id, before, client);
+    if (after && after !== before) sendNewLinks(id, after);
+  }, Math.min(Math.max(at - Date.now(), 0) + 1000, 2 ** 31 - 1));
+  return next;
+}
+let expiryTimer = 0;
 // A link turned off: the owner sends the whole of each document, which holds all the link
 // did, then marks it sealed, so nothing more from it counts. Tried again on reconnecting.
 async function sealLinks(client, id) {
@@ -861,8 +880,9 @@ async function sendNewLinks(id, record) {
   if (await client.sendLinks(await sharedLib.signedLinks(record))) await sealLinks(client, id);
 }
 const sharingTools = {
-  async start(passwords) {
-    const record = await sharedLib.startSharing(S.projectId, sharedLib.relayUrl(), passwords);
+  // `expires`: for each role, when its link stops working, if it does.
+  async start(passwords, expires = {}) {
+    const record = await sharedLib.startSharing(S.projectId, sharedLib.relayUrl(), passwords, undefined, expires);
     sharedLib.setShare(S.projectId, record);
     await startShared();
     return sharedLib.linksOf(record, location.href);
@@ -886,11 +906,12 @@ const sharingTools = {
     setMode(record.role === 'edit' ? 'write' : 'qc', true);
     return true;
   },
-  // A link for `role` with its password, starting to share if this is the first.
-  async make(role, password) {
-    const id = S.projectId, record = sharedLib.getShare(id);
-    if (!record) { await sharingTools.start({ [role]: password }); return; }
-    const next = await sharedLib.addLink(record, role, password, undefined, upToDate());
+  // A link for `role` with its password, starting to share if this is the first. `days`:
+  // how long it works for, or none for as long as it's on.
+  async make(role, password, days = null) {
+    const id = S.projectId, record = sharedLib.getShare(id), expires = sharedLib.expiryIn(days);
+    if (!record) { await sharingTools.start({ [role]: password }, { [role]: expires }); return; }
+    const next = await sharedLib.addLink(record, role, password, undefined, upToDate(), expires);
     sharedLib.setShare(id, next);
     sendNewLinks(id, next);
   },
@@ -964,6 +985,9 @@ if (sharedOn) {
         name: () => savedName(), setName: (v) => saveName(v),
         make: sharingTools.make, turnOff: sharingTools.turnOff, stop: sharingTools.stop, leave: sharingTools.leave,
         googleKey: () => (shared ? shared.googleKey() : null), shareGoogleKey: sharingTools.shareGoogleKey,
+        // When this person's own link stops working, if it does.
+        myExpiry: () => (myShare && myShare.link !== 'owner' ? relay?.links?.links.get(myShare.link)?.expires ?? null : null),
+        maxDays: sharedLib.MAX_DAYS,
       });
       joinUi = ui.joinDialog({
         $, name: () => savedName(), setName: (v) => saveName(v),

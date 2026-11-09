@@ -39,8 +39,8 @@ async function linksFor(owner, n, list) {
   const text = JSON.stringify({ room: ROOM, n, links: list });
   return { text, sig: await owner.sign(signed.links(text)) };
 }
-async function start() {
-  const env = setup(), owner = await keys(), editor = await keys(), commenter = await keys();
+async function start(opts) {
+  const env = setup(opts), owner = await keys(), editor = await keys(), commenter = await keys();
   const links = [{ id: 'ed1', role: 'edit', pub: editor.pub, box: 'box-ed' }, { id: 'co1', role: 'comment', pub: commenter.pub, box: 'box-co' }];
   const o = env.connect();
   const [welcome] = await o.say({ type: 'create', v: 2, owner: owner.pub, sig: await owner.sign(signed.auth(ROOM, nonce(o))), links: await linksFor(owner, 1, links) });
@@ -173,6 +173,38 @@ test('a socket from before a link went off is closed at its next message', async
   assert.equal((await update(ed.s, editor, 'script', new Uint8Array([1])))[0].code, 'link-off');
   assert.equal(ed.s.closed, 'link-off');
   assert.equal(o.closed, null);
+});
+
+test('a link that has expired can’t get its box or sign in, and its sockets close', async () => {
+  let t = 1_000_000;
+  const { join, update, o, owner, editor, commenter, links, connect } = await start({ now: () => t });
+  const DAY = 86_400_000;
+  const dated = [{ ...links[0], expires: t + DAY }, links[1]];
+  assert.equal((await o.say({ type: 'links', links: await linksFor(owner, 2, dated) }))[0].type, 'ack');
+  const ed = await join('ed1', editor), co = await join('co1', commenter);
+  assert.equal(ed.w.type, 'welcome', 'works until it expires');
+  t += DAY;
+  // An idle socket closes when something would reach it.
+  await update(co.s, commenter, 'comments', new Uint8Array([1]));
+  assert.equal(ed.s.closed, 'link-expired');
+  assert.equal(co.s.closed, null);
+  const again = await join('ed1', editor);
+  assert.equal(again.box.code, 'link-expired');
+  assert.equal(again.w.code, 'link-expired');
+  // The owner can give it longer; a time that isn't one is refused.
+  assert.equal((await o.say({ type: 'links', links: await linksFor(owner, 3, [{ ...links[0], expires: t + DAY }, links[1]]) }))[0].type, 'ack');
+  assert.equal((await join('ed1', editor)).w.type, 'welcome');
+  assert.equal((await o.say({ type: 'links', links: await linksFor(owner, 4, [{ ...links[0], expires: 'soon' }, links[1]]) }))[0].code, 'bad-message');
+  // A socket that's been asleep closes at its next message.
+  const late = await join('co1', commenter);
+  assert.equal((await o.say({ type: 'links', links: await linksFor(owner, 5, [links[0], { ...links[1], expires: t + 10 }]) }))[0].type, 'ack');
+  t += 10;
+  assert.equal((await update(late.s, commenter, 'comments', new Uint8Array([2])))[0].code, 'link-expired');
+  // Once the owner turns it off, it still says it expired.
+  assert.equal((await o.say({ type: 'links', links: await linksFor(owner, 6, [{ id: 'ed1', role: 'edit', pub: editor.pub, off: true }, { id: 'co1', role: 'comment', pub: commenter.pub, off: true, expires: t }]) }))[0].type, 'ack');
+  const x = connect();
+  assert.equal((await x.say({ type: 'box', v: 2, link: 'co1' }))[0].code, 'link-expired');
+  assert.equal((await x.say({ type: 'box', v: 2, link: 'ed1' }))[0].code, 'no-link');
 });
 
 test('making a room too often is refused, and nothing is kept', async () => {
