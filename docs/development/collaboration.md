@@ -254,6 +254,17 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
 - Someone who joined can **Leave**. By default the project goes from this browser, undo
   included, and a new one starts. **Keep a copy here** keeps it as a project of their own.
 - Links changed while offline reach the relay on reconnecting.
+- **Shared projects** in the header lists the projects kept in this browser, from their
+  `scribecue.share.*` records, last opened first (`sharedProjects` in `sharing.js`,
+  `sharedListDialog` in `sharedialog.js`). Each record also keeps `title` and `opened`,
+  for the list only. The owner's project name travels in `access` as `name`.
+- Opening the list asks the relay for each joined link's box, four at a time
+  (`shareState`). `no-link` or `link-expired` drops the record and its copy, as `ended`
+  does. The owner's own projects aren't checked: they always open.
+- `scripts/shared-list-smoke.mjs` runs an owner and an editor at 6× with 1,500 blocks:
+  joining, reopening from the list, and a link turned off while the editor is elsewhere.
+  Measured: the list opens in 10–30 ms and is checked in about 0.1–0.15 s with no long
+  tasks. Reopening takes about 0.8 s, with one task of about 80 ms.
 - **Google voices:** the owner can share a separate Google key, so others hear and use the
   project's Google voices without a key of their own. It's checked with Google first, and
   the owner's main key is refused, as for QC packages. It lives in the `script` document

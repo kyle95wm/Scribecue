@@ -688,6 +688,13 @@ function noteProjectVoice(uri) {
   if (uri && voiceLocked()) useProjectVoice(uri);
   updateEditor();
 }
+// The project's name, as the owner has it: others list the shared project by it.
+const projectTitle = () => (S.subName !== 'untitled.srt' ? S.subName : S.videoFile?.name || '').replace(/\.[^.]+$/, '');
+function shareName() {
+  if (!shared || sharedProjectId !== S.projectId || myShare?.link !== 'owner') return;
+  const name = projectTitle();
+  if (name) { shared.setName(name); sharedLib.noteShare(S.projectId, { title: name }); }
+}
 async function startShared() {
   const id = S.projectId, token = sharedToken = {};
   shared = null; sharedUndo = null; sharedStarting = id; unlinkTabs(); unlinkTabs = () => {}; stopRelay();
@@ -696,6 +703,8 @@ async function startShared() {
   // A project shared on the relay keeps its copy in this browser between visits.
   const record = sharedLib.getShare(id);
   myShare = record; sharedQcSource(); syncQcPermission(); showAutosave();
+  if (record) sharedLib.noteShare(id, { opened: Date.now() });
+  showSharedBtn();
   if (!record && !sharedEvery) { endLive(); return; } // a project of its own: no shared copy
   try { await loadCopy(); } catch { copyLib = null; if (sharedToken === token) toast('Couldn’t load sharing. Reload Scribecue to try again'); return; }
   if (sharedToken !== token) return; // started again meanwhile
@@ -714,6 +723,9 @@ async function startShared() {
   shared.onGoogleKey((key) => { if (shared === copy) noteGoogleKey(key); });
   noteGoogleKey(shared.googleKey(), true);
   shared.onVoice((uri) => { if (shared === copy) noteProjectVoice(uri); });
+  const noteName = (name) => { if (shared === copy && name && myShare?.link !== 'owner') sharedLib.noteShare(id, { title: name }); };
+  shared.onName(noteName);
+  noteName(shared.name());
   noteProjectVoice(shared.voice());
   window.scribecueShared = shared; // for the developer tests
   // Another tab had it open: take its copy as it is. Joined but not kept here yet: take the
@@ -729,7 +741,7 @@ async function startShared() {
   if (!record) endLive(); else refreshLive();
   // Undo from here on takes back this tab's changes only; earlier steps undo as before.
   sharedUndo = shared.undoer();
-  if (record) startRelay(record, copy, fresh, saved?.seq || 0, saved?.seen);
+  if (record) { shareName(); startRelay(record, copy, fresh, saved?.seq || 0, saved?.seen); }
 }
 // The connection to the relay for a shared project, and keeping its copy in this browser.
 let relay = null, relayOff = () => {};
@@ -916,7 +928,13 @@ function showOthersHere(c) {
 }
 
 // Starting to share this project, changing its links, and joining one from a link.
-let shareUi = null, joinUi = null;
+let shareUi = null, joinUi = null, sharedListUi = null;
+// The Shared projects button, while this browser keeps any.
+function showSharedBtn() {
+  if (!sharedLib) return;
+  const n = sharedLib.sharesHere();
+  $('sharedBtn').hidden = !(n.owned + n.joined);
+}
 // The last numbers had from each link, when this side has everything from the relay; else
 // null, and a link turned off gets them on reconnecting.
 const upToDate = () => (relay?.synced ? relay.seen : null);
@@ -1103,7 +1121,25 @@ if (sharedOn) {
           return ok;
         },
       });
-      window.addEventListener('scribecue-relay', () => shareUi.update());
+      sharedListUi = ui.sharedListDialog({
+        $,
+        list: () => sharedLib.sharedProjects(),
+        current: () => (myShare ? S.projectId : null),
+        check: (record) => sharedLib.shareState(record),
+        forget: (id) => { sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id); showSharedBtn(); },
+        changed: showSharedBtn,
+        open: async (it) => {
+          const record = sharedLib.getShare(it.project);
+          if (!record) { toast('That project is no longer in this browser'); return false; }
+          try {
+            const ok = await sharingTools.reopen({ project: it.project, record });
+            if (ok) toast(it.title ? `Opened ${it.title}` : 'Opened the shared project');
+            return ok;
+          } catch { toast('Couldn’t open the shared project. Try its link instead'); return false; }
+        },
+      });
+      window.addEventListener('scribecue-relay', () => { shareUi.update(); showSharedBtn(); });
+      window.addEventListener('storage', (e) => { if (!e.key || e.key.startsWith('scribecue.share.')) showSharedBtn(); });
       window.addEventListener('hashchange', openShareLink);
       window.addEventListener('online', () => relay?.reconnect());
       $('shareBtn').hidden = false;
@@ -4538,6 +4574,7 @@ function showDocName() {
   el.textContent = name + (S.dirty ? ' •' : '');
   el.title = S.dirty ? 'Unsaved changes: save the project with ' + (IS_MAC ? '⌘S' : 'Ctrl+S') : 'Project or script file';
   document.title = `${name}${S.dirty ? ' •' : ''} · Scribecue`;
+  shareName();
 }
 
 // ---- project files
@@ -4795,7 +4832,7 @@ $('autosaveBtn').addEventListener('click', async (e) => {
 // Asks before replacing work that isn't saved in a project. It can still be undone.
 function okToReplace(what) {
   // A shared project keeps its changes, and stays here to come back to.
-  if (myShare) return confirm(`${what}? You’ll leave this shared project. It stays in this browser: open its link to come back to it.${relay?.unsent() ? ' Your last changes haven’t reached it yet. They’re kept here, and sent when you open it again.' : ''}`);
+  if (myShare) return confirm(`${what}? You’ll leave this shared project. It stays in this browser: open it again from Shared projects.${relay?.unsent() ? ' Your last changes haven’t reached it yet. They’re kept here, and sent when you open it again.' : ''}`);
   if (!S.dirty) return true;
   return confirm(`Your changes to ${S.subName === 'untitled.srt' ? 'this project' : S.subName} aren't saved in a project file. ${what} anyway? You can undo it with ${IS_MAC ? '⌘Z' : 'Ctrl+Z'}.`);
 }
@@ -5200,7 +5237,7 @@ function startAgain() {
   $('newUnsaved').hidden = !unsaved;
   $('newSave').hidden = !unsaved;
   $('newProjectLabel').textContent = unsaved ? 'Start without saving' : 'New project';
-  $('newProjectNote').textContent = myShare ? `Leaves this shared project and closes the video. The project stays in this browser: open its link to come back to it.${relay?.unsent() ? ' Your last changes haven’t reached it yet. They’re kept here, and sent when you open it again.' : ''}`
+  $('newProjectNote').textContent = myShare ? `Leaves this shared project and closes the video. The project stays in this browser: open it again from Shared projects.${relay?.unsent() ? ' Your last changes haven’t reached it yet. They’re kept here, and sent when you open it again.' : ''}`
     : qc() ? 'Closes this review and the video, then opens a blank project in Write mode.' : 'Clears the blocks and notes, and closes the video, for different work.';
   $('newUndo').hidden = !!S.reviewId;
   newDlg.showModal();
@@ -5437,6 +5474,7 @@ function loadVideoFile(file) {
   const v = $('videoName');
   v.textContent = file.name;
   v.classList.remove('dim');
+  shareName();
   toast(`Loading ${file.name}…`);
   loadTracks(file);
 }
@@ -6307,6 +6345,7 @@ const actions = {
   newProject: () => startAgain(),
   comments: () => toggleComments(),
   share: () => shareUi?.open(),
+  sharedProjects: () => sharedListUi?.open(),
   ai: () => { if (qc()) return; if (!$('commentsDrawer').hidden) toggleComments(false); toggleAi(); },
 };
 

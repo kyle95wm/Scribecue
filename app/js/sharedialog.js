@@ -326,3 +326,100 @@ export function joinDialog(deps) {
     },
   };
 }
+
+// Shared projects: the ones kept in this browser, to open again without their link. Each is
+// checked with the sharing service as the list opens. One no longer shared with this person
+// is taken out of this browser, as it would be on opening it, and says so.
+// `deps`: $, list() → [{ project, title, role, owner, opened, record }], current() → the open
+// project's id, check(record) → resolves to a state (see shareState), open(item) → resolves
+// to false if it didn't open, forget(project).
+export const ROLE_SHORT = { owner: 'Yours', edit: 'Can edit', review: 'Can review', comment: 'Can comment' };
+export const STATE_TEXT = {
+  checking: 'Checking…',
+  ok: '',
+  unknown: '',
+  offline: 'Offline. Opens with the changes kept here',
+  gone: 'No longer shared with you. Removed from this browser',
+  expired: 'Your link expired. Removed from this browser',
+};
+// When a project was last opened here, as people read it.
+export function openedText(at, now = Date.now()) {
+  if (!at) return '';
+  const days = Math.floor((now - at) / 86_400_000);
+  if (days < 1 && new Date(at).toDateString() === new Date(now).toDateString()) return 'Opened today';
+  if (days < 2) return 'Opened yesterday';
+  if (days < 7) return `Opened ${days} days ago`;
+  return 'Opened ' + new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(new Date(at).getFullYear() === new Date(now).getFullYear() ? {} : { year: 'numeric' }) });
+}
+export const GONE = new Set(['gone', 'expired']);
+export function sharedListDialog(deps) {
+  const { $ } = deps;
+  const dlg = $('sharedDlg'), list = $('sharedList');
+  let items = [], states = new Map(), token = 0, busy = false;
+
+  function row(it) {
+    const state = states.get(it.project) || 'checking', here = it.project === deps.current(), gone = GONE.has(state);
+    const b = document.createElement('button');
+    b.className = 'wzcard wzchoice sharedrow' + (gone ? ' gone' : '');
+    b.disabled = gone || busy;
+    const body = document.createElement('span');
+    const name = document.createElement('strong');
+    name.textContent = it.title || 'Untitled shared project';
+    const facts = document.createElement('span');
+    facts.className = 'dim small sharedfacts';
+    facts.textContent = [ROLE_SHORT[it.owner ? 'owner' : it.role] || '', here ? 'Open now' : openedText(it.opened)].filter(Boolean).join(' · ');
+    body.append(name, facts);
+    const note = STATE_TEXT[state];
+    if (note) {
+      const s = document.createElement('span');
+      s.className = 'small sharedstate' + (gone ? ' bad' : state === 'offline' ? ' warn' : '');
+      s.textContent = note;
+      body.append(s);
+    }
+    b.append(body);
+    b.setAttribute('aria-label', [name.textContent, facts.textContent, note].filter(Boolean).join('. '));
+    if (here) b.setAttribute('aria-current', 'true');
+    b.addEventListener('click', () => choose(it));
+    return b;
+  }
+  function render() {
+    list.replaceChildren(...items.map(row));
+    $('sharedEmpty').hidden = items.length > 0;
+  }
+  async function choose(it) {
+    if (busy) return;
+    if (it.project === deps.current()) { dlg.close(); return; }
+    busy = true; render();
+    try {
+      const ok = await deps.open(it);
+      if (ok !== false) dlg.close();
+    } finally { busy = false; if (dlg.open) render(); }
+  }
+  // Each project is asked about, a few at a time.
+  async function checkAll(mine) {
+    const queue = items.filter((it) => !it.owner);
+    for (const it of items) if (it.owner) states.set(it.project, 'unknown');
+    const next = async () => {
+      for (let it = queue.shift(); it; it = queue.shift()) {
+        const state = await deps.check(it.record);
+        if (mine !== token) return;
+        states.set(it.project, state);
+        // Gone: taken out of this browser, unless it's open, where the connection does that.
+        if (GONE.has(state) && it.project !== deps.current()) deps.forget(it.project);
+        if (dlg.open) render();
+      }
+    };
+    await Promise.all([next(), next(), next(), next()]);
+  }
+  $('sharedClose').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('close', () => { token++; deps.changed?.(); });
+  return {
+    open() {
+      items = deps.list(); states = new Map(); busy = false;
+      render();
+      dlg.showModal();
+      (list.querySelector('button:not(:disabled)') || $('sharedClose')).focus();
+      checkAll(++token);
+    },
+  };
+}

@@ -256,3 +256,15 @@ test('the project’s voice reaches everyone, once for each change, and undo lea
   const c = new SharedProject(); c.apply('script', a.update('script'));
   assert.equal(c.voice(), 'google:en-US-Standard-C', 'a newcomer gets it');
 });
+
+test('the owner’s project name reaches others', () => {
+  const a = new SharedProject(), b = new SharedProject();
+  const heard = [];
+  b.onName((n) => heard.push(n));
+  a.setName('Night shift');
+  for (const d of DOCS) b.apply(d, a.update(d), 'relay');
+  assert.equal(b.name(), 'Night shift');
+  assert.deepEqual(heard, ['Night shift']);
+  a.setName('x'.repeat(500));
+  assert.equal(a.name().length, 200, 'kept to a sensible length');
+});

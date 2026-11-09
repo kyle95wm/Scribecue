@@ -135,6 +135,46 @@ export function sharesHere(storage = globalThis.localStorage) {
   return n;
 }
 
+// What this browser notes about a shared project for its list: `title`, the project's name,
+// and `opened`, when it was last opened here. Kept with its keys; never sent anywhere.
+const LABELS = ['title', 'opened'];
+export function noteShare(project, fields, storage = globalThis.localStorage) {
+  const r = getShare(project, storage);
+  if (!r) return false;
+  const next = { ...r };
+  for (const k of LABELS) if (k in fields) next[k] = fields[k];
+  return LABELS.every((k) => next[k] === r[k]) || setShare(project, next, storage);
+}
+const withLabels = (from, to) => ({ ...to, ...Object.fromEntries(LABELS.filter((k) => from[k] !== undefined).map((k) => [k, from[k]])) });
+
+// The shared projects kept in this browser, last opened first, for the list in the header.
+export function sharedProjects(storage = globalThis.localStorage) {
+  const out = [];
+  try {
+    for (let i = 0; i < storage.length; i++) {
+      const k = storage.key(i);
+      if (!k?.startsWith('scribecue.share.')) continue;
+      const project = k.slice('scribecue.share.'.length), r = getShare(project, storage);
+      if (!r) continue;
+      out.push({ project, record: r, title: typeof r.title === 'string' ? r.title : '', role: r.role, owner: r.link === 'owner', opened: Number.isSafeInteger(r.opened) ? r.opened : 0 });
+    }
+  } catch { /* blocked */ }
+  return out.sort((a, z) => z.opened - a.opened || a.title.localeCompare(z.title));
+}
+
+// Whether a project kept here still opens for this browser, as the relay says: 'ok', 'gone'
+// (its link was turned off or replaced, or sharing stopped), 'expired', 'offline', or
+// 'unknown'. The owner's own project always opens, so it isn't asked about.
+export async function shareState(record, { fetch = fetchBox, wait = 8000 } = {}) {
+  if (record.link === 'owner') return 'unknown';
+  try {
+    await fetch(record.relay, record.room, record.link, { wait });
+    return 'ok';
+  } catch (e) {
+    return { 'no-link': 'gone', 'link-expired': 'expired', offline: 'offline' }[e?.message] || 'unknown';
+  }
+}
+
 // The project that has joined or shares this room, if any, among those kept here.
 export function shareForRoom(room, storage = globalThis.localStorage) {
   try {
@@ -192,7 +232,8 @@ export async function rebaseLinks(record, signed) {
     if (read.recovery?.id !== record.recovery.id || !lacksFrom(record, read)) return null;
     const inside = await openRecovery(record.room, record.recovery.id, record.recovery.rk, read.recovery.box);
     if (inside.pub !== record.ownerPub) return null;
-    return mergeApart(record, fromRecovery(record.relay, record.room, record.recovery, inside, read.list));
+    const merged = mergeApart(record, fromRecovery(record.relay, record.room, record.recovery, inside, read.list));
+    return { ...merged, record: withLabels(record, merged.record) };
   } catch { return null; }
 }
 

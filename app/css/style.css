@@ -926,6 +926,21 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .sharelink { flex: 1 1 240px; min-width: 0; font: 12px var(--mono); }
 .sharerowline .sharedays { width: 64px; flex: none; font-family: var(--mono); }
 .shareexpiry { font-family: var(--mono); }
+/* Shared projects: the header button, and one card for each kept in this browser. */
+#sharedBtn { white-space: nowrap; }
+/* Narrower windows: the header drops the key hints on Open and Save to fit. Their tooltips
+   still give the keys. */
+@media (max-width: 1360px) { header.top nav > button:not([data-act="help"]) > kbd { display: none; } }
+.sharedlist { display: flex; flex-direction: column; max-height: 56vh; overflow: auto; }
+.sharedrow { margin: 4px 0; }
+.sharedrow strong { overflow-wrap: anywhere; }
+.sharedrow[aria-current="true"] { border-color: var(--accent); }
+.sharedrow:disabled { cursor: default; }
+.sharedrow.gone { opacity: 0.7; }
+.sharedrow.gone:hover { border-color: var(--line); background: none; }
+.sharedfacts { font-family: var(--mono); }
+.sharedstate.bad { color: var(--bad); }
+.sharedstate.warn { color: var(--warn); }
 #shareNameRow, #joinNameRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 #shareNameRow[hidden] { display: none; }
 #list .over { color: var(--bad); }

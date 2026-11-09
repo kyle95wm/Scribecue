@@ -8,6 +8,7 @@ commenters each get their own link, and everyone sees changes within a second.
 - [Sharing a project](#sharing-a-project)
 - [Kinds of link](#kinds-of-link)
 - [Opening a shared project](#opening-a-shared-project)
+- [Coming back to a shared project](#coming-back-to-a-shared-project)
 - [Working together](#working-together)
 - [What's shared](#whats-shared)
 - [Voices](#voices)
@@ -54,14 +55,27 @@ comments reach everyone at once.
 3. Click **Open**.
 4. Open your own copy of the video. The video isn't shared.
 
-Scribecue remembers the project. Open the same link again, and it opens without the
-password.
-
 **Sent a different kind of link?** Open it and type its password. It replaces your old
 link, and what you can do changes to match. You don't need to leave first.
 
 There's no **Save** or **Export**. Your changes reach the project as you make them. Only
 the owner saves and exports it.
+
+## Coming back to a shared project
+
+Click **Shared projects** in the header, then click the project. It opens without its link
+or password.
+
+- **The list** has the shared projects in this browser, last opened first. Yours say
+  **Yours**.
+- **The button shows** once this browser has a shared project.
+- **A project no longer shared with you** says so, and is removed from this browser. This
+  happens when your link is turned off, replaced or expires, or the owner stops sharing.
+- **Projects you've left** aren't listed.
+- **Each browser has its own list.** On another computer, open the link once.
+- **"Untitled shared project"** shows until you and its owner have each opened it again.
+
+Opening the link again works too.
 
 ## Working together
 
@@ -146,7 +160,7 @@ the start of the link, before the `#`, to your Docker address, such as `http://l
 | Replace a link | **Turn off**, then **Make link** | Only people with the new link and password can open it |
 | Stop sharing | **Stop sharing**, in Share | Every link stops working, and the sharing service's copy is deleted. The project closes for everyone else. Your copy stays |
 | Leave someone's project | **Leave**, in Share | The project is removed from this browser. To keep it as your own, click **Keep a copy here** first |
-| Work on something else | **New**, or open another project | The shared project stays in this browser. Open its link to come back to it. Changes not sent yet go then |
+| Work on something else | **New**, or open another project | The shared project stays in this browser. Open it again from **Shared projects**. Changes not sent yet go then |
 
 **Your saved project file** is a copy of the shared project as it was when you saved. If
 you open it in a browser that has the shared project, Scribecue asks first. It can open the
@@ -231,6 +245,7 @@ relay don't match, the header says **Update needed**, and nothing is lost.
 | "That isn't this recovery link's password" | Use the password you chose when making the recovery link |
 | "This link has been turned off" | Ask for a new link |
 | "This link has expired" | Ask for a new link |
+| "No longer shared with you" in **Shared projects** | Ask the owner for a new link |
 | "This link is incomplete" | Copy all of the link and try again |
 | "…full on the sharing service" or "…too big for the sharing service" | Your changes stay on this computer but don't reach the others. Start a new shared project from a saved copy |
 

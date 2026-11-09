@@ -51,6 +51,7 @@
       <button data-act="swapSides" id="swapBtn" class="swapbtn" aria-label="Swap sides" aria-pressed="false" data-tip="Swap sides: the video on the left and the editor on the right, or back">⇄</button>
       <button data-act="newProject" data-tip="Start again: clear the blocks and keep the video, or start a new project">New</button>
       <button data-act="openSubs" data-tip="Open a project, a script (SRT or VTT), or a video or audio file, or several at once ({mod}O). Only video or audio: {mod}⇧O">Open <kbd><span class="mod"></span>O</kbd></button>
+      <button data-act="sharedProjects" id="sharedBtn" class="not-record" hidden data-tip="Shared projects in this browser: open one again without its link">Shared projects</button>
       <button data-act="saveProject" data-tip="Save the project: blocks, settings and where you were ({mod}S). Save as a new file with {mod}⇧S">Save <kbd><span class="mod"></span>S</kbd></button>
       <span class="navwrap export-wrap">
         <button data-act="exportMenu" id="exportBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenu">Export <span class="caret" aria-hidden="true">▾</span></button>
@@ -731,6 +732,13 @@ docker compose up -d --build</code></pre>
     <p id="sharePrivacy" class="dim small">The project is encrypted on this computer before it’s sent, so the sharing service can’t read it. People with a link and its password can. Everyone in the project sees each other’s names and which block each has open.</p>
     <p id="shareStatus" class="dim small" role="status"></p>
     <div class="updbtns"><button id="shareStop" hidden>Stop sharing</button><button id="shareLeave" hidden>Leave</button><button id="shareClose">Close</button></div>
+  </dialog>
+  <dialog id="sharedDlg" class="updbox" aria-labelledby="sharedTitle">
+    <h2 id="sharedTitle">Shared projects</h2>
+    <p class="dim small">Shared projects you’ve opened in this browser. Choose one to open it again.</p>
+    <div id="sharedList" class="sharedlist"></div>
+    <p id="sharedEmpty" class="dim small" hidden>No shared projects in this browser. Open a link someone sent you, or share a project of yours.</p>
+    <div class="updbtns"><button id="sharedClose">Close</button></div>
   </dialog>
   <dialog id="leaveDlg" class="updbox" aria-labelledby="leaveTitle">
     <h2 id="leaveTitle">Leave this shared project?</h2>

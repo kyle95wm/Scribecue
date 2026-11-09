@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as sharing from '../app/js/sharing.js';
 import { readLinks, unwrapKeys, parseLink } from '../app/js/sharekeys.js';
 import { readLinks as relayReadLinks, ed25519 } from '../relay/src/room.js';
-import { readDays, expiryText, JOIN_TEXT } from '../app/js/sharedialog.js';
+import { readDays, expiryText, JOIN_TEXT, openedText, ROLE_SHORT, STATE_TEXT, GONE } from '../app/js/sharedialog.js';
 
 const fast = { iterations: 1000 };
 function memory() {
@@ -168,8 +168,9 @@ test('a recovery link opens the project as its owner, with every link, and stays
   // The recovered browser makes a link; the first catches up, secret included.
   const made = await sharing.addLink(back, 'review', 'c', fast);
   signedList = await sharing.signedLinks(made);
-  const caught = (await sharing.rebaseLinks(r, signedList)).record;
+  const caught = (await sharing.rebaseLinks({ ...r, title: 'Film', opened: 5 }, signedList)).record;
   assert.equal(caught.n, made.n);
+  assert.deepEqual([caught.title, caught.opened], ['Film', 5], 'catching up keeps what this browser noted for its list');
   assert.deepEqual(sharing.linksOf(caught, 'https://x.test/').map((l) => l.url).sort(), sharing.linksOf(made, 'https://x.test/').map((l) => l.url).sort());
   assert.equal(await sharing.rebaseLinks(made, signedList), null, 'nothing newer');
   // Turned off: the list no longer has it.
@@ -282,4 +283,51 @@ test('a link made apart is kept, with the keys it lacks, unless the other made o
   const both = sharing.mergeApart(air, mini2);
   assert.equal(both.dropped.length, 1);
   assert.deepEqual(both.record.links.filter((l) => !l.off && l.role === 'review').map((l) => l.id), [mini2.links.find((l) => l.role === 'review').id]);
+});
+
+test('the shared projects kept here are listed, last opened first, with their names', async () => {
+  const storage = memory();
+  const mine = await sharing.startSharing('p-mine', 'ws://relay', { edit: 'a' }, fast);
+  sharing.setShare('p-mine', mine, storage);
+  sharing.setShare('p-joined', { relay: 'ws://relay', room: 'r2', link: 'l2', role: 'review', priv: 'k' }, storage);
+  sharing.setShare('p-old', { relay: 'ws://relay', room: 'r3', link: 'l3', role: 'comment', priv: 'k' }, storage);
+  storage.setItem('scribecue.other', 'x');
+  assert.equal(sharing.noteShare('p-joined', { title: 'Night shift', opened: 300 }, storage), true);
+  assert.equal(sharing.noteShare('p-mine', { title: 'My film', opened: 200, priv: 'not this' }, storage), true);
+  assert.equal(sharing.getShare('p-mine', storage).priv, mine.priv, 'only the name and when it was opened are noted');
+  assert.equal(sharing.noteShare('p-gone', { title: 'x' }, storage), false, 'nothing is noted for a project not kept here');
+  const list = sharing.sharedProjects(storage);
+  assert.deepEqual(list.map((p) => [p.project, p.title, p.owner, p.role]), [
+    ['p-joined', 'Night shift', false, 'review'], ['p-mine', 'My film', true, 'owner'], ['p-old', '', false, 'comment']]);
+  assert.equal(list[0].record.link, 'l2');
+  // Left or removed: gone from the list.
+  sharing.dropShare('p-joined', storage);
+  assert.deepEqual(sharing.sharedProjects(storage).map((p) => p.project), ['p-mine', 'p-old']);
+});
+
+test('a project kept here is checked with the relay before it is listed as one to open', async () => {
+  const joined = { relay: 'ws://relay', room: 'r', link: 'l', role: 'edit', priv: 'k' };
+  const asked = [];
+  const answer = (outcome) => async (...args) => { asked.push(args.slice(0, 3)); if (outcome instanceof Error) throw outcome; return { role: 'edit', box: 'b' }; };
+  assert.equal(await sharing.shareState(joined, { fetch: answer('ok') }), 'ok');
+  assert.deepEqual(asked[0], ['ws://relay', 'r', 'l'], 'with its own link, on its own relay');
+  assert.equal(await sharing.shareState(joined, { fetch: answer(new Error('no-link')) }), 'gone', 'link turned off, replaced, or sharing stopped');
+  assert.equal(await sharing.shareState(joined, { fetch: answer(new Error('link-expired')) }), 'expired');
+  assert.equal(await sharing.shareState(joined, { fetch: answer(new Error('offline')) }), 'offline');
+  assert.equal(await sharing.shareState(joined, { fetch: answer(new Error('old-relay')) }), 'unknown');
+  asked.length = 0;
+  assert.equal(await sharing.shareState({ ...joined, link: 'owner', role: 'owner' }, { fetch: answer('ok') }), 'unknown', 'the owner’s own always opens');
+  assert.equal(asked.length, 0, 'the owner’s isn’t asked about');
+  for (const s of GONE) assert.match(STATE_TEXT[s], /Removed from this browser/);
+  assert.equal(ROLE_SHORT.owner, 'Yours');
+});
+
+test('when a shared project was last opened reads plainly', () => {
+  const now = new Date(2026, 10, 9, 15).getTime(), day = 86_400_000;
+  assert.equal(openedText(0, now), '');
+  assert.equal(openedText(now - 3_600_000, now), 'Opened today');
+  assert.equal(openedText(now - day, now), 'Opened yesterday');
+  assert.equal(openedText(now - 4 * day, now), 'Opened 4 days ago');
+  assert.match(openedText(now - 30 * day, now), /^Opened \S/);
+  assert.match(openedText(new Date(2025, 0, 3).getTime(), now), /2025/);
 });

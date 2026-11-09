@@ -149,6 +149,10 @@ export class SharedProject {
   voice() { return this.#access('voice'); }
   setVoice(uri) { this.#setAccess('voice', uri); }
   onVoice(fn) { return this.#onAccess('voice', fn); }
+  // The project's name, as the owner has it, or ''. Others list the project by it.
+  name() { return this.#access('name'); }
+  setName(name) { this.#setAccess('name', String(name || '').slice(0, 200)); }
+  onName(fn) { return this.#onAccess('name', fn); }
   #access(k) { const v = this.access.get(k); return typeof v === 'string' ? v : ''; }
   #setAccess(k, v) {
     if (this.#access(k) === (v || '')) return;
