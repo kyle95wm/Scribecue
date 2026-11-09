@@ -12,6 +12,18 @@ export function relayUrl(storage = globalThis.localStorage) {
   try { return storage.getItem('scribecue.relay') || DEFAULT_RELAY; } catch { return DEFAULT_RELAY; }
 }
 
+// The web version. A link made at an address only this computer can open, such as Docker's
+// localhost, points here instead, so the people it's sent to can open it. Only with the
+// usual relay: the web version wouldn't find a project on another one.
+export const WEB_APP = 'https://scribecue.kyleadvoice.ca/';
+const LOCAL = /^(localhost|127(?:\.\d{1,3}){3}|\[::1\]|.+\.localhost)$/i;
+export function linkBase(href, relay = relayUrl()) {
+  let u;
+  try { u = new URL(href); } catch { return href; }
+  return LOCAL.test(u.hostname) && relay === DEFAULT_RELAY ? WEB_APP : href;
+}
+export const linksGoToWeb = (href, relay) => linkBase(href, relay) === WEB_APP && !String(href).startsWith(WEB_APP);
+
 const key = (project) => `scribecue.share.${project}`;
 export function getShare(project, storage = globalThis.localStorage) {
   try {

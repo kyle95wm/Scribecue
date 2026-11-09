@@ -48,9 +48,8 @@ While sharing is being tested, it's off until you turn it on.
 
 Make one link for each kind of access you need. The header then says **Shared**.
 
-Share from the web version, <https://scribecue.kyleadvoice.ca/>. A link points to the
-address you made it at, so a link made in a copy at `localhost` only opens on your own
-computer. To fix one, change its start to `https://scribecue.kyleadvoice.ca/`.
+Links made in Docker, at `localhost`, open the web version,
+<https://scribecue.kyleadvoice.ca/>, so anyone can use them. You stay the owner in Docker.
 
 ## Kinds of link
 
@@ -131,6 +130,9 @@ To make one:
 
 To use it, open the link and type its password. The project opens with you as its owner,
 with all its links.
+
+A recovery link made in Docker opens the web version. To open it in Docker instead, change
+the start of the link, before the `#`, to your Docker address, such as `http://localhost:8484/`.
 
 - **Anyone with the link and its password** can change the links and read the project.
   Never send it to others.

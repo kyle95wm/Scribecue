@@ -18,7 +18,8 @@ export const STATUS_TEXT = {
 // `deps`: $, toast, record(), status(), base(), name(), setName(v), make(role, password, days),
 // turnOff(id), stop(), leave(), googleKey() (null with no shared copy), shareGoogleKey(key)
 // → resolves to '' or what's wrong, myExpiry() (when a joined person's link stops working),
-// maxDays, recovery() (the recovery link, or null), makeRecovery(password), turnOffRecovery(),
+// maxDays, webLinks() (links open the web version, as this address is only for this computer),
+// recovery() (the recovery link, or null), makeRecovery(password), turnOffRecovery(),
 // recoveryMin.
 // When a link stops working, as people read it.
 export function expiryText(at, now = Date.now()) {
@@ -116,6 +117,8 @@ export function shareDialog(deps) {
     what.textContent = url
       ? 'Opens this project as its owner, here or on another computer. Keep the link and its password somewhere safe, apart from each other. Anyone with both can change the links and read the project.'
       : 'Without one, nobody can change this project’s links if this browser’s data is lost. A recovery link and its password let you take the project back, here or on another computer.';
+    // Made in Docker, it opens the web version. Swapping the address opens it here instead.
+    if (url && deps.webLinks?.()) what.textContent += ` It opens the web version. To open it in this copy instead, change the start of the link, before the #, to ${location.href.split('#')[0]}`;
     const line = document.createElement('p'); line.className = 'updstatus sharerowline';
     if (url) {
       const field = document.createElement('input');
@@ -163,7 +166,7 @@ export function shareDialog(deps) {
     $('shareIntro').textContent = !r
       ? 'Make a link for each kind of access. Each link has its own password: send it separately. The video isn’t shared: each person opens their own copy.'
       : owner
-        ? 'People with a link and its password can open this project. Send each password separately.'
+        ? `People with a link and its password can open this project. Send each password separately.${deps.webLinks?.() ? ' The links open the web version of Scribecue, since this address only works on this computer.' : ''}`
         : `You ${ROLE_TEXT[r.role]?.name.toLowerCase() || 'can open'} this project, shared with you by its owner.${mine ? ` Your link ${expiryText(mine).replace(/^Expires/, 'expires')}.` : ''}`;
     const named = !!deps.name();
     $('shareNameRow').hidden = named && !!r;

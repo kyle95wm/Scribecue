@@ -178,3 +178,25 @@ test('a recovery link opens the project as its owner, with every link, and stays
   assert.equal(off.n, made.n + 1);
   assert.equal((await relayReadLinks(r.room, r.ownerPub, await sharing.signedLinks(off), ed25519())).recovery, null);
 });
+
+test('links made at a localhost address, as in Docker, open the web version', () => {
+  const { linkBase, linksGoToWeb, WEB_APP, DEFAULT_RELAY } = sharing;
+  for (const here of ['http://localhost:8484/', 'http://127.0.0.1:8484/?x=1#share=a.b.c', 'http://[::1]:8484/', 'http://scribecue.localhost/']) {
+    assert.equal(linkBase(here, DEFAULT_RELAY), WEB_APP, here);
+    assert.equal(linksGoToWeb(here, DEFAULT_RELAY), true, here);
+  }
+  // An address others may reach, and the web version itself, keep their own.
+  for (const here of ['http://studio.lan:8484/', 'https://scribecue.example.org/', WEB_APP + '#share=a.b.c']) {
+    assert.equal(linkBase(here, DEFAULT_RELAY), here, here);
+    assert.equal(linksGoToWeb(here, DEFAULT_RELAY), false, here);
+  }
+  // With a relay of its own, the web version wouldn't find the project, so links stay here.
+  assert.equal(linkBase('http://localhost:8484/', 'ws://127.0.0.1:8787'), 'http://localhost:8484/');
+  assert.equal(linkBase('not a url', DEFAULT_RELAY), 'not a url');
+  // Only the start of the link changes: the part after # is the same.
+  const r = { room: 'R'.repeat(22), links: [{ id: 'I'.repeat(12), secret: 'S'.repeat(22), role: 'edit' }] };
+  const [web] = sharing.linksOf(r, linkBase('http://localhost:8484/', DEFAULT_RELAY));
+  const [here] = sharing.linksOf(r, 'http://localhost:8484/');
+  assert.ok(web.url.startsWith(WEB_APP + '#share='));
+  assert.equal(web.url.split('#')[1], here.url.split('#')[1]);
+});
