@@ -15,6 +15,7 @@ Written 2026-11-08, from our own review. Nobody outside has reviewed it.
 | Can edit link | its link key, the project keys | write the script, comments and suggestions |
 | Can review link | the same | write comments and suggestions |
 | Can comment link | the same | write comments |
+| Recovery link | everything the owner has, once opened | what the owner can |
 | The relay | encrypted changes, the signed list of links, boxes | pass changes on, keep them, refuse writes |
 
 A link's holder is anyone with its address and its password. The relay runs on Cloudflare
@@ -190,6 +191,25 @@ The owner turns a link off, or makes a new link for its role. Then:
 A link turned off before numbering has no `upTo`. Its changes still count, as before,
 until the owner seals it.
 
+## Recovery link
+
+The owner may make a recovery link, `#share=<room>.<id>.<secret>` like any other.
+
+- The list holds `recovery: { id, box }`. The box holds the owner key, the owner's public
+  key and wrapping key, the project keys, the project's id, and each link that's on's
+  secret, wrapping key and `from`.
+- Its key comes from PBKDF2-SHA-256, 600,000 rounds, of the secret and password, salted
+  with `scribecue-recovery:<room>:<id>`. The box is AES-GCM, bound to
+  `scribecue-recovery:<room>:<id>`.
+- The owner keeps that key, not the password, and seals the box again with each list. So the
+  box always matches the list it's in.
+- Asked for the recovery link's box, the relay sends it with role `owner` and the signed
+  list. The browser opens the box, checks the list is signed by the owner key inside, and
+  rebuilds the owner's record from both. It then signs in as `owner`.
+- An owner's browser that gets a newer list opens the box with its key too, to pick up the
+  secrets of links another of the owner's browsers made.
+- Turning it off sends a list without it.
+
 ## Links that expire
 
 The owner can make a link that expires after 1 to 365 days.
@@ -231,8 +251,11 @@ trust the time a change says it was made.
 - **No forward secrecy.** Someone with a link can read everything up to when it's turned
   off, for as long as they keep the keys. A relay that kept old changes, and later got a
   link and its password, could read them too.
-- **The owner key can't be replaced or recovered.** If the owner's browser storage is
-  lost, nobody can change the links. Copies still work as plain projects.
+- **The owner key can't be replaced.** Without a recovery link, if the owner's browser
+  storage is lost, nobody can change the links. Copies still work as plain projects.
+- **A recovery link is the owner's key.** Someone who has used it keeps the owner key after
+  it's turned off. Its password is guessed offline like a link's, with the link's address.
+  It needs 10 characters.
 - **Keys live in browser storage.** A script running in the page could read them. The
   CSP allows only Scribecue's own scripts.
 - **The relay sees** room ids, link ids and roles, browser ids and change numbers, sizes,

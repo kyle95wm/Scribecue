@@ -140,3 +140,41 @@ test('the days typed for a link are checked, and its expiry reads plainly', () =
   assert.match(expiryText(now + 86_400_000, now), /, in 1 day$/);
   assert.match(expiryText(now + 3_600_000, now), /, within a day$/);
 });
+
+test('a recovery link opens the project as its owner, with every link, and stays up to date', async () => {
+  const project = crypto.randomUUID();
+  let r = await sharing.startSharing(project, 'ws://relay', { edit: 'a' }, fast);
+  r = sharing.removeLink(r, r.links[0].id, {}); // a second project key, and a link turned off
+  r = await sharing.addLink(r, 'comment', 'b', fast, null, Date.now() + sharing.DAY);
+  r.created = true;
+  r = await sharing.addRecovery(r, 'long enough password', fast);
+  const url = sharing.recoveryUrl(r, 'https://example.test/');
+  const hash = new URL(url).hash;
+  assert.equal(parseLink(hash).id, r.recovery.id);
+  // The relay serves the box from the owner's signed list, with the list.
+  let signedList = await sharing.signedLinks(r);
+  const relayList = await relayReadLinks(r.room, r.ownerPub, signedList, ed25519());
+  assert.equal(relayList.recovery.id, r.recovery.id);
+  assert.ok(!signedList.text.includes(r.priv) && !signedList.text.includes(r.recovery.secret), 'nothing secret is in the clear');
+  const fetch = async () => ({ role: 'owner', box: relayList.recovery.box, links: signedList });
+  await assert.rejects(sharing.joinShare(hash, 'wrong password', 'ws://relay', { fetch, ...fast }), /wrong-password/);
+  const back = await sharing.joinShare(hash, 'long enough password', 'ws://relay', { fetch, ...fast });
+  for (const k of ['room', 'link', 'role', 'priv', 'ownerPub', 'keys', 'ow', 'project', 'n', 'links', 'recovery']) assert.deepEqual(back[k], r[k], k);
+  assert.equal(sharing.linksOf(back, 'https://x.test/')[0].url, sharing.linksOf(r, 'https://x.test/')[0].url, 'the link to copy is the same');
+  // A list not signed by the owner in the box is refused.
+  const other = await sharing.startSharing(project, 'ws://relay', {}, fast);
+  const forged = await sharing.signedLinks({ ...other, room: r.room });
+  await assert.rejects(sharing.joinShare(hash, 'long enough password', 'ws://relay', { fetch: async () => ({ role: 'owner', box: relayList.recovery.box, links: forged }), ...fast }));
+  // The recovered browser makes a link; the first catches up, secret included.
+  const made = await sharing.addLink(back, 'review', 'c', fast);
+  signedList = await sharing.signedLinks(made);
+  const caught = await sharing.adoptLinks(r, signedList);
+  assert.equal(caught.n, made.n);
+  assert.deepEqual(sharing.linksOf(caught, 'https://x.test/').map((l) => l.url).sort(), sharing.linksOf(made, 'https://x.test/').map((l) => l.url).sort());
+  assert.equal(await sharing.adoptLinks(made, signedList), null, 'nothing newer');
+  // Turned off: the list no longer has it.
+  const off = sharing.removeRecovery(made);
+  assert.equal(off.recovery, undefined);
+  assert.equal(off.n, made.n + 1);
+  assert.equal((await relayReadLinks(r.room, r.ownerPub, await sharing.signedLinks(off), ed25519())).recovery, null);
+});

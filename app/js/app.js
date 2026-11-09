@@ -734,7 +734,15 @@ async function startRelay(record, copy, fresh, seq, seen) {
   const client = relay = new sharedLib.RelayClient({
     url: record.relay, room: record.room, who: sharedLib.who(record), shared: copy, create, seed: !fresh,
     onPresence: (people) => { if (relay === client) { here = people; showHere(); } },
-    onLinks: () => { if (relay === client) shareUi?.update(); },
+    onLinks: async (read, signed) => {
+      if (relay !== client) return;
+      // Another browser of the owner's changed the links: this one catches up.
+      if (owner) {
+        const now = sharedLib.getShare(id), next = read.n > (now?.n || 0) ? await sharedLib.adoptLinks(now, signed) : null;
+        if (next && relay === client && (sharedLib.getShare(id)?.n || 0) < next.n) sharedLib.setShare(id, next);
+      }
+      shareUi?.update();
+    },
     onStatus: (status, detail) => {
       if (relay !== client) return;
       if (status === 'online') {
@@ -903,7 +911,7 @@ const sharingTools = {
     stopRelay(); shared = null; sharedStarting = null;
     changed();
     select(null);
-    setMode(record.role === 'edit' ? 'write' : 'qc', true);
+    setMode(record.role === 'edit' || record.role === 'owner' ? 'write' : 'qc', true);
     return true;
   },
   // A link for `role` with its password, starting to share if this is the first. `days`:
@@ -920,6 +928,21 @@ const sharingTools = {
     sharedLib.setShare(id, next);
     sendNewLinks(id, next);
     toast('Link turned off. It no longer opens this project');
+  },
+  // The recovery link, made or turned off.
+  async makeRecovery(password) {
+    const id = S.projectId, record = sharedLib.getShare(id);
+    if (!record || record.link !== 'owner') throw new Error('offline');
+    const next = await sharedLib.addRecovery(record, password);
+    sharedLib.setShare(id, next);
+    sendNewLinks(id, next);
+    toast('Recovery link made. Keep it and its password somewhere safe, apart from each other');
+  },
+  async turnOffRecovery() {
+    const id = S.projectId, next = sharedLib.removeRecovery(sharedLib.getShare(id));
+    sharedLib.setShare(id, next);
+    sendNewLinks(id, next);
+    toast('Recovery link turned off. It no longer opens this project');
   },
   // The owner ends sharing: the relay deletes its copy. This one stays, as a plain project.
   async stop() {
@@ -986,6 +1009,8 @@ if (sharedOn) {
         make: sharingTools.make, turnOff: sharingTools.turnOff, stop: sharingTools.stop, leave: sharingTools.leave,
         googleKey: () => (shared ? shared.googleKey() : null), shareGoogleKey: sharingTools.shareGoogleKey,
         // When this person's own link stops working, if it does.
+        recovery: () => { const r = sharedLib.getShare(S.projectId); return r ? sharedLib.recoveryUrl(r, location.href) : null; },
+        makeRecovery: sharingTools.makeRecovery, turnOffRecovery: sharingTools.turnOffRecovery, recoveryMin: sharedLib.RECOVERY_MIN,
         myExpiry: () => (myShare && myShare.link !== 'owner' ? relay?.links?.links.get(myShare.link)?.expires ?? null : null),
         maxDays: sharedLib.MAX_DAYS,
       });

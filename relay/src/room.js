@@ -37,6 +37,7 @@ export const LIMITS = {
   offLinks: 200, // links turned off, kept so their earlier changes still check out
   devices: 50, // browsers whose last change is kept for each link turned off
   linksText: 500_000, // characters in the owner's signed list
+  recovery: 40_000, // characters in the recovery link's box
   idle: 180 * 24 * 3600 * 1000, // a project nobody opens for this long is deleted
 };
 const CHUNK = 100_000; // stored values stay well under the storage's own limit
@@ -104,7 +105,14 @@ export async function readLinks(room, owner, signedLinks, verify) {
     const ends = l.expires !== undefined ? { expires: l.expires } : {};
     links.set(l.id, l.off === true ? { role: l.role, pub: l.pub, off: true, ...ends } : { role: l.role, pub: l.pub, box: l.box, ...ends });
   }
-  return { n: o.n, links };
+  // The owner's recovery link: its box opens the project as the owner.
+  let recovery = null;
+  if (o.recovery !== undefined) {
+    const r = o.recovery;
+    if (!validId(r?.id) || r.id === 'owner' || links.has(r.id) || typeof r.box !== 'string' || r.box.length > LIMITS.recovery) throw new Error('bad recovery');
+    recovery = { id: r.id, box: r.box };
+  }
+  return { n: o.n, links, recovery };
 }
 
 // Ed25519 with the Web Crypto API, as both Workers and Node have it. Keys are raw, base64url.
@@ -199,6 +207,9 @@ export class Room {
   // link's secret (which never reaches the relay) and its password.
   async #box(socket, m) {
     const meta = await this.storage.get('meta');
+    // The recovery link's box comes with the signed list, to rebuild the owner's from.
+    const recovery = meta && validId(m.link) && (await this.#links(meta)).recovery;
+    if (recovery?.id === m.link) return send(socket, { type: 'box', link: m.link, role: 'owner', box: recovery.box, links: meta.links });
     const l = meta && validId(m.link) && (await this.#links(meta)).links.get(m.link);
     // One the owner turned off once it expired still says it expired.
     if (expired(l, this.now())) return fail(socket, 'link-expired');

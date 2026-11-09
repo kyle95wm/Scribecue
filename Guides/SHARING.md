@@ -14,6 +14,7 @@ Sharing is still being tested. Keep your own saved copy of anything important.
 - [Working together](#working-together)
 - [What's shared](#whats-shared)
 - [Voices](#voices)
+- [Recovery link](#recovery-link)
 - [Stopping and leaving](#stopping-and-leaving)
 - [Privacy](#privacy)
 - [How it works](#how-it-works)
@@ -114,6 +115,28 @@ delete it in Google Cloud when you're done. Click the button again to take it ou
 
 **Amazon Polly voices:** each person needs their own AWS key. See
 [Amazon Polly voices](POLLY-VOICES.md).
+
+## Recovery link
+
+Only the browser you shared from can change the links. If its data is lost, nobody can. A
+recovery link lets you take the project back, here or on another computer.
+
+To make one:
+
+1. Click **Share**.
+2. Under **Recovery link**, type a password of at least 10 characters.
+3. Click **Make recovery link**, then **Copy**.
+4. Keep the link and the password somewhere safe, apart from each other, such as a password
+   manager.
+
+To use it, open the link and type its password. The project opens with you as its owner,
+with all its links.
+
+- **Anyone with the link and its password** can change the links and read the project.
+  Never send it to others.
+- **The browser you shared from keeps working.** Links made in either one show in both.
+- **To replace it,** click **Turn off**, then make a new one. Changing it doesn't stop
+  someone who has already used the old one.
 
 ## Stopping and leaving
 
