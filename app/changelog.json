@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.98.2",
+    "date": "2026-11-09",
+    "notes": "## Shared projects: nothing lost\n\n- Changes you make offline are no longer lost if you click New before you're back online. They're sent when you open the project's link again.\n- If you share from two computers, links you turn off or make on one while it's offline are kept. Before, the other computer's links could replace them.\n- Leaving a shared project now warns you if your last changes haven't been sent.\n- Sharing is still being tested."
+  },
+  {
     "version": "0.98.1",
     "date": "2026-11-09",
     "notes": "## When sharing ends\n\n- When the owner stops sharing, the project now closes for everyone else. Nothing of it stays on their computer.\n- The same happens when your link is turned off or expires.\n- The owner keeps their copy.\n- Sharing is still being tested."
