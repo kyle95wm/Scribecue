@@ -905,6 +905,8 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .sharerowline input[type="password"] { flex: 1 1 140px; min-width: 0; }
 .sharerowline[hidden], .sharerow[hidden] { display: none; }
 .sharelink { flex: 1 1 240px; min-width: 0; font: 12px var(--mono); }
+.sharerowline .sharedays { width: 64px; flex: none; font-family: var(--mono); }
+.shareexpiry { font-family: var(--mono); }
 #shareNameRow, #joinNameRow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 #shareNameRow[hidden] { display: none; }
 #list .over { color: var(--bad); }

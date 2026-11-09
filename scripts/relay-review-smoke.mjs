@@ -59,10 +59,10 @@ try {
   // A makes a review link and a comment link.
   await a.click('#shareBtn');
   await a.fill('#sharePw-review', 'green door');
-  await a.click('#sharePw-review + button');
+  await a.click('#sharePw-review ~ button');
   await a.wait(`document.querySelector('.sharelink') && ${online}`, 'review link');
   await a.fill('#sharePw-comment', 'grey door');
-  await a.click('#sharePw-comment + button');
+  await a.click('#sharePw-comment ~ button');
   await a.wait(`document.querySelectorAll('.sharelink').length===2`, 'comment link');
   const [review, comment] = await a.js(`[...document.querySelectorAll('.sharelink')].map(e=>e.value)`);
   await a.js(`document.getElementById('shareClose').click();true`);

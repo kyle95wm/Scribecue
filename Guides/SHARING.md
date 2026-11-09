@@ -38,9 +38,12 @@ While sharing is being tested, it's off until you turn it on.
 1. Open the project, in any mode but Record.
 2. Click **Share** in the header.
 3. Add your name, if you haven't yet. Others see it.
-4. Choose a kind of link, type a password of at least 6 characters, and click **Make link**.
-5. Click **Copy** and send the link.
-6. Send the password separately, such as by text message.
+4. Choose a kind of link, and type a password of at least 6 characters.
+5. To have the link stop working by itself, type a number of days in **Expires after**.
+   Leave it empty for a link that works until you turn it off.
+6. Click **Make link**.
+7. Click **Copy** and send the link.
+8. Send the password separately, such as by text message.
 
 Make one link for each kind of access you need. The header then says **Shared**.
 
@@ -117,6 +120,7 @@ delete it in Google Cloud when you're done. Click the button again to take it ou
 | To | Click | What happens |
 |---|---|---|
 | Stop one link | **Turn off**, in Share | It stops working. People using it keep their copy |
+| Let a link expire | Set **Expires after** when making it | It stops working then, as if turned off. Its row in Share says when |
 | Replace a link | **Turn off**, then **Make link** | Only people with the new link and password can open it |
 | Stop sharing | **Stop sharing**, in Share | Every link stops working, and the sharing service's copy is deleted. Your copy stays |
 | Leave someone's project | **Leave**, in Share | The project is removed from this browser. To keep it as your own, click **Keep a copy here** first |
@@ -186,6 +190,7 @@ relay don't match, the header says **Update needed**, and nothing is lost.
 |---|---|
 | One project | 64 MB |
 | New shared projects | 10 an hour, from one internet address |
+| A link's expiry | 1 to 365 days |
 | Kept without being opened | 180 days |
 
 ## Problems
@@ -196,6 +201,7 @@ relay don't match, the header says **Update needed**, and nothing is lost.
 | **Update needed** | Update Scribecue and open the project again. Your changes are kept |
 | "That password doesn't open this link" | Check the password with the person who sent it |
 | "This link has been turned off" | Ask for a new link |
+| "This link has expired" | Ask for a new link |
 | "This link is incomplete" | Copy all of the link and try again |
 
 See also [Troubleshooting](TROUBLESHOOTING.md).

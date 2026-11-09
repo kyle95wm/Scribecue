@@ -15,13 +15,29 @@ export const STATUS_TEXT = {
   'old-relay': ['Update needed', 'The sharing service needs updating before this project connects. Your changes are kept here.'],
 };
 
-// `deps`: $, toast, record(), status(), base(), name(), setName(v), make(role, password),
+// `deps`: $, toast, record(), status(), base(), name(), setName(v), make(role, password, days),
 // turnOff(id), stop(), leave(), googleKey() (null with no shared copy), shareGoogleKey(key)
-// → resolves to '' or what's wrong.
+// → resolves to '' or what's wrong, myExpiry() (when a joined person's link stops working),
+// maxDays.
+// When a link stops working, as people read it.
+export function expiryText(at, now = Date.now()) {
+  const days = Math.max(1, Math.round((at - now) / 86_400_000));
+  const when = new Date(at).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  return at - now < 86_400_000 * 0.75 ? `Expires ${when}, within a day` : `Expires ${when}, in ${days} day${days === 1 ? '' : 's'}`;
+}
+// A number of days typed for a link: null for none, NaN if it isn't one.
+export function readDays(text, max) {
+  const t = String(text).trim();
+  if (!t) return null;
+  const n = Number(t);
+  return Number.isInteger(n) && n >= 1 && n <= max ? n : NaN;
+}
 export function shareDialog(deps) {
   const { $ } = deps;
   const dlg = $('shareDlg'), list = $('shareLinks');
   let busy = false, keyOpen = false;
+  // What's typed for each link not yet made, kept when the dialog redraws.
+  const drafts = {};
   // A name is needed to share: others see it. One typed but not yet kept counts.
   const named = () => {
     const typed = $('shareName').value.trim();
@@ -51,19 +67,38 @@ export function shareDialog(deps) {
       off.dataset.tip = 'The link stops working. People using it keep the copy they have';
       off.addEventListener('click', () => run(() => deps.turnOff(link.id)));
       line.append(url, copy, off);
+      if (link.expires) {
+        const ends = document.createElement('p'); ends.className = 'dim small shareexpiry';
+        ends.textContent = expiryText(link.expires);
+        sec.append(line, ends);
+        return sec;
+      }
     } else {
       const label = document.createElement('label'), pw = document.createElement('input'), make = document.createElement('button');
       pw.type = 'password'; pw.autocomplete = 'new-password'; pw.spellcheck = false; pw.id = `sharePw-${role}`;
       label.htmlFor = pw.id; label.textContent = 'Password';
+      // How long the link works for: empty for as long as it's on.
+      const daysLabel = document.createElement('label'), days = document.createElement('input'), unit = document.createElement('span');
+      days.type = 'number'; days.min = '1'; days.max = String(deps.maxDays); days.step = '1'; days.inputMode = 'numeric';
+      days.id = `shareDays-${role}`; days.className = 'sharedays'; days.placeholder = 'never';
+      daysLabel.htmlFor = days.id; daysLabel.textContent = 'Expires after';
+      days.dataset.tip = 'Leave empty for a link that works until you turn it off';
+      unit.textContent = 'days'; unit.className = 'dim';
+      const draft = drafts[role] ||= { pw: '', days: '' };
+      pw.value = draft.pw; days.value = draft.days;
+      pw.addEventListener('input', () => { draft.pw = pw.value; });
+      days.addEventListener('input', () => { draft.days = days.value; });
       make.textContent = 'Make link';
       const go = () => {
         if (!named()) { deps.toast('Add your name first, so others know who’s here'); $('shareName').focus(); return; }
         if (pw.value.length < 6) { deps.toast('Use a password of at least 6 characters'); pw.focus(); return; }
-        run(() => deps.make(role, pw.value));
+        const n = readDays(days.value, deps.maxDays);
+        if (Number.isNaN(n)) { deps.toast(`Use a number of days from 1 to ${deps.maxDays}, or leave it empty`); days.focus(); return; }
+        run(async () => { await deps.make(role, pw.value, n); delete drafts[role]; });
       };
       make.addEventListener('click', go);
-      pw.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
-      line.append(label, pw, make);
+      for (const el of [pw, days]) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+      line.append(label, pw, daysLabel, days, unit, make);
     }
     sec.append(line);
     return sec;
@@ -77,16 +112,18 @@ export function shareDialog(deps) {
   }
 
   function render() {
-    const r = deps.record(), owner = !r || r.link === 'owner';
+    const r = deps.record(), owner = !r || r.link === 'owner', mine = r && !owner ? deps.myExpiry?.() : null;
     $('shareIntro').textContent = !r
       ? 'Make a link for each kind of access. Each link has its own password: send it separately. The video isn’t shared: each person opens their own copy.'
       : owner
         ? 'People with a link and its password can open this project. Send each password separately.'
-        : `You ${ROLE_TEXT[r.role]?.name.toLowerCase() || 'can open'} this project, shared with you by its owner.`;
+        : `You ${ROLE_TEXT[r.role]?.name.toLowerCase() || 'can open'} this project, shared with you by its owner.${mine ? ` Your link ${expiryText(mine).replace(/^Expires/, 'expires')}.` : ''}`;
     const named = !!deps.name();
     $('shareNameRow').hidden = named && !!r;
     if (!$('shareName').matches(':focus')) $('shareName').value = deps.name();
+    const focused = list.contains(document.activeElement) ? document.activeElement.id : '';
     list.replaceChildren(...(owner ? Object.keys(ROLE_TEXT).map((role) => row(role, deps.links().find((l) => l.role === role))) : []));
+    if (focused) document.getElementById(focused)?.focus(); // still typing, after a redraw
     for (const b of list.querySelectorAll('button, input:not([readonly])')) b.disabled = busy;
     const status = r ? STATUS_TEXT[deps.status()] : null;
     $('shareStatus').textContent = busy ? 'Working…' : status ? status[1] : '';
@@ -161,7 +198,7 @@ export function shareDialog(deps) {
   });
 
   return {
-    open() { render(); if (!dlg.open) dlg.showModal(); },
+    open() { if (!dlg.open) for (const k in drafts) delete drafts[k]; render(); if (!dlg.open) dlg.showModal(); },
     // The header tag, and the dialog if it's open.
     update() {
       const r = deps.record(), tag = $('shareState'), s = r ? STATUS_TEXT[deps.status()] : null;
@@ -180,6 +217,7 @@ export function joinDialog(deps) {
   const reasons = {
     'wrong-password': 'That password doesn’t open this link. Check it with the person who sent it',
     'no-link': 'This link has been turned off. Ask for a new one',
+    'link-expired': 'This link has expired. Ask for a new one',
     'bad-link': 'This link is incomplete. Copy all of it and try again',
     offline: 'Couldn’t reach the sharing service. Try again when you’re online',
     'old-app': 'Update Scribecue to open this link',

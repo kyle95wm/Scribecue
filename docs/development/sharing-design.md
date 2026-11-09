@@ -66,8 +66,10 @@ The owner signs a list: `{ room, n, links, wraps }`.
 
 - `n` counts up with each change. Clients and the relay ignore a list older than one
   they've seen.
-- Each link that's on: `{ id, role, pub, box }`.
-- Each link turned off: `{ id, role, pub, off: true, upTo, sealed }`. Its box is gone.
+- Each link that's on: `{ id, role, pub, box, expires }`. `expires`, a time in ms, is
+  there only for a link that expires.
+- Each link turned off: `{ id, role, pub, off: true, upTo, sealed, expires }`. Its box is
+  gone. `expires` stays on a link turned off because it expired.
 - `wraps`: for the owner and each link that's on, the project keys it lacks, encrypted
   with its wrapping key and bound to the room and link (`scribecue-keys:<room>:<id>`).
 
@@ -144,7 +146,10 @@ by browser, and links turned off sealed.
 
 - A box, a new room or signing in: the browser speaks a version the relay takes.
 - Signing in: the challenge is signed by the owner key, or by a link that's on.
-- Each message after that: the link is still on, with the same role and key.
+- Each message after that: the link is still on and hasn't expired, with the same role and
+  key.
+- Expiry: a link past its `expires` gets `link-expired` for its box and for signing in. Its
+  sockets close at their next message, or when something would reach them.
 - A change or snapshot: the role may write that document, and the signature checks out.
 - A list of links: it's from the owner, newer than the last, and within the limits.
 - A snapshot: its point isn't before the last snapshot's. The changes before it go.
@@ -184,6 +189,19 @@ The owner turns a link off, or makes a new link for its role. Then:
 
 A link turned off before numbering has no `upTo`. Its changes still count, as before,
 until the owner seals it.
+
+## Links that expire
+
+The owner can make a link that expires after 1 to 365 days.
+
+1. **The relay refuses it** from then on, by its own clock, as if it were off.
+2. **The owner turns it off**, as by hand, once online and the time has passed: a new
+   project key, `upTo`, then sealing. While the owner is online, this happens about a second
+   after it expires.
+
+Until the owner does, a link that expired still has the project keys. A relay that ignored
+expiry could keep passing it changes. Clients don't check expiry themselves: they can't
+trust the time a change says it was made.
 
 ## Who's here
 

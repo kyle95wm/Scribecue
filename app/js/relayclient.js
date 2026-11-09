@@ -7,7 +7,7 @@ import { b64, unb64, signed, signer, verifier, readLinks, projectCipher, unwrapK
 export { fetchBox } from './sharing.js'; // kept here too, for the tests
 import { DOCS } from './shared.js';
 
-const ENDS = new Set(['link-off', 'room-deleted', 'no-room', 'bad-signature', 'room-exists']);
+const ENDS = new Set(['link-off', 'link-expired', 'room-deleted', 'no-room', 'bad-signature', 'room-exists']);
 // This browser and the relay speak different versions: 'old-app' when Scribecue needs
 // updating, 'old-relay' when the relay does. Trying again won't help, but nothing is lost.
 // What waits while a block is being typed (see hold).

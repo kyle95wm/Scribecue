@@ -11,6 +11,10 @@
 // link turned off stopped, so clients can tell its earlier changes from later ones. The design
 // is in docs/development/sharing-design.md.
 //
+// A link may expire (`expires`, a time in ms). From then on the relay treats it as off: it
+// can't get its box or sign in, and its sockets close. The owner turns it off properly, with
+// a new project key, once online.
+//
 // This file has no Cloudflare in it: storage and sockets are passed in, so it runs in Node
 // for the tests. See index.js for the Worker and Durable Object around it.
 
@@ -77,6 +81,8 @@ export function validUpTo(upTo) {
   const e = Object.entries(upTo);
   return e.length <= LIMITS.devices && e.every(([d, n]) => validDev(d) && Number.isSafeInteger(n) && n >= 0);
 }
+// Whether a link has expired by `now`.
+export const expired = (l, now) => l?.expires !== undefined && now >= l.expires;
 const seqKey = (n) => 'u:' + String(n).padStart(15, '0');
 
 // The owner's signed list of links, checked: { text, sig } → { n, links: Map(id → link) }.
@@ -93,8 +99,10 @@ export async function readLinks(room, owner, signedLinks, verify) {
     if (!validId(l?.id) || l.id === 'owner' || links.has(l.id) || !ROLES.includes(l.role) || typeof l.pub !== 'string') throw new Error('bad link');
     if (l.off !== true && (typeof l.box !== 'string' || l.box.length > 4000)) throw new Error('bad link');
     if (l.off === true && l.upTo !== undefined && !validUpTo(l.upTo)) throw new Error('bad link');
+    if (l.expires !== undefined && (!Number.isSafeInteger(l.expires) || l.expires < 0)) throw new Error('bad link');
     unb64(l.pub);
-    links.set(l.id, l.off === true ? { role: l.role, pub: l.pub, off: true } : { role: l.role, pub: l.pub, box: l.box });
+    const ends = l.expires !== undefined ? { expires: l.expires } : {};
+    links.set(l.id, l.off === true ? { role: l.role, pub: l.pub, off: true, ...ends } : { role: l.role, pub: l.pub, box: l.box, ...ends });
   }
   return { n: o.n, links };
 }
@@ -167,6 +175,7 @@ export class Room {
         const meta = await this.storage.get('meta');
         const l = meta && (await this.#links(meta)).links.get(state.link);
         if (!l || l.off || l.role !== state.role || l.pub !== state.pub) return fail(socket, 'link-off', true);
+        if (expired(l, this.now())) return fail(socket, 'link-expired', true);
       }
       if (m.type === 'sync') return await this.#sync(socket, m);
       if (m.type === 'presence') return this.#presence(socket, state, m);
@@ -191,6 +200,8 @@ export class Room {
   async #box(socket, m) {
     const meta = await this.storage.get('meta');
     const l = meta && validId(m.link) && (await this.#links(meta)).links.get(m.link);
+    // One the owner turned off once it expired still says it expired.
+    if (expired(l, this.now())) return fail(socket, 'link-expired');
     if (!l || l.off) return fail(socket, 'no-link');
     send(socket, { type: 'box', link: m.link, role: l.role, box: l.box });
   }
@@ -211,15 +222,16 @@ export class Room {
   async #auth(socket, state, m) {
     const meta = await this.storage.get('meta');
     if (!meta) return fail(socket, 'no-room', true);
-    let role, pub;
+    let role, pub, expires;
     if (m.link === 'owner') { role = 'owner'; pub = meta.owner; }
     else {
       const l = validId(m.link) && (await this.#links(meta)).links.get(m.link);
       if (!l || l.off) return fail(socket, 'link-off', true);
-      ({ role, pub } = l);
+      if (expired(l, this.now())) return fail(socket, 'link-expired', true);
+      ({ role, pub, expires } = l);
     }
     if (typeof m.sig !== 'string' || !state.nonce || !(await this.verify(pub, unb64(m.sig), signed.auth(this.id, state.nonce)))) return fail(socket, 'bad-signature', true);
-    socket.state = { role, link: m.link, pub, sid: this.random().slice(0, 12) };
+    socket.state = { role, link: m.link, pub, ...(expires !== undefined ? { expires } : {}), sid: this.random().slice(0, 12) };
     await this.#touch(meta);
     send(socket, { type: 'welcome', role, links: meta.links, seq: meta.seq });
   }
@@ -245,13 +257,23 @@ export class Room {
   #presence(socket, state, m) {
     if (typeof m.data !== 'string' || m.data.length > LIMITS.presence) return fail(socket, 'too-big');
     const out = { type: 'presence', sid: state.sid, by: state.link, data: m.data };
-    for (const other of this.sockets()) if (other !== socket && other.state?.role) send(other, out);
+    for (const other of this.#others(socket)) send(other, out);
+  }
+  // The other signed-in sockets. One whose link has expired since signing in closes instead.
+  #others(socket) {
+    const now = this.now(), out = [];
+    for (const other of this.sockets()) {
+      if (other === socket || !other.state?.role) continue;
+      if (expired(other.state, now)) fail(other, 'link-expired', true);
+      else out.push(other);
+    }
+    return out;
   }
   // A connection closed: the others stop showing it.
   close(socket) {
     const sid = socket.state?.sid;
     if (!sid || !socket.state.role) return;
-    for (const other of this.sockets()) if (other !== socket && other.state?.role) send(other, { type: 'gone', sid });
+    for (const other of this.#others(socket)) send(other, { type: 'gone', sid });
   }
 
   async #update(socket, state, m) {
@@ -265,7 +287,7 @@ export class Room {
     await this.#touch(meta, false);
     await this.storage.put({ [seqKey(seq)]: { doc: m.doc, by: state.link, ...num, sig: m.sig, data: m.data, size: data.length }, meta });
     const out = { type: 'update', seq, doc: m.doc, by: state.link, ...num, sig: m.sig, data: m.data };
-    for (const other of this.sockets()) if (other !== socket && other.state?.role) send(other, out);
+    for (const other of this.#others(socket)) send(other, out);
     send(socket, { type: 'ack', id: m.id ?? null, seq });
   }
 
@@ -301,13 +323,18 @@ export class Room {
     if (next.n <= meta.n) return fail(socket, 'stale-links');
     meta.links = m.links; meta.n = next.n;
     await this.storage.put('meta', meta);
-    for (const other of this.sockets()) {
+    for (const other of this.#others(socket)) {
       const s = other.state;
-      if (other === socket || !s?.role) continue;
       if (s.role === 'owner') { send(other, { type: 'links', links: m.links }); continue; } // the owner's other tabs
       const l = next.links.get(s.link);
       if (!l || l.off || l.role !== s.role || l.pub !== s.pub) fail(other, 'link-off', true);
-      else send(other, { type: 'links', links: m.links });
+      else if (expired(l, this.now())) fail(other, 'link-expired', true);
+      else {
+        // The owner may change when it expires.
+        const { expires, ...rest } = s;
+        if (expires !== l.expires) other.state = l.expires !== undefined ? { ...rest, expires: l.expires } : rest;
+        send(other, { type: 'links', links: m.links });
+      }
     }
     send(socket, { type: 'ack', id: m.id ?? null, seq: meta.seq });
   }
