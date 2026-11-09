@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.100.0",
+    "date": "2026-11-09",
+    "notes": "## Shared projects in the header\n\n- Click **Shared projects** in the header to see the shared projects in this browser. Click one to open it. You don't need its link or password.\n- A project that's no longer shared with you says so, and is removed from this browser.\n- Projects show by the owner's name for them.\n\n## Tooltips\n\n- Tooltips now stay inside the window. Panels, lists and dialogs no longer cut them off."
+  },
+  {
     "version": "0.99.0",
     "date": "2026-11-09",
     "notes": "## Sharing for everyone\n\n- Anyone can now share a project. Click **Share** in the header, choose a kind of link and set a password.\n- There is nothing to turn on first.\n- See the sharing guide for the kinds of link, privacy and limits."
