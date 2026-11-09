@@ -73,13 +73,17 @@ export async function keepStorage({ ask = false } = {}) {
 }
 
 let hooks = { toast: () => {}, voices: () => [], whisper: () => false, readings: async () => null, takes: async () => null, clearReadings: async () => {}, clearTakes: async () => {}, openTts: () => {}, openStt: () => {}, guides: async () => false,
-  unsaved: () => 0, save: async () => {} };
+  unsaved: () => 0, save: async () => {}, shares: () => ({ owned: 0, unrecovered: 0, joined: 0 }) };
 
 // The warning before removing everything, from what would be lost.
-export function wipeWarning({ unsaved, offline, hosted, takes = 0 }) {
+// shares: the shared projects kept here (see sharesHere in sharing.js).
+export function wipeWarning({ unsaved, offline, hosted, takes = 0, shares = null }) {
+  const projects = (n) => (n === 1 ? '1 shared project' : `${n} shared projects`);
   return [
     'This can’t be undone.',
     unsaved ? `${unsaved} block${unsaved === 1 ? ' isn’t' : 's aren’t'} saved in a project file and will be lost.` : '',
+    shares?.unrecovered ? `You own ${projects(shares.unrecovered)} here without a recovery link. Afterwards, nobody can change ${shares.unrecovered === 1 ? 'its' : 'their'} links or stop sharing ${shares.unrecovered === 1 ? 'it' : 'them'}. Make a recovery link in Share first.` : '',
+    shares?.joined ? `To open ${projects(shares.joined)} you joined again, you’ll need ${shares.joined === 1 ? 'its link and password' : 'their links and passwords'}.` : '',
     takes ? `${takes} recorded take${takes === 1 ? '' : 's'} will be lost. Export a session package in Record mode first to keep them.` : '',
     offline && hosted ? 'You’re offline, so Scribecue won’t open again until you’re back online.' : '',
     'Afterwards Scribecue opens as if for the first time.',
@@ -183,7 +187,7 @@ async function askWipe(show) {
   const unsaved = hooks.unsaved();
   const t = await hooks.takes();
   const takes = t?.where === 'browser' ? t.count : 0; // takes in Docker aren't removed
-  $('wipeWarn').textContent = wipeWarning({ unsaved, offline: !online(), hosted: HOSTED, takes });
+  $('wipeWarn').textContent = wipeWarning({ unsaved, offline: !online(), hosted: HOSTED, takes, shares: hooks.shares() });
   $('wipeSave').hidden = !unsaved;
   $('wipeCancel').focus();
 }

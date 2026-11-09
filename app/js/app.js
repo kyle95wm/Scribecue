@@ -89,6 +89,11 @@ let myShare = null;
 const sharedLimited = () => myShare?.role === 'review' || myShare?.role === 'comment';
 // Only the owner of a shared project saves or exports it: no Save or Export, keys or reminders.
 const canMakeFiles = () => makesFiles(myShare);
+// QC in a shared project, without a package's saved readings: blocks are read here, live,
+// with the project's voices, as in Write.
+const sharedQc = () => !!myShare && !S.review;
+// Live readings in a shared project; programme sound in one of its own, until a package opens.
+function sharedQcSource() { if (!S.review) S.qcSource = myShare ? 'preview' : 'video'; }
 const qcEditable = () => myShare?.role === 'comment' ? false : myShare?.role === 'review' ? true : S.reviewId ? reviewAllowsEdits(S.review) : !!S.reviewAudio;
 const qcLocked = () => qc() && !qcEditable();
 const readingControls = () => ttsOn() || (qc() && qcEditable());
@@ -690,7 +695,7 @@ async function startShared() {
   window.scribecueShared = null;
   // A project shared on the relay keeps its copy in this browser between visits.
   const record = sharedLib.getShare(id);
-  myShare = record; syncQcPermission(); showAutosave();
+  myShare = record; sharedQcSource(); syncQcPermission(); showAutosave();
   if (!record && !sharedEvery) { endLive(); return; } // a project of its own: no shared copy
   try { await loadCopy(); } catch { copyLib = null; if (sharedToken === token) toast('Couldn’t load sharing. Reload Scribecue to try again'); return; }
   if (sharedToken !== token) return; // started again meanwhile
@@ -754,6 +759,7 @@ async function startRelay(record, copy, fresh, seq, seen) {
         if (now && owner) ownerOnline(client, id, now);
         // Just joined: the relay's copy is the project. Blocks only here go.
         if (fresh) { fresh = false; applyShared([...new Set([...copy.blocks.keys(), ...S.cues.map((c) => c.uid)])], true); }
+        refreshLive(); // caught up: what's waiting in Pending review
         persist();
       }
       // Scribecue and the relay speak different versions: nothing is lost, and the tag says
@@ -766,7 +772,7 @@ async function startRelay(record, copy, fresh, seq, seen) {
             : 'This project is no longer shared with you. Your copy stays here');
         sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
         // A plain project from now on: no limits, no suggestions.
-        myShare = null; syncQcPermission(); showAutosave(); endLive();
+        myShare = null; sharedQcSource(); syncQcPermission(); showAutosave(); endLive();
         queueMicrotask(startShared); // a project of its own from now on
       }
       window.dispatchEvent(new CustomEvent('scribecue-relay', { detail: { status, detail } }));
@@ -890,6 +896,23 @@ async function sendNewLinks(id, record) {
   if (client?.status !== 'online') return;
   if (await client.sendLinks(await sharedLib.signedLinks(record))) await sealLinks(client, id);
 }
+// Opens a shared project: its copy fills from the relay, even when it's the project already
+// here, as when opening a new link to it or the same one again. The copy kept from before
+// goes: the script starts empty, and a kept copy would be brought up to date with that.
+async function openShared(record, id) {
+  await stopJob();
+  await endRecording();
+  await handleStore.set(null, 'shared:' + id);
+  undoStack.length = 0; redoStack.length = 0;
+  S.projectId = id;
+  sharedLib.setShare(S.projectId, record);
+  S.reviewHistory = null; S.cues = []; S.comments = []; S.handle = null; handleStore.set(null);
+  stopRelay(); shared = null; sharedStarting = null;
+  changed();
+  select(null);
+  setMode(record.role === 'edit' || record.role === 'owner' ? 'write' : 'qc', true);
+  return record.role;
+}
 const sharingTools = {
   // `expires`: for each role, when its link stops working, if it does.
   async start(passwords, expires = {}) {
@@ -899,23 +922,19 @@ const sharingTools = {
     return sharedLib.linksOf(record, sharedLib.linkBase(location.href));
   },
   async join(url, password) {
+    // A new link to the shared project open here: its changes are in the shared project, once
+    // they've all been sent. The copy here is fetched again with the new link.
+    const l = sharedLib.parseLink(new URL(url).hash);
+    if (l && myShare && myShare.room === l.room && relay?.unsent()) throw new Error('unsent');
     const record = await sharedLib.joinShare(new URL(url).hash, password, sharedLib.relayUrl());
+    const again = !!myShare && sharedLib.shareForRoom(record.room)?.project === S.projectId;
+    if (!again && !okToReplace('Open the shared project')) return false;
+    return openShared(record, record.project || newIdentity());
+  },
+  // A shared project kept here, opened again from its own link: no password needed.
+  async reopen(found) {
     if (!okToReplace('Open the shared project')) return false;
-    await stopJob();
-    await endRecording();
-    const id = record.project || newIdentity();
-    await handleStore.set(null, 'shared:' + id); // anything kept from before is out of date
-    undoStack.length = 0; redoStack.length = 0;
-    S.projectId = id;
-    sharedLib.setShare(S.projectId, record);
-    S.reviewHistory = null; S.cues = []; S.comments = []; S.handle = null; handleStore.set(null);
-    // Starts its shared copy, which fills from the relay, even when it's the project already
-    // here, as when opening a new link to it.
-    stopRelay(); shared = null; sharedStarting = null;
-    changed();
-    select(null);
-    setMode(record.role === 'edit' || record.role === 'owner' ? 'write' : 'qc', true);
-    return record.role;
+    return openShared(found.record, found.project);
   },
   // What kind of link this is, before its password: 'owner' for a recovery link.
   async peek(url) {
@@ -996,13 +1015,22 @@ const sharingTools = {
     toast('Left the shared project. It’s no longer in this browser');
   },
 };
+// What a new link to a shared project lets someone do, once it's replaced their old one.
+const LINK_NOW = { edit: 'You can edit it now', review: 'You can suggest changes in QC now', comment: 'You can comment now' };
 // A share link opened in this browser: ask for its password, unless it's the project here.
 function openShareLink() {
   const l = sharedLib.parseLink(location.hash);
   if (!l) return;
   const clear = () => history.replaceState(null, '', location.pathname + location.search);
-  if (sharedLib.shareForRoom(l.room)?.project === S.projectId) { clear(); return; }
-  joinUi.open();
+  const action = sharedLib.linkAction(sharedLib.shareForRoom(l.room), S.projectId, l);
+  if (action === 'same') { clear(); return; }
+  if (action === 'own') { clear(); toast('That’s a link to your own shared project. You stay its owner'); return; }
+  if (action === 'reopen') {
+    clear();
+    sharingTools.reopen(sharedLib.shareForRoom(l.room)).then((ok) => { if (ok) toast('Opened the shared project again'); }, () => toast('Couldn’t open the shared project. Try its link again'));
+    return;
+  }
+  joinUi.open(action === 'switch');
 }
 if (sharedOn) {
   Promise.all([import('./sharing.js'), import('./sharekeys.js'), import('./sharedialog.js')])
@@ -1028,10 +1056,13 @@ if (sharedOn) {
         $, name: () => savedName(), setName: (v) => saveName(v),
         peek: () => sharingTools.peek(location.href),
         join: async (password) => {
+          const l = sharedLib.parseLink(location.hash);
+          const again = !!l && sharedLib.linkAction(sharedLib.shareForRoom(l.room), S.projectId, l) === 'switch';
           const ok = await sharingTools.join(location.href, password);
           if (ok) {
             history.replaceState(null, '', location.pathname + location.search);
-            toast(ok === 'owner' ? 'You’re the owner of this shared project again. Open your copy of the video to watch along' : 'Opened the shared project. Open your copy of the video to watch along');
+            toast(ok === 'owner' ? 'You’re the owner of this shared project again. Open your copy of the video to watch along'
+              : again ? `Opened with the new link. ${LINK_NOW[ok] || ''}` : 'Opened the shared project. Open your copy of the video to watch along');
           }
           return ok;
         },
@@ -1137,6 +1168,9 @@ function refreshLive() {
   }).filter((i) => (i.ours || i.theirs) && JSON.stringify(i.ours) !== JSON.stringify(i.theirs && blockBody(i.theirs)))
     .sort((a, z) => a.start - z.start);
   if (!livePending(LIVE, items)) return;
+  // While the copy catches up with the relay, suggestions already chosen pass through on
+  // their way out: only once it's caught up does it say what's new.
+  if (!relay?.synced) return;
   if (items.length > liveCount) {
     const names = [...new Set(items.map((i) => i.name).filter(Boolean))];
     toast(`${names.length === 1 ? names[0] : 'Reviewers'} suggested ${items.length === 1 ? 'a block change' : items.length + ' block changes'}. See Pending review`);
@@ -1801,7 +1835,7 @@ function updateEditor() {
       : unread && !autoRewrites(unread.voice) ? `Needs ${keyName(unread.voice) === 'AWS' ? 'an AWS' : 'a Google'} key` : !r && previous ? 'Original reading out of date'
       : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'New reading'} ${(voiceEnds.get(r) ?? r.secs).toFixed(1)} s${isExt(c) ? ' · pauses the video' : (voiceEnds.get(r) ?? r.secs) > c.end - c.start + 0.05 ? ' · runs past block' : ''}`
           : previous || !S.review?.byUid?.size ? 'Original reading missing' : rewriteSpec(S.review, c, reviewSettings()) ? 'New block · not read yet' : 'New block · no reading')
-        : S.qcSource === 'preview' ? 'Approximate TTS preview' : 'Programme sound';
+        : S.qcSource === 'preview' ? (!sharedQc() ? 'Approximate TTS preview' : liveVoiceHere(c) ? `Read here with ${voiceLabel(liveVoiceOf(c))}` : `${voiceLabel(liveVoiceOf(c))} isn’t here · another voice reads it`) : 'Programme sound';
   }
   if (ttsOn() && spoken(c.text)) {
     // How long the voice takes to read it: "~" until it has actually been read.
@@ -2781,7 +2815,7 @@ function updateInd() {
     ['follow', 'FOLLOW', S.follow],
     ['loop', 'LOOP', S.loop],
     ...(!qc() ? [['offset', `H −${Math.round(S.offset * 1000)}ms`, false]] : []),
-    ...(qc() ? [['qc', S.qcSource === 'package' ? (S.review?.proposals.length ? 'QC · SAVED READINGS' : 'QC · ORIGINAL READINGS') : S.qcSource === 'preview' ? 'QC · APPROXIMATE TTS' : 'QC · PROGRAMME SOUND', true]] : []),
+    ...(qc() ? [['qc', S.qcSource === 'package' ? (S.review?.proposals.length ? 'QC · SAVED READINGS' : 'QC · ORIGINAL READINGS') : S.qcSource === 'preview' ? (sharedQc() ? 'QC · LIVE READINGS' : 'QC · APPROXIMATE TTS') : 'QC · PROGRAMME SOUND', true]] : []),
     // Settings show only while they're on, and open their section of Settings.
     ...(extHold ? [['extended', 'EXTENDED · READING', true]] : S.extendedAll && writing() ? [['extended', 'EXTENDED', true]] : []),
     ...(S.replay ? [['replay', 'REPLAY', true]] : []),
@@ -4682,6 +4716,8 @@ $('autosaveBtn').addEventListener('click', async (e) => {
 
 // Asks before replacing work that isn't saved in a project. It can still be undone.
 function okToReplace(what) {
+  // A shared project keeps its changes, and stays here to come back to.
+  if (myShare) return confirm(`${what}? You’ll leave this shared project. It stays in this browser: open its link to come back to it.`);
   if (!S.dirty) return true;
   return confirm(`Your changes to ${S.subName === 'untitled.srt' ? 'this project' : S.subName} aren't saved in a project file. ${what} anyway? You can undo it with ${IS_MAC ? '⌘Z' : 'Ctrl+Z'}.`);
 }
@@ -5061,12 +5097,14 @@ function startAgain() {
   if (!blocks && !media && !S.comments.length && !S.dirty && !S.reviewId) return newProject(false);
   const n = blocks === 1 ? '1 block' : `${blocks} blocks`;
   $('newWhat').textContent = S.comments.length && !blocks && !media ? `This project has ${S.comments.length} timeline comments.` : blocks ? `This project has ${n}${media ? `, with ${media} open` : ''}.` : media ? `${media} is open, with no blocks yet.` : 'This project has no blocks yet.';
-  newDlg.querySelector('[data-choice="blocks"]').hidden = !blocks || qc();
-  const unsaved = S.dirty && canMakeFiles();
+  // Clearing a shared project's blocks clears them for everyone: only its owner may.
+  newDlg.querySelector('[data-choice="blocks"]').hidden = !blocks || qc() || (!!myShare && myShare.link !== 'owner');
+  const unsaved = S.dirty && !myShare; // a shared project keeps its changes
   $('newUnsaved').hidden = !unsaved;
   $('newSave').hidden = !unsaved;
   $('newProjectLabel').textContent = unsaved ? 'Start without saving' : 'New project';
-  $('newProjectNote').textContent = qc() ? 'Closes this review and the video, then opens a blank project in Write mode.' : 'Clears the blocks and notes, and closes the video, for different work.';
+  $('newProjectNote').textContent = myShare ? 'Leaves this shared project and closes the video. The project stays in this browser: open its link to come back to it.'
+    : qc() ? 'Closes this review and the video, then opens a blank project in Write mode.' : 'Clears the blocks and notes, and closes the video, for different work.';
   $('newUndo').hidden = !!S.reviewId;
   newDlg.showModal();
   newDlg.querySelector(`[data-choice="${blocks && !qc() ? 'blocks' : 'project'}"]`).focus();
@@ -6204,7 +6242,13 @@ function qcRead(c, manual = false, after = null) {
     return;
   }
   const requested = c.voice || reviewSettings().ttsVoice;
-  const voice = reviewVoices().some((v) => v.id === requested) ? requested : live ? '' : S.qcPreviewVoice;
+  // A shared project reads as in Write: a voice that isn't here falls back to another.
+  const here = reviewVoices().some((v) => v.id === requested);
+  if (!here && sharedQc() && (manual || liveMissingSaid !== requested)) {
+    toast(pcKeys(`${voiceLabel(requested)} isn’t on this computer, so another voice reads it. Text to speech settings say how to get it (⌥⇧V)`));
+    liveMissingSaid = requested;
+  }
+  const voice = here || sharedQc() ? requested : live ? '' : S.qcPreviewVoice;
   if (!voice && live) {
     if (manual || liveMissingSaid !== requested) toast(`${voiceLabel(requested)} isn’t on this computer. Click QC under the video to get it`);
     liveMissingSaid = requested;
@@ -6218,7 +6262,8 @@ function qcRead(c, manual = false, after = null) {
       after?.();
       if (secs == null || !qc() || S.qcLast !== c.id) return;
       // A stand-in voice isn't the writer's reading, so only the block's own voice moves its end.
-      if (whole && voice === requested && edited.has(c) && S.cues.includes(c) && fitQc(c, secs)) changed(c.id);
+      // Only those who change the script fit it: a reviewer's fit would arrive as a suggestion.
+      if (whole && here && voice === requested && edited.has(c) && S.cues.includes(c) && !sharedLimited() && fitQc(c, secs)) changed(c.id);
       if (manual) { if (now() >= c.end) pause(); else S.playUntil = c.end; }
     },
   });
@@ -6252,7 +6297,7 @@ initQc({
   compare: openReviewCompare,
   audioReference: () => !S.reviewId && S.reviewAudio, attachAudio: attachAuthorAudio,
   rememberReview: (history, projectId) => { if (S.projectId === projectId) { S.reviewHistory = retainHistory([...(S.reviewHistory?.checkpoints || []), ...history.checkpoints]); changed(); } },
-  project: projectData, review: () => S.review, canCreate: () => !S.reviewId, toast, source: () => S.qcSource, qc,
+  project: projectData, review: () => S.review, canCreate: () => !S.reviewId, toast, source: () => S.qcSource, qc, shared: sharedQc,
   setSource(source, voice) { qcPlayer.stop(); stopSpeech(); S.qcLast = null; S.qcSource = source; S.qcPreviewVoice = voice; updateEditor(); updateInd(); },
   baseName, said, busy: (on) => { S.makingReview = on; },
 });
@@ -6755,7 +6800,8 @@ initOffline({
   openTts: () => openTts(),
   openStt: () => openStt(),
   guides: () => guidesHere(),
-  unsaved: () => (S.dirty && canMakeFiles() ? Math.max(1, S.cues.length + S.comments.length) : 0),
+  shares: () => sharedLib?.sharesHere() || { owned: 0, unrecovered: 0, joined: 0 },
+  unsaved: () => (S.dirty && !myShare ? Math.max(1, S.cues.length + S.comments.length) : 0),
   save: () => saveProject(),
 });
 // Settings go to a file and back. Importing reloads, so the blocks are kept first.

@@ -682,9 +682,9 @@ docker compose up -d --build</code></pre>
     <button id="qcAttachReadings" hidden>Locate original readings</button>
     <button id="qcGetVoices" hidden>Get the voices this review needs</button>
     <input id="qcReadingsFile" type="file" accept=".scribecueqc" hidden>
-    <div class="airow"><button id="qcSourceVideo" aria-pressed="true">Programme sound</button><button id="qcSourcePackage" aria-pressed="false">Original readings</button><button id="qcSourcePreview" aria-pressed="false">Approximate TTS preview</button></div>
+    <div class="airow" id="qcSourceRow"><button id="qcSourceVideo" aria-pressed="true">Programme sound</button><button id="qcSourcePackage" aria-pressed="false">Original readings</button><button id="qcSourcePreview" aria-pressed="false">Approximate TTS preview</button></div>
     <p id="qcPreviewNote" class="dim small"></p>
-    <label for="qcPreviewVoice">Voice for missing readings</label> <select id="qcPreviewVoice"></select>
+    <p id="qcPreviewVoiceRow"><label for="qcPreviewVoice">Voice for missing readings</label> <select id="qcPreviewVoice"></select></p>
     <h3>Project voices</h3><ul id="qcVoiceList"></ul>
     <div class="updbtns"><button id="qcCompareReturned">Compare returned review</button><button id="qcPlaybackClose">Close</button></div>
   </dialog>
@@ -996,6 +996,7 @@ docker compose up -d --build</code></pre>
         <progress id="ttsMakeBar" class="jobbar" max="1" value="0" hidden aria-label="Making readings"></progress>
         <button id="ttsMakeStop" hidden>Stop</button> <span id="ttsMakeStatus" class="dim"></span></p>
       <p id="ttsMakeNote" class="dim small"></p>
+      <div class="script-job">
       <h3>Update all timings</h3>
       <p class="small">Set the end of every block from how long its reading takes, with each block's own
         speed. This includes blocks marked with H and blocks opened from a file. Ends never run into the
@@ -1012,6 +1013,7 @@ docker compose up -d --build</code></pre>
       <p class="updstatus"><button id="ttsFitAll">Fit speeds to timings</button>
         <progress id="ttsFitBar" class="jobbar" max="1" value="0" hidden aria-label="Fitting speeds"></progress>
         <button id="ttsFitStop" hidden>Stop</button> <span id="ttsFitStatus" class="dim"></span></p>
+      </div>
       <div class="export-panel">
       <section id="ttsExtExports" hidden>
         <h3>Extended blocks in exports</h3>

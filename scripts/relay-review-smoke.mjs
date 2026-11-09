@@ -64,7 +64,10 @@ try {
   await a.fill('#sharePw-comment', 'grey door');
   await a.click('#sharePw-comment ~ button');
   await a.wait(`document.querySelectorAll('.sharelink').length===2`, 'comment link');
-  const [review, comment] = await a.js(`[...document.querySelectorAll('.sharelink')].map(e=>e.value)`);
+  await a.fill('#sharePw-edit', 'blue door');
+  await a.click('#sharePw-edit ~ button');
+  await a.wait(`document.querySelectorAll('.sharelink').length===3`, 'edit link');
+  const [edit, review, comment] = await a.js(`[...document.querySelectorAll('.sharelink')].map(e=>e.value)`);
   await a.js(`document.getElementById('shareClose').click();true`);
 
   // B reviews: in QC, and can't leave it.
@@ -72,6 +75,20 @@ try {
   assert.equal(await b.js(`document.body.classList.contains('mode-qc')`), true, 'opens in QC');
   assert.equal(await b.js(`document.getElementById('qcPermission').textContent`), 'Suggestions');
   assert.equal(await b.js(`document.querySelector('#modeSw [data-mode=write]').disabled`), true, 'Write is off');
+  // QC in a shared project reads live with the project's voices: no package choices.
+  assert.match(await b.js(`document.getElementById('ind').textContent`), /QC · LIVE READINGS/);
+  await b.js(`document.querySelector('#ind [data-key=qc]').click();true`);
+  await b.wait(`document.getElementById('qcPlaybackDlg').open`, 'QC drawer');
+  assert.deepEqual(await b.js(`['qcSourceRow','qcPreviewVoiceRow','qcCompareReturned','qcAttachReadings'].filter(id=>!document.getElementById(id).hidden && getComputedStyle(document.getElementById(id)).display!=='none')`), [], 'no package choices');
+  assert.match(await b.js(`document.getElementById('qcPackageInfo').textContent`), /read here with the project’s voices/);
+  await b.shot('shared-qc');
+  await b.click('#qcPlaybackClose');
+  // New: no Clear the blocks, and it says the shared project stays here.
+  await b.js(`document.querySelector('[data-act=newProject]').click();true`);
+  await b.wait(`document.getElementById('newDlg').open`, 'New dialog');
+  assert.equal(await b.js(`document.querySelector('#newDlg [data-choice=blocks]').hidden`), true, 'a reviewer can’t clear the blocks');
+  assert.match(await b.js(`document.getElementById('newProjectNote').textContent`), /stays in this browser/);
+  await b.click('#newCancel');
   // Only the owner saves and exports: B has no Save or Export, nor their keys, which only explain.
   const saveShown = `getComputedStyle(document.querySelector('[data-act=saveProject]')).display!=='none'`;
   assert.equal(await a.js(saveShown), true, 'the owner has Save');
@@ -120,6 +137,41 @@ try {
   await b.open(5);
   await b.js(`document.getElementById('edComment').click();document.getElementById('commentText').value='Pause here?';document.getElementById('commentPost').click();true`);
   await a.wait(`window.scribecueShared.read().blocks[5].comments?.[0]?.text==='Pause here?'`, 'A gets B’s comment');
+
+  // B opens another kind of link: it replaces the review link, down to comments, then up to
+  // editing. Its password is asked for again.
+  const switchTo = async (url, pw, ready) => {
+    await b.js(`location.href=${JSON.stringify(url)};true`);
+    await b.wait(`document.getElementById('joinDlg').open`, 'switch dialog');
+    assert.equal(await b.js(`document.getElementById('joinTitle').textContent`), 'Open with this link');
+    await b.fill('#joinPassword', pw);
+    await b.click('#joinOpen');
+    await b.wait(`!document.getElementById('joinDlg').open && document.querySelectorAll('#list .row').length===1500 && ${online} && ${ready}`, 'switched link');
+  };
+  await switchTo(comment, 'grey door', `document.getElementById('qcPermission').textContent==='Comments only'`);
+  assert.match(await b.js(`document.getElementById('toast').textContent`), /You can comment now/);
+  await switchTo(edit, 'blue door', `document.body.classList.contains('mode-write')`);
+  assert.equal(await b.js(`document.querySelector('#modeSw [data-mode=write]').disabled`), false, 'Write is on');
+  assert.equal(await b.js(saveShown), false, 'an editor still has no Save');
+  await editText(b, 4, ' Edited by Sam.');
+  await a.wait(`window.scribecueShared.read().blocks[4].text.includes('Edited by Sam.')`, 'B’s edit reaches A’s script');
+  // B starts something new, then opens its link again: back in, with no password.
+  await b.js(`document.querySelector('[data-act=newProject]').click();true`);
+  await b.wait(`document.getElementById('newDlg').open`, 'New dialog');
+  await b.js(`document.querySelector('#newDlg [data-choice=project]').click();true`);
+  await b.wait(`document.querySelectorAll('#list .row').length===0`, 'B started a new project');
+  await b.js(`location.href=${JSON.stringify(edit)};true`);
+  await b.wait(`document.querySelectorAll('#list .row').length===1500 && ${online}`, 'B reopened the shared project');
+  assert.equal(await b.js(`document.getElementById('joinDlg').open`), false, 'no password asked');
+  assert.match(await b.js(`document.getElementById('toast').textContent`), /Opened the shared project again/);
+  await sleep(1500);
+  assert.equal(await a.js(`window.scribecueShared.read().blocks.length`), 1500, 'reopening leaves everyone’s blocks alone');
+  // The owner opening one of their own links stays the owner.
+  await a.js(`location.href=${JSON.stringify(review)};true`);
+  await a.wait(`!location.hash`, 'A’s link set aside');
+  assert.equal(await a.js(`document.getElementById('joinDlg').open`), false, 'no password asked');
+  assert.match(await a.js(`document.getElementById('toast').textContent`), /You stay its owner/);
+  assert.equal(await a.js(saveShown), true, 'A still has Save');
 
   // B leaves, keeping a copy (not the default), then opens the comment link: comments only.
   await b.click('#shareBtn');

@@ -81,6 +81,10 @@ Click **QC** under the video to choose the source and check the project’s voic
 
 ![QC playback choices and voice availability](../docs/screenshots/qc-playback.png)
 
+In a [shared project](SHARING.md), there's no choice to make. Blocks are read with the
+project's voices, as in Write. To hear the programme alone, move the mix slider under the
+video all the way to **Video**.
+
 A plain project defaults to programme sound in QC. If a project’s voices are missing,
 Scribecue opens it in QC and shows the voice check. It keeps the saved timings instead
 of fitting them to a substitute voice. Nothing switches to an approximate preview

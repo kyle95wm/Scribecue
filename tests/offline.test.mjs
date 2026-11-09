@@ -72,3 +72,10 @@ test('takes kept in Docker say so, and removing browser data leaves them out', (
   assert.match(row[2], /^2 takes, 9 MB\. Kept in Docker, so clearing the browser doesn’t touch them/);
   assert.equal(row[3], 'takes', 'with a button to delete them all');
 });
+
+test('removing everything warns about shared projects kept here', () => {
+  const w = wipeWarning({ unsaved: 0, offline: false, hosted: true, shares: { owned: 2, unrecovered: 1, joined: 2 } });
+  assert.match(w, /You own 1 shared project here without a recovery link\. Afterwards, nobody can change its links or stop sharing it/);
+  assert.match(w, /To open 2 shared projects you joined again, you’ll need their links and passwords/);
+  assert.equal(wipeWarning({ unsaved: 0, offline: false, hosted: true, shares: { owned: 1, unrecovered: 0, joined: 0 } }), 'This can’t be undone. Afterwards Scribecue opens as if for the first time.');
+});

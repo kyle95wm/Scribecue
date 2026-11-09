@@ -1477,6 +1477,8 @@ function fillVoices() {
   fillVoiceSelect($('ttsVoice'), shownVoice(), { language: shownLanguage() });
   const locked = voiceLocked();
   for (const id of ['ttsVoice', 'ttsLang']) $(id).disabled = locked;
+  // Locked to the owner's voice: the line below says which, so the pickers go.
+  for (const el of [$('ttsLang'), $('ttsVoice').parentElement, ...document.querySelectorAll('label[for=ttsLang], label[for=ttsVoice]')]) el.hidden = locked;
   $('ttsVoiceLocked').hidden = !locked;
   const uri = tts.voice || chosenVoice();
   $('ttsVoiceLocked').textContent = locked ? `This shared project reads with ${voiceTitle(voices.find((v) => v.voiceURI === uri)) || voiceLabel(uri)}. Only its owner changes its voices.` : '';

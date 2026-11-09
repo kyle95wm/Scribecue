@@ -9,12 +9,12 @@ export function qcReport() { const p = h.project(); return voiceReport(p.blocks,
 export function refreshQc() {
   if (!h) return;
   if (!$('qcPlaybackDlg').open && !$('qcExportDlg').open) return;
-  const p = h.project(), report = voiceReport(p.blocks, p.settings, reviewVoices());
+  const p = h.project(), report = voiceReport(p.blocks, p.settings, reviewVoices()), shared = !!h.shared?.();
   for (const id of ['qcVoiceList', 'qcExportVoices']) {
     const list = $(id); list.replaceChildren();
     for (const v of report) {
       const row = document.createElement('li');
-      row.textContent = `${v.id ? voiceLabel(v.id) : 'No voice chosen'} · blocks ${v.blocks.slice(0, 12).join(', ')}${v.blocks.length > 12 ? '…' : ''}: ${!v.available ? 'not available here' : !v.exportable ? 'playback only; cannot package audio' : v.id.startsWith('piper:') ? 'read on the reviewer’s computer' : 'audio kept in the package'}`;
+      row.textContent = `${v.id ? voiceLabel(v.id) : 'No voice chosen'} · blocks ${v.blocks.slice(0, 12).join(', ')}${v.blocks.length > 12 ? '…' : ''}: ${!v.available ? 'not available here' : shared && id === 'qcVoiceList' ? 'read here' : !v.exportable ? 'playback only; cannot package audio' : v.id.startsWith('piper:') ? 'read on the reviewer’s computer' : 'audio kept in the package'}`;
       list.append(row);
     }
   }
@@ -37,6 +37,13 @@ export function refreshQc() {
   select.replaceChildren(...reviewVoices().map((v) => new Option(v.name, v.id)));
   select.value = reviewVoices().some((v) => v.id === selected) ? selected : chosenVoice();
   $('qcSourcePreview').disabled = !select.options.length;
+  // A shared project has no package: blocks are read here with its voices, and the
+  // programme alone is the mix slider turned to the programme.
+  for (const id of ['qcSourceRow', 'qcPreviewNote', 'qcPreviewVoiceRow', 'qcCompareReturned']) $(id).hidden = shared;
+  if (shared) {
+    for (const id of ['qcAttachReadings', 'qcGetVoices', 'qcKeyInfo']) $(id).hidden = true;
+    $('qcPackageInfo').textContent = 'Blocks are read here with the project’s voices, as in Write. To hear the programme alone, move the mix slider under the video all the way to Video.';
+  }
   $('qcPreviewNote').textContent = 'Approximate preview: missing voices use the voice selected below, and blocks read in it keep their timings. This is not the writer’s original reading. Online voices send text to their provider.';
   if (!controller) $('qcExportStart').disabled = !spoken.length || report.some((v) => !v.available || !v.exportable);
   $('qcExportCost').hidden = !report.some((v) => cloudOf(v.id));

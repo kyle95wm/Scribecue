@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as sharing from '../app/js/sharing.js';
 import { readLinks, unwrapKeys, parseLink } from '../app/js/sharekeys.js';
 import { readLinks as relayReadLinks, ed25519 } from '../relay/src/room.js';
-import { readDays, expiryText } from '../app/js/sharedialog.js';
+import { readDays, expiryText, JOIN_TEXT } from '../app/js/sharedialog.js';
 
 const fast = { iterations: 1000 };
 function memory() {
@@ -199,4 +199,35 @@ test('links made at a localhost address, as in Docker, open the web version', ()
   const [here] = sharing.linksOf(r, 'http://localhost:8484/');
   assert.ok(web.url.startsWith(WEB_APP + '#share='));
   assert.equal(web.url.split('#')[1], here.url.split('#')[1]);
+});
+
+test('a new link to a project kept here replaces the old one, unless it’s the owner’s', () => {
+  const l = { room: 'r', id: 'new', secret: 's' };
+  const guest = (project = 'p') => ({ project, record: { room: 'r', link: 'old', role: 'comment' } });
+  assert.equal(sharing.linkAction(null, 'p', l), 'join', 'a project not kept here');
+  assert.equal(sharing.linkAction(guest(), 'p', l), 'switch', 'another link to the project open here');
+  assert.equal(sharing.linkAction(guest('other'), 'p', l), 'switch', 'another link to a project kept here');
+  assert.equal(sharing.linkAction(guest(), 'p', { ...l, id: 'old' }), 'same', 'the link it’s open with');
+  assert.equal(sharing.linkAction(guest('other'), 'p', { ...l, id: 'old' }), 'reopen', 'the same link, to a project kept here: no password');
+  const owner = { project: 'p', record: { room: 'r', link: 'owner', role: 'owner' } };
+  assert.equal(sharing.linkAction(owner, 'p', l), 'own', 'the owner stays the owner');
+  assert.equal(sharing.linkAction(owner, 'other', l), 'own', 'even with another project open');
+});
+
+test('a link replacing another says so', () => {
+  assert.match(JOIN_TEXT.switch.intro, /replaces/);
+  assert.equal(JOIN_TEXT.switch.password, 'Password');
+});
+
+test('the shared projects kept here, by whose they are', () => {
+  const data = {
+    'scribecue.share.a': JSON.stringify({ link: 'owner', role: 'owner', room: 'r1', priv: 'k' }),
+    'scribecue.share.b': JSON.stringify({ link: 'owner', role: 'owner', room: 'r2', priv: 'k', recovery: { id: 'x' } }),
+    'scribecue.share.c': JSON.stringify({ link: 'l1', role: 'comment', room: 'r3', priv: 'k' }),
+    'scribecue.v1': '{}',
+  };
+  const keys = Object.keys(data);
+  const storage = { length: keys.length, key: (i) => keys[i], getItem: (k) => data[k] ?? null };
+  assert.deepEqual(sharing.sharesHere(storage), { owned: 2, unrecovered: 1, joined: 1 });
+  assert.deepEqual(sharing.sharesHere({ get length() { throw new Error('blocked'); } }), { owned: 0, unrecovered: 0, joined: 0 });
 });

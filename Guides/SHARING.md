@@ -69,7 +69,11 @@ comments reach everyone at once.
 3. Click **Open**.
 4. Open your own copy of the video. The video isn't shared.
 
-Scribecue remembers the project, so it opens again without the password.
+Scribecue remembers the project. Open the same link again, and it opens without the
+password.
+
+**Sent a different kind of link?** Open it and type its password. It replaces your old
+link, and what you can do changes to match. You don't need to leave first.
 
 There's no **Save** or **Export**. Your changes reach the project as you make them. Only
 the owner saves and exports it.
@@ -101,6 +105,7 @@ The project reads with the owner's voices.
 
 - **The owner** changes the voice in Settings, and blocks' own voices, as usual.
 - **Everyone else** reads with them. Their Settings show the voice, but can't change it.
+- **In QC,** blocks are read with these voices too, as in Write.
 - **A voice someone doesn't have** falls back to another one, and Settings says what's
   needed.
 
@@ -153,6 +158,7 @@ the start of the link, before the `#`, to your Docker address, such as `http://l
 | Replace a link | **Turn off**, then **Make link** | Only people with the new link and password can open it |
 | Stop sharing | **Stop sharing**, in Share | Every link stops working, and the sharing service's copy is deleted. Your copy stays |
 | Leave someone's project | **Leave**, in Share | The project is removed from this browser. To keep it as your own, click **Keep a copy here** first |
+| Work on something else | **New**, or open another project | The shared project stays in this browser. Open its link to come back to it |
 
 ## Privacy
 

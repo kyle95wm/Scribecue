@@ -103,6 +103,36 @@ export function nextExpiry(record) {
   return times.length ? Math.min(...times) : null;
 }
 
+// What opening a link does, given what this browser keeps for its room (shareForRoom) and
+// the project open here. 'join': ask for its password. 'switch': ask, to open the project
+// kept here with this link instead, which decides what this person can do from then on.
+// 'same': it's already open with this link. 'reopen': it's kept here with this link, and
+// opens again without its password. 'own': the owner's own project, which stays
+// theirs: joining would make them someone else's reviewer or editor.
+export function linkAction(found, projectId, l) {
+  if (!found) return 'join';
+  if (found.record.link === 'owner') return 'own';
+  if (found.record.link === l.id) return found.project === projectId ? 'same' : 'reopen';
+  return 'switch';
+}
+
+// The shared projects kept in this browser: those it owns, those of them without a recovery
+// link, and those joined with someone else's link.
+export function sharesHere(storage = globalThis.localStorage) {
+  const n = { owned: 0, unrecovered: 0, joined: 0 };
+  try {
+    for (let i = 0; i < storage.length; i++) {
+      const k = storage.key(i);
+      if (!k?.startsWith('scribecue.share.')) continue;
+      const r = getShare(k.slice('scribecue.share.'.length), storage);
+      if (!r) continue;
+      if (r.link !== 'owner') n.joined++;
+      else { n.owned++; if (!r.recovery) n.unrecovered++; }
+    }
+  } catch { /* blocked */ }
+  return n;
+}
+
 // The project that has joined or shares this room, if any, among those kept here.
 export function shareForRoom(room, storage = globalThis.localStorage) {
   try {

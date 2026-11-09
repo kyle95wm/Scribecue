@@ -265,6 +265,7 @@ export function shareDialog(deps) {
 // peek() → resolves to the link's role ('owner' for a recovery link), or rejects.
 export const JOIN_TEXT = {
   link: { title: 'Open a shared project', intro: 'Someone shared a Scribecue project with you. Enter the password they sent with the link.', password: 'Password', button: 'Open' },
+  switch: { title: 'Open with this link', intro: 'You already have this project with another link. This one replaces it, and decides what you can do. Enter the password sent with it.', password: 'Password', button: 'Open with this link' },
   owner: { title: 'Take back this project', intro: 'This recovery link opens the project as its owner, with all its links. Enter the password you chose for it.', password: 'Recovery password', button: 'Take back project' },
 };
 export function joinDialog(deps) {
@@ -278,6 +279,7 @@ export function joinDialog(deps) {
     offline: 'Couldn’t reach the sharing service. Try again when you’re online',
     'old-app': 'Update Scribecue to open this link',
     'old-relay': 'The sharing service needs updating before this link opens',
+    unsent: 'Your last changes haven’t reached the project yet. Try again once you’re online',
   };
   let busy = false, kind = 'link', token = 0;
   function show(k) {
@@ -285,7 +287,7 @@ export function joinDialog(deps) {
     const t = JOIN_TEXT[k];
     $('joinTitle').textContent = t.title; $('joinIntro').textContent = t.intro;
     $('joinPasswordLabel').textContent = t.password; $('joinOpen').textContent = t.button;
-    $('joinVideo').hidden = k === 'owner';
+    $('joinVideo').hidden = k !== 'link';
   }
   async function open() {
     if (busy) return;
@@ -307,16 +309,18 @@ export function joinDialog(deps) {
   for (const id of ['joinPassword', 'joinName']) $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); open(); } });
   $('joinCancel').addEventListener('click', () => dlg.close());
   return {
-    open() {
+    // again: the project is kept here with another link, which this one replaces.
+    open(again = false) {
       $('joinPassword').value = ''; $('joinStatus').textContent = '';
       $('joinName').value = deps.name();
-      show('link');
+      const plain = again ? 'switch' : 'link';
+      show(plain);
       dlg.showModal();
       $('joinPassword').focus();
       // Which kind of link it is: a recovery link gets its own words. A link that no longer
       // works says so now, before a password is typed.
       const mine = ++token;
-      deps.peek?.().then((role) => { if (mine === token && dlg.open && !busy) show(role === 'owner' ? 'owner' : 'link'); }, (e) => {
+      deps.peek?.().then((role) => { if (mine === token && dlg.open && !busy) show(role === 'owner' ? 'owner' : plain); }, (e) => {
         if (mine === token && dlg.open && !busy && e?.message !== 'offline' && reasons[e?.message]) $('joinStatus').textContent = reasons[e.message];
       });
     },
