@@ -89,6 +89,8 @@ the owner saves and exports it.
 - **Who changed it:** an open block shows who changed it last.
 - **Undo:** takes back only your own changes.
 - **Offline:** keep working. Your changes are kept and sent when you're back online.
+- **A block deleted while you changed it:** your version waits in **Pending review**, on
+  your computer only. Accept it to bring the block back for everyone.
 
 ## What's shared
 

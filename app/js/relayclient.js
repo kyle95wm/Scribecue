@@ -39,6 +39,7 @@ export class RelayClient {
     // turned off stops ({ link: { dev: n } }; app.js keeps it with the copy), and the
     // signature of each numbered change had, so no number counts twice.
     this.seen = {}; this.sigs = new Map();
+    this.sentAt = 0;
     this.verify = verifier();
     this.ready = (async () => {
       this.sign = await signer(who.priv);
@@ -266,6 +267,7 @@ export class RelayClient {
         if (sent.snapshot) this.counts[sent.doc] = 0; else if (sent.doc) this.counts[sent.doc]++;
       }
       this.seq = Math.max(this.seq, m.seq);
+      if (!this.unsent()) this.sentAt = performance.now(); // when the relay last had everything
       this.#wake();
       this.#maybeSnapshot();
     } else if (m.type === 'error') {

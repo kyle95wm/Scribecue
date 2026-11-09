@@ -649,6 +649,7 @@ function noteEdits(id) {
 // setting, scribecue.sharedCopy in this browser's storage, so Yjs only loads when it's on.
 // Tabs of this browser with the same project open share changes, as the service will.
 let shared = null, sharedLib = null, sharedList = null, sharedProjectId = null, unlinkTabs = () => {};
+const unsent = new Map(); // blocks changed here, and when: others may not have them yet
 let sharedIn = null, sharedStarting = null, sharedUndo = null, sharedToken = null; // uids being applied from others; undo of this tab's changes
 // The shared copy, Yjs and the connection load only for a project that's shared, so a
 // project of your own runs as it would without sharing. `all`, for the developer tests, keeps
@@ -941,6 +942,7 @@ async function openShared(record, id, keep = false) {
   S.projectId = id;
   sharedLib.setShare(S.projectId, record);
   S.reviewHistory = null; S.cues = []; S.comments = []; S.handle = null; handleStore.set(null);
+  clearReview(); // a QC package open here isn't the shared project's
   changed();
   select(null);
   setMode(record.role === 'edit' || record.role === 'owner' ? 'write' : 'qc', true);
@@ -1131,6 +1133,10 @@ function noteShared(id) {
 // reviewer; a commenter's go no further than their comments.
 function writeShared(only) {
   const role = myShare?.role;
+  // Blocks changed here that others may not have yet: once everything has reached the
+  // relay, none are.
+  if (relay?.status === 'online' && !relay.unsent()) unsent.clear();
+  if (only && role !== 'review' && role !== 'comment') for (const uid of only) unsent.set(uid, performance.now());
   shared.write(S.cues, S.comments, only, { script: role !== 'review' && role !== 'comment' });
   if (role === 'review') shared.propose(S.cues, only, { link: myShare.link, name: savedName(), who: editorId() });
 }
@@ -1175,11 +1181,15 @@ function applyShared(uids, timeline, suggestions = false) {
     if (one == null) one = c.id; else many = true;
   }
   let lostSel = false;
+  const lost = [];
   if (gone) for (let i = S.cues.length - 1; i >= 0; i--) {
     const c = S.cues[i];
     if (!incoming.has(c.uid) || incoming.get(c.uid)) continue;
     if (edit?.id === c.id) { edit = null; edText.blur(); }
     lostSel ||= c.id === S.sel;
+    // Deleted by someone else before this person's change to it reached them.
+    if ((unsent.get(c.uid) ?? -1) > (relay?.sentAt ?? Infinity) && myShare?.role !== 'review') lost.unshift({ c, n: i + 1 });
+    unsent.delete(c.uid);
     S.cues.splice(i, 1);
   }
   if (timeline) S.comments = shared.readTimeline();
@@ -1187,6 +1197,23 @@ function applyShared(uids, timeline, suggestions = false) {
   try { changed(gone || many || timeline || one == null ? null : one); } finally { sharedIn = null; }
   if (lostSel) select(null, { seek: false });
   if (!suggestions) refreshLive();
+  if (lost.length) noteLost(lost);
+}
+// Blocks someone else deleted while this person's change to them was on its way. Their
+// version waits in Pending review, in this browser only, until they choose: accepting
+// brings it back for everyone.
+const lostKey = () => 'scribecue.lost.' + S.projectId;
+function readLost() { try { return JSON.parse(localStorage.getItem(lostKey())) || {}; } catch { return {}; } }
+function keepLost(kept) {
+  try { if (Object.keys(kept).length) localStorage.setItem(lostKey(), JSON.stringify(kept)); else localStorage.removeItem(lostKey()); } catch { /* storage blocked: kept until reload */ }
+}
+function noteLost(lost) {
+  const kept = readLost();
+  for (const { c } of lost) kept[c.uid] = { uid: c.uid, ...blockBody(c), ...(c.comments?.length ? { comments: c.comments } : {}) };
+  keepLost(kept);
+  refreshLive();
+  const which = lost.length === 1 ? `Block #${lost[0].n} was` : `Blocks ${listNums(lost.map((l) => `#${l.n}`))} were`;
+  toast(`${which} deleted by someone else before your change reached them. Your version is in Pending review`);
 }
 // Reviewers' suggestions, in Pending review for the owner and editors, as they come.
 const LIVE = { name: 'Suggestions', live: true };
@@ -1200,9 +1227,17 @@ function refreshLive() {
     const c = at.get(p.uid), ours = c ? blockBody(c) : null;
     const theirs = p.block ? { ...p.block, edited: { by: p.name || 'a reviewer', suggested: true } } : null;
     return { kind: 'block', uid: p.uid, conflict: false, start: Math.min(c?.start ?? Infinity, p.block?.start ?? Infinity), ours, theirs, name: p.name };
-  }).filter((i) => (i.ours || i.theirs) && JSON.stringify(i.ours) !== JSON.stringify(i.theirs && blockBody(i.theirs)))
-    .sort((a, z) => a.start - z.start);
-  if (!livePending(LIVE, items)) return;
+  }).filter((i) => (i.ours || i.theirs) && JSON.stringify(i.ours) !== JSON.stringify(i.theirs && blockBody(i.theirs)));
+  // This person's versions of blocks deleted under them, until they choose or it's back.
+  const kept = readLost(), lost = [];
+  let back = false;
+  for (const [uid, b] of Object.entries(kept)) {
+    // Back in the shared project, as when brought back from another tab: it's settled.
+    if (relay?.synced && shared.blocks.has(uid)) { delete kept[uid]; back = true; continue; }
+    lost.push({ kind: 'block', uid, conflict: false, start: b.start, ours: null, theirs: { ...b, lost: true }, lost: true });
+  }
+  if (back) keepLost(kept);
+  if (!livePending(LIVE, [...items, ...lost].sort((a, z) => a.start - z.start))) return;
   // While the copy catches up with the relay, suggestions already chosen pass through on
   // their way out: only once it's caught up does it say what's new.
   if (!relay?.synced) return;
@@ -1217,8 +1252,16 @@ function refreshLive() {
 function acceptLive(decisions) {
   const props = new Map(shared.readProposals().map((p) => [p.uid, p])), done = [];
   pushUndo();
+  const kept = readLost();
   for (const d of decisions) {
     if (d.kind !== 'block') continue;
+    // A block deleted under this person: accepting brings their version back.
+    if (kept[d.uid]) {
+      const block = { ...kept[d.uid], ...(d.edit || {}) };
+      delete block.lost; delete kept[d.uid];
+      if (d.choice === 'remote' && !S.cues.some((c) => c.uid === d.uid)) S.cues.push(revive(block));
+      continue;
+    }
     done.push(d.uid);
     const p = props.get(d.uid);
     if (!p || d.choice !== 'remote') continue;
@@ -1239,6 +1282,7 @@ function acceptLive(decisions) {
     if (validEditorId(p.who)) c.edited = Object.fromEntries(Object.entries(stamp).filter(([, v]) => v));
     editSigs.set(c.uid, blockSig(c));
   }
+  keepLost(kept);
   changed();
   shared.clearProposals(done);
   liveCount = 0;
@@ -2581,7 +2625,7 @@ function drawCues(W) {
       ghostEl = document.createElement('div'); ghostEl.className = 'cue ghost';
       ghostEl.innerHTML = '<span class="ci"></span><span class="ct"></span>';
     }
-    ghostEl.children[0].textContent = g.edited?.suggested ? 'Suggested' : 'Returned';
+    ghostEl.children[0].textContent = g.lost ? 'Your version' : g.edited?.suggested ? 'Suggested' : 'Returned';
     const w = Math.max(2, (g.end - g.start) * S.pps);
     ghostEl.style.left = (g.start - t0) * S.pps + 'px'; ghostEl.style.width = w + 'px';
     ghostEl.classList.toggle('narrow', w < 36); ghostEl.children[1].textContent = g.text;

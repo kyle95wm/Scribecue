@@ -16,6 +16,7 @@ function changes(ours, theirs) {
 function what(item) {
   if (item.kind === 'project') return 'Timeline comments: both changed';
   if (item.kind === 'block-comments') return 'Comments: both changed';
+  if (item.lost) return 'Deleted by someone else before your change reached them';
   if (!item.ours) return 'Added';
   if (!item.theirs) return 'Removed';
   return `${item.conflict ? 'Both changed' : 'Changed'}: ${changes(item.ours, item.theirs)}`;
@@ -29,7 +30,7 @@ function describe(block, withText = true) {
     block.say?.length && `Sounds like: ${block.say.map(([a, b]) => `${a} → ${b}`).join('; ')}`].filter(Boolean).join('\n');
 }
 // The reviewer's name, when their package carries one, or a suggestion from a shared project.
-const returned = (block) => block?.edited?.suggested ? `Suggested by ${block.edited.by}` : block?.edited?.by ? `Returned by ${block.edited.by}` : 'Returned';
+const returned = (block) => block?.lost ? 'Your version' : block?.edited?.suggested ? `Suggested by ${block.edited.by}` : block?.edited?.by ? `Returned by ${block.edited.by}` : 'Returned';
 const span = (cls, text) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; return s; };
 // The reviewer's version, with its wording and times open to change before accepting.
 const shown = (item) => review.edits.has(key(item)) ? { ...item.theirs, ...review.edits.get(key(item)) } : item.theirs;
@@ -66,7 +67,9 @@ function row(item, i) {
   const n = numbers.get(item.uid);
   rh.append(span('n', item.kind === 'project' ? '' : n ? '#' + n : 'new'), span('t', block ? h.time(block.start) : ''),
     span('d', ''));
-  for (const [choiceOf, icon, label, tip] of [['remote', check, 'Accept this change', 'Accept: use the reviewer’s version'], ['local', cross, 'Reject this change', 'Reject: keep yours']]) {
+  const picks = item.lost ? [['remote', check, 'Bring your version back', 'Accept: bring your version back, for everyone'], ['local', cross, 'Leave it deleted', 'Reject: leave it deleted']]
+    : [['remote', check, 'Accept this change', 'Accept: use the reviewer’s version'], ['local', cross, 'Reject this change', 'Reject: keep yours']];
+  for (const [choiceOf, icon, label, tip] of picks) {
     const b = document.createElement('button'); b.className = 'pick ' + choiceOf; b.innerHTML = icon; b.dataset.choice = choiceOf;
     b.setAttribute('aria-label', label); b.dataset.tip = tip;
     rh.append(b);
@@ -74,7 +77,7 @@ function row(item, i) {
   r.append(rh);
   if (i === at) {
     const pair = document.createElement('div'); pair.className = 'ppair';
-    pair.append(side('Yours', item, item.ours, 'Not in your script.'), side('Returned', item, item.theirs, 'Removed by the reviewer.'));
+    pair.append(side(item.lost ? 'Script now' : 'Yours', item, item.ours, item.lost ? 'Deleted by someone else.' : 'Not in your script.'), side('Returned', item, item.theirs, 'Removed by the reviewer.'));
     r.append(pair);
   } else {
     const tx = document.createElement('div'); tx.className = 'tx';

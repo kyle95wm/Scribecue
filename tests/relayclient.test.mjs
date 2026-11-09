@@ -130,7 +130,9 @@ test('changes made while offline arrive once it reconnects', async () => {
   await until(() => c.status === 'offline');
   const list = s.read().blocks; list[0].text = 'Written on the train.';
   s.write(list, [], [uid(1)]);
+  const offlineAt = performance.now();
   await until(() => c.status === 'online' && !c.unsent(), 'back online with it sent');
+  assert.ok(c.sentAt > offlineAt, 'it says when the relay last had everything');
   await until(() => mine.read().blocks[0].text === 'Written on the train.');
   assert.ok(statuses.some(([, st]) => st === 'offline'));
   c.stop(); o.stop();

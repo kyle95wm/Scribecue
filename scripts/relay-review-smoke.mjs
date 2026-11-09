@@ -223,6 +223,45 @@ try {
   assert.ok((await b.js(rowText(5))).includes('offline three'), 'the shared project still keeps B’s change');
   await a.js(`window.confirm=()=>true;location.href=${JSON.stringify(review)};true`);
   await a.wait(`document.querySelectorAll('#list .row').length===1500 && ${online} && scribecueRelay.role==='owner'`, 'A back in its shared project again');
+  assert.equal(await a.js(`document.body.classList.contains('mode-write') && !document.body.classList.contains('qc-package')`), true, 'the package’s review is closed, in Write');
+  // B changes block 9 offline while A deletes it: B's version waits in B's Pending review,
+  // even after reloading, and accepting brings it back for both.
+  const del = (t, n) => t.js(`[...document.querySelectorAll('#list .row')][${n}].querySelector('.rowdel').click();true`);
+  await b.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await b.send('Network.setBlockedURLs', { urls: ['*127.0.0.1:8787*', '*localhost:8787*'] });
+  await b.js(`scribecueRelay.ws?.close();true`);
+  await b.wait(`window.scribecueRelay && scribecueRelay.status!=='online'`, 'B offline again');
+  await editText(b, 8, ' Changed by Sam.');
+  await del(a, 8);
+  await a.wait(`scribecueShared.read().blocks.length===1499 && ${online}`, 'A deleted block 9');
+  await b.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await b.send('Network.setBlockedURLs', { urls: [] });
+  await b.js(`dispatchEvent(new Event('online'));true`);
+  await b.wait(`${online} && document.querySelectorAll('#list .row').length===1499`, 'B back, block 9 gone');
+  assert.match(await b.js(`document.getElementById('toast').textContent`), /Block #9 was deleted by someone else before your change reached them. Your version is in Pending review/);
+  await b.js(`location.reload();true`); await sleep(1000);
+  await b.wait(`${online} && document.querySelectorAll('#list .row').length===1499 && document.querySelectorAll('#pendingList .prow').length===1`, 'B still has its version after reloading');
+  await b.watch(); // B's long tasks from here on
+  await b.js(`document.getElementById('tabPending').click();document.querySelector('#pendingList .prow').click();true`); await sleep(500);
+  await b.shot('pending-lost');
+  await b.js(`document.querySelector('#pendingList .prow .pick.remote').click();true`); await sleep(300);
+  await b.js(`document.getElementById('pendingAccept').click();true`);
+  await b.wait(`document.querySelectorAll('#list .row').length===1500 && !document.querySelectorAll('#pendingList .prow').length`, 'B brought block 9 back');
+  await a.wait(`document.querySelectorAll('#list .row').length===1500 && (${rowText(8)}).includes('Changed by Sam')`, 'block 9 is back for A, with B’s change');
+  // A change that reached A before A deleted the block: nothing is said.
+  await editText(b, 9, ' Seen by all.');
+  await b.wait(online, 'B sent it');
+  await a.wait(`scribecueShared.read().blocks[9].text.includes('Seen by all')`, 'A has it');
+  await b.js(`document.getElementById('toast').textContent='';true`);
+  await del(a, 9);
+  await b.wait(`document.querySelectorAll('#list .row').length===1499`, 'B sees the delete');
+  await sleep(500);
+  assert.equal(await b.js(`document.getElementById('toast').textContent`), '', 'no notice for a change already sent');
+  assert.equal(await b.js(`document.querySelectorAll('#pendingList .prow').length`), 0);
+  // A undoes its delete, so the script is whole again for what follows.
+  await a.js(`document.activeElement?.blur();true`);
+  for (const type of ['keyDown', 'keyUp']) await a.send('Input.dispatchKeyEvent', { type, key: 'z', code: 'KeyZ', windowsVirtualKeyCode: 90, modifiers: 4 });
+  await b.wait(`document.querySelectorAll('#list .row').length===1500`, 'A’s undo brings block 10 back');
 
   // B leaves, keeping a copy (not the default), then opens the comment link: comments only.
   await b.click('#shareBtn');
@@ -270,6 +309,6 @@ try {
   assert.equal(await b.js(`document.querySelector('#modeSw [data-mode=write]').disabled`), false, 'B is no longer limited');
   assert.equal(await a.js(`document.querySelectorAll('#list .row').length`), 1500, 'A keeps its copy');
 
-  console.log(`Relay review smoke passed at 6× with 1,500 blocks: a suggestion reached A in ${Math.round(suggestMs)} ms; leaving without a copy took ${Math.round(leaveMs)} ms; A ${await a.report()}; B ${await b.report()}`);
+  console.log(`Relay review smoke passed at 6× with 1,500 blocks: a suggestion reached A in ${Math.round(suggestMs)} ms; leaving without a copy took ${Math.round(leaveMs)} ms; A ${await a.report()}; B ${await b.report()} since reloading`);
 } finally { a.ws.close(); b.ws.close(); }
 process.exit(0);
