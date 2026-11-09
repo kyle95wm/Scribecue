@@ -33,6 +33,7 @@ import { initSettings, addSection, adopt, place, openSettings, closeSettings } f
 import { initReminder } from './reminder.js';
 import { announce, speakable, blockLabel, keepsFocusAfterDialog } from './a11y.js';
 import { initOffline, openOffline, keepStorage } from './offline.js';
+import { initSettingsFile } from './settingsfile.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
@@ -6741,6 +6742,8 @@ initOffline({
   unsaved: () => (S.dirty ? Math.max(1, S.cues.length + S.comments.length) : 0),
   save: () => saveProject(),
 });
+// Settings go to a file and back. Importing reloads, so the blocks are kept first.
+initSettingsFile({ toast: (m) => toast(m), version: VERSION, beforeReload: () => { clearTimeout(saveTimer); save(); } });
 initWelcome({
   getMode: () => S.mode,
   setMode,
