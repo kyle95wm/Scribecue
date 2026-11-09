@@ -1277,6 +1277,8 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .mode-qc.qc-editing .qc-edit-only { display: revert; }
 
 .qc-package .qc-export { display: none; }
+/* A project shared with you: its owner saves and exports it. */
+.no-files [data-act="saveProject"], .no-files .save-key, .no-files .export-wrap, .no-files .export-key, .no-files .export-panel { display: none; }
 /* A reviewer with a QC package open saves it and sends it back: nothing to export. */
 .mode-qc.qc-package .export-wrap { display: none; }
 

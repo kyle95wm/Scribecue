@@ -72,6 +72,20 @@ try {
   assert.equal(await b.js(`document.body.classList.contains('mode-qc')`), true, 'opens in QC');
   assert.equal(await b.js(`document.getElementById('qcPermission').textContent`), 'Suggestions');
   assert.equal(await b.js(`document.querySelector('#modeSw [data-mode=write]').disabled`), true, 'Write is off');
+  // Only the owner saves and exports: B has no Save or Export, nor their keys, which only explain.
+  const saveShown = `getComputedStyle(document.querySelector('[data-act=saveProject]')).display!=='none'`;
+  assert.equal(await a.js(saveShown), true, 'the owner has Save');
+  assert.equal(await b.js(saveShown), false, 'a reviewer has no Save');
+  assert.equal(await b.js(`[...document.querySelectorAll('#help .save-key')].every(e=>getComputedStyle(e).display==='none')`), true, 'no save keys in the shortcuts');
+  assert.equal(await b.js(`(()=>{const e=new KeyboardEvent('keydown',{key:'s',ctrlKey:true,metaKey:true,bubbles:true,cancelable:true});document.body.dispatchEvent(e);return e.defaultPrevented})()`), true, 'the browser doesn’t save the page');
+  assert.match(await b.js(`document.getElementById('toast').textContent`), /owner saves/);
+  const exportShown = `getComputedStyle(document.querySelector('.export-wrap')).display!=='none'`;
+  assert.equal(await a.js(exportShown), true, 'the owner has Export');
+  assert.equal(await b.js(exportShown), false, 'a reviewer has no Export');
+  assert.equal(await b.js(`[...document.querySelectorAll('#help .export-key, .export-panel')].every(e=>getComputedStyle(e).display==='none')`), true, 'no export keys or panel exports');
+  await b.js(`document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'e',ctrlKey:true,metaKey:true,bubbles:true,cancelable:true}));true`);
+  assert.match(await b.js(`document.getElementById('toast').textContent`), /owner exports/);
+  await a.shot('owner-header'); await b.shot('reviewer-header');
 
   // B changes block 2: B sees it; A gets a suggestion, and the script stays as it was.
   let t0 = performance.now();

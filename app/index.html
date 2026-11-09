@@ -1012,6 +1012,7 @@ docker compose up -d --build</code></pre>
       <p class="updstatus"><button id="ttsFitAll">Fit speeds to timings</button>
         <progress id="ttsFitBar" class="jobbar" max="1" value="0" hidden aria-label="Fitting speeds"></progress>
         <button id="ttsFitStop" hidden>Stop</button> <span id="ttsFitStatus" class="dim"></span></p>
+      <div class="export-panel">
       <section id="ttsExtExports" hidden>
         <h3>Extended blocks in exports</h3>
         <p class="small">Exports stop the programme for each extended block while it's read, so they
@@ -1110,6 +1111,7 @@ docker compose up -d --build</code></pre>
           <pre id="ttsExtCmd"></pre>
         </div>
       </section>
+      </div>
       <h3>Google Cloud voices</h3>
       <p class="small">Google's Standard voices, with your own Google Cloud key. Like Piper voices, they give
         exact lengths and can be exported as a description track. Each reading sends the block's text to
@@ -1407,7 +1409,7 @@ docker compose up -d --build</code></pre>
         <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Previous / next change, in Pending review</dd>
         <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>One frame back / forward</dd><dt><kbd>V</kbd></dt><dd>Hear the selected block with the chosen QC playback source</dd>
         <dt data-keys="comments"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>C</kbd></dt><dd>Comments at the playhead</dd><dt><kbd>Esc</kbd></dt><dd>Back to the timeline, closing what's open</dd>
-        <dt><kbd><span class="mod"></span>S</kbd></dt><dd>Save the project or QC package with comments</dd>
+        <dt class="save-key"><kbd><span class="mod"></span>S</kbd></dt><dd class="save-key">Save the project or QC package with comments</dd>
         <dt class="qc-edit-only"><kbd>↵</kbd></dt><dd class="qc-edit-only">Edit the selected block or create one at the playhead</dd>
         <dt class="qc-edit-only"><kbd>Del</kbd></dt><dd class="qc-edit-only">Delete the selected block</dd>
         <dt class="qc-edit-only"><kbd><span class="mod"></span>Z</kbd></dt><dd class="qc-edit-only">Undo block or comment changes</dd>
@@ -1460,8 +1462,8 @@ docker compose up -d --build</code></pre>
           <h3>File</h3>
           <dl>
             <dt><kbd><span class="mod"></span>O</kbd> <kbd><span class="mod"></span>⇧O</kbd></dt><dd>Open a project or SRT/VTT · open video/audio</dd>
-            <dt><kbd><span class="mod"></span>S</kbd> <kbd><span class="mod"></span>⇧S</kbd></dt><dd>Save project · save project as</dd>
-            <dt><kbd><span class="mod"></span>E</kbd> <kbd><span class="mod"></span>⇧E</kbd></dt><dd>Export SRT · export VTT</dd>
+            <dt class="save-key"><kbd><span class="mod"></span>S</kbd> <kbd><span class="mod"></span>⇧S</kbd></dt><dd class="save-key">Save project · save project as</dd>
+            <dt class="export-key"><kbd><span class="mod"></span>E</kbd> <kbd><span class="mod"></span>⇧E</kbd></dt><dd class="export-key">Export SRT · export VTT</dd>
           </dl>
           <h3 class="record-only">Record mode</h3>
           <dl class="record-only">

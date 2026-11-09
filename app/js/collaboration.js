@@ -31,6 +31,11 @@ const grants = {
 };
 export const allows = (role, action) => Object.hasOwn(grants, role) && grants[role].includes(action);
 
+// Whether this browser saves or exports the project. In a project shared with you, only its
+// owner does; everyone else's changes reach the shared project as they make them.
+// share: the record this browser keeps for the open project, or null for one of its own.
+export const makesFiles = (share) => !share || share.link === 'owner';
+
 // Conflicting results have no project to apply. The caller keeps all three originals
 // and asks the user to resolve the listed conflicts. Inputs are never changed.
 // Comments and settings are atomic for now: concurrent changes require review.

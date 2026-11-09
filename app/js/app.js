@@ -13,7 +13,7 @@ import { HOSTED } from './config.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initCheck, openCheck, checkFirst } from './proofdialog.js';
 import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
-import { collaborationJob, retainHistory } from './collaboration.js';
+import { collaborationJob, retainHistory, makesFiles } from './collaboration.js';
 import { initReviewCompare, openReviewCompare, finishReview } from './qcreviewdrawer.js';
 import { initPending, startPending, addPending, endPending, pendingGhost, livePending } from './qcpending.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanNotes, cleanWords, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
@@ -87,6 +87,8 @@ const canComment = () => commentsAllowed(S.mode);
 // Can comment only comments. (myShare: what this browser keeps for the project open.)
 let myShare = null;
 const sharedLimited = () => myShare?.role === 'review' || myShare?.role === 'comment';
+// Only the owner of a shared project saves or exports it: no Save or Export, keys or reminders.
+const canMakeFiles = () => makesFiles(myShare);
 const qcEditable = () => myShare?.role === 'comment' ? false : myShare?.role === 'review' ? true : S.reviewId ? reviewAllowsEdits(S.review) : !!S.reviewAudio;
 const qcLocked = () => qc() && !qcEditable();
 const readingControls = () => ttsOn() || (qc() && qcEditable());
@@ -688,7 +690,7 @@ async function startShared() {
   window.scribecueShared = null;
   // A project shared on the relay keeps its copy in this browser between visits.
   const record = sharedLib.getShare(id);
-  myShare = record; syncQcPermission();
+  myShare = record; syncQcPermission(); showAutosave();
   if (!record && !sharedEvery) { endLive(); return; } // a project of its own: no shared copy
   try { await loadCopy(); } catch { copyLib = null; if (sharedToken === token) toast('Couldn’t load sharing. Reload Scribecue to try again'); return; }
   if (sharedToken !== token) return; // started again meanwhile
@@ -764,7 +766,7 @@ async function startRelay(record, copy, fresh, seq, seen) {
             : 'This project is no longer shared with you. Your copy stays here');
         sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
         // A plain project from now on: no limits, no suggestions.
-        myShare = null; syncQcPermission(); endLive();
+        myShare = null; syncQcPermission(); showAutosave(); endLive();
         queueMicrotask(startShared); // a project of its own from now on
       }
       window.dispatchEvent(new CustomEvent('scribecue-relay', { detail: { status, detail } }));
@@ -4091,6 +4093,7 @@ function syncQcPermission() {
   const lockedPackage = (!!S.reviewId && !qcEditable()) || sharedLimited();
   document.body.classList.toggle('qc-editing', qc() && qcEditable());
   document.body.classList.toggle('qc-package', !!S.reviewId);
+  document.body.classList.toggle('no-files', !canMakeFiles());
   const authoring = !S.reviewId && !!S.reviewAudio;
   $('qcPermission').textContent = myShare?.role === 'review' ? 'Suggestions' : authoring ? 'Authoring project' : qcEditable() ? 'Edits allowed' : 'Comments only';
   $('qcPermission').dataset.tip = myShare?.role === 'review' ? 'Your block changes go to the owner as suggestions, in Pending review' : myShare?.role === 'comment' ? 'Your link allows comments only' : authoring ? 'Your authoring project: edit in QC or Write, with the original readings kept for reference' : S.reviewId ? 'Chosen when the QC package was created' : 'Use Write or Transcribe to edit a plain project';
@@ -4569,6 +4572,7 @@ function projectSaved(name) {
 // Ctrl/Cmd+S saves in place once the project has a file; Ctrl/Cmd+Shift+S always asks.
 // Browsers that can't save in place download a copy instead.
 async function saveProject(as = false) {
+  if (!canMakeFiles()) return toast('Your changes reach the shared project as you make them. Its owner saves the file');
   if (S.reviewId && !S.review) return toast('Reopen the QC package to restore its audio before saving');
   if (S.mode === 'record') return toast('Takes are kept as you record them. Export the narration when you’re done');
   if (!S.cues.length && !S.comments.length && !S.dirty) return toast('Nothing to save yet');
@@ -4611,7 +4615,7 @@ const AUTO = { can: canAutosave(window), permission: 'prompt', saving: false, er
 
 function showAutosave() {
   const st = autosaveState({
-    can: AUTO.can, file: !!S.handle, permission: AUTO.permission,
+    can: AUTO.can && canMakeFiles(), file: !!S.handle, permission: AUTO.permission,
     saving: AUTO.saving, dirty: S.dirty, error: AUTO.error,
   });
   const b = $('autosaveBtn');
@@ -4633,7 +4637,7 @@ async function checkWrite() {
 
 function scheduleAutosave() {
   clearTimeout(AUTO.timer);
-  if ((S.reviewId && !S.review) || !AUTO.can || !S.handle || AUTO.permission !== 'granted' || AUTO.error) return showAutosave();
+  if ((S.reviewId && !S.review) || !AUTO.can || !canMakeFiles() || !S.handle || AUTO.permission !== 'granted' || AUTO.error) return showAutosave();
   const t = Date.now();
   AUTO.first ||= t;
   AUTO.timer = setTimeout(autosave, nextSave(t, S.lastChange || t, AUTO.first));
@@ -5058,9 +5062,10 @@ function startAgain() {
   const n = blocks === 1 ? '1 block' : `${blocks} blocks`;
   $('newWhat').textContent = S.comments.length && !blocks && !media ? `This project has ${S.comments.length} timeline comments.` : blocks ? `This project has ${n}${media ? `, with ${media} open` : ''}.` : media ? `${media} is open, with no blocks yet.` : 'This project has no blocks yet.';
   newDlg.querySelector('[data-choice="blocks"]').hidden = !blocks || qc();
-  $('newUnsaved').hidden = !S.dirty;
-  $('newSave').hidden = !S.dirty;
-  $('newProjectLabel').textContent = S.dirty ? 'Start without saving' : 'New project';
+  const unsaved = S.dirty && canMakeFiles();
+  $('newUnsaved').hidden = !unsaved;
+  $('newSave').hidden = !unsaved;
+  $('newProjectLabel').textContent = unsaved ? 'Start without saving' : 'New project';
   $('newProjectNote').textContent = qc() ? 'Closes this review and the video, then opens a blank project in Write mode.' : 'Clears the blocks and notes, and closes the video, for different work.';
   $('newUndo').hidden = !!S.reviewId;
   newDlg.showModal();
@@ -5143,7 +5148,7 @@ function fileKeys(e) {
   if (!(e.metaKey || e.ctrlKey) || e.altKey) return false;
   const k = e.key.toLowerCase();
   if (k === 's') { e.preventDefault(); saveProject(e.shiftKey); return true; }
-  if (k === 'e') { e.preventDefault(); exportSubs(e.shiftKey ? 'vtt' : 'srt'); return true; }
+  if (k === 'e') { e.preventDefault(); if (!canMakeFiles()) toast('Only the owner exports a shared project'); else exportSubs(e.shiftKey ? 'vtt' : 'srt'); return true; }
   if (k === 'o') { e.preventDefault(); e.shiftKey ? openVideoPicker() : openAny(); return true; }
   return false;
 }
@@ -6750,7 +6755,7 @@ initOffline({
   openTts: () => openTts(),
   openStt: () => openStt(),
   guides: () => guidesHere(),
-  unsaved: () => (S.dirty ? Math.max(1, S.cues.length + S.comments.length) : 0),
+  unsaved: () => (S.dirty && canMakeFiles() ? Math.max(1, S.cues.length + S.comments.length) : 0),
   save: () => saveProject(),
 });
 // Settings go to a file and back. Importing reloads, so the blocks are kept first.
@@ -6867,7 +6872,7 @@ initReminder({
     blocks: S.cues.length + S.comments.length, dirty: S.dirty, lastChange: S.lastChange || 0,
     hasFile: !!S.handle || S.subName.endsWith(PROJECT_EXT), name: S.subName,
   }),
-  busy: () => !!edit || !!hold || !!document.querySelector('dialog[open]') || !$('tour').hidden ||
+  busy: () => !canMakeFiles() || !!edit || !!hold || !!document.querySelector('dialog[open]') || !$('tour').hidden ||
     [...document.querySelectorAll('.updalert')].some((el) => !el.hidden),
   save: () => saveProject(),
 });

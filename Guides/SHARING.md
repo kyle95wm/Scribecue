@@ -71,6 +71,9 @@ comments reach everyone at once.
 
 Scribecue remembers the project, so it opens again without the password.
 
+There's no **Save** or **Export**. Your changes reach the project as you make them. Only
+the owner saves and exports it.
+
 ## Working together
 
 - **Who's here:** initials beside the **Shared** tag show who has the project open. They

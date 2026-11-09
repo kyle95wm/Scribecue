@@ -58,8 +58,8 @@ takes them to another browser with your other settings.
 | `Alt+Space` | Play / pause while typing |
 | `Ctrl/Cmd+B` `Ctrl/Cmd+I` `Ctrl/Cmd+U` | Bold / italic / underline |
 | `Ctrl/Cmd+Z` `Ctrl/Cmd+Shift+Z` | Undo / redo |
-| `Ctrl/Cmd+S` / `Ctrl/Cmd+Shift+S` | Save the project / save it as a new file |
-| `Ctrl/Cmd+E` / `Ctrl/Cmd+Shift+E` | Export SRT / WebVTT. Not with a QC package open in QC |
+| `Ctrl/Cmd+S` / `Ctrl/Cmd+Shift+S` | Save the project / save it as a new file. Only the owner, in a shared project |
+| `Ctrl/Cmd+E` / `Ctrl/Cmd+Shift+E` | Export SRT / WebVTT. Not with a QC package open in QC. Only the owner, in a shared project |
 | `Ctrl/Cmd+O` / `Ctrl/Cmd+Shift+O` | Open a project or script / open a video or audio file |
 
 </details>

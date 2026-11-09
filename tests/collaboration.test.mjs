@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mergeProjects, allows } from '../app/js/collaboration.js';
+import { mergeProjects, allows, makesFiles } from '../app/js/collaboration.js';
 import { toProject, newIdentity } from '../app/js/project.js';
 
 const fixture = () => toProject({ projectId: newIdentity(), blocks: [
@@ -143,4 +143,11 @@ test('empty projects merge and large comparisons report monotonic progress', () 
   assert.deepEqual(updates.at(-1), [1500, 1500]);
   assert.ok(updates.length > 1);
   assert.ok(updates.every(([done, total], i) => total === 1500 && (i === 0 || done >= updates[i - 1][0])));
+});
+
+test('only the owner of a shared project saves or exports it', () => {
+  assert.equal(makesFiles(null), true, 'a project of its own');
+  assert.equal(makesFiles(undefined), true);
+  assert.equal(makesFiles({ link: 'owner', role: 'owner' }), true);
+  for (const role of ['edit', 'review', 'comment']) assert.equal(makesFiles({ link: 'abc123', role }), false, role);
 });
