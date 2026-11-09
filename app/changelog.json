@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.100.1",
+    "date": "2026-11-09",
+    "notes": "## Job progress at the top\n\n- Jobs such as **Make all readings**, **Update all timings** and **Fit speeds to timings** now show their progress at the top, under the header, like messages.\n- **Stop** is there too, for as long as the job runs.\n- Messages that come up during a job show just below it."
+  },
+  {
     "version": "0.100.0",
     "date": "2026-11-09",
     "notes": "## Shared projects in the header\n\n- Click **Shared projects** in the header to see the shared projects in this browser. Click one to open it. You don't need its link or password.\n- A project that's no longer shared with you says so, and is removed from this browser.\n- Projects show by the owner's name for them.\n\n## Tooltips\n\n- Tooltips now stay inside the window. Panels, lists and dialogs no longer cut them off."
