@@ -168,10 +168,10 @@ test('a recovery link opens the project as its owner, with every link, and stays
   // The recovered browser makes a link; the first catches up, secret included.
   const made = await sharing.addLink(back, 'review', 'c', fast);
   signedList = await sharing.signedLinks(made);
-  const caught = await sharing.adoptLinks(r, signedList);
+  const caught = (await sharing.rebaseLinks(r, signedList)).record;
   assert.equal(caught.n, made.n);
   assert.deepEqual(sharing.linksOf(caught, 'https://x.test/').map((l) => l.url).sort(), sharing.linksOf(made, 'https://x.test/').map((l) => l.url).sort());
-  assert.equal(await sharing.adoptLinks(made, signedList), null, 'nothing newer');
+  assert.equal(await sharing.rebaseLinks(made, signedList), null, 'nothing newer');
   // Turned off: the list no longer has it.
   const off = sharing.removeRecovery(made);
   assert.equal(off.recovery, undefined);
@@ -230,4 +230,55 @@ test('the shared projects kept here, by whose they are', () => {
   const storage = { length: keys.length, key: (i) => keys[i], getItem: (k) => data[k] ?? null };
   assert.deepEqual(sharing.sharesHere(storage), { owned: 2, unrecovered: 1, joined: 1 });
   assert.deepEqual(sharing.sharesHere({ get length() { throw new Error('blocked'); } }), { owned: 0, unrecovered: 0, joined: 0 });
+});
+
+test('two of the owner’s browsers changing links apart keep both changes', async () => {
+  const project = crypto.randomUUID();
+  let base = await sharing.startSharing(project, 'ws://relay', { edit: 'a', review: 'b', comment: 'c' }, fast);
+  base.created = true;
+  base = await sharing.addRecovery(base, 'long enough password', fast);
+  const id = (role) => base.links.find((l) => l.role === role && !l.off).id;
+  const on = (r) => r.links.filter((l) => !l.off).map((l) => l.role).sort();
+  // Each browser turns off a different link: the other's turn-off isn't lost, whichever is newer.
+  const mini = sharing.sealLinks(sharing.removeLink(base, id('comment'), {}), [id('comment')]);
+  const air = sharing.removeLink(base, id('review'));
+  for (const [mine, theirs] of [[air, mini], [mini, air]]) {
+    const read = await readLinks(base.room, base.ownerPub, await sharing.signedLinks(theirs));
+    assert.ok(sharing.lacksFrom(mine, read), 'the relay’s list has a change this one lacks');
+    const { record, changed, dropped } = sharing.mergeApart(mine, theirs);
+    assert.ok(changed);
+    assert.deepEqual(dropped, []);
+    assert.deepEqual(on(record), ['edit'], 'both links are off');
+    assert.ok(record.n > Math.max(mine.n, theirs.n), 'the combined list is the newest');
+    assert.deepEqual(record.keys.slice(0, theirs.keys.length), theirs.keys, 'it carries on from the relay’s keys');
+    assert.ok(record.keys.length > theirs.keys.length, 'with a new key the turned-off link never has');
+    assert.ok(record.links.find((l) => l.id === id('comment')).sealed, 'the Mini’s sealed link stays sealed');
+  }
+  // Once combined, the other browser has nothing to add.
+  const combined = sharing.mergeApart(air, mini).record;
+  assert.equal(sharing.lacksFrom(combined, await readLinks(base.room, base.ownerPub, await sharing.signedLinks(mini))), false);
+  assert.equal(sharing.mergeApart(mini, combined).changed, false, 'the other just takes it');
+  // Through the signed list, as the app does it.
+  const r = await sharing.rebaseLinks(air, await sharing.signedLinks(mini));
+  assert.deepEqual(on(r.record), ['edit']);
+  assert.equal(await sharing.rebaseLinks(combined, await sharing.signedLinks(mini)), null, 'nothing to catch up on');
+});
+
+test('a link made apart is kept, with the keys it lacks, unless the other made one for its role', async () => {
+  const project = crypto.randomUUID();
+  let base = await sharing.startSharing(project, 'ws://relay', { edit: 'a', comment: 'c' }, fast);
+  base.created = true;
+  const mini = sharing.removeLink(base, base.links.find((l) => l.role === 'edit').id, {}); // a new key here
+  const air = await sharing.addLink(base, 'review', 'b', fast); // made with the keys from before
+  const { record, changed } = sharing.mergeApart(air, mini);
+  assert.ok(changed);
+  const review = record.links.find((l) => l.role === 'review' && !l.off);
+  assert.ok(review, 'the review link made apart is kept');
+  assert.equal(review.from, base.keys.length, 'it’s sent the keys from where the two lists differ');
+  assert.deepEqual(record.links.filter((l) => !l.off).map((l) => l.role).sort(), ['comment', 'review']);
+  // Both made a review link apart: the relay's stays, and the one made here goes.
+  const mini2 = await sharing.addLink(base, 'review', 'x', fast);
+  const both = sharing.mergeApart(air, mini2);
+  assert.equal(both.dropped.length, 1);
+  assert.deepEqual(both.record.links.filter((l) => !l.off && l.role === 'review').map((l) => l.id), [mini2.links.find((l) => l.role === 'review').id]);
 });

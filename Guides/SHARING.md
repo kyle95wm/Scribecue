@@ -145,7 +145,8 @@ the start of the link, before the `#`, to your Docker address, such as `http://l
 
 - **Anyone with the link and its password** can change the links and read the project.
   Never send it to others.
-- **The browser you shared from keeps working.** Links made in either one show in both.
+- **The browser you shared from keeps working.** Links made or turned off in either one
+  show in both, even when one was offline at the time.
 - **To replace it,** click **Turn off**, then make a new one. Changing it doesn't stop
   someone who has already used the old one.
 
@@ -158,7 +159,7 @@ the start of the link, before the `#`, to your Docker address, such as `http://l
 | Replace a link | **Turn off**, then **Make link** | Only people with the new link and password can open it |
 | Stop sharing | **Stop sharing**, in Share | Every link stops working, and the sharing service's copy is deleted. The project closes for everyone else. Your copy stays |
 | Leave someone's project | **Leave**, in Share | The project is removed from this browser. To keep it as your own, click **Keep a copy here** first |
-| Work on something else | **New**, or open another project | The shared project stays in this browser. Open its link to come back to it |
+| Work on something else | **New**, or open another project | The shared project stays in this browser. Open its link to come back to it. Changes not sent yet go then |
 
 ## Privacy
 

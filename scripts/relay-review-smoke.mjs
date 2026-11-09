@@ -155,13 +155,25 @@ try {
   assert.equal(await b.js(saveShown), false, 'an editor still has no Save');
   await editText(b, 4, ' Edited by Sam.');
   await a.wait(`window.scribecueShared.read().blocks[4].text.includes('Edited by Sam.')`, 'B’s edit reaches A’s script');
-  // B starts something new, then opens its link again: back in, with no password.
+  // B goes offline, changes block 6, and starts something new straight away. Back online,
+  // it opens its link again: back in with no password, and the change still reaches A.
+  await b.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await b.send('Network.setBlockedURLs', { urls: ['*127.0.0.1:8787*', '*localhost:8787*'] });
+  await b.js(`scribecueRelay.ws?.close();true`);
+  await b.wait(`window.scribecueRelay && scribecueRelay.status!=='online'`, 'B offline');
+  await editText(b, 5, ' offline three');
+  assert.ok(await b.js(`scribecueRelay.unsent()>0`), 'the change is waiting to be sent');
   await b.js(`document.querySelector('[data-act=newProject]').click();true`);
   await b.wait(`document.getElementById('newDlg').open`, 'New dialog');
+  assert.match(await b.js(`document.getElementById('newProjectNote').textContent`), /haven’t reached it yet/, 'New says the change isn’t sent');
   await b.js(`document.querySelector('#newDlg [data-choice=project]').click();true`);
   await b.wait(`document.querySelectorAll('#list .row').length===0`, 'B started a new project');
+  await b.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await b.send('Network.setBlockedURLs', { urls: [] });
   await b.js(`location.href=${JSON.stringify(edit)};true`);
   await b.wait(`document.querySelectorAll('#list .row').length===1500 && ${online}`, 'B reopened the shared project');
+  assert.ok((await b.js(rowText(5))).includes('offline three'), 'B still has its change');
+  await a.wait(`window.scribecueShared.read().blocks[5].text.includes('offline three')`, 'the change made offline reaches A');
   assert.equal(await b.js(`document.getElementById('joinDlg').open`), false, 'no password asked');
   assert.match(await b.js(`document.getElementById('toast').textContent`), /Opened the shared project again/);
   await sleep(1500);

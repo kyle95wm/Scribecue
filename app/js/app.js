@@ -720,7 +720,11 @@ async function startShared() {
   // relay's. Otherwise start the copy from this script, or bring it up to date. The owner
   // starting to share sends the script; one whose copy here is lost takes the relay's.
   const fresh = !!record && !saved && !joined && (record.link !== 'owner' || record.created);
-  if (joined) applyShared([...new Set([...shared.blocks.keys(), ...S.cues.map((c) => c.uid)])], true);
+  // Opened again from its link: the script is empty, so it comes from the copy kept here,
+  // and what that holds and the relay doesn't is sent once it's online.
+  const fill = reopening === id && !!saved;
+  reopening = null;
+  if (joined || fill) applyShared([...new Set([...shared.blocks.keys(), ...S.cues.map((c) => c.uid)])], true);
   else if (!fresh) writeShared(null);
   if (!record) endLive(); else refreshLive();
   // Undo from here on takes back this tab's changes only; earlier steps undo as before.
@@ -735,19 +739,26 @@ async function startRelay(record, copy, fresh, seq, seen) {
   const create = owner && !record.created ? await sharedLib.signedLinks(record) : null;
   if (shared !== copy) return;
   let keep = 0;
+  const store = () => handleStore.set({ ...Object.fromEntries(sharedLib.DOCS.map((d) => [d, copy.update(d)])), seq: client.safeSeq, seen: client.seen, room: record.room }, 'shared:' + id);
   const persist = () => {
     clearTimeout(keep);
-    keep = setTimeout(() => { if (relay === client) handleStore.set({ ...Object.fromEntries(sharedLib.DOCS.map((d) => [d, copy.update(d)])), seq: client.safeSeq, seen: client.seen, room: record.room }, 'shared:' + id); }, 1500);
+    keep = setTimeout(() => { keep = 0; if (relay === client) store(); }, 1500);
   };
   const client = relay = new sharedLib.RelayClient({
     url: record.relay, room: record.room, who: sharedLib.who(record), shared: copy, create, seed: !fresh,
     onPresence: (people) => { if (relay === client) { here = people; showHere(); } },
     onLinks: async (read, signed) => {
       if (relay !== client) return;
-      // Another browser of the owner's changed the links: this one catches up.
+      // Another browser of the owner's changed the links: this one catches up, keeping what it
+      // changed meanwhile, which then goes back to the relay.
       if (owner) {
-        const now = sharedLib.getShare(id), next = read.n > (now?.n || 0) ? await sharedLib.adoptLinks(now, signed) : null;
-        if (next && relay === client && (sharedLib.getShare(id)?.n || 0) < next.n) sharedLib.setShare(id, next);
+        const now = sharedLib.getShare(id), r = now ? await sharedLib.rebaseLinks(now, signed) : null;
+        if (r && relay === client && sharedLib.getShare(id)?.n === now.n) {
+          const next = r.changed && client.synced ? sharedLib.settle(r.record, client.seen) : r.record;
+          sharedLib.setShare(id, next);
+          if (r.dropped.length) toast(`Your other browser made a new ${r.dropped.map((l) => ROLE_NAMES[l.role]).join(' and ')} link meanwhile. That one is kept`);
+          if (r.changed) sendNewLinks(id, next);
+        }
       }
       shareUi?.update();
     },
@@ -792,7 +803,9 @@ async function startRelay(record, copy, fresh, seq, seen) {
   lastPresence = '';
   queueMicrotask(notePresence); // once `relay` is this client
   const off = copy.onUpdate(persist);
-  relayOff = () => { off(); clearTimeout(keep); };
+  // Stopping keeps what's waiting to be kept, such as changes not sent yet, unless the
+  // project has gone from this browser meanwhile.
+  relayOff = () => { off(); if (keep) { clearTimeout(keep); keep = 0; if (sharedLib.getShare(id)?.room === record.room) store(); } };
   window.scribecueRelay = client; // for the developer tests
   if (edit) client.hold(true); // sharing started while a block is being typed
   client.start();
@@ -803,6 +816,9 @@ async function ownerOnline(client, id, now) {
   now = expireNow(id, now, client);
   const settled = sharedLib.settle(now, client.seen);
   if (settled !== now) sharedLib.setShare(id, settled);
+  // The relay's list has changes from another browser of the owner's: they're combined with
+  // this one's first, when the list arrives (see onLinks), so neither is lost.
+  if (client.links && sharedLib.lacksFrom(settled, client.links)) return;
   if (client.links && settled.n > client.links.n && !(await client.sendLinks(await sharedLib.signedLinks(settled)))) return;
   await sealLinks(client, id);
 }
@@ -905,18 +921,20 @@ async function sendNewLinks(id, record) {
   if (client?.status !== 'online') return;
   if (await client.sendLinks(await sharedLib.signedLinks(record))) await sealLinks(client, id);
 }
-// Opens a shared project: its copy fills from the relay, even when it's the project already
-// here, as when opening a new link to it or the same one again. The copy kept from before
-// goes: the script starts empty, and a kept copy would be brought up to date with that.
-async function openShared(record, id) {
+// Opens a shared project. With a new link, its copy fills from the relay, even when it's
+// the project already here. keep: opened again with the same link, it starts from the copy
+// kept here, which may hold changes not sent yet.
+let reopening = null;
+async function openShared(record, id, keep = false) {
   await stopJob();
   await endRecording();
-  await handleStore.set(null, 'shared:' + id);
+  stopRelay(); shared = null; sharedStarting = null; // keeps what's waiting to be kept
+  if (keep) reopening = id;
+  else await handleStore.set(null, 'shared:' + id);
   undoStack.length = 0; redoStack.length = 0;
   S.projectId = id;
   sharedLib.setShare(S.projectId, record);
   S.reviewHistory = null; S.cues = []; S.comments = []; S.handle = null; handleStore.set(null);
-  stopRelay(); shared = null; sharedStarting = null;
   changed();
   select(null);
   setMode(record.role === 'edit' || record.role === 'owner' ? 'write' : 'qc', true);
@@ -943,7 +961,7 @@ const sharingTools = {
   // A shared project kept here, opened again from its own link: no password needed.
   async reopen(found) {
     if (!okToReplace('Open the shared project')) return false;
-    return openShared(found.record, found.project);
+    return openShared(found.record, found.project, true);
   },
   // What kind of link this is, before its password: 'owner' for a recovery link.
   async peek(url) {
@@ -1011,6 +1029,7 @@ const sharingTools = {
   // it goes from this browser, undo included, and a new project starts.
   async leave(keep = false) {
     const id = S.projectId;
+    if (!keep && relay?.unsent() && !confirm('Your last changes haven’t reached the shared project yet, and will be lost. Leave anyway? To keep them, wait until you’re online.')) return;
     stopRelay();
     sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
     if (keep) {
@@ -1025,6 +1044,7 @@ const sharingTools = {
   },
 };
 // What a new link to a shared project lets someone do, once it's replaced their old one.
+const ROLE_NAMES = { edit: 'Can edit', review: 'Can review', comment: 'Can comment' };
 const LINK_NOW = { edit: 'You can edit it now', review: 'You can suggest changes in QC now', comment: 'You can comment now' };
 // A share link opened in this browser: ask for its password, unless it's the project here.
 function openShareLink() {
@@ -4726,7 +4746,7 @@ $('autosaveBtn').addEventListener('click', async (e) => {
 // Asks before replacing work that isn't saved in a project. It can still be undone.
 function okToReplace(what) {
   // A shared project keeps its changes, and stays here to come back to.
-  if (myShare) return confirm(`${what}? You’ll leave this shared project. It stays in this browser: open its link to come back to it.`);
+  if (myShare) return confirm(`${what}? You’ll leave this shared project. It stays in this browser: open its link to come back to it.${relay?.unsent() ? ' Your last changes haven’t reached it yet. They’re kept here, and sent when you open it again.' : ''}`);
   if (!S.dirty) return true;
   return confirm(`Your changes to ${S.subName === 'untitled.srt' ? 'this project' : S.subName} aren't saved in a project file. ${what} anyway? You can undo it with ${IS_MAC ? '⌘Z' : 'Ctrl+Z'}.`);
 }
@@ -5112,7 +5132,7 @@ function startAgain() {
   $('newUnsaved').hidden = !unsaved;
   $('newSave').hidden = !unsaved;
   $('newProjectLabel').textContent = unsaved ? 'Start without saving' : 'New project';
-  $('newProjectNote').textContent = myShare ? 'Leaves this shared project and closes the video. The project stays in this browser: open its link to come back to it.'
+  $('newProjectNote').textContent = myShare ? `Leaves this shared project and closes the video. The project stays in this browser: open its link to come back to it.${relay?.unsent() ? ' Your last changes haven’t reached it yet. They’re kept here, and sent when you open it again.' : ''}`
     : qc() ? 'Closes this review and the video, then opens a blank project in Write mode.' : 'Clears the blocks and notes, and closes the video, for different work.';
   $('newUndo').hidden = !!S.reviewId;
   newDlg.showModal();

@@ -319,6 +319,38 @@ try {
   await a.wait(`document.querySelector('.sharelink[aria-label="Can review link"]')?.value===${JSON.stringify(madeOnB)}`, 'A catches up with B’s link');
   await b.js(`document.getElementById('shareClose').click();true`);
   await a.js(`document.getElementById('shareClose').click();true`);
+  // Both owners change links apart. B, offline, turns off the review link and makes an edit
+  // link; A meanwhile makes a comment link. Back online, both lists have all three changes.
+  const turnOff = (t, name) => t.js(`[...[...document.querySelectorAll('#shareLinks .sharerow')].find(s=>s.querySelector('h3').textContent===${JSON.stringify(name)}).querySelectorAll('button')].find(x=>x.textContent==='Turn off').click();true`);
+  const onRoles = `JSON.stringify(JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>k.startsWith('scribecue.share.')))).links.filter(l=>!l.off).map(l=>l.role).sort())`;
+  assert.equal(await a.js(onRoles), JSON.stringify(['review']), 'the review link is on to start with');
+  await b.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await b.send('Network.setBlockedURLs', { urls: ['*127.0.0.1:8787*', '*localhost:8787*'] });
+  await b.js(`scribecueRelay.ws?.close();true`);
+  await b.wait(`scribecueRelay.status!=='online'`, 'B offline');
+  await b.click('#shareBtn');
+  await turnOff(b, 'Can review');
+  await b.wait(`${onRoles}==='[]'`, 'B turned off the review link offline');
+  await b.fill('#sharePw-edit', 'made offline');
+  await b.click('#sharePw-edit ~ button');
+  await b.wait(`${onRoles}==='["edit"]'`, 'B made an edit link offline');
+  const offlineEdit = await b.js(`document.querySelector('.sharelink[aria-label="Can edit link"]').value`);
+  await b.js(`document.getElementById('shareClose').click();true`);
+  await a.click('#shareBtn');
+  await a.fill('#sharePw-comment', 'made meanwhile');
+  await a.click('#sharePw-comment ~ button');
+  await a.wait(`${onRoles}==='["comment","review"]' && ${online}`, 'A made a comment link');
+  await a.js(`document.getElementById('shareClose').click();true`);
+  await b.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await b.send('Network.setBlockedURLs', { urls: [] });
+  await b.js(`scribecueRelay.reconnect();true`);
+  await b.wait(`${onRoles}==='["comment","edit"]' && ${online}`, 'B has all three changes');
+  await a.wait(`${onRoles}==='["comment","edit"]'`, 'A has all three changes');
+  await a.click('#shareBtn');
+  await a.wait(`document.querySelector('.sharelink[aria-label="Can edit link"]')?.value===${JSON.stringify(offlineEdit)}`, 'A shows the edit link B made offline');
+  await a.js(`document.getElementById('shareClose').click();true`);
+  assert.ok(await same(), 'both copies agree');
+
   // A stops sharing: back to a plain project.
   await a.click('#shareBtn');
   await a.js(`window.confirm=()=>true;document.getElementById('shareStop').click();true`);

@@ -180,15 +180,59 @@ async function recover(relay, l, password, box, signed, opts) {
 }
 // Another browser of the owner's changed the links: this one takes the newer list, with
 // the secrets of links made there, from the recovery box. Null if it can't.
-export async function adoptLinks(record, signed) {
+// Whatever its number: changes made apart, in each browser, are both kept (see mergeApart).
+// Resolves { record, changed, dropped }, or null when the relay's list holds nothing this
+// one lacks, or isn't this owner's.
+export async function rebaseLinks(record, signed) {
   if (!record?.recovery || record.link !== 'owner') return null;
   try {
     const read = await readLinks(record.room, record.ownerPub, signed);
-    if (!(read.n > record.n) || read.recovery?.id !== record.recovery.id) return null;
+    if (read.recovery?.id !== record.recovery.id || !lacksFrom(record, read)) return null;
     const inside = await openRecovery(record.room, record.recovery.id, record.recovery.rk, read.recovery.box);
     if (inside.pub !== record.ownerPub) return null;
-    return fromRecovery(record.relay, record.room, record.recovery, inside, read.list);
+    return mergeApart(record, fromRecovery(record.relay, record.room, record.recovery, inside, read.list));
   } catch { return null; }
+}
+
+// Whether the relay's list (as readLinks reads it) has a change this record lacks: a link
+// made, turned off or sealed elsewhere. Links are only ever made, turned off and sealed, in
+// that order, so these are the only changes there are.
+export function lacksFrom(record, read) {
+  for (const [id, l] of read.links) {
+    if (id === 'owner') continue;
+    const mine = record.links.find((x) => x.id === id);
+    if (!mine || (l.off && !mine.off) || (l.sealed && !mine.sealed)) return true;
+  }
+  return false;
+}
+
+// Two of the owner's browsers changed the links apart, as when one was offline. `theirs` is
+// the newer list from the relay; what `mine` did meanwhile goes on top of it, rather than
+// being lost:
+// - a link turned off or sealed here stays so, with a new project key, as when turned off;
+// - a link made here is added, and gets the keys it lacks. Its box holds this browser's
+//   keys, which match theirs only up to where the two began to differ.
+// - a link made here for a role the other made one for too is dropped (`dropped`), so a role
+//   still has one link. It never reached the relay, so nobody can have opened it.
+export function mergeApart(mine, theirs) {
+  const ours = keysOf(mine), other = keysOf(theirs);
+  let same = 0;
+  while (same < ours.length && same < other.length && ours[same] === other[same]) same++;
+  const known = new Set(theirs.links.map((l) => l.id));
+  const made = mine.links.filter((l) => !l.off && !known.has(l.id));
+  const dropped = made.filter((l) => theirs.links.some((r) => r.role === l.role && !r.off));
+  const added = made.filter((l) => !dropped.includes(l)).map((l) => ({ ...l, from: Math.min(l.from ?? same, same) }));
+  const offHere = mine.links.filter((l) => l.off && theirs.links.some((r) => r.id === l.id && !r.off)).map((l) => l.id);
+  const sealedHere = mine.links.filter((l) => l.sealed && theirs.links.some((r) => r.id === l.id && r.off && !r.sealed)).map((l) => l.id);
+  if (!added.length && !offHere.length && !sealedHere.length) return { record: theirs, changed: false, dropped };
+  let out = offHere.length ? withNewKey(theirs) : theirs;
+  out = {
+    ...out,
+    n: Math.max(mine.n, theirs.n) + 1,
+    // Turned off here: as this browser has it, with what it had from that link, and sealed if so.
+    links: [...out.links.map((l) => (offHere.includes(l.id) ? mine.links.find((x) => x.id === l.id) : sealedHere.includes(l.id) ? { ...l, sealed: true } : l)), ...added],
+  };
+  return { record: out, changed: true, dropped };
 }
 export const linksOf = (r, base, now = Date.now()) => (r.links || []).filter((l) => !l.off && !isExpired(l, now)).map((l) => ({ id: l.id, role: l.role, url: linkUrl(base, r.room, l.id, l.secret), expires: l.expires ?? null }));
 

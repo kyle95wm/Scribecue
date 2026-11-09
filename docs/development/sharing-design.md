@@ -206,8 +206,14 @@ The owner may make a recovery link, `#share=<room>.<id>.<secret>` like any other
 - Asked for the recovery link's box, the relay sends it with role `owner` and the signed
   list. The browser opens the box, checks the list is signed by the owner key inside, and
   rebuilds the owner's record from both. It then signs in as `owner`.
-- An owner's browser that gets a newer list opens the box with its key too, to pick up the
-  secrets of links another of the owner's browsers made.
+- An owner's browser that gets a list with changes it lacks opens the box with its key too,
+  to pick up the secrets of links another of the owner's browsers made. Whatever the
+  numbers, it doesn't simply take that list: what it changed meanwhile goes on top
+  (`mergeApart` in `sharing.js`), and the combined list goes back to the relay. Links are
+  only made, turned off and sealed, so the two can be combined by comparing them. A link
+  turned off here gets a new project key on top of the relay's keys. A link made here is
+  sent the keys from where the two lists' keys differ. If both made a link for one role,
+  the relay's stays.
 - Turning it off sends a list without it.
 
 ## Links that expire
