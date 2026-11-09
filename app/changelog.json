@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.96.1",
+    "date": "2026-11-09",
+    "notes": "## Sharing from Docker\n\n- Share links and recovery links made in Docker now open the web version, so anyone you send them to can use them.\n- You stay the project's owner in Docker.\n- To open a recovery link in Docker, change the start of the link, before the #, to your Docker address.\n- Sharing is still being tested."
+  },
+  {
     "version": "0.96.0",
     "date": "2026-11-09",
     "notes": "## Back up your settings\n\n- In Settings, under Storage, click Export settings to save your settings to a file.\n- In another browser, click Import settings… to use them there. Scribecue says what will change and asks first.\n- The file has your name, shortcuts, voice and reading settings, and display options. Projects aren't in it.\n- API keys are only in it if you turn on Include API keys. Keep that file private."
