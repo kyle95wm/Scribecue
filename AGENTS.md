@@ -11,7 +11,7 @@ Before anything else, look for these files in the repository root and read any t
 |---|---|
 | `AGENTS.local.md` | Your own instructions, not checked in. |
 | `CLAUDE.local.md` | The same, for Claude Code. |
-| `HANDOFF.md` | Where the work stands: open questions, decisions and pitfalls. |
+| `HANDOFF.md` | Notes on where the work stands, if someone left you one. Not checked in. |
 
 Where a local file disagrees with this one, follow the local file. It knows more about your
 setup.
