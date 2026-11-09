@@ -106,12 +106,14 @@ export function nextExpiry(record) {
 // What opening a link does, given what this browser keeps for its room (shareForRoom) and
 // the project open here. 'join': ask for its password. 'switch': ask, to open the project
 // kept here with this link instead, which decides what this person can do from then on.
-// 'same': it's already open with this link. 'reopen': it's kept here with this link, and
-// opens again without its password. 'own': the owner's own project, which stays
-// theirs: joining would make them someone else's reviewer or editor.
+// 'same': it's already open with this link. 'reopen': it's kept here with this link, or
+// it's the owner's, and opens again without a password. 'own': the owner's own project,
+// already open, which stays theirs: joining would make them someone else's reviewer or
+// editor.
 export function linkAction(found, projectId, l) {
   if (!found) return 'join';
-  if (found.record.link === 'owner') return 'own';
+  // The owner's: any link to it opens it again as theirs, with no password.
+  if (found.record.link === 'owner') return found.project === projectId ? 'own' : 'reopen';
   if (found.record.link === l.id) return found.project === projectId ? 'same' : 'reopen';
   return 'switch';
 }

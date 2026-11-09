@@ -184,6 +184,18 @@ try {
   assert.equal(await a.js(`document.getElementById('joinDlg').open`), false, 'no password asked');
   assert.match(await a.js(`document.getElementById('toast').textContent`), /You stay its owner/);
   assert.equal(await a.js(saveShown), true, 'A still has Save');
+  // After New, any of the owner's links opens it again as theirs, with no password.
+  await a.js(`document.querySelector('[data-act=newProject]').click();true`);
+  await a.wait(`document.getElementById('newDlg').open`, 'A’s New dialog');
+  await a.js(`document.querySelector('#newDlg [data-choice=project]').click();true`);
+  await a.wait(`document.querySelectorAll('#list .row').length===0`, 'A started a new project');
+  await a.js(`window.confirm=()=>true;location.href=${JSON.stringify(review)};true`);
+  await a.wait(`document.querySelectorAll('#list .row').length===1500 && ${online} && scribecueRelay.role==='owner'`, 'A reopened its project as the owner');
+  assert.equal(await a.js(`document.getElementById('joinDlg').open`), false, 'no password asked');
+  assert.match(await a.js(`document.getElementById('toast').textContent`), /Opened the shared project again/);
+  assert.equal(await a.js(saveShown), true, 'A has Save again');
+  await sleep(1500);
+  assert.equal(await b.js(`document.querySelectorAll('#list .row').length`), 1500, 'B’s project is untouched');
 
   // B leaves, keeping a copy (not the default), then opens the comment link: comments only.
   await b.click('#shareBtn');

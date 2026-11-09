@@ -211,7 +211,8 @@ test('a new link to a project kept here replaces the old one, unless it’s the 
   assert.equal(sharing.linkAction(guest('other'), 'p', { ...l, id: 'old' }), 'reopen', 'the same link, to a project kept here: no password');
   const owner = { project: 'p', record: { room: 'r', link: 'owner', role: 'owner' } };
   assert.equal(sharing.linkAction(owner, 'p', l), 'own', 'the owner stays the owner');
-  assert.equal(sharing.linkAction(owner, 'other', l), 'own', 'even with another project open');
+  assert.equal(sharing.linkAction(owner, 'other', l), 'reopen', 'not open here: it opens again, as the owner’s, with no password');
+  assert.equal(sharing.linkAction(owner, 'other', { ...l, id: 'recovery' }), 'reopen', 'the recovery link too');
 });
 
 test('a link replacing another says so', () => {
