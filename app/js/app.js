@@ -913,7 +913,13 @@ const sharingTools = {
     changed();
     select(null);
     setMode(record.role === 'edit' || record.role === 'owner' ? 'write' : 'qc', true);
-    return true;
+    return record.role;
+  },
+  // What kind of link this is, before its password: 'owner' for a recovery link.
+  async peek(url) {
+    const l = sharedLib.parseLink(new URL(url).hash);
+    if (!l) throw new Error('bad-link');
+    return (await sharedLib.fetchBox(sharedLib.relayUrl(), l.room, l.id)).role;
   },
   // A link for `role` with its password, starting to share if this is the first. `days`:
   // how long it works for, or none for as long as it's on.
@@ -1018,9 +1024,13 @@ if (sharedOn) {
       });
       joinUi = ui.joinDialog({
         $, name: () => savedName(), setName: (v) => saveName(v),
+        peek: () => sharingTools.peek(location.href),
         join: async (password) => {
           const ok = await sharingTools.join(location.href, password);
-          if (ok) { history.replaceState(null, '', location.pathname + location.search); toast('Opened the shared project. Open your copy of the video to watch along'); }
+          if (ok) {
+            history.replaceState(null, '', location.pathname + location.search);
+            toast(ok === 'owner' ? 'You’re the owner of this shared project again. Open your copy of the video to watch along' : 'Opened the shared project. Open your copy of the video to watch along');
+          }
           return ok;
         },
       });

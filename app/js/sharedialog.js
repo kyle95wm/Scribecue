@@ -259,8 +259,14 @@ export function shareDialog(deps) {
   };
 }
 
-// The dialog for opening a link: asks for its password and the person's name.
-// `deps`: $, name(), setName(v), join(password) → resolves, or rejects with a reason.
+// The dialog for opening a link: asks for its password and the person's name. A recovery
+// link says so: it opens the project as its owner, not as someone joining.
+// `deps`: $, name(), setName(v), join(password) → resolves, or rejects with a reason,
+// peek() → resolves to the link's role ('owner' for a recovery link), or rejects.
+export const JOIN_TEXT = {
+  link: { title: 'Open a shared project', intro: 'Someone shared a Scribecue project with you. Enter the password they sent with the link.', password: 'Password', button: 'Open' },
+  owner: { title: 'Take back this project', intro: 'This recovery link opens the project as its owner, with all its links. Enter the password you chose for it.', password: 'Recovery password', button: 'Take back project' },
+};
 export function joinDialog(deps) {
   const { $ } = deps;
   const dlg = $('joinDlg');
@@ -273,7 +279,14 @@ export function joinDialog(deps) {
     'old-app': 'Update Scribecue to open this link',
     'old-relay': 'The sharing service needs updating before this link opens',
   };
-  let busy = false;
+  let busy = false, kind = 'link', token = 0;
+  function show(k) {
+    kind = k;
+    const t = JOIN_TEXT[k];
+    $('joinTitle').textContent = t.title; $('joinIntro').textContent = t.intro;
+    $('joinPasswordLabel').textContent = t.password; $('joinOpen').textContent = t.button;
+    $('joinVideo').hidden = k === 'owner';
+  }
   async function open() {
     if (busy) return;
     const pw = $('joinPassword').value;
@@ -281,13 +294,13 @@ export function joinDialog(deps) {
     // Others see the name, so it's needed.
     if (!$('joinName').value.trim()) { $('joinStatus').textContent = 'Add your name, so others know who’s here'; $('joinName').focus(); return; }
     deps.setName($('joinName').value);
-    busy = true; $('joinOpen').disabled = true; $('joinStatus').textContent = 'Opening…';
+    busy = true; $('joinOpen').disabled = true; $('joinStatus').textContent = kind === 'owner' ? 'Taking it back…' : 'Opening…';
     try {
       const ok = await deps.join(pw);
       if (ok !== false) dlg.close();
       $('joinStatus').textContent = '';
     } catch (e) {
-      $('joinStatus').textContent = reasons[e?.message] || 'That didn’t work. Try again';
+      $('joinStatus').textContent = (kind === 'owner' && e?.message === 'wrong-password' ? 'That isn’t this recovery link’s password' : reasons[e?.message]) || 'That didn’t work. Try again';
     } finally { busy = false; $('joinOpen').disabled = false; }
   }
   $('joinOpen').addEventListener('click', open);
@@ -297,8 +310,15 @@ export function joinDialog(deps) {
     open() {
       $('joinPassword').value = ''; $('joinStatus').textContent = '';
       $('joinName').value = deps.name();
+      show('link');
       dlg.showModal();
       $('joinPassword').focus();
+      // Which kind of link it is: a recovery link gets its own words. A link that no longer
+      // works says so now, before a password is typed.
+      const mine = ++token;
+      deps.peek?.().then((role) => { if (mine === token && dlg.open && !busy) show(role === 'owner' ? 'owner' : 'link'); }, (e) => {
+        if (mine === token && dlg.open && !busy && e?.message !== 'offline' && reasons[e?.message]) $('joinStatus').textContent = reasons[e.message];
+      });
     },
   };
 }

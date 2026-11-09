@@ -276,6 +276,7 @@ try {
   // Opening it again says it expired.
   await b.js(`window.confirm=()=>true;location.href=${JSON.stringify(dated)};true`);
   await b.wait(`document.getElementById('joinDlg').open`, 'join dialog for the expired link');
+  await b.wait(`/has expired/.test(document.getElementById('joinStatus').textContent) && document.getElementById('joinTitle').textContent==='Open a shared project'`, 'the dialog says it expired before a password');
   await b.fill('#joinPassword', 'green door');
   await b.click('#joinOpen');
   await b.wait(`/has expired/.test(document.getElementById('joinStatus').textContent)`, 'B is told the link expired');
@@ -295,9 +296,11 @@ try {
   await a.js(`document.getElementById('shareClose').click();true`);
   await b.js(`window.confirm=()=>true;location.href=${JSON.stringify(recovery)};true`);
   await b.wait(`document.getElementById('joinDlg').open`, 'join dialog for the recovery link');
+  await b.wait(`document.getElementById('joinTitle').textContent==='Take back this project' && document.getElementById('joinOpen').textContent==='Take back project' && document.getElementById('joinVideo').hidden`, 'the dialog says it’s a recovery link');
+  await b.shot('join-recovery');
   await b.fill('#joinPassword', 'not the password');
   await b.click('#joinOpen');
-  await b.wait(`/doesn’t open this link/.test(document.getElementById('joinStatus').textContent)`, 'a wrong recovery password is refused');
+  await b.wait(`/isn’t this recovery link’s password/.test(document.getElementById('joinStatus').textContent)`, 'a wrong recovery password is refused');
   await b.fill('#joinPassword', 'a long recovery password');
   t0 = performance.now();
   await b.click('#joinOpen');

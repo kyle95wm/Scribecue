@@ -740,11 +740,11 @@ docker compose up -d --build</code></pre>
   </dialog>
   <dialog id="joinDlg" class="updbox" aria-labelledby="joinTitle">
     <h2 id="joinTitle">Open a shared project</h2>
-    <p>Someone shared a Scribecue project with you. Enter the password they sent with the link.</p>
-    <p class="updstatus"><label for="joinPassword">Password</label> <input id="joinPassword" type="password" autocomplete="off" spellcheck="false"></p>
+    <p id="joinIntro">Someone shared a Scribecue project with you. Enter the password they sent with the link.</p>
+    <p class="updstatus"><label for="joinPassword" id="joinPasswordLabel">Password</label> <input id="joinPassword" type="password" autocomplete="off" spellcheck="false"></p>
     <p id="joinNameRow" class="updstatus"><label for="joinName">Your name</label> <input id="joinName" autocomplete="name" spellcheck="false" maxlength="60"></p>
     <p class="dim small">Others in the project see your name, the blocks you change and which block you have open. The project is encrypted, so the sharing service can’t read it.</p>
-    <p class="dim small">The video isn’t shared: open your own copy once the project is open.</p>
+    <p id="joinVideo" class="dim small">The video isn’t shared: open your own copy once the project is open.</p>
     <p id="joinStatus" class="dim small" role="status"></p>
     <div class="updbtns"><button id="joinOpen" class="hl">Open</button><button id="joinCancel">Cancel</button></div>
   </dialog>
