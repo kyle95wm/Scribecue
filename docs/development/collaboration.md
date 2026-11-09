@@ -144,14 +144,13 @@ project's blocks and comments; the app's own blocks stay the source it edits.
   audio) from the snapshot. Typing a sentence and holding a nudge key stay one step each.
   Steps from before the copy started undo the old way. Undo while sharing measured 39–48 ms
   at 6× with 1,500 blocks, against 31–34 ms without.
-- It only runs with `scribecue.sharedCopy` set in the browser's storage. With `1`, the
-  shared copy, Yjs and the connection load only for a project that's shared, or once
-  someone shares or opens a link. A project of your own runs as it does without sharing.
-  With `all`, every project gets a shared copy, so this browser's tabs stay in step; the
-  tests below use it.
-- Opening a share link sets it to `1` if it isn't set, so people a link is sent to can
-  join without the console. This works in a fresh tab and when a link is pasted into an
-  open one.
+- Sharing is on unless `scribecue.sharedCopy` in the browser's storage is `0`. The shared
+  copy, Yjs and the connection load only for a project that's shared, or once someone
+  shares or opens a link. A project of your own runs as it does without sharing. With
+  `all`, every project gets a shared copy, so this browser's tabs stay in step; the tests
+  below use it.
+- Opening a share link where it's `0` sets it to `1`. This works in a fresh tab and when a
+  link is pasted into an open one.
 - Yjs is bundled by `scripts/vendor-yjs.sh` into `app/vendor/yjs.js`, at a fixed version.
 - `scripts/two-tab-smoke.mjs` opens two tabs at 6× with 1,500 blocks: joining, typing in
   the same block at once, carets, deleting, commenting, names, and undo and redo. Two

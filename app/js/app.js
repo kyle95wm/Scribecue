@@ -645,27 +645,26 @@ function noteEdits(id) {
   }
   editors = editorCount(S.cues);
 }
-// The shared copy for working with others (shared.js). Until sharing ships it's a developer
-// setting, scribecue.sharedCopy in this browser's storage, so Yjs only loads when it's on.
-// Tabs of this browser with the same project open share changes, as the service will.
+// The shared copy for working with others (shared.js). Sharing is on unless
+// scribecue.sharedCopy in this browser's storage says '0'. Tabs of this browser with the same
+// project open share changes, as the service does.
 let shared = null, sharedLib = null, sharedList = null, sharedProjectId = null, unlinkTabs = () => {};
 const unsent = new Map(); // blocks changed here, and when: others may not have them yet
 let sharedIn = null, sharedStarting = null, sharedUndo = null, sharedToken = null; // uids being applied from others; undo of this tab's changes
 // The shared copy, Yjs and the connection load only for a project that's shared, so a
 // project of your own runs as it would without sharing. `all`, for the developer tests, keeps
 // a shared copy for every project, linking this browser's tabs.
-// Opening a share link turns sharing on in this browser, so people it's sent to can open it
-// before sharing is on for everyone.
+// Opening a share link turns sharing back on in a browser where it was turned off.
 const shareLinkIn = (hash) => /(?:^#|[#&])share=[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{12}\.[A-Za-z0-9_-]{22}(?:&|$)/.test(hash);
 const sharedSetting = (() => {
   try {
     const v = localStorage.getItem('scribecue.sharedCopy');
-    if (v || !shareLinkIn(location.hash)) return v;
+    if (v !== '0' || !shareLinkIn(location.hash)) return v;
     localStorage.setItem('scribecue.sharedCopy', '1');
     return '1';
   } catch { return null; }
 })();
-const sharedOn = sharedSetting === '1' || sharedSetting === 'all', sharedEvery = sharedSetting === 'all';
+const sharedOn = sharedSetting !== '0', sharedEvery = sharedSetting === 'all';
 let copyLib = null;
 const loadCopy = () => (copyLib ||= Promise.all([import('./shared.js'), import('./relayclient.js')]).then(([a, c]) => Object.assign(sharedLib, a, c)));
 // The separate Google key the owner shared with the project, read with by those who have no

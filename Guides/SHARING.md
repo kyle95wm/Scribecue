@@ -3,11 +3,8 @@
 Share a project to work on it with others at the same time. Writers, reviewers and
 commenters each get their own link, and everyone sees changes within a second.
 
-Sharing is still being tested. Keep your own saved copy of anything important.
-
 ## Contents
 
-- [Turning sharing on](#turning-sharing-on)
 - [Sharing a project](#sharing-a-project)
 - [Kinds of link](#kinds-of-link)
 - [Opening a shared project](#opening-a-shared-project)
@@ -21,18 +18,6 @@ Sharing is still being tested. Keep your own saved copy of anything important.
 - [Running your own relay](#running-your-own-relay)
 - [Limits](#limits)
 - [Problems](#problems)
-
-## Turning sharing on
-
-While sharing is being tested, it's off until you turn it on.
-
-- **To open a link someone sent you:** just open it. Sharing turns on by itself.
-- **To share your own projects:** turn it on once in each browser:
-  1. Open Scribecue.
-  2. Open the browser's console: Ctrl+Shift+J, or Cmd+Alt+J on a Mac.
-  3. Paste `localStorage.setItem('scribecue.sharedCopy', '1')` and press Enter. If Chrome
-     won't let you paste, type `allow pasting` first.
-  4. Reload Scribecue. **Share** appears in the header.
 
 ## Sharing a project
 
@@ -217,9 +202,9 @@ To set it up:
 5. Add `wss://share.example.com` to `connect-src` in two places: the
    `Content-Security-Policy` line in `app/index.html`, and the one in `nginx.conf`.
 6. Rebuild Scribecue: `docker compose up -d --build`.
-7. In each browser that uses it, open the console as in
-   [Turning sharing on](#turning-sharing-on), and run
-   `localStorage.setItem('scribecue.relay', 'wss://share.example.com')`. Then reload.
+7. In each browser that uses it, open the console: Ctrl+Shift+J, or Cmd+Alt+J on a Mac.
+   Run `localStorage.setItem('scribecue.relay', 'wss://share.example.com')`, then reload.
+   If Chrome won't let you paste, type `allow pasting` first.
 
 **To try it on one computer,** run `npm run dev` in `relay/` instead of deploying, and use
 `ws://127.0.0.1:8787` as the address. It's already allowed.

@@ -57,7 +57,7 @@ The guides also open inside Scribecue: press `?` and click **Guides**.
 - [QC review](Guides/QC.md): checking scripts and audio, comments, and review handoffs.
 - [Recording narration](Guides/RECORDING.md): the recording file, Record mode and the narration WAV.
 - [AI help](Guides/AI.md): drafting descriptions with an AI model.
-- [Sharing a project](Guides/SHARING.md): working on a project with others, live. Being tested.
+- [Sharing a project](Guides/SHARING.md): working on a project with others, live.
 - [Keyboard shortcuts](Guides/SHORTCUTS.md): every key, and how to change them.
 - [Google voices](Guides/GOOGLE-VOICES.md): setting up Google Cloud voices without being billed.
 - [Amazon Polly voices](Guides/POLLY-VOICES.md): setting up Polly voices with a spending limit.
