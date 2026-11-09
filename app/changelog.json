@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.98.0",
+    "date": "2026-11-09",
+    "notes": "## Shared projects\n\n- QC now reads blocks with the project's voices, as Write does. Before, it played only the programme sound.\n- In QC, the choices that only apply to QC packages are gone from a shared project.\n- Sent a different kind of link? Open it and type its password. It replaces your old one, so you don't need to leave first.\n- Opening the same link again opens the project without its password.\n\n## Fewer surprises\n\n- New, or opening another project, says the shared project stays in this browser.\n- Only the owner can clear all the blocks of a shared project.\n- Removing all data warns you about shared projects you'd lose.\n- Sharing is still being tested."
+  },
+  {
     "version": "0.97.0",
     "date": "2026-11-09",
     "notes": "## Saving shared projects\n\n- In a project shared with you, there's no Save or Export. Your changes reach the project as you make them.\n- Only the project's owner saves it to a file or exports it.\n- Ctrl/Cmd+S and Ctrl/Cmd+E say so instead.\n- Sharing is still being tested."
