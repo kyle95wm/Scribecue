@@ -1199,6 +1199,20 @@ docker compose up -d --build</code></pre>
       <li class="hosted-only">Downloading Piper voices or Whisper, so get them before you go offline.</li>
       <li class="docker-only">Checking for updates, if you've turned that on.</li>
     </ul>
+    <h3>Back up settings</h3>
+    <p class="small">Save your settings to a file, to keep them safe or to use them in another browser.
+      It has your name, your mode, keyboard shortcuts, voice and reading settings, and display options.
+      Projects, shared projects and saved readings aren't in it.</p>
+    <p class="updstatus"><button id="setsExport">Export settings</button> <button id="setsImport">Import settings…</button>
+      <button id="setsSecrets" aria-pressed="false" data-tip="Put your Google, Amazon Polly, AI and TMDB keys in the file too">Include API keys</button></p>
+    <p id="setsSecretsWarn" class="warnbox" hidden>The file will hold your API keys. Anyone with it can use them, and you
+      pay for what they use. Keep it private, and delete it once it's imported.</p>
+    <div id="setsConfirm" class="warnbox" hidden>
+      <p id="setsWhat"></p>
+      <p class="updstatus"><button id="setsGo" class="danger">Replace settings</button> <button id="setsCancel">Cancel</button></p>
+    </div>
+    <p id="setsStatus" class="dim small" role="status"></p>
+    <input type="file" id="setsFile" accept=".json,application/json" hidden>
     <h3>Remove all data</h3>
     <p class="small hosted-only">Removes everything Scribecue keeps in this browser: unsaved blocks, recorded takes,
       settings and shortcuts, AI and Google keys, downloaded Piper voices and Whisper, and its offline copy. Project and script
