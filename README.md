@@ -94,7 +94,7 @@ If you run it yourself, see [Updating](Guides/INSTALL.md#updating).
 
 Scribecue is plain HTML, CSS and JavaScript, with no build step.
 [Development](Guides/INSTALL.md#development) covers running it, the checks to run before
-committing, and releases.
+committing, and releases. Contributing with an AI agent? It should read [AGENTS.md](AGENTS.md).
 
 ## Credits
 
