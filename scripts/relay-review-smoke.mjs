@@ -214,6 +214,15 @@ try {
   assert.ok((await b.js(rowText(5))).includes('offline three'), 'the shared project keeps B’s change');
   await a.js(`window.confirm=()=>true;location.href=${JSON.stringify(review)};true`);
   await a.wait(`document.querySelectorAll('#list .row').length===1500 && ${online} && scribecueRelay.role==='owner'`, 'A back in its shared project');
+  // A QC package made from that old copy opens on its own, and leaves the shared project be.
+  await a.js(`(async()=>{window.confirm=()=>true;const qc=await import('./js/qc.js'),pr=await import('./js/project.js');const o=JSON.parse(${JSON.stringify(oldFile)});
+    const blob=await qc.buildReview(pr.toProject({blocks:o.blocks,projectId:o.projectId,settings:{}}),async()=>({voice:'google:x',blob:new Blob([new Uint8Array(200)]),secs:1}),{});
+    const dt=new DataTransfer();dt.items.add(new File([blob],'film.scribecueqc'));const i=document.getElementById('fileSubs');i.files=dt.files;i.dispatchEvent(new Event('change'));return true})()`);
+  await a.wait(`/on its own/.test(document.getElementById('toast').textContent) && !window.scribecueRelay && document.querySelectorAll('#list .row').length===1500`, 'the QC package opened on its own');
+  await sleep(1500);
+  assert.ok((await b.js(rowText(5))).includes('offline three'), 'the shared project still keeps B’s change');
+  await a.js(`window.confirm=()=>true;location.href=${JSON.stringify(review)};true`);
+  await a.wait(`document.querySelectorAll('#list .row').length===1500 && ${online} && scribecueRelay.role==='owner'`, 'A back in its shared project again');
 
   // B leaves, keeping a copy (not the default), then opens the comment link: comments only.
   await b.click('#shareBtn');

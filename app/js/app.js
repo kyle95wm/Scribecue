@@ -4779,6 +4779,10 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
     }
     p.projectId = null; // a project of its own
   }
+  // A QC package of a shared project kept here opens on its own too: it's a review of a copy,
+  // and its script would otherwise replace everyone's changes.
+  const apart = !!review && !!p.projectId && !!sharedLib?.getShare(p.projectId);
+  if (apart) p.projectId = null;
   if (!confirmed && !okToReplace(`Open ${file.name}`)) return;
   await stopJob();
   await endRecording();
@@ -4837,7 +4841,7 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
     if (attachedAudio) await restoring;
   }
   if (missing && !review && !S.reviewAudio) openQcPlayback();
-  toast(`Opened ${file.name} (${S.cues.length} blocks)` + (p.media && !ready
+  toast(`Opened ${file.name} (${S.cues.length} blocks)` + (apart ? ', on its own: it doesn’t change the shared project' : '') + (p.media && !ready
     ? `. Now open its video, ${p.media.name}, with ${IS_MAC ? '⌘⇧O' : 'Ctrl+Shift+O'}` : ''));
   // A different video is open: this project's one replaces it, if it's remembered.
   if (p.media && !ready && S.videoFile && await handleStore.get(mediaKey(p.media))) closeVideo();

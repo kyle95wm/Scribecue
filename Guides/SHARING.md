@@ -163,8 +163,8 @@ the start of the link, before the `#`, to your Docker address, such as `http://l
 
 **Your saved project file** is a copy of the shared project as it was when you saved. If
 you open it in a browser that has the shared project, Scribecue asks first. It can open the
-shared project as it is now, or open the file on its own, not shared. A file never replaces
-others' changes.
+shared project as it is now, or open the file on its own, not shared. A QC package of it
+always opens on its own. A file never replaces others' changes.
 
 ## Privacy
 
