@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.98.5",
+    "date": "2026-11-09",
+    "notes": "## Shared projects: QC packages\n\n- Opening a QC package made from a shared project no longer undoes everyone's changes. It opens on its own, apart from the shared project.\n- To go back to the shared project, open its link.\n- Sharing is still being tested."
+  },
+  {
     "version": "0.98.4",
     "date": "2026-11-09",
     "notes": "## Shared projects: opening them again\n\n- Opening an older saved file of a shared project no longer undoes everyone's changes. Scribecue asks whether to open the shared project as it is now, or the file on its own.\n- If you own a shared project, any of its links opens it again after you click New. You don't need a password.\n- Sharing is still being tested."
