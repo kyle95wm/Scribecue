@@ -12,6 +12,9 @@
 //   whoever asks for it.
 // - Project keys added after a link was made reach it in the owner's signed list, encrypted
 //   with that link's wrapping key. The owner has a wrapping key too, for their other tabs.
+// - The owner may make a recovery link. Its box holds everything the owner needs: the owner
+//   key, the project keys, and each link's secret. It's sealed again with each new list of
+//   links, with a key made once from its secret and password, so it's never out of date.
 // The relay checks the same signatures (relay/src/room.js): `signed` must match it.
 
 const subtle = globalThis.crypto.subtle;
@@ -107,6 +110,26 @@ export function parseLink(hash) {
   return m ? { room: m[1], id: m[2], secret: m[3] } : null;
 }
 
+// The recovery link's key: made from its secret and password, kept by the owner so the box
+// can be sealed again without the password.
+export async function recoveryKey(room, id, secret, password, { iterations = ITERATIONS } = {}) {
+  const material = await subtle.importKey('raw', join(`${secret}:`, enc.encode(password.normalize('NFC'))), 'PBKDF2', false, ['deriveBits']);
+  return b64(new Uint8Array(await subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(`scribecue-recovery:${room}:${id}`), iterations }, material, 256)));
+}
+const recoveryLabel = (room, id) => enc.encode(`scribecue-recovery:${room}:${id}`);
+export async function sealRecovery(room, id, rk, inside) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const sealed = new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv, additionalData: recoveryLabel(room, id) }, await aes(rk, ['encrypt']), enc.encode(JSON.stringify(inside))));
+  return b64(new Uint8Array([...iv, ...sealed]));
+}
+// What a recovery box holds. Throws 'wrong-password' if the key doesn't fit.
+export async function openRecovery(room, id, rk, box) {
+  try {
+    const bytes = unb64(box);
+    return JSON.parse(dec.decode(await subtle.decrypt({ name: 'AES-GCM', iv: bytes.subarray(0, 12), additionalData: recoveryLabel(room, id) }, await aes(rk, ['decrypt']), bytes.subarray(12))));
+  } catch { throw new Error('wrong-password'); }
+}
+
 // Project keys for one link (or the owner) that its box doesn't have: from key `from` on,
 // encrypted with its wrapping key `w`.
 const wrapLabel = (room, id) => enc.encode(`scribecue-keys:${room}:${id}`);
@@ -137,7 +160,14 @@ export async function signLinks(owner, n, links) {
     wraps.owner = await wrapKeys(owner.room, 'owner', owner.ow, keys, 0);
     for (const l of links) if (!l.off && l.w && (l.from ?? keys.length) < keys.length) wraps[l.id] = await wrapKeys(owner.room, l.id, l.w, keys, l.from);
   }
-  const text = JSON.stringify({ room: owner.room, n, links: links.map(({ id, role, pub, box, off, upTo, sealed, expires }) => (off ? { id, role, pub, off: true, upTo: upTo || {}, ...(sealed ? { sealed: true } : {}), ...(Number.isSafeInteger(expires) ? { expires } : {}) } : { id, role, pub, box, ...(Number.isSafeInteger(expires) ? { expires } : {}) })), wraps });
+  // The recovery link's box, sealed again: with what the owner has now.
+  let recovery;
+  if (owner.recovery) {
+    const secrets = Object.fromEntries(links.filter((l) => !l.off && l.secret).map((l) => [l.id, { s: l.secret, w: l.w || null, f: l.from ?? null }]));
+    const inside = { sk: owner.ownerPriv, pub: owner.ownerPub, ow: owner.ow || null, k: keysOf(owner), p: owner.project || null, l: secrets };
+    recovery = { id: owner.recovery.id, box: await sealRecovery(owner.room, owner.recovery.id, owner.recovery.rk, inside) };
+  }
+  const text = JSON.stringify({ room: owner.room, n, ...(recovery ? { recovery } : {}), links: links.map(({ id, role, pub, box, off, upTo, sealed, expires }) => (off ? { id, role, pub, off: true, upTo: upTo || {}, ...(sealed ? { sealed: true } : {}), ...(Number.isSafeInteger(expires) ? { expires } : {}) } : { id, role, pub, box, ...(Number.isSafeInteger(expires) ? { expires } : {}) })), wraps });
   const sign = await signer(owner.ownerPriv);
   return { text, sig: await sign(signed.links(text)) };
 }
@@ -174,7 +204,8 @@ export async function readLinks(room, ownerPub, { text, sig } = {}, verify = ver
     out.set(l.id, { role: l.role, pub: l.pub, ...(l.off === true ? { off: true, ...(upTo ? { upTo } : {}), ...(l.sealed === true ? { sealed: true } : {}) } : Number.isSafeInteger(l.expires) ? { expires: l.expires } : {}) });
   }
   const wraps = o.wraps && typeof o.wraps === 'object' && !Array.isArray(o.wraps) ? o.wraps : {};
-  return { n: o.n, links: out, wraps };
+  const recovery = typeof o.recovery?.id === 'string' && typeof o.recovery.box === 'string' ? o.recovery : null;
+  return { n: o.n, links: out, wraps, recovery, list: o };
 }
 
 // Encrypts and decrypts changes with the project keys (or one key, as before there could be

@@ -5,7 +5,7 @@
 // separate Google key, which B reads Google voices with (Google's answers are stubbed in both
 // pages, so no real key is used); A's voice becomes B's, which B can't change; A takes the key
 // out; A turns the link off, makes a new one that B opens again; a link that expires lets B go
-// and is turned off; then A stops sharing. Takes screenshots of both dialogs if given a folder.
+// and is turned off; B opens A's recovery link and is the owner too; then A stops sharing. Takes screenshots of both dialogs if given a folder.
 // Uses the relay at RELAY, by default one running locally (`npm run dev` in relay/).
 // Usage: node scripts/relay-share-smoke.mjs <A's DevTools port> <B's DevTools port> <site url> [screenshot folder]
 import assert from 'node:assert/strict';
@@ -281,12 +281,45 @@ try {
   await b.wait(`/has expired/.test(document.getElementById('joinStatus').textContent)`, 'B is told the link expired');
   await b.js(`document.getElementById('joinDlg').close();true`);
   await a.js(`document.getElementById('shareClose').click();true`);
+
+  // A makes a recovery link. B opens it and is the owner too: B's new link reaches A's list.
+  await a.click('#shareBtn');
+  await a.fill('#sharePw-recovery', 'short');
+  await a.click('#sharePw-recovery ~ button');
+  await a.wait(`/at least 10 characters/.test(document.getElementById('toast').textContent)`, 'a short recovery password is refused');
+  await a.fill('#sharePw-recovery', 'a long recovery password');
+  await a.click('#sharePw-recovery ~ button');
+  await a.wait(`document.querySelector('input[aria-label="Recovery link"]') && ${online}`, 'A’s recovery link');
+  await a.shot('share-recovery');
+  const recovery = await a.js(`document.querySelector('input[aria-label="Recovery link"]').value`);
+  await a.js(`document.getElementById('shareClose').click();true`);
+  await b.js(`window.confirm=()=>true;location.href=${JSON.stringify(recovery)};true`);
+  await b.wait(`document.getElementById('joinDlg').open`, 'join dialog for the recovery link');
+  await b.fill('#joinPassword', 'not the password');
+  await b.click('#joinOpen');
+  await b.wait(`/doesn’t open this link/.test(document.getElementById('joinStatus').textContent)`, 'a wrong recovery password is refused');
+  await b.fill('#joinPassword', 'a long recovery password');
+  t0 = performance.now();
+  await b.click('#joinOpen');
+  await b.wait(`document.querySelectorAll('#list .row').length===1500 && ${online} && scribecueRelay.role==='owner'`, 'B is in as the owner');
+  const recoverMs = performance.now() - t0;
+  assert.ok(await same(), 'both copies agree');
+  await b.click('#shareBtn');
+  await b.wait(`document.querySelector('input[aria-label="Recovery link"]')?.value===${JSON.stringify(recovery)} && document.getElementById('sharePw-review') && !document.getElementById('shareStop').hidden`, 'B’s Share is the owner’s');
+  await b.fill('#sharePw-review', 'made elsewhere');
+  await b.click('#sharePw-review ~ button');
+  await b.wait(`document.querySelector('.sharelink[aria-label="Can review link"]') && ${online}`, 'B makes a review link');
+  const madeOnB = await b.js(`document.querySelector('.sharelink[aria-label="Can review link"]').value`);
+  await a.click('#shareBtn');
+  await a.wait(`document.querySelector('.sharelink[aria-label="Can review link"]')?.value===${JSON.stringify(madeOnB)}`, 'A catches up with B’s link');
+  await b.js(`document.getElementById('shareClose').click();true`);
+  await a.js(`document.getElementById('shareClose').click();true`);
   // A stops sharing: back to a plain project.
   await a.click('#shareBtn');
   await a.js(`window.confirm=()=>true;document.getElementById('shareStop').click();true`);
   await a.wait(`!window.scribecueRelay && !Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.'))`, 'A stopped sharing');
   await a.js(`document.getElementById('shareClose').click();true`);
 
-  console.log(`Relay share smoke passed at 6× with 1,500 blocks: sharing took ${Math.round(shareMs)} ms, joining ${Math.round(joinMs)} ms; A typed ${(aMs / 17).toFixed(1)} ms a character; it reached B in ${Math.round(reachMs)} ms; a shared Google key reached B in ${Math.round(keyMs)} ms, the project's voice in ${Math.round(voiceMs)} ms; an expired link let B go ${Math.round(expiredMs)} ms after it was set to; A ${await a.report()}; B ${await b.report()} since reloading`);
+  console.log(`Relay share smoke passed at 6× with 1,500 blocks: sharing took ${Math.round(shareMs)} ms, joining ${Math.round(joinMs)} ms; A typed ${(aMs / 17).toFixed(1)} ms a character; it reached B in ${Math.round(reachMs)} ms; a shared Google key reached B in ${Math.round(keyMs)} ms, the project's voice in ${Math.round(voiceMs)} ms; an expired link let B go ${Math.round(expiredMs)} ms after it was set to; B recovered the owner's place in ${Math.round(recoverMs)} ms; A ${await a.report()}; B ${await b.report()} since reloading`);
 } finally { a.ws.close(); b.ws.close(); }
 process.exit(0);

@@ -265,7 +265,7 @@ export class RelayClient {
       this.cipher.setKeys(this.keys);
       for (const m of this.held.splice(0)) await this.#receive(m);
     }
-    this.onLinks(read);
+    this.onLinks(read, links);
   }
 
   // Someone else's change: only if it's signed by a link that may write that document.

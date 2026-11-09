@@ -3,7 +3,7 @@
 // opens again without its password.
 // It loads without Yjs: the shared copy and the connection (shared.js, relayclient.js) load
 // only for a project that's shared.
-import { newOwner, newLink, openBox, signLinks, parseLink, linkUrl, newProjectKey, keysOf, MAX_KEYS, ROLES, PROTOCOL, relayTooOld } from './sharekeys.js';
+import { newOwner, newLink, openBox, signLinks, parseLink, linkUrl, newProjectKey, keysOf, MAX_KEYS, ROLES, PROTOCOL, relayTooOld, recoveryKey, openRecovery, readLinks, b64 } from './sharekeys.js';
 
 // Scribecue's relay. A developer setting points elsewhere, such as ws://127.0.0.1:8787 for
 // one run locally with `npm run dev` in relay/.
@@ -105,7 +105,49 @@ export function shareForRoom(room, storage = globalThis.localStorage) {
 }
 
 // The owner's signed list, as the relay and others need it.
-export const signedLinks = (r) => signLinks({ room: r.room, ownerPriv: r.priv, keys: keysOf(r), ow: r.ow }, r.n, r.links);
+export const signedLinks = (r) => signLinks({ room: r.room, ownerPriv: r.priv, ownerPub: r.ownerPub, keys: keysOf(r), ow: r.ow, project: r.project, recovery: r.recovery }, r.n, r.links);
+
+// The recovery link: opens the project as its owner, here or in another browser, if this
+// one's storage is lost. Its password needs more than a link's, since it can do more.
+export const RECOVERY_MIN = 10;
+export async function addRecovery(record, password, opts) {
+  const id = b64(crypto.getRandomValues(new Uint8Array(9))), secret = b64(crypto.getRandomValues(new Uint8Array(16)));
+  return { ...record, n: record.n + 1, recovery: { id, secret, rk: await recoveryKey(record.room, id, secret, password, opts) } };
+}
+export function removeRecovery(record) {
+  const { recovery, ...rest } = record;
+  return recovery ? { ...rest, n: record.n + 1 } : record;
+}
+export const recoveryUrl = (r, base) => (r.recovery ? linkUrl(base, r.room, r.recovery.id, r.recovery.secret) : null);
+// The owner's record, rebuilt from the signed list and what the recovery box holds.
+function fromRecovery(relay, room, recovery, inside, list) {
+  const links = list.links.map((l) => {
+    const s = !l.off && inside.l?.[l.id];
+    return s ? { ...l, secret: s.s, ...(s.w ? { w: s.w } : {}), ...(Number.isSafeInteger(s.f) ? { from: s.f } : {}) } : { ...l };
+  });
+  const keys = [inside.k].flat();
+  return { relay, room, link: 'owner', role: 'owner', priv: inside.sk, ownerPub: inside.pub, projectKey: keys[0], keys, ...(inside.ow ? { ow: inside.ow } : {}), project: inside.p || null, links, n: list.n, created: true, recovery };
+}
+async function recover(relay, l, password, box, signed, opts) {
+  const rk = await recoveryKey(l.room, l.id, l.secret, password, opts);
+  const inside = await openRecovery(l.room, l.id, rk, box);
+  // The list must be the owner's own, and hold this box.
+  const read = await readLinks(l.room, inside.pub, signed);
+  if (read.recovery?.id !== l.id) throw new Error('no-link');
+  return fromRecovery(relay, l.room, { id: l.id, secret: l.secret, rk }, inside, read.list);
+}
+// Another browser of the owner's changed the links: this one takes the newer list, with
+// the secrets of links made there, from the recovery box. Null if it can't.
+export async function adoptLinks(record, signed) {
+  if (!record?.recovery || record.link !== 'owner') return null;
+  try {
+    const read = await readLinks(record.room, record.ownerPub, signed);
+    if (!(read.n > record.n) || read.recovery?.id !== record.recovery.id) return null;
+    const inside = await openRecovery(record.room, record.recovery.id, record.recovery.rk, read.recovery.box);
+    if (inside.pub !== record.ownerPub) return null;
+    return fromRecovery(record.relay, record.room, record.recovery, inside, read.list);
+  } catch { return null; }
+}
 export const linksOf = (r, base, now = Date.now()) => (r.links || []).filter((l) => !l.off && !isExpired(l, now)).map((l) => ({ id: l.id, role: l.role, url: linkUrl(base, r.room, l.id, l.secret), expires: l.expires ?? null }));
 
 // The keys a connection signs in with.
@@ -116,7 +158,8 @@ export const who = (r) => ({ link: r.link, priv: r.priv, ownerPub: r.ownerPub, p
 export async function joinShare(hash, password, relay, { fetch = fetchBox, ...opts } = {}) {
   const l = parseLink(hash);
   if (!l) throw new Error('bad-link');
-  const { role, box } = await fetch(relay, l.room, l.id);
+  const { role, box, links } = await fetch(relay, l.room, l.id);
+  if (role === 'owner') return recover(relay, l, password, box, links, opts);
   const opened = await openBox({ room: l.room, id: l.id, secret: l.secret, role, box }, password, opts);
   return { relay, room: l.room, link: l.id, secret: l.secret, role, priv: opened.priv, ownerPub: opened.ownerPub, projectKey: opened.projectKey, keys: opened.keys, w: opened.w, project: opened.project };
 }
@@ -137,7 +180,7 @@ export function fetchBox(url, room, id, { WebSocket = globalThis.WebSocket, wait
         if (relayTooOld(m)) done(reject, new Error('old-relay'));
         else ws.send(JSON.stringify({ type: 'box', v: PROTOCOL, link: id }));
       }
-      else if (m.type === 'box') done(resolve, { role: m.role, box: m.box });
+      else if (m.type === 'box') done(resolve, { role: m.role, box: m.box, links: m.links });
       else if (m.type === 'error') done(reject, new Error(m.code));
     };
     ws.onclose = () => { clearTimeout(timer); reject(new Error('offline')); };

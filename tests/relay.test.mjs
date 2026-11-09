@@ -207,6 +207,21 @@ test('a link that has expired can’t get its box or sign in, and its sockets cl
   assert.equal((await x.say({ type: 'box', v: 2, link: 'ed1' }))[0].code, 'no-link');
 });
 
+test('the recovery link’s box comes with the signed list; it can’t take a link’s id', async () => {
+  const { o, owner, links, connect } = await start();
+  const withBox = await (async () => { const text = JSON.stringify({ room: ROOM, n: 2, recovery: { id: 'rec1', box: 'box-rec' }, links }); return { text, sig: await owner.sign(signed.links(text)) }; })();
+  assert.equal((await o.say({ type: 'links', links: withBox }))[0].type, 'ack');
+  const [box] = await connect().say({ type: 'box', v: 2, link: 'rec1' });
+  assert.deepEqual(box, { type: 'box', link: 'rec1', role: 'owner', box: 'box-rec', links: withBox });
+  const clash = await (async () => { const text = JSON.stringify({ room: ROOM, n: 3, recovery: { id: 'ed1', box: 'x' }, links }); return { text, sig: await owner.sign(signed.links(text)) }; })();
+  assert.equal((await o.say({ type: 'links', links: clash }))[0].code, 'bad-message');
+  const huge = await (async () => { const text = JSON.stringify({ room: ROOM, n: 3, recovery: { id: 'rec2', box: 'x'.repeat(LIMITS.recovery + 1) }, links }); return { text, sig: await owner.sign(signed.links(text)) }; })();
+  assert.equal((await o.say({ type: 'links', links: huge }))[0].code, 'bad-message');
+  // Turned off: its box is gone.
+  assert.equal((await o.say({ type: 'links', links: await linksFor(owner, 3, links) }))[0].type, 'ack');
+  assert.equal((await connect().say({ type: 'box', v: 2, link: 'rec1' }))[0].code, 'no-link');
+});
+
 test('making a room too often is refused, and nothing is kept', async () => {
   let asked = 0;
   const env = setup({ mayCreate: async (socket) => { asked++; return socket.address === 'calm'; } });

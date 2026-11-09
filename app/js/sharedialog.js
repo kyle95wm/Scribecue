@@ -18,7 +18,8 @@ export const STATUS_TEXT = {
 // `deps`: $, toast, record(), status(), base(), name(), setName(v), make(role, password, days),
 // turnOff(id), stop(), leave(), googleKey() (null with no shared copy), shareGoogleKey(key)
 // → resolves to '' or what's wrong, myExpiry() (when a joined person's link stops working),
-// maxDays.
+// maxDays, recovery() (the recovery link, or null), makeRecovery(password), turnOffRecovery(),
+// recoveryMin.
 // When a link stops working, as people read it.
 export function expiryText(at, now = Date.now()) {
   const days = Math.max(1, Math.round((at - now) / 86_400_000));
@@ -104,6 +105,52 @@ export function shareDialog(deps) {
     return sec;
   }
 
+  // The owner's recovery link: opens the project as its owner if this browser's storage is
+  // lost, here or on another computer.
+  function recoveryRow() {
+    const url = deps.recovery();
+    const sec = document.createElement('section');
+    sec.className = 'sharerow';
+    const head = document.createElement('h3'); head.textContent = 'Recovery link';
+    const what = document.createElement('p'); what.className = 'dim small';
+    what.textContent = url
+      ? 'Opens this project as its owner, here or on another computer. Keep the link and its password somewhere safe, apart from each other. Anyone with both can change the links and read the project.'
+      : 'Without one, nobody can change this project’s links if this browser’s data is lost. A recovery link and its password let you take the project back, here or on another computer.';
+    const line = document.createElement('p'); line.className = 'updstatus sharerowline';
+    if (url) {
+      const field = document.createElement('input');
+      field.className = 'sharelink'; field.readOnly = true; field.value = url; field.setAttribute('aria-label', 'Recovery link');
+      field.addEventListener('focus', () => field.select());
+      const copy = document.createElement('button'); copy.textContent = 'Copy';
+      copy.dataset.tip = 'Copy the recovery link. Keep it apart from its password';
+      copy.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(url); deps.toast('Recovery link copied. Keep it somewhere safe'); }
+        catch { field.focus(); deps.toast('Select the link and copy it'); }
+      });
+      const off = document.createElement('button'); off.textContent = 'Turn off';
+      off.dataset.tip = 'The recovery link stops working. Make a new one to replace it';
+      off.addEventListener('click', () => run(() => deps.turnOffRecovery()));
+      line.append(field, copy, off);
+    } else {
+      const label = document.createElement('label'), pw = document.createElement('input'), make = document.createElement('button');
+      pw.type = 'password'; pw.autocomplete = 'new-password'; pw.spellcheck = false; pw.id = 'sharePw-recovery';
+      label.htmlFor = pw.id; label.textContent = 'Password';
+      const draft = drafts.recovery ||= { pw: '' };
+      pw.value = draft.pw;
+      pw.addEventListener('input', () => { draft.pw = pw.value; });
+      make.textContent = 'Make recovery link';
+      const go = () => {
+        if (pw.value.length < deps.recoveryMin) { deps.toast(`Use a password of at least ${deps.recoveryMin} characters for the recovery link`); pw.focus(); return; }
+        run(async () => { await deps.makeRecovery(pw.value); delete drafts.recovery; });
+      };
+      make.addEventListener('click', go);
+      pw.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+      line.append(label, pw, make);
+    }
+    sec.append(head, what, line);
+    return sec;
+  }
+
   async function run(fn) {
     if (busy) return;
     busy = true; render();
@@ -122,7 +169,7 @@ export function shareDialog(deps) {
     $('shareNameRow').hidden = named && !!r;
     if (!$('shareName').matches(':focus')) $('shareName').value = deps.name();
     const focused = list.contains(document.activeElement) ? document.activeElement.id : '';
-    list.replaceChildren(...(owner ? Object.keys(ROLE_TEXT).map((role) => row(role, deps.links().find((l) => l.role === role))) : []));
+    list.replaceChildren(...(owner ? Object.keys(ROLE_TEXT).map((role) => row(role, deps.links().find((l) => l.role === role))) : []), ...(owner && r ? [recoveryRow()] : []));
     if (focused) document.getElementById(focused)?.focus(); // still typing, after a redraw
     for (const b of list.querySelectorAll('button, input:not([readonly])')) b.disabled = busy;
     const status = r ? STATUS_TEXT[deps.status()] : null;
