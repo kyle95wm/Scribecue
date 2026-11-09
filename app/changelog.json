@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.98.6",
+    "date": "2026-11-09",
+    "notes": "## Shared projects: no lost changes\n\n- If someone deletes a block before your change to it reaches them, your version now waits in Pending review. Accept it to bring the block back for everyone.\n- Opening a shared project after looking at one of its QC packages now closes the package's review.\n- Sharing is still being tested."
+  },
+  {
     "version": "0.98.5",
     "date": "2026-11-09",
     "notes": "## Shared projects: QC packages\n\n- Opening a QC package made from a shared project no longer undoes everyone's changes. It opens on its own, apart from the shared project.\n- To go back to the shared project, open its link.\n- Sharing is still being tested."
