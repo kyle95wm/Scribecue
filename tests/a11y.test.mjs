@@ -52,3 +52,12 @@ test('Esc out of a dialog goes to the timeline, unless a dialog, block or drawer
   assert.equal(keepsFocusAfterDialog(inside('#editor'), false), true);
   assert.equal(keepsFocusAfterDialog(inside('.aidrawer'), false), true);
 });
+
+test('messages show in a slice under the header, not in the footer', () => {
+  const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
+  const at = html.indexOf('id="toast"');
+  assert.ok(at > html.indexOf('</header>') && at < html.indexOf('<main>'), 'the slice sits between the header and the main area');
+  const footer = html.slice(html.indexOf('<footer class="status">'), html.indexOf('</footer>'));
+  assert.ok(!footer.includes('id="toast"'));
+  assert.ok(footer.includes('id="announce"'), 'screen readers still hear messages');
+});
