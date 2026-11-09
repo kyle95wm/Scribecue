@@ -50,6 +50,7 @@ import { waveKey, loadWave, saveWave, loadSound, saveSound } from './wavestore.j
 import { buildDialogue, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, MIN_CLASH, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue } from './dialogue.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
+import { startTips } from './tooltip.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, readWav, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
   reviewVoices, usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showCloudCost, cloudOf, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIP_BYS, isDip, FADES, isDipBy, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain,
@@ -68,6 +69,8 @@ if (isMobile({ ua: navigator.userAgent, mobile: navigator.userAgentData?.mobile,
   throw new Error('Scribecue needs a computer');
 }
 
+// Tooltips, kept inside the window and above any panel or dialog.
+window.scribecueTips = startTips(); // for the developer tests
 const video = $('video'), stage = $('stage'), overlay = $('overlay'), list = $('list');
 const tl = $('tl'), ruler = $('ruler'), lane = $('lane'), wave = $('wave'), cuesLayer = $('cues'), takeWave = $('takeWave'), dialTrack = $('dialTrack'), dialWave = $('dialWave');
 const playheadEl = $('playhead'), dragtip = $('dragtip'), overview = $('overview'), ovWin = $('ovWin');

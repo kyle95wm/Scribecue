@@ -1018,39 +1018,34 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 
 /* ---------- tooltips ---------- */
 [data-tip] { position: relative; }
-[data-tip]::after {
-  content: attr(data-tip) / ""; /* decoration: screen readers get the label instead */
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
-  z-index: 30;
+/* One tooltip for the page, placed by tooltip.js: in the top layer, inside the window. */
+#tip {
+  position: fixed;
+  inset: auto;
+  left: 0;
+  top: 0;
+  z-index: 1000;
   width: max-content;
-  max-width: 260px;
+  max-width: min(260px, calc(100vw - 16px));
+  margin: 0;
   padding: 6px 9px;
+  overflow: visible;
+  border: 0;
   border-radius: 6px;
   background: var(--text);
   color: var(--bg);
   font: 500 12px/1.4 var(--sans);
   text-align: left;
-  text-transform: none;
-  letter-spacing: 0;
-  white-space: normal;
+  overflow-wrap: anywhere;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, -3px);
+  transform: translateY(-3px);
   transition: opacity 0.12s, transform 0.12s;
 }
-[data-tip]:hover::after,
-[data-tip]:focus-visible::after {
-  opacity: 1;
-  transform: translate(-50%, 0);
-  transition-delay: 0.35s;
-}
-[data-tip].tip-end::after { left: auto; right: 0; transform: translateY(-3px); }
-[data-tip].tip-end:hover::after,
-[data-tip].tip-end:focus-visible::after { transform: none; }
-.dragging [data-tip]::after { display: none; }
+#tip[data-side="above"] { transform: translateY(3px); }
+#tip.on { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { #tip { transition: none; } }
 
 /* ---------- list search ---------- */
 .search {
@@ -1095,8 +1090,6 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 }
 #trackSel:focus, #dialSel:focus { outline: none; border-color: var(--accent); }
 #dialSel { max-width: 180px; }
-/* the footer is at the bottom of the window, so its tips open upwards */
-.status [data-tip]::after { top: auto; bottom: calc(100% + 8px); }
 
 /* AI help drawer: slides in from the right, over the video side */
 .aidrawer {
