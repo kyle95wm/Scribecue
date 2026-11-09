@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.95.0",
+    "date": "2026-11-08",
+    "notes": "## Sharing projects: expiring links and recovery\n\n- A link can stop working by itself. When making it, type a number of days in Expires after.\n- People who joined see when their link expires, and keep their copy when it does.\n- Make a recovery link in Share to take your project back if this browser's data is lost, here or on another computer.\n- The Share dialog no longer clears a password you're typing when someone joins.\n- Sharing is still being tested."
+  },
+  {
     "version": "0.94.1",
     "date": "2026-11-08",
     "notes": "## Sharing projects\n\n- Leaving a shared project now asks whether to keep a copy. It doesn't keep one unless you choose to.\n- A new guide, Sharing a project, explains how sharing works. Press ? and click Guides.\n- Sharing is still being tested."
