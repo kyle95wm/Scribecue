@@ -196,6 +196,24 @@ try {
   assert.equal(await a.js(saveShown), true, 'A has Save again');
   await sleep(1500);
   assert.equal(await b.js(`document.querySelectorAll('#list .row').length`), 1500, 'B’s project is untouched');
+  // A saved copy from before sharing, opened again: the shared project opens as it is now,
+  // with B's changes, or the file opens on its own, not shared, if A says so.
+  const oldFile = await a.js(`(()=>{const o=JSON.parse(localStorage.getItem('scribecue.v1'));return JSON.stringify({scribecue:1,projectId:o.projectId,app:'x',media:null,settings:{},view:{},blocks:o.cues.map(c=>({...c,text:c.text.replace(' offline three','')}))})})()`); // as saved before B's change
+  const openFile = (answer) => a.js(`window.confirm=(m)=>/saved copy of a shared project/.test(m)?${answer}:true;(()=>{const dt=new DataTransfer();dt.items.add(new File([${JSON.stringify(oldFile)}],'film.scribecue'));const i=document.getElementById('fileSubs');i.files=dt.files;i.dispatchEvent(new Event('change'));})();true`);
+  await a.js(`document.querySelector('[data-act=newProject]').click();true`);
+  await a.wait(`document.getElementById('newDlg').open`, 'A’s New dialog');
+  await a.js(`document.querySelector('#newDlg [data-choice=project]').click();true`);
+  await a.wait(`document.querySelectorAll('#list .row').length===0`, 'A started a new project');
+  await openFile(true);
+  await a.wait(`/as it is now/.test(document.getElementById('toast').textContent) && document.querySelectorAll('#list .row').length===1500 && ${online} && scribecueRelay.role==='owner'`, 'the old file opened the shared project as it is now');
+  assert.ok((await a.js(rowText(5))).includes('offline three'), 'B’s change is still there');
+  await openFile(false);
+  await a.wait(`!window.scribecueRelay && document.querySelectorAll('#list .row').length===1500`, 'the file opened on its own');
+  assert.ok(!(await a.js(rowText(5))).includes('offline three'), 'the file’s own script');
+  await sleep(1500);
+  assert.ok((await b.js(rowText(5))).includes('offline three'), 'the shared project keeps B’s change');
+  await a.js(`window.confirm=()=>true;location.href=${JSON.stringify(review)};true`);
+  await a.wait(`document.querySelectorAll('#list .row').length===1500 && ${online} && scribecueRelay.role==='owner'`, 'A back in its shared project');
 
   // B leaves, keeping a copy (not the default), then opens the comment link: comments only.
   await b.click('#shareBtn');

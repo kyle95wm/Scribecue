@@ -161,6 +161,11 @@ the start of the link, before the `#`, to your Docker address, such as `http://l
 | Leave someone's project | **Leave**, in Share | The project is removed from this browser. To keep it as your own, click **Keep a copy here** first |
 | Work on something else | **New**, or open another project | The shared project stays in this browser. Open its link to come back to it. Changes not sent yet go then |
 
+**Your saved project file** is a copy of the shared project as it was when you saved. If
+you open it in a browser that has the shared project, Scribecue asks first. It can open the
+shared project as it is now, or open the file on its own, not shared. A file never replaces
+others' changes.
+
 ## Privacy
 
 - **The sharing service can't read your project.** It's encrypted on your computer before

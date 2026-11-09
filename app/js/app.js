@@ -4764,6 +4764,21 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
   if (isReview(file.name)) toast('Opening QC package…');
   try { if (isReview(file.name)) { review = await openReview(file); p = review.parsed; } else p = fromProject(JSON.parse(await file.text())); }
   catch (e) { return toast(`Couldn’t open ${file.name}: ${e instanceof SyntaxError ? 'the file is damaged' : e.message}`); }
+  // A saved copy of a shared project kept here: its script may be older than the shared
+  // one, and would replace everyone's changes. The shared project opens as it is now, or
+  // the file opens on its own, as a project that isn't shared.
+  const sharedHere = !review && p.projectId && sharedLib?.getShare(p.projectId);
+  if (sharedHere) {
+    if (confirm(`${file.name} is a saved copy of a shared project in this browser. Open the shared project as it is now, with everyone’s changes? Cancel opens the file as a separate project that isn’t shared.`)) {
+      if (myShare && S.projectId === p.projectId) { toast('That’s the shared project open now. It stays as it is'); return; }
+      if (!(await sharingTools.reopen({ record: sharedHere, project: p.projectId }))) return;
+      // The owner's file keeps up with the shared project, as autosave writes to it.
+      if (sharedHere.link === 'owner' && handle) { S.handle = handle; handleStore.set(handle); if (AUTO.can) handle.requestPermission({ mode: 'readwrite' }).catch(() => 'prompt').then(checkWrite); }
+      toast(`Opened the shared project as it is now, not the copy in ${file.name}`);
+      return;
+    }
+    p.projectId = null; // a project of its own
+  }
   if (!confirmed && !okToReplace(`Open ${file.name}`)) return;
   await stopJob();
   await endRecording();
