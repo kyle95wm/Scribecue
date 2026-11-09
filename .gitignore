@@ -3,3 +3,4 @@
 .env
 CLAUDE.local.md
 __pycache__/
+AGENTS.local.md
