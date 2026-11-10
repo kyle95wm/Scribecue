@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.102.0",
+    "date": "2026-11-10",
+    "notes": "## Messages\n\n- Messages at the top stay up longer: 6 to 12 seconds, depending on length.\n- Click a message to close it sooner. Point at it to keep it up.\n\n## Messages you shouldn't miss\n\n- These now open in a window with **OK**, instead of passing by:\n  - A shared project closing, or no longer being shared with you.\n  - The sharing service turning down your changes.\n  - Autosave stopping, or a save failing.\n  - A take that couldn't be kept.\n\n## Diagnostics\n\n- **Copy** now changes to **Copied**. If the browser won't copy, it says so and selects the text for you to copy."
+  },
+  {
     "version": "0.101.1",
     "date": "2026-11-10",
     "notes": "## Opening a share link on a first visit\n\n- A share link opened in a browser that's never used Scribecue now asks for its password after the tour and setup. Before, you had to open the link again.\n\n## The tour\n\n- A new step shows **Share** and **Comments**.\n- The Export step matches what each mode can export.\n- The privacy step now covers sharing: your video and audio never leave your computer, and a shared project is encrypted first."
