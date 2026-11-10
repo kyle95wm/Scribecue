@@ -341,6 +341,11 @@ Restart Caddy. It gets the HTTPS certificate by itself.
 - **Ollama has to run on the computer you open Scribecue on**, not the other one. Allow the
   new address in `OLLAMA_ORIGINS`, as [AI.md](AI.md#ollama-on-your-own-computer) shows for
   the web version.
+- **API keys stay in each person's browser**, and go straight to their provider. Whoever
+  runs that computer could still change Scribecue to take them, so only add keys to a copy
+  you trust.
+- **Give Scribecue its own domain or subdomain.** Other sites at the same address can read
+  what the browser keeps for it, keys included.
 
 ## Updating
 
