@@ -311,11 +311,23 @@ and port as before.
 Scribecue no longer has a takes container. Takes are kept in a folder you choose: see
 [Where takes are kept](RECORDING.md#where-takes-are-kept).
 
-- **Before updating,** open each recording whose takes were in the container. Its takes
-  move into the folder you choose.
-- **Then** take `takes` out of `COMPOSE_PROFILES` in `.env`.
-- **Already updated?** Run `git checkout v0.100.1` and `docker compose up -d --build`,
-  open those recordings, then run `git checkout main` and update again.
+**Before updating:** open each recording whose takes were in the container, in Record
+mode. Choose a folder when asked, and its takes move there. Then update as usual.
+
+**Already updated?** Your takes are still on disk, in a Docker volume. Updating doesn't
+delete it. To move them, go back to 0.100.1 for a moment:
+
+1. In the `Scribecue` folder, run `git checkout v0.100.1`. With a zip, unzip
+   [0.100.1](https://github.com/kyle95wm/Scribecue/releases/tag/v0.100.1) into a folder
+   with the same name as before. Docker finds the takes by the folder's name.
+2. Check that `COMPOSE_PROFILES` in `.env` still includes `takes`.
+3. Run `docker compose up -d --build`.
+4. Reload the page until the version in the header says 0.100.1.
+5. Open each recording in Record mode and choose a folder. Its takes move there.
+6. Run `git checkout main`, or put the newer folder back. Then update as usual.
+
+**After moving your takes:** take `takes` out of `COMPOSE_PROFILES` in `.env`. Then run
+`docker compose up -d --build --remove-orphans` to remove the old container.
 
 ## If something goes wrong
 
