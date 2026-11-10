@@ -38,7 +38,7 @@ export function initRecord(h) {
   let leadSecs = LEAD.includes(+get('lead')) ? +get('lead') : 3;
   let syncMs = get('sync') != null ? +get('sync') : null; // null: use the browser's figure
   let wasPlaying = false;
-  let where = 'browser';     // where takes are kept: 'folder' or 'browser' (a session), or 'docker'
+  let where = 'browser';     // where takes are kept: 'folder' or 'browser' (a session)
   let keep = 'none';         // the session: ready | choose (no folder yet) | paused (the browser asks again) | moving
   let paused = null;         // the folder the browser asks about again, while paused
   let raw = null;            // the recording file as it was opened, kept in the session
@@ -108,7 +108,6 @@ export function initRecord(h) {
     $('recMove').disabled = busy;
     const sn = currentSession()?.name;
     el.count.dataset.tip = where === 'folder' ? `Takes are kept in ${sn}, a folder you can copy to another computer`
-      : where === 'docker' ? 'Takes are kept in Docker, on this computer'
       : currentSession() ? (canUseFolders() ? 'Takes are kept in this browser. Move them to a folder, under Microphone, lead-in and sync, to copy them to another computer'
         : 'Takes are kept in this browser. Export a session package to move them to another computer, or before clearing its data')
       : 'Takes are kept in this browser. Clearing its data for Scribecue loses them';
@@ -836,11 +835,11 @@ export function initRecord(h) {
   let sub = '';      // the name of a new folder for the session, inside one with other files
   // Asks where to keep a session: resolves to { dir, where }, or null if cancelled. old: how
   // many takes kept before sessions will move in. intro: the dialog's first line.
-  function chooseWhere({ old = 0, from = 'browser', intro = 'Choose a folder for this recording. Each take is saved there as you record it.', sub: name = '' } = {}) {
+  function chooseWhere({ old = 0, intro = 'Choose a folder for this recording. Each take is saved there as you record it.', sub: name = '' } = {}) {
     sd.intro.textContent = intro;
     sub = `${name || h.baseName() || 'Recording'} session`;
     sd.old.hidden = !old;
-    sd.old.textContent = `The ${old} take${old === 1 ? '' : 's'} kept ${from === 'docker' ? 'in Docker' : 'in this browser'} for this recording will move there.`;
+    sd.old.textContent = `The ${old} take${old === 1 ? '' : 's'} kept in this browser for this recording will move there.`;
     $('recSessionBrowser').hidden = !canKeepInBrowser();
     answer?.(null);
     return new Promise((ok) => { answer = ok; sd.dlg.showModal(); });
@@ -856,9 +855,9 @@ export function initRecord(h) {
 
   async function askWhere() {
     const r = rec;
-    const old = (await listTakes(r.id).catch(() => [])).length, from = await takesWhere();
+    const old = (await listTakes(r.id).catch(() => [])).length;
     if (rec !== r) return;
-    const got = await chooseWhere({ old, from });
+    const got = await chooseWhere({ old });
     if (rec !== r) return;
     if (!got) return render();
     await start(got === 'browser' ? await browserFolder(r.id) : got, got === 'browser' ? 'browser' : 'folder');

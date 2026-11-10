@@ -6,7 +6,6 @@
 import { SESSION_FILE, TAKES_DIR, takeFile, takeIdOf, toSession, fromSession, rebuild, choose, sameSide, takeNote, forRecord } from './session.js';
 import { withTakeNote, readTakeNote, plainTake } from './bwf.js';
 import { blobCrc } from './zip.js';
-import { HOSTED } from './config.js';
 
 // ---- in the browser
 
@@ -99,49 +98,6 @@ const browser = {
     return { count, bytes };
   },
 };
-
-// ---- in Docker, in the takes container (takes/server.py)
-
-const answer = async (r) => {
-  if (r.ok) return r;
-  let why = '';
-  try { why = (await r.json()).error; } catch { /* no details */ }
-  throw new Error(why || `the takes container answered ${r.status}`);
-};
-const url = (rec, id = '') => `takes/r/${rec}${id ? '/' + id : ''}`;
-// Headers carry only ASCII: anything else in a block's text goes as JSON's \u escapes.
-const ascii = (o) => JSON.stringify(o).replace(/[\u007f-\uffff]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
-
-const docker = {
-  where: 'docker',
-  async list(rec) {
-    const all = await (await answer(await fetch(url(rec), { cache: 'no-store' }))).json();
-    return all.map((t) => ({ ...t, rec, peak: t.peak ?? -Infinity, punch: t.punch ?? undefined, edit: t.edit ?? undefined, line: t.line ?? undefined, ver: t.ver ?? undefined, alt: t.alt ?? undefined }));
-  },
-  async save(take, choose) {
-    const { block, start, duration, peak, made, punch, line, ver, alt } = take;
-    await answer(await fetch(url(take.rec, take.id), {
-      method: 'PUT', body: take.wav,
-      headers: { 'X-Take': ascii({ block, start, duration, peak: Number.isFinite(peak) ? peak : null, made, punch, line, ver, alt, choose }) },
-    }));
-  },
-  async relink(rec, changes) { await answer(await fetch(url(rec) + '/relink', { method: 'POST', body: JSON.stringify(changes) })); },
-  async move(rec, to) { return (await (await answer(await fetch(url(rec) + '/move', { method: 'POST', body: JSON.stringify({ to }) }))).json()).moved; },
-  async choose(rec, id) { await answer(await fetch(url(rec, id) + '/choose', { method: 'POST' })); },
-  async edit(rec, id, edit) { await answer(await fetch(url(rec, id) + '/edit', { method: 'POST', body: JSON.stringify(edit) })); },
-  async remove(rec, id) { await answer(await fetch(url(rec, id), { method: 'DELETE' })); },
-  audio: async (t) => (await answer(await fetch(url(t.rec, t.id)))).blob(),
-  async clear() { await answer(await fetch('takes/all', { method: 'DELETE' })); },
-  async info() {
-    const s = await (await answer(await fetch('takes/status', { cache: 'no-store' }))).json();
-    return { count: s.takes, bytes: s.bytes };
-  },
-};
-
-// Which one: asked once, when takes are first needed. The web version has no containers.
-let picked = null;
-const legacy = () => (picked ||= HOSTED ? Promise.resolve(browser)
-  : fetch('takes/status', { cache: 'no-store' }).then((r) => (r.ok ? docker : browser), () => browser));
 
 // ---- in a session folder
 
@@ -240,10 +196,10 @@ export async function openSession(dir, { key, recording, where = 'folder', app =
       }
       await save();
     },
-    // Copies every take kept under `from` before sessions (IndexedDB or the takes container)
+    // Copies every take kept under `from` before sessions (in IndexedDB)
     // into this session, then deletes them there: how many. progress(done, total).
     async adopt(from, progress = () => {}) {
-      const old = await legacy(), theirs = await old.list(from).catch(() => []);
+      const old = browser, theirs = await old.list(from).catch(() => []);
       let n = 0;
       for (const t of theirs) {
         if (!find(t.id)) {
@@ -369,7 +325,7 @@ export async function rememberSession(key, h) {
 let session = null;
 export const useSession = (s) => { session = s; };
 export const currentSession = () => session;
-const store = async (rec) => (session && rec === session.key ? session : legacy());
+const store = async (rec) => (session && rec === session.key ? session : browser);
 
 // Every take of a recording: { id, rec, block, start, duration, peak, chosen, made, punch?,
 // edit?, line?, ver?, alt? }, and in the browser, wav as well. alt is the wording of a take of
@@ -394,7 +350,7 @@ export const deleteTake = async (rec, id) => (await store(rec)).remove(rec, id);
 export const relinkTakes = async (rec, changes) => changes.length && (await store(rec)).relink(rec, changes);
 
 // Moves every take of one recording to another, such as its project: how many moved.
-export const moveTakes = async (rec, to) => (session && to === session.key ? session : await legacy()).move(rec, to);
+export const moveTakes = async (rec, to) => (session && to === session.key ? session : browser).move(rec, to);
 
 // Brings back a take deleted since its recording opened: false if it can't be. Only a
 // session can: elsewhere, a deleted take is gone.
@@ -403,9 +359,9 @@ export const restoreTake = async (rec, id) => !!(session && rec === session.key 
 // The take's WAV, as a Blob.
 export const takeAudio = async (t) => (await store(t.rec)).audio(t);
 
-// 'folder', 'browser' or 'docker': where the open session's takes are, or else where takes
-// were kept before sessions.
-export const takesWhere = async () => (session || await legacy()).where;
+// 'folder' or 'browser': where the open session's takes are, or else where takes were kept
+// before sessions.
+export const takesWhere = async () => (session || browser).where;
 
 // Sessions kept in the browser, by their session.json: [{ count, bytes }].
 async function browserSessions() {
@@ -422,23 +378,19 @@ async function browserSessions() {
   return out;
 }
 
-// Deletes every take kept in the browser or in Docker, from every recording. Sessions in
+// Deletes every take kept in the browser, from every recording. Sessions in
 // folders on disk are the narrator's own files, and stay.
 export async function clearTakes() {
   await browser.clear();
-  if ((await legacy()).where === 'docker') await docker.clear();
   try { await (await navigator.storage.getDirectory()).removeEntry(SESSIONS, { recursive: true }); } catch (e) { if (!NOT_FOUND(e)) throw e; }
   if (session?.where === 'browser') session.reset();
 }
 
 // How many takes are kept in the browser, all recordings together, and the bytes they use,
-// for Storage in Settings; or, with none there, how many in Docker.
+// for Storage in Settings.
 export async function takesInfo() {
   let count = 0, bytes = 0;
   try { ({ count, bytes } = await browser.info()); } catch { /* none */ }
   for (const s of await browserSessions()) { count += s.count; bytes += s.bytes; }
-  if (count) return { count, bytes, where: 'browser' };
-  const old = await legacy();
-  if (old.where !== 'docker') return { count: 0, bytes: 0, where: 'browser' };
-  try { return { ...(await docker.info()), where: 'docker' }; } catch { return { count: 0, bytes: 0, where: 'docker' }; }
+  return { count, bytes, where: 'browser' };
 }

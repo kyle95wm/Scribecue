@@ -42,9 +42,8 @@ export function checklist({ hosted, appKept, guides, voices, whisper, persisted,
       + 'They play straight away and offline, and Google and Amazon ones aren’t sent again.', 'readings']);
   }
   if (takes?.count) {
-    rows.push([null, 'Recorded takes', `${takes.count} take${takes.count === 1 ? '' : 's'}, ${mb(takes.bytes)}. ` + (takes.where === 'docker'
-      ? 'Kept in Docker, so clearing the browser doesn’t touch them.'
-      : 'They’re only in this browser: clearing its data for Scribecue loses them. Export a session package in Record mode to keep them.'), 'takes']);
+    rows.push([null, 'Recorded takes', `${takes.count} take${takes.count === 1 ? '' : 's'}, ${mb(takes.bytes)}. `
+      + 'They’re only in this browser: clearing its data for Scribecue loses them. Export a session package in Record mode to keep them.', 'takes']);
   }
   if (usage) rows.push([null, 'Space used', `${usage < 1e6 ? 'Less than 1' : Math.round(usage / 1e6)} MB in this browser.`]);
   return rows;
@@ -186,7 +185,7 @@ async function askWipe(show) {
   if (!show) return;
   const unsaved = hooks.unsaved();
   const t = await hooks.takes();
-  const takes = t?.where === 'browser' ? t.count : 0; // takes in Docker aren't removed
+  const takes = t?.count || 0;
   $('wipeWarn').textContent = wipeWarning({ unsaved, offline: !online(), hosted: HOSTED, takes, shares: hooks.shares() });
   $('wipeSave').hidden = !unsaved;
   $('wipeCancel').focus();

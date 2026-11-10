@@ -15,7 +15,6 @@ included, or to run Piper, Kokoro, Whisper or Ollama in containers next to it.
 - [More lifelike voices (Kokoro)](#more-lifelike-voices-kokoro)
 - [Speech to text (Whisper)](#speech-to-text-whisper)
 - [The full mix in the video (ffmpeg)](#the-full-mix-in-the-video-ffmpeg)
-- [The takes container](#the-takes-container)
 - [Ollama in Docker](#ollama-in-docker)
 - [Updating](#updating)
 - [If something goes wrong](#if-something-goes-wrong)
@@ -236,14 +235,6 @@ an hour of 1080p video on a recent computer, and longer on an older one.
 While it works, Docker needs room for a copy of the video and the finished file. Both are
 deleted as soon as the file is saved, or five minutes after Scribecue is closed mid-way.
 
-## The takes container
-
-You don't need it any more. Scribecue keeps takes in a folder you choose: see
-[Where takes are kept](RECORDING.md#where-takes-are-kept).
-
-If you used it, leave it running for now. When you next open a recording, its takes move
-from the container into the folder you choose. A later release removes the container.
-
 ## Ollama in Docker
 
 [AI help](AI.md) can use Ollama, which runs AI models on your own computer.
@@ -314,6 +305,17 @@ folder with it, and run `docker compose up -d --build` inside it.
 
 Your text blocks and settings are kept, as long as you open Scribecue at the same address
 and port as before.
+
+### If you used the takes container
+
+Scribecue no longer has a takes container. Takes are kept in a folder you choose: see
+[Where takes are kept](RECORDING.md#where-takes-are-kept).
+
+- **Before updating,** open each recording whose takes were in the container. Its takes
+  move into the folder you choose.
+- **Then** take `takes` out of `COMPOSE_PROFILES` in `.env`.
+- **Already updated?** Run `git checkout v0.100.1` and `docker compose up -d --build`,
+  open those recordings, then run `git checkout main` and update again.
 
 ## If something goes wrong
 

@@ -4,8 +4,8 @@ The goal: a narrator can copy their work to another computer and open it there, 
 every take and alt. Nothing they need stays in the browser.
 
 Built: session folders and browser sessions (`session.js`, `takestore.js`), moving older
-takes in, Zip64, session packages, and moving a browser session into a folder. Not yet:
-removing the takes container. `scripts/session-smoke.mjs` checks it in Chrome.
+takes in, Zip64, session packages, moving a browser session into a folder, and removing
+the takes container. `scripts/session-smoke.mjs` checks it in Chrome.
 
 ## Where things are now
 
@@ -13,7 +13,7 @@ removing the takes container. `scripts/session-smoke.mjs` checks it in Chrome.
 |---|---|---|
 | Script, timings, notes, pickups, comments | `.scribecue` (JSON) | Yes |
 | The narrator's script | `.scribecuerec` (JSON) | Yes |
-| Takes and alts, their edits and which is chosen | IndexedDB, or the takes container | No |
+| Takes and alts, their edits and which is chosen | IndexedDB | No |
 | TTS readings | Made when needed, held in memory | No, made again |
 | QC readings: Google and Kokoro | `.scribecueqc` | Yes |
 | QC readings: Piper | Made by the reviewer's computer | No, made again |
@@ -111,18 +111,16 @@ This replaces taking takes over by project id in shared browser storage, and the
 
 ## Moving existing takes
 
-On opening a recording whose takes are in IndexedDB or the takes container, offer
+On opening a recording whose takes are in IndexedDB, offer
 **Move N takes into a session folder**. Copy each, check its size, then delete the
 original only once the session is saved.
 
-## Retiring the takes container
+## Retiring older stores
 
-1. Ship session folders, with the move above.
-2. For two releases, keep reading the container, but stop writing new takes to it.
-3. Remove `takes/`, its compose profile, the **Keeping takes on disk** section of
-   `Guides/INSTALL.md`, and its line in **Settings → Offline and storage**.
-
-IndexedDB takes go the same way. OPFS replaces them in Firefox and Safari.
+- **The takes container:** removed. Session folders shipped in 0.77.0, and the container
+  was only read, to move takes out, until 0.100.1. `Guides/INSTALL.md` tells people who
+  still have takes there to open them in 0.100.1 first.
+- **IndexedDB takes:** next, the same way. OPFS replaces them in Firefox and Safari.
 
 ## Slower computers
 
@@ -146,7 +144,6 @@ Check with the CPU slowed 4–6×:
 ## Guides to update when it's built
 
 - `Guides/RECORDING.md`: where takes are kept, sessions, packaging.
-- `Guides/INSTALL.md`: remove the takes container.
 - `Guides/TROUBLESHOOTING.md`, **Settings → Offline and storage**, the tour and toasts that mention
   where takes are kept.
 - `local-guides/` for narrators.
