@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.103.0",
+    "date": "2026-11-10",
+    "notes": "## Settings\n\n- New sections: **Editing** has Replay, Lead-in and spelling. **Online voices** has the Google and Amazon Polly keys, and your browser's online voices.\n- **Diagnostics** is now a section of Settings, instead of a window of its own. **Save as file** now says **Saved**.\n\n## Search settings\n\n- Type in **Search settings** at the top of Settings to find a setting, or a keyboard shortcut. `Ctrl/Cmd+F` takes you there.\n- Click a result to go straight to it. `Enter` opens the first one.\n\n## Guides\n\n- More pictures in the guides: setup, the editor, the Export menu, the spelling check, the dialogue lane, sharing, online voices, AI help and Diagnostics."
+  },
+  {
     "version": "0.102.0",
     "date": "2026-11-10",
     "notes": "## Messages\n\n- Messages at the top stay up longer: 6 to 12 seconds, depending on length.\n- Click a message to close it sooner. Point at it to keep it up.\n\n## Messages you shouldn't miss\n\n- These now open in a window with **OK**, instead of passing by:\n  - A shared project closing, or no longer being shared with you.\n  - The sharing service turning down your changes.\n  - Autosave stopping, or a save failing.\n  - A take that couldn't be kept.\n\n## Diagnostics\n\n- **Copy** now changes to **Copied**. If the browser won't copy, it says so and selects the text for you to copy."
