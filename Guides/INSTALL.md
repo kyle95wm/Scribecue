@@ -16,6 +16,7 @@ included, or to run Piper, Kokoro, Whisper or Ollama in containers next to it.
 - [Speech to text (Whisper)](#speech-to-text-whisper)
 - [The full mix in the video (ffmpeg)](#the-full-mix-in-the-video-ffmpeg)
 - [Ollama in Docker](#ollama-in-docker)
+- [On another computer](#on-another-computer)
 - [Updating](#updating)
 - [If something goes wrong](#if-something-goes-wrong)
 - [Development](#development), and [running your own copy](#running-your-own-copy)
@@ -276,6 +277,70 @@ How fast it is depends on your computer:
 To remove the models later, run `docker compose down`, then
 `docker volume rm sub-editor_ollama-models` (the name starts with your Scribecue folder's
 name; `docker volume ls` lists it).
+
+## On another computer
+
+Scribecue can run on another computer on your network, or on a server online, and be
+opened from your own. Install it there as [above](#install). It then needs two more things:
+
+- **An HTTPS address.** Scribecue doesn't start on a plain `http://` address other than
+  `localhost`, as Chrome keeps much of what it uses for secure pages.
+- **A way to keep strangers out.** Scribecue has no sign-in, so anyone who reaches it can
+  use your voices, Whisper and ffmpeg.
+
+Leave Scribecue on `localhost` on that computer, and put one of these in front of it:
+
+| Where it runs | Use | Who can reach it |
+|---|---|---|
+| Your home or office network | [Tailscale](https://tailscale.com) | Computers signed in to your Tailscale network |
+| A server online | [Caddy](https://caddyserver.com) | Anyone with the password |
+
+### With Tailscale
+
+Install Tailscale on that computer and on each computer that will open Scribecue. Turn on
+HTTPS certificates in Tailscale's admin console, under **DNS**. Then, on the computer
+running Scribecue:
+
+```bash
+tailscale serve --bg 8484
+```
+
+It prints an address such as `https://studio.your-network.ts.net`. Open that in Chrome or
+Edge.
+
+### With Caddy
+
+You need a domain name pointing at the server. Install Caddy, then make a password hash:
+
+```bash
+caddy hash-password
+```
+
+Put this in Caddy's settings file, the `Caddyfile`, with your domain, a user name and the
+hash:
+
+```
+scribecue.example.com {
+    basic_auth {
+        writer <the hash>
+    }
+    reverse_proxy 127.0.0.1:8484
+}
+```
+
+Restart Caddy. It gets the HTTPS certificate by itself.
+
+### What changes
+
+- **Videos and projects stay on each person's computer.** The other computer only sends
+  the app and does the work for voices, Whisper and ffmpeg.
+- **Putting the mix into the video uploads the whole video** to that computer, and
+  downloads the result. Online, that can take a while.
+- **Kokoro and Whisper need a fast processor.** A small online server makes them slow. The
+  memory table under [What you need](#what-you-need) still applies.
+- **Ollama has to run on the computer you open Scribecue on**, not the other one. Allow the
+  new address in `OLLAMA_ORIGINS`, as [AI.md](AI.md#ollama-on-your-own-computer) shows for
+  the web version.
 
 ## Updating
 
