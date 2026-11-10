@@ -1075,7 +1075,16 @@ const sharingTools = {
 const ROLE_NAMES = { edit: 'Can edit', review: 'Can review', comment: 'Can comment' };
 const LINK_NOW = { edit: 'You can edit it now', review: 'You can suggest changes in QC now', comment: 'You can comment now' };
 // A share link opened in this browser: ask for its password, unless it's the project here.
+// On a first visit it waits for the tour and setup, which would close its window, and opens
+// once they're done.
+let shareLinkWaits = FIRST_RUN;
+function shareLinkAfterSetup() {
+  if (!shareLinkWaits) return;
+  shareLinkWaits = false;
+  whenClear(openShareLink, Infinity);
+}
 function openShareLink() {
+  if (shareLinkWaits || !sharedLib) return;
   const l = sharedLib.parseLink(location.hash);
   if (!l) return;
   const clear = () => history.replaceState(null, '', location.pathname + location.search);
@@ -6970,7 +6979,10 @@ initWelcome({
   if (!finished && !HOSTED && updateChoice() === null) setTimeout(openUpdates, 300);
   // Then the loop for the mode picked, once nothing else is on screen. Record mode's is
   // in the recording guide instead.
-  if (S.mode !== 'record') whenClear(() => maybeShowLoop(S.mode));
+  const loop = () => { if (S.mode !== 'record') whenClear(() => maybeShowLoop(S.mode)); };
+  // A share link that started the first visit opens first, after that question.
+  if (shareLinkWaits) setTimeout(() => { shareLinkAfterSetup(); loop(); }, 400);
+  else loop();
 });
 
 // ---------------------------------------------------------------- settings
@@ -7069,7 +7081,7 @@ initWhatsNew({
 });
 // A first visit starts with the tour, then the setup, whether the tour is finished or skipped.
 // Someone who opened a recording file gets Record mode's setup instead (see setMode).
-if (FIRST_RUN) setTimeout(() => startTour(S.mode, { then: () => S.mode === 'record' || openWelcome(), finish: 'Set up Scribecue' }), 400);
+if (FIRST_RUN) setTimeout(() => startTour(S.mode, { then: () => (S.mode === 'record' ? shareLinkAfterSetup() : openWelcome()), finish: 'Set up Scribecue' }), 400);
 else if (!welcomed()) {
   // Someone who used Scribecue before the wizard existed: mention it once.
   markWelcomed();
