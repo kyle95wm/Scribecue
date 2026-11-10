@@ -2,10 +2,11 @@
 // open without a connection. The build copies them all next to the app, into one guides/
 // folder, with their screenshots, and the offline copy keeps them. Links to them on GitHub open here instead,
 // when they're available; otherwise they open on GitHub as before.
+import { REPO as REPO_NAME } from './config.js';
 
 export const GUIDES = { 'README.md': 'Scribecue', 'GETTING-STARTED.md': 'Getting started', 'WRITING.md': 'Writing',
   'VOICES.md': 'Voices', 'TRANSCRIBING.md': 'Transcribing', 'RECORDING.md': 'Recording', 'QC.md': 'QC review', 'SHORTCUTS.md': 'Shortcuts', 'AI.md': 'AI help', 'SHARING.md': 'Sharing', 'GOOGLE-VOICES.md': 'Google voices', 'POLLY-VOICES.md': 'Amazon Polly voices', 'INSTALL.md': 'Running it yourself', 'TROUBLESHOOTING.md': 'Troubleshooting' };
-export const REPO = 'https://github.com/kyle95wm/Scribecue/blob/main/';
+export const REPO = `https://github.com/${REPO_NAME}/blob/main/`;
 // Where a guide is in the repository: the README at the top, the others in Guides/.
 export const repoPath = (file) => (file === 'README.md' ? '' : 'Guides/') + file;
 

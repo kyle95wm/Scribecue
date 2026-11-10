@@ -18,7 +18,7 @@ included, or to run Piper, Kokoro, Whisper or Ollama in containers next to it.
 - [Ollama in Docker](#ollama-in-docker)
 - [Updating](#updating)
 - [If something goes wrong](#if-something-goes-wrong)
-- [Development](#development)
+- [Development](#development), and [running your own copy](#running-your-own-copy)
 
 ## What you need
 
@@ -460,3 +460,22 @@ the usual Mac location), and uses a generated test video, not real programme mat
 
 To remake the voice samples in the voices guide, such as after changing the voices, run
 `scripts/voice-samples.sh` while Scribecue is running with Piper and Kokoro.
+
+### Running your own copy
+
+To publish a fork under your own name and addresses:
+
+1. Set your addresses in [app/js/config.js](../app/js/config.js):
+
+   | Setting | What it is |
+   |---|---|
+   | `REPO` | Your GitHub repository, as `owner/name`. Update checks and guide links use it. |
+   | `WEB_APP` | Your web version's address. |
+   | `RELAY` | Your sharing relay's address. |
+
+2. Run `scripts/check.sh`. Its tests list every other file that must match, such as the
+   security policy, the relay's settings and the guides.
+3. Turn on GitHub Pages for your repository, with your own domain if you have one.
+4. Deploy your relay to your own Cloudflare account, as [relay/README.md](../relay/README.md) says.
+
+Until you do, your copy checks for this project's updates and shares through its relay.
