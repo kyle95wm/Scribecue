@@ -34,7 +34,7 @@ async function browser(port) {
   const fill = (sel, v) => js(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});e.focus();e.value=${JSON.stringify(v)};e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return true})()`);
   return { ws, send, js, wait, watch, open, type, report, shot, click, fill };
 }
-const settings = (name, cues, on = true) => `localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',reviewer:${JSON.stringify(name)},${on ? "sharedCopy:'1'," : ''}relay:${JSON.stringify(RELAY)},setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);
+const settings = (name, cues, on = true) => `localStorage.clear();for(const [k,v] of Object.entries({welcome:'1',seenVersion:'999.0.0',updates:'0',mode:'write',reviewer:${JSON.stringify(name)},sharedCopy:${on ? "'1'" : "'0'"},relay:${JSON.stringify(RELAY)},setupModes:'{"write":true,"transcribe":true,"qc":true,"record":true}',loops:'{"write":true,"transcribe":true}'}))localStorage.setItem('scribecue.'+k,v);
   localStorage.setItem('scribecue.v1',JSON.stringify({dirty:false,projectId:crypto.randomUUID(),cues:${cues}}));Storage.prototype.setItem=()=>{};location.reload();true`;
 const online = `window.scribecueRelay?.status==='online' && !window.scribecueRelay.unsent()`;
 // Google's answers, without a real key: only "separate-test-key" is accepted.
@@ -49,7 +49,7 @@ try {
   await a.send('Page.navigate', { url: site }); await b.send('Page.navigate', { url: site }); await sleep(800);
   // Neither has a name yet: each is asked for one before sharing or joining.
   await a.js(settings('', `Array.from({length:1500},(_,i)=>({uid:crypto.randomUUID(),start:i*4.8,end:i*4.8+3,text:'Block number '+(i+1)+' describes the scene.'}))`));
-  // B hasn't turned sharing on: opening the link does that.
+  // B has turned sharing off: opening the link turns it on again.
   await b.js(settings('', '[]', false));
   await a.wait(`window.scribecueSharing && !document.getElementById('shareBtn').hidden`, 'A ready');
   // A project not yet shared has no shared copy: Yjs loads once it's shared.
