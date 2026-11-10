@@ -29,7 +29,7 @@ export const scriptPrint = (blocks) => hash(JSON.stringify(blocks.map((b) => [b.
 const PROJECT_ID = /^[a-z0-9]{16}$/;
 export const newProjectId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => (b % 36).toString(36)).join('');
 // Where a recording's takes are kept: under its project, or for a recording file from before
-// projects, under its script (recordingId). Shaped like the latter, so the takes container takes both.
+// projects, under its script (recordingId). Shaped like the latter, so a store takes both.
 export const takesKey = (file) => (file.project ? `${file.project}-0` : recordingId(file));
 
 const words = (text) => text.replace(/\s+/g, ' ').trim();

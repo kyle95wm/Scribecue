@@ -15,7 +15,6 @@ included, or to run Piper, Kokoro, Whisper or Ollama in containers next to it.
 - [More lifelike voices (Kokoro)](#more-lifelike-voices-kokoro)
 - [Speech to text (Whisper)](#speech-to-text-whisper)
 - [The full mix in the video (ffmpeg)](#the-full-mix-in-the-video-ffmpeg)
-- [The takes container](#the-takes-container)
 - [Ollama in Docker](#ollama-in-docker)
 - [Updating](#updating)
 - [If something goes wrong](#if-something-goes-wrong)
@@ -236,14 +235,6 @@ an hour of 1080p video on a recent computer, and longer on an older one.
 While it works, Docker needs room for a copy of the video and the finished file. Both are
 deleted as soon as the file is saved, or five minutes after Scribecue is closed mid-way.
 
-## The takes container
-
-You don't need it any more. Scribecue keeps takes in a folder you choose: see
-[Where takes are kept](RECORDING.md#where-takes-are-kept).
-
-If you used it, leave it running for now. When you next open a recording, its takes move
-from the container into the folder you choose. A later release removes the container.
-
 ## Ollama in Docker
 
 [AI help](AI.md) can use Ollama, which runs AI models on your own computer.
@@ -314,6 +305,29 @@ folder with it, and run `docker compose up -d --build` inside it.
 
 Your text blocks and settings are kept, as long as you open Scribecue at the same address
 and port as before.
+
+### If you used the takes container
+
+Scribecue no longer has a takes container. Takes are kept in a folder you choose: see
+[Where takes are kept](RECORDING.md#where-takes-are-kept).
+
+**Before updating:** open each recording whose takes were in the container, in Record
+mode. Choose a folder when asked, and its takes move there. Then update as usual.
+
+**Already updated?** Your takes are still on disk, in a Docker volume. Updating doesn't
+delete it. To move them, go back to 0.100.1 for a moment:
+
+1. In the `Scribecue` folder, run `git checkout v0.100.1`. With a zip, unzip
+   [0.100.1](https://github.com/kyle95wm/Scribecue/releases/tag/v0.100.1) into a folder
+   with the same name as before. Docker finds the takes by the folder's name.
+2. Check that `COMPOSE_PROFILES` in `.env` still includes `takes`.
+3. Run `docker compose up -d --build`.
+4. Reload the page until the version in the header says 0.100.1.
+5. Open each recording in Record mode and choose a folder. Its takes move there.
+6. Run `git checkout main`, or put the newer folder back. Then update as usual.
+
+**After moving your takes:** take `takes` out of `COMPOSE_PROFILES` in `.env`. Then run
+`docker compose up -d --build --remove-orphans` to remove the old container.
 
 ## If something goes wrong
 

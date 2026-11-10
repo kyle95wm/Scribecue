@@ -28,7 +28,7 @@ node scripts/picker-check.mjs
 [ "${1:-}" = "--no-docker" ] && { echo 'Skipped Docker checks'; exit 0; }
 
 echo '== Docker Compose file'
-COMPOSE_PROFILES=piper,whisper,kokoro,ollama,ffmpeg,takes docker compose config --quiet
+COMPOSE_PROFILES=piper,whisper,kokoro,ollama,ffmpeg docker compose config --quiet
 COMPOSE_PROFILES=ollama docker compose -f docker-compose.yml -f ollama-gpu.yml config --quiet
 
 echo '== Docker build and smoke test'

@@ -112,28 +112,6 @@ services:
       - no-new-privileges:true
     restart: unless-stopped
 
-  # Being retired: Record mode now keeps takes in a folder the narrator chooses. Takes
-  # still in here move into that folder when their recording is next opened.
-  takes:
-    build: ./takes
-    image: scribecue-takes:latest
-    container_name: scribecue-takes
-    profiles: [takes]
-    # Like Piper: only on the internal network, with no internet and no port on this
-    # computer. Scribecue's server is the only thing that can reach it.
-    networks: [voices]
-    read_only: true
-    volumes:
-      # Every take, kept when the container is rebuilt.
-      - takes:/takes
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    restart: unless-stopped
-
   # Optional AI models that run on this computer, for AI help (see Guides/INSTALL.md). Turn it on
   # by adding ollama to COMPOSE_PROFILES in .env, then download a model that can see
   # images: docker compose exec ollama ollama pull gemma3:4b
@@ -169,5 +147,3 @@ volumes:
   ollama-models:
   # ffmpeg's files while it works; emptied after each one.
   ffmpeg-work:
-  # A narrator's takes from Record mode, kept until they're deleted in Scribecue.
-  takes:

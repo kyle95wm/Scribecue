@@ -66,13 +66,6 @@ test('recorded takes show in storage, and removing all data warns about them', (
   assert.doesNotMatch(wipeWarning({ unsaved: 0, offline: false, hosted: true }), /take/);
 });
 
-test('takes kept in Docker say so, and removing browser data leaves them out', () => {
-  const rows = checklist({ hosted: false, persisted: true, usage: 0, takes: { count: 2, bytes: 9e6, where: 'docker' } });
-  const row = rows.find((r) => r[1] === 'Recorded takes');
-  assert.match(row[2], /^2 takes, 9 MB\. Kept in Docker, so clearing the browser doesn’t touch them/);
-  assert.equal(row[3], 'takes', 'with a button to delete them all');
-});
-
 test('removing everything warns about shared projects kept here', () => {
   const w = wipeWarning({ unsaved: 0, offline: false, hosted: true, shares: { owned: 2, unrecovered: 1, joined: 2 } });
   assert.match(w, /You own 1 shared project here without a recovery link\. Afterwards, nobody can change its links or stop sharing it/);

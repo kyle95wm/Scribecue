@@ -338,8 +338,8 @@ takes uses about 8.6 MB.
 - **Chose the browser?** Click **Move takes to a folder…** under **Microphone, lead-in and
   sync**. New takes are saved there too.
 - **New versions** of the recording file use the same folder.
-- **Takes from earlier versions** of Scribecue, in the browser or in Docker, move into the
-  folder you choose.
+- **Takes from earlier versions** of Scribecue, kept in the browser, move into the folder
+  you choose.
 
 ### Moving to another computer
 
