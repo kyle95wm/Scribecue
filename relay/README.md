@@ -31,6 +31,9 @@ The rules are in `src/room.js`, tested by `tests/relay.test.mjs` without Cloudfl
 1. `npx wrangler login`, with the Cloudflare account that has `kyleadvoice.ca`.
 2. `npm run deploy`. The address is in `routes` in `wrangler.toml`.
 
+For a fork, use your own Cloudflare account and domain. Set `routes` and `ORIGINS` in
+`wrangler.toml`, and `RELAY` in `app/js/config.js`.
+
 Durable Objects with SQLite storage are on Cloudflare's free plan.
 
 ## Limits

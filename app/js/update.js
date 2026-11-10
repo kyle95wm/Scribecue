@@ -4,11 +4,10 @@
 // carries no cookies, no referrer and nothing about the user's work.
 
 export const VERSION = '0.102.0';
-import { HOSTED } from './config.js';
+import { HOSTED, REPO } from './config.js';
 import { openWhatsNew } from './whatsnew.js';
 import { openSettings } from './settings.js';
 
-const REPO = 'kyle95wm/Scribecue';
 const API = `https://api.github.com/repos/${REPO}/releases/latest`;
 const RELEASES = `https://github.com/${REPO}/releases`;
 const DAY = 24 * 60 * 60 * 1000;

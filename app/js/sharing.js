@@ -3,11 +3,12 @@
 // opens again without its password.
 // It loads without Yjs: the shared copy and the connection (shared.js, relayclient.js) load
 // only for a project that's shared.
+import { RELAY, WEB_APP } from './config.js';
 import { newOwner, newLink, openBox, signLinks, parseLink, linkUrl, newProjectKey, keysOf, MAX_KEYS, ROLES, versionWith, relayTooOld, recoveryKey, openRecovery, readLinks, b64 } from './sharekeys.js';
 
 // Scribecue's relay. A developer setting points elsewhere, such as ws://127.0.0.1:8787 for
 // one run locally with `npm run dev` in relay/.
-export const DEFAULT_RELAY = 'wss://share.kyleadvoice.ca';
+export const DEFAULT_RELAY = RELAY;
 export function relayUrl(storage = globalThis.localStorage) {
   try { return storage.getItem('scribecue.relay') || DEFAULT_RELAY; } catch { return DEFAULT_RELAY; }
 }
@@ -15,7 +16,7 @@ export function relayUrl(storage = globalThis.localStorage) {
 // The web version. A link made at an address only this computer can open, such as Docker's
 // localhost, points here instead, so the people it's sent to can open it. Only with the
 // usual relay: the web version wouldn't find a project on another one.
-export const WEB_APP = 'https://scribecue.kyleadvoice.ca/';
+export { WEB_APP };
 const LOCAL = /^(localhost|127(?:\.\d{1,3}){3}|\[::1\]|.+\.localhost)$/i;
 export function linkBase(href, relay = relayUrl()) {
   let u;
