@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -31,8 +31,10 @@ test('the video must match by name and length', () => {
   assert.ok(!sameVideo(saved, { name: 'a.mp4', duration: 75 }));
 });
 
-test('a slot ends where its block does, and any grace never reaches the next block', () => {
-  assert.deepEqual(slots(blocks), [{ start: 2, end: 5 }, { start: 5.4, end: 8 }, { start: 20, end: 22 }]);
+test('a slot runs half a second past its block, and the grace never reaches the next block', () => {
+  assert.equal(GRACE, 0.5);
+  assert.deepEqual(slots(blocks), [{ start: 2, end: 5.4 }, { start: 5.4, end: 8.5 }, { start: 20, end: 22.5 }]);
+  assert.deepEqual(slots(blocks, 0), [{ start: 2, end: 5 }, { start: 5.4, end: 8 }, { start: 20, end: 22 }]);
   assert.deepEqual(slots(blocks, 1), [{ start: 2, end: 5.4 }, { start: 5.4, end: 9 }, { start: 20, end: 23 }]);
 });
 
@@ -553,7 +555,7 @@ test('an extended block has a slot with no end, and leaves the next block its st
   const sl = slots(held);
   assert.deepEqual(sl[1], { start: 4, end: Infinity, hold: true, mark: 4.1 });
   assert.equal(prevEnd(sl, 0), 0);
-  assert.equal(prevEnd(sl, 1), 3);
+  assert.equal(prevEnd(sl, 1), 3.5);
   assert.equal(prevEnd(sl, 2), 4);
   assert.equal(runsOver({ start: 4, duration: 60 }, sl[1]), false);
 });

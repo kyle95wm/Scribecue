@@ -9,7 +9,7 @@ export const RECORDING_EXT = '.scribecuerec';
 // Earlier builds saved .scribecue-rec, which still opens.
 export const isRecordingFile = (name) => /\.scribecue-?rec$/i.test(name);
 export const RECORDING_FORMAT = 1;
-export const GRACE = 0; // seconds a take may run past its block, never into the next one
+export const GRACE = 0.5; // seconds a take may run past its block, never into the next one
 export const RATE = 48000;
 
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
