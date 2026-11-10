@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.101.1",
+    "date": "2026-11-10",
+    "notes": "## Opening a share link on a first visit\n\n- A share link opened in a browser that's never used Scribecue now asks for its password after the tour and setup. Before, you had to open the link again.\n\n## The tour\n\n- A new step shows **Share** and **Comments**.\n- The Export step matches what each mode can export.\n- The privacy step now covers sharing: your video and audio never leave your computer, and a shared project is encrypted first."
+  },
+  {
     "version": "0.101.0",
     "date": "2026-11-09",
     "notes": "## The takes container is gone\n\n- Record mode keeps takes in a folder you choose, as it has since 0.77.0. The optional takes container for Docker is now removed.\n- **Still have takes in it?** Before updating, open each of those recordings in Record mode and choose a folder. Their takes move there.\n- **Already updated?** Your takes are still on disk. The [install guide](https://github.com/kyle95wm/Scribecue/blob/main/Guides/INSTALL.md#if-you-used-the-takes-container) says how to move them.\n- Afterwards, take `takes` out of `COMPOSE_PROFILES` in your `.env` file.\n- The web version never had the container. Nothing changes there."
