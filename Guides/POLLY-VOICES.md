@@ -65,7 +65,7 @@ gets out.
 6. Open the user, then **Security credentials**, and click **Create access key**.
 7. Choose **Application running outside AWS**.
 8. Copy both the access key and the secret key. AWS only shows the secret once.
-9. In Scribecue, open **Settings**, choose **Text to speech**, and find **Amazon Polly
+9. In Scribecue, open **Settings**, choose **Online voices**, and find **Amazon Polly
    voices**.
 10. Paste both keys, and choose the region nearest to you. On AWS's Free plan, choose
     your [home region](#new-aws-accounts) instead.

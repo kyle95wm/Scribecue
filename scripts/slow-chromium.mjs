@@ -149,9 +149,9 @@ try {
     row('Long tasks while scrolling', await longTasks());
   }
 
-  // 4. The Diagnostics window, from Settings.
-  await js('window.__t0 = performance.now(); document.getElementById("setDiag").click(); 1');
-  const opened = await js(`new Promise((r) => { const go = () => document.getElementById('diagDlg').open && document.getElementById('diagText').textContent
+  // 4. Diagnostics, in Settings.
+  await js('document.querySelector("[data-act=settings]").click(); window.__t0 = performance.now(); document.getElementById("settab-diagnostics").click(); 1');
+  const opened = await js(`new Promise((r) => { const go = () => document.getElementById('diagDlg').open && /^Scribecue/.test(document.getElementById('diagText').textContent)
     ? r(Math.round(performance.now() - __t0) + ' ms') : setTimeout(go, 20); go(); })`);
   row('Diagnostics window', `opened in ${opened}`);
   const lines = await js(`document.getElementById('diagText').textContent.split('\\n').filter((l) => /^ {2}(Decoding|Frames|Jumps|Long tasks)/.test(l)).map((l) => l.trim().replace(/ {2,}/, ': '))`);

@@ -200,7 +200,7 @@ Use the agreed brief to judge wording, detail and style. Separate an error from 
 preference so the writer knows which changes matter.
 
 - **Replay a block:** select it and press `Shift+Space`. For context, set a **Lead-in** in
-  Settings, under General, to start a few seconds before it. Listen past its end as well.
+  Settings, under Editing, to start a few seconds before it. Listen past its end as well.
 - **Loop:** press `L` to repeat a block. Turn looping off before continuing through the programme.
 - **Find a point:** click the time ruler, step with `←` or `→`, or press `Alt+Shift+J`
   to type a time. `/` searches block text; type `#12` to find block 12.

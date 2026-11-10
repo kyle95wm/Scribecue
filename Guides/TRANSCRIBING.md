@@ -159,7 +159,7 @@ It's good with clear narration, but check every line. Watch for:
 - **Replay** (`Shift+L`) goes back to a block's start when you close it, so you hear
   every line again as you go. It's on unless you turn it off.
 - **Lead-in** starts all of these a few seconds before the block, so you hear what leads
-  into it. Set it in Settings, under General. At 0, they start at the block.
+  into it. Set it in Settings, under Editing. At 0, they start at the block.
 
 ### Fixing the timing
 

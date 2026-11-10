@@ -131,10 +131,21 @@ function capture(e) {
   status(movedFrom ? `${text} now does “${labelOf(id)}”, and no longer “${labelOf(movedFrom)}”.` : `${text} now does “${labelOf(id)}”.`);
 }
 
-export function openKeys() {
+// One entry for each shortcut, for searching Settings. Picking one opens the list at it.
+export const shortcutEntries = () => {
+  const all = bindings(changes);
+  return GROUPS.flatMap(([group, actions]) => actions.map(([id, label]) => ({
+    heading: label,
+    text: `${group}. ${all[id].map((c) => comboText(c, false)).join(', ') || 'No key'}`,
+    minor: true,
+    go: () => openKeys(label),
+  })));
+};
+
+export function openKeys(find = '') {
   capturing = null;
   status(Object.keys(changes).length ? `${Object.keys(changes).length} changed from the usual keys.` : '');
-  $('keysFind').value = '';
+  $('keysFind').value = find;
   $('keysDlg').showModal();
   render();
   $('keysFind').focus();

@@ -17,6 +17,7 @@ test('the tour covers both modes, privacy and how to find it again', () => {
   assert.match(set.text('write'), /Text to speech/);
   assert.match(set.text('transcribe'), /Whisper/);
   assert.doesNotMatch(set.text('write'), /Whisper/);
+  assert.match(set.text('transcribe'), /Search at the top finds any setting/);
   // what's said changes with the mode
   const tl = STEPS.find((s) => s.target === '#tl');
   assert.match(tl.text('transcribe'), /Holding H/);

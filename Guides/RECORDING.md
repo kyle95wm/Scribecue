@@ -70,7 +70,7 @@ video stopped. See [Extended blocks](#extended-blocks).
 - **Change them later** under **Microphone, lead-in and sync**.
 - **Set your interface to 48 kHz** if you can. Scribecue tells you if it's converting.
 - **Use Chrome, Edge, Firefox or Safari.**
-- **Return to start**, under **Settings → General**, puts the playhead back where you
+- **Return to start**, under **Settings → Editing**, puts the playhead back where you
   started playing when you stop. It's off at first. `RETURN` shows under the video while
   it's on.
 

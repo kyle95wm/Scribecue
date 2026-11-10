@@ -20,8 +20,22 @@ The first time you use a mode, a short setup for it opens. That includes opening
 ## Settings
 
 **Settings**, at the top (`Alt+Shift+S`), has everything you set up rather than use while
-you work: **General**, **Transcribing**, **Text to speech**, **AI help**, **Keyboard
-shortcuts** and **Storage**.
+you work. It's in sections down the left:
+
+| Section | What's in it |
+|---|---|
+| **General** | Your name, setup and the tour, updates |
+| **Editing** | Replay, Lead-in, spelling and grammar, and Return to start in Record mode |
+| **Transcribing** | Marking with `H`, speech to text |
+| **Text to speech** | Voices, reading aloud, timings, audio exports |
+| **Online voices** | Google Cloud and Amazon Polly keys, and the browser's online voices |
+| **AI help** | Your AI provider, and a TMDB key for the cast |
+| **Keyboard shortcuts** | Changing your keys |
+| **Storage** | What's kept in this browser, and backing up your settings |
+| **Diagnostics** | Details to send with a problem report |
+
+To find a setting, type in **Search settings** at the top (`Ctrl/Cmd+F`). Press `Enter`
+for the first result, or click one to go to it.
 
 Settings that are on show under the video, such as `TTS` or `STT`. Click one to open its
 section.
@@ -56,7 +70,7 @@ In **Write** mode, with text to speech on (`Alt+Shift+V`). Open the video with
 3. **Close it.** Press `Esc` or `Enter`.
 4. **Listen.** Press `V` to hear it with the video. `[` `]` make this block's reading
    slower or faster. To hear the moments before it too, set a **Lead-in** in Settings,
-   under General.
+   under Editing.
 
 **To read it yourself instead,** select the block and hold `H` while you say the line.
 When you let go, the block ends there.
@@ -201,7 +215,7 @@ To check without exporting, choose **Export → Check spelling and grammar**, or
 - **Harder mistakes:** the check works offline, but it only catches simple grammar.
   [Check grammar with AI](AI.md#what-it-does) goes further.
 - **In QC mode:** it lists problems but can't change text. Go to the block to comment.
-- **Settings:** under General, turn off **Check before exporting**, or choose American,
+- **Settings:** under Editing, turn off **Check before exporting**, or choose American,
   British or Canadian spelling. The check is English only, so turn it off for other languages.
 
 ## Which file to send

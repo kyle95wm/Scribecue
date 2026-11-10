@@ -108,7 +108,7 @@ Each guide has a list for its own part:
 
 Found a problem that isn't here? Report it with the diagnostics:
 
-1. Open **Settings**, then **General**, and click **Diagnostics…**.
+1. Open **Settings**, then **Diagnostics**.
 2. Click **Copy**.
 3. Open the [bug report form](https://github.com/kyle95wm/Scribecue/issues/new?template=bug_report.yml)
    and paste it into **Diagnostics**.
