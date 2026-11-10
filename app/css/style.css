@@ -684,13 +684,13 @@ body.mode-record { grid-template-rows: 44px minmax(0, 1fr) 290px 28px; }
   overflow: hidden;
   text-overflow: ellipsis;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
-  pointer-events: none;
+  pointer-events: auto; /* a click closes it, or does what it says */
+  cursor: pointer;
   transition: opacity 0.3s, transform 0.3s;
 }
-#toast.fade { opacity: 0; transform: translateY(-8px); }
+#toast.fade { opacity: 0; transform: translateY(-8px); pointer-events: none; }
 .jobbox:not([hidden]) + #toast { border-top: 1px solid color-mix(in srgb, var(--bg) 25%, transparent); }
-#toast.act.fade { pointer-events: none; }
-#toast.act { pointer-events: auto; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+#toast.act { text-decoration: underline dotted; text-underline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { #toast { transition: opacity 0.3s; } #toast.fade { transform: none; } }
 /* A job running in the background, such as updating all timings: the same slice as a
    message, with its progress and Stop. */

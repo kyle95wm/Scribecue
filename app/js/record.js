@@ -20,7 +20,7 @@ const LEVEL_WORDS = { good: 'in the pocket', note: 'fine', quiet: 'very quiet', 
 const get = (k) => { try { return localStorage.getItem('scribecue.rec.' + k); } catch { return null; } };
 const put = (k, v) => { try { if (v == null) localStorage.removeItem('scribecue.rec.' + k); else localStorage.setItem('scribecue.rec.' + k, v); } catch { /* storage blocked */ } };
 
-// h: { video, toast, blocks(), selIdx(), select(i), seek(t), baseName(), volume(on), app }
+// h: { video, toast, notice(title, text), blocks(), selIdx(), select(i), seek(t), baseName(), volume(on), app }
 export function initRecord(h) {
   const { video } = h;
   const el = { go: $('recGo'), status: $('recStatus'), meter: $('recMeter'), fill: $('recSlotFill'), slot: $('recSlot'),
@@ -779,7 +779,7 @@ export function initRecord(h) {
       if (discard) await deleteTake(rec.id, take.id);
     } catch (e) {
       state = 'idle'; render();
-      return h.toast(`Couldn’t keep the take: ${e.message}` + (where === 'browser' ? '. The browser’s storage may be full' : ''));
+      return h.notice('Take not kept', `Couldn’t keep the take: ${e.message}` + (where === 'browser' ? '. The browser’s storage may be full.' : '.'));
     }
     state = 'idle';
     await reload();

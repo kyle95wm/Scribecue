@@ -315,3 +315,20 @@ export function fetchBox(url, room, id, { WebSocket = globalThis.WebSocket, wait
     ws.onclose = () => { clearTimeout(timer); reject(new Error('offline')); };
   });
 }
+
+// What the message says when a shared project stops being shared with this browser.
+// detail: why the relay ended it. owner: whether this browser owns the project.
+export function endedNotice(detail, owner) {
+  if (owner) return { title: 'No longer shared', text: 'This project was stopped from sharing in another browser. Your copy stays here, as a plain project.' };
+  const text = detail === 'room-deleted' ? 'The owner stopped sharing this project.'
+    : detail === 'link-expired' ? 'Your link to this project has expired.'
+      : 'This project is no longer shared with you.';
+  return { title: 'Shared project closed', text: text + ' It’s no longer in this browser.' };
+}
+
+// What the message says when the sharing service turns down a change. Said once.
+export function refusedNotice(detail) {
+  return detail === 'too-big'
+    ? { title: 'Change not shared', text: 'This change is too big for the sharing service, so others don’t get it. It stays here.' }
+    : { title: 'Shared project full', text: 'This shared project is full on the sharing service, so others don’t get your latest changes. They stay here.' };
+}

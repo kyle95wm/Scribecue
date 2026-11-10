@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { speakable, blockLabel, keepsFocusAfterDialog } from '../app/js/a11y.js';
+import { speakable, blockLabel, keepsFocusAfterDialog, toastMs } from '../app/js/a11y.js';
 
 test('key symbols are read as words', () => {
   assert.equal(speakable('Undo with ⌘Z'), 'Undo with Command Z');
@@ -71,4 +71,27 @@ test('a running job shows its progress and Stop in a slice under the header, abo
   for (const id of ['jobText', 'jobBar', 'jobStop']) assert.ok(box.includes(`id="${id}"`), id);
   const footer = html.slice(html.indexOf('<footer class="status">'), html.indexOf('</footer>'));
   assert.ok(!footer.includes('id="jobBox"'));
+});
+
+test('messages stay up long enough to read, longer for longer ones', () => {
+  assert.equal(toastMs('Saved'), 6000);
+  assert.ok(toastMs('x'.repeat(100)) > toastMs('x'.repeat(60)));
+  assert.equal(toastMs('x'.repeat(500)), 12000);
+});
+
+test('a message closes when clicked', () => {
+  const app = readFileSync(new URL('../app/js/app.js', import.meta.url), 'utf8');
+  assert.match(app, /toastEl\.onclick = \(\) => \{ hideToast\(\);/);
+  const css = readFileSync(new URL('../app/css/style.css', import.meta.url), 'utf8');
+  assert.match(css, /#toast\.fade \{[^}]*pointer-events: none/);
+});
+
+test('a message that needs reading is a dialog with OK', () => {
+  const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
+  assert.match(html, /<dialog id="noticeDlg" class="updbox" aria-labelledby="noticeTitle" aria-describedby="noticeText">/);
+  assert.match(html, /id="noticeOk" class="hl">OK</);
+  const app = readFileSync(new URL('../app/js/app.js', import.meta.url), 'utf8');
+  for (const why of ['endedNotice(detail, false)', 'endedNotice(detail, true)', 'refusedNotice(detail)', "notice('Autosave stopped'", "notice('Project not saved'"]) assert.ok(app.includes(why), why);
+  const rec = readFileSync(new URL('../app/js/record.js', import.meta.url), 'utf8');
+  assert.ok(rec.includes("h.notice('Take not kept'"));
 });

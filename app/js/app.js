@@ -31,7 +31,7 @@ import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
 import { initSettings, addSection, adopt, place, openSettings, closeSettings } from './settings.js';
 import { initReminder } from './reminder.js';
-import { announce, speakable, blockLabel, keepsFocusAfterDialog } from './a11y.js';
+import { announce, speakable, blockLabel, keepsFocusAfterDialog, toastMs } from './a11y.js';
 import { initOffline, openOffline, keepStorage } from './offline.js';
 import { initSettingsFile } from './settingsfile.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
@@ -795,8 +795,8 @@ async function startRelay(record, copy, fresh, seq, seen) {
       // The relay refused a change: too big for it, or the project is full there. Said once.
       if ((detail === 'too-big' || detail === 'room-full') && !client.told) {
         client.told = true;
-        toast(detail === 'too-big' ? 'This change is too big for the sharing service, so others don’t get it. It stays here'
-          : 'This shared project is full on the sharing service, so others don’t get your latest changes. They stay here');
+        const n = sharedLib.refusedNotice(detail);
+        notice(n.title, n.text);
       }
       if (status === 'ended') {
         sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
@@ -804,16 +804,16 @@ async function startRelay(record, copy, fresh, seq, seen) {
         if (owner) {
           // The owner's own project, stopped from another of their browsers: it stays here,
           // as a plain project.
-          toast('This project is no longer shared. Your copy stays here');
+          const n = sharedLib.endedNotice(detail, true);
+          notice(n.title, n.text);
           queueMicrotask(startShared);
         } else {
           // Someone else's: it closes, and nothing of it stays in this browser.
           stopRelay();
           newProject(false);
           undoStack.length = 0; redoStack.length = 0;
-          toast(detail === 'room-deleted' ? 'The owner stopped sharing this project. It’s no longer in this browser'
-            : detail === 'link-expired' ? 'Your link to this project has expired. The project is no longer in this browser'
-              : 'This project is no longer shared with you. It’s no longer in this browser');
+          const n = sharedLib.endedNotice(detail, false);
+          notice(n.title, n.text);
         }
       }
       window.dispatchEvent(new CustomEvent('scribecue-relay', { detail: { status, detail } }));
@@ -4554,18 +4554,47 @@ document.addEventListener('keyup', (e) => {
 });
 window.addEventListener('blur', () => holdEnd());
 
-let toastTimer = 0;
+let toastTimer = 0, toastLeft = 0, toastEnds = 0;
+const hideToast = () => { clearTimeout(toastTimer); toastEl.classList.add('fade'); };
 // onClick: something a click on the message does, such as bringing back a deleted take.
+// Any other message closes when clicked. Pointing at it keeps it up.
 function toast(msg, onClick = null) {
   diagLog.add('message', msg);
   toastEl.textContent = pcKeys(msg);
-  toastEl.onclick = onClick && (() => { toastEl.onclick = null; toastEl.classList.remove('act'); onClick(); });
+  toastEl.onclick = () => { hideToast(); if (onClick) { toastEl.classList.remove('act'); onClick(); } };
   toastEl.classList.toggle('act', !!onClick);
+  toastEl.title = onClick ? '' : 'Click to close';
   announce(msg, IS_MAC);
   toastEl.classList.remove('fade');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.add('fade'), 3500);
+  toastEnds = performance.now() + toastMs(msg);
+  toastTimer = setTimeout(hideToast, toastMs(msg));
 }
+toastEl.addEventListener('pointerenter', () => {
+  if (toastEl.classList.contains('fade')) return;
+  clearTimeout(toastTimer);
+  toastLeft = Math.max(toastEnds - performance.now(), 1500);
+});
+toastEl.addEventListener('pointerleave', () => {
+  if (toastEl.classList.contains('fade') || !toastLeft) return;
+  toastEnds = performance.now() + toastLeft;
+  toastTimer = setTimeout(hideToast, toastLeft);
+  toastLeft = 0;
+});
+
+// A message that needs reading before carrying on, such as a shared project closing: a
+// dialog with OK, rather than a toast that goes by itself.
+const noticeDlg = $('noticeDlg');
+function notice(title, text) {
+  diagLog.add('message', `${title}: ${text}`);
+  hideToast();
+  $('noticeTitle').textContent = title;
+  $('noticeText').textContent = pcKeys(text);
+  if (!noticeDlg.open) noticeDlg.showModal();
+  $('noticeOk').focus();
+}
+$('noticeOk').addEventListener('click', () => noticeDlg.close());
+document.addEventListener('keydown', (e) => { if (noticeDlg.open) e.stopPropagation(); }, true);
 
 function toggleHelp(show = helpEl.hidden) {
   helpEl.hidden = !show;
@@ -4760,7 +4789,7 @@ async function saveProject(as = false) {
     projectSaved(h.name);
     toast(`Saved ${h.name}`);
   } catch (e) {
-    if (e.name !== 'AbortError') toast(`Couldn’t save the project: ${e.message}`);
+    if (e.name !== 'AbortError') notice('Project not saved', `Couldn’t save the project: ${e.message}.`);
   }
 }
 
@@ -4820,8 +4849,10 @@ async function autosave() {
     // Only if nothing changed while it was written; otherwise it goes round again.
     if (h === S.handle && gen === S.changeGen) projectSaved(h.name);
   } catch (e) {
+    const first = !AUTO.error;
     AUTO.error = e.name === 'NotFoundError' ? 'the file has been moved or deleted' : e.message || String(e);
-    toast(`Couldn’t autosave ${h.name}: ${AUTO.error}. Save with ${IS_MAC ? '⌘S' : 'Ctrl+S'}`);
+    const msg = `Couldn’t autosave ${h.name}: ${AUTO.error}. Save with ${IS_MAC ? '⌘S' : 'Ctrl+S'}`;
+    if (first) notice('Autosave stopped', msg + '.'); else toast(msg);
   } finally {
     AUTO.saving = false;
     if (S.dirty) scheduleAutosave(); else showAutosave();
@@ -5078,7 +5109,7 @@ function showAlts(note, same) {
 }
 
 recorder = initRecord({
-  video, toast,
+  video, toast, notice,
   blocks: () => S.cues,
   selIdx, hasVideo: () => S.hasVideo,
   select: (i) => { if (S.cues[i] && S.cues[i].id !== S.sel) select(S.cues[i].id, { seek: false }); },
@@ -7220,9 +7251,19 @@ $('diagNames').addEventListener('click', (e) => {
   e.currentTarget.setAttribute('aria-pressed', String(e.currentTarget.getAttribute('aria-pressed') !== 'true'));
   showDiagnostics();
 });
-$('diagCopy').addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText($('diagText').textContent); toast('Copied the diagnostics'); }
-  catch { toast('Couldn’t copy. Select the text and copy it, or save it as a file'); }
+// Copying says how it went on the button, not in a toast: a toast is hidden behind the
+// dialog, and copying again would add to the log each time. If the browser won't copy, the
+// text is selected, ready to copy with Ctrl/Cmd+C.
+let diagCopied = 0;
+$('diagCopy').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  let ok = true;
+  try { await navigator.clipboard.writeText($('diagText').textContent); } catch { ok = false; }
+  if (!ok) getSelection().selectAllChildren($('diagText'));
+  btn.textContent = ok ? 'Copied' : 'Couldn’t copy';
+  announce(ok ? 'Copied the diagnostics' : `Couldn’t copy. The text is selected: copy it with ${IS_MAC ? '⌘C' : 'Ctrl+C'}, or save it as a file`, IS_MAC);
+  clearTimeout(diagCopied);
+  diagCopied = setTimeout(() => { btn.textContent = 'Copy'; }, ok ? 2000 : 4000);
 });
 $('diagSave').addEventListener('click', () => {
   const d = new Date(), name = `scribecue-diagnostics-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.txt`;

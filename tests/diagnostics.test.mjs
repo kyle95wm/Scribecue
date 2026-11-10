@@ -173,3 +173,11 @@ test('the diagnostics skill explains every row of the report, for Claude and Cod
     assert.ok(text.includes(`### ${heading}\n`), `${heading} is missing from the skill's draft`);
   }
 });
+
+test('copying the diagnostics says so on the button, not in the log', () => {
+  const app = readFileSync(new URL('../app/js/app.js', import.meta.url), 'utf8');
+  const copy = app.slice(app.indexOf("$('diagCopy').addEventListener"), app.indexOf("$('diagSave').addEventListener"));
+  assert.match(copy, /btn\.textContent = ok \? 'Copied'/);
+  assert.match(copy, /'Couldn’t copy'/);
+  assert.doesNotMatch(copy, /toast\(/);
+});

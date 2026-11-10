@@ -331,3 +331,13 @@ test('when a shared project was last opened reads plainly', () => {
   assert.match(openedText(now - 30 * day, now), /^Opened \S/);
   assert.match(openedText(new Date(2025, 0, 3).getTime(), now), /2025/);
 });
+
+test('a shared project closing is explained in a dialog', () => {
+  assert.match(sharing.endedNotice('room-deleted', false).text, /owner stopped sharing.*no longer in this browser/);
+  assert.match(sharing.endedNotice('link-expired', false).text, /link to this project has expired/);
+  assert.match(sharing.endedNotice('removed', false).text, /no longer shared with you/);
+  assert.equal(sharing.endedNotice('room-deleted', false).title, 'Shared project closed');
+  assert.match(sharing.endedNotice('room-deleted', true).text, /Your copy stays here/);
+  assert.match(sharing.refusedNotice('too-big').text, /too big for the sharing service/);
+  assert.match(sharing.refusedNotice('room-full').text, /full on the sharing service/);
+});

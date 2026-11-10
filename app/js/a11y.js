@@ -38,3 +38,10 @@ export function announce(text, mac = true) {
   region.textContent = '';
   timer = setTimeout(() => { region.textContent = speakable(text, mac); }, 60);
 }
+
+// How long a message stays up, in ms: long enough to read, with more time for longer ones.
+// Clicking the message closes it sooner.
+export function toastMs(text) {
+  const extra = Math.max(0, String(text).length - 40) * 60;
+  return Math.min(6000 + extra, 12000);
+}

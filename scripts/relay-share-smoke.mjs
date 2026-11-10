@@ -214,6 +214,8 @@ try {
   await a.js(`[...document.querySelectorAll('#shareLinks button')].find(b=>b.textContent==='Turn off').click();true`);
   await b.wait(`!window.scribecueRelay && document.getElementById('shareState').hidden`, 'B is let go');
   await b.wait(`document.querySelectorAll('#list .row').length===0`, 'the project closes for B');
+  await b.wait(`document.getElementById('noticeDlg').open && /no longer shared with you/.test(document.getElementById('noticeText').textContent)`, 'B is told in a dialog');
+  await b.js(`document.getElementById('noticeOk').click();true`);
   assert.equal(await b.js(`Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.')) || (JSON.parse(localStorage.getItem('scribecue.v1')||'{}').cues||[]).length>0`), false, 'nothing of it stays');
   const offLink = `JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>k.startsWith('scribecue.share.')))).links.find(l=>l.off)`;
   assert.equal((await a.js(offLink)).upTo[bDev], bN, 'the link turned off stops at B’s last number');
@@ -268,8 +270,9 @@ try {
   // reconnecting, then turns the link off once it has expired.
   await a.js(`(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('scribecue.share.')),r=JSON.parse(localStorage.getItem(k)),l=r.links.find(l=>!l.off);l.expires=Date.now()+6000;r.n++;localStorage.setItem(k,JSON.stringify(r));scribecueRelay.ws.close();return true})()`);
   t0 = performance.now();
-  await b.wait(`!window.scribecueRelay && /link to this project has expired/.test(document.getElementById('toast').textContent)`, 'B is told its link expired');
+  await b.wait(`!window.scribecueRelay && /link to this project has expired/.test(document.getElementById('noticeText').textContent)`, 'B is told its link expired');
   const expiredMs = performance.now() - t0;
+  await b.js(`document.getElementById('noticeOk').click();true`);
   await b.wait(`document.querySelectorAll('#list .row').length===0`, 'the project closes for B');
   assert.equal(await b.js(`Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.')) || (JSON.parse(localStorage.getItem('scribecue.v1')||'{}').cues||[]).length>0`), false, 'nothing of it stays');
   await a.wait(`JSON.parse(localStorage.getItem(Object.keys(localStorage).find(k=>k.startsWith('scribecue.share.')))).links.filter(l=>!l.off).length===0`, 'A turns the expired link off');
