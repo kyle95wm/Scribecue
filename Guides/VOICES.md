@@ -87,8 +87,10 @@ lengths are exact and you can export a description track. Unlike Piper, each rea
 sends the block's text to Google, and they need the internet.
 
 [Google voices](GOOGLE-VOICES.md) walks you through getting a key and making sure you're
-never billed. Then paste the key under **Google Cloud voices** in the text to speech
-settings. **Forget** removes it.
+never billed. Then paste the key under **Google Cloud voices** in **Settings → Online
+voices**. **Forget** removes it.
+
+![Settings, at Online voices: keys for Google Cloud and Amazon Polly, and the browser’s online voices](../docs/screenshots/online-voices.png)
 
 Each line is only sent to Google once, unless you change it. Readings are kept in your
 browser, so playing, reopening and exporting cost nothing. While you're typing, nothing is
@@ -101,8 +103,7 @@ Google Cloud voices: lengths are exact, you can export a description track, and 
 reading sends the block's text to Amazon.
 
 [Amazon Polly voices](POLLY-VOICES.md) walks you through getting a key and setting a
-spending limit. Then paste it under **Amazon Polly voices** in the text to speech
-settings.
+spending limit. Then paste it under **Amazon Polly voices** in **Settings → Online voices**.
 
 ## Good to know
 

@@ -63,6 +63,8 @@ you're sure your contract allows sending frames to an AI provider.
 Keys stay in your browser, and are only sent to their own provider. Tick **Remember the
 key on this computer** to keep it after you close the tab.
 
+![AI help in Settings, connected to Ollama on this computer with the gemma3 model](../docs/screenshots/ai-settings.png)
+
 ### Claude, OpenAI or Gemini
 
 Paste an API key from the provider's site:

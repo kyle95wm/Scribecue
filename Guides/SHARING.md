@@ -34,6 +34,8 @@ commenters each get their own link, and everyone sees changes within a second.
 
 Make one link for each kind of access you need. The header then says **Shared**.
 
+![Share this project: a password and expiry for each kind of link, Can edit, Can review and Can comment](../docs/screenshots/share.png)
+
 Links made in Docker, at `localhost`, open the web version,
 <https://scribecue.kyleadvoice.ca/>, so anyone can use them. You stay the owner in Docker.
 
