@@ -113,6 +113,8 @@ Found a problem that isn't here? Report it with the diagnostics:
 3. Open the [bug report form](https://github.com/kyle95wm/Scribecue/issues/new?template=bug_report.yml)
    and paste it into **Diagnostics**.
 
+![Settings, at Diagnostics: the report, with buttons to include file names, save it or copy it](../docs/screenshots/diagnostics.png)
+
 They show your browser, the video's format, how playback is going and recent errors.
 Nothing is sent by Scribecue. File names are left out unless you click **Include file names**.
 Issues are public, so read the diagnostics before you post them.

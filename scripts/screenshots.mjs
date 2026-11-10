@@ -91,6 +91,13 @@ await shot('text-to-speech', '#settingsDlg', 0);
 await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
 await js(`document.getElementById('settab-general').click(); document.activeElement?.blur(); 1`); await sleep(400);
 await shot('settings');
+// Searching Settings, then the sections the guides point to.
+await js(`(() => { const f = document.getElementById('setSearch'); f.value = 'voice'; f.dispatchEvent(new Event('input')); f.blur(); return 1; })()`); await sleep(400);
+await shot('settings-search', '#settingsDlg', 0);
+for (const [tab, name] of [['voices', 'online-voices'], ['diagnostics', 'diagnostics']]) {
+  await js(`document.getElementById('settab-${tab}').click(); document.activeElement?.blur(); 1`); await sleep(tab === 'diagnostics' ? 1200 : 500);
+  await shot(name, '#settingsDlg', 0);
+}
 
 // sounds like: a word selected in block 3, then Alt+Shift+P
 await js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`); await sleep(300);
@@ -106,6 +113,52 @@ await js(`(async () => {
 })()`);
 await sleep(400);
 await shot('sounds-like', '#sayDlg', 0);
+
+// Spelling and grammar: block 2's British "colours", with American spelling chosen.
+await js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`); await sleep(300);
+await js(`document.querySelector('[data-act=checkSpelling]').click(); 1`);
+await sleep(1500);
+await js(`document.activeElement?.blur(); 1`);
+await shot('spelling-check', '#checkDlg', 0);
+await js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`); await sleep(300);
+
+// The editor, with block 3 open, in a taller window so none of it is cut off.
+await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 2, mobile: false }); await sleep(300);
+await js(`(async () => {
+  document.querySelectorAll('#list .row')[2].click();
+  await new Promise((r) => setTimeout(r, 300));
+  document.activeElement?.blur(); document.getElementById('toast').classList.add('fade'); return 1;
+})()`);
+await sleep(400);
+await shot('editor', '#editor', 12);
+await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false }); await sleep(300);
+
+// The timeline zoomed in, with the dialogue lane under the blocks.
+await js(`document.getElementById('edText')?.blur(); 1`); await key('Escape', 'Escape'); await sleep(200);
+await seek(12);
+await key('Equal', '=', { altKey: true }); await sleep(400);
+await js(`document.activeElement?.blur(); document.getElementById('toast').classList.add('fade'); 1`); await sleep(400);
+await shot('dialogue-lane', '#tl', 0);
+await key('Digit0', '0', { altKey: true }); await sleep(300);
+
+// The Export menu.
+await js(`document.getElementById('exportBtn').click(); 1`); await sleep(400);
+await shot('export-menu', '#exportMenu', 0);
+await key('Escape', 'Escape'); await js(`document.getElementById('exportMenu').hidden = true; document.getElementById('exportBtn').setAttribute('aria-expanded', 'false'); 1`); await sleep(200);
+
+// Share, before a link is made.
+await js(`document.querySelector('[data-act=share]').click(); 1`); await sleep(800);
+await js(`(() => { const n = document.getElementById('shareName'); if (n && !n.closest('[hidden]')) { n.value = 'Alex'; n.dispatchEvent(new Event('input')); } document.activeElement?.blur(); return 1; })()`); await sleep(300);
+if (await js(`document.getElementById('shareDlg').open`)) await shot('share', '#shareDlg', 0);
+else console.log('share: the dialog did not open');
+await js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`); await sleep(300);
+
+// The setup's first question: what are you working on?
+await js(`document.querySelector('[data-act=settings]').click(); 1`); await sleep(300);
+await js(`document.getElementById('setSetup').click(); 1`); await sleep(600);
+await js(`[...document.querySelectorAll('#welcome button')].find((b) => /get started/i.test(b.textContent)).click(); document.activeElement?.blur(); 1`); await sleep(400);
+await shot('setup', '#welcome', 0);
+await js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`); await sleep(300);
 
 // AI help: a draft for block 2, from a stand-in for Ollama so no AI is needed
 await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
@@ -142,7 +195,11 @@ await js(`(async () => {
 })()`);
 await sleep(700);
 await shot('ai-help');
-await js(`document.getElementById('aiClose').click(); 1`); await sleep(300);
+// The provider, connected, in Settings.
+await js(`document.getElementById('aiClose').click(); document.querySelector('[data-act=settings]').click(); 1`); await sleep(300);
+await js(`document.getElementById('settab-ai').click(); document.activeElement?.blur(); 1`); await sleep(500);
+await shot('ai-settings', '#settingsDlg', 0);
+await js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`); await sleep(300);
 
 // QC comments beside the same editor and timeline.
 await js(`document.querySelector('#modeSw [data-mode=qc]').click(); 1`); await sleep(300);

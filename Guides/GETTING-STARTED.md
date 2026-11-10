@@ -15,6 +15,8 @@ The switch next to Scribecue’s name chooses what you’re doing.
 Switching keeps your work. QC follows the package’s saved editing permission. Comments work in Write and QC.
 
 The first time you use a mode, a short setup for it opens. That includes opening a file that switches modes, such as a QC package or a recording file. You can skip it.
+
+![Setup asking what you're working on: transcribing, writing or QC review](../docs/screenshots/setup.png)
 [The QC guide](QC.md) explains voice checks and portable review packages.
 
 ## Settings
@@ -36,6 +38,8 @@ you work. It's in sections down the left:
 
 To find a setting, type in **Search settings** at the top (`Ctrl/Cmd+F`). Press `Enter`
 for the first result, or click one to go to it.
+
+![Settings searched for voice, listing the Google, Amazon and browser voice settings first](../docs/screenshots/settings-search.png)
 
 Settings that are on show under the video, such as `TTS` or `STT`. Click one to open its
 section.
@@ -99,6 +103,8 @@ for you, so step 3 is just checking it. [Transcribing](TRANSCRIBING.md) has the 
 Click a block in the list to open it. The playhead stays where it is while you edit.
 
 `Esc` or `Enter` closes the block and moves the playhead to it. The block stays selected.
+
+![An open block: its start and end, notes for the narrator, its text, and its speed, voice and volume](../docs/screenshots/editor.png)
 
 The open block shows its start and end, its text and, with text to speech on, its speed,
 voice and reading time. The buttons after the times move it:
@@ -183,6 +189,8 @@ The [QC guide](QC.md) covers reviewing, resolving comments and returning the pro
 When the script is finished, or to share it with someone who doesn't use Scribecue,
 use the **Export** menu at the top:
 
+![The Export menu, grouped by who the file is for](../docs/screenshots/export-menu.png)
+
 - **Script as SRT** (`Ctrl/Cmd+E`).
 - **Script as WebVTT** (`Ctrl/Cmd+Shift+E`). This also keeps each block's speed, voice and
   sounds-like words.
@@ -201,6 +209,8 @@ looks wrong, it lists it first. Fix it, or choose **Export anyway**.
 
 To check without exporting, choose **Export → Check spelling and grammar**, or press
 `Alt+Shift+K`.
+
+![The spelling check, suggesting colors for colours in block 2](../docs/screenshots/spelling-check.png)
 
 | Button | What it does |
 | --- | --- |
@@ -239,6 +249,8 @@ Your project is your master copy, so keep it. The other files are made for one p
 
 If a video has subtitles, a **dialogue lane** appears under the blocks. It shows when people
 speak and how long each gap is, so you can see where description fits.
+
+![The timeline with lines of dialogue under the blocks, and the length of each gap between them](../docs/screenshots/dialogue-lane.png)
 
 | To do this | Do this |
 | --- | --- |

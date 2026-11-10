@@ -169,7 +169,8 @@ function buildIndex() {
       if (/^(P|DIV|LABEL|LI|DT|DD|BUTTON|SECTION|TR)$/.test(n.tagName)) entry.text += ' ';
     }
     for (const e of parts) e.text = e.text.replace(/\s+/g, ' ').trim();
-    out.push(...parts);
+    // The section's own entry only when it has words of its own, or nothing else does.
+    out.push(...parts.filter((e, i) => i > 0 || e.text || parts.length === 1));
     for (const e of s.search?.() || []) out.push({ section: id, title: s.title, ...e });
   }
   return out;
