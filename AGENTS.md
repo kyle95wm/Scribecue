@@ -74,6 +74,10 @@ A change to what people see or do can leave a guide out of date. Check in the sa
   keys and behaviour.
 - Search the app's own text too: the shortcuts overlay in `app/index.html`, tooltips, toasts,
   the tour and the setup.
+- Read every step of the tour (`app/js/tour.js`) and its loop cards. If a change adds,
+  moves, renames or removes something a step shows or describes, update that step, and
+  `tests/tour.test.mjs` to match. A new part of the header or the area under the video may
+  need a step of its own.
 - Fix what no longer matches, and remove what no longer exists. Small changes count too.
 - In your pull request, say which guides you changed, or that none needed it.
 

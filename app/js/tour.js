@@ -79,6 +79,11 @@ export const STEPS = [
     text: () => `Under the video: the playback speed, FOLLOW and LOOP, and the reaction offset for ${keyFor('hold')}. Settings show here while they’re on, such as REPLAY, which takes the playhead back to a block’s start when you finish editing it, so you hear it again. Click one to change it.`,
   },
   {
+    target: '#shareBtn',
+    title: 'Working together',
+    text: (mode) => `Share makes a link and a password, so others can work on this project with you, live. Each link says what it allows: editing, suggesting changes or commenting.${mode === 'transcribe' ? '' : ' Comments, next to it, holds notes on blocks and times, saved with the project.'}`,
+  },
+  {
     target: '#aiBtn',
     title: 'AI help, if you want it',
     text: () => 'Connect your own AI provider in Settings, or Ollama on your own computer, to ask about a scene or draft a block from its frames. Drafts only go in when you choose. It’s off until you connect one.',
@@ -93,11 +98,13 @@ export const STEPS = [
   {
     target: 'nav',
     title: 'Projects and exports',
-    text: () => 'Save keeps everything as a Scribecue project, so you can pick up where you left off. Export gives you the script as SRT or WebVTT to hand off, or the description track as a WAV or MP3 file. New starts again.',
+    text: (mode) => `Save keeps everything as a Scribecue project, so you can pick up where you left off. ${mode === 'write'
+      ? 'Export is grouped by who it’s for: a QC package for a reviewer, a recording file for a narrator, finished audio, and the script as SRT or WebVTT.'
+      : 'Export gives you the script as SRT or WebVTT to hand off.'} It can check spelling and grammar first. New starts again.`,
   },
   {
     title: 'Your work stays yours',
-    text: () => `Your video, audio and scripts are opened straight from your computer and never uploaded. Your work is kept in this browser and in the project files you save. ${HOSTED ? 'Only the app itself is downloaded, from Scribecue’s site. ' : ''}Scribecue only contacts anything else when you turn it on: online voices, AI help${HOSTED ? '' : ', or update checks'}.`,
+    text: () => `Your video and audio are opened straight from your computer and never uploaded. Your work is kept in this browser and in the project files you save. ${HOSTED ? 'Only the app itself is downloaded, from Scribecue’s site. ' : ''}Scribecue only contacts anything else when you turn it on: online voices, AI help, sharing${HOSTED ? '' : ' or update checks'}. A shared project is encrypted on your computer first, so the sharing service can’t read it.`,
   },
   {
     target: 'nav [data-act="help"]',

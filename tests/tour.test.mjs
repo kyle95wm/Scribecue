@@ -23,6 +23,25 @@ test('the tour covers both modes, privacy and how to find it again', () => {
   assert.match(tl.text('write'), /Enter makes a block/);
 });
 
+test('the tour covers sharing, comments, exports and what sharing sends', () => {
+  const share = STEPS.find((s) => s.target === '#shareBtn');
+  assert.equal(share.title, 'Working together');
+  assert.match(share.text('write'), /link and a password/);
+  // Transcribe mode has no comments.
+  assert.match(share.text('write'), /Comments/);
+  assert.doesNotMatch(share.text('transcribe'), /Comments/);
+  const out = STEPS.find((s) => s.title === 'Projects and exports');
+  assert.match(out.text('write'), /QC package for a reviewer, a recording file for a narrator/);
+  assert.doesNotMatch(out.text('transcribe'), /QC package|narrator/);
+  assert.match(out.text('transcribe'), /SRT or WebVTT/);
+  const privacy = STEPS.find((s) => s.title === 'Your work stays yours').text('write');
+  assert.match(privacy, /sharing/);
+  assert.match(privacy, /encrypted on your computer/);
+  // Scripts can be shared now; video and audio never leave the computer.
+  assert.doesNotMatch(privacy, /scripts are opened/);
+  assert.match(privacy, /video and audio are opened straight from your computer and never uploaded/);
+});
+
 test('steps only show what is there to see', () => {
   const write = stepsFor('write'), transcribe = stepsFor('transcribe');
   assert.ok(write.some((s) => s.title === 'Settings') && transcribe.some((s) => s.title === 'Settings'));
