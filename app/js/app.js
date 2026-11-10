@@ -29,7 +29,7 @@ import { afterEdit, blockFromPlayhead, nudgeFor, nudges, NUDGE, takeFrom, stopAt
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
-import { initSettings, addSection, adopt, place, openSettings, closeSettings } from './settings.js';
+import { initSettings, addSection, adopt, share, place, openSettings, closeSettings } from './settings.js';
 import { initReminder } from './reminder.js';
 import { announce, speakable, blockLabel, keepsFocusAfterDialog, toastMs } from './a11y.js';
 import { initOffline, openOffline, keepStorage } from './offline.js';
@@ -39,7 +39,7 @@ import { matcher, count as countMatches, replaceIn, nextMatch } from './findrepl
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup } from './keymap.js';
 import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList } from './extended.js';
-import { initKeys, keyChanges, openKeys } from './keys.js';
+import { initKeys, keyChanges, openKeys, shortcutEntries } from './keys.js';
 import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey, isPersonalGoogleKey, checkGoogleKey, setProjectGoogleKey, usingProjectGoogleKey, useProjectVoice, VOICE_LOCKED } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
@@ -7023,11 +7023,14 @@ initWelcome({
 initSettings();
 const showGeneral = () => {
   $('setVersion').textContent = VERSION;
+  renderUpdates();
+  openSettings('general');
+};
+const showEditing = () => {
   $('setReplay').checked = S.replay;
   $('setLead').value = S.lead;
   $('setReturn').setAttribute('aria-pressed', String(S.returnToStart));
-  renderUpdates();
-  openSettings('general');
+  openSettings('editing');
 };
 const showMarking = () => {
   const sel = $('setOffset');
@@ -7040,16 +7043,23 @@ $('updMain').querySelector('h2').hidden = true;
 $('updClose').parentElement.hidden = true;
 if (HOSTED) $('updMain').remove();
 addSection('general', 'General', { open: showGeneral, content: $('setGeneral') });
+addSection('editing', 'Editing', { open: showEditing, content: $('setEditing') });
 addSection('marking', 'Transcribing', { open: showMarking, content: $('setMarking') });
 adopt($('sttDlg'), 'marking', { skip: ['.updbtns:has(#sttClose)'] });
 addSection('tts', 'Text to speech', { open: () => openTts() });
 adopt($('ttsDlg'), 'tts', { skip: ['#ttsClose'] });
+// Google, Amazon and the browser's online voices are part of the text to speech panel, so
+// it keeps them up to date, but have their own section: they're keys and accounts.
+addSection('voices', 'Online voices', { open: () => { openTts(); openSettings('voices'); } });
+share($('ttsDlg'), 'voices', [$('ttsOnlineVoices')]);
 addSection('ai', 'AI help', { open: openAiSettings, content: $('aiSetup') });
 place($('setTmdb'), 'ai');
-addSection('keys', 'Keyboard shortcuts', { open: () => openKeys() });
+addSection('keys', 'Keyboard shortcuts', { open: () => openKeys(), search: shortcutEntries });
 adopt($('keysDlg'), 'keys', { skip: ['#keysDone'] });
 addSection('storage', HOSTED ? 'Offline and storage' : 'Storage', { open: () => openOffline() });
 adopt($('offlineDlg'), 'storage', { skip: ['.updbtns:has(#offlineClose)'] });
+addSection('diagnostics', 'Diagnostics', { open: () => openDiagnostics() });
+adopt($('diagDlg'), 'diagnostics', { skip: ['#diagClose'] });
 $('setWhatsNew').addEventListener('click', () => openWhatsNew(VERSION));
 // In Record mode, setup is Record mode's, so it can't switch away from the recording.
 $('setSetup').addEventListener('click', () => { closeSettings(); openWelcome(S.mode === 'record' ? 'record' : null); });
@@ -7241,12 +7251,17 @@ let diagData = null;
 function showDiagnostics() {
   $('diagText').textContent = diagReport(diagData, { names: $('diagNames').getAttribute('aria-pressed') === 'true' });
 }
+// Its section shows straight away, and fills in once the details are gathered.
+let diagAsked = 0;
 async function openDiagnostics() {
-  diagData = await diagnosticsInfo();
+  const ask = ++diagAsked;
+  if (!diagData) $('diagText').textContent = 'Gathering the details…';
+  diagDlg.showModal();
+  const data = await diagnosticsInfo();
+  if (ask !== diagAsked) return;
+  diagData = data;
   showDiagnostics();
-  if (!diagDlg.open) diagDlg.showModal();
 }
-$('setDiag').addEventListener('click', openDiagnostics);
 $('diagNames').addEventListener('click', (e) => {
   e.currentTarget.setAttribute('aria-pressed', String(e.currentTarget.getAttribute('aria-pressed') !== 'true'));
   showDiagnostics();
@@ -7254,7 +7269,7 @@ $('diagNames').addEventListener('click', (e) => {
 // Copying says how it went on the button, not in a toast: a toast is hidden behind the
 // dialog, and copying again would add to the log each time. If the browser won't copy, the
 // text is selected, ready to copy with Ctrl/Cmd+C.
-let diagCopied = 0;
+let diagCopied = 0, diagSaved = 0;
 $('diagCopy').addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   let ok = true;
@@ -7271,6 +7286,11 @@ $('diagSave').addEventListener('click', () => {
   const a = document.createElement('a');
   a.href = url; a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
-  toast(`Saved ${name} to your downloads`);
+  // On the button, as for Copy: a toast would be hidden behind Settings.
+  const btn = $('diagSave');
+  btn.textContent = 'Saved';
+  announce(`Saved ${name} to your downloads`);
+  clearTimeout(diagSaved);
+  diagSaved = setTimeout(() => { btn.textContent = 'Save as file'; }, 2000);
 });
 $('diagClose').addEventListener('click', () => diagDlg.close());

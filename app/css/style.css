@@ -1265,6 +1265,19 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 .setpane .settitle { margin: 0 0 8px; font-size: 16px; }
 .setpane .aisetup { padding: 0; border: 0; max-height: none; overflow: visible; }
 .setpane .keyslist { max-height: none; }
+.setpane .diagtext { max-height: 50vh; margin: 8px 0; }
+/* Searching Settings: the box in the header, and what it finds in place of a section. */
+#setSearch { width: 15em; max-width: 40vw; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+#setSearch:focus { border-color: var(--accent); outline: none; }
+.setresults { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.setresult { display: block; width: 100%; text-align: left; padding: 7px 10px; font: 13px var(--sans); color: var(--text); background: none; border: 1px solid var(--line); border-radius: 6px; }
+.setresult:hover, .setresult:focus-visible { background: var(--raise); border-color: var(--accent); }
+.setresult .setwhere { color: var(--dim); }
+.setresult .sethit { font-weight: 600; }
+.setresult .setbit { display: block; margin-top: 2px; font-size: 12px; color: var(--dim); }
+.setresult mark { background: none; color: var(--accent); font-weight: 600; }
+/* The heading a search result opened, for a moment. */
+.setpane .setfound { color: var(--accent); outline: 1px solid var(--accent); outline-offset: 3px; border-radius: 3px; transition: outline-color 0.4s; }
 #setTmdb .updstatus { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 #setLead { width: 64px; font: 13px var(--mono); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
 #setTmdbKey, #setName, #wzName { flex: 1; min-width: 12em; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
@@ -1273,6 +1286,8 @@ button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600;
 @media (max-width: 640px) {
   .setbody { flex-direction: column; }
   .settabs { flex-direction: row; width: auto; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  #setSearch { width: auto; flex: 1; min-width: 0; max-width: none; }
+  .sethead { flex-wrap: wrap; }
 }
 #ttsGoogleStatus.err, #ttsPollyStatus.err { color: var(--bad); }
 .favstar { min-width: 2.2em; justify-content: center; }

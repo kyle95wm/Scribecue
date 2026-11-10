@@ -49,7 +49,7 @@ everything in the project, so nothing else should live there.
      - `https://scribecue.kyleadvoice.ca/*` for the web version
      - `http://localhost:8484/*` for Docker, or your own port if you've changed it
 5. Copy the key.
-6. In Scribecue, open **Settings**, choose **Text to speech**, and paste the key under
+6. In Scribecue, open **Settings**, choose **Online voices**, and paste the key under
    **Google Cloud voices**.
 
 The Standard voices in your languages appear in the voice list, under **Google Cloud**.

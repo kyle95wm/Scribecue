@@ -5,7 +5,7 @@ description: Read a Scribecue diagnostics report, work out what went wrong and h
 
 # Reading a Scribecue diagnostics report
 
-A report comes from **Settings**, **General**, **Diagnostics…**. `app/js/diagnostics.js`
+A report comes from **Settings**, **Diagnostics**. `app/js/diagnostics.js`
 writes it. `diagnosticsInfo` in `app/js/app.js` gathers it.
 
 ## Handling the report

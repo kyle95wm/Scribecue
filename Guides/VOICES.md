@@ -32,7 +32,7 @@ voice, use [Piper](#piper-voices) or [Kokoro](#kokoro-voices).
 
 ## Online voices
 
-Tick **Include online voices** in the text to speech settings. They often sound more
+Tick **Include online voices** in **Settings → Online voices**. They often sound more
 natural, but each block's text is sent to the company that runs the voice, such as Google
 or Microsoft, and they need the internet. Edge has dozens, Chrome a few, and Safari and
 Firefox none.

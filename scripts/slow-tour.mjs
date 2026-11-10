@@ -401,7 +401,7 @@ try {
     await open('Guides window', async () => { await js(`document.getElementById('helpGuides')?.click(); 1`); await sleep(600); });
     await open('Comments drawer', () => js(`document.querySelector('[data-act=comments]').click(); 1`), () => js(`document.getElementById('commentsClose')?.click(); 1`));
     await open('AI help drawer', () => js(`document.querySelector('[data-act=ai]').click(); 1`), () => js(`document.getElementById('aiClose')?.click(); 1`));
-    await open('Diagnostics', async () => { await js(`document.getElementById('setDiag').click(); 1`); await sleep(400); });
+    await open('Diagnostics', async () => { await js(`document.querySelector('[data-act=settings]').click(); document.getElementById('settab-diagnostics').click(); 1`); await sleep(400); });
     await open('Export menu', () => click('#exportBtn'), () => press('Escape', 'Escape'));
     await step('Save the project', async () => { await js(`(() => { window.showSaveFilePicker = undefined; })()`); await press('s', 'KeyS', { mods: MODS.ctrl }); await sleep(800); });
     await step('Export SRT', async () => { await click('[data-act=exportSrt]'); await sleep(500); });

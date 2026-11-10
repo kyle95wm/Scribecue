@@ -1129,6 +1129,7 @@ docker compose up -d --build</code></pre>
         </div>
       </section>
       </div>
+      <div id="ttsOnlineVoices">
       <h3>Google Cloud voices</h3>
       <p class="small">Google's Standard voices, with your own Google Cloud key. Like Piper voices, they give
         exact lengths and can be exported as a description track. Each reading sends the block's text to
@@ -1162,7 +1163,7 @@ docker compose up -d --build</code></pre>
         <a href="https://github.com/kyle95wm/Scribecue/blob/main/Guides/POLLY-VOICES.md" target="_blank" rel="noopener noreferrer">The Amazon Polly voices guide</a>
         covers setting up the key, and stopping the voices at a spending limit. Readings are kept in this
         browser, so each line is only sent to Amazon once, unless you change it.</p>
-      <h3>Online voices</h3>
+      <h3>Your browser's online voices</h3>
       <label class="updopt"><input type="checkbox" id="ttsOnline"> Include online voices</label>
       <p id="ttsNoOnline" class="warnbox" hidden>This browser doesn't offer any online voices. To use
         them, open Scribecue in Microsoft Edge, which has the most, or Google Chrome. Safari and Firefox
@@ -1170,6 +1171,7 @@ docker compose up -d --build</code></pre>
       <p class="dim small">Online voices often sound more natural, but each block's text is sent to the
         company that runs the voice, such as Google or Microsoft, to be spoken. Leave this off if your
         script mustn't leave your computer. The voices built into your computer keep everything on it.</p>
+      </div>
       <h3>Keys</h3>
       <p class="small"><kbd>V</kbd> read the selected block from its start ·
         <kbd>⇧</kbd><kbd>V</kbd> set the block's end to where the reading finishes ·
@@ -1335,11 +1337,18 @@ docker compose up -d --build</code></pre>
     <div class="sethead">
       <h2 id="setTitle">Settings</h2>
       <span class="grow"></span>
+      <input id="setSearch" type="search" autocomplete="off" spellcheck="false" placeholder="Search settings"
+        aria-label="Search settings" aria-controls="setResults">
       <button id="setClose">Close</button>
     </div>
     <div class="setbody">
       <div id="setTabs" class="settabs" role="tablist" aria-orientation="vertical" aria-label="Settings"></div>
-      <div id="setPanes" class="setpanes"></div>
+      <div id="setPanes" class="setpanes">
+        <section id="setResults" class="setpane" hidden aria-label="Search results">
+          <p id="setResultCount" class="dim small" role="status"></p>
+          <ul id="setResultList" class="setresults"></ul>
+        </section>
+      </div>
     </div>
     <div id="setGeneral" hidden>
       <p>Scribecue <span id="setVersion"></span> <button id="setWhatsNew" class="link">What's new</button></p>
@@ -1350,7 +1359,15 @@ docker compose up -d --build</code></pre>
         <input id="setName" autocomplete="name" maxlength="100" spellcheck="false" placeholder="optional">
         <button id="setNameForget">Forget</button> <span id="setNameStatus" class="dim small" role="status"></span></p>
       <p class="dim small">Goes on your comments and on the blocks you change, so others can see who did what. It stays in this browser until a project or package you share carries it.</p>
-      <h3>Editing</h3>
+      <h3>Getting started</h3>
+      <p class="updstatus"><button id="setSetup">Run setup again</button> <button id="setTour">Take the tour</button>
+        <button id="setDocker" class="hosted-only">Run it on your computer</button></p>
+      <p class="dim small">Setup asks what you're working on and sets up its tools. The tour shows you round the screen.
+        <span class="hosted-only">Running Scribecue on your computer with Docker adds Kokoro voices, and keeps everything there.</span></p>
+      <h3 class="docker-only">Updates</h3>
+    </div>
+    <div id="setEditing" hidden>
+      <h3>Hearing a block again</h3>
       <label class="updopt"><input type="checkbox" id="setReplay"> Replay: after editing a block, go back to its start</label>
       <p class="dim small">When you press <kbd>Esc</kbd> or <kbd>↵</kbd>, the playhead goes back to the start of
         the block, to hear it again. If it was playing, it carries on from there.
@@ -1373,16 +1390,6 @@ docker compose up -d --build</code></pre>
       <p class="dim small">When you stop, the playhead goes back to where you started playing, to hear or record
         the same part again. Move it to start somewhere else.</p>
       </div>
-      <h3>Getting started</h3>
-      <p class="updstatus"><button id="setSetup">Run setup again</button> <button id="setTour">Take the tour</button>
-        <button id="setDocker" class="hosted-only">Run it on your computer</button></p>
-      <p class="dim small">Setup asks what you're working on and sets up its tools. The tour shows you round the screen.
-        <span class="hosted-only">Running Scribecue on your computer with Docker adds Kokoro voices, and keeps everything there.</span></p>
-      <h3>Problems</h3>
-      <p class="updstatus"><button id="setDiag">Diagnostics…</button></p>
-      <p class="dim small">Details to send with a problem report: your browser, the video's format, recent
-        errors and how playback is going. Nothing is sent: you copy or save them.</p>
-      <h3 class="docker-only">Updates</h3>
     </div>
     <div id="setMarking" hidden>
       <h3>Marking with H</h3>
@@ -1458,7 +1465,7 @@ docker compose up -d --build</code></pre>
             <dt>Drag empty lane</dt><dd>Draw a new block</dd>
             <dt>× in the list</dt><dd>Delete that block (undoable)</dd>
             <dt>Buttons under video</dt><dd>Block, 3 s and frame steps, play, play block, loop block</dd>
-            <dt>Settings</dt><dd>Everything you set up, and the welcome setup again</dd>
+            <dt>Settings</dt><dd>Everything you set up, a search to find it, and the welcome setup again</dd>
             <dt>Wheel</dt><dd>Pan · <kbd><span class="mod"></span></kbd>/pinch to zoom</dd>
           </dl>
         </section>

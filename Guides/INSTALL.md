@@ -450,7 +450,7 @@ scripts/slow-chromium.sh 0.5
 ```
 
 The number is how many CPU cores it may use. It measures playback, jumps and how quickly the
-Diagnostics window opens, in a two-hour film or in a video you name after the number. It
+Diagnostics section opens, in a two-hour film or in a video you name after the number. It
 needs Docker. Add `--help` to see every option.
 
 To go through the whole app, with a two-hour film and 1,500 blocks:
@@ -485,7 +485,7 @@ scripts/slow-chromium.sh reset
 This clears everything Chromium keeps, including unsaved blocks and takes. Files in your
 folder stay. Add `all` to remove the image and the test film too.
 
-To read a report from **Diagnostics…**, paste it into Claude Code or Codex in this folder.
+To read a report from **Settings → Diagnostics**, paste it into Claude Code or Codex in this folder.
 The `scribecue-diagnostics` skill explains each row, lists likely causes and can draft an issue.
 
 To use the skill in any folder, copy it to your own skills folder.
