@@ -26,6 +26,7 @@ import { isSessionPackage, fromSession, SESSION_FILE } from './session.js';
 import { picker, refused } from './pickers.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
 import { afterEdit, blockFromPlayhead, nudgeFor, nudges, NUDGE, takeFrom, stopAt, returnsToStart, scrubber, cleanLead, leadFrom } from './nav.js';
+import { readShare, shareFor, stepShare, widthOf, LIST_MIN, VIDEO_MIN } from './split.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
@@ -2422,6 +2423,7 @@ function renderList() {
 function openEditor() {
   if (edOpen) return;
   edOpen = true;
+  showList();
   placeEditor();
   editor.scrollIntoView({ block: 'nearest' });
 }
@@ -3014,6 +3016,75 @@ function swapSides() {
   setSwapped(on);
   try { localStorage.setItem('scribecue.swapped', on ? '1' : '0'); } catch { /* ignore */ }
 }
+// The bar between the list and the video: drag it to resize them, or to an edge to hide the
+// list. Double-click or Enter brings back the usual width. Remembered.
+const splitter = $('splitter');
+let listShare = readShare((() => { try { return localStorage.getItem('scribecue.listWidth'); } catch { return null; } })());
+const mainEl = document.querySelector('main');
+function setListShare(share, keep = true) {
+  listShare = share;
+  const hidden = share === 0;
+  if (share === null) mainEl.style.removeProperty('--listw');
+  else mainEl.style.setProperty('--listw', hidden ? '0px' : `max(${LIST_MIN}px, min(${(share * 100).toFixed(2)}%, calc(100% - ${VIDEO_MIN}px)))`);
+  if (hidden && $('listWrap').contains(document.activeElement)) document.activeElement.blur();
+  document.body.classList.toggle('listhidden', hidden);
+  const total = mainEl.clientWidth;
+  splitter.setAttribute('aria-valuenow', String(Math.round(total ? widthOf(share, total) / total * 100 : 0)));
+  splitter.setAttribute('aria-valuetext', hidden ? 'List hidden' : share === null ? 'Usual width' : `List ${Math.round(share * 100)}% wide`);
+  tlDirty = true;
+  if (keep) try { localStorage.setItem('scribecue.listWidth', share === null ? '' : String(share)); } catch { /* ignore */ }
+}
+// Typing in a block or the search brings a hidden list back first.
+function showList() { if (listShare === 0) setListShare(null); }
+splitter.setAttribute('aria-valuemin', '0');
+splitter.setAttribute('aria-valuemax', '100');
+setListShare(listShare, false);
+// Where the list's outer edge is, and which way is wider.
+function listEdge() {
+  const r = mainEl.getBoundingClientRect();
+  const swapped = document.body.classList.contains('swapped');
+  return { total: r.width, width: (x) => swapped ? r.right - x : x - r.left };
+}
+splitter.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  splitter.setPointerCapture(e.pointerId);
+  splitter.classList.add('drag');
+  document.body.classList.add('splitting');
+  const { total, width } = listEdge();
+  let frame = 0;
+  let x = e.clientX;
+  const move = (ev) => {
+    x = ev.clientX;
+    if (!frame) frame = requestAnimationFrame(() => { frame = 0; setListShare(shareFor(width(x), total), false); });
+  };
+  const end = () => {
+    cancelAnimationFrame(frame);
+    splitter.removeEventListener('pointermove', move);
+    splitter.removeEventListener('pointerup', end);
+    splitter.removeEventListener('pointercancel', end);
+    splitter.classList.remove('drag');
+    document.body.classList.remove('splitting');
+    setListShare(shareFor(width(x), total));
+  };
+  splitter.addEventListener('pointermove', move);
+  splitter.addEventListener('pointerup', end);
+  splitter.addEventListener('pointercancel', end);
+});
+splitter.addEventListener('dblclick', () => { setListShare(null); toast('List back to its usual width'); });
+splitter.addEventListener('keydown', (e) => {
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  const swapped = document.body.classList.contains('swapped');
+  const total = mainEl.clientWidth;
+  let share;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') share = stepShare(listShare, (e.key === 'ArrowRight') !== swapped ? 1 : -1, total);
+  else if (e.key === 'Enter' || e.key === ' ') share = null;
+  else if (e.key === 'Home' || e.key === 'End') share = (e.key === 'Home') !== swapped ? 0 : shareFor(total, total);
+  else return;
+  e.preventDefault();
+  e.stopPropagation();
+  setListShare(share);
+});
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch { /* fall back below */ }
   // older path for browsers that refuse the async clipboard API
@@ -6698,7 +6769,7 @@ document.addEventListener('keydown', (e) => {
   if (mod && letter === 'y') { e.preventDefault(); doRedo(); return; }
   if (mod) return; // leave other browser shortcuts (zoom, find, reload…) alone
   if (isHelpKey(e)) { e.preventDefault(); toggleHelp(); return; }
-  if (e.key === '/' && !e.altKey) { e.preventDefault(); listSearch.focus(); listSearch.select(); return; }
+  if (e.key === '/' && !e.altKey) { e.preventDefault(); showList(); listSearch.focus(); listSearch.select(); return; }
 
   // Record mode: Enter or R records the selected line, and Esc stops and discards the take. [ ] change a block's speed, which is locked.
   if (S.mode === 'record') {

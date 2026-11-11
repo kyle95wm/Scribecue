@@ -191,15 +191,42 @@ button kbd { font-size: 10px; }
 /* ---------- main ---------- */
 main {
   display: grid;
-  grid-template-columns: minmax(380px, 38%) minmax(0, 1fr);
+  /* --listw is set when the bar between the list and the video is dragged. */
+  grid-template-columns: var(--listw, minmax(380px, 38%)) 0 minmax(0, 1fr);
   min-height: 0;
   border-bottom: 1px solid var(--line);
 }
 .right { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 /* Swap sides: the video on the left, the editor and list on the right. */
-body.swapped main { grid-template-columns: minmax(0, 1fr) minmax(380px, 38%); }
-body.swapped .right { order: -1; }
-body.swapped .listwrap { border-right: 0; border-left: 1px solid var(--line); }
+body.swapped main { grid-template-columns: minmax(0, 1fr) 0 var(--listw, minmax(380px, 38%)); }
+body.swapped .right { order: 1; }
+body.swapped .splitter { order: 2; }
+body.swapped .listwrap { order: 3; border-right: 0; border-left: 1px solid var(--line); }
+/* The list hidden by dragging the bar to the edge: the video has the whole space. */
+body.listhidden .listwrap { visibility: hidden; border: 0; }
+/* The bar between the list and the video: a wide grab area over the line, with a grip at the top. */
+.splitter { position: relative; z-index: 3; width: 0; outline: none; }
+.splitter::before { content: ""; position: absolute; top: 0; bottom: 0; left: -5px; width: 10px; cursor: col-resize; }
+.splitter .grip {
+  position: absolute;
+  top: 50%; /* clear of the messages that slide in under the header */
+  left: -7px;
+  width: 14px;
+  margin-top: -13px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel2) radial-gradient(circle, var(--faint) 1px, transparent 1.5px) center / 4px 5px;
+  cursor: col-resize;
+}
+body.listhidden:not(.swapped) .splitter .grip { left: 0; border-left: 0; border-radius: 0 4px 4px 0; }
+body.listhidden.swapped .splitter .grip { left: -14px; border-right: 0; border-radius: 4px 0 0 4px; }
+.splitter:hover .grip, .splitter.drag .grip { border-color: var(--faint); background-color: var(--raise); }
+.splitter:focus-visible .grip, .splitter.drag .grip { border-color: var(--accent); }
+.splitter:hover::before, .splitter.drag::before { background: linear-gradient(90deg, transparent 4px, var(--faint) 4px, var(--faint) 6px, transparent 6px); }
+.splitter.drag::before { background: linear-gradient(90deg, transparent 4px, var(--accent) 4px, var(--accent) 6px, transparent 6px); }
+body.splitting, body.splitting * { cursor: col-resize !important; user-select: none; }
+body.splitting video { pointer-events: none; }
 .swapbtn { font-size: 15px; line-height: 1; }
 .stage {
   position: relative;
@@ -766,9 +793,11 @@ dt { white-space: nowrap; color: var(--dim); }
 dd { margin: 0; }
 
 @media (max-width: 900px) {
-  main { grid-template-columns: 1fr; grid-template-rows: 40% minmax(0, 1fr); }
-  .right { order: -1; }
-  .listwrap, body.swapped .listwrap { border-right: 0; border-left: 0; border-top: 1px solid var(--line); }
+  main, body.swapped main { grid-template-columns: 1fr; grid-template-rows: 40% minmax(0, 1fr); }
+  .right, body.swapped .right { order: -1; }
+  .splitter { display: none; }
+  .listwrap, body.swapped .listwrap { order: 0; border-right: 0; border-left: 0; border-top: 1px solid var(--line); }
+  body.listhidden .listwrap { visibility: visible; }
   .swapbtn { display: none; }
   nav button kbd, .hint, .mode-record .hint.record-only { display: none; }
   .cols { grid-template-columns: 1fr; }

@@ -300,6 +300,9 @@ finishes. After that, switching to it is instant until you close the video.
   in every block at once, such as a character's name.
 - **Quick navigation:** `Shift+F`.
 - **Swap sides:** the ⇄ button at the top puts the video on the other side.
+- **Resize the video:** drag the bar between the list and the video. Drag it to the edge
+  to hide the list, and double-click it to go back to the usual width. Typing in a block or
+  pressing `/` brings a hidden list back.
 - **Player controls:** the buttons under the video. Hover over one to see its key.
 - **The tour and the loop:** **Take the tour** and **Show the loop**, in the shortcuts
   overlay (`?`), show them again.

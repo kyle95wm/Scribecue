@@ -21,7 +21,10 @@ const shot = async (name, clip = null, pad = 16) => {
     const b = await js(`(() => { const r = document.querySelector(${JSON.stringify(clip)}).getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
     params = { ...params, clip: { x: Math.max(0, b[0] - pad), y: Math.max(0, b[1] - pad), width: b[2] + pad * 2, height: b[3] + pad * 2, scale: 1 } };
   }
+  // A close-up would show a sliver of the list's resize bar at its edge.
+  if (clip) await js(`document.getElementById('splitter').style.visibility = 'hidden'; 1`);
   const r = await send('Page.captureScreenshot', params);
+  if (clip) await js(`document.getElementById('splitter').style.visibility = ''; 1`);
   fs.writeFileSync(`${outDir}/${name}.png`, Buffer.from(r.result.data, 'base64'));
   console.log('saved', name);
 };

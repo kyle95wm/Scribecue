@@ -20,6 +20,7 @@ const SETTINGS = [
   ['returnToStart', 'text', 'Editing'],
   ['remaining', 'text', 'Display'],
   ['swapped', 'text', 'Display'],
+  ['listWidth', 'text', 'Display'],
   ['offset', 'text', 'Transcribing'],
   ['stt', 'json', 'Transcribing'],
   ['proof', 'json', 'Spelling and grammar'],

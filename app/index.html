@@ -112,7 +112,7 @@
   </div>
 
   <main>
-    <aside class="listwrap">
+    <aside class="listwrap" id="listWrap">
       <div id="listTabs" class="listtabs" role="tablist" aria-label="Script or pending review" hidden>
         <button role="tab" id="tabBlocks" aria-controls="list" data-tip="Your script">Blocks</button>
         <button role="tab" id="tabPending" aria-controls="pendingPane" data-tip="Block changes in the returned review, to accept or reject">Pending review <span id="pendingCount" class="pcount"></span></button>
@@ -187,6 +187,10 @@
         </div>
       </div>
     </aside>
+
+    <div class="splitter" id="splitter" role="separator" tabindex="0" aria-orientation="vertical"
+      aria-controls="listWrap" aria-label="List width"
+      data-tip="Drag to resize the list and the video. Drag to the edge to hide the list. Double-click to reset"><span class="grip" aria-hidden="true"></span></div>
 
     <section class="right">
       <div class="stage" id="stage">
