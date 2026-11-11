@@ -2944,6 +2944,7 @@ const IND_TIPS = {
   lead: 'Lead-in: hearing a block again starts this long before it. Click for its settings',
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H changes it; click for its settings',
   tts: 'Text to speech is on: hear blocks read aloud (V). Click for its settings, such as the voice and speed (⌥⇧V)',
+  ttsOff: 'Text to speech is off for this project, so block ends can be dragged by hand. Other projects still have it. Click for its settings, to turn it on again (⌥⇧V)',
   takes: 'Takes: hear the take chosen for each block as the video plays. Click to turn it off or on',
   qc: 'QC review: choose original readings, programme sound or an approximate TTS preview, or compare a returned review',
   stt: 'Speech to text is on: Whisper types what the narrator says in each block you mark. Click for its settings, or to transcribe empty blocks (⌥⇧H)',
@@ -2963,6 +2964,8 @@ function updateInd() {
     ...(S.mode === 'transcribe' && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
     ...(S.mode === 'record' ? [['takes', 'TAKES', !!recorder?.hearing]] : []),
     ...(writing() && ttsHere() ? [['tts', tts.base !== 1 ? `TTS ${Math.round(tts.base * 100)}%` : 'TTS', true]] : []),
+    // Off for this project only: shown dimmed, so it isn't mistaken for off everywhere.
+    ...(writing() && tts.on && S.ttsOff ? [['ttsOff', 'TTS OFF', false]] : []),
   ];
   ind.textContent = '';
   showMix();
@@ -3121,7 +3124,7 @@ ind.addEventListener('click', (e) => {
   if (k === 'speed') setRate(1);
   // The settings' labels open their section of Settings.
   else if (k === 'offset' || k === 'stt') showMarking();
-  else if (k === 'tts') openTts();
+  else if (k === 'tts' || k === 'ttsOff') openTts();
   else if (k === 'qc') openQcPlayback();
   else if (k === 'extended') { if (qc()) openQcPlayback(); else openTts(); }
   else if (k === 'replay' || k === 'lead' || k === 'returnToStart') showGeneral();
