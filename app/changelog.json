@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.106.0",
+    "date": "2026-11-11",
+    "notes": "## Appearance\n\n- Settings has a new Appearance section.\n- Choose a highlight colour for buttons and switches that are on: Amber, Violet, Teal or Magenta.\n- Make the text over the video smaller or larger, change its background, or move it to the top.\n- Make the text in the list and the block editor larger.\n- Reset to defaults undoes them all.\n- The first setup now asks about these too. Your choices go in the settings file."
+  },
+  {
     "version": "0.105.0",
     "date": "2026-11-11",
     "notes": "## Text to speech for one project\n\n- Click `TTS` under the video to turn text to speech off for the open project. It then reads `TTS OFF`, and you can drag block ends by hand.\n- Click it again to turn it back on. Other projects aren't affected.\n- Settings → Turn on text to speech is now for every project in this browser.\n- Opening a script can now leave its timings and turn text to speech off for that project.\n\n## Recording files\n\n- Pick the grace after each block when you save a recording file: none, up to 2 seconds. It sets how far a take may run past its block before it's marked to fix.\n- Files saved before keep half a second."
