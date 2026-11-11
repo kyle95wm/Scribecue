@@ -41,8 +41,8 @@ for the first result, or click one to go to it.
 
 ![Settings searched for voice, listing the Google, Amazon and browser voice settings first](../docs/screenshots/settings-search.png)
 
-Settings that are on show under the video, such as `TTS` or `STT`. Click one to open its
-section.
+Settings that are on show under the video, such as `REPLAY` or `STT`. Click one to open its
+section. `TTS` is different: clicking it turns text to speech off or on for the open project.
 
 **Run setup again**, under **General**, asks the first-time questions again. In Record mode, it sets up recording.
 Nothing changes until you press **Finish**.

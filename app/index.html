@@ -448,6 +448,9 @@ docker compose up -d --build</code></pre>
     <label class="recfield">Programme starts at
       <input id="recFileStart" value="01:00:00:00" spellcheck="false" autocomplete="off" aria-describedby="recFileNote"></label>
     <p class="dim small" id="recFileNote">Timecode at the video's first frame, at <span id="recFileFps"></span> fps. The mixer's software uses it to place the narration.</p>
+    <label class="recfield">Grace after each block
+      <select id="recFileGrace" aria-describedby="recFileGraceNote"><option value="0">None</option><option value="0.25">0.25 s</option><option value="0.5">0.5 s</option><option value="1">1 s</option><option value="2">2 s</option></select></label>
+    <p class="dim small" id="recFileGraceNote">How far a take may run past its block before it's marked to fix. It never runs into the next block.</p>
     <p id="recFileVersion" hidden></p>
     <div class="updbtns"><button id="recFileCancel">Cancel</button><button id="recFileGo" class="hl">Save the file</button></div>
   </dialog>
@@ -528,6 +531,8 @@ docker compose up -d --build</code></pre>
       <span class="dim">Each block ends where its reading finishes, at its speed, never running into the next block.</span></span></button>
     <button class="wzcard wzchoice" data-choice="leave"><span><strong>Leave everything as it is</strong>
       <span class="dim">Lines that don't fit show their duration in red, so you can deal with them one by one.</span></span></button>
+    <button class="wzcard wzchoice" data-choice="off"><span><strong>Leave everything, and turn off text to speech</strong>
+      <span class="dim">Best when the timings are final. You can drag any block's end by hand. Only this project is affected.</span></span></button>
     <p class="warnbox cloudcost" hidden>You're using a Google Cloud or Amazon Polly voice, so keeping the timings and fitting the speeds, or changing the ends, reads every block with it again, apart from lines it has already read at the same voice and speed. That uses up your free characters, and may cost money once they run out.</p>
     <label class="updopt"><input type="checkbox" id="impAlways"> Always do this when I open a script</label>
     <p class="dim small">You can undo either change with <kbd><span class="mod"></span>Z</kbd>, and change this in
@@ -930,6 +935,7 @@ docker compose up -d --build</code></pre>
       next piece of dialogue.</p>
     <p id="ttsUnavailable" class="warnbox" hidden>This browser doesn't support text to speech.</p>
     <label class="updopt"><input type="checkbox" id="ttsOn"> Turn on text to speech</label>
+    <p class="dim small">For every project in this browser. <span id="ttsProjectOn">To turn it off for one project, click TTS under the video.</span><span id="ttsProjectOff" hidden>It's off for the project that's open: click TTS OFF under the video to turn it on there.</span></p>
     <div id="ttsBody" class="ttsbody">
       <div class="ttsgrid">
         <label for="ttsLang">Language</label>
@@ -1006,6 +1012,7 @@ docker compose up -d --build</code></pre>
           <option value="fit">Keep its timings and fit the reading speeds</option>
           <option value="ends">Change its ends to match the readings</option>
           <option value="leave">Leave it as it is</option>
+          <option value="off">Leave it as it is, with text to speech off for it</option>
         </select>
         <label for="ttsOnChange">When the voice or base speed changes</label>
         <select id="ttsOnChange">

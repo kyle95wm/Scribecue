@@ -17,7 +17,7 @@ import { collaborationJob, retainHistory, makesFiles } from './collaboration.js'
 import { initReviewCompare, openReviewCompare, finishReview } from './qcreviewdrawer.js';
 import { initPending, startPending, addPending, endPending, pendingGhost, livePending } from './qcpending.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanNotes, cleanWords, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
-import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, sameVideo, compareScript, newProjectId, pickupsFor, takesKey } from './recording.js';
+import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, readGrace, GRACE, sameVideo, compareScript, newProjectId, pickupsFor, takesKey } from './recording.js';
 import { readNote } from './bwf.js';
 import { readZip } from './zip.js';
 import { initRecord } from './record.js';
@@ -105,7 +105,15 @@ const readingControls = () => ttsOn() || (qc() && qcEditable());
 const autoMaking = new Set(), autoAgain = new Set(), autoTimers = new Map();
 // The speech each block had when last seen in QC, and the blocks whose speech changed there.
 const fitFor = new WeakMap(), edited = new WeakSet();
-const ttsOn = () => tts.on && writing();
+// Text to speech is on in this browser and not turned off for this project.
+const ttsHere = () => tts.on && !S.ttsOff;
+// Turns text to speech off or on for this project, and shows it under the video.
+function setTtsOff(off) {
+  S.ttsOff = off;
+  updateInd();
+  showMix();
+}
+const ttsOn = () => ttsHere() && writing();
 const pcKeys = (s) => (IS_MAC ? s : s
   .replace(/⌘(?=\S)/g, 'Ctrl+').replace(/⌘/g, 'Ctrl')
   .replace(/⌥(?=\S)/g, 'Alt+').replace(/⌥/g, 'Alt')
@@ -161,6 +169,7 @@ const S = {
   // The total length shows the time remaining instead.
   remaining: (() => { try { return localStorage.getItem('scribecue.remaining') === '1'; } catch { return false; } })(),
   extendedAll: false, // every block with a reading pauses the video
+  ttsOff: false, // text to speech turned off for this project only, when its script was opened
   resumeAfterEdit: false, // hold-to-mark paused playback; closing the editor resumes it
   rate: 1,
   fps: 25, // the video's frame rate, for timecode and frame steps (see setFps)
@@ -529,7 +538,7 @@ function followPlayhead(t) {
 const undoStack = [], redoStack = [];
 let lastUndoTag = null, lastUndoTime = 0;
 // Checkpoints are immutable: undo shares them rather than copying whole scripts.
-const snapshot = () => ({ data: JSON.stringify({ cues: S.cues, sel: S.sel, comments: S.comments, projectId: S.projectId, extendedAll: S.extendedAll }), reviewHistory: S.reviewHistory, reviewAudio: S.reviewAudio, authorReadings: S.reviewId ? null : S.review });
+const snapshot = () => ({ data: JSON.stringify({ cues: S.cues, sel: S.sel, comments: S.comments, projectId: S.projectId, extendedAll: S.extendedAll, ttsOff: S.ttsOff }), reviewHistory: S.reviewHistory, reviewAudio: S.reviewAudio, authorReadings: S.reviewId ? null : S.review });
 
 // `tag` coalesces repeated identical actions (e.g. holding a nudge key) into one undo step.
 function pushUndo(snap = snapshot(), tag = null) {
@@ -556,7 +565,7 @@ function restore(snap) {
   S.cues = o.cues;
   S.comments = o.comments || [];
   S.extendedAll = o.extendedAll === true;
-  updateInd();
+  setTtsOff(o.ttsOff === true);
   nextId = S.cues.reduce((m, c) => Math.max(m, c.id), 0) + 1;
   changed();
   select(o.sel != null && idx(o.sel) >= 0 ? o.sel : null, { seek: false });
@@ -1385,6 +1394,7 @@ function save() {
       words: S.words,
       comments: S.comments,
       extendedAll: S.extendedAll,
+      ttsOff: S.ttsOff,
       reviewId: S.reviewId, qcSettings: S.qcSettings, recording: S.recording,
       cues: S.cues.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes, edited }) => ({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes, edited })),
     }));
@@ -1406,6 +1416,7 @@ function loadSaved() {
       S.projectMedia = o.projectMedia || null;
       S.notes = typeof o.notes === 'string' ? o.notes : '';
       S.extendedAll = o.extendedAll === true;
+      S.ttsOff = o.ttsOff === true;
       S.words = cleanWords(o.words);
       S.recording = cleanRecording(o.recording);
       return S.cues.length || S.comments.length;
@@ -2932,7 +2943,7 @@ const IND_TIPS = {
   extended: 'Extended AD: the video pauses while a block is read, then carries on. Click for its settings',
   lead: 'Lead-in: hearing a block again starts this long before it. Click for its settings',
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H changes it; click for its settings',
-  tts: 'Text to speech is on: hear blocks read aloud (V). Click for its settings, such as the voice and speed (⌥⇧V)',
+  tts: 'Text to speech for this project: blocks are read aloud (V), and each ends where its reading does. Click to turn it off for this project, so ends can be dragged by hand. Its settings are under ⌥⇧V',
   takes: 'Takes: hear the take chosen for each block as the video plays. Click to turn it off or on',
   qc: 'QC review: choose original readings, programme sound or an approximate TTS preview, or compare a returned review',
   stt: 'Speech to text is on: Whisper types what the narrator says in each block you mark. Click for its settings, or to transcribe empty blocks (⌥⇧H)',
@@ -2951,7 +2962,9 @@ function updateInd() {
     ...(returning() ? [['returnToStart', 'RETURN', true]] : []),
     ...(S.mode === 'transcribe' && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
     ...(S.mode === 'record' ? [['takes', 'TAKES', !!recorder?.hearing]] : []),
-    ...(writing() && tts.on ? [['tts', tts.base !== 1 ? `TTS ${Math.round(tts.base * 100)}%` : 'TTS', true]] : []),
+    // On in this browser: a toggle for this project, like FOLLOW. Settings turn it on or off
+    // for the browser.
+    ...(writing() && tts.on ? [['tts', S.ttsOff ? 'TTS OFF' : tts.base !== 1 ? `TTS ${Math.round(tts.base * 100)}%` : 'TTS', !S.ttsOff]] : []),
   ];
   ind.textContent = '';
   showMix();
@@ -2962,7 +2975,7 @@ function updateInd() {
     s.dataset.key = key;
     s.dataset.tip = pcKeys(IND_TIPS[key]);
     s.setAttribute('aria-label', speakable(IND_TIPS[key], IS_MAC));
-    if (['follow', 'loop', 'takes'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
+    if (['follow', 'loop', 'takes', 'tts'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
     else if (key !== 'speed') s.classList.add('setlabel');
     s.className = (on ? 'on ' : '') + (key === 'speed' || key === 'follow' ? '' : 'tip-end');
     ind.append(s);
@@ -3110,7 +3123,7 @@ ind.addEventListener('click', (e) => {
   if (k === 'speed') setRate(1);
   // The settings' labels open their section of Settings.
   else if (k === 'offset' || k === 'stt') showMarking();
-  else if (k === 'tts') openTts();
+  else if (k === 'tts') toggleProjectTts();
   else if (k === 'qc') openQcPlayback();
   else if (k === 'extended') { if (qc()) openQcPlayback(); else openTts(); }
   else if (k === 'replay' || k === 'lead' || k === 'returnToStart') showGeneral();
@@ -3158,7 +3171,7 @@ function speakBlock(fit) {
   if (qc()) { const c = selCue() || cueAt(now()); if (!c) return; if (fit) return; if (isExt(c) && S.qcSource !== 'video') return playCue(); leadBefore(c, seek); S.playUntil = S.qcSource === 'preview' || (S.qcSource === 'package' && liveRead(c)) ? null : c.end; play(); if (leadTo != null) leadRead = () => qcRead(c, true); else qcRead(c, true); return; }
   const guide = S.mode === 'record'; // a guide reading of the line, before taking it
   if (!writing() && !guide) return modeOnly('Text to speech', 'write');
-  if (!tts.on && !guide) { openTts(); return toast('Turn on text to speech to hear blocks read aloud'); }
+  if (!ttsHere() && !guide) { openTts(); return toast('Turn on text to speech to hear blocks read aloud'); }
   const c = leadingTo() || cueAt(now()) || selCue();
   if (!c) return toast('No text block here — move the playhead into one or select one');
   if (!spoken(c.text)) return toast(onlyNotes(c.text) ? 'This block only has notes in [brackets], which aren’t read' : 'This block has no text to read yet');
@@ -3540,6 +3553,7 @@ ttsFitAll.addEventListener('click', () => asJob(() => fitAllSpeeds()));
 // and Stop under the header, so the script can be worked on meanwhile.
 const importDlg = $('importDlg');
 function runImportChoice(choice) {
+  if (choice === 'off') return projectTtsOff();
   if (choice !== 'fit' && choice !== 'ends') return;
   asJob(() => (choice === 'fit' ? fitAllSpeeds(false) : updateAllTimings(false)));
 }
@@ -3552,6 +3566,24 @@ function afterImport(name) {
   showCloudCost();
   importDlg.showModal();
   importDlg.querySelector('.wzchoice').focus();
+}
+// Leave the script's timings, and turn text to speech off for this project only, so block
+// ends can be dragged by hand. Other projects keep it. TTS under the video turns it on again.
+function projectTtsOff() {
+  stopSpeech();
+  setTtsOff(true);
+  changed();
+  toast('Text to speech is off for this project, so block ends can be dragged by hand. Click TTS OFF under the video to turn it on again');
+}
+// TTS under the video: text to speech off or on for this project. Blocks keep their
+// timings either way, until they're next edited.
+function toggleProjectTts() {
+  if (S.ttsOff) {
+    setTtsOff(false);
+    changed();
+    return toast('Text to speech on for this project');
+  }
+  projectTtsOff();
 }
 for (const b of importDlg.querySelectorAll('.wzchoice')) {
   b.addEventListener('click', () => {
@@ -4290,7 +4322,7 @@ function applyDuck(dt) {
     ? Math.max(0, ...qcPlayer.activeReadings().map(blockDip), ...(c ? [blockDip(c)] : [])) : blockDip(c);
   if (target !== dipTo) { dipTo = target; dipFrom = dip; }
   dip = stepDip(dip, target, dt, tts.dipFade, dipFrom);
-  const v = dipLevel(dip) * ((writing() && tts.on) || (qc() && S.qcSource !== 'video') ? mixLevels(tts.mix).video : 1) * recVol;
+  const v = dipLevel(dip) * ((writing() && ttsHere()) || (qc() && S.qcSource !== 'video') ? mixLevels(tts.mix).video : 1) * recVol;
   if (v === volumeWas) return;
   volumeWas = v;
   video.volume = v;
@@ -4305,7 +4337,7 @@ function mixText(m) {
 }
 function showMix() {
   const mixEl = $('mix'), mixBox = $('mixBox');
-  mixBox.hidden = !((writing() && tts.on) || (qc() && S.qcSource !== 'video'));
+  mixBox.hidden = !((writing() && ttsHere()) || (qc() && S.qcSource !== 'video'));
   mixEl.value = String(Math.round(tts.mix * 100));
   mixEl.setAttribute('aria-valuetext', mixText(tts.mix));
   mixBox.dataset.tip = `Mix: ${mixText(tts.mix)}. Double-click for even`;
@@ -4391,7 +4423,7 @@ function setMode(m, quiet = false) {
   if (fresh) setTimeout(() => whenClear(() => { if (S.mode === m) openModeSetup(m); }), 400);
   if (!quiet) {
     toast(m === 'qc' ? (qcEditable() ? (S.reviewId ? `QC mode: the package allows block edits. ${packageRereads() ? 'Changed Google and Amazon Polly blocks get a new reading' : 'Timings change only when you edit them'}` : 'QC mode: your authoring project is editable. Timings change only when you edit them') : 'QC mode: comments only. Click a block’s Comment button to add a note') : m === 'write'
-      ? `Write mode: text to speech${tts.on ? '' : ' (turn it on in Settings, or with ⌥⇧V)'}, reading times and block speeds`
+      ? `Write mode: text to speech${ttsHere() ? '' : S.ttsOff ? ' (off for this project: click TTS OFF under the video)' : ' (turn it on in Settings, or with ⌥⇧V)'}, reading times and block speeds`
       : 'Transcribe mode: hold H while the narrator speaks to mark each line');
   }
 }
@@ -4793,7 +4825,7 @@ function projectData() {
     recording: S.recording,
     media: m,
     settings: { mode: S.mode, offset: S.offset, ...reviewSettings(),
-      ttsDuck: tts.duck, ttsDipDb: tts.dipDb, ttsDipFade: tts.dipFade, ttsMix: tts.mix, extendedAll: S.extendedAll },
+      ttsDuck: tts.duck, ttsDipDb: tts.dipDb, ttsDipFade: tts.dipFade, ttsMix: tts.mix, extendedAll: S.extendedAll, ttsOff: S.ttsOff },
     view: { playhead: now(), ...(selIdx() >= 0 ? { selected: selIdx() } : {}) },
   });
 }
@@ -4988,6 +5020,7 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
   S.loadingProject = true;
   projectSound(p.settings);
   S.extendedAll = p.settings.extendedAll === true;
+  setTtsOff(p.settings.ttsOff === true);
   S.projectId = p.projectId || newIdentity();
   S.reviewHistory = p.reviewHistory || null;
   S.cues = p.blocks.map(revive);
@@ -5053,6 +5086,10 @@ function askRecordingFile() {
   let last = '01:00:00:00';
   try { last = localStorage.getItem('scribecue.recStart') || last; } catch { /* ignore */ }
   $('recFileStart').value = last;
+  // The grace this script's last recording file had, or the last one picked.
+  let grace = S.recording?.grace;
+  if (grace == null) try { grace = readGrace(Number(localStorage.getItem('scribecue.recGrace') ?? GRACE)); } catch { grace = GRACE; }
+  $('recFileGrace').value = String(grace);
   $('recFileFps').textContent = String(S.fps);
   // Which version this is, and the lines it asks the narrator for again.
   const lines = narratorBlocks().filter((c) => c.text.trim()), picks = pickupsFor(lines, S.recording?.sent);
@@ -5074,10 +5111,12 @@ function saveRecordingFile() {
   const start = readTime($('recFileStart').value.trim());
   if (start == null || !(start >= 0)) return toast('That isn’t a timecode. Type it like 01:00:00:00');
   try { localStorage.setItem('scribecue.recStart', $('recFileStart').value.trim()); } catch { /* ignore */ }
+  const grace = readGrace(Number($('recFileGrace').value));
+  try { localStorage.setItem('scribecue.recGrace', String(grace)); } catch { /* ignore */ }
   const m = S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size, duration: S.hasVideo ? duration() : null } : S.projectMedia;
   const rid = S.recording?.id || newProjectId(), version = (S.recording?.version || 0) + 1;
-  const file = toRecordingFile({ app: VERSION, blocks: narratorBlocks(), media: m, start, fps: S.fps, project: rid, version, sent: S.recording?.sent });
-  S.recording = { id: rid, version, sent: file.blocks.map(({ start: s, end, text }) => ({ start: s, end, text })) };
+  const file = toRecordingFile({ app: VERSION, blocks: narratorBlocks(), media: m, start, fps: S.fps, grace, project: rid, version, sent: S.recording?.sent });
+  S.recording = { id: rid, version, grace, sent: file.blocks.map(({ start: s, end, text }) => ({ start: s, end, text })) };
   changed();
   const name = `${baseName()}${RECORDING_EXT}`;
   const a = document.createElement('a');
@@ -5420,6 +5459,7 @@ function newProject(ask = true) {
   S.notes = '';
   S.words = [];
   S.recording = null;
+  setTtsOff(false);
   if (leavingPackage) { undoStack.length = 0; redoStack.length = 0; }
   if (leavingQc) setMode('write', true);
   aiNotesChanged();
@@ -5481,6 +5521,7 @@ async function loadSubsFile(file) {
   S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.voice ? { voice: c.voice } : {}, blockDipOf(c), isVol(c.vol) ? { vol: c.vol } : {}, c.say ? { say: c.say } : {}));
   S.subName = file.name;
   S.recording = null; // a different script: recording files from it start again
+  setTtsOff(false);
   S.handle = null; // saving makes a project next to it, rather than overwriting the script
   handleStore.set(null);
   showAutosave();
@@ -7028,6 +7069,8 @@ initTts({
   canChangeReading: () => !qc() || S.loadingProject,
   voiceLocked,
   blockVoices: () => S.cues.filter((c) => c.voice).map((c) => c.voice),
+  // Text to speech turned off for this project only, with TTS under the video.
+  projectOff: () => S.ttsOff,
 });
 initTour();
 $('helpTour').addEventListener('click', () => { toggleHelp(false); startTour(S.mode); });

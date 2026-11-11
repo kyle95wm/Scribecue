@@ -76,7 +76,7 @@ export const STEPS = [
   {
     target: '#ind',
     title: 'What’s on',
-    text: () => `Under the video: the playback speed, FOLLOW and LOOP, and the reaction offset for ${keyFor('hold')}. Settings show here while they’re on, such as REPLAY, which takes the playhead back to a block’s start when you finish editing it, so you hear it again. Click one to change it.`,
+    text: (mode) => `Under the video: the playback speed, FOLLOW and LOOP, and the reaction offset for ${keyFor('hold')}. Settings show here while they’re on, such as REPLAY, which takes the playhead back to a block’s start when you finish editing it, so you hear it again. Click one to change it.${mode === 'write' ? ' TTS turns text to speech off or on for this project.' : ''}`,
   },
   {
     target: '#shareBtn',

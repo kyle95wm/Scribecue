@@ -5,7 +5,11 @@ Hear your lines read aloud, to check each one fits before the next piece of dial
 ## Turning it on
 
 Text to speech is part of Write mode. Press `Alt+Shift+V`, or open **Settings → Text to
-speech** and tick **Turn on text to speech**. `TTS` shows under the video while it's on.
+speech** and tick **Turn on text to speech**. That turns it on for every project in this browser.
+
+`TTS` shows under the video while it's on. Click it to turn text to speech off for the open
+project only. It then reads `TTS OFF`, and you can drag block ends by hand. Click it again to
+turn it back on.
 
 - **Pick a voice,** and click **Test** to hear it read the **Test text**. Nothing changes
   until you click **Apply**, so you can try as many as you like.
@@ -193,8 +197,14 @@ These are in the text to speech settings. Each asks first, runs in the backgroun
 **When you change the voice or base speed,** every reading's length changes. Scribecue
 asks whether to update the blocks' ends to match, or leave them.
 
-**When you open a script** (SRT, WebVTT or `.adc`), Scribecue asks whether to keep its
-timings and fit the speeds, change the ends to match the readings, or leave it as it is.
+**When you open a script** (SRT, WebVTT or `.adc`), Scribecue asks what to do with its timings:
+
+| Choice | What happens |
+|---|---|
+| Keep the timings, and fit the reading speeds | Each reading speeds up or slows down to fill its block. |
+| Change the ends to match the readings | Each block ends where its reading does. |
+| Leave everything as it is | Nothing changes yet. A block's end follows its reading once you edit its text or speed. |
+| Leave everything, and turn off text to speech | Nothing changes, and text to speech is off for this project. Click `TTS OFF` under the video to turn it on again. |
 
 **When a Frazier `.adc` script names voices,** Scribecue first asks whether to use them.
 Choose other voices to pick one in place of each.
@@ -202,7 +212,7 @@ Choose other voices to pick one in place of each.
 Tick **Always do this** on the timings questions to stop them asking. You can change your answer
 later in the text to speech settings.
 
-![The question when a script is opened: fit the reading speeds, change the ends, or leave it](../docs/screenshots/import-timings.png)
+![The question when a script is opened: fit the reading speeds, change the ends, leave it, or leave it and turn off text to speech](../docs/screenshots/import-timings.png)
 
 ## Good to know
 

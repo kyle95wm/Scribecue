@@ -44,6 +44,14 @@ test('the dip and the Video / TTS slider come back only when they make sense', (
   assert.deepEqual(s({}), {}, 'older projects have none, and leave the settings alone');
 });
 
+test('a project can keep text to speech off for itself', () => {
+  const saved = JSON.parse(JSON.stringify(toProject(state)));
+  const s = (settings) => fromProject({ ...saved, settings }).settings;
+  assert.deepEqual(s({ ttsOff: true }), { ttsOff: true });
+  assert.deepEqual(s({ ttsOff: false }), {}, 'on is the usual, so it isn’t kept');
+  assert.deepEqual(s({ ttsOff: 'yes' }), {});
+});
+
 test('files that are not projects, or are from a newer version, are refused with a reason', () => {
   assert.throws(() => fromProject({ blocks: [] }), /isn’t a Scribecue project/);
   assert.throws(() => fromProject(null), /isn’t a Scribecue project/);
@@ -93,6 +101,8 @@ test('a project keeps its pickup marks and its recording files’ id, version an
   assert.deepEqual(p.blocks.map((b) => b.pickup || null), [{ note: 'Siobhan: shi-VAWN' }, null]);
   assert.deepEqual(p.recording, { id: 'abcdefgh12345678', version: 2, sent: [{ start: 1, end: 2, text: 'A.' }] });
   assert.equal(fromProject({ scribecue: 1, blocks: [], recording: { id: 'nope' } }).recording, null);
+  assert.equal(fromProject(JSON.parse(JSON.stringify(toProject({ blocks: [], recording: { ...recording, grace: 1 } })))).recording.grace, 1, 'the next recording file starts from the same grace');
+  assert.equal(fromProject(JSON.parse(JSON.stringify(toProject({ blocks: [], recording: { ...recording, grace: 7 } })))).recording.grace, undefined);
   assert.equal(fromProject({ scribecue: 1, blocks: [] }).recording, null, 'projects from before recording files');
 });
 

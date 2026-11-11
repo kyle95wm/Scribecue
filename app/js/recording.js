@@ -10,6 +10,9 @@ export const RECORDING_EXT = '.scribecuerec';
 export const isRecordingFile = (name) => /\.scribecue-?rec$/i.test(name);
 export const RECORDING_FORMAT = 1;
 export const GRACE = 0.5; // seconds a take may run past its block, never into the next one
+// The grace a writer can pick for a recording file. Files without one get GRACE.
+export const GRACES = [0, 0.25, 0.5, 1, 2];
+export const readGrace = (v) => (GRACES.includes(v) ? v : GRACE);
 export const RATE = 48000;
 
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -55,7 +58,7 @@ export function pickupsFor(blocks, sent) {
 // The recording file: a locked script, the video it belongs to, and where the programme
 // starts. start is in seconds. project and version: see newProjectId; sent: the lines of
 // the version before, for pickupsFor.
-export function toRecordingFile({ blocks, media = null, start = 0, fps = 25, app = '', project = null, version = 0, sent = null }) {
+export function toRecordingFile({ blocks, media = null, start = 0, fps = 25, grace = GRACE, app = '', project = null, version = 0, sent = null }) {
   const kept = blocks.filter((b) => b.text.trim()), picks = pickupsFor(kept, sent);
   const lines = kept.map(({ start: s, end, text, voice, speed, notes, extended }, i) => ({
     start: s, end, text,
@@ -73,6 +76,7 @@ export function toRecordingFile({ blocks, media = null, start = 0, fps = 25, app
     media: media && media.name ? { name: media.name, size: media.size ?? null, duration: num(media.duration) ? media.duration : null } : null,
     start: Math.max(0, start),
     fps,
+    grace: readGrace(grace),
     print: scriptPrint(lines),
     blocks: lines,
   };
@@ -105,6 +109,7 @@ export function fromRecordingFile(json) {
     media: m && typeof m.name === 'string' ? { name: m.name, size: num(m.size) ? m.size : null, duration: num(m.duration) ? m.duration : null } : null,
     start: num(json.start) ? Math.max(0, json.start) : 0,
     fps: num(json.fps) && json.fps > 0 ? json.fps : 25,
+    grace: readGrace(json.grace),
     edited: typeof json.print === 'string' && json.print !== scriptPrint(blocks),
   };
 }
