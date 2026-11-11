@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.105.0",
+    "date": "2026-11-11",
+    "notes": "## Text to speech for one project\n\n- Click `TTS` under the video to turn text to speech off for the open project. It then reads `TTS OFF`, and you can drag block ends by hand.\n- Click it again to turn it back on. Other projects aren't affected.\n- Settings → Turn on text to speech is now for every project in this browser.\n- Opening a script can now leave its timings and turn text to speech off for that project.\n\n## Recording files\n\n- Pick the grace after each block when you save a recording file: none, up to 2 seconds. It sets how far a take may run past its block before it's marked to fix.\n- Files saved before keep half a second."
+  },
+  {
     "version": "0.104.1",
     "date": "2026-11-11",
     "notes": "## Exporting settings\n\n- Export settings… now opens a window that asks whether to include your API keys.\n- They're left out unless you turn on Include API keys there, each time you export."
