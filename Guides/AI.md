@@ -236,7 +236,7 @@ And always check a draft against the picture: AI is confident even when it's wro
 - With Ollama, everything stays on your computer.
 - Keys stay in your browser, and only go to their own provider. Your TMDB key, if you look
   up a cast, only goes to TMDB, with the IMDb link or title you looked up.
-- A settings backup has your keys only if you turn on **Include API keys**.
+- A settings backup has your keys only if you turn on **Include API keys** when exporting.
 
 ## Costs
 

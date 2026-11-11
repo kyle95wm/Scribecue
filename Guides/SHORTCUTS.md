@@ -20,7 +20,7 @@ Press `?` and click **Change shortcuts**, or open **Settings → Keyboard shortc
 - **Export** and **Import** share a layout with your team.
 
 Keys with `Ctrl/Cmd`, keys used while typing, and `?` `/` `[` `]` `+` `−` `Esc` can't be
-changed. Your shortcuts are kept in this browser. **Export settings**, under **Storage**,
+changed. Your shortcuts are kept in this browser. **Export settings…**, under **Storage**,
 takes them to another browser with your other settings.
 
 <details open>

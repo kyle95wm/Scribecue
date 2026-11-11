@@ -158,8 +158,7 @@ let pending = null; // { file, name } waiting for the person to say yes
 
 const status = (msg) => { $('setsStatus').textContent = msg; };
 
-function download() {
-  const secrets = $('setsSecrets').getAttribute('aria-pressed') === 'true';
+function download(secrets) {
   const file = exportSettings(localStorage, { secrets, version: hooks.version });
   const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: SETTINGS_FILE });
@@ -206,13 +205,26 @@ function go() {
 
 export function initSettingsFile(h) {
   hooks = { ...hooks, ...h };
-  const secrets = $('setsSecrets');
-  secrets.addEventListener('click', () => {
-    const on = secrets.getAttribute('aria-pressed') !== 'true';
+  // Exporting asks first whether to include API keys. It starts with them left out each
+  // time, so a file with keys is never made by accident.
+  const secrets = $('setsSecrets'), exportDlg = $('setsExportDlg');
+  const showSecrets = (on) => {
     secrets.setAttribute('aria-pressed', String(on));
     $('setsSecretsWarn').hidden = !on;
+  };
+  secrets.addEventListener('click', () => showSecrets(secrets.getAttribute('aria-pressed') !== 'true'));
+  $('setsExport').addEventListener('click', () => {
+    ask(false);
+    showSecrets(false);
+    exportDlg.showModal();
+    $('setsSave').focus();
   });
-  $('setsExport').addEventListener('click', download);
+  $('setsExportCancel').addEventListener('click', () => exportDlg.close());
+  $('setsSave').addEventListener('click', () => {
+    const on = secrets.getAttribute('aria-pressed') === 'true';
+    exportDlg.close();
+    download(on);
+  });
   $('setsImport').addEventListener('click', () => $('setsFile').click());
   $('setsFile').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) load(f); });
   $('setsGo').addEventListener('click', go);
