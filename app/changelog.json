@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.104.0",
+    "date": "2026-11-10",
+    "notes": "## Resize the video\n\n- Drag the bar between the block list and the video to make either one bigger.\n- Drag it to the edge to hide the list and give the video the whole space. Opening a block or pressing `/` brings the list back.\n- Double-click the bar to go back to the usual width. Your width is remembered."
+  },
+  {
     "version": "0.103.1",
     "date": "2026-11-10",
     "notes": "## Record mode\n\n- Each block's slot now runs half a second past the block's end. It never runs into the next block.\n- A take that ends just after its block is no longer marked red, or flagged when you export."
