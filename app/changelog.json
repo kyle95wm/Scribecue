@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.104.1",
+    "date": "2026-11-11",
+    "notes": "## Exporting settings\n\n- Export settings… now opens a window that asks whether to include your API keys.\n- They're left out unless you turn on Include API keys there, each time you export."
+  },
+  {
     "version": "0.104.0",
     "date": "2026-11-10",
     "notes": "## Resize the video\n\n- Drag the bar between the block list and the video to make either one bigger.\n- Drag it to the edge to hide the list and give the video the whole space. Opening a block or pressing `/` brings the list back.\n- Double-click the bar to go back to the usual width. Your width is remembered."
