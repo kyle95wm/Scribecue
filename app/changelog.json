@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.106.1",
+    "date": "2026-11-11",
+    "notes": "## Fixes\n\n- In Write mode with text to speech on, holding `H` on a block with text now says straight away that its end follows the reading. Before, it played your whole read and then left the block as it was.\n- To time your own read with `H`, click `TTS` under the video to turn text to speech off for the project."
+  },
+  {
     "version": "0.106.0",
     "date": "2026-11-11",
     "notes": "## Appearance\n\n- Settings has a new Appearance section.\n- Choose a highlight colour for buttons and switches that are on: Amber, Violet, Teal or Magenta.\n- Make the text over the video smaller or larger, change its background, or move it to the top.\n- Make the text in the list and the block editor larger.\n- Reset to defaults undoes them all.\n- The first setup now asks about these too. Your choices go in the settings file."
