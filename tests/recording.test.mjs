@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, GRACES, readGrace, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -16,6 +16,28 @@ test('a recording file keeps the script, video and start, and drops empty blocks
   assert.deepEqual(r.blocks[0], { start: 2, end: 5, text: 'One.', speed: 1.1 });
   assert.equal(r.start, 3600); assert.equal(r.fps, 24);
   assert.deepEqual(r.media, { name: 'a.mp4', size: 9, duration: 60 });
+});
+
+test('a recording file keeps the grace its writer picked, and older files get half a second', () => {
+  const r = fromRecordingFile(JSON.parse(JSON.stringify(toRecordingFile({ blocks, grace: 2 }))));
+  assert.equal(r.grace, 2);
+  assert.deepEqual(slots(r.blocks, r.grace).map((x) => x.end), [5.4, 10, 24]);
+  assert.equal(fromRecordingFile(JSON.parse(JSON.stringify(toRecordingFile({ blocks, grace: 0 })))).grace, 0);
+  const old = JSON.parse(JSON.stringify(toRecordingFile({ blocks })));
+  delete old.grace;
+  assert.equal(fromRecordingFile(old).grace, GRACE);
+  assert.equal(fromRecordingFile({ ...old, grace: 99 }).grace, GRACE, 'a grace not offered falls back');
+  assert.equal(fromRecordingFile({ ...old, grace: '1' }).grace, GRACE);
+  assert.ok(GRACES.includes(GRACE));
+  assert.equal(readGrace(0.25), 0.25);
+  assert.equal(asRecordingFile(r).grace, 2, 'a session rebuilds the file with its grace');
+});
+
+test('the export check uses the recording file’s grace', () => {
+  const take = { block: 2, start: 20, duration: 3, rate: 48000 }; // runs a second past the last block
+  const runs = (g) => checkExport(blocks, [null, null, take], g).warn.some((w) => w.block === 3 && /runs past/.test(w.why));
+  assert.ok(!runs(2));
+  assert.ok(runs(0));
 });
 
 test('opening something that is not a recording file says so', () => {

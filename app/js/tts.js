@@ -511,6 +511,7 @@ tts.base = toBase(tts.base);
 if (isSpeed(tts.speed) && tts.speed !== 1) tts.base = baseFromSpeed(tts.speed, tts.base);
 delete tts.speed;
 if (!['ask', 'ends', 'leave'].includes(tts.onChange)) tts.onChange = 'ask';
+if (!['ask', 'fit', 'ends', 'leave', 'off'].includes(tts.onImport)) tts.onImport = 'ask';
 if (!isDip(tts.dipDb) || tts.dipDb < 1) tts.dipDb = DEFAULTS.dipDb;
 if (!FADES.includes(tts.dipFade)) tts.dipFade = DEFAULTS.dipFade;
 if (!(tts.loudness in LOUDNESS)) tts.loudness = '';
@@ -537,6 +538,8 @@ export function setMix(mix, keep = true) {
 }
 
 let hooks = { toast: () => {}, changed: () => {}, duck: () => {}, rate: () => 1, readingChanged: () => {}, blockVoices: () => [] };
+// On here: on in this browser, and not turned off for the project that is open.
+const isOn = () => tts.on && !hooks.projectOff?.();
 let voices = [];
 const measured = new Map(); // voice|speed|text -> seconds of video time
 const measuredBy = new Map(); // voice|text -> Map of speed -> seconds: every speed read, without searching them all
@@ -632,7 +635,7 @@ export function missingVoiceNote() {
 function checkVoice() {
   const uri = missingVoice();
   if (!uri) { missingSaid = ''; return; }
-  if (!tts.on || missingSaid === uri) return;
+  if (!isOn() || missingSaid === uri) return;
   missingSaid = uri;
   // Short enough for one message: Settings has the whole story.
   hooks.toast(`${voiceLabel(uri)} isn’t available here${currentVoice() ? `, so ${currentVoice().name} is reading` : ''}. See Settings, under Text to speech`);
@@ -1502,8 +1505,9 @@ function naturalCount() {
 // googleError: what went wrong the last time Google was asked for its voices.
 function render(googleError = '') {
   $('ttsUnavailable').hidden = anyVoices();
-  $('ttsOn').checked = tts.on;
+  $('ttsOn').checked = isOn();
   $('ttsOn').disabled = !anyVoices();
+  $('ttsProjectOff').hidden = !(tts.on && hooks.projectOff?.());
   const piper = usingAudioVoice();
   $('ttsPiperNote').textContent = currentVoice()?.google
     ? 'Google voice: lengths are exact as soon as a block has text, and you can export a description track. Each reading sends the block’s text to Google.'
@@ -1548,7 +1552,7 @@ function render(googleError = '') {
   $('ttsBlockVoicesText').textContent = `${own.length === 1 ? '1 block has' : `${own.length} blocks have`} a voice of ${own.length === 1 ? 'its' : 'their'} own: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''}.`;
   $('ttsMakeNote').textContent = piper ? '' : 'Needs a Piper, Kokoro, Google or Amazon Polly voice: the browser\'s own voices can\'t be kept.';
   $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper, Kokoro, Google or Amazon Polly voice: the browser\'s own voices can\'t be recorded.';
-  $('ttsBody').classList.toggle('off', !tts.on);
+  $('ttsBody').classList.toggle('off', !isOn());
   $('ttsBase').value = String(Math.round(tts.base * 100));
   $('ttsBaseOut').textContent = `${Math.round(tts.base * 100)}%`;
   $('ttsLive').checked = tts.live;
@@ -1635,7 +1639,13 @@ export function initTts(h) {
   hooks = { ...hooks, ...h };
   const d = $('ttsDlg');
   const set = (k, v) => { tts[k] = v; save(); render(); hooks.changed(); warmUp(); };
-  $('ttsOn').addEventListener('change', (e) => { if (!e.target.checked) stop(); set('on', e.target.checked); });
+  // Turning it on also turns it on for a project that had it off. Turning it off is for
+  // every project, as before.
+  $('ttsOn').addEventListener('change', (e) => {
+    if (!e.target.checked) stop();
+    else if (hooks.projectOff?.()) hooks.projectOn();
+    set('on', e.target.checked);
+  });
   $('ttsVoice').addEventListener('change', (e) => pickVoice(e.target.value));
   $('ttsLang').addEventListener('change', (e) => {
     tts.language = e.target.value;

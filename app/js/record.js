@@ -48,7 +48,7 @@ export function initRecord(h) {
 
   el.lead.value = leadSecs;
   el.sync.value = syncMs ?? '';
-  const sl = () => slots(h.blocks());
+  const sl = () => slots(h.blocks(), rec?.grace);
   // a: the block's alt rather than the original.
   const blockTakes = (i, a = false) => takes.filter((t) => t.block === i && isAlt(t) === a).sort((x, z) => x.made - z.made);
   const chosenFor = (i, a = false) => takes.find((t) => t.block === i && t.chosen && isAlt(t) === a) || null;
@@ -1274,8 +1274,8 @@ export function initRecord(h) {
     const pack = altTakes.some(Boolean);
     // With extended blocks, the WAV follows the pauses, whichever takes it holds.
     const line = narrationTimeline(blocks, all.map((t) => t && placed(t)));
-    const check = only ? checkPickups(blocks, all, version()) : checkExport(blocks, all.map((t) => t && placed(t)));
-    if (pack) { const a = checkAlts(blocks, altTakes); check.stop.push(...a.stop); check.warn.push(...a.warn); }
+    const check = only ? checkPickups(blocks, all, version(), rec.grace) : checkExport(blocks, all.map((t) => t && placed(t)), rec.grace);
+    if (pack) { const a = checkAlts(blocks, altTakes, rec.grace); check.stop.push(...a.stop); check.warn.push(...a.warn); }
     const chosen = only ? check.takes : all;
     if (only && !chosen.some(Boolean)) return h.toast('None of the pickups is recorded yet');
     const alts = altTakes.map((t) => t?.alt ?? null);

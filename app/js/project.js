@@ -1,5 +1,6 @@
 import { cleanComments } from './comments.js';
 import { cleanEdited } from './edits.js';
+import { GRACES } from './recording.js';
 
 // Scribecue project files (.scribecue): a whole piece of work in one JSON file, so you
 // can keep several projects and pick up where you left off. SRT and VTT exports are for
@@ -155,6 +156,7 @@ export function fromProject(json) {
       ...(num(s.ttsDipFade) && s.ttsDipFade >= 0 && s.ttsDipFade <= 2 ? { ttsDipFade: s.ttsDipFade } : {}),
       ...(num(s.ttsMix) && s.ttsMix >= -1 && s.ttsMix <= 1 ? { ttsMix: s.ttsMix } : {}),
       ...(s.extendedAll === true ? { extendedAll: true } : {}),
+      ...(s.ttsOff === true ? { ttsOff: true } : {}),
     },
     view: {
       ...(num(v.playhead) ? { playhead: Math.max(0, v.playhead) } : {}),
@@ -173,12 +175,13 @@ export const cleanNotes = (n) => (typeof n === 'string' && n.trim() ? n.slice(0,
 // A block marked for the narrator to record again: { note }, the note maybe empty.
 export const cleanPickup = (p) => (p && typeof p === 'object' ? { note: typeof p.note === 'string' ? p.note.slice(0, 500) : '' } : null);
 
-// The project's recording files: { id, version, sent }, where sent is the lines of the last
-// one, so the next can ask for the lines changed since. See toRecordingFile.
+// The project's recording files: { id, version, sent, grace? }, where sent is the lines of the
+// last one, so the next can ask for the lines changed since, and grace is the one it was
+// given, for the next to start from. See toRecordingFile.
 export function cleanRecording(r) {
   if (!r || typeof r !== 'object' || typeof r.id !== 'string' || !/^[a-z0-9]{16}$/.test(r.id)) return null;
   const sent = Array.isArray(r.sent) ? r.sent.filter((b) => b && num(b.start) && num(b.end) && typeof b.text === 'string').map(({ start, end, text }) => ({ start, end, text })) : [];
-  return { id: r.id, version: Number.isInteger(r.version) && r.version > 0 ? r.version : 0, sent };
+  return { id: r.id, version: Number.isInteger(r.version) && r.version > 0 ? r.version : 0, sent, ...(GRACES.includes(r.grace) ? { grace: r.grace } : {}) };
 }
 
 // The video saved with a project matches the one opened when name and size agree.

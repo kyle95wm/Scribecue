@@ -193,8 +193,14 @@ These are in the text to speech settings. Each asks first, runs in the backgroun
 **When you change the voice or base speed,** every reading's length changes. Scribecue
 asks whether to update the blocks' ends to match, or leave them.
 
-**When you open a script** (SRT, WebVTT or `.adc`), Scribecue asks whether to keep its
-timings and fit the speeds, change the ends to match the readings, or leave it as it is.
+**When you open a script** (SRT, WebVTT or `.adc`), Scribecue asks what to do with its timings:
+
+| Choice | What happens |
+|---|---|
+| Keep the timings, and fit the reading speeds | Each reading speeds up or slows down to fill its block. |
+| Change the ends to match the readings | Each block ends where its reading does. |
+| Leave everything as it is | Nothing changes yet. A block's end follows its reading once you edit its text or speed. |
+| Leave everything, and turn off text to speech | Nothing changes, and you can drag ends by hand. Text to speech is off for this project only. Turn it on again in Settings. |
 
 **When a Frazier `.adc` script names voices,** Scribecue first asks whether to use them.
 Choose other voices to pick one in place of each.
@@ -202,7 +208,7 @@ Choose other voices to pick one in place of each.
 Tick **Always do this** on the timings questions to stop them asking. You can change your answer
 later in the text to speech settings.
 
-![The question when a script is opened: fit the reading speeds, change the ends, or leave it](../docs/screenshots/import-timings.png)
+![The question when a script is opened: fit the reading speeds, change the ends, leave it, or leave it and turn off text to speech](../docs/screenshots/import-timings.png)
 
 ## Good to know
 

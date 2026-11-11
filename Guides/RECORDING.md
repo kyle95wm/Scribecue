@@ -43,7 +43,8 @@ raw, for the mixer to work with.
 1. Open the script and its video in Write mode.
 2. Choose **Export → Recording file**.
 3. Type the timecode of the video's first frame, such as `01:00:00:00`.
-4. Click **Save the file**.
+4. Pick the **Grace after each block**: how far a take may run past its block. See [slots](#recording).
+5. Click **Save the file**.
 
 Open the video first, so Scribecue can check the narrator has the same copy.
 
@@ -99,7 +100,8 @@ The writer's notes for a block, such as how to say a name, show above its text.
 | Space | Play or pause, or stop recording |
 | Alt+Shift+Left / Right | Previous or next block |
 
-A block's **slot** runs from its start to half a second after its end. It never runs into the
+A block's **slot** runs from its start to the end of its grace. The writer picks the grace in the
+recording file, from none to 2 seconds. It's half a second unless they change it. A slot never runs into the
 next block. A take that runs past it isn't cut off. It's marked in red until you [trim or move it](#editing-a-take).
 
 ### Extended blocks
