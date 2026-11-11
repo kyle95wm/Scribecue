@@ -21,6 +21,7 @@ const SETTINGS = [
   ['remaining', 'text', 'Display'],
   ['swapped', 'text', 'Display'],
   ['listWidth', 'text', 'Display'],
+  ['appearance', 'json', 'Appearance'],
   ['offset', 'text', 'Transcribing'],
   ['stt', 'json', 'Transcribing'],
   ['proof', 'json', 'Spelling and grammar'],

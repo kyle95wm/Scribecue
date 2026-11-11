@@ -10,6 +10,7 @@ import { initComments, toggleComments, refreshComments, openBlockComments, showN
 import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
+import { DEFAULTS, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initCheck, openCheck, checkFirst } from './proofdialog.js';
 import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
@@ -139,6 +140,9 @@ try {
 const PEAK_RATE = 200; // waveform bins per second
 const OFFSETS = [0, 0.1, 0.15, 0.2, 0.25, 0.3]; // hold-to-mark reaction offsets, ⇧H cycles
 
+// The look chosen in Settings, under Appearance, before the colours are read below.
+let look = loadAppearance();
+applyAppearance(look);
 const css = getComputedStyle(document.documentElement);
 const C = Object.fromEntries(['panel', 'line', 'dim', 'faint', 'accent', 'bg', 'cue', 'text'].map((k) => [k, css.getPropertyValue('--' + k).trim()]));
 C.wave = '#3b7f86';
@@ -7110,6 +7114,8 @@ initWelcome({
   offsets: OFFSETS,
   toast,
   recording: () => recorder.open,
+  getLook: () => look,
+  setLook,
   mic: {
     start: (meter, out) => recorder.startCheck(meter, out),
     stop: () => recorder.stopCheck(),
@@ -7159,6 +7165,7 @@ if (HOSTED) $('updMain').remove();
 addSection('general', 'General', { open: showGeneral, content: $('setGeneral') });
 addSection('editing', 'Editing', { open: showEditing, content: $('setEditing') });
 addSection('marking', 'Transcribing', { open: showMarking, content: $('setMarking') });
+addSection('look', 'Appearance', { content: $('setLook') });
 adopt($('sttDlg'), 'marking', { skip: ['.updbtns:has(#sttClose)'] });
 addSection('tts', 'Text to speech', { open: () => openTts() });
 adopt($('ttsDlg'), 'tts', { skip: ['#ttsClose'] });
@@ -7175,6 +7182,21 @@ adopt($('offlineDlg'), 'storage', { skip: ['.updbtns:has(#offlineClose)'] });
 addSection('diagnostics', 'Diagnostics', { open: () => openDiagnostics() });
 adopt($('diagDlg'), 'diagnostics', { skip: ['#diagClose'] });
 $('setWhatsNew').addEventListener('click', () => openWhatsNew(VERSION));
+
+// Appearance: a row of buttons for each choice, the one in use pressed. save: false
+// only shows it, for setup's preview.
+function setLook(next, save = true) {
+  look = next;
+  if (save) saveAppearance(look);
+  applyAppearance(look);
+  C.accent = css.getPropertyValue('--accent').trim();
+  markChoices($('setLook'), look);
+  tlDirty = true;
+  document.dispatchEvent(new Event('scribecue:appearance'));
+}
+fillChoices($('setLook'), (name, value) => setLook({ ...look, [name]: value }));
+markChoices($('setLook'), look);
+$('lookReset').addEventListener('click', () => setLook({ ...DEFAULTS }));
 // In Record mode, setup is Record mode's, so it can't switch away from the recording.
 $('setSetup').addEventListener('click', () => { closeSettings(); openWelcome(S.mode === 'record' ? 'record' : null); });
 $('setTour').addEventListener('click', () => { closeSettings(); startTour(S.mode); });
