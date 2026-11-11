@@ -94,7 +94,7 @@ what they're for: `head -5 app/js/*.js` gives an overview. Some starting points:
 | Area | Files |
 | --- | --- |
 | The editor, the list, the timeline, playback | `app/js/app.js` (large: search it, don't read it whole) |
-| Settings window, and searching it | `app/js/settings.js`, `app/js/setsearch.js` |
+| Settings window, and searching it | `app/js/settings.js`, `app/js/setsearch.js`, `app/js/appearance.js` |
 | Opening and saving scripts (SRT, WebVTT, `.adc`) | `app/js/formats.js`, `app/js/project.js`, `app/js/autosave.js` |
 | Text to speech | `app/js/tts.js`, `app/js/piper-engine.js`, `app/js/polly.js` |
 | Speech to text | `app/js/stt.js`, `app/js/whisper-worker.js` |

@@ -10,6 +10,7 @@ import { initComments, toggleComments, refreshComments, openBlockComments, showN
 import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
+import { CHOICES, DEFAULTS, loadAppearance, saveAppearance, applyAppearance } from './appearance.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initCheck, openCheck, checkFirst } from './proofdialog.js';
 import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
@@ -139,6 +140,9 @@ try {
 const PEAK_RATE = 200; // waveform bins per second
 const OFFSETS = [0, 0.1, 0.15, 0.2, 0.25, 0.3]; // hold-to-mark reaction offsets, ⇧H cycles
 
+// The look chosen in Settings, under Appearance, before the colours are read below.
+let look = loadAppearance();
+applyAppearance(look);
 const css = getComputedStyle(document.documentElement);
 const C = Object.fromEntries(['panel', 'line', 'dim', 'faint', 'accent', 'bg', 'cue', 'text'].map((k) => [k, css.getPropertyValue('--' + k).trim()]));
 C.wave = '#3b7f86';
@@ -7159,6 +7163,7 @@ if (HOSTED) $('updMain').remove();
 addSection('general', 'General', { open: showGeneral, content: $('setGeneral') });
 addSection('editing', 'Editing', { open: showEditing, content: $('setEditing') });
 addSection('marking', 'Transcribing', { open: showMarking, content: $('setMarking') });
+addSection('look', 'Appearance', { content: $('setLook') });
 adopt($('sttDlg'), 'marking', { skip: ['.updbtns:has(#sttClose)'] });
 addSection('tts', 'Text to speech', { open: () => openTts() });
 adopt($('ttsDlg'), 'tts', { skip: ['#ttsClose'] });
@@ -7175,6 +7180,37 @@ adopt($('offlineDlg'), 'storage', { skip: ['.updbtns:has(#offlineClose)'] });
 addSection('diagnostics', 'Diagnostics', { open: () => openDiagnostics() });
 adopt($('diagDlg'), 'diagnostics', { skip: ['#diagClose'] });
 $('setWhatsNew').addEventListener('click', () => openWhatsNew(VERSION));
+
+// Appearance: a row of buttons for each choice, the one in use pressed.
+function setLook(next) {
+  look = next;
+  saveAppearance(look);
+  applyAppearance(look);
+  C.accent = css.getPropertyValue('--accent').trim();
+  for (const row of document.querySelectorAll('#setLook [data-look]')) {
+    for (const b of row.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.value === look[row.dataset.look]));
+  }
+  tlDirty = true;
+  document.dispatchEvent(new Event('scribecue:appearance'));
+}
+for (const row of document.querySelectorAll('#setLook [data-look]')) {
+  const name = row.dataset.look;
+  for (const [value, label] of CHOICES[name][0]) {
+    const b = document.createElement('button');
+    b.dataset.value = value;
+    b.setAttribute('aria-pressed', String(look[name] === value));
+    if (name === 'accent') {
+      const dot = document.createElement('span');
+      dot.className = 'lookdot';
+      dot.dataset.accent = value;
+      b.append(dot);
+    }
+    b.append(label);
+    b.addEventListener('click', () => setLook({ ...look, [name]: value }));
+    row.append(b);
+  }
+}
+$('lookReset').addEventListener('click', () => setLook({ ...DEFAULTS }));
 // In Record mode, setup is Record mode's, so it can't switch away from the recording.
 $('setSetup').addEventListener('click', () => { closeSettings(); openWelcome(S.mode === 'record' ? 'record' : null); });
 $('setTour').addEventListener('click', () => { closeSettings(); startTour(S.mode); });

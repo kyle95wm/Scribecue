@@ -29,6 +29,7 @@ you work. It's in sections down the left:
 | **General** | Your name, setup and the tour, updates |
 | **Editing** | Replay, Lead-in, spelling and grammar, and Return to start in Record mode |
 | **Transcribing** | Marking with `H`, speech to text |
+| **Appearance** | Highlight colour, text over the video, text size |
 | **Text to speech** | Voices, reading aloud, timings, audio exports |
 | **Online voices** | Google Cloud and Amazon Polly keys, and the browser's online voices |
 | **AI help** | Your AI provider, and a TMDB key for the cast |
@@ -49,6 +50,16 @@ Nothing changes until you press **Finish**.
 
 **Your name**, under **General**, is optional. It goes on your comments and on the blocks you change.
 Once someone else has changed blocks too, an open block shows who changed it last.
+
+**Appearance** changes how Scribecue looks in this browser:
+
+| Setting | What it changes |
+|---|---|
+| **Highlight colour** | Buttons and switches that are on, the mode switch, and the chosen block |
+| **Text over the video** | The size, background and position of the block shown over the picture |
+| **Text size** | The blocks in the list and the block editor |
+
+**Reset to defaults** undoes them all.
 
 **Back up settings**, under **Storage**, saves your settings to a file. Import it in another
 browser to set it up the same way. Projects aren't in the file. API keys are only in it if

@@ -398,6 +398,8 @@ export function initRecord(h) {
     }, () => peakCache.set(id, null)).finally(() => { peakBusy = false; h.redraw(); });
   }
   let TK = null;
+  // A new highlight colour from Settings, under Appearance: read the tokens again.
+  document.addEventListener('scribecue:appearance', () => { TK = null; h.redraw?.(); });
   // g: the track's canvas, already sized; t0 and pps: the timeline's view.
   function drawTrack(g, W, H, t0, pps) {
     view = { t0, pps };
