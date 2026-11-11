@@ -22,6 +22,9 @@ test('the tour covers both modes, privacy and how to find it again', () => {
   const tl = STEPS.find((s) => s.target === '#tl');
   assert.match(tl.text('transcribe'), /Holding H/);
   assert.match(tl.text('write'), /Enter makes a block/);
+  const ind = STEPS.find((s) => s.target === '#ind');
+  assert.match(ind.text('write'), /TTS turns text to speech off or on for this project/);
+  assert.doesNotMatch(ind.text('transcribe'), /TTS/);
 });
 
 test('the tour covers sharing, comments, exports and what sharing sends', () => {

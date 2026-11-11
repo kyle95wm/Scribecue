@@ -2943,8 +2943,7 @@ const IND_TIPS = {
   extended: 'Extended AD: the video pauses while a block is read, then carries on. Click for its settings',
   lead: 'Lead-in: hearing a block again starts this long before it. Click for its settings',
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H changes it; click for its settings',
-  tts: 'Text to speech is on: hear blocks read aloud (V). Click for its settings, such as the voice and speed (⌥⇧V)',
-  ttsOff: 'Text to speech is off for this project, so block ends can be dragged by hand. Other projects still have it. Click for its settings, to turn it on again (⌥⇧V)',
+  tts: 'Text to speech for this project: blocks are read aloud (V), and each ends where its reading does. Click to turn it off for this project, so ends can be dragged by hand. Its settings are under ⌥⇧V',
   takes: 'Takes: hear the take chosen for each block as the video plays. Click to turn it off or on',
   qc: 'QC review: choose original readings, programme sound or an approximate TTS preview, or compare a returned review',
   stt: 'Speech to text is on: Whisper types what the narrator says in each block you mark. Click for its settings, or to transcribe empty blocks (⌥⇧H)',
@@ -2963,9 +2962,9 @@ function updateInd() {
     ...(returning() ? [['returnToStart', 'RETURN', true]] : []),
     ...(S.mode === 'transcribe' && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
     ...(S.mode === 'record' ? [['takes', 'TAKES', !!recorder?.hearing]] : []),
-    ...(writing() && ttsHere() ? [['tts', tts.base !== 1 ? `TTS ${Math.round(tts.base * 100)}%` : 'TTS', true]] : []),
-    // Off for this project only: shown dimmed, so it isn't mistaken for off everywhere.
-    ...(writing() && tts.on && S.ttsOff ? [['ttsOff', 'TTS OFF', false]] : []),
+    // On in this browser: a toggle for this project, like FOLLOW. Settings turn it on or off
+    // for the browser.
+    ...(writing() && tts.on ? [['tts', S.ttsOff ? 'TTS OFF' : tts.base !== 1 ? `TTS ${Math.round(tts.base * 100)}%` : 'TTS', !S.ttsOff]] : []),
   ];
   ind.textContent = '';
   showMix();
@@ -2976,7 +2975,7 @@ function updateInd() {
     s.dataset.key = key;
     s.dataset.tip = pcKeys(IND_TIPS[key]);
     s.setAttribute('aria-label', speakable(IND_TIPS[key], IS_MAC));
-    if (['follow', 'loop', 'takes'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
+    if (['follow', 'loop', 'takes', 'tts'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
     else if (key !== 'speed') s.classList.add('setlabel');
     s.className = (on ? 'on ' : '') + (key === 'speed' || key === 'follow' ? '' : 'tip-end');
     ind.append(s);
@@ -3124,7 +3123,7 @@ ind.addEventListener('click', (e) => {
   if (k === 'speed') setRate(1);
   // The settings' labels open their section of Settings.
   else if (k === 'offset' || k === 'stt') showMarking();
-  else if (k === 'tts' || k === 'ttsOff') openTts();
+  else if (k === 'tts') toggleProjectTts();
   else if (k === 'qc') openQcPlayback();
   else if (k === 'extended') { if (qc()) openQcPlayback(); else openTts(); }
   else if (k === 'replay' || k === 'lead' || k === 'returnToStart') showGeneral();
@@ -3569,12 +3568,22 @@ function afterImport(name) {
   importDlg.querySelector('.wzchoice').focus();
 }
 // Leave the script's timings, and turn text to speech off for this project only, so block
-// ends can be dragged by hand. Other projects keep it. Settings turns it on again.
+// ends can be dragged by hand. Other projects keep it. TTS under the video turns it on again.
 function projectTtsOff() {
   stopSpeech();
   setTtsOff(true);
   changed();
-  toast('Text to speech is off for this project, so block ends can be dragged by hand. Turn it on again in Settings, under Text to speech');
+  toast('Text to speech is off for this project, so block ends can be dragged by hand. Click TTS OFF under the video to turn it on again');
+}
+// TTS under the video: text to speech off or on for this project. Blocks keep their
+// timings either way, until they're next edited.
+function toggleProjectTts() {
+  if (S.ttsOff) {
+    setTtsOff(false);
+    changed();
+    return toast('Text to speech on for this project');
+  }
+  projectTtsOff();
 }
 for (const b of importDlg.querySelectorAll('.wzchoice')) {
   b.addEventListener('click', () => {
@@ -4414,7 +4423,7 @@ function setMode(m, quiet = false) {
   if (fresh) setTimeout(() => whenClear(() => { if (S.mode === m) openModeSetup(m); }), 400);
   if (!quiet) {
     toast(m === 'qc' ? (qcEditable() ? (S.reviewId ? `QC mode: the package allows block edits. ${packageRereads() ? 'Changed Google and Amazon Polly blocks get a new reading' : 'Timings change only when you edit them'}` : 'QC mode: your authoring project is editable. Timings change only when you edit them') : 'QC mode: comments only. Click a block’s Comment button to add a note') : m === 'write'
-      ? `Write mode: text to speech${ttsHere() ? '' : S.ttsOff ? ' (off for this project: turn it on in Settings, or with ⌥⇧V)' : ' (turn it on in Settings, or with ⌥⇧V)'}, reading times and block speeds`
+      ? `Write mode: text to speech${ttsHere() ? '' : S.ttsOff ? ' (off for this project: click TTS OFF under the video)' : ' (turn it on in Settings, or with ⌥⇧V)'}, reading times and block speeds`
       : 'Transcribe mode: hold H while the narrator speaks to mark each line');
   }
 }
@@ -7060,9 +7069,8 @@ initTts({
   canChangeReading: () => !qc() || S.loadingProject,
   voiceLocked,
   blockVoices: () => S.cues.filter((c) => c.voice).map((c) => c.voice),
-  // Text to speech turned off for this project only; turning it on in Settings clears that.
+  // Text to speech turned off for this project only, with TTS under the video.
   projectOff: () => S.ttsOff,
-  projectOn: () => { setTtsOff(false); changed(); },
 });
 initTour();
 $('helpTour').addEventListener('click', () => { toggleHelp(false); startTour(S.mode); });

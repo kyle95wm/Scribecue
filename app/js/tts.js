@@ -1505,9 +1505,10 @@ function naturalCount() {
 // googleError: what went wrong the last time Google was asked for its voices.
 function render(googleError = '') {
   $('ttsUnavailable').hidden = anyVoices();
-  $('ttsOn').checked = isOn();
+  $('ttsOn').checked = tts.on;
   $('ttsOn').disabled = !anyVoices();
   $('ttsProjectOff').hidden = !(tts.on && hooks.projectOff?.());
+  $('ttsProjectOn').hidden = !$('ttsProjectOff').hidden;
   const piper = usingAudioVoice();
   $('ttsPiperNote').textContent = currentVoice()?.google
     ? 'Google voice: lengths are exact as soon as a block has text, and you can export a description track. Each reading sends the block’s text to Google.'
@@ -1552,7 +1553,7 @@ function render(googleError = '') {
   $('ttsBlockVoicesText').textContent = `${own.length === 1 ? '1 block has' : `${own.length} blocks have`} a voice of ${own.length === 1 ? 'its' : 'their'} own: ${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''}.`;
   $('ttsMakeNote').textContent = piper ? '' : 'Needs a Piper, Kokoro, Google or Amazon Polly voice: the browser\'s own voices can\'t be kept.';
   $('ttsExportNote').textContent = piper ? '' : 'Needs a Piper, Kokoro, Google or Amazon Polly voice: the browser\'s own voices can\'t be recorded.';
-  $('ttsBody').classList.toggle('off', !isOn());
+  $('ttsBody').classList.toggle('off', !tts.on);
   $('ttsBase').value = String(Math.round(tts.base * 100));
   $('ttsBaseOut').textContent = `${Math.round(tts.base * 100)}%`;
   $('ttsLive').checked = tts.live;
@@ -1639,13 +1640,8 @@ export function initTts(h) {
   hooks = { ...hooks, ...h };
   const d = $('ttsDlg');
   const set = (k, v) => { tts[k] = v; save(); render(); hooks.changed(); warmUp(); };
-  // Turning it on also turns it on for a project that had it off. Turning it off is for
-  // every project, as before.
-  $('ttsOn').addEventListener('change', (e) => {
-    if (!e.target.checked) stop();
-    else if (hooks.projectOff?.()) hooks.projectOn();
-    set('on', e.target.checked);
-  });
+  // For the browser: every project. TTS under the video turns it off for one project.
+  $('ttsOn').addEventListener('change', (e) => { if (!e.target.checked) stop(); set('on', e.target.checked); });
   $('ttsVoice').addEventListener('change', (e) => pickVoice(e.target.value));
   $('ttsLang').addEventListener('change', (e) => {
     tts.language = e.target.value;
