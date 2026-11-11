@@ -516,7 +516,7 @@ ask in this folder.
 | Skill | What to ask |
 | --- | --- |
 | `scribecue-help` | Questions about Scribecue, such as how to do something or what a setting does. It answers from the guides and the code. |
-| `scribecue-diagnostics` | Paste a report from **Settings → Diagnostics**. It explains each row, lists likely causes and can draft an issue. |
+| `scribecue-diagnostics` | Paste a report from **Settings → Diagnostics**, or ask it to check the Scribecue on this computer. It explains each row, lists likely causes and can draft an issue. |
 
 To use them in any folder, copy them to your own skills folder.
 
@@ -536,6 +536,8 @@ Start a new session afterwards. Run the command again to update them.
 
 - Outside this folder, `scribecue-help` keeps its own copy of Scribecue in
   `~/.cache/scribecue-help`, so it needs git.
+- On this computer, `scribecue-diagnostics` can also read the Docker logs. In a browser it
+  can drive, it reads the report straight from the page.
 - A copy of `scribecue-diagnostics` can read reports and draft issues. It can't check the
   changelog, trace errors or reproduce problems, because those need this folder.
 

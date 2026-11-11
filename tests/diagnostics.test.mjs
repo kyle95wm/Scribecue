@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, realpathSync } from 'node:fs';
-import { createLog, describe, watchErrors, spread, hideNames, report, pictureWatch, FREEZE_AFTER, MAX_LOG } from '../app/js/diagnostics.js';
+import { createLog, describe, watchErrors, spread, hideNames, report, pictureWatch, exposeReport, FREEZE_AFTER, MAX_LOG } from '../app/js/diagnostics.js';
 
 test('the log keeps the most recent entries, on one line each', () => {
   let t = 0;
@@ -180,4 +180,22 @@ test('copying the diagnostics says so on the button, not in the log', () => {
   assert.match(copy, /btn\.textContent = ok \? 'Copied'/);
   assert.match(copy, /'Couldn’t copy'/);
   assert.doesNotMatch(copy, /toast\(/);
+});
+
+test('a driven browser can read the report, without file names unless asked', async () => {
+  const w = {};
+  const info = { now: Date.UTC(2026, 10, 11, 12), names: ['secret-film.mp4'], log: [{ at: Date.UTC(2026, 10, 11, 12), kind: 'error', text: 'Couldn’t open secret-film.mp4' }] };
+  exposeReport(async () => info, w);
+  assert.equal(typeof w.scribecueDiagnostics, 'function');
+  const plain = await w.scribecueDiagnostics();
+  assert.match(plain, /^Scribecue diagnostics\n/);
+  assert.doesNotMatch(plain, /secret-film/);
+  assert.doesNotMatch(await w.scribecueDiagnostics({ names: 'yes' }), /secret-film/, 'only true keeps names');
+  assert.match(await w.scribecueDiagnostics({ names: true }), /secret-film\.mp4/);
+  assert.equal(await w.scribecueDiagnostics(), report(info));
+  const app = readFileSync(new URL('../app/js/app.js', import.meta.url), 'utf8');
+  assert.match(app, /exposeReport\(diagnosticsInfo\)/);
+  const skill = readFileSync('.claude/skills/scribecue-diagnostics/SKILL.md', 'utf8');
+  assert.match(skill, /await scribecueDiagnostics\(\)/);
+  assert.match(skill, /docker compose logs --timestamps/);
 });

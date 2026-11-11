@@ -46,7 +46,7 @@ import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, missingVoiceAd
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands, holdFilter, extendedCommand } from './ffcmd.js';
 import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS } from './codecs.js';
-import { createLog, watchErrors, pictureWatch, report as diagReport } from './diagnostics.js';
+import { createLog, watchErrors, pictureWatch, report as diagReport, exposeReport } from './diagnostics.js';
 import { waveKey, loadWave, saveWave, loadSound, saveSound } from './wavestore.js';
 import { buildDialogue, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, MIN_CLASH, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue } from './dialogue.js';
 import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
@@ -7316,6 +7316,8 @@ async function diagnosticsInfo() {
     log: diagLog.entries,
   };
 }
+
+exposeReport(diagnosticsInfo);
 
 const diagDlg = $('diagDlg');
 let diagData = null;

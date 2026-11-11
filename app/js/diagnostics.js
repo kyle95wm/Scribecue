@@ -180,3 +180,13 @@ export function report(info, { names = false } = {}) {
   const text = L.join('\n') + '\n';
   return names ? text : hideNames(text, info.names || []);
 }
+
+// The same report as in Settings, for a tool driving the browser, such as Claude Code's
+// browser, to read without opening Settings: `await scribecueDiagnostics()`. It only reads.
+// File names are left out unless { names: true } is passed. gather is diagnosticsInfo.
+export function exposeReport(gather, w = globalThis) {
+  Object.defineProperty(w, 'scribecueDiagnostics', {
+    value: async ({ names = false } = {}) => report(await gather(), { names: names === true }),
+    configurable: true,
+  });
+}
