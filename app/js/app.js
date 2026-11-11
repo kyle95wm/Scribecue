@@ -10,7 +10,7 @@ import { initComments, toggleComments, refreshComments, openBlockComments, showN
 import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
-import { CHOICES, DEFAULTS, loadAppearance, saveAppearance, applyAppearance } from './appearance.js';
+import { DEFAULTS, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initCheck, openCheck, checkFirst } from './proofdialog.js';
 import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
@@ -7114,6 +7114,8 @@ initWelcome({
   offsets: OFFSETS,
   toast,
   recording: () => recorder.open,
+  getLook: () => look,
+  setLook,
   mic: {
     start: (meter, out) => recorder.startCheck(meter, out),
     stop: () => recorder.stopCheck(),
@@ -7181,35 +7183,19 @@ addSection('diagnostics', 'Diagnostics', { open: () => openDiagnostics() });
 adopt($('diagDlg'), 'diagnostics', { skip: ['#diagClose'] });
 $('setWhatsNew').addEventListener('click', () => openWhatsNew(VERSION));
 
-// Appearance: a row of buttons for each choice, the one in use pressed.
-function setLook(next) {
+// Appearance: a row of buttons for each choice, the one in use pressed. save: false
+// only shows it, for setup's preview.
+function setLook(next, save = true) {
   look = next;
-  saveAppearance(look);
+  if (save) saveAppearance(look);
   applyAppearance(look);
   C.accent = css.getPropertyValue('--accent').trim();
-  for (const row of document.querySelectorAll('#setLook [data-look]')) {
-    for (const b of row.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.value === look[row.dataset.look]));
-  }
+  markChoices($('setLook'), look);
   tlDirty = true;
   document.dispatchEvent(new Event('scribecue:appearance'));
 }
-for (const row of document.querySelectorAll('#setLook [data-look]')) {
-  const name = row.dataset.look;
-  for (const [value, label] of CHOICES[name][0]) {
-    const b = document.createElement('button');
-    b.dataset.value = value;
-    b.setAttribute('aria-pressed', String(look[name] === value));
-    if (name === 'accent') {
-      const dot = document.createElement('span');
-      dot.className = 'lookdot';
-      dot.dataset.accent = value;
-      b.append(dot);
-    }
-    b.append(label);
-    b.addEventListener('click', () => setLook({ ...look, [name]: value }));
-    row.append(b);
-  }
-}
+fillChoices($('setLook'), (name, value) => setLook({ ...look, [name]: value }));
+markChoices($('setLook'), look);
 $('lookReset').addEventListener('click', () => setLook({ ...DEFAULTS }));
 // In Record mode, setup is Record mode's, so it can't switch away from the recording.
 $('setSetup').addEventListener('click', () => { closeSettings(); openWelcome(S.mode === 'record' ? 'record' : null); });

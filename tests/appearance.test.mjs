@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { CHOICES, DEFAULTS, readAppearance, storedAppearance, attributes, loadAppearance, saveAppearance, KEY } from '../app/js/appearance.js';
+import { CHOICES, DEFAULTS, NAMES, describeAppearance, readAppearance, storedAppearance, attributes, loadAppearance, saveAppearance, KEY } from '../app/js/appearance.js';
 import { settingNames } from '../app/js/settingsfile.js';
 
 const css = readFileSync(new URL('../app/css/style.css', import.meta.url), 'utf8');
@@ -67,4 +67,27 @@ test('style.css has a rule for every choice that is not the default', () => {
 
 test('the settings file keeps the appearance', () => {
   assert.ok(settingNames().includes('appearance'));
+});
+
+test("setup's summary lists only what was changed", () => {
+  assert.deepEqual(describeAppearance(DEFAULTS), ['Default appearance']);
+  assert.deepEqual(describeAppearance({ ...DEFAULTS, accent: 'teal', subPos: 'top', textSize: 'l' }), [
+    'Highlight colour: Teal', 'Text over the video goes at the top', 'Text size in the list and editor: Large',
+  ]);
+  assert.deepEqual(describeAppearance({ ...DEFAULTS, accent: 'pink' }), ['Default appearance']);
+});
+
+test('every choice has a name for the summary', () => {
+  assert.deepEqual(Object.keys(NAMES).sort(), Object.keys(CHOICES).sort());
+});
+
+test('setup and Settings offer the same rows', () => {
+  const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
+  const rows = (id) => {
+    const start = html.indexOf(`id="${id}"`);
+    const part = html.slice(start, html.indexOf('</section>', start) > 0 && id === 'wzLook' ? html.indexOf('</section>', start) : html.indexOf('lookReset', start));
+    return [...part.matchAll(/data-look="(\w+)"/g)].map((m) => m[1]);
+  };
+  assert.deepEqual(rows('setLook'), Object.keys(CHOICES));
+  assert.deepEqual(rows('wzLook'), Object.keys(CHOICES));
 });

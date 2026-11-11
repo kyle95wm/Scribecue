@@ -11,21 +11,26 @@ import { updateChoice, setUpdateChoice } from './update.js';
 import { HOSTED } from './config.js';
 import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
 import { savedName, saveName, cleanName } from './profile.js';
+import { fillChoices, markChoices, describeAppearance } from './appearance.js';
 
 const $ = (id) => document.getElementById(id);
 const KEY = 'scribecue.welcome';
-let hooks = { getMode: () => 'transcribe', setMode: () => {}, getOffset: () => 0.2, setOffset: () => {}, getReplay: () => false, setReplay: () => {}, nameChanged: () => {}, offsets: [], toast: () => {}, mic: null, recording: () => false };
+let hooks = { getLook: () => ({}), setLook: () => {}, getMode: () => 'transcribe', setMode: () => {}, getOffset: () => 0.2, setOffset: () => {}, getReplay: () => false, setReplay: () => {}, nameChanged: () => {}, offsets: [], toast: () => {}, mic: null, recording: () => false };
 let step = 0;
 let finished = false;
 let only = null; // the one mode being set up, after switching to it for the first time
+// The look when setup opened, and the one picked in it. Picking shows it straight away;
+// skipping puts the first back, and Finish keeps the second.
+let lookBefore = null, lookPicked = null;
 
 // Record mode isn't a choice here: its setup runs when a recording file opens.
 const mode = () => only || document.querySelector('input[name=wzMode]:checked')?.value || 'transcribe';
 // The steps for the chosen task: the third one depends on it.
 // The web version updates itself, so it skips the question about update checks.
 // Recording has two steps of its own: the microphone, then listening and sync.
+// How it looks is part of the whole setup, not of one mode's.
 const modeSteps = (m) => (m === 'record' ? ['record-mic', 'record-listen'] : [m]);
-const steps = () => only ? [...modeSteps(only), 'done'] : ['welcome', 'task', ...modeSteps(mode()), ...(HOSTED ? [] : ['updates']), 'done'];
+const steps = () => only ? [...modeSteps(only), 'done'] : ['welcome', 'task', ...modeSteps(mode()), 'look', ...(HOSTED ? [] : ['updates']), 'done'];
 const MODE_NAMES = { transcribe: 'Transcribe', write: 'Write', qc: 'QC', record: 'Record' };
 
 function show() {
@@ -73,6 +78,7 @@ function summarise() {
     } else lines.push('Text to speech off');
     if ($('wzReplayWrite').checked) lines.push('Goes back to each block’s start after you edit it');
   }
+  if (!only) lines.push(...describeAppearance(lookPicked));
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
   if (!HOSTED && !only) lines.push(u === '1' ? 'Checks for updates once a day' : u === '0' ? 'Doesn’t check for updates' : 'Update checks: not chosen yet');
   $('wzSummary').replaceChildren(...lines.map((t) => Object.assign(document.createElement('li'), { textContent: t })));
@@ -100,6 +106,7 @@ function finish() {
   if (m === 'qc') { saveName($('wzName').value); hooks.nameChanged(); }
   const u = document.querySelector('input[name=wzUpd]:checked')?.value;
   if (!only && (u === '1' || u === '0')) setUpdateChoice(u === '1');
+  if (!only) hooks.setLook(lookPicked);
   markModeSetUp(m);
   const piper = $('wzTts').checked && !$('wzWebPiper').hidden && $('wzPiperGet').checked ? $('wzPiperVoice').value : '';
   finished = true;
@@ -121,6 +128,8 @@ export function openWelcome(just = null) {
   only = MODE_NAMES[just] ? just : null;
   for (const r of document.querySelectorAll('input[name=wzMode]')) r.checked = r.value === (only || hooks.getMode());
   borrow();
+  lookBefore = lookPicked = { ...hooks.getLook() };
+  markChoices($('wzLook'), lookPicked);
   $('wzRecNote').textContent = 'Your browser asks to use the microphone the first time.';
   showLoudest($('wzRecLoudest'), 0);
   $('wzRecBt').textContent = 'Only needed with Bluetooth headphones, which delay sound. Click Sync test, then raise Sync until the flash and the beep happen together.';
@@ -226,11 +235,17 @@ export function initWelcome(h, onClose = () => {}) {
   for (const r of document.querySelectorAll('input[name=wzMode]')) r.addEventListener('change', show);
   $('wzRecTest').addEventListener('click', () => (hooks.mic.checking ? stopMicTest() : startMicTest()));
   $('wzRecReset').addEventListener('click', () => hooks.mic.reset());
+  fillChoices($('wzLook'), (name, value) => {
+    lookPicked = { ...lookPicked, [name]: value };
+    markChoices($('wzLook'), lookPicked);
+    hooks.setLook(lookPicked, false);
+  });
   // A different microphone, mid-test: test that one instead.
   $('recDev').addEventListener('change', () => { if (d.open && hooks.mic?.checking) { stopMicTest(); startMicTest(); } });
   d.addEventListener('close', () => {
     stopMicTest();
     giveBack();
+    if (!finished && lookBefore) hooks.setLook(lookBefore, false);
     try { localStorage.setItem(KEY, '1'); } catch { /* ignore */ }
     onClose(finished);
   });

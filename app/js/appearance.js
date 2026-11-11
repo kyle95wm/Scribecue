@@ -15,6 +15,15 @@ export const CHOICES = {
   textSize: [[['m', 'Default'], ['l', 'Large'], ['xl', 'Larger']], 'm'],
 };
 
+// What each choice is called, for setup's summary.
+export const NAMES = {
+  accent: 'Highlight colour',
+  subSize: 'Text over the video',
+  subBg: 'Background behind it',
+  subPos: 'Text over the video goes at the',
+  textSize: 'Text size in the list and editor',
+};
+
 export const DEFAULTS = Object.fromEntries(Object.entries(CHOICES).map(([k, [, d]]) => [k, d]));
 const allowed = (name, v) => CHOICES[name]?.[0].some(([x]) => x === v);
 
@@ -54,4 +63,44 @@ export function loadAppearance(storage = globalThis.localStorage) {
 export function saveAppearance(a, storage = globalThis.localStorage) {
   const v = storedAppearance(a);
   try { if (v === null) storage.removeItem(KEY); else storage.setItem(KEY, v); } catch { /* storage blocked */ }
+}
+
+// The choices that differ from the default, one line each, or 'Default appearance'.
+export function describeAppearance(a) {
+  const lines = [];
+  for (const [k, [choices, def]] of Object.entries(CHOICES)) {
+    if (!allowed(k, a[k]) || a[k] === def) continue;
+    const label = choices.find(([v]) => v === a[k])[1];
+    lines.push(k === 'subPos' ? `${NAMES[k]} ${label.toLowerCase()}` : `${NAMES[k]}: ${label}`);
+  }
+  return lines.length ? lines : ['Default appearance'];
+}
+
+// Fills each [data-look] row inside root with a button for each of its choices. Clicking
+// one calls pick(name, value). markChoices presses the ones in use.
+export function fillChoices(root, pick) {
+  for (const row of root.querySelectorAll('[data-look]')) {
+    const name = row.dataset.look;
+    for (const [value, label] of CHOICES[name][0]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.value = value;
+      b.setAttribute('aria-pressed', 'false');
+      if (name === 'accent') {
+        const dot = document.createElement('span');
+        dot.className = 'lookdot';
+        dot.dataset.accent = value;
+        b.append(dot);
+      }
+      b.append(label);
+      b.addEventListener('click', () => pick(name, value));
+      row.append(b);
+    }
+  }
+}
+
+export function markChoices(root, a) {
+  for (const row of root.querySelectorAll('[data-look]')) {
+    for (const b of row.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.value === a[row.dataset.look]));
+  }
 }

@@ -51,7 +51,7 @@ Nothing changes until you press **Finish**.
 **Your name**, under **General**, is optional. It goes on your comments and on the blocks you change.
 Once someone else has changed blocks too, an open block shows who changed it last.
 
-**Appearance** changes how Scribecue looks in this browser:
+**Appearance** changes how Scribecue looks in this browser. The first setup asks about it too:
 
 | Setting | What it changes |
 |---|---|
