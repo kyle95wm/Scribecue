@@ -19,7 +19,7 @@ included, or to run Piper, Kokoro, Whisper or Ollama in containers next to it.
 - [On another computer](#on-another-computer)
 - [Updating](#updating)
 - [If something goes wrong](#if-something-goes-wrong)
-- [Development](#development), and [running your own copy](#running-your-own-copy)
+- [Development](#development), [Claude Code and Codex skills](#claude-code-and-codex-skills), and [running your own copy](#running-your-own-copy)
 
 ## What you need
 
@@ -485,29 +485,6 @@ scripts/slow-chromium.sh reset
 This clears everything Chromium keeps, including unsaved blocks and takes. Files in your
 folder stay. Add `all` to remove the image and the test film too.
 
-To read a report from **Settings → Diagnostics**, paste it into Claude Code or Codex in this folder.
-The `scribecue-diagnostics` skill explains each row, lists likely causes and can draft an issue.
-
-To use the skill in any folder, copy it to your own skills folder.
-
-For Claude Code:
-
-```bash
-mkdir -p ~/.claude/skills/scribecue-diagnostics
-curl -fsSL -o ~/.claude/skills/scribecue-diagnostics/SKILL.md https://raw.githubusercontent.com/kyle95wm/Scribecue/main/.claude/skills/scribecue-diagnostics/SKILL.md
-```
-
-For Codex:
-
-```bash
-mkdir -p ~/.agents/skills/scribecue-diagnostics
-curl -fsSL -o ~/.agents/skills/scribecue-diagnostics/SKILL.md https://raw.githubusercontent.com/kyle95wm/Scribecue/main/.claude/skills/scribecue-diagnostics/SKILL.md
-```
-
-Start a new session afterwards. A copy can read reports and draft issues. It can't check the
-changelog, trace errors or reproduce problems, because those need this folder. Run the
-commands again to update it.
-
 To release a new version:
 
 1. Write the release's notes at the top of [app/changelog.json](../app/changelog.json). The
@@ -530,6 +507,37 @@ the usual Mac location), and uses a generated test video, not real programme mat
 
 To remake the voice samples in the voices guide, such as after changing the voices, run
 `scripts/voice-samples.sh` while Scribecue is running with Piper and Kokoro.
+
+### Claude Code and Codex skills
+
+Two skills come with this folder. Claude Code and Codex use them on their own when you
+ask in this folder.
+
+| Skill | What to ask |
+| --- | --- |
+| `scribecue-help` | Questions about Scribecue, such as how to do something or what a setting does. It answers from the guides and the code. |
+| `scribecue-diagnostics` | Paste a report from **Settings → Diagnostics**. It explains each row, lists likely causes and can draft an issue. |
+
+To use them in any folder, copy them to your own skills folder.
+
+For Claude Code:
+
+```bash
+for s in scribecue-help scribecue-diagnostics; do mkdir -p ~/.claude/skills/$s && curl -fsSL -o ~/.claude/skills/$s/SKILL.md https://raw.githubusercontent.com/kyle95wm/Scribecue/main/.claude/skills/$s/SKILL.md; done
+```
+
+For Codex:
+
+```bash
+for s in scribecue-help scribecue-diagnostics; do mkdir -p ~/.agents/skills/$s && curl -fsSL -o ~/.agents/skills/$s/SKILL.md https://raw.githubusercontent.com/kyle95wm/Scribecue/main/.claude/skills/$s/SKILL.md; done
+```
+
+Start a new session afterwards. Run the command again to update them.
+
+- Outside this folder, `scribecue-help` keeps its own copy of Scribecue in
+  `~/.cache/scribecue-help`, so it needs git.
+- A copy of `scribecue-diagnostics` can read reports and draft issues. It can't check the
+  changelog, trace errors or reproduce problems, because those need this folder.
 
 ### Running your own copy
 
