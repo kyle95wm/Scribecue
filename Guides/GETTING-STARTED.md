@@ -87,8 +87,9 @@ In **Write** mode, with text to speech on (`Alt+Shift+V`). Open the video with
    slower or faster. To hear the moments before it too, set a **Lead-in** in Settings,
    under Editing.
 
-**To read it yourself instead,** select the block and hold `H` while you say the line.
-When you let go, the block ends there.
+**To read it yourself instead,** turn text to speech off for the project (click `TTS`
+under the video). Then select the block and hold `H` while you say the line. When you let
+go, the block ends there.
 
 - **Need a breath?** Let go, then hold `H` again to carry on.
 - **Fluffed a word?** Step back with `←` to just before it, and hold `H` to redo the rest.

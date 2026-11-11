@@ -4481,6 +4481,8 @@ function updateMark() {
 function takeStart() {
   const c = selCue();
   if (!c) return toast('Select a block, then hold H while you read it aloud to set its end');
+  // Say so before playing, not after a whole read: with text to speech on, its end can't move.
+  if (following(c)) return toast(isExt(c) ? extendedTip : 'With text to speech on, a block ends where its reading does. To time your own read with H, click TTS under the video to turn it off for this project');
   stopSpeech();
   const from = takeFrom(now(), c.start, c.end);
   if (from > c.start) toast(`Carrying on from ${(from - c.start).toFixed(2)} s into block #${selIdx() + 1}`);
