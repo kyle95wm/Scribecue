@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.107.1",
+    "date": "2026-11-11",
+    "notes": "## Fixes\n\n- The text over the video keeps its usual width when you narrow or hide the list, so its lines stay easy to read. Before, they stretched across the whole video."
+  },
+  {
     "version": "0.107.0",
     "date": "2026-11-11",
     "notes": "## Record mode\n\n- Set how loud the video plays with the new Video slider under the video, from 0 dB down to −30 dB. It starts at −30 dB, and double-clicking it goes back there.\n- The video now stays at that level the whole time you're in Record mode. Before, it was only lowered while a take recorded.\n- The lead-in now plays your takes of the blocks before it, for both Record and Punch in, so you can match what came before.\n- The selected block stays selected while the video plays past other blocks. Follow still keeps the playhead in view.\n- Press `E` to put the playhead at the end of the block's take, ready to punch in. On a split take, it goes to the end of each part in turn. `Shift+E` goes back.\n- Right-click a take for the same: Go to the end of this part."
