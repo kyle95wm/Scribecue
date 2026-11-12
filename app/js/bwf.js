@@ -146,6 +146,17 @@ export async function readNote(file) {
   } catch { return null; }
 }
 
+// Where a narration WAV's sound is: { at, len, rate } in bytes and samples a second.
+// Reads only the headers. Throws unless it's mono 24-bit PCM, as Record mode makes it.
+export async function narrationSound(file) {
+  const all = await chunks(file);
+  const fmt = all?.find((x) => x.id === 'fmt '), data = all?.find((x) => x.id === 'data');
+  if (!fmt || !data) throw new Error('it isn’t a WAV file');
+  const f = new DataView(await file.slice(fmt.at, fmt.at + 16).arrayBuffer());
+  if (f.getUint16(0, true) !== 1 || f.getUint16(2, true) !== 1 || f.getUint16(14, true) !== 24) throw new Error('it isn’t a narration WAV from Record mode');
+  return { at: data.at, len: Math.min(data.len, file.size - data.at), rate: f.getUint32(4, true) };
+}
+
 // A take kept in a session folder carries its own details, in a chunk after its sound, so
 // the session can be rebuilt from its WAVs. Players and DAWs skip chunks they don't know.
 const TAKE = 'sctk';
