@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.108.0",
+    "date": "2026-11-11",
+    "notes": "## An extended video for the narration\n\n- Narrators rarely take as long to read an extended block as text to speech does, so a video made in Write mode stops for the wrong lengths.\n- Now open the narrator's WAV or zip with the script and the video. The check window offers **Export extended video**, which stops for the narrator's own reads, so the narration lines up with it.\n- Turn off **Include the narration** for the programme's sound alone, to mix in an editor.\n- **Export pause list** saves where the video stops and for how long, for other editors.\n- Progress shows under the header, with Stop. Without ffmpeg, you get the audio and a command to run."
+  },
+  {
     "version": "0.107.1",
     "date": "2026-11-11",
     "notes": "## Fixes\n\n- The text over the video keeps its usual width when you narrow or hide the list, so its lines stay easy to read. Before, they stretched across the whole video."
