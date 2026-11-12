@@ -53,7 +53,7 @@ takes them to another browser with your other settings.
 | `Tab` `Shift+Tab` | Next / previous field (text → start → end → notes) |
 | `Esc` or `Enter` | Close the block. It stays selected |
 | `Shift+Enter` | New line |
-| `↑` `↓` | Previous / next block (from the first / last line) |
+| `↑` `↓` | Previous / next block, from the start or end time. In the text, they move the caret |
 | `Alt+Shift+←` `Alt+Shift+→` | Move the block one frame back / forward |
 | `Alt+Space` | Play / pause while typing |
 | `Ctrl/Cmd+B` `Ctrl/Cmd+I` `Ctrl/Cmd+U` | Bold / italic / underline |
