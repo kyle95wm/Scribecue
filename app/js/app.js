@@ -2194,16 +2194,8 @@ edText.addEventListener('keydown', (e) => {
     toggleTag(e.code[3].toLowerCase());
     return;
   }
-  if (fileKeys(e)) return;
-  // ↑ on the first line / ↓ on the last line moves to the previous / next block
-  if (!e.shiftKey && !e.altKey && !mod && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-    const v = edText.value, a = edText.selectionStart, b = edText.selectionEnd;
-    const up = e.key === 'ArrowUp';
-    if (a === b && (up ? !v.slice(0, a).includes('\n') : !v.slice(a).includes('\n'))) {
-      e.preventDefault();
-      blockStep(up ? -1 : 1, edText);
-    }
-  }
+  // ↑ ↓ stay in the text, to move the caret through wrapped lines. Enter, then ↑ ↓, moves on.
+  fileKeys(e);
 });
 
 function bindTimeInput(input, which) {
