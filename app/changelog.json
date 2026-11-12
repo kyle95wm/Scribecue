@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.108.2",
+    "date": "2026-11-12",
+    "notes": "## Fixes\n\n- Select a block in the list and press `Enter`: it now opens that block. Before, some browsers opened the block before it, or said there was no room for a new block.\n- Pressing `N` at the start of a block works the same way."
+  },
+  {
     "version": "0.108.1",
     "date": "2026-11-12",
     "notes": "## Fixes\n\n- While you edit a block's text, `↑` and `↓` now move the caret, including through lines that wrap. Before, they often jumped to the previous or next block.\n- To move to another block, press `Enter`, then `↑` or `↓`. In the start and end times, `↑` and `↓` still move between blocks."
