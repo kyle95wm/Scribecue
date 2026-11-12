@@ -239,12 +239,16 @@
           <input type="range" id="mix" min="-100" max="100" step="5" value="0"
             aria-label="Mix between the video's sound and the readings">
           TTS</label>
+        <label class="mixbox tip-end record-only" id="recVolBox">Video
+          <input type="range" id="recVol" min="-30" max="0" step="1" value="-30"
+            aria-label="Video sound in Record mode">
+          <span id="recVolDb" aria-hidden="true"></span></label>
         <span id="ind"></span>
       </div>
       <section class="recbar record-only" id="recBar" aria-label="Recording">
         <div class="recrow">
           <button id="recGo" class="recgo" data-tip="Record the selected block (Enter or R). Press again or Space to stop, or Esc to stop and discard the take">● Record</button>
-          <button id="recPunch" data-tip="Punch in: pick up the block's take from the playhead, keeping what's before it (Shift+Enter or Shift+R)">Punch in</button>
+          <button id="recPunch" data-tip="Punch in: pick up the block's take from the playhead, keeping what's before it (Shift+Enter or Shift+R). E puts the playhead at the end of the take">Punch in</button>
           <button id="recMic" data-tip="Mic check: read a few lines and see where your peaks land, to set your gain">Mic check</button>
           <canvas id="recMeter" width="220" height="16" role="img" aria-label="Microphone level. Aim for the green zone"></canvas>
           <div class="recslot" id="recSlot" data-tip="How much of the block's slot is left"><div id="recSlotFill"></div></div>
@@ -295,6 +299,7 @@
   </section>
   <div class="navmenu clipmenu" id="clipMenu" role="menu" aria-label="Take" hidden>
     <button role="menuitem" data-clip="play">Play the take</button>
+    <button role="menuitem" data-clip="end">Go to the end of this part <kbd>E</kbd></button>
     <button role="menuitem" data-clip="split">Split at the playhead <kbd>X</kbd></button>
     <button role="menuitem" data-clip="cut">Delete this part <kbd>Delete</kbd></button>
     <button role="menuitem" data-clip="silence">Trim silence</button>
@@ -632,7 +637,7 @@ docker compose up -d --build</code></pre>
     </section>
     <section data-step="record-listen" hidden>
       <h2>Listening</h2>
-      <p>Use wired headphones. You hear the video's sound quietly, to follow the scene.</p>
+      <p>Use wired headphones. You hear the video's sound quietly, to follow the scene. Set how quietly with the Video slider under the video.</p>
       <p>You don't hear yourself through Scribecue. Use your audio interface for that.</p>
       <div class="recrow" id="wzRecLead"></div>
       <p class="dim small">How much of the video plays before each block, so you're ready when it starts.</p>
@@ -1538,6 +1543,7 @@ docker compose up -d --build</code></pre>
           <dl class="record-only">
             <dt><kbd>↵</kbd> <kbd>R</kbd></dt><dd>Record the selected block, or stop</dd>
             <dt><kbd>⇧</kbd><kbd>↵</kbd> <kbd>⇧</kbd><kbd>R</kbd></dt><dd>Punch in: pick up the block's take from the playhead</dd>
+            <dt><kbd>E</kbd> <kbd>⇧</kbd><kbd>E</kbd></dt><dd>Playhead to the end of the next or previous part of the block's take</dd>
             <dt data-keys="split"><kbd>X</kbd></dt><dd>Split the block's take at the playhead</dd>
             <dt data-keys="deleteNow"><kbd>Delete</kbd></dt><dd>Delete the part of a take you last clicked</dd>
             <dt><kbd><span class="mod"></span>Z</kbd></dt><dd>Bring back the take you deleted or discarded</dd>

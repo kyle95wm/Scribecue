@@ -3,7 +3,7 @@
 // that); this file does the recording. The guide is Guides/RECORDING.md.
 
 import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
-import { slots, prevEnd, narrationTimeline, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
+import { slots, prevEnd, narrationTimeline, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, leadInParts, partEnds, stepEnd, videoDb, videoDbText, VIDEO_DB_MIN, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
 import { storeZip } from './zip.js';
 import { blockToHold, stillHeard, pauseList } from './extended.js';
 import { fmtTime } from './formats.js';
@@ -14,19 +14,18 @@ import { SESSION_EXT } from './session.js';
 import { picker } from './pickers.js';
 
 const $ = (id) => document.getElementById(id);
-const VIDEO_DB = -30; // the video's sound while recording, so the scene can still be followed
 const LEAD = [3, 4, 5];
 const LEVEL_WORDS = { good: 'in the pocket', note: 'fine', quiet: 'very quiet', loud: 'too loud: retake it' };
 const get = (k) => { try { return localStorage.getItem('scribecue.rec.' + k); } catch { return null; } };
 const put = (k, v) => { try { if (v == null) localStorage.removeItem('scribecue.rec.' + k); else localStorage.setItem('scribecue.rec.' + k, v); } catch { /* storage blocked */ } };
 
-// h: { video, toast, notice(title, text), blocks(), selIdx(), select(i), seek(t), baseName(), volume(on), app }
+// h: { video, toast, notice(title, text), blocks(), selIdx(), select(i), seek(t), baseName(), volume(on, db), app }
 export function initRecord(h) {
   const { video } = h;
   const el = { go: $('recGo'), status: $('recStatus'), meter: $('recMeter'), fill: $('recSlotFill'), slot: $('recSlot'),
     dev: $('recDev'), lead: $('recLead'), sync: $('recSync'), test: $('recTest'), flash: $('recFlash'), takes: $('recTakes'),
     punch: $('recPunch'), count: $('recCount'), dlg: $('recExportDlg'), report: $('recReport'), go2: $('recExportGo'), title: $('recExportTitle'),
-    sw: $('edAltSw'), where: $('recSession') };
+    sw: $('edAltSw'), where: $('recSession'), vol: $('recVol'), volBox: $('recVolBox') };
 
   let rec = null;            // the recording file open: { id, start, fps, media, project?, version? }; id is where its takes are kept
   let takes = [];            // every take of this recording
@@ -46,6 +45,7 @@ export function initRecord(h) {
   let side = false;          // the Alt switch: true works on the selected block's alt, its wording and takes
   let drafts = {};           // alt wording typed for each block of this recording, by altKey; kept in the browser
 
+  let vidDb = videoDb(get('video')); // the video's sound while Record mode is open
   el.lead.value = leadSecs;
   el.sync.value = syncMs ?? '';
   const sl = () => slots(h.blocks(), rec?.grace);
@@ -310,6 +310,14 @@ export function initRecord(h) {
     fit: (t) => fitSlot(t, sl()[t.block], prevEndOf(t.block)),
     reset(t) { pick = { id: t.id, part: 0 }; return { splits: [], parts: [{}] }; },
   };
+  // The playhead to the end of the take's k-th part still there, which is then the one picked.
+  function goToEnd(t, k) {
+    const p = pieces(t)[k];
+    if (!p) return;
+    pick = { id: t.id, part: p.part };
+    h.seek(p.start + p.duration);
+    h.redraw();
+  }
   async function doEdit(t, what) {
     const n = await edits[what](t);
     if (n) await applyEdit(t, n);
@@ -556,6 +564,7 @@ export function initRecord(h) {
     if (!on) return;
     grab(on);
     menu.querySelector('[data-clip=cut]').disabled = pieces(on.t).length < 2;
+    menu.querySelector('[data-clip=end]').firstChild.textContent = pieces(on.t).length < 2 ? 'Go to the end of the take ' : 'Go to the end of this part ';
     menu.hidden = false;
     // Above the pointer, since the track is at the bottom of the window.
     const r = menu.getBoundingClientRect();
@@ -568,7 +577,9 @@ export function initRecord(h) {
     if (!b) return;
     menu.hidden = true;
     if (!t) return;
-    if (b.dataset.clip === 'play') playTake(t); else doEdit(t, b.dataset.clip);
+    if (b.dataset.clip === 'play') playTake(t);
+    else if (b.dataset.clip === 'end') goToEnd(t, pieces(t).findIndex((q) => q.part === pickedPart(t)));
+    else doEdit(t, b.dataset.clip);
   });
 
   // ---- devices
@@ -582,6 +593,21 @@ export function initRecord(h) {
   }
   el.dev.addEventListener('change', () => put('dev', el.dev.value || null));
   el.lead.addEventListener('change', () => { leadSecs = +el.lead.value; put('lead', leadSecs); });
+  // The video's sound, under the video: from as it is down to −30 dB. Double-click for −30.
+  function showVol() {
+    el.vol.value = String(vidDb);
+    el.vol.setAttribute('aria-valuetext', videoDbText(vidDb));
+    $('recVolDb').textContent = videoDbText(vidDb);
+    el.volBox.dataset.tip = `Video sound in Record mode: ${videoDbText(vidDb)}, from 0 dB down to −30 dB. Double-click for ${videoDbText(VIDEO_DB_MIN)}`;
+  }
+  function setVol(db) {
+    vidDb = videoDb(db); put('video', vidDb); showVol();
+    if (rec) h.volume(true, vidDb);
+  }
+  showVol();
+  el.vol.addEventListener('input', () => setVol(el.vol.value));
+  el.vol.addEventListener('pointerup', () => el.vol.blur()); // keys go back to the timeline
+  el.vol.addEventListener('dblclick', () => setVol(VIDEO_DB_MIN));
   el.sync.addEventListener('change', () => {
     const v = parseInt(el.sync.value, 10);
     syncMs = Number.isFinite(v) ? Math.max(-500, Math.min(1000, v)) : null;
@@ -697,7 +723,6 @@ export function initRecord(h) {
     cap.trail = peakTrail(RATE / PR);
     cap.t0 = Math.max(0, (p ? p.at : s.start) - PREROLL);
     h.seek(Math.max(0, cap.t0 - leadSecs));
-    h.volume(true, VIDEO_DB);
     wasPlaying = true;
     video.play().catch(() => {});
     state = 'lead'; render();
@@ -747,7 +772,6 @@ export function initRecord(h) {
     state = 'saving'; status('Saving the take…'); render();
     video.pause();
     if (discard) h.seek(c.from);
-    h.volume(false);
     if (c.punch) { c.punch.audio.pause(); URL.revokeObjectURL(c.punch.audio.src); }
     const samples = await new Promise((ok) => {
       if (!wasRec) return ok(new Float32Array(0));
@@ -1037,7 +1061,6 @@ export function initRecord(h) {
     try { wav = await takeAudio(t); } catch (e) { return h.toast(`Couldn’t play the take: ${e.message}`); }
     const audio = new Audio(URL.createObjectURL(wav));
     playing = { t, audio, on: null, then, cmp };
-    h.volume(false);
     h.seek(Math.max(0, t.start - 2));
     video.play().catch(() => {});
     render();
@@ -1149,10 +1172,14 @@ export function initRecord(h) {
   }
   function hearing() {
     cancelAnimationFrame(pb.raf);
-    if (!rec || !hear || state !== 'idle' || playing || video.paused || pb.ctx?.state !== 'running') { silence(); return; }
-    const now = video.currentTime, list = chosenList(), blocks = h.blocks();
+    // Recording, the other blocks' takes play in the lead-in, and any running into the
+    // recording finishes; none starts after it.
+    const live = (state === 'lead' || state === 'rec') && !!cap;
+    if (!rec || !hear || (state !== 'idle' && !live) || playing || video.paused || pb.ctx?.state !== 'running') { silence(); return; }
+    const now = video.currentTime, blocks = h.blocks();
+    const list = live ? leadInParts(chosenList(), cap.block, cap.t0) : chosenList();
     if (pb.heard != null && !stillHeard(blocks[pb.heard]?.start ?? -1, now)) pb.heard = null;
-    const stop = blockToHold(blocks, pb.last ?? now, now, false, (b) => {
+    const stop = !live && blockToHold(blocks, pb.last ?? now, now, false, (b) => {
       const i = blocks.indexOf(b);
       return !!b.extended && i !== pb.heard && !!shownFor(i);
     });
@@ -1412,6 +1439,16 @@ export function initRecord(h) {
       if (t) doEdit(t, 'split'); else h.toast(`Block ${h.selIdx() + 1} has no take to split`);
       return true;
     },
+    // E and Shift+E: the playhead to the next or previous end of a part of the selected
+    // block's take, to punch in from. False if no block is selected.
+    toTakeEnd(dir = 1) {
+      if (!rec || state !== 'idle' || h.selIdx() < 0) return false;
+      const t = keyTake();
+      if (!t) { h.toast(`Block ${h.selIdx() + 1} has no take yet`); return true; }
+      const ends = partEnds(t), e = stepEnd(ends, video.currentTime, dir);
+      goToEnd(t, ends.indexOf(e));
+      return true;
+    },
     // Deletes the part of a take last clicked, or the one open in the editor.
     cutPart() {
       if (!rec || state !== 'idle') return false;
@@ -1436,6 +1473,7 @@ export function initRecord(h) {
       raw = rawFile || asRecordingFile(file, h.app);
       state = 'idle';
       side = false;
+      h.volume(true, vidDb);
       try { drafts = JSON.parse(get(`alts.${rec.id}`)) || {}; } catch { drafts = {}; }
       where = await takesWhere();
       status(''); devices();

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, GRACES, readGrace, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver } from '../app/js/recording.js';
+import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, GRACES, readGrace, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver, videoDb, videoDbText, VIDEO_DB_MIN, leadInParts, partEnds, stepEnd } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -602,4 +602,39 @@ test('the narration’s note gives the pauses, and a changed block shows up when
   const plain = held.map(({ extended, ...b }) => b);
   assert.deepEqual(compareScript(note, plain).lines.map((l) => l.line), [2, 4]);
   assert.equal(compareScript(note, held).same, true);
+});
+
+test('the video sound in Record mode stays between 0 and −30 dB, and starts at −30', () => {
+  assert.equal(VIDEO_DB_MIN, -30);
+  assert.equal(videoDb(null), -30);
+  assert.equal(videoDb(''), -30);
+  assert.equal(videoDb('junk'), -30);
+  assert.equal(videoDb('-12'), -12);
+  assert.equal(videoDb('0'), 0);
+  assert.equal(videoDb(-40), -30);
+  assert.equal(videoDb(6), 0);
+  assert.equal(videoDb('-6.4'), -6);
+  assert.equal(videoDbText(-18), '−18 dB');
+  assert.equal(videoDbText(0), '0 dB');
+});
+
+test('recording a block, the lead-in plays the other blocks’ takes that start before the recording', () => {
+  const list = [{ block: 0, start: 2 }, { block: 1, start: 6 }, { block: 2, start: 9 }, { block: 3, start: 14 }];
+  // block 2 records from 8.8: block 1's take, started at 6, plays on; block 2's own and block 3's don't.
+  assert.deepEqual(leadInParts(list, 2, 8.8).map((p) => p.block), [0, 1]);
+  // punching into block 2 at 11: its own take is played separately, up to the join.
+  assert.deepEqual(leadInParts(list, 2, 11).map((p) => p.block), [0, 1]);
+});
+
+test('E steps the playhead through the ends of a take’s parts, going round', () => {
+  const t = { id: 'a', start: 10, duration: 4, edit: { splits: [2], parts: [{}, {}] } };
+  const ends = partEnds(t);
+  assert.deepEqual(ends.map((e) => +e.toFixed(3)), [12, 14]);
+  assert.equal(stepEnd(ends, 5), 12);
+  assert.equal(stepEnd(ends, 12), 14); // already at an end: on to the next
+  assert.equal(stepEnd(ends, 14), 12); // past the last: round to the first
+  assert.equal(stepEnd(ends, 13, -1), 12);
+  assert.equal(stepEnd(ends, 12, -1), 14);
+  assert.equal(stepEnd([], 3), null);
+  assert.deepEqual(partEnds({ id: 'b', start: 1, duration: 2 }), [3]);
 });

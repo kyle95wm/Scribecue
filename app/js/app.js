@@ -2933,7 +2933,8 @@ function updateActive(t) {
   rowMap.get(id)?.classList.add('active');
   cueEls.get(id)?.classList.add('active');
   renderOverlay(a);
-  if (a && isPlaying() && S.follow && !S.loop && !edit && !drag && S.sel !== id && !leadingTo(t)) {
+  // In Record mode the block being recorded stays selected: Follow only keeps the playhead in view.
+  if (a && isPlaying() && S.follow && S.mode !== 'record' && !S.loop && !edit && !drag && S.sel !== id && !leadingTo(t)) {
     select(id, { seek: false, reveal: false });
   }
 }
@@ -2977,8 +2978,9 @@ function updateInd() {
     const s = document.createElement('button');
     s.textContent = label;
     s.dataset.key = key;
-    s.dataset.tip = pcKeys(IND_TIPS[key]);
-    s.setAttribute('aria-label', speakable(IND_TIPS[key], IS_MAC));
+    const tip = key === 'follow' && S.mode === 'record' ? 'Follow: keep the playhead in view as it plays (F). The selected block stays selected' : IND_TIPS[key];
+    s.dataset.tip = pcKeys(tip);
+    s.setAttribute('aria-label', speakable(tip, IS_MAC));
     if (['follow', 'loop', 'takes', 'tts'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
     else if (key !== 'speed') s.classList.add('setlabel');
     s.className = (on ? 'on ' : '') + (key === 'speed' || key === 'follow' ? '' : 'tip-end');
@@ -6826,6 +6828,8 @@ document.addEventListener('keydown', (e) => {
     if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyP') { e.preventDefault(); recorder.nextPickup(); return; }
     if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyA') { e.preventDefault(); recorder.toggleAlt(); return; }
     if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyZ') { e.preventDefault(); zoomToTake(); return; }
+    // E: the playhead to the end of the take's next part, Shift+E the previous: where to punch in.
+    if (!e.altKey && !mod && e.code === 'KeyE' && recorder.toTakeEnd(e.shiftKey ? -1 : 1)) { e.preventDefault(); return; }
     if (e.key === '[' || e.key === ']') { e.preventDefault(); return; }
   }
   // [ ] by the character typed, since some layouts need ⌥ or AltGr for them.

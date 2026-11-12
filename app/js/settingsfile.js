@@ -30,6 +30,7 @@ const SETTINGS = [
   ['keys', 'json', 'Keyboard shortcuts'],
   ['rec.lead', 'text', 'Recording'],
   ['rec.hear', 'text', 'Recording'],
+  ['rec.video', 'text', 'Recording'],
   ['recStart', 'text', 'Recording'],
   ['updates', 'text', 'Updates'],
 ];

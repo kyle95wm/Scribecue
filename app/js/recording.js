@@ -329,6 +329,20 @@ export function pieces(t) {
   });
 }
 
+// While recording block `block`, the parts of other blocks' takes heard: those starting
+// before the recording does at `t0`, so the lead-in has the narration around it.
+export const leadInParts = (list, block, t0) => list.filter((p) => p.block !== block && p.start < t0);
+
+// Where each part of a take ends, in video seconds, in order.
+export const partEnds = (t) => pieces(t).map((p) => p.start + p.duration);
+// The first end after `now`, or with dir −1 the last before it, going round at either end:
+// the playhead steps through a take's part ends, to punch in from one.
+export function stepEnd(ends, now, dir = 1, eps = 0.02) {
+  if (!ends.length) return null;
+  if (dir > 0) return ends.find((e) => e > now + eps) ?? ends[0];
+  return ends.findLast((e) => e < now - eps) ?? ends[ends.length - 1];
+}
+
 // The whole take as edited, from its first sound to its last: { ...t, start, duration }.
 export function placed(t) {
   const ps = pieces(t), a = ps[0], z = ps[ps.length - 1];
@@ -535,6 +549,15 @@ export const recordingId = ({ blocks, start }) => hash(JSON.stringify([start, bl
 
 // How long recording starts before the block's first moment: a breath of room.
 export const PREROLL = 0.2;
+
+// The video's sound in Record mode, in dB: as it is (0) down to −30, so the narrator can
+// follow the scene. Read from storage: anything else gives the quietest.
+export const VIDEO_DB_MIN = -30;
+export function videoDb(v) {
+  const n = v == null || v === '' ? NaN : Math.round(Number(v));
+  return Number.isFinite(n) ? Math.max(VIDEO_DB_MIN, Math.min(0, n)) : VIDEO_DB_MIN;
+}
+export const videoDbText = (db) => (db ? `${String(db).replace('-', '−')} dB` : '0 dB');
 
 // Where a take sits on the timeline. Capture starts when the picture reaches `t0`; what
 // the microphone sent then was said `delay` seconds earlier (the sound reaching the
