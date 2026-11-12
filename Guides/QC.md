@@ -177,6 +177,9 @@ With the script open, open a narration WAV or zip exported by Scribecue. Scribec
 script and timings stored with the recording against the project you have open. It lists
 differences and says if the recording file was changed outside Scribecue.
 
+With extended blocks, the same window can make an extended video that stops for the
+narrator's own pauses. See [An extended video for the narration](RECORDING.md#an-extended-video-for-the-narration).
+
 This comparison doesn't check the words actually spoken, pronunciation or sound quality.
 Opening that WAV runs the comparison rather than playing it against the video. For a
 listening pass with comments, ask for the review video with narration mixed in.

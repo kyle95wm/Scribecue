@@ -19,7 +19,8 @@ import { initReviewCompare, openReviewCompare, finishReview } from './qcreviewdr
 import { initPending, startPending, addPending, endPending, pendingGhost, livePending } from './qcpending.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanNotes, cleanWords, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
 import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, readGrace, GRACE, sameVideo, compareScript, newProjectId, pickupsFor, takesKey } from './recording.js';
-import { readNote } from './bwf.js';
+import { readNote, narrationSound } from './bwf.js';
+import { inPause } from './narrationscan.js';
 import { readZip } from './zip.js';
 import { initRecord } from './record.js';
 import { takesInfo, clearTakes, unpackSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser } from './takestore.js';
@@ -3345,7 +3346,18 @@ async function stopJob() {
   stopSpeech();
   while (jobActive) await new Promise((r) => setTimeout(r, 50));
 }
-$('jobStop').addEventListener('click', () => { measuring = false; stopSpeech(); });
+$('jobStop').addEventListener('click', () => {
+  measuring = false;
+  stopSpeech();
+  // An extended video from a narration runs here too.
+  if (narrWorker || mixWorker || ffJob) {
+    mixStopped = true;
+    narrWorker?.stop();
+    mixWorker?.stop();
+    ffXhr?.abort();
+    if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
+  }
+});
 // Measures every block that hasn't been yet, at its current speed, showing progress in
 // place of a button. Returns false if Stop was pressed. ui: { btn, bar, stop, status }.
 // Shows a job's result in the panel and on screen, so it's seen even if the panel was
@@ -5144,16 +5156,19 @@ document.addEventListener('keydown', (e) => { if (recFileDlg.open || $('recExpor
 // A narration zip (from Record mode) is checked by the narration WAV inside it.
 async function openPackage(f) {
   const files = (await readZip(f)) || [];
-  const notes = (await Promise.all(files.filter((x) => /\.wav$/i.test(x.name)).map((x) => readNote(x.blob)))).filter(Boolean);
-  const note = notes.find((n) => !n.altOnly) || notes[0];
-  if (!note) return toast(`${f.name} isn’t a narration zip from Scribecue`);
-  checkNarration(note, f.name);
+  const wavs = files.filter((x) => /\.wav$/i.test(x.name));
+  const notes = await Promise.all(wavs.map((x) => readNote(x.blob)));
+  let k = notes.findIndex((n) => n && !n.altOnly);
+  if (k < 0) k = notes.findIndex(Boolean);
+  if (k < 0) return toast(`${f.name} isn’t a narration zip from Scribecue`);
+  checkNarration(notes[k], f.name, wavs[k].blob);
 }
 
 // A narration WAV opened here is checked against the script that's open, rather than
 // opened as audio: it says whether the narrator recorded the lines as they were sent.
-function checkNarration(note, name) {
+function checkNarration(note, name, wav = null) {
   if (!S.cues.some((c) => c.text.trim())) return toast(`${name} is a narration. Open the script it was recorded from to check it against`);
+  showNarrationVideo(note, name, wav);
   const r = compareScript(note, narratorBlocks());
   const out = [];
   if (r.edited) out.push('The recording file was changed outside Scribecue before this was recorded.');
@@ -5191,6 +5206,106 @@ function checkNarration(note, name) {
   $('narrDlg').showModal();
 }
 $('narrClose').addEventListener('click', () => $('narrDlg').close());
+
+// An extended video from a narration WAV: the picture stops for the narrator's own pauses,
+// which the WAV keeps, rather than for the text to speech readings. So the WAV lines up with
+// it, however long each extended block took to read.
+let narr = null; // { note, name, wav } for the narration open in the window
+function showNarrationVideo(note, name, wav) {
+  const full = !note.only && !note.altOnly && note.blocks.some((b) => b.extended);
+  narr = full && wav ? { note, name, wav } : null;
+  $('narrExt').hidden = !full;
+  if (!full) return;
+  const n = note.pauses?.length || 0;
+  $('narrExtBtns').hidden = !narr || !n;
+  $('narrExtNarr').setAttribute('aria-pressed', String(tts.extNarration));
+  $('narrExtWhat').textContent = !n
+    ? 'This narration has extended blocks, but no pause times: an older Scribecue exported it. Export it again from Record mode to make an extended video from it.'
+    : `The narrator’s reads stop the picture ${n === 1 ? 'once' : `${n} times`}, adding ${addedTime(note.pauses.reduce((a, p) => a + p.secs, 0))}. Export an extended video that stops for them, and this narration lines up with it.`;
+}
+$('narrExtNarr').addEventListener('click', () => {
+  setTtsOption('extNarration', !tts.extNarration);
+  $('narrExtNarr').setAttribute('aria-pressed', String(tts.extNarration));
+});
+// The block each pause is for, by its start, numbered as in the narration.
+const pauseRows = (note) => {
+  let added = 0;
+  return note.pauses.map(({ at, secs }) => {
+    const i = note.blocks.findIndex((b) => b.extended && Math.abs(b.start - at) < 0.0005);
+    const row = { block: i + 1 || '', programme: fmtTime(at, '.'), extended: fmtTime(at + added, '.'), secs, text: note.blocks[i]?.text || '' };
+    added += secs;
+    return row;
+  });
+};
+$('narrPauses').addEventListener('click', () => {
+  if (!narr) return;
+  const name = `${narr.name.replace(/\.[^.]+$/, '')} - pauses.csv`;
+  saveBlob(new Blob([pauseList(pauseRows(narr.note))], { type: 'text/csv;charset=utf-8' }), name);
+  $('narrDlg').close();
+  toast(`Saved ${name}`);
+});
+$('narrExtVideo').addEventListener('click', () => { if (narr) exportNarrationVideo(narr); });
+// The takes in the WAV, read in a worker a slice at a time: only they are kept, so a long
+// programme's narration needn't fit in memory.
+let narrWorker = null;
+async function narrationReadings(wav, progress) {
+  const { at, len, rate } = await narrationSound(wav);
+  return new Promise((resolve, reject) => {
+    const w = narrWorker = new Worker(new URL('./narration-worker.js', import.meta.url), { type: 'module' });
+    const end = (f, v) => { w.terminate(); if (narrWorker === w) narrWorker = null; f(v); };
+    w.onmessage = ({ data: m }) => {
+      if (m.type === 'progress') progress(m.done);
+      else if (m.type === 'done') end(resolve, m.runs.map((r) => ({ ...r, rate })));
+      else end(reject, new Error(m.message));
+    };
+    w.onerror = (e) => { e.preventDefault(); end(reject, new Error(e.message || 'the reader didn’t load')); };
+    w.stop = () => end(reject, stopped());
+    w.postMessage({ file: wav, at, len, rate });
+  });
+}
+function exportNarrationVideo({ note, name, wav }) {
+  const file = S.videoFile;
+  if (!file || !S.hasVideo) return toast('Open the programme’s video first, then the narration again');
+  if (mixing()) return toast('Wait for the full mix or extended video to finish first');
+  $('narrDlg').close();
+  pause();
+  return asJob(async () => {
+    mixStopped = false;
+    const show = (f, text) => { if (mixStopped) throw stopped(); jobBar.value = f; jobText.textContent = `Extended video: ${text}`; jobBox.hidden = false; };
+    try {
+      show(0, 'Starting');
+      if (!HOSTED) await checkFfmpeg();
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (tts.ffmpeg && !FF_VIDEOS.includes(ext)) throw new Error(`ffmpeg can make an MP4, MOV, MKV or WebM video, not a .${ext} file`);
+      const share = tts.ffmpeg ? 0.3 : 1, narrate = tts.extNarration, pauses = note.pauses;
+      // The narration's takes go in as readings, lowering the programme as readings do,
+      // apart from those read while it's stopped.
+      const dip = tts.duck ? dipFor(null, tts.dipDb) : 0;
+      const readings = narrate
+        ? (await narrationReadings(wav, (f) => show(0.2 * share * f, `Reading the narration: ${Math.round(f * 100)}%`)))
+          .map((r) => ({ start: r.start, samples: r.samples, rate: r.rate, dip: inPause(pauses, r.start) ? 0 : dip, gain: 1 }))
+        : [];
+      const levels = mixLevels(tts.mix), loud = LOUDNESS[tts.loudness] || LOUDNESS[''];
+      const job = { readings, pauses, fade: tts.dipFade, video: narrate ? levels.video : 1, reading: narrate ? levels.reading : 0,
+        kbps: 0, wavMix: true, target: narrate ? loud.lufs ?? null : null, ceiling: narrate ? loud.ceiling : 0, stems: false };
+      const status = { set textContent(t) { show(jobBar.value, t); } };
+      const done = await mixProgramme(job, file, status, (f) => show(share * (0.2 + 0.8 * f), `Mixing: ${Math.round(f * 100)}%`));
+      const mix = done.files[0].blob, out = `${baseName()} - extended ${narrate ? 'with' : 'for'} the narration`;
+      if (tts.ffmpeg) {
+        const saved = await ffmpegMix(mix, file, 'aac', out, show, pauses, share);
+        return toast(`Saved ${saved}`);
+      }
+      const names = { mix: `${out} - audio.wav`, filter: `${baseName()} - narrator pauses for ffmpeg.txt`, out: `${out}.${ext}` };
+      saveBlob(mix, names.mix);
+      await new Promise((ok) => setTimeout(ok, 300));
+      saveBlob(new Blob([holdFilter(pauses)], { type: 'text/plain' }), names.filter);
+      notice('Extended video: run ffmpeg', `Saved ${names.mix} and ${names.filter}. ffmpeg isn’t running here, so make the video yourself: put those two files in a folder with ${file.name}, and run this there: ${extendedCommand({ video: file.name, mix: names.mix, filter: names.filter, out: names.out })}`);
+    } catch (e) {
+      if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
+      toast(e.stopped || mixStopped ? 'Stopped the extended video' : `Couldn’t make the extended video: ${e.message}`);
+    }
+  });
+}
 // Alts: wording the narrator recorded as well as the block's own. With the script as sent,
 // each can become the block's text. Its timing stays, since the alt was read in its slot.
 function showAlts(note, same) {
@@ -6443,7 +6558,7 @@ function openFiles(files) {
   for (const f of files) {
     if (isDoc(f.name)) openProject(f);
     else if (SCRIPT.test(f.name)) loadSubsFile(f).catch((e) => { console.error(e); toast(`Couldn’t open ${f.name}${readProblem(e)}`); });
-    else if (/\.wav$/i.test(f.name)) readNote(f).then((n) => (n ? checkNarration(n, f.name) : loadVideoFile(f)));
+    else if (/\.wav$/i.test(f.name)) readNote(f).then((n) => (n ? checkNarration(n, f.name, f) : loadVideoFile(f)));
     else if (/\.zip$/i.test(f.name)) openPackage(f);
     else loadVideoFile(f);
   }

@@ -131,6 +131,7 @@ picture holds while the block is read, then carries on.
 - **To mix it yourself:** turn off **Include the narration** first. You get the programme's sound at its own level, silent during each pause.
 - **It takes time:** the whole picture is made again, so a film can take as long as it runs.
 - **It needs ffmpeg:** in Docker, it's made for you. Without it, you get the audio and a filter file. Run the command Scribecue shows in a folder with those and the video.
+- **Once the narrator has recorded:** make it from their narration WAV instead, so it stops for their reads. See [An extended video for the narration](RECORDING.md#an-extended-video-for-the-narration).
 
 ## Exporting the full mix
 

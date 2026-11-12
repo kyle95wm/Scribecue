@@ -24,6 +24,7 @@ raw, for the mixer to work with.
 - [Alts](#alts)
 - [For the mixer](#for-the-mixer)
 - [Checking the narration](#checking-the-narration)
+  - [An extended video for the narration](#an-extended-video-for-the-narration)
 - [Where takes are kept](#where-takes-are-kept)
 
 ## How it works
@@ -298,8 +299,11 @@ The narration is one Broadcast WAV file:
   such as Reaper and Nuendo.
 
 With extended blocks, the WAV is longer than the programme. Each take sits where the video
-stops for it, ready for an extended video. A pause list comes with it, as a CSV. A pickup of
-an extended block can change the pauses after it, so export the narration again.
+stops for it, for as long as the narrator read. A pause list comes with it, as a CSV. A
+pickup of an extended block can change the pauses after it, so export the narration again.
+
+Mix against a video that stops for the narrator's pauses, not the writer's text to speech
+ones. To make it, see [An extended video for the narration](#an-extended-video-for-the-narration).
 
 A pickups WAV is the same, with only the pickups in it. Put it on its own track over the
 first narration, and mute the old takes under it. Its markers say `PICKUP`, with the
@@ -329,6 +333,28 @@ block keeps its timing, since the alt was read in its slot.
 ![A pickups WAV that matches the script](../docs/screenshots/check-pickups.png)
 
 ![A pickups WAV checked after block 5 was changed](../docs/screenshots/check-mismatch.png)
+
+### An extended video for the narration
+
+With extended blocks, a narrator's reads rarely take as long as the text to speech did. A
+video made in Write mode would stop for the wrong lengths. Make one from the narration
+instead:
+
+1. Open the script and the programme's video.
+2. Open the full narration WAV or zip. The check opens.
+3. Click **Export extended video**.
+
+The picture stops for each of the narrator's pauses, so the narration lines up with it.
+
+| Option | Does |
+|---|---|
+| **Include the narration** | On: the narration is mixed in. Off: the programme's sound alone, to mix in an editor. |
+| **Export pause list** | Saves a CSV of where the video stops and for how long, for other editors. |
+
+- It needs ffmpeg, as Write mode's extended video does. Without it, you get the audio and a command to run.
+- A progress bar shows under the header. **Stop** there cancels it.
+- WAVs exported before Scribecue 0.87 don't keep their pauses. Export the narration again from Record mode.
+- Pickups and alts WAVs don't offer it. Use the full narration.
 
 ## Where takes are kept
 
