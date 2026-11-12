@@ -15,6 +15,14 @@ export function blockFromPlayhead(cues, t, d, playing = false) {
   return t - cues[cur].start > (playing ? BACK_GRACE : AT) ? cur : cur - 1;
 }
 
+// The block under the playhead, for Enter. Browsers can report the time a little before
+// where it was put, so a playhead within `near` seconds of a block's start (half a frame)
+// is on that block, not on the one before it or in the gap. at(t): the block covering t.
+export function blockUnder(t, at, near) {
+  const ahead = at(t + near);
+  return ahead && ahead.start > t ? ahead : at(t);
+}
+
 // Where the playhead goes when a block is closed with Esc or Enter. replay: the Replay
 // setting. clicked: the block was clicked open, so the playhead hasn't been to it yet.
 // 'heard' is where hearing the block starts, 'start' is its start, null stays put.

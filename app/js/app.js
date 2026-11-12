@@ -27,7 +27,7 @@ import { takesInfo, clearTakes, unpackSession, rememberSession, browserFolder, c
 import { isSessionPackage, fromSession, SESSION_FILE } from './session.js';
 import { picker, refused } from './pickers.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
-import { afterEdit, blockFromPlayhead, nudgeFor, nudges, NUDGE, takeFrom, stopAt, returnsToStart, scrubber, cleanLead, leadFrom } from './nav.js';
+import { afterEdit, blockFromPlayhead, blockUnder, nudgeFor, nudges, NUDGE, takeFrom, stopAt, returnsToStart, scrubber, cleanLead, leadFrom } from './nav.js';
 import { readShare, shareFor, stepShare, widthOf, LIST_MIN, VIDEO_MIN } from './split.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
@@ -1781,14 +1781,14 @@ $('edDel').addEventListener('click', (e) => { e.currentTarget.blur(); del(); });
 function newCue() {
   if (qcLocked()) return toast('The script and timings are fixed in QC mode');
   const t = now();
-  const covering = cueAt(t);
+  const covering = blockUnder(t, cueAt, frame() / 2);
   if (covering) {
     select(covering.id, { seek: false });
-    return toast(`Playhead is inside cue #${idx(covering.id) + 1}`);
+    return toast(`Playhead is inside block #${idx(covering.id) + 1}`);
   }
   const next = S.cues.find((c) => c.start > t);
   const end = Math.min(t + DEFAULT_LEN, next ? next.start : Infinity);
-  if (end - t < MIN_DUR) return toast('No room for a cue here');
+  if (end - t < MIN_DUR) return toast('No room for a block here');
   return addBlock(t, end);
 }
 
@@ -2013,7 +2013,7 @@ function schedulePrefetch(c) {
 
 // Frazier "Enter": edit the block under the playhead, or create one there.
 function createOrEdit() {
-  const c = leadingTo() || cueAt(now()) || newCue();
+  const c = leadingTo() || blockUnder(now(), cueAt, frame() / 2) || newCue();
   if (!c) return;
   select(c.id, { seek: false });
   editText();

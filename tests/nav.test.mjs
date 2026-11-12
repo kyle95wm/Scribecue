@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { afterEdit, blockFromPlayhead, BACK_GRACE, nudgeFor, nudges, NUDGE_START, takeFrom, stopAt, returnsToStart, scrubber, cleanLead, leadFrom, LEAD_MAX } from '../app/js/nav.js';
+import { afterEdit, blockFromPlayhead, blockUnder, BACK_GRACE, nudgeFor, nudges, NUDGE_START, takeFrom, stopAt, returnsToStart, scrubber, cleanLead, leadFrom, LEAD_MAX } from '../app/js/nav.js';
 
 const cues = [{ start: 2, end: 5 }, { start: 10, end: 14 }, { start: 20, end: 22 }];
 
@@ -111,4 +111,19 @@ test('the lead-in setting keeps what makes sense', () => {
   assert.equal(cleanLead(1.26), 1.3);
   assert.equal(cleanLead(LEAD_MAX + 5), LEAD_MAX);
   for (const v of ['', null, undefined, 'abc', '-3', '0', 0]) assert.equal(cleanLead(v), 0);
+});
+
+test('Enter takes a playhead just before a block start as on that block', () => {
+  const touching = [{ start: 3.04, end: 5.12 }, { start: 5.12, end: 7.32 }];
+  const gap = [{ start: 3.04, end: 5.1 }, { start: 5.12, end: 7.32 }];
+  const at = (list) => (t) => list.find((c) => c.start <= t && c.end > t) || null;
+  const half = 1 / 25 / 2;
+  // a browser reporting 5.1199 for a seek to 5.12
+  assert.equal(blockUnder(5.1199, at(touching), half), touching[1]); // not the block before
+  assert.equal(blockUnder(5.1199, at(gap), half), gap[1]); // not "no room" in the gap
+  assert.equal(blockUnder(5.12, at(touching), half), touching[1]);
+  assert.equal(blockUnder(4, at(touching), half), touching[0]); // well inside a block
+  assert.equal(blockUnder(5.105, at(gap), half), gap[1]); // within half a frame
+  assert.equal(blockUnder(5.09, at(gap), half), gap[0]);
+  assert.equal(blockUnder(8, at(touching), half), null); // past the end: a new block
 });
