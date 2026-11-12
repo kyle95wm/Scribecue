@@ -78,7 +78,7 @@ try {
 
  // The whole setup from Settings is unchanged: it still starts at the welcome.
  await js(`(async()=>{(await import('./js/welcome.js')).openWelcome();return true})()`);
- assert.equal(await js(`document.getElementById('wzStep').textContent`),'Step 1 of 5');
+ assert.equal(await js(`document.getElementById('wzStep').textContent`),'Step 1 of 6');
  await click('wzSkip');
 
 

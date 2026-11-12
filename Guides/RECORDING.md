@@ -63,8 +63,10 @@ video stopped. See [Extended blocks](#extended-blocks).
   [Where takes are kept](#where-takes-are-kept).
 - **Leave** closes the recording, and the script with it. Your takes are kept: open the
   recording file again to carry on.
-- **Use wired headphones.** You hear the video's sound 30 dB down, to follow the scene.
-  You don't hear yourself through Scribecue: use your audio interface for that.
+- **Use wired headphones.** You don't hear yourself through Scribecue: use your audio
+  interface for that.
+- **Set the video's sound** with **Video** under the video, from 0 dB (as it is) down to
+  −30 dB. It starts at −30 dB. Double-click it to go back there.
 - **Follow the setup.** The first time you open a recording file, it helps you pick your
   microphone, set your [level](#levels) and choose a lead-in: 3 to 5 seconds of video
   before each block.
@@ -79,7 +81,7 @@ video stopped. See [Extended blocks](#extended-blocks).
 
 1. Select the block. It opens in the list, locked.
 2. Press Enter or R. Allow the microphone the first time.
-3. The video plays from the lead-in. Set your gain on the meter while it does.
+3. The video plays from the lead-in, with the takes before it. Set your gain on the meter while it does.
 4. Read the line when the picture reaches it. The bar shows how much of the slot is left.
 5. Press Enter, R or Space to stop. The take is saved straight away. Esc stops, discards it, and puts the playhead back.
 
@@ -89,6 +91,7 @@ The writer's notes for a block, such as how to say a name, show above its text.
 |---|---|
 | Enter or R | Record the selected block, or stop |
 | Shift+Enter or Shift+R | [Punch in](#punching-in) from the playhead |
+| E / Shift+E | Playhead to the end of the next or previous part of the block's take |
 | X | Split the block's take at the playhead |
 | Delete | Delete the part of a take you last clicked |
 | Ctrl/Cmd+Z | Bring back the take you deleted or discarded |
@@ -136,21 +139,25 @@ lines, including your loudest, and set your gain so the peaks land in it.
 - The take picked for each block shows on the timeline, under the video's waveform.
 - The take you're recording grows there as you read, with its waveform.
 - **While the video plays,** you hear the take picked for each block, where it was read.
+  The lead-in plays them too, so you can match what came before.
   Click **TAKES** under the video to turn that off.
+- **The selected block stays selected** as the video plays. **FOLLOW** only keeps the
+  playhead in view.
 - **Play** plays one take against the video.
 - **Use** picks the take for the export. A new take is picked automatically.
 - **Fine-tune** moves, trims or splits the take in the export by the millisecond.
 - **Delete** removes a take. Press Ctrl/Cmd+Z, or click the message, to bring it back.
   Once you close the recording, it's gone.
-- **Delete** removes a take for good.
 
 ### Punching in
 
 Punch in to redo the end of a take, or to finish one you stopped early.
 
-1. Put the playhead where you want to pick up.
+1. Put the playhead where you want to pick up. Press E to jump to the end of the take, or
+   of each part in turn, or right-click the take and choose **Go to the end of the take**. Step back
+   with the arrow keys if you need to.
 2. Press Shift+Enter or Shift+R, or click **Punch in**.
-3. The lead-in plays the take so far. Read on from the playhead.
+3. The lead-in plays the takes before it, then this take up to the playhead. Read on from there.
 
 The result is a new take: the old one up to the playhead, then the new reading. The old
 take is kept, so **Use** brings it back.
