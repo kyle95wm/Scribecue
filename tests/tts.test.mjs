@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
+import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, spokenLines, tts, isSpeed, speedLabel,
   splitReadingKey, piperVoiceList, kokoroVoiceList, readWav, voiceEnd, voiceStart, withoutLeadIn, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
   toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice, voiceTitle, voiceLanguages, inLanguage, baseLang } from '../app/js/tts.js';
@@ -442,6 +442,15 @@ test('a reading’s length stops where the voice does, not at the silence after 
   // Stereo: frames, not samples.
   const stereo = new Int16Array(rate * 2); for (let i = 0; i < rate; i++) stereo[i] = 9000 * Math.sin(i);
   assert.ok(Math.abs(voiceEnd(stereo, 2, rate) - 0.55) < 0.011);
+});
+
+test('Google gets a block’s line breaks, so it pauses between paragraphs as Frazier does', () => {
+  assert.equal(spokenLines('Cast of Characters\nDominic:  Peter Dobson \r\n\n  Hannah: Jessica Steen'), 'Cast of Characters\nDominic: Peter Dobson\nHannah: Jessica Steen');
+  assert.equal(spokenLines('One line, <i>no</i> breaks.'), 'One line, no breaks.');
+  // Notes are taken out before lines are split, even a note over two lines.
+  assert.equal(spokenLines('Credits [check\nspelling] roll.\nFeaturing', true), 'Credits roll.\nFeaturing');
+  assert.equal(spokenLines('[only a note]\n', true), '');
+  assert.equal(spoken('Cast\nDominic'), 'Cast Dominic', 'other voices still read it as one line');
 });
 
 test('Google’s silence before the voice is cut, so the voice starts on the block’s start', async () => {

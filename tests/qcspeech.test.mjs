@@ -77,6 +77,12 @@ test('malformed rewrite metadata cannot be saved or played as a matching reading
   assert.equal(speechSpec('garbage'), null);
 });
 
+test('QC’s Google re-reads keep line breaks; other voices read one line', () => {
+  const key = (voice) => JSON.stringify(['Cast\nDominic: Peter Dobson', [], 1, voice, 1, false]);
+  assert.equal(speechSpec(key('google:en-US-Standard-H')).words, 'Cast\nDominic: Peter Dobson');
+  assert.equal(speechSpec(key('piper:en_US-lessac-medium')).words, 'Cast Dominic: Peter Dobson');
+});
+
 test('a block added in review can be read in one of the package’s Google voices', async () => {
   const r = await setup(), s = r.project.settings;
   const added = { uid: newIdentity(), start: 6, end: 8, text: 'A door slams.' };

@@ -1,5 +1,5 @@
 // QC synthesis is explicit. Playback, seeking and timing edits only look up audio.
-import { spoken, soundsLike, atBase, googleRequest, googleFailure, readWav, withoutLeadIn, reviewGoogleKey, reviewPollyCreds, pollyRead } from './tts.js';
+import { spoken, spokenLines, soundsLike, atBase, googleRequest, googleFailure, readWav, withoutLeadIn, reviewGoogleKey, reviewPollyCreds, pollyRead } from './tts.js';
 import { isPollyVoice, pollyVoiceOf } from './polly.js';
 
 export function speechSpec(key) {
@@ -9,7 +9,8 @@ export function speechSpec(key) {
     const [text, say, speed, voice, base, skipNotes] = p;
     if (p.length !== 6 || typeof text !== 'string' || typeof voice !== 'string' || !Array.isArray(say) ||
       !Number.isFinite(speed) || !Number.isFinite(base)) return null;
-    return { words: spoken(soundsLike(text, say), skipNotes), rate: atBase(speed, base), voice };
+    const said = soundsLike(text, say);
+    return { words: isGoogleStandard(voice) ? spokenLines(said, skipNotes) : spoken(said, skipNotes), rate: atBase(speed, base), voice };
   } catch { return null; }
 }
 export const speechKey = (s) => JSON.stringify([s.voice, s.rate, s.words]);

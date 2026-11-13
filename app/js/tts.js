@@ -165,7 +165,7 @@ export const reviewVoices = () => voices.map((v) => ({ id: v.voiceURI, name: voi
 export async function reviewAudio(text, speed, uri) {
   const v = voices.find((v) => v.voiceURI === uri);
   if (!v || !makesAudio(v)) throw new Error(`${voiceLabel(uri)} needs to be available as a Piper, Kokoro, Google Cloud or Amazon Polly voice to package its audio`);
-  const key = `${v.voiceURI}|${rate(speed)}|${spoken(text)}`;
+  const key = `${v.voiceURI}|${rate(speed)}|${wordsFor(text, v.voiceURI)}`;
   if (!spoken(text)) return null;
   const wav = await readAudio(text, speed, v, 'bulk');
   const blob = new Blob([wav.buf], { type: 'audio/wav' });
@@ -368,11 +368,17 @@ export function estimate(text, cps = DEFAULT_CPS, speed = 1) {
 
 // What the voice actually reads: no tags, no line breaks, and with the setting on, no
 // notes in [square brackets]. An unclosed bracket is read as it is.
-export function spoken(text, skipNotes = tts.skipNotes) {
-  let t = String(text).replace(/<[^>]*>|\{[^}]*\}/g, '');
-  if (skipNotes) t = t.replace(/\[[^\]]*\]/g, ' ');
-  return t.replace(/\s+/g, ' ').trim();
+export const spoken = (text, skipNotes = tts.skipNotes) => unread(text, skipNotes).replace(/\s+/g, ' ').trim();
+// The same, keeping one line break between lines, for Google, which pauses at them as
+// Frazier does between paragraphs.
+export const spokenLines = (text, skipNotes = tts.skipNotes) =>
+  unread(text, skipNotes).split(/[\r\n]+/).map((line) => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
+function unread(text, skipNotes) {
+  const t = String(text).replace(/<[^>]*>|\{[^}]*\}/g, '');
+  return skipNotes ? t.replace(/\[[^\]]*\]/g, ' ') : t;
 }
+// The words a voice reads, which name its readings.
+const wordsFor = (text, uri) => (/^google:/.test(uri) ? spokenLines(text) : spoken(text));
 // The rest of a reading started partway through, for a voice that can only read from the
 // start of its text: from the word a fraction frac of the way in.
 export function wordsFrom(text, frac) {
@@ -674,13 +680,13 @@ export function showCloudCost() {
 }
 export const anyVoices = () => tts.available || tts.piper.length > 0 || tts.kokoro.length > 0 || tts.google.length > 0 || tts.polly.length > 0;
 const voiceKey = (uri) => voiceOf(uri)?.voiceURI || '';
-const measureKey = (text, speed, uri) => `${voiceKey(uri)}|${rate(speed)}|${spoken(text)}`;
+const measureKey = (text, speed, uri) => `${voiceKey(uri)}|${rate(speed)}|${wordsFor(text, voiceKey(uri))}`;
 
 // Every reading of this text with the voice so far, as [{ speed, secs }], with speeds
 // before the base speed, unless asMade.
 export function readingsOf(text, asMade = false, uri) {
   const out = [];
-  for (const [speed, secs] of measuredBy.get(`${voiceKey(uri)}|${spoken(text)}`) || []) {
+  for (const [speed, secs] of measuredBy.get(`${voiceKey(uri)}|${wordsFor(text, voiceKey(uri))}`) || []) {
     if (speed > 0) out.push({ speed: asMade ? speed : speed / tts.base, secs });
   }
   return out;
@@ -1145,7 +1151,7 @@ async function pollyWav(mp3) {
 // job, or 'background' to have it ready.
 const pending = new Map(); // key -> the worker request, while it's queued or running
 function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background') {
-  const words = spoken(text), speed = rate(blockSpeed);
+  const words = wordsFor(text, voice.voiceURI), speed = rate(blockSpeed);
   const key = `${voice.voiceURI}|${speed}|${words}`;
   let p = audioCache.get(key);
   if (p && how === 'now') pending.get(key)?.hurry();
