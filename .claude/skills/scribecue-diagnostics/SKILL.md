@@ -212,6 +212,7 @@ added don't have it: if it's missing, ask for a report instead.
 | Many long tasks, or any over 500 ms | Work on the page is blocking it. | Reproduce it. This is likely a Scribecue bug. |
 | Dropped frames with "plays alongside the video" | Two players are in use. | A file with only the description mix. |
 | "can't decode this video" | The browser lacks the codec. | Chrome or Edge. Some Chromium builds can't play MP4. |
+| On macOS, "No waveform: The requested file could not be read…" and "Playback failed: The element has no supported sources", while projects from the same folder open | macOS keeps the browser out of that folder. Picking a file lets the browser read it once, which is enough for a project, but not for a video, which is read again and again. On this computer, check with `sqlite3 ~/Library/Application\ Support/com.apple.TCC/TCC.db "select service,auth_value from access where client like '%chrome%'"`: `auth_value` 0 means not allowed. A file that was moved or changed after it was picked gives the same error, so check that too. | In **System Settings → Privacy & Security → Files and Folders**, turn on the folder for the browser, then quit and reopen it. Or move the video to a folder the browser can use. Don't suggest `/tmp`: macOS empties it. |
 | Storage near the limit | The browser may refuse to keep data. | Free up disk space. **Remove all data…** is a last resort: it also deletes unsaved blocks and recorded takes, so never suggest it without saying so. |
 | `error` lines just before the problem | A bug. | Trace it, as above. |
 
