@@ -83,6 +83,17 @@ function readNote(block) {
   return null;
 }
 
+// Text from elsewhere, tidied: spaces from other apps (tabs, non-breaking and other
+// widths) become ordinary ones, several in a row become one, other line breaks become
+// ordinary ones, and invisible characters (zero-width spaces, soft hyphens, word joiners,
+// byte order marks) are left out. What anyone sees or hears stays the same: quotation
+// marks, dashes and letters are as they were.
+export const tidyText = (text) => String(text)
+  .replace(/\r\n?|[\u2028\u2029]/g, '\n')
+  .replace(/[\u00AD\u200B\u2060\uFEFF]/g, '')
+  .replace(/[\t\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, ' ')
+  .replace(/ {2,}/g, ' ');
+
 export function parseSubs(text) {
   text = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
   const cues = [];
@@ -95,7 +106,7 @@ export function parseSubs(text) {
     const start = parseTime(a);
     const end = parseTime(b.trim().split(/\s+/)[0] || '');
     if (Number.isNaN(start) || Number.isNaN(end)) { notes = {}; continue; } // its notes go with it
-    const cue = { start, end: Math.max(end, start), text: lines.slice(i + 1).join('\n').trim() };
+    const cue = { start, end: Math.max(end, start), text: tidyText(lines.slice(i + 1).join('\n')).trim() };
     if (notes.speed) cue.speed = notes.speed;
     if (notes.voice) cue.voice = notes.voice;
     if (notes.dip != null) cue.dip = notes.dip;
@@ -160,7 +171,7 @@ export function parseAdc(text) {
   const cues = doc.cue_points.filter((c) => Number.isFinite(c?.start) && Number.isFinite(c?.end)).map((c) => {
     const { text: t, say } = adcText(c.text);
     const start = Math.max(0, c.start) / 1000;
-    const cue = { start, end: Math.max(c.end / 1000, start), text: t };
+    const cue = { start, end: Math.max(c.end / 1000, start), text: tidyText(t).trim() };
     const speed = ADC_SPEEDS[c.speed] ?? 1;
     if (speed !== 1) cue.speed = speed;
     // Frazier names a Google voice for every block; one other than the document's is the
