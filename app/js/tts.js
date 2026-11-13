@@ -328,6 +328,11 @@ export function readWav(buf) {
 // whole file ends well after the voice. A reading's length is where the voice stops: the
 // last 10 ms louder than −50 dBFS, and a little more for it to fade. All of it still plays.
 const QUIET = (32768 * 10 ** (-50 / 20)) ** 2, FADE = 0.05;
+// How far a reading can run past its block's end and still count as fitting: the FADE above,
+// and the 10 ms steps the voice's end is found in, with room to spare. Readings timed in
+// Frazier, which stop right on the voice, land within it.
+export const RUN_OVER = 0.1;
+export const runsPast = (secs, room) => secs > room + RUN_OVER;
 export function voiceEnd(samples, channels, rate) {
   const total = samples.length / channels / rate, step = Math.max(1, Math.round(rate / 100)) * channels;
   for (let end = samples.length; end > 0; end -= step) {

@@ -44,7 +44,7 @@ import { comboOf, lookup } from './keymap.js';
 import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList } from './extended.js';
 import { initKeys, keyChanges, openKeys, shortcutEntries } from './keys.js';
 import { VERSION } from './update.js';
-import { FIT_MIN, MAX_SPEED, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey, isPersonalGoogleKey, checkGoogleKey, setProjectGoogleKey, usingProjectGoogleKey, useProjectVoice, VOICE_LOCKED } from './tts.js';
+import { FIT_MIN, MAX_SPEED, RUN_OVER, runsPast, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey, isPersonalGoogleKey, checkGoogleKey, setProjectGoogleKey, usingProjectGoogleKey, useProjectVoice, VOICE_LOCKED } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands, holdFilter, extendedCommand } from './ffcmd.js';
 import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS } from './codecs.js';
@@ -1714,7 +1714,7 @@ async function autoRewrite(id) {
   const review = S.review, secs = await voiceSecs(review, r), c = S.cues.find((b) => b.id === id);
   if (!c || S.review !== review || playbackReading(review, c, reviewSettings()) !== r || !fitQc(c, secs)) return;
   changed(c.id);
-  if (c.end < c.start + secs - 0.05) toast(`Block #${idx(id) + 1}: the reading takes ${secs.toFixed(1)} s, but the next block starts first, so the end stops there`);
+  if (c.end < c.start + secs - RUN_OVER) toast(`Block #${idx(id) + 1}: the reading takes ${secs.toFixed(1)} s, but the next block starts first, so the end stops there`);
 }
 // Where the voice stops in a packaged reading. Packages made before 0.73.4 give the whole
 // file's length, with the silence at its end, so that's read from the audio, once.
@@ -1976,7 +1976,7 @@ function updateEditor() {
     $('qcBlockInfo').textContent = live && S.qcSource === 'package' ? (liveVoiceHere(c) ? `Read here with ${voiceLabel(liveVoiceOf(c))}` : `Needs ${voiceLabel(liveVoiceOf(c))}`)
       : newVoice ? 'New voice · needs a fresh package' : autoMaking.has(c.id) ? 'Making reading…'
       : unread && !autoRewrites(unread.voice) ? `Needs ${keyName(unread.voice) === 'AWS' ? 'an AWS' : 'a Google'} key` : !r && previous ? 'Original reading out of date'
-      : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'New reading'} ${(voiceEnds.get(r) ?? r.secs).toFixed(1)} s${isExt(c) ? ' · pauses the video' : (voiceEnds.get(r) ?? r.secs) > c.end - c.start + 0.05 ? ' · runs past block' : ''}`
+      : S.qcSource === 'package' ? (r ? `${r === previous ? 'Original' : 'New reading'} ${(voiceEnds.get(r) ?? r.secs).toFixed(1)} s${isExt(c) ? ' · pauses the video' : runsPast(voiceEnds.get(r) ?? r.secs, c.end - c.start) ? ' · runs past block' : ''}`
           : previous || !S.review?.byUid?.size ? 'Original reading missing' : rewriteSpec(S.review, c, reviewSettings()) ? 'New block · not read yet' : 'New block · no reading')
         : S.qcSource === 'preview' ? (!sharedQc() ? 'Approximate TTS preview' : liveVoiceHere(c) ? `Read here with ${voiceLabel(liveVoiceOf(c))}` : `${voiceLabel(liveVoiceOf(c))} isn’t here · another voice reads it`) : 'Programme sound';
   }
@@ -1984,7 +1984,7 @@ function updateEditor() {
     // How long the voice takes to read it: "~" until it has actually been read.
     const { secs, exact } = speechLength(said(c), c.speed, c.voice);
     const s = document.createElement('span');
-    const ext = isExt(c), tooLong = !ext && secs > c.end - c.start + 0.05;
+    const ext = isExt(c), tooLong = !ext && runsPast(secs, c.end - c.start);
     s.textContent = `TTS ${exact ? '' : '~'}${secs.toFixed(1)} s${ext ? ' · pauses the video' : tooLong ? ' · too long' : ''}`;
     s.className = 'tts ' + (tooLong ? 'bad' : '');
     edStats.append(s);
@@ -2331,7 +2331,7 @@ function fillRow(r, c, i) {
   // Red when the reading is longer than the block, with a sign for anyone who can't tell red.
   const reading = ttsOn() && !!spoken(c.text) ? speechLength(said(c), c.speed, c.voice) : null;
   const ext = isExt(c) && S.mode !== 'transcribe';
-  const over = !ext && !!reading && reading.secs > c.end - c.start + 0.05;
+  const over = !ext && !!reading && runsPast(reading.secs, c.end - c.start);
   if (over) dur += ' ⚠';
   if (ext) dur += reading ? ` · pauses ${reading.exact ? '' : '~'}${reading.secs.toFixed(1)} s` : ' · extended';
   if (c.notes) dur += ' · notes';
@@ -3193,7 +3193,7 @@ function speakBlock(fit) {
       if (ext) return toast(`Reading takes ${secs.toFixed(1)} s, and the video pauses for it`);
       // An auto block has just been refitted to this reading.
       if (cur.auto && room + 0.0005 >= secs) return toast(`Reading takes ${secs.toFixed(1)} s. The block now ends where the reading finishes`);
-      toast(secs > room + 0.05
+      toast(runsPast(secs, room)
         ? `Reading takes ${secs.toFixed(1)} s, ${(secs - room).toFixed(1)} s longer than the block. ⇧V fits the block to it`
         : `Reading takes ${secs.toFixed(1)} s and fits, with ${(room - secs).toFixed(1)} s to spare`);
     },
@@ -3540,7 +3540,7 @@ async function fitAllSpeeds(ask = true) {
   const off = blocks.filter((c) => {
     if (!c.fit) return false;
     const m = speechLength(said(c), c.speed, c.voice);
-    return (m.exact || (c.speed ?? 1) >= MAX_SPEED) && m.secs - (c.end - c.start) > 0.05;
+    return (m.exact || (c.speed ?? 1) >= MAX_SPEED) && runsPast(m.secs, c.end - c.start);
   }).length;
   const estimated = blocks.filter((c) => !speechLength(said(c), c.speed, c.voice).exact).length;
   // Done: the blocks keep their timing and new speeds. Edited later, a block's end follows

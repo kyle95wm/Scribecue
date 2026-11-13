@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, spokenLines, tts, isSpeed, speedLabel,
+import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, spokenLines, runsPast, tts, isSpeed, speedLabel,
   splitReadingKey, piperVoiceList, kokoroVoiceList, readWav, voiceEnd, voiceStart, withoutLeadIn, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
   toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice, voiceTitle, voiceLanguages, inLanguage, baseLang } from '../app/js/tts.js';
@@ -451,6 +451,14 @@ test('Google gets a block’s line breaks, so it pauses between paragraphs as Fr
   assert.equal(spokenLines('Credits [check\nspelling] roll.\nFeaturing', true), 'Credits roll.\nFeaturing');
   assert.equal(spokenLines('[only a note]\n', true), '');
   assert.equal(spoken('Cast\nDominic'), 'Cast Dominic', 'other voices still read it as one line');
+});
+
+test('a reading counts as too long only past its block’s end and a tenth of a second', () => {
+  // Readings are measured to the voice plus a short fade; Frazier's block ends stop on the voice.
+  assert.equal(runsPast(4.074, 4.013), false, 'measured 0.06 s over a Frazier block: fits');
+  assert.equal(runsPast(2.1, 2), false);
+  assert.equal(runsPast(2.11, 2), true);
+  assert.equal(runsPast(3.2, 2), true);
 });
 
 test('Google’s silence before the voice is cut, so the voice starts on the block’s start', async () => {
