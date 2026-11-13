@@ -34,6 +34,7 @@ for its part of Scribecue: see [More help](#more-help).
 | The video plays, but there's no sound or waveform | Wait for **Getting the sound ready** to finish, if it shows. DTS and TrueHD don't play in most browsers. See [If a video has no sound](GETTING-STARTED.md#if-a-video-has-no-sound). |
 | "No waveform: the audio track is silent" | Choose another track in the **Audio** picker under the video. |
 | "Can't play track 2 on its own" | The browser can't play that track's format by itself, such as Vorbis. Choose another track, or convert the file. |
+| On a Mac, a video "could not be read", or "has no supported sources" | macOS may be keeping the browser out of its folder, even when projects there open. In **System Settings → Privacy & Security → Files and Folders**, turn on that folder for your browser. Then quit the browser and open the video again. |
 | A large file won't open | Use MP4, MOV, M4A, MKV, WebM or WAV. Other formats must be under 2 GB. |
 | The video is gone after an update | Updating reloads the page. Click **Reopen**, or open the video with `Ctrl/Cmd+Shift+O`. |
 
