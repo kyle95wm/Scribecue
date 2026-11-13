@@ -6953,6 +6953,8 @@ document.addEventListener('keydown', (e) => {
     if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyZ') { e.preventDefault(); zoomToTake(); return; }
     // E: the playhead to the end of the take's next part, Shift+E the previous: where to punch in.
     if (!e.altKey && !mod && e.code === 'KeyE' && recorder.toTakeEnd(e.shiftKey ? -1 : 1)) { e.preventDefault(); return; }
+    // S: trim the take's silence and start it at the block.
+    if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyS' && recorder.trimTake()) { e.preventDefault(); return; }
     if (e.key === '[' || e.key === ']') { e.preventDefault(); return; }
   }
   // [ ] by the character typed, since some layouts need ⌥ or AltGr for them.

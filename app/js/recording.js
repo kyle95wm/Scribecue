@@ -447,6 +447,11 @@ export function startAtBlock(t, slot, prevEnd = 0) {
   return clampEdit(t, { splits: e.splits, parts: e.parts.map((x) => ({ ...x, shift: x.shift + d })) }, prevEnd);
 }
 
+// Trim silence, then Start at block, in one step: what a narrator wants after most takes.
+export function trimAndStart(t, pcm, slot, prevEnd = 0, rate = RATE) {
+  return startAtBlock({ ...t, edit: trimSilence(t, pcm, rate) }, slot, prevEnd);
+}
+
 // Snapping while dragging: the target nearest `v` within `tol`, or `v` if none is.
 export function snap(v, targets, tol) {
   let best = v, gap = tol;

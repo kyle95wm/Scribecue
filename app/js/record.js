@@ -3,7 +3,7 @@
 // that); this file does the recording. The guide is Guides/RECORDING.md.
 
 import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
-import { slots, prevEnd, narrationTimeline, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, leadInParts, partEnds, stepEnd, videoDb, videoDbText, VIDEO_DB_MIN, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
+import { slots, prevEnd, narrationTimeline, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, leadInParts, partEnds, stepEnd, videoDb, videoDbText, VIDEO_DB_MIN, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
 import { storeZip } from './zip.js';
 import { blockToHold, stillHeard, pauseList } from './extended.js';
 import { fmtTime } from './formats.js';
@@ -307,6 +307,9 @@ export function initRecord(h) {
       try { return trimSilence(t, await pcmOf(t)); } catch (err) { h.toast(`Couldn’t read the take: ${err.message}`); return null; }
     },
     start: (t) => startAtBlock(t, sl()[t.block], prevEndOf(t.block)),
+    async both(t) {
+      try { return trimAndStart(t, await pcmOf(t), sl()[t.block], prevEndOf(t.block)); } catch (err) { h.toast(`Couldn’t read the take: ${err.message}`); return null; }
+    },
     fit: (t) => fitSlot(t, sl()[t.block], prevEndOf(t.block)),
     reset(t) { pick = { id: t.id, part: 0 }; return { splits: [], parts: [{}] }; },
   };
@@ -363,6 +366,7 @@ export function initRecord(h) {
       field('Trim start', 'head', 'Cut this much off the start of this part. Below 0 brings back the sound before it'),
       field('Trim end', 'tail', 'Cut this much off the end of this part. Below 0 brings back the sound after it'),
       btn('Split', 'Split the take at the playhead, to move its parts apart or closer together (X)', () => doEdit(t, 'split')), cutBtn,
+      btn('Trim and start at block', 'Trim the silence, then move the take so its sound starts where the block does (S)', () => doEdit(t, 'both')),
       btn('Trim silence', 'Cut the quiet off both ends of every part, keeping a moment of it', () => doEdit(t, 'silence')),
       btn('Start at block', 'Move the take so its sound starts where the block does', () => doEdit(t, 'start')),
       btn('Fit in slot', 'Trim the end so the take stops where its slot does', () => doEdit(t, 'fit')),
@@ -1447,6 +1451,13 @@ export function initRecord(h) {
       if (!t) { h.toast(`Block ${h.selIdx() + 1} has no take yet`); return true; }
       const ends = partEnds(t), e = stepEnd(ends, video.currentTime, dir);
       goToEnd(t, ends.indexOf(e));
+      return true;
+    },
+    // S: Trim silence, then Start at block, on the selected block's take. False if no block is selected.
+    trimTake() {
+      if (!rec || state !== 'idle' || h.selIdx() < 0) return false;
+      const t = keyTake();
+      if (t) doEdit(t, 'both'); else h.toast(`Block ${h.selIdx() + 1} has no take yet`);
       return true;
     },
     // Deletes the part of a take last clicked, or the one open in the editor.
