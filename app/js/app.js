@@ -7,7 +7,7 @@ import { cleanComments, commentsAllowed } from './comments.js';
 import { cleanEdited, stampEdits, seedEdits, editorCount, editedLine, blockSig } from './edits.js';
 import { savedName, saveName, editorId, validEditorId } from './profile.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
-import { parseSubs, parseAdc, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
+import { parseSubs, parseAdc, tidyText, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
 import { DEFAULTS, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
@@ -2143,6 +2143,22 @@ for (const f of FIELDS) {
 
 // In Record mode a locked field gives the focus straight back, so Enter and R still record.
 for (const f of [edText, edStart, edEnd, edNotes]) f.addEventListener('focus', () => { if (S.mode === 'record' && f.readOnly) f.blur(); });
+// Pasting into a block's text or notes brings the words tidied (see tidyText). Pasted with
+// insertText, so the browser's own undo still works while typing.
+function pasteTidy(e) {
+  const t = e.clipboardData?.getData('text/plain');
+  if (!t || e.target.readOnly) return;
+  const tidy = tidyText(t);
+  if (tidy === t) return;
+  e.preventDefault();
+  const el = e.target;
+  if (!document.execCommand('insertText', false, tidy)) {
+    el.setRangeText(tidy, el.selectionStart, el.selectionEnd, 'end');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+edText.addEventListener('paste', pasteTidy);
+edNotes.addEventListener('paste', pasteTidy);
 edText.addEventListener('focus', () => {
   const c = selCue();
   if (qcLocked() || S.mode === 'record') return;

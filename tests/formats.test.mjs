@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseTime, fmtTime, fmtTC, parseTC, isDropFrame, parseSubs, parseAdc, scriptVoices, swapVoices, adcText, toSRT, toVTT } from '../app/js/formats.js';
+import { parseTime, fmtTime, fmtTC, parseTC, isDropFrame, parseSubs, parseAdc, scriptVoices, swapVoices, adcText, tidyText, toSRT, toVTT } from '../app/js/formats.js';
 
 test('timecode counts frames at the video’s rate', () => {
   assert.equal(fmtTC(0, 25), '00:00:00:00');
@@ -226,4 +226,23 @@ test('swapVoices replaces block voices, and drops one that becomes the project�
   assert.deepEqual(voices(swapVoices(cues(), { 'google:a': 'piper:x', 'google:b': '' }, 'piper:main')), ['piper:x', undefined, 'google:c', undefined]);
   assert.deepEqual(voices(swapVoices(cues(), { 'google:a': 'piper:main' }, 'piper:main')), [undefined, 'google:b', 'google:c', undefined]);
   assert.deepEqual(voices(swapVoices(cues(), { 'google:a': 'google:a' }, 'google:z')), ['google:a', 'google:b', 'google:c', undefined]);
+});
+
+test('text from elsewhere is tidied: odd spaces, line breaks and invisible characters, nothing anyone sees or hears', () => {
+  assert.equal(tidyText('A\u00A0door\topens.\u2009Slowly.'), 'A door opens. Slowly.');
+  assert.equal(tidyText('in\u00ADcred\u00ADible\u200B news\uFEFF'), 'incredible news');
+  assert.equal(tidyText('One   two'), 'One two');
+  assert.equal(tidyText('Line one\r\nLine two\u2028Line three'), 'Line one\nLine two\nLine three');
+  // Quotation marks, dashes, accents and joined emoji stay as they are.
+  const kept = 'He writes “Sold Out” — ‘Sing’ – café 👩\u200D👧';
+  assert.equal(tidyText(kept), kept);
+  // A paste in the middle of a sentence keeps its edge spaces.
+  assert.equal(tidyText(' and then '), ' and then ');
+});
+
+test('imported scripts are tidied too', () => {
+  const [cue] = parseSubs('1\n00:00:01,000 --> 00:00:02,000\nA\u00A0door\u200B opens.\n');
+  assert.equal(cue.text, 'A door opens.');
+  const adc = JSON.stringify({ cue_points: [{ start: 0, end: 1000, text: '<p>A&nbsp;door\u00AD opens\u200B.</p>' }] });
+  assert.equal(parseAdc(adc).cues[0].text, 'A door opens.');
 });
