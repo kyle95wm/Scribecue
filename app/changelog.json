@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.108.5",
+    "date": "2026-11-13",
+    "notes": "## Fixes\n\n- Google voices now read a block with several lines, such as credits or a cast list, a line at a time, with half a second between lines. Scripts imported from Frazier now take as long as they did there.\n- Google voices no longer pause at quotation marks. In a sign reads “Sing”, there’s no longer a pause before Sing. The text itself is unchanged.\n- Blocks with several lines or quotation marks are read once more by Google the next time you play them."
+  },
+  {
     "version": "0.108.4",
     "date": "2026-11-13",
     "notes": "## Fixes\n\n- A reading now shows as too long only when it runs more than a tenth of a second past its block. Before, readings that fit were sometimes marked too long by a hundredth or two.\n- Scripts imported from Frazier no longer show many blocks in red that fit."
