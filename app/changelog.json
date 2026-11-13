@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.108.3",
+    "date": "2026-11-12",
+    "notes": "## Fixes\n\n- Google voices now start reading right on the block's start. Before, each reading began with a moment of silence, so blocks ran a little longer than the voice. Scripts imported from Frazier now come out at the same lengths.\n- A block with several lines, such as credits or a cast list, now pauses between them with Google voices. Before, the lines ran together.\n- Blocks with several lines are read once more by Google the next time you play them."
+  },
+  {
     "version": "0.108.2",
     "date": "2026-11-12",
     "notes": "## Fixes\n\n- Select a block in the list and press `Enter`: it now opens that block. Before, some browsers opened the block before it, or said there was no room for a new block.\n- Pressing `N` at the start of a block works the same way."
