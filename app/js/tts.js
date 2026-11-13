@@ -165,7 +165,7 @@ export const reviewVoices = () => voices.map((v) => ({ id: v.voiceURI, name: voi
 export async function reviewAudio(text, speed, uri) {
   const v = voices.find((v) => v.voiceURI === uri);
   if (!v || !makesAudio(v)) throw new Error(`${voiceLabel(uri)} needs to be available as a Piper, Kokoro, Google Cloud or Amazon Polly voice to package its audio`);
-  const key = `${v.voiceURI}|${rate(speed)}|${spoken(text)}`;
+  const key = `${v.voiceURI}|${rate(speed)}|${wordsFor(text, v.voiceURI)}`;
   if (!spoken(text)) return null;
   const wav = await readAudio(text, speed, v, 'bulk');
   const blob = new Blob([wav.buf], { type: 'audio/wav' });
@@ -338,6 +338,27 @@ export function voiceEnd(samples, channels, rate) {
   }
   return total; // silent throughout
 }
+// Where the voice starts, in samples per channel: the first 10 ms louder than −50 dBFS.
+// 0 if it starts at once or is silent throughout.
+export function voiceStart(samples, channels, rate) {
+  const step = Math.max(1, Math.round(rate / 100)) * channels;
+  for (let from = 0; from < samples.length; from += step) {
+    const to = Math.min(samples.length, from + step);
+    let e = 0;
+    for (let i = from; i < to; i++) e += samples[i] * samples[i];
+    if (e / (to - from) > QUIET) return from / channels;
+  }
+  return 0;
+}
+// Google's readings start with a little silence. Without it, as in Frazier, the voice starts
+// on the block's start and the block is only as long as the voice. Mono WAV files only, as
+// Google sends; anything else comes back as it was.
+export async function withoutLeadIn(buf) {
+  let wav;
+  try { wav = readWav(buf); } catch { return buf; }
+  const from = wav.channels === 1 ? voiceStart(wav.samples, 1, wav.rate) : 0;
+  return from ? writeWav(wav.samples.slice(from), wav.rate).arrayBuffer() : buf;
+}
 
 // Seconds a line takes to say, from a voice's measured characters per second.
 export function estimate(text, cps = DEFAULT_CPS, speed = 1) {
@@ -347,11 +368,17 @@ export function estimate(text, cps = DEFAULT_CPS, speed = 1) {
 
 // What the voice actually reads: no tags, no line breaks, and with the setting on, no
 // notes in [square brackets]. An unclosed bracket is read as it is.
-export function spoken(text, skipNotes = tts.skipNotes) {
-  let t = String(text).replace(/<[^>]*>|\{[^}]*\}/g, '');
-  if (skipNotes) t = t.replace(/\[[^\]]*\]/g, ' ');
-  return t.replace(/\s+/g, ' ').trim();
+export const spoken = (text, skipNotes = tts.skipNotes) => unread(text, skipNotes).replace(/\s+/g, ' ').trim();
+// The same, keeping one line break between lines, for Google, which pauses at them as
+// Frazier does between paragraphs.
+export const spokenLines = (text, skipNotes = tts.skipNotes) =>
+  unread(text, skipNotes).split(/[\r\n]+/).map((line) => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
+function unread(text, skipNotes) {
+  const t = String(text).replace(/<[^>]*>|\{[^}]*\}/g, '');
+  return skipNotes ? t.replace(/\[[^\]]*\]/g, ' ') : t;
 }
+// The words a voice reads, which name its readings.
+const wordsFor = (text, uri) => (/^google:/.test(uri) ? spokenLines(text) : spoken(text));
 // The rest of a reading started partway through, for a voice that can only read from the
 // start of its text: from the word a fraction frac of the way in.
 export function wordsFrom(text, frac) {
@@ -653,13 +680,13 @@ export function showCloudCost() {
 }
 export const anyVoices = () => tts.available || tts.piper.length > 0 || tts.kokoro.length > 0 || tts.google.length > 0 || tts.polly.length > 0;
 const voiceKey = (uri) => voiceOf(uri)?.voiceURI || '';
-const measureKey = (text, speed, uri) => `${voiceKey(uri)}|${rate(speed)}|${spoken(text)}`;
+const measureKey = (text, speed, uri) => `${voiceKey(uri)}|${rate(speed)}|${wordsFor(text, voiceKey(uri))}`;
 
 // Every reading of this text with the voice so far, as [{ speed, secs }], with speeds
 // before the base speed, unless asMade.
 export function readingsOf(text, asMade = false, uri) {
   const out = [];
-  for (const [speed, secs] of measuredBy.get(`${voiceKey(uri)}|${spoken(text)}`) || []) {
+  for (const [speed, secs] of measuredBy.get(`${voiceKey(uri)}|${wordsFor(text, voiceKey(uri))}`) || []) {
     if (speed > 0) out.push({ speed: asMade ? speed : speed / tts.base, secs });
   }
   return out;
@@ -1024,7 +1051,7 @@ async function savedReading(key) {
 async function saveReading(key, buf, secs) {
   await saved('readwrite', ({ audio, meta }) => {
     audio.put(buf, key);
-    meta.put({ key, secs, bytes: buf.byteLength, at: Date.now(), voiceEnd: true }, key);
+    meta.put({ key, secs, bytes: buf.byteLength, at: Date.now(), voiceEnd: true, voiceStart: true }, key);
   });
   const entries = await saved('readonly', ({ meta }, done) => all(meta).then(done));
   const drop = overCap(entries || [], SAVED_MAX);
@@ -1035,14 +1062,21 @@ async function loadSavedLengths() {
   const entries = await saved('readonly', ({ meta }, done) => all(meta).then(done));
   for (const e of entries || []) if (!measured.has(e.key)) setMeasured(e.key, e.secs);
   if (entries?.length) hooks.changed();
-  // Readings saved before lengths stopped at the voice: measured again, once, one at a time.
+  // Readings saved before lengths stopped at the voice, or Google's before their lead-ins
+  // were cut: measured again, once, one at a time.
   for (const e of entries || []) {
-    if (e.voiceEnd) continue;
-    const buf = await saved('readonly', ({ audio }, done) => { const a = audio.get(e.key); a.onsuccess = () => done(a.result); });
+    const google = /^google:/.test(e.key);
+    if (e.voiceEnd && (e.voiceStart || !google)) continue;
+    let buf = await saved('readonly', ({ audio }, done) => { const a = audio.get(e.key); a.onsuccess = () => done(a.result); });
+    if (!buf) continue;
+    if (google) buf = await withoutLeadIn(buf);
     let secs;
     try { secs = readWav(buf).secs; } catch { continue; }
     setMeasured(e.key, secs);
-    await saved('readwrite', ({ meta }) => meta.put({ ...e, secs, voiceEnd: true }, e.key));
+    await saved('readwrite', ({ audio, meta }) => {
+      if (google) audio.put(buf, e.key);
+      meta.put({ ...e, secs, bytes: buf.byteLength, voiceEnd: true, voiceStart: true }, e.key);
+    });
     hooks.changed();
   }
 }
@@ -1086,7 +1120,7 @@ function googleRead(words, voice, speed, urgent) {
     const r = await fetch(url, init);
     if (!r.ok) throw new Error(ownerFixes(await googleFailure(r)));
     const b64 = (await r.json()).audioContent || '';
-    return Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)).buffer;
+    return withoutLeadIn(Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)).buffer);
   });
 }
 
@@ -1117,7 +1151,7 @@ async function pollyWav(mp3) {
 // job, or 'background' to have it ready.
 const pending = new Map(); // key -> the worker request, while it's queued or running
 function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background') {
-  const words = spoken(text), speed = rate(blockSpeed);
+  const words = wordsFor(text, voice.voiceURI), speed = rate(blockSpeed);
   const key = `${voice.voiceURI}|${speed}|${words}`;
   let p = audioCache.get(key);
   if (p && how === 'now') pending.get(key)?.hurry();
@@ -1149,7 +1183,8 @@ function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background')
       if (!r.ok) throw new Error(`Piper answered ${r.status}`);
       return r.arrayBuffer();
     });
-    p = keptOr(key, make).then((buf) => {
+    // Google readings saved before lead-ins were cut still have theirs.
+    p = keptOr(key, make).then((buf) => (voice.google ? withoutLeadIn(buf) : buf)).then((buf) => {
       const wav = readWav(buf);
       setMeasured(key, wav.secs);
       learnShare(voice.voiceURI, readingsOf(text, true, voice.voiceURI));
