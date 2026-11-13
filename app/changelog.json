@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.108.6",
+    "date": "2026-11-13",
+    "notes": "## Fixes\n\n- Google voices now pause at quotation marks just as Frazier does. Plain quotes and opening curly double quotes are still skipped.\n- Closing curly double quotes and curly single quotes are read again. With ‘Sing’, there’s a short pause before and after the word.\n- Blocks with curly quotes are read once more by Google the next time you play them."
+  },
+  {
     "version": "0.108.5",
     "date": "2026-11-13",
     "notes": "## Fixes\n\n- Google voices now read a block with several lines, such as credits or a cast list, a line at a time, with half a second between lines. Scripts imported from Frazier now take as long as they did there.\n- Google voices no longer pause at quotation marks. In a sign reads “Sing”, there’s no longer a pause before Sing. The text itself is unchanged.\n- Blocks with several lines or quotation marks are read once more by Google the next time you play them."
