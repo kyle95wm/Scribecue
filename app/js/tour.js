@@ -28,6 +28,7 @@ export function loop(mode, key = keyFor) {
     '1. Record it. Press Enter or R. The video plays from a few seconds before the block; read when the picture reaches the line, then press Enter or Space to stop.',
     '2. Tidy it. S trims the silence off both ends of the take and starts it where the block does. Not happy with it? Press Enter or R to record it again.',
     `3. Go on to the next block with ${key('blockNext')}.`,
+    'Only the end went wrong? Punch in: E puts the playhead at the end of the take, ← steps back to where to pick up, and Shift+Enter or Shift+R records from there.',
     'Every take is kept, and the newest goes in the export.',
   ].join('\n');
   return mode === 'write'

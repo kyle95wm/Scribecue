@@ -73,6 +73,8 @@ test('the loop for each mode, in the keys the person uses, has a card of its own
   assert.match(r, /1\. Record it\. Press Enter or R/);
   assert.match(r, /2\. Tidy it\. S trims the silence/);
   assert.match(r, /next block with ⌥⇧→/);
+  assert.match(r, /Punch in: E puts the playhead at the end of the take/);
+  assert.match(r, /Shift\+Enter or Shift\+R records from there/);
   assert.doesNotMatch(r, /Hold|narrator speaks/, 'not the transcribing loop');
   // a changed key shows in the loop
   assert.match(loop('transcribe', (id) => (id === 'hold' ? 'Y' : keys[id])), /Hold Y while/);

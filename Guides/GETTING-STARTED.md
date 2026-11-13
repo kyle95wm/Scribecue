@@ -121,6 +121,10 @@ select the first block and repeat:
    the block. Not happy? Press `Enter` again for a new take.
 3. **Go on** to the next block with `Alt+Shift+→`.
 
+**Only the end went wrong?** [Punch in](RECORDING.md#punching-in): press `E` to put the
+playhead at the end of the take, step back with `←` to where to pick up, then press
+`Shift+Enter`.
+
 [Recording narration](RECORDING.md) has the details.
 
 ## Editing a block
