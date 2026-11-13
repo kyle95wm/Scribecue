@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.108.7",
+    "date": "2026-11-13",
+    "notes": "## Fixes\n\n- Text pasted into a block's text or notes now comes in tidy. Odd spaces from other apps become ordinary ones, and invisible characters are left out.\n- Scripts you open (SRT, WebVTT and Frazier) are tidied the same way.\n- Quotation marks and dashes stay as they are, so readings don't change."
+  },
+  {
     "version": "0.108.6",
     "date": "2026-11-13",
     "notes": "## Fixes\n\n- Google voices now pause at quotation marks just as Frazier does. Plain quotes and opening curly double quotes are still skipped.\n- Closing curly double quotes and curly single quotes are read again. With ‘Sing’, there’s a short pause before and after the word.\n- Blocks with curly quotes are read once more by Google the next time you play them."
