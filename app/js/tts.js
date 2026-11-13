@@ -255,11 +255,11 @@ export function overCap(entries, cap) {
 // referrer (never the page's path), so a key restricted to Scribecue's website works.
 export const GOOGLE_FETCH = { credentials: 'omit', referrerPolicy: 'strict-origin' };
 
-// What Google reads: the words without quotation marks, which it pauses at, as in
-// over a "T". Frazier leaves them out too. Apostrophes inside words, as in don't, stay,
-// and so do line breaks.
+// What Google reads, as Frazier sends it: without straight double quotes and opening
+// curly ones, which Google pauses at, as in over a "T". Frazier keeps the rest, so Google
+// still pauses after a closing ” and around ‘single’ ones. Line breaks stay.
 export function googleWords(text) {
-  const words = String(text).replace(/["“”„«»]|(?<![\p{L}\p{N}])['‘’]|['‘’](?![\p{L}\p{N}])/gu, '')
+  const words = String(text).replace(/["“]/g, '')
     .split('\n').map((line) => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
   return words || String(text).trim();
 }
