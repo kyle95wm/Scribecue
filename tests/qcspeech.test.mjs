@@ -81,6 +81,8 @@ test('QC’s Google re-reads keep line breaks; other voices read one line', () =
   const key = (voice) => JSON.stringify(['Cast\nDominic: Peter Dobson', [], 1, voice, 1, false]);
   assert.equal(speechSpec(key('google:en-US-Standard-H')).words, 'Cast\nDominic: Peter Dobson');
   assert.equal(speechSpec(key('piper:en_US-lessac-medium')).words, 'Cast Dominic: Peter Dobson');
+  const quoted = JSON.stringify(['A sign reads "Sing".', [], 1, 'google:en-US-Standard-H', 1, false]);
+  assert.equal(speechSpec(quoted).words, 'A sign reads Sing.');
 });
 
 test('a block added in review can be read in one of the package’s Google voices', async () => {
@@ -119,6 +121,18 @@ test('readings for added blocks cannot claim an original block, another voice, o
   await assert.rejects(tamper((m) => { m.proposals[0].key = m.proposals[0].key.replace('Standard-A', 'Standard-B'); m.proposals[0].voice = 'google:en-US-Standard-B'; }), /rewrites are damaged/);
   await assert.rejects(tamper(() => {}, 3), /rewrites are damaged/);
   await assert.rejects(tamper((m) => { m.review = 7; }), /newer Scribecue/);
+});
+
+test('a QC re-read with Google reads a block’s lines one at a time', async () => {
+  const oldFetch = globalThis.fetch, oldStorage = globalThis.localStorage, texts = [];
+  globalThis.localStorage = { getItem: () => JSON.stringify({ key: 'personal-test-key' }) };
+  const b64 = Buffer.from(await writeWav(Int16Array.from({ length: 24000 }, (_, i) => Math.round(8000 * Math.sin(i / 10))), 24000).arrayBuffer()).toString('base64');
+  globalThis.fetch = async (url, init) => { texts.push(JSON.parse(init.body).input.text); return { ok: true, json: async () => ({ audioContent: b64 }) }; };
+  try {
+    const made = await makeGoogleRewrite({ words: 'Cast\nDominic: Peter Dobson', voice, rate: 1 }, '');
+    assert.deepEqual(texts.sort(), ['Cast', 'Dominic: Peter Dobson']);
+    assert.ok(Math.abs(made.secs - 2.5) < 0.011, `${made.secs}`); // 1 s, half a second, 1 s
+  } finally { globalThis.fetch = oldFetch; globalThis.localStorage = oldStorage; }
 });
 
 test('personal key first; bundled fallback is offered and requires agreement for each failed reading', async () => {
