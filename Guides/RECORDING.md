@@ -94,6 +94,7 @@ The writer's notes for a block, such as how to say a name, show above its text.
 | Shift+Enter or Shift+R | [Punch in](#punching-in) from the playhead |
 | E / Shift+E | Playhead to the end of the next or previous part of the block's take |
 | X | Split the block's take at the playhead |
+| S | [Trim the silence](#editing-a-take) off the block's take and start it at the block |
 | Delete | Delete the part of a take you last clicked |
 | Ctrl/Cmd+Z | Bring back the take you deleted or discarded |
 | Esc | Stop recording, and discard the take |
@@ -179,19 +180,21 @@ waveform and the video's are sharp enough to line up single sounds.
 | Split it | Put the playhead in it, then press X |
 | Delete a part | Click it, then press Delete |
 | Play it against the video | Double-click it |
+| Cut the silence and start it at the block | Select its block, then press S |
 | Trim silence, start at block, fit in slot or reset | Right-click it |
 
 - Dragged edges snap to the block's start, the slot's end, the playhead and the other parts.
-- **Trim silence** cuts the quiet off both ends of every part.
+- **Trim silence** cuts the quiet off both ends of every part. A click on its own goes too, such as the key you stopped with.
 - **Start at block** moves the take so its sound starts where the block does.
+- **Trim and start at block** does both, in that order. S does the same.
 - **Fit in slot** trims the end to where the slot stops.
 - **Reset** brings back the take as recorded, deleted parts too.
 - **Fine-tune** in the list does the same by the millisecond, from the keyboard.
 
 ![Right-clicking a take that runs past its slot](../docs/screenshots/recording-menu.png)
 
-To cut a late start, drag the take's start in to where the sound begins, or use **Trim
-silence**. Then use **Start at block**.
+To fix a late start, press S. To choose where the sound begins yourself, drag the take's
+start in, then use **Start at block**.
 
 To close up a pause, split the take in it, use **Trim silence**, then drag the second
 part back. Parts can't overlap.

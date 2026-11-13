@@ -6953,6 +6953,8 @@ document.addEventListener('keydown', (e) => {
     if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyZ') { e.preventDefault(); zoomToTake(); return; }
     // E: the playhead to the end of the take's next part, Shift+E the previous: where to punch in.
     if (!e.altKey && !mod && e.code === 'KeyE' && recorder.toTakeEnd(e.shiftKey ? -1 : 1)) { e.preventDefault(); return; }
+    // S: trim the take's silence and start it at the block.
+    if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyS' && recorder.trimTake()) { e.preventDefault(); return; }
     if (e.key === '[' || e.key === ']') { e.preventDefault(); return; }
   }
   // [ ] by the character typed, since some layouts need ⌥ or AltGr for them.
@@ -7257,9 +7259,8 @@ initWelcome({
   // Skipped before answering about updates: ask the usual way instead. The web version
   // updates itself, so there's nothing to ask.
   if (!finished && !HOSTED && updateChoice() === null) setTimeout(openUpdates, 300);
-  // Then the loop for the mode picked, once nothing else is on screen. Record mode's is
-  // in the recording guide instead.
-  const loop = () => { if (S.mode !== 'record') whenClear(() => maybeShowLoop(S.mode)); };
+  // Then the loop for the mode picked, once nothing else is on screen.
+  const loop = () => whenClear(() => maybeShowLoop(S.mode));
   // A share link that started the first visit opens first, after that question.
   if (shareLinkWaits) setTimeout(() => { shareLinkAfterSetup(); loop(); }, 400);
   else loop();

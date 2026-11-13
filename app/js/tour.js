@@ -23,6 +23,14 @@ export function loop(mode, key = keyFor) {
     '3. Play and check each block in context. The script and timings stay fixed in comments-only packages. The creator can allow edits when making a package.',
     '4. Click Comment on a block, or right-click the timeline. Save and return the reviewed file.',
   ].join('\n');
+  if (mode === 'record') return [
+    'Most of the work is one loop, repeated through the script:',
+    '1. Record it. Press Enter or R. The video plays from a few seconds before the block; read when the picture reaches the line, then press Enter or Space to stop.',
+    '2. Tidy it. S trims the silence off both ends of the take and starts it where the block does. Not happy with it? Press Enter or R to record it again.',
+    `3. Go on to the next block with ${key('blockNext')}.`,
+    'Only the end went wrong? Punch in: E puts the playhead at the end of the take, ← steps back to where to pick up, and Shift+Enter or Shift+R records from there.',
+    'Every take is kept, and the newest goes in the export.',
+  ].join('\n');
   return mode === 'write'
     ? [
       'Most of the work is one loop, repeated through the programme:',
@@ -119,7 +127,7 @@ export function stepsFor(mode, visible = () => true) {
 }
 
 export const LOOP_STEP = {
-  title: (mode) => (mode === 'qc' ? 'The QC loop' : mode === 'write' ? 'The writing loop' : 'The transcribing loop'),
+  title: (mode) => ({ qc: 'The QC loop', write: 'The writing loop', record: 'The recording loop' })[mode] || 'The transcribing loop',
   text: (mode) => loop(mode),
 };
 
