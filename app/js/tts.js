@@ -255,6 +255,15 @@ export function overCap(entries, cap) {
 // referrer (never the page's path), so a key restricted to Scribecue's website works.
 export const GOOGLE_FETCH = { credentials: 'omit', referrerPolicy: 'strict-origin' };
 
+// What Google reads: the words without quotation marks, which it pauses at, as in
+// over a "T". Frazier leaves them out too. Apostrophes inside words, as in don't, stay,
+// and so do line breaks.
+export function googleWords(text) {
+  const words = String(text).replace(/["“”„«»]|(?<![\p{L}\p{N}])['‘’]|['‘’](?![\p{L}\p{N}])/gu, '')
+    .split('\n').map((line) => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
+  return words || String(text).trim();
+}
+
 // The request for one reading. LINEAR16 comes back as a WAV file, base64 encoded.
 export function googleRequest(text, voice, speed, key) {
   return {
@@ -264,7 +273,7 @@ export function googleRequest(text, voice, speed, key) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify({
-        input: { text },
+        input: { text: googleWords(text) },
         voice: { languageCode: voice.lang, name: voice.google },
         audioConfig: { audioEncoding: 'LINEAR16', speakingRate: speed },
       }),
@@ -333,13 +342,13 @@ const QUIET = (32768 * 10 ** (-50 / 20)) ** 2, FADE = 0.05;
 // Frazier, which stop right on the voice, land within it.
 export const RUN_OVER = 0.1;
 export const runsPast = (secs, room) => secs > room + RUN_OVER;
-export function voiceEnd(samples, channels, rate) {
+export function voiceEnd(samples, channels, rate, fade = FADE) {
   const total = samples.length / channels / rate, step = Math.max(1, Math.round(rate / 100)) * channels;
   for (let end = samples.length; end > 0; end -= step) {
     const from = Math.max(0, end - step);
     let e = 0;
     for (let i = from; i < end; i++) e += samples[i] * samples[i];
-    if (e / (end - from) > QUIET) return Math.min(total, end / channels / rate + FADE);
+    if (e / (end - from) > QUIET) return Math.min(total, end / channels / rate + fade);
   }
   return total; // silent throughout
 }
@@ -364,6 +373,20 @@ export async function withoutLeadIn(buf) {
   const from = wav.channels === 1 ? voiceStart(wav.samples, 1, wav.rate) : 0;
   return from ? writeWav(wav.samples.slice(from), wav.rate).arrayBuffer() : buf;
 }
+// A block with several lines is read a line at a time, as in Frazier: each line runs to
+// where its voice stops, and the next starts LINE_GAP later. The last keeps its own ending.
+// Takes the lines' mono WAV files, each starting on its voice, and returns one.
+export const LINE_GAP = 0.5;
+export async function joinLines(bufs) {
+  if (bufs.length === 1) return bufs[0];
+  const parts = bufs.map(readWav), rate = parts[0].rate;
+  if (parts.some((w) => w.channels !== 1 || w.rate !== rate)) throw new Error('the lines’ readings don’t match');
+  const lengths = parts.map((w, k) => (k === parts.length - 1 ? w.samples.length : Math.round((voiceEnd(w.samples, 1, rate, 0) + LINE_GAP) * rate)));
+  const out = new Int16Array(lengths.reduce((n, l) => n + l, 0));
+  let at = 0;
+  parts.forEach((w, k) => { out.set(w.samples.subarray(0, lengths[k]), at); at += lengths[k]; });
+  return writeWav(out, rate).arrayBuffer();
+}
 
 // Seconds a line takes to say, from a voice's measured characters per second.
 export function estimate(text, cps = DEFAULT_CPS, speed = 1) {
@@ -383,7 +406,7 @@ function unread(text, skipNotes) {
   return skipNotes ? t.replace(/\[[^\]]*\]/g, ' ') : t;
 }
 // The words a voice reads, which name its readings.
-const wordsFor = (text, uri) => (/^google:/.test(uri) ? spokenLines(text) : spoken(text));
+const wordsFor = (text, uri) => (/^google:/.test(uri) ? googleWords(spokenLines(text)) : spoken(text));
 // The rest of a reading started partway through, for a voice that can only read from the
 // start of its text: from the word a fraction frac of the way in.
 export function wordsFrom(text, frac) {
@@ -1042,21 +1065,23 @@ async function saved(mode, fn) {
 }
 const all = (store) => new Promise((ok) => { const r = store.getAll(); r.onsuccess = () => ok(r.result); r.onerror = () => ok([]); });
 
+// Google readings of several lines saved before lines were read apart: read again.
+const readWhole = (e) => /^google:/.test(e.key) && String(e.key).includes('\n') && !e.lines;
 async function savedReading(key) {
   return saved('readwrite', ({ audio, meta }, done) => {
-    const a = audio.get(key);
-    a.onsuccess = () => {
-      if (!a.result) return;
-      done(a.result);
-      const m = meta.get(key);
-      m.onsuccess = () => { if (m.result) meta.put({ ...m.result, at: Date.now() }, key); };
+    const m = meta.get(key);
+    m.onsuccess = () => {
+      if (!m.result || readWhole(m.result)) return;
+      meta.put({ ...m.result, at: Date.now() }, key);
+      const a = audio.get(key);
+      a.onsuccess = () => { if (a.result) done(a.result); };
     };
   });
 }
 async function saveReading(key, buf, secs) {
   await saved('readwrite', ({ audio, meta }) => {
     audio.put(buf, key);
-    meta.put({ key, secs, bytes: buf.byteLength, at: Date.now(), voiceEnd: true, voiceStart: true }, key);
+    meta.put({ key, secs, bytes: buf.byteLength, at: Date.now(), voiceEnd: true, voiceStart: true, lines: true }, key);
   });
   const entries = await saved('readonly', ({ meta }, done) => all(meta).then(done));
   const drop = overCap(entries || [], SAVED_MAX);
@@ -1065,13 +1090,13 @@ async function saveReading(key, buf, secs) {
 // The lengths of every saved reading, so they're exact as Scribecue opens.
 async function loadSavedLengths() {
   const entries = await saved('readonly', ({ meta }, done) => all(meta).then(done));
-  for (const e of entries || []) if (!measured.has(e.key)) setMeasured(e.key, e.secs);
+  for (const e of entries || []) if (!measured.has(e.key) && !readWhole(e)) setMeasured(e.key, e.secs);
   if (entries?.length) hooks.changed();
   // Readings saved before lengths stopped at the voice, or Google's before their lead-ins
   // were cut: measured again, once, one at a time.
   for (const e of entries || []) {
     const google = /^google:/.test(e.key);
-    if (e.voiceEnd && (e.voiceStart || !google)) continue;
+    if (readWhole(e) || (e.voiceEnd && (e.voiceStart || !google))) continue;
     let buf = await saved('readonly', ({ audio }, done) => { const a = audio.get(e.key); a.onsuccess = () => done(a.result); });
     if (!buf) continue;
     if (google) buf = await withoutLeadIn(buf);
@@ -1120,6 +1145,8 @@ function fewAtOnce(most) {
 }
 const googleTurn = fewAtOnce(4);
 function googleRead(words, voice, speed, urgent) {
+  const lines = words.split('\n');
+  if (lines.length > 1) return Promise.all(lines.map((line) => googleRead(line, voice, speed, urgent))).then(joinLines);
   return googleTurn(urgent, async () => {
     const { url, init } = googleRequest(words, voice, speed, readKey());
     const r = await fetch(url, init);

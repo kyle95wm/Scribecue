@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, spokenLines, runsPast, tts, isSpeed, speedLabel,
-  splitReadingKey, piperVoiceList, kokoroVoiceList, readWav, voiceEnd, voiceStart, withoutLeadIn, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
-  googleVoiceList, googleRequest, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
+  splitReadingKey, piperVoiceList, kokoroVoiceList, readWav, voiceEnd, voiceStart, withoutLeadIn, joinLines, LINE_GAP, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
+  googleVoiceList, googleRequest, googleWords, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
   toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice, voiceTitle, voiceLanguages, inLanguage, baseLang } from '../app/js/tts.js';
 import { awsSignature, pollyRequest, pollyVoicesRequest, pollyVoiceList, pollyRate, ssmlText, pollyFailure, pollyThrottled, pollyHost, POLLY_REGIONS, pollyRegionLabel } from '../app/js/polly.js';
 
@@ -281,6 +281,18 @@ test('a Google reading sends the text, voice and speed, with the key in a header
   });
 });
 
+test('Google reads without quotation marks, as Frazier does, but keeps apostrophes and lines', () => {
+  assert.equal(googleWords('It flies over a "T" as the view widens.'), 'It flies over a T as the view widens.');
+  assert.equal(googleWords('In white block letters: ‘Sing’'), 'In white block letters: Sing');
+  assert.equal(googleWords('Text: “Tri-Star Pictures presents.”'), 'Text: Tri-Star Pictures presents.');
+  assert.equal(googleWords("He says 'go' and doesn't."), 'He says go and doesn\'t.');
+  assert.equal(googleWords('Hanna’s mom isn’t home.'), 'Hanna’s mom isn’t home.');
+  assert.equal(googleWords('Credits:\n"Sing"\nRosie: Louise Lasser'), 'Credits:\nSing\nRosie: Louise Lasser');
+  assert.equal(googleWords('" "'), '" "'); // nothing else to read: as written
+  const [g] = googleVoiceList(googleJson, ['en']);
+  assert.equal(JSON.parse(googleRequest('Over a "T".', g, 1, 'k').init.body).input.text, 'Over a T.');
+});
+
 test('Google errors are explained', async () => {
   const res = (status, message) => ({ status, json: async () => ({ error: { message } }) });
   assert.match(await googleFailure(res(400, 'API key not valid. Please pass a valid API key.')), /didn’t accept the key/);
@@ -459,6 +471,20 @@ test('a reading counts as too long only past its block’s end and a tenth of a 
   assert.equal(runsPast(2.1, 2), false);
   assert.equal(runsPast(2.11, 2), true);
   assert.equal(runsPast(3.2, 2), true);
+});
+
+test('a block’s lines are read apart and joined half a second apart, as in Frazier', async () => {
+  const rate = 24000;
+  // A line: voice for `secs`, then the near-silence Google ends with.
+  const line = (secs, tail = 0.4) => writeWav(Int16Array.from({ length: Math.round((secs + tail) * rate) }, (_, i) =>
+    (i < secs * rate ? Math.round(8000 * Math.sin(i / 10)) : (i % 2 ? 2 : -2))), rate).arrayBuffer();
+  const joined = readWav(await joinLines([await line(0.8), await line(1.5, 0.1), await line(2)]));
+  // 0.8 + 0.5, 1.5 + 0.5 (padded past its short tail), then the last line whole.
+  assert.ok(Math.abs(joined.samples.length / rate - (0.8 + LINE_GAP + 1.5 + LINE_GAP + 2.4)) < 0.011, `${joined.samples.length / rate}`);
+  assert.ok(Math.abs(joined.secs - (0.8 + 0.5 + 1.5 + 0.5 + 2 + 0.05)) < 0.011, `${joined.secs}`);
+  assert.ok(Math.abs(joined.samples[Math.round(1.1 * rate)]) < 10, 'silence in the gap');
+  const one = await line(1);
+  assert.equal(await joinLines([one]), one, 'one line comes back as it was');
 });
 
 test('Google’s silence before the voice is cut, so the voice starts on the block’s start', async () => {
