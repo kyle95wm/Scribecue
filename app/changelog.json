@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.110.0",
+    "date": "2026-11-13",
+    "notes": "## Floating video\n\n- Double-click the video to float it in a window you can move and resize. Drag the picture to move it, and a corner to resize it. A click still plays or pauses.\n- Double-click it again, close it, or double-click the spot it left to put it back.\n- Every key still works while it floats. The text over the video grows and shrinks with the picture.\n- Handy for recording: put the picture next to the script, or make it bigger.\n- In Chrome and Edge, it can open in a window of its own, to put on another screen. Choose **In its own window** under **Settings → Appearance → Floating video**."
+  },
+  {
     "version": "0.109.0",
     "date": "2026-11-13",
     "notes": "## Recording\n\n- Press S to tidy a take. It trims the silence off both ends and starts the take where its block does. It's also in the take's menu, as **Trim and start at block**.\n- **Trim silence** now trims the end of a take too. The click of the key you stop with is left out, and so is a tap before you speak.\n- Record mode has its own loop card: record, tidy with S, then on to the next block. It also shows how to punch in with E. **Show the loop** opens it in Record mode.\n\n## Guides\n\n- Troubleshooting explains what to do on a Mac when projects open but videos don't."
