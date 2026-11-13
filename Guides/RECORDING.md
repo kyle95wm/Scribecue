@@ -72,6 +72,12 @@ video stopped. See [Extended blocks](#extended-blocks).
   microphone, set your [level](#levels) and choose a lead-in: 3 to 5 seconds of video
   before each block.
 - **Change them later** under **Microphone, lead-in and sync**.
+- **Put the picture where you read.** Double-click the video to float it. Drag it next to
+  the script, or make it bigger. With **In its own window** set under **Appearance**, it can
+  go on another screen (Chrome and Edge). Every key still works. See
+  [Floating the video](GETTING-STARTED.md#floating-the-video).
+
+  ![Record mode with the video floating beside the script, larger than its usual spot](../docs/screenshots/recording-floating.png)
 - **Set your interface to 48 kHz** if you can. Scribecue tells you if it's converting.
 - **Use Chrome, Edge, Firefox or Safari.**
 - **Return to start**, under **Settings → Editing**, puts the playhead back where you
