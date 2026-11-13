@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
   splitReadingKey, piperVoiceList, kokoroVoiceList, readWav, voiceEnd, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
-  googleVoiceList, googleRequest, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
+  googleVoiceList, googleRequest, googleWords, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
   toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice, voiceTitle, voiceLanguages, inLanguage, baseLang } from '../app/js/tts.js';
 import { awsSignature, pollyRequest, pollyVoicesRequest, pollyVoiceList, pollyRate, ssmlText, pollyFailure, pollyThrottled, pollyHost, POLLY_REGIONS, pollyRegionLabel } from '../app/js/polly.js';
 
@@ -279,6 +279,17 @@ test('a Google reading sends the text, voice and speed, with the key in a header
     voice: { languageCode: 'en-GB', name: 'en-GB-Standard-A' },
     audioConfig: { audioEncoding: 'LINEAR16', speakingRate: 1.15 },
   });
+});
+
+test('Google reads without quotation marks, which it pauses at, but keeps apostrophes', () => {
+  assert.equal(googleWords('It flies over a "T" as the view widens.'), 'It flies over a T as the view widens.');
+  assert.equal(googleWords('In white block letters: ‘Sing’'), 'In white block letters: Sing');
+  assert.equal(googleWords('Text: “Tri-Star Pictures presents.”'), 'Text: Tri-Star Pictures presents.');
+  assert.equal(googleWords("He says 'go' and doesn't."), 'He says go and doesn\'t.');
+  assert.equal(googleWords('Hanna’s mom isn’t home.'), 'Hanna’s mom isn’t home.');
+  assert.equal(googleWords('" "'), '" "'); // nothing else to read: as written
+  const [g] = googleVoiceList(googleJson, ['en']);
+  assert.equal(JSON.parse(googleRequest('Over a "T".', g, 1, 'k').init.body).input.text, 'Over a T.');
 });
 
 test('Google errors are explained', async () => {
