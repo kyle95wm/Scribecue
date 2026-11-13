@@ -292,6 +292,38 @@ test('Trim silence finds where the sound begins and ends', () => {
   assert.ok(Math.abs(e.parts[0].tail - 0.45) < 0.002 && Math.abs(e.parts[1].head - 0.45) < 0.002, JSON.stringify(e));
 });
 
+test('Trim silence leaves out the click of the key that stopped the recording', () => {
+  const R = 1000, pcm = new Float32Array(5 * R);
+  // Two words with a pause, then 1.5 s of quiet, then a 20 ms click as the narrator stops.
+  pcm.fill(0.3, 1 * R, 1.6 * R); pcm.fill(0.3, 1.8 * R, 2.5 * R);
+  pcm.fill(0.2, 4.0 * R, 4.02 * R);
+  const s = silenceEnds(pcm, R, { pad: 0.05 });
+  assert.ok(Math.abs(s.head - 0.95) < 0.002, `head ${s.head}`);
+  assert.ok(Math.abs(s.tail - 2.45) < 0.002, `the click is trimmed with the quiet: tail ${s.tail}`);
+  // A tap before speaking goes too.
+  const tap = new Float32Array(4 * R);
+  tap.fill(0.2, 0.2 * R, 0.23 * R); tap.fill(0.3, 1 * R, 2 * R);
+  assert.ok(Math.abs(silenceEnds(tap, R).head - 0.95) < 0.002);
+  // A short word on its own is kept: it's all there is.
+  const one = new Float32Array(2 * R);
+  one.fill(0.3, 0.5 * R, 0.6 * R);
+  assert.ok(Math.abs(silenceEnds(one, R).head - 0.45) < 0.002);
+  // A soft ending close to the last word stays, such as a final "t".
+  const t = new Float32Array(4 * R);
+  t.fill(0.3, 1 * R, 2 * R); t.fill(0.05, 2.1 * R, 2.13 * R);
+  assert.ok(Math.abs(silenceEnds(t, R).tail - (4 - 2.13 - 0.05)) < 0.003);
+});
+
+test('Trim silence allows for a noisy room', () => {
+  const R = 1000, pcm = new Float32Array(4 * R);
+  let seed = 3; const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
+  for (let i = 0; i < pcm.length; i++) pcm[i] = noise() * 0.01; // room noise at −40 dBFS, above the −45 floor
+  for (let i = 1 * R; i < 2.5 * R; i++) pcm[i] = 0.3 * Math.sin(i);
+  const s = silenceEnds(pcm, R);
+  assert.ok(Math.abs(s.head - 0.95) < 0.003, `head ${s.head}`);
+  assert.ok(Math.abs(s.tail - 1.45) < 0.003, `tail ${s.tail}`);
+});
+
 test('Fit in slot trims a take that runs past its slot', () => {
   const slot = { start: 10, end: 12 };
   const e = fitSlot({ start: 9.8, duration: 3 }, slot);

@@ -408,13 +408,39 @@ export function splitAt(t, time) {
 }
 
 // Where the sound begins and ends in a stretch of recording: { head, tail } to trim, in
-// seconds, keeping `pad` of quiet at each end. Quiet is below `floorDb`. pcm: Float32Array.
-export function silenceEnds(pcm, rate = RATE, { floorDb = -45, pad = 0.05 } = {}) {
-  const floor = 10 ** (floorDb / 20);
-  let a = 0, z = pcm.length - 1;
-  while (a < pcm.length && Math.abs(pcm[a]) < floor) a++;
-  while (z > a && Math.abs(pcm[z]) < floor) z--;
-  if (a >= pcm.length) return { head: 0, tail: 0 }; // all quiet: leave it for the narrator
+// seconds, keeping `pad` of quiet at each end. pcm: Float32Array.
+// Quiet is below `floorDb`, or a little above the room's own noise if that's louder. A short
+// sound on its own at either end, such as the click of the key that stopped the recording,
+// is left out: words closer together than `gap` count as one stretch of speech, and a
+// stretch shorter than `blip` at an end is trimmed off, unless it's all there is.
+export function silenceEnds(pcm, rate = RATE, { floorDb = -45, pad = 0.05, gap = 0.25, blip = 0.12 } = {}) {
+  const W = Math.max(1, Math.round(rate / 100)), n = Math.ceil(pcm.length / W); // 10 ms windows
+  const lv = new Float32Array(n);
+  for (let w = 0; w < n; w++) {
+    let m = 0;
+    for (let i = w * W, e = Math.min(pcm.length, i + W); i < e; i++) { const v = Math.abs(pcm[i]); if (v > m) m = v; }
+    lv[w] = m;
+  }
+  // The room: the quietest tenth of the windows. Quiet is 12 dB above it, but never closer
+  // than 24 dB below the loudest moment, so a take with little pause in it isn't cut into.
+  const sorted = Float32Array.from(lv).sort(), room = sorted[Math.floor(n * 0.1)] || 0, top = sorted[n - 1] || 0;
+  const floor = Math.max(10 ** (floorDb / 20), Math.min(room * 4, top * 10 ** (-24 / 20)));
+  // Stretches of sound, in windows, joined across short pauses.
+  const runs = [];
+  for (let w = 0; w < n; w++) {
+    if (lv[w] < floor) continue;
+    const last = runs[runs.length - 1];
+    if (last && (w - last.z - 1) * W < gap * rate) { last.z = w; last.loud++; } else runs.push({ a: w, z: w, loud: 1 });
+  }
+  if (!runs.length) return { head: 0, tail: 0 }; // all quiet: leave it for the narrator
+  const short = (r) => r.loud * W < blip * rate;
+  let first = 0, end = runs.length - 1;
+  while (first < end && short(runs[first])) first++;
+  while (end > first && short(runs[end])) end--;
+  // The exact samples, inside the first and last windows with sound.
+  let a = runs[first].a * W, z = Math.min(pcm.length, runs[end].z * W + W) - 1;
+  while (Math.abs(pcm[a]) < floor) a++;
+  while (Math.abs(pcm[z]) < floor) z--;
   const p = Math.round(pad * rate);
   return { head: Math.max(0, a - p) / rate, tail: Math.max(0, pcm.length - 1 - z - p) / rate };
 }
