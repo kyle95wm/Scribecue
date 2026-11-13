@@ -110,6 +110,19 @@ Press `L` to hear the block again while you type.
 With [speech to text](TRANSCRIBING.md#speech-to-text-with-whisper) on, the line is typed
 for you, so step 3 is just checking it. [Transcribing](TRANSCRIBING.md) has the details.
 
+### The recording loop
+
+In **Record** mode, for a narrator. Open the recording file and the video together, then
+select the first block and repeat:
+
+1. **Record it.** Press `Enter` or `R`. The video plays from a few seconds before the
+   block. Read when the picture reaches the line, then press `Enter` or `Space` to stop.
+2. **Tidy it.** Press `S` to trim the silence off both ends of the take and start it at
+   the block. Not happy? Press `Enter` again for a new take.
+3. **Go on** to the next block with `Alt+Shift+→`.
+
+[Recording narration](RECORDING.md) has the details.
+
 ## Editing a block
 
 Click a block in the list to open it. The playhead stays where it is while you edit.

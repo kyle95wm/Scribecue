@@ -7259,9 +7259,8 @@ initWelcome({
   // Skipped before answering about updates: ask the usual way instead. The web version
   // updates itself, so there's nothing to ask.
   if (!finished && !HOSTED && updateChoice() === null) setTimeout(openUpdates, 300);
-  // Then the loop for the mode picked, once nothing else is on screen. Record mode's is
-  // in the recording guide instead.
-  const loop = () => { if (S.mode !== 'record') whenClear(() => maybeShowLoop(S.mode)); };
+  // Then the loop for the mode picked, once nothing else is on screen.
+  const loop = () => whenClear(() => maybeShowLoop(S.mode));
   // A share link that started the first visit opens first, after that question.
   if (shareLinkWaits) setTimeout(() => { shareLinkAfterSetup(); loop(); }, 400);
   else loop();
