@@ -165,7 +165,7 @@ export const reviewVoices = () => voices.map((v) => ({ id: v.voiceURI, name: voi
 export async function reviewAudio(text, speed, uri) {
   const v = voices.find((v) => v.voiceURI === uri);
   if (!v || !makesAudio(v)) throw new Error(`${voiceLabel(uri)} needs to be available as a Piper, Kokoro, Google Cloud or Amazon Polly voice to package its audio`);
-  const key = `${v.voiceURI}|${rate(speed)}|${wordsFor(text, v.voiceURI)}`;
+  const key = `${v.voiceURI}|${rate(speed)}|${spoken(text)}`;
   if (!spoken(text)) return null;
   const wav = await readAudio(text, speed, v, 'bulk');
   const blob = new Blob([wav.buf], { type: 'audio/wav' });
@@ -255,15 +255,6 @@ export function overCap(entries, cap) {
 // referrer (never the page's path), so a key restricted to Scribecue's website works.
 export const GOOGLE_FETCH = { credentials: 'omit', referrerPolicy: 'strict-origin' };
 
-// What Google reads: the words without quotation marks, which it pauses at, as in
-// over a "T". Apostrophes inside words, as in don't, stay.
-export function googleWords(text) {
-  const words = String(text).replace(/["“”„«»]|(?<![\p{L}\p{N}])['‘’]|['‘’](?![\p{L}\p{N}])/gu, '').replace(/\s+/g, ' ').trim();
-  return words || String(text).trim();
-}
-// The words a voice reads, which name its readings: Google's leave out quotation marks.
-const wordsFor = (text, uri) => (/^google:/.test(uri) ? googleWords(spoken(text)) : spoken(text));
-
 // The request for one reading. LINEAR16 comes back as a WAV file, base64 encoded.
 export function googleRequest(text, voice, speed, key) {
   return {
@@ -273,7 +264,7 @@ export function googleRequest(text, voice, speed, key) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify({
-        input: { text: googleWords(text) },
+        input: { text },
         voice: { languageCode: voice.lang, name: voice.google },
         audioConfig: { audioEncoding: 'LINEAR16', speakingRate: speed },
       }),
@@ -683,13 +674,13 @@ export function showCloudCost() {
 }
 export const anyVoices = () => tts.available || tts.piper.length > 0 || tts.kokoro.length > 0 || tts.google.length > 0 || tts.polly.length > 0;
 const voiceKey = (uri) => voiceOf(uri)?.voiceURI || '';
-const measureKey = (text, speed, uri) => `${voiceKey(uri)}|${rate(speed)}|${wordsFor(text, voiceKey(uri))}`;
+const measureKey = (text, speed, uri) => `${voiceKey(uri)}|${rate(speed)}|${spoken(text)}`;
 
 // Every reading of this text with the voice so far, as [{ speed, secs }], with speeds
 // before the base speed, unless asMade.
 export function readingsOf(text, asMade = false, uri) {
   const out = [];
-  for (const [speed, secs] of measuredBy.get(`${voiceKey(uri)}|${wordsFor(text, voiceKey(uri))}`) || []) {
+  for (const [speed, secs] of measuredBy.get(`${voiceKey(uri)}|${spoken(text)}`) || []) {
     if (speed > 0) out.push({ speed: asMade ? speed : speed / tts.base, secs });
   }
   return out;
@@ -1154,7 +1145,7 @@ async function pollyWav(mp3) {
 // job, or 'background' to have it ready.
 const pending = new Map(); // key -> the worker request, while it's queued or running
 function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background') {
-  const words = wordsFor(text, voice.voiceURI), speed = rate(blockSpeed);
+  const words = spoken(text), speed = rate(blockSpeed);
   const key = `${voice.voiceURI}|${speed}|${words}`;
   let p = audioCache.get(key);
   if (p && how === 'now') pending.get(key)?.hurry();
