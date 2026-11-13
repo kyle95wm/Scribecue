@@ -64,7 +64,7 @@ export const STEPS = [
   {
     target: '#stage',
     title: 'Your video',
-    text: () => 'Open a video or audio file with Open at the top, or drop it here. It plays straight from your computer and is never uploaded. Files with an audio description mix get an audio track picker. Drag the bar beside it to make it bigger, or to hide the list.',
+    text: () => 'Open a video or audio file with Open at the top, or drop it here. It plays straight from your computer and is never uploaded. Files with an audio description mix get an audio track picker. Drag the bar beside it to make it bigger, or to hide the list. Double-click the video to float it in a window you can move and resize.',
   },
   {
     target: '#tl',

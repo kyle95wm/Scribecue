@@ -29,6 +29,26 @@ const shot = async (name, clip = null, pad = 16) => {
   console.log('saved', name);
 };
 const key = (code, k, o = {}) => js(`document.body.dispatchEvent(new KeyboardEvent('keydown',{code:'${code}',key:'${k}',bubbles:true,cancelable:true,...${JSON.stringify(o)}})); 1`);
+// Floats the video with a real double-click, then drags its window to x, y and resizes it
+// to w px wide. dock() puts it back.
+const mouse = async (type, x, y, clickCount = 1) => send('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount });
+const drag = async (from, to) => {
+  await mouse('mousePressed', from[0], from[1]);
+  for (let i = 1; i <= 10; i++) await mouse('mouseMoved', from[0] + (to[0] - from[0]) * i / 10, from[1] + (to[1] - from[1]) * i / 10);
+  await mouse('mouseReleased', to[0], to[1]);
+};
+const box = (sel) => js(`(() => { const r = document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
+const floatVideo = async (x, y, w) => {
+  const v = await box('#video');
+  for (const n of [1, 2]) { await mouse('mousePressed', v[0] + v[2] / 2, v[1] + v[3] / 3, n); await mouse('mouseReleased', v[0] + v[2] / 2, v[1] + v[3] / 3, n); }
+  await sleep(500);
+  const b = await box('.floatbar');
+  await drag([b[0] + 30, b[1] + 10], [x + 30, y + 10]);
+  const g = await box('.floatgrip');
+  await drag([g[0] + 8, g[1] + 8], [g[0] + 8 + (w - b[2]), g[1] + 8]);
+  await sleep(400);
+};
+const dock = async () => { await js(`document.querySelector('.floatclose').click(); localStorage.removeItem('scribecue.floatRect'); 1`); await sleep(300); };
 const seek = (t) => js(`(async()=>{const v=document.getElementById('video'); v.currentTime=${t}; await Promise.race([new Promise(r=>v.addEventListener('seeked',r,{once:true})), new Promise(r=>setTimeout(r,2000))]); return 1})()`);
 
 await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 2, mobile: false });
@@ -62,6 +82,11 @@ await sleep(600);
 await js(`document.activeElement?.blur(); document.getElementById('toast').classList.add('fade'); 1`);
 await sleep(500);
 await shot('main');
+// The video floating, dragged over the timeline's left end, with the text over it scaled down.
+await floatVideo(40, 470, 520);
+await js(`document.getElementById('toast').classList.add('fade'); 1`); await sleep(300);
+await shot('floating-video');
+await dock();
 
 await js(`document.querySelector('#modeSw [data-mode=transcribe]').click(); document.getElementById('toast').classList.add('fade'); 1`); await sleep(200);
 // hold-to-mark in progress, while playing, zoomed in around it
@@ -299,6 +324,11 @@ await js(`document.querySelectorAll('#list .row')[2].click(); 1`); await sleep(3
 await seek(21.2); await sleep(800);
 await js(`document.activeElement?.blur(); document.getElementById('toast').classList.add('fade'); 1`); await sleep(500);
 await shot('recording');
+// Floating in Record mode: the picture moved up beside the script, where the narrator reads.
+await floatVideo(490, 60, 620);
+await js(`document.activeElement?.blur(); document.getElementById('toast').classList.add('fade'); 1`); await sleep(300);
+await shot('recording-floating');
+await dock();
 // The take menu, on block 2's take, with room beside it.
 const at = await js(`(() => { const c = document.querySelector('.cue[data-id="' + document.querySelectorAll('#list .row')[1].dataset.id + '"]').getBoundingClientRect(), t = document.getElementById('takeTrack').getBoundingClientRect(); return [c.left + c.width * 1.6, t.top + t.height / 2]; })()`);
 for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x: at[0], y: at[1], button: 'right', buttons: type === 'mousePressed' ? 2 : 0, clickCount: 1 });

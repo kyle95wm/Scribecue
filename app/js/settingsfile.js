@@ -22,6 +22,7 @@ const SETTINGS = [
   ['swapped', 'text', 'Display'],
   ['listWidth', 'text', 'Display'],
   ['appearance', 'json', 'Appearance'],
+  ['floatVideo', 'text', 'Appearance'],
   ['offset', 'text', 'Transcribing'],
   ['stt', 'json', 'Transcribing'],
   ['proof', 'json', 'Spelling and grammar'],

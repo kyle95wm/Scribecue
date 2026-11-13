@@ -322,6 +322,80 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
   .overlay { left: 0; right: 0; width: 90%; margin-inline: auto; max-width: calc(0.9 * (100vw - max(380px, 38vw))); }
 }
 
+/* Floating video (floatvideo.js): the video in a panel over the app, or in a window of its
+   own. The spot it leaves keeps its size, and the text keeps its size against the picture. */
+.floatprobe { visibility: hidden; }
+.floathold {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font: 14px var(--sans);
+  color: var(--dim);
+  background: var(--bg);
+  border: 1px dashed var(--line);
+}
+.floathold[hidden] { display: none; }
+.floathold p { margin: 0; }
+.floathold button { margin-top: 10px; }
+.floatwin {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+.floatwin[hidden] { display: none; }
+.floatbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 2px 0 10px;
+  font: 12px var(--sans);
+  color: var(--dim);
+  background: var(--panel2);
+  border-bottom: 1px solid var(--line);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.floatbar span { flex: 1; }
+.floatbar .floatclose { margin-right: 12px; }
+.floatclose { padding: 0 8px; height: 22px; font-size: 16px; line-height: 1; border: 0; background: none; }
+.floatclose:hover { color: var(--text); background: var(--raise); }
+.floatbox { position: relative; flex: 1; min-height: 0; }
+.floatpic { position: absolute; }
+.floatpic video { width: 100%; height: 100%; }
+.floatpic .overlay { left: 0; right: 0; width: var(--float-width, 90%); max-width: none; margin-inline: auto; }
+.floatpic .overlay span { font-size: var(--float-font, 20px); }
+.floatgrip { position: absolute; width: 14px; height: 14px; z-index: 1; touch-action: none; }
+.floatgrip[data-corner="nw"] { left: 0; top: 0; cursor: nwse-resize; }
+.floatgrip[data-corner="ne"] { right: 0; top: 0; cursor: nesw-resize; }
+.floatgrip[data-corner="sw"] { left: 0; bottom: 0; cursor: nesw-resize; }
+.floatgrip[data-corner="se"] {
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, var(--faint) 50%, var(--faint) 58%, transparent 58%, transparent 70%, var(--faint) 70%, var(--faint) 78%, transparent 78%);
+}
+/* The picture moves the panel too, so it shows it can be grabbed. */
+.floatbox { cursor: grab; touch-action: none; }
+body.floatdrag .floatbox, body.floatdrag .floatbar { cursor: grabbing; }
+body.floatdrag, body.floatdrag * { user-select: none; }
+body.floatdrag video { pointer-events: none; }
+/* In a window of its own, the picture fills it. */
+.floatdoc body { display: block; margin: 0; background: #000; overflow: hidden; height: 100vh; }
+
 /* scrubber: the whole video at a glance, between the video and its controls. A thin
    line until the pointer is over it, then full size with a knob. The strip itself keeps
    its height, so nothing moves and there's room to aim. */

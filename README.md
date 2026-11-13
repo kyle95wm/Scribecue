@@ -15,6 +15,7 @@ Handle pickups, work with text to speech, or transcribe existing description.
   gets one timestamped WAV.
 - **Private:** your video and audio are never uploaded. A script you share is encrypted first.
 - **See the gaps:** a video's subtitles show as a dialogue lane on the timeline.
+- **Float the video:** double-click it to move it, resize it, or put it on another screen.
 - **Familiar keys** if you've used Frazier.
 - Opens and saves SRT and WebVTT scripts, and opens Frazier's `.adc` scripts.
 

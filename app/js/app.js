@@ -11,6 +11,7 @@ import { parseSubs, parseAdc, tidyText, scriptVoices, swapVoices, toSRT, toVTT, 
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
 import { DEFAULTS, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
+import { initFloat, loadKind, saveKind, canOwnWindow } from './floatvideo.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initCheck, openCheck, checkFirst } from './proofdialog.js';
 import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
@@ -5828,6 +5829,7 @@ function closeVideo() {
   pause();
   resetTracks();
   resetWaveform();
+  floater.dock();
   S.videoFile = null;
   S.hasVideo = false;
   S.vt = 0;
@@ -6560,7 +6562,29 @@ video.addEventListener('error', () => { if (S.videoFile && video.error?.code ===
 video.addEventListener('play', updateInd);
 video.addEventListener('pause', () => { if (!extHold) qcPlayer.stop(); updateInd(); });
 video.addEventListener('seeking', () => { if (!extHold) qcPlayer.stop(); });
-video.addEventListener('click', togglePlay);
+// A double-click floats the video (floatvideo.js), so its second click doesn't play or pause.
+video.addEventListener('click', (e) => { if (e.detail < 2) togglePlay(); });
+let floatKind = loadKind();
+const floater = initFloat({
+  stage, video, parts: [overlay, $('soundWait')],
+  kind: () => floatKind,
+  canFloat: () => S.hasVideo,
+  note: toast,
+  undoClick: togglePlay,
+});
+function setFloatKind(k) {
+  floatKind = k;
+  saveKind(k);
+  for (const b of document.querySelectorAll('#floatKind button')) b.setAttribute('aria-pressed', String(b.dataset.value === k));
+  floater.refloat();
+}
+for (const b of document.querySelectorAll('#floatKind button')) b.addEventListener('click', () => setFloatKind(b.dataset.value));
+if (!canOwnWindow()) {
+  const own = document.querySelector('#floatKind [data-value="window"]');
+  own.disabled = true;
+  own.dataset.tip = 'Only Chrome and Edge can open the video in a window of its own';
+}
+setFloatKind(floatKind);
 
 function openFiles(files) {
   for (const f of files) {
@@ -7326,7 +7350,7 @@ function setLook(next, save = true) {
 }
 fillChoices($('setLook'), (name, value) => setLook({ ...look, [name]: value }));
 markChoices($('setLook'), look);
-$('lookReset').addEventListener('click', () => setLook({ ...DEFAULTS }));
+$('lookReset').addEventListener('click', () => { setLook({ ...DEFAULTS }); setFloatKind('panel'); });
 // In Record mode, setup is Record mode's, so it can't switch away from the recording.
 $('setSetup').addEventListener('click', () => { closeSettings(); openWelcome(S.mode === 'record' ? 'record' : null); });
 $('setTour').addEventListener('click', () => { closeSettings(); startTour(S.mode); });

@@ -29,7 +29,7 @@ you work. It's in sections down the left:
 | **General** | Your name, setup and the tour, updates |
 | **Editing** | Replay, Lead-in, spelling and grammar, and Return to start in Record mode |
 | **Transcribing** | Marking with `H`, speech to text |
-| **Appearance** | Highlight colour, text over the video, text size |
+| **Appearance** | Highlight colour, text over the video, text size, floating video |
 | **Text to speech** | Voices, reading aloud, timings, audio exports |
 | **Online voices** | Google Cloud and Amazon Polly keys, and the browser's online voices |
 | **AI help** | Your AI provider, and a TMDB key for the cast |
@@ -58,6 +58,7 @@ Once someone else has changed blocks too, an open block shows who changed it las
 | **Highlight colour** | Buttons and switches that are on, the mode switch, and the chosen block |
 | **Text over the video** | The size, background and position of the block shown over the picture |
 | **Text size** | The blocks in the list and the block editor |
+| **Floating video** | Whether the video floats in this tab or in its own window |
 
 **Reset to defaults** undoes them all.
 
@@ -178,6 +179,18 @@ timeline to pan.
 To zoom, use − and + at the top right of the timeline, `Ctrl/Cmd`+scroll, or pinch.
 **Fit** shows the whole programme. Zoomed right in, the waveform shows each sound
 sharply, down to a few milliseconds.
+
+## Floating the video
+
+Double-click the video to float it in a window of its own. Every key still works.
+
+![The video floating over the list and the timeline, with the spot it left saying it's floating](../docs/screenshots/floating-video.png)
+
+- **Move it:** drag the picture, or its top bar. A click still plays or pauses.
+- **Resize it:** drag any corner. The text over the video grows and shrinks with the picture.
+- **Put it back:** double-click it, close it, or double-click the spot it left.
+- **On another screen:** set **Floating video** to **In its own window**, under
+  **Appearance** in Settings. This needs Chrome or Edge. Other browsers float it in the tab.
 
 ## Saving
 
