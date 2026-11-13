@@ -1,5 +1,5 @@
 // QC synthesis is explicit. Playback, seeking and timing edits only look up audio.
-import { spoken, soundsLike, atBase, googleRequest, googleFailure, readWav, reviewGoogleKey, reviewPollyCreds, pollyRead } from './tts.js';
+import { spoken, soundsLike, atBase, googleRequest, googleFailure, readWav, withoutLeadIn, reviewGoogleKey, reviewPollyCreds, pollyRead } from './tts.js';
 import { isPollyVoice, pollyVoiceOf } from './polly.js';
 
 export function speechSpec(key) {
@@ -51,7 +51,7 @@ export async function makeGoogleRewrite(spec, bundledKey = '', { useBundled = fa
       const response = await fetch(url, { ...init, signal: AbortSignal.timeout(30000) });
       if (!response.ok) throw new Error(await googleFailure(response));
       const b64 = (await response.json()).audioContent || '';
-      const buf = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)).buffer;
+      const buf = await withoutLeadIn(Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)).buffer);
       const wav = readWav(buf);
       if (!(wav.secs > 0)) throw new Error('Google returned an empty reading');
       return { blob: new Blob([buf], { type: 'audio/wav' }), secs: wav.secs, voice: spec.voice };

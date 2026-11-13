@@ -347,6 +347,27 @@ export function voiceEnd(samples, channels, rate) {
   }
   return total; // silent throughout
 }
+// Where the voice starts, in samples per channel: the first 10 ms louder than −50 dBFS.
+// 0 if it starts at once or is silent throughout.
+export function voiceStart(samples, channels, rate) {
+  const step = Math.max(1, Math.round(rate / 100)) * channels;
+  for (let from = 0; from < samples.length; from += step) {
+    const to = Math.min(samples.length, from + step);
+    let e = 0;
+    for (let i = from; i < to; i++) e += samples[i] * samples[i];
+    if (e / (to - from) > QUIET) return from / channels;
+  }
+  return 0;
+}
+// Google's readings start with a little silence. Without it, as in Frazier, the voice starts
+// on the block's start and the block is only as long as the voice. Mono WAV files only, as
+// Google sends; anything else comes back as it was.
+export async function withoutLeadIn(buf) {
+  let wav;
+  try { wav = readWav(buf); } catch { return buf; }
+  const from = wav.channels === 1 ? voiceStart(wav.samples, 1, wav.rate) : 0;
+  return from ? writeWav(wav.samples.slice(from), wav.rate).arrayBuffer() : buf;
+}
 
 // Seconds a line takes to say, from a voice's measured characters per second.
 export function estimate(text, cps = DEFAULT_CPS, speed = 1) {
@@ -1033,7 +1054,7 @@ async function savedReading(key) {
 async function saveReading(key, buf, secs) {
   await saved('readwrite', ({ audio, meta }) => {
     audio.put(buf, key);
-    meta.put({ key, secs, bytes: buf.byteLength, at: Date.now(), voiceEnd: true }, key);
+    meta.put({ key, secs, bytes: buf.byteLength, at: Date.now(), voiceEnd: true, voiceStart: true }, key);
   });
   const entries = await saved('readonly', ({ meta }, done) => all(meta).then(done));
   const drop = overCap(entries || [], SAVED_MAX);
@@ -1044,14 +1065,21 @@ async function loadSavedLengths() {
   const entries = await saved('readonly', ({ meta }, done) => all(meta).then(done));
   for (const e of entries || []) if (!measured.has(e.key)) setMeasured(e.key, e.secs);
   if (entries?.length) hooks.changed();
-  // Readings saved before lengths stopped at the voice: measured again, once, one at a time.
+  // Readings saved before lengths stopped at the voice, or Google's before their lead-ins
+  // were cut: measured again, once, one at a time.
   for (const e of entries || []) {
-    if (e.voiceEnd) continue;
-    const buf = await saved('readonly', ({ audio }, done) => { const a = audio.get(e.key); a.onsuccess = () => done(a.result); });
+    const google = /^google:/.test(e.key);
+    if (e.voiceEnd && (e.voiceStart || !google)) continue;
+    let buf = await saved('readonly', ({ audio }, done) => { const a = audio.get(e.key); a.onsuccess = () => done(a.result); });
+    if (!buf) continue;
+    if (google) buf = await withoutLeadIn(buf);
     let secs;
     try { secs = readWav(buf).secs; } catch { continue; }
     setMeasured(e.key, secs);
-    await saved('readwrite', ({ meta }) => meta.put({ ...e, secs, voiceEnd: true }, e.key));
+    await saved('readwrite', ({ audio, meta }) => {
+      if (google) audio.put(buf, e.key);
+      meta.put({ ...e, secs, bytes: buf.byteLength, voiceEnd: true, voiceStart: true }, e.key);
+    });
     hooks.changed();
   }
 }
@@ -1095,7 +1123,7 @@ function googleRead(words, voice, speed, urgent) {
     const r = await fetch(url, init);
     if (!r.ok) throw new Error(ownerFixes(await googleFailure(r)));
     const b64 = (await r.json()).audioContent || '';
-    return Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)).buffer;
+    return withoutLeadIn(Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)).buffer);
   });
 }
 
@@ -1158,7 +1186,8 @@ function readAudio(text, blockSpeed, voice = currentVoice(), how = 'background')
       if (!r.ok) throw new Error(`Piper answered ${r.status}`);
       return r.arrayBuffer();
     });
-    p = keptOr(key, make).then((buf) => {
+    // Google readings saved before lead-ins were cut still have theirs.
+    p = keptOr(key, make).then((buf) => (voice.google ? withoutLeadIn(buf) : buf)).then((buf) => {
       const wav = readWav(buf);
       setMeasured(key, wav.secs);
       learnShare(voice.voiceURI, readingsOf(text, true, voice.voiceURI));

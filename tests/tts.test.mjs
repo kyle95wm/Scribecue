@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SPEEDS, toBase, atBase, baseFromSpeed, DEFAULT_CPS, pickVoices, groupVoices, estimate, spoken, tts, isSpeed, speedLabel,
-  splitReadingKey, piperVoiceList, kokoroVoiceList, readWav, voiceEnd, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
+  splitReadingKey, piperVoiceList, kokoroVoiceList, readWav, voiceEnd, voiceStart, withoutLeadIn, writeWav, mixTrack, onlyNotes, TRACK_PEAK_DB, TRACK_MAX_DB, mixLevels,
   googleVoiceList, googleRequest, googleWords, googleFailure, makesAudio, overCap, nextFitSpeed, bestFit, resample,
   toggleFavourite, favouriteVoices, voiceLabel, missingVoiceAdvice, voiceTitle, voiceLanguages, inLanguage, baseLang } from '../app/js/tts.js';
 import { awsSignature, pollyRequest, pollyVoicesRequest, pollyVoiceList, pollyRate, ssmlText, pollyFailure, pollyThrottled, pollyHost, POLLY_REGIONS, pollyRegionLabel } from '../app/js/polly.js';
@@ -453,6 +453,23 @@ test('a reading’s length stops where the voice does, not at the silence after 
   // Stereo: frames, not samples.
   const stereo = new Int16Array(rate * 2); for (let i = 0; i < rate; i++) stereo[i] = 9000 * Math.sin(i);
   assert.ok(Math.abs(voiceEnd(stereo, 2, rate) - 0.55) < 0.011);
+});
+
+test('Google’s silence before the voice is cut, so the voice starts on the block’s start', async () => {
+  const rate = 24000, lead = rate * 0.06, voice = rate;
+  // 60 ms of near-silence, as Google starts its readings, then a second of voice.
+  const samples = Int16Array.from({ length: lead + voice }, (_, i) => (i < lead ? (i % 2 ? 2 : -2) : Math.round(8000 * Math.sin(i / 10))));
+  assert.equal(voiceStart(samples, 1, rate), lead);
+  assert.equal(voiceStart(new Int16Array(rate), 1, rate), 0, 'silence: nothing to cut');
+  const cut = readWav(await withoutLeadIn(await writeWav(samples, rate).arrayBuffer()));
+  assert.equal(cut.samples.length, voice);
+  assert.equal(cut.samples[0], samples[lead]);
+  assert.equal(cut.secs, 1, 'only as long as the voice');
+  // A reading that starts at once, or isn't a WAV file, comes back as it was.
+  const prompt = await writeWav(samples.slice(lead), rate).arrayBuffer();
+  assert.equal(await withoutLeadIn(prompt), prompt);
+  const junk = new ArrayBuffer(8);
+  assert.equal(await withoutLeadIn(junk), junk);
 });
 
 test('a reading’s key splits into its voice, speed and words, even with bars in them', () => {
