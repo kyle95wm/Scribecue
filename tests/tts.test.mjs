@@ -281,12 +281,13 @@ test('a Google reading sends the text, voice and speed, with the key in a header
   });
 });
 
-test('Google reads without quotation marks, as Frazier does, but keeps apostrophes and lines', () => {
+test('Google reads without the quotation marks Frazier leaves out: straight and opening curly double quotes', () => {
+  // Heard in Frazier: no pause at "T" or "Sing"; none before “Sold Out” but one after it;
+  // pauses around ‘Sing’.
   assert.equal(googleWords('It flies over a "T" as the view widens.'), 'It flies over a T as the view widens.');
-  assert.equal(googleWords('In white block letters: ‘Sing’'), 'In white block letters: Sing');
-  assert.equal(googleWords('Text: “Tri-Star Pictures presents.”'), 'Text: Tri-Star Pictures presents.');
-  assert.equal(googleWords("He says 'go' and doesn't."), 'He says go and doesn\'t.');
-  assert.equal(googleWords('Hanna’s mom isn’t home.'), 'Hanna’s mom isn’t home.');
+  assert.equal(googleWords('A hand writes “Sold Out” across the chart.'), 'A hand writes Sold Out” across the chart.');
+  assert.equal(googleWords('A sheet cake with ‘Sing’ written in icing.'), 'A sheet cake with ‘Sing’ written in icing.');
+  assert.equal(googleWords("He says 'go' and doesn't."), "He says 'go' and doesn't.");
   assert.equal(googleWords('Credits:\n"Sing"\nRosie: Louise Lasser'), 'Credits:\nSing\nRosie: Louise Lasser');
   assert.equal(googleWords('" "'), '" "'); // nothing else to read: as written
   const [g] = googleVoiceList(googleJson, ['en']);
