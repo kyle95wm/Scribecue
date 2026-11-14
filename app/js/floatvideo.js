@@ -117,6 +117,27 @@ export function resized(r, dx, dy, aspect, viewW, viewH, corner = 'se') {
 export const DRAG_FROM = 4;
 export const isDrag = (dx, dy) => Math.hypot(dx, dy) >= DRAG_FROM;
 
+// How long a click on the video waits for a second click before it plays or pauses.
+export const CLICK_WAIT = 250;
+
+// Tells a click from a double-click on the video. A click runs once(), after waiting long
+// enough to know no second click is coming, so a double-click doesn't play or pause at all.
+// A double-click slower than the wait still undoes the click that already ran.
+export function clickOrDouble(once, twice, undo, wait = CLICK_WAIT, timers = globalThis) {
+  let pending = null;
+  return {
+    click(detail = 1) {
+      if (detail > 1) return;
+      timers.clearTimeout(pending);
+      pending = timers.setTimeout(() => { pending = null; once(); }, wait);
+    },
+    double() {
+      if (pending != null) { timers.clearTimeout(pending); pending = null; } else undo();
+      twice();
+    },
+  };
+}
+
 const get = (k) => { try { return globalThis.localStorage?.getItem(k) ?? null; } catch { return null; } };
 const set = (k, v) => { try { globalThis.localStorage?.setItem(k, v); } catch { /* storage blocked */ } };
 
@@ -127,8 +148,8 @@ export const canOwnWindow = () => 'documentPictureInPicture' in globalThis && gl
 // Sets up floating for the video in `stage`. parts: what moves with the video (the
 // overlay first). kind(): 'panel' or 'window'. canFloat(): whether there's a video to
 // float. note(message): a toast. changed(floating): runs when it floats or docks.
-// undoClick(): undoes what the video's first click did, when it turns out to be a double-click.
-export function initFloat({ stage, video, parts, kind, canFloat = () => true, note = () => {}, changed = () => {}, undoClick = () => {} }) {
+// click(): what a single click on the video does (play or pause). A double-click floats or docks.
+export function initFloat({ stage, video, parts, kind, canFloat = () => true, note = () => {}, changed = () => {}, click = () => {} }) {
   const overlay = parts[0];
   const doc = document;
 
@@ -405,9 +426,11 @@ export function initFloat({ stage, video, parts, kind, canFloat = () => true, no
 
   const toggle = () => (floating ? dock() : float());
 
-  // Double-clicking the video floats it, or puts it back. Its first click has already
-  // played or paused it, so the second click is left out and this one undoes the first.
-  video.addEventListener('dblclick', (e) => { e.preventDefault(); undoClick(); toggle(); });
+  // Clicking the video plays or pauses it. Double-clicking floats it, or puts it back,
+  // without playing or pausing.
+  const clicks = clickOrDouble(click, toggle, click);
+  video.addEventListener('click', (e) => clicks.click(e.detail));
+  video.addEventListener('dblclick', (e) => { e.preventDefault(); clicks.double(); });
 
   new ResizeObserver(layout).observe(stage);
   new ResizeObserver(layout).observe(box);

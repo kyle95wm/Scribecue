@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fitPicture, readRect, readKind, defaultRect, place, resized, isDrag, MIN_W, BAR, SCALES, scaleName, scaledWidth, resizedTo, centered, floatScale } from '../app/js/floatvideo.js';
+import { fitPicture, readRect, readKind, defaultRect, place, resized, isDrag, MIN_W, BAR, SCALES, scaleName, scaledWidth, resizedTo, centered, floatScale, clickOrDouble, CLICK_WAIT } from '../app/js/floatvideo.js';
 import { settingNames } from '../app/js/settingsfile.js';
 
 test('the picture fits its box as the video shows it', () => {
@@ -118,4 +118,27 @@ test('Classic text floating: the docked size, grown with the picture', () => {
   assert.equal(floatScale(800, 400), 0.5);
   assert.equal(floatScale(0, 400), 1, 'nothing docked to measure: as docked');
   assert.equal(floatScale(600, 0), 1);
+});
+
+test('a double-click on the video floats it without playing or pausing', () => {
+  let now = 0, next = 1;
+  const due = new Map();
+  const timers = { setTimeout: (f, ms) => { due.set(next, [now + ms, f]); return next++; }, clearTimeout: (id) => due.delete(id) };
+  const wait = (ms) => { now += ms; for (const [id, [at, f]] of [...due]) if (at <= now) { due.delete(id); f(); } };
+  const log = [];
+  const c = clickOrDouble(() => log.push('play'), () => log.push('float'), () => log.push('undo'), CLICK_WAIT, timers);
+
+  // A single click plays once the wait is over.
+  c.click(1); wait(CLICK_WAIT - 1); assert.deepEqual(log, []);
+  wait(1); assert.deepEqual(log, ['play']);
+
+  // A quick double-click: the click event with detail 2 is ignored, and nothing plays.
+  log.length = 0;
+  c.click(1); wait(120); c.click(2); c.double(); wait(1000);
+  assert.deepEqual(log, ['float']);
+
+  // A double-click slower than the wait undoes the click that already played.
+  log.length = 0;
+  c.click(1); wait(CLICK_WAIT + 50); c.click(2); c.double();
+  assert.deepEqual(log, ['play', 'undo', 'float']);
 });

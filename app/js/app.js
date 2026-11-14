@@ -6759,15 +6759,13 @@ video.addEventListener('error', () => { if (S.videoFile && video.error?.code ===
 video.addEventListener('play', updateInd);
 video.addEventListener('pause', () => { if (!extHold) qcPlayer.stop(); updateInd(); });
 video.addEventListener('seeking', () => { if (!extHold) qcPlayer.stop(); });
-// A double-click floats the video (floatvideo.js), so its second click doesn't play or pause.
-video.addEventListener('click', (e) => { if (e.detail < 2) togglePlay(); });
 let floatKind = loadKind();
 const floater = initFloat({
   stage, video, parts: [overlay, $('soundWait')],
   kind: () => floatKind,
   canFloat: () => S.hasVideo,
   note: toast,
-  undoClick: togglePlay,
+  click: togglePlay,
 });
 function setFloatKind(k) {
   floatKind = k;
