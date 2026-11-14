@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.113.1",
+    "date": "2026-11-14",
+    "notes": "## Recording\n\n- Each part of a take now fades in and out very briefly, as it plays and in the exported WAV. Trimming or splitting a take in the middle of a word no longer clicks.\n- A split you haven't moved still plays straight through.\n- Stopping or seeking while a take plays no longer cuts it off with a click."
+  },
+  {
     "version": "0.113.0",
     "date": "2026-11-14",
     "notes": "## Deleting takes\n\n- In **Settings → Storage**, **Delete…** next to **Recorded takes** now lets you choose which recordings to delete. The others stay.\n- Each recording is listed by its video's name, with its version, how many takes, their size and when it was last saved.\n- Takes recorded before Scribecue kept them by recording are listed together as **Older takes**."
