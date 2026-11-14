@@ -51,6 +51,7 @@ that guide.
 
 The guides also open inside Scribecue: press `?` and click **Guides**.
 
+- [Features](FEATURES.md): what works in the web version, and what needs Docker.
 - [Getting started](Guides/GETTING-STARTED.md): modes, the loop you work in, saving and exporting.
 - [Writing with text to speech](Guides/WRITING.md): hearing your lines, speeds and timing.
 - [Voices](Guides/VOICES.md): the voices on your computer, Piper, Kokoro, Google and Amazon Polly.

@@ -69,12 +69,12 @@ test('the guides and every screenshot they show are built in and kept offline', 
   }
   const pages = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
   const docker = readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8');
-  // The README at the top and the rest in Guides/, all copied into one guides/ folder.
+  // The README and FEATURES at the top and the rest in Guides/, all copied into one guides/ folder.
   for (const f of guides) {
     assert.ok(existsSync(new URL(`../${repoPath(f)}`, import.meta.url)), `${repoPath(f)} is missing`);
   }
-  assert.match(pages, /cp README\.md Guides\/\*\.md _site\/guides\//, 'pages.yml copies the README and Guides/ into the guides');
-  assert.match(docker, /COPY README\.md Guides\/\*\.md \/usr\/share\/nginx\/html\/guides\//, 'the Dockerfile copies the README and Guides/ into the guides');
+  assert.match(pages, /cp README\.md FEATURES\.md Guides\/\*\.md _site\/guides\//, 'pages.yml copies the README, FEATURES and Guides/ into the guides');
+  assert.match(docker, /COPY README\.md FEATURES\.md Guides\/\*\.md \/usr\/share\/nginx\/html\/guides\//, 'the Dockerfile copies the README, FEATURES and Guides/ into the guides');
   // The voice samples the voices guide links to.
   assert.match(pages, /cp -R docs\/screenshots docs\/voices _site\/guides\/docs\//, 'pages.yml copies the voice samples');
   assert.match(docker, /COPY docs\/voices \/usr\/share\/nginx\/html\/guides\/docs\/voices/, 'the Dockerfile copies the voice samples');

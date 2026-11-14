@@ -37,6 +37,8 @@ test('knows links to the guides, on GitHub or between them', () => {
   assert.deepEqual(guideLink('../README.md'), { file: 'README.md', hash: '' });
   assert.equal(guideLink('../docker-compose.yml'), null);
   assert.equal(repoPath('README.md'), 'README.md');
+  assert.equal(repoPath('FEATURES.md'), 'FEATURES.md');
+  assert.deepEqual(guideLink('../FEATURES.md'), { file: 'FEATURES.md', hash: '' });
   assert.equal(repoPath('INSTALL.md'), 'Guides/INSTALL.md');
   assert.equal(guideLink('LICENSE'), null);
   assert.equal(guideLink('https://github.com/kyle95wm/Scribecue/releases'), null);

@@ -5,6 +5,7 @@ works in Chrome or Edge with nothing to install.
 
 Run Scribecue yourself with Docker to keep everything on your own computer, the app
 included, or to run Piper, Kokoro, Whisper or Ollama in containers next to it.
+[Features](../FEATURES.md) lists what works where.
 
 ## Contents
 

@@ -51,6 +51,7 @@ when the question is about how something works inside, or to check a guide is ri
 | Question about | Guide |
 | --- | --- |
 | What Scribecue is, starting out | `README.md` |
+| What works in the web version and what needs Docker | `FEATURES.md` |
 | Modes, settings, editing blocks, saving, exporting, spelling, supported files, slower computers | `Guides/GETTING-STARTED.md` |
 | Writing description, timing, fitting lines between dialogue | `Guides/WRITING.md` |
 | Text to speech voices: Piper, Kokoro, browser voices | `Guides/VOICES.md` |
