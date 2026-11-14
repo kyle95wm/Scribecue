@@ -5178,7 +5178,6 @@ function saveRecordingFile(sure = false) {
   toast(`Saved ${name}: version ${version}, ${file.blocks.length} blocks${asked ? `, ${asked} pickup${asked === 1 ? '' : 's'}` : ''}` + (m ? '' : '. Open the video first next time, so it can check the narrator has the right copy'));
 }
 $('recFileGo').addEventListener('click', () => saveRecordingFile());
-$('recFileStart').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveRecordingFile(); } });
 $('recFileCancel').addEventListener('click', () => recFileDlg.close());
 $('recFreshCancel').addEventListener('click', () => $('recFreshDlg').close());
 $('recFreshType').addEventListener('input', (e) => { $('recFreshGo').disabled = !typedStartOver(e.target.value); });
@@ -5187,7 +5186,13 @@ $('recFreshGo').addEventListener('click', () => {
   $('recFreshDlg').close();
   saveRecordingFile(true);
 });
-document.addEventListener('keydown', (e) => { if (recFileDlg.open || $('recFreshDlg').open || $('recExportDlg').open || $('narrDlg').open || $('recSessionDlg').open || $('recPackDlg').open) e.stopPropagation(); }, true);
+// Keys stay in these windows, away from the app's shortcuts. Stopped here, before they reach
+// a field, so a field's own keys are handled here too: Enter in the timecode saves.
+document.addEventListener('keydown', (e) => {
+  if (!(recFileDlg.open || $('recFreshDlg').open || $('recExportDlg').open || $('narrDlg').open || $('recSessionDlg').open || $('recPackDlg').open)) return;
+  e.stopPropagation();
+  if (e.key === 'Enter' && !e.isComposing && e.target === $('recFileStart')) { e.preventDefault(); saveRecordingFile(); }
+}, true);
 
 // A narration zip (from Record mode) is checked by the narration WAV inside it.
 async function openPackage(f) {
