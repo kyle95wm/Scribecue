@@ -71,8 +71,8 @@ test('the settings file keeps the appearance', () => {
 
 test("setup's summary lists only what was changed", () => {
   assert.deepEqual(describeAppearance(DEFAULTS), ['Default appearance']);
-  assert.deepEqual(describeAppearance({ ...DEFAULTS, accent: 'teal', subPos: 'top', textSize: 'l' }), [
-    'Highlight colour: Teal', 'Text over the video goes at the top', 'Text size in the list and editor: Large',
+  assert.deepEqual(describeAppearance({ ...DEFAULTS, accent: 'teal', subStyle: 'classic', subPos: 'top', textSize: 'l' }), [
+    'Highlight colour: Teal', 'Text over the video looks: Classic', 'Text over the video goes at the top', 'Text size in the list and editor: Large',
   ]);
   assert.deepEqual(describeAppearance({ ...DEFAULTS, accent: 'pink' }), ['Default appearance']);
 });
@@ -101,14 +101,16 @@ test('Classic brings back the look from before 0.114.0', () => {
   assert.deepEqual(describeAppearance({ ...DEFAULTS, subStyle: 'classic' }), ['Text over the video looks: Classic']);
 });
 
-test('Burnt in has its own size and background; Classic uses the ones picked, kept meanwhile', () => {
+test('Burnt in has its own size, background and position; Classic uses the ones picked, kept meanwhile', () => {
   const picked = { ...DEFAULTS, subSize: 'xl', subBg: 'dark', subPos: 'top' };
-  assert.deepEqual(shownAppearance(picked), { ...picked, subSize: 'm', subBg: 'none' });
+  assert.deepEqual(shownAppearance(picked), { ...picked, subSize: 'm', subBg: 'none', subPos: 'bottom' });
   assert.deepEqual(shownAppearance({ ...picked, subStyle: 'classic' }), { ...picked, subStyle: 'classic' });
   assert.equal(storedAppearance(picked), '{"subSize":"xl","subBg":"dark","subPos":"top"}', 'still stored for Classic');
   assert.ok(fixedChoice(picked, 'subSize') && fixedChoice(picked, 'subBg'));
-  assert.ok(!fixedChoice(picked, 'subPos'), 'position still applies');
+  assert.ok(fixedChoice(picked, 'subPos'));
+  assert.ok(!fixedChoice(picked, 'accent') && !fixedChoice(picked, 'subStyle'));
   assert.ok(!fixedChoice({ ...picked, subStyle: 'classic' }, 'subSize'));
-  assert.deepEqual(describeAppearance(picked), ['Text over the video goes at the top']);
+  assert.deepEqual(describeAppearance(picked), ['Default appearance']);
+  assert.deepEqual(describeAppearance({ ...picked, subStyle: 'classic' }).length, 4);
   assert.equal(attributes(shownAppearance(picked))['data-sub-bg'], 'none');
 });
