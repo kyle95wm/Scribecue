@@ -188,6 +188,9 @@ Double-click the video to float it in a window of its own. Every key still works
 
 - **Move it:** drag the picture, or its top bar. A click still plays or pauses.
 - **Resize it:** drag any corner. The text over the video grows and shrinks with the picture.
+- **Pick a size:** right-click it for 0.25×, 0.5×, 2× or 3× the video's own size, or
+  **Original size**. Sizes that don't fit are greyed out. **Full screen** and **Center** are
+  there too.
 - **Put it back:** double-click it, close it, or double-click the spot it left.
 - **On another screen:** set **Floating video** to **In its own window**, under
   **Appearance** in Settings. This needs Chrome or Edge. Other browsers float it in the tab.

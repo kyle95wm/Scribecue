@@ -66,6 +66,31 @@ export function place(r, viewW, viewH, aspect) {
 
 export const CORNERS = ['nw', 'ne', 'sw', 'se'];
 
+// Sizes to pick from the floating video's right-click menu, against the video's own size:
+// Original size shows each of its pixels as one of the screen's (CSS pixels).
+export const SCALES = [0.25, 0.5, 1, 2, 3];
+export const scaleName = (k) => (k === 1 ? 'Original size' : `${k}× size`);
+
+// The width of the picture at scale k, or 0 when it can't be shown that size: smaller than
+// a panel can be, or bigger than room (roomW, roomH: the space for the picture and its bar).
+export function scaledWidth(k, videoW, aspect, roomW, roomH) {
+  const a = aspect > 0 ? aspect : 16 / 9, w = Math.round(videoW * k);
+  return videoW > 0 && w >= MIN_W && w <= roomW && w / a + BAR <= roomH ? w : 0;
+}
+
+// A panel `r` at width w, keeping its middle where it was, then kept on the screen.
+export function resizedTo(r, w, aspect, viewW, viewH) {
+  const a = aspect > 0 ? aspect : 16 / 9;
+  const mx = r.x + r.w / 2, my = r.y + (r.w / a + BAR) / 2;
+  return place({ x: mx - w / 2, y: my - (w / a + BAR) / 2, w }, viewW, viewH, a);
+}
+
+// A panel `r` in the middle of the window.
+export const centered = (r, aspect, viewW, viewH) => {
+  const a = aspect > 0 ? aspect : 16 / 9;
+  return place({ x: (viewW - r.w) / 2, y: (viewH - (r.w / a + BAR)) / 2, w: r.w }, viewW, viewH, a);
+};
+
 // A panel resized by dragging one of its corners ('nw', 'ne', 'sw' or 'se') by dx, dy.
 // The opposite corner stays put, and the picture keeps its shape, following whichever
 // way the pointer went further.
@@ -165,8 +190,75 @@ export function initFloat({ stage, video, parts, kind, canFloat = () => true, no
     if (!floating) return cover(overlay, fitPicture(stage.clientWidth, stage.clientHeight, aspect()));
     const host = floating === 'window' ? pip.document.body : box;
     cover(pic, fitPicture(host.clientWidth, host.clientHeight, aspect()));
-    cover(overlay, null);
+    // Full screen, the picture's box is the screen, of another shape than the picture.
+    const full = pic.ownerDocument.fullscreenElement === pic;
+    cover(overlay, full ? fitPicture(pic.clientWidth, pic.clientHeight, aspect()) : null);
   }
+
+  // Right-click the floating video for sizes, full screen and centring, as in Logic. The
+  // menu goes in whichever document the picture is in: this one, or its own window's.
+  let menu = null;
+  function closeMenu() { if (menu) { menu.remove(); menu = null; } }
+  function openMenu(e) {
+    e.preventDefault();
+    closeMenu();
+    const d = pic.ownerDocument, view = d.defaultView, own = floating === 'window';
+    const scr = view.screen;
+    // A window of its own can be as big as the screen; a panel, as the tab.
+    const roomW = own ? scr.availWidth : innerWidth, roomH = own ? scr.availHeight : innerHeight;
+    const nowW = own ? view.innerWidth : rect?.w;
+    menu = d.createElement('div');
+    menu.className = 'floatmenu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Video size');
+    const item = (label, run, { checked = null, disabled = false } = {}) => {
+      const b = d.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', checked === null ? 'menuitem' : 'menuitemradio');
+      if (checked !== null) b.setAttribute('aria-checked', String(checked));
+      b.textContent = label;
+      b.disabled = disabled;
+      b.addEventListener('click', () => { closeMenu(); run(); });
+      menu.append(b);
+    };
+    const line = () => { const hr = d.createElement('div'); hr.className = 'menusep'; hr.setAttribute('role', 'separator'); menu.append(hr); };
+    for (const k of SCALES) {
+      const w = scaledWidth(k, video.videoWidth, aspect(), roomW, own ? roomH + BAR : roomH);
+      item(scaleName(k), () => sizeTo(w), { checked: !!w && Math.abs(w - nowW) < 2, disabled: !w });
+    }
+    const full = d.fullscreenElement === pic;
+    item(full ? 'Leave full screen' : 'Full screen', () => (full ? d.exitFullscreen() : pic.requestFullscreen()).catch?.(() => note('This browser can’t show the video full screen here')),
+      { disabled: own || !d.fullscreenEnabled });
+    line();
+    item('Center', () => { rect = centered(rect, aspect(), innerWidth, innerHeight); showPanel(); saveRect(); }, { disabled: own });
+    d.body.append(menu);
+    const r = menu.getBoundingClientRect();
+    menu.style.left = `${Math.max(4, Math.min(e.clientX, view.innerWidth - r.width - 4))}px`;
+    menu.style.top = `${Math.max(4, Math.min(e.clientY, view.innerHeight - r.height - 4))}px`;
+    menu.querySelector('button:not(:disabled)')?.focus();
+    menu.addEventListener('keydown', (k) => {
+      const items = [...menu.querySelectorAll('button:not(:disabled)')], at = items.indexOf(d.activeElement);
+      const go = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: items.length - 1 }[k.key];
+      if (k.key === 'Escape' || k.key === 'Tab') { k.preventDefault(); closeMenu(); }
+      else if (go !== undefined) { k.preventDefault(); items[(go + items.length) % items.length]?.focus(); }
+      else return;
+      k.stopPropagation();
+    });
+  }
+  function sizeTo(w) {
+    if (!w) return;
+    if (floating === 'window') {
+      const v = pip;
+      try { v.resizeBy(w - v.innerWidth, Math.round(w / aspect()) - v.innerHeight); } catch { note('This window can’t be resized from here: drag its edge'); }
+      return;
+    }
+    rect = resizedTo(rect, w, aspect(), innerWidth, innerHeight);
+    showPanel();
+    saveRect();
+  }
+  pic.addEventListener('contextmenu', (e) => { if (floating) openMenu(e); });
+  doc.addEventListener('pointerdown', (e) => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
+  doc.addEventListener('fullscreenchange', layout);
 
   function showPanel() {
     const vw = innerWidth, vh = innerHeight;
@@ -237,7 +329,8 @@ export function initFloat({ stage, video, parts, kind, canFloat = () => true, no
         if (!doc.body.dispatchEvent(copy)) e.preventDefault();
       });
     }
-    w.addEventListener('resize', layout);
+    w.addEventListener('resize', () => { closeMenu(); layout(); });
+    w.document.addEventListener('pointerdown', (e) => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
     w.addEventListener('pagehide', () => { if (pip === w) dock(); });
   }
   function copyLook(w = pip) {
@@ -280,6 +373,8 @@ export function initFloat({ stage, video, parts, kind, canFloat = () => true, no
 
   function dock() {
     if (!floating) return;
+    closeMenu();
+    if (doc.fullscreenElement === pic) doc.exitFullscreen().catch(() => {});
     const w = pip;
     floating = null;
     pip = null;
