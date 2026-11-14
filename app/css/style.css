@@ -1094,6 +1094,8 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 /* Settings, under Appearance: a row of choices, the one in use pressed. */
 .lookrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .lookrow > span[data-look] { display: contents; }
+/* Size and background with the Burnt in style, which has its own (appearance.js). */
+.lookrow button:disabled { opacity: 0.4; cursor: default; }
 .looklabel { min-width: 6.5em; }
 .lookdot { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; border: 1px solid var(--bg); vertical-align: -1px; }
 .lookdot[data-accent="amber"] { background: var(--hl-amber); }

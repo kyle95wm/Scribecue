@@ -28,6 +28,12 @@ export const NAMES = {
   textSize: 'Text size in the list and editor',
 };
 
+// Burnt in has the burn-in script's size and background, so those two only apply to
+// Classic. They stay stored, and come back when Classic is picked again.
+export const BURNT_FIXED = { subSize: 'm', subBg: 'none' };
+export const shownAppearance = (a) => (a.subStyle === 'classic' ? a : { ...a, ...BURNT_FIXED });
+export const fixedChoice = (a, name) => a.subStyle !== 'classic' && name in BURNT_FIXED;
+
 export const DEFAULTS = Object.fromEntries(Object.entries(CHOICES).map(([k, [, d]]) => [k, d]));
 const allowed = (name, v) => CHOICES[name]?.[0].some(([x]) => x === v);
 
@@ -55,7 +61,7 @@ export const attributes = (a) => Object.fromEntries(
 
 // Puts an appearance on the page.
 export function applyAppearance(a, root = document.documentElement) {
-  for (const [name, value] of Object.entries(attributes(a))) root.setAttribute(name, value);
+  for (const [name, value] of Object.entries(attributes(shownAppearance(a)))) root.setAttribute(name, value);
 }
 
 export function loadAppearance(storage = globalThis.localStorage) {
@@ -73,7 +79,7 @@ export function saveAppearance(a, storage = globalThis.localStorage) {
 export function describeAppearance(a) {
   const lines = [];
   for (const [k, [choices, def]] of Object.entries(CHOICES)) {
-    if (!allowed(k, a[k]) || a[k] === def) continue;
+    if (!allowed(k, a[k]) || a[k] === def || fixedChoice(a, k)) continue;
     const label = choices.find(([v]) => v === a[k])[1];
     lines.push(k === 'subPos' ? `${NAMES[k]} ${label.toLowerCase()}` : `${NAMES[k]}: ${label}`);
   }
@@ -103,8 +109,14 @@ export function fillChoices(root, pick) {
   }
 }
 
+// Size and background are greyed out with Burnt in, showing the ones it uses.
 export function markChoices(root, a) {
+  const shown = shownAppearance(a);
   for (const row of root.querySelectorAll('[data-look]')) {
-    for (const b of row.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.value === a[row.dataset.look]));
+    const fixed = fixedChoice(a, row.dataset.look);
+    for (const b of row.querySelectorAll('button')) {
+      b.setAttribute('aria-pressed', String(b.dataset.value === shown[row.dataset.look]));
+      b.disabled = fixed;
+    }
   }
 }

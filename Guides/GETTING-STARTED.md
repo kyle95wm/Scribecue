@@ -60,8 +60,9 @@ Once someone else has changed blocks too, an open block shows who changed it las
 | **Text size** | The blocks in the list and the block editor |
 | **Floating video** | Whether the video floats in this tab or in its own window |
 
-For the text over the video, **Burnt in** looks as it does in a video with subtitles. Pick
-**Classic** for the look from before 0.114.0. For its dark box too, pick a **Dark** background.
+For the text over the video, **Burnt in** looks as it does in a video with subtitles. Its size
+and background are set, so those rows are greyed out. Pick **Classic** for the look from before
+0.114.0, with the size and background you choose. For its dark box too, pick a **Dark** background.
 
 **Reset to defaults** undoes them all.
 
