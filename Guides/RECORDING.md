@@ -75,8 +75,8 @@ video stopped. See [Extended blocks](#extended-blocks).
 - **Set the video's sound** with **Video** under the video, from 0 dB (as it is) down to
   −30 dB. It starts at −30 dB. Double-click it to go back there.
 - **Follow the setup.** The first time you open a recording file, it helps you pick your
-  microphone, set your [level](#levels) and choose a lead-in: 3 to 5 seconds of video
-  before each block.
+  microphone, set your [level](#levels) and choose a lead-in: how many seconds of video
+  play before each block, from 1 to 5. It starts at 3.
 - **Change them later** under **Microphone, lead-in and sync**.
 - **Put the picture where you read.** Double-click the video to float it. Drag it next to
   the script, or make it bigger. With **In its own window** set under **Appearance**, it can
@@ -165,6 +165,8 @@ lines, including your loudest, and set your gain so the peaks land in it.
 - **Fine-tune** moves, trims or splits the take in the export by the millisecond.
 - **Delete** removes a take. Press Ctrl/Cmd+Z, or click the message, to bring it back.
   Once you close the recording, it's gone.
+- **Clean up takes…**, under **Microphone, lead-in and sync**, deletes the takes you
+  didn't use. See [Deleting takes](#deleting-takes).
 
 ### Punching in
 
@@ -407,6 +409,16 @@ Or copy the folder. Then open the recording file on the other computer, and choo
 copied folder.
 
 ### Deleting takes
+
+**Takes you didn't use:** click **Clean up takes…** under **Microphone, lead-in and sync**.
+
+- It lists every take that isn't in the export, with its length and size.
+- Takes of lines that have changed since are listed too.
+- Each one is chosen, except the take a pickup replaced, since **Compare** plays it.
+- Click **Play** to hear one. Click **Choose** again to keep it.
+- Press Ctrl/Cmd+Z to bring them back. Once you close the recording, they're gone.
+
+**A whole recording:**
 
 - **In a folder,** the takes are your own files. Delete the folder when you're done.
 - **In the browser,** click **Delete…** next to **Recorded takes** in **Settings → Storage**

@@ -223,6 +223,40 @@ export function originalTake(list, old, version) {
   return before.find((t) => t.chosen) || before.at(-1) || old.filter((t) => (t.ver || 0) < version).at(-1) || null;
 }
 
+// The takes no export uses, for cleaning up: those not chosen for their block or its alt,
+// and those of a line that's since been reworded or removed. A pickup's original take
+// isn't in the export either, but Compare plays it, so it's listed apart and not chosen
+// to start with. version: the recording file's. Returns [{ t, block, n, alt, why, size,
+// keep }], in the order of the script: block is −1 for an old wording; n, the take's number
+// under its block, as the list shows it; why, 'unused' | 'old' | 'original'.
+export function unusedTakes(takes, blocks, version = 0) {
+  const live = takes.filter((t) => !t.deleted);
+  const under = (i, a) => live.filter((t) => t.block === i && isAlt(t) === a).sort((x, z) => x.made - z.made);
+  const old = (i, a) => {
+    const b = blocks[i];
+    return live.filter((t) => t.block < 0 && isAlt(t) === a && t.line && Math.min(t.line.end, b.end) > Math.max(t.line.start, b.start)).sort((x, z) => x.made - z.made);
+  };
+  const size = (t) => t.size ?? t.wav?.size ?? 0;
+  const out = [], seen = new Set();
+  const add = (t, block, n, why) => {
+    if (seen.has(t.id)) return;
+    seen.add(t.id);
+    out.push({ t, block, n, alt: isAlt(t), why, size: size(t), keep: why === 'original' });
+  };
+  blocks.forEach((b, i) => {
+    for (const a of [false, true]) {
+      const list = under(i, a);
+      const orig = b.pickup && !a ? originalTake(list, old(i, a), version) : null;
+      list.forEach((t, k) => { if (!t.chosen) add(t, i, k + 1, t === orig ? 'original' : 'unused'); });
+      old(i, a).forEach((t, k) => add(t, i, k + 1, t === orig ? 'original' : 'old'));
+    }
+  });
+  // Old wordings no block overlaps any more: listed last.
+  live.filter((t) => t.block < 0).sort((x, z) => (x.line?.start ?? 0) - (z.line?.start ?? 0) || x.made - z.made)
+    .forEach((t) => add(t, -1, 0, 'old'));
+  return out;
+}
+
 // Checks the pickups before a WAV of them alone is exported. Like checkExport, but only for
 // blocks with a pickup, and a chosen take from an earlier version doesn't count.
 export function checkPickups(blocks, chosen, version, grace = GRACE) {
@@ -600,6 +634,14 @@ export function exportReport({ stop, warn }) {
 export const recordingId = ({ blocks, start }) => hash(JSON.stringify([start, blocks.map((b) => [b.start, b.end, b.text])])) + '-' + blocks.length;
 
 // How long recording starts before the block's first moment: a breath of room.
+// The lead-in before a take, in seconds: how much video plays first. Any length from
+// REC_LEAD_MIN to REC_LEAD_MAX, in tenths; anything else, such as an empty box, gets REC_LEAD.
+export const REC_LEAD = 3, REC_LEAD_MIN = 1, REC_LEAD_MAX = 5;
+export function recLead(v) {
+  const n = Math.round(parseFloat(v) * 10) / 10;
+  return Number.isFinite(n) ? Math.min(REC_LEAD_MAX, Math.max(REC_LEAD_MIN, n)) : REC_LEAD;
+}
+
 export const PREROLL = 0.2;
 
 // The video's sound in Record mode, in dB: as it is (0) down to −30, so the narrator can

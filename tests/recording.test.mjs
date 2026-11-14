@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, nextRecording, START_OVER, typedStartOver, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, GRACES, readGrace, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver, videoDb, videoDbText, VIDEO_DB_MIN, leadInParts, partEnds, stepEnd, EDGE_FADE } from '../app/js/recording.js';
+import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, unusedTakes, recLead, REC_LEAD, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, nextRecording, START_OVER, typedStartOver, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, GRACES, readGrace, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver, videoDb, videoDbText, VIDEO_DB_MIN, leadInParts, partEnds, stepEnd, EDGE_FADE } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote, fadeEnds24 } from '../app/js/bwf.js';
 
 const blocks = [
@@ -740,4 +740,49 @@ test('the BWF export fades each part where it was cut', async () => {
   const data = bytes.length - 960 * 3; // the samples are at the end
   const s = from24(bytes.subarray(data));
   assert.ok(s[0] < 0.01 && s[479] < 0.01 && s[240] > 0.49, 'silence at the cuts, full in the middle');
+});
+
+test('clean up lists the takes no export uses, and keeps a pickup’s original unchosen', () => {
+  const bl = [
+    { start: 2, end: 5, text: 'One.' },
+    { start: 6, end: 9, text: 'Two now.', pickup: { was: 'Two.' } },
+    { start: 20, end: 22, text: 'Three.' },
+  ];
+  const tk = (id, block, made, more = {}) => ({ id, block, made, start: bl[block]?.start ?? 6, duration: 1, size: 1000, ...more });
+  const takes = [
+    tk('a1', 0, 1), tk('a2', 0, 2, { chosen: true }), tk('a3', 0, 3),
+    tk('alt1', 0, 4, { alt: 'Uno.' }), tk('alt2', 0, 5, { alt: 'Uno!', chosen: true }),
+    // block 1 was reworded: its old take sits in no block, and the new one is chosen.
+    tk('b0', -1, 1, { line: { start: 6, end: 9, text: 'Two.' }, ver: 1 }), tk('b1', 1, 6, { chosen: true, ver: 2 }),
+    tk('c1', 2, 1, { chosen: true }), tk('c2', 2, 2, { deleted: true }),
+    tk('gone', -1, 1, { start: 40, line: { start: 40, end: 41, text: 'Cut.' } }),
+  ];
+  const u = unusedTakes(takes, bl, 2);
+  assert.deepEqual(u.map((x) => [x.t.id, x.block, x.n, x.why, x.keep]), [
+    ['a1', 0, 1, 'unused', false], ['a3', 0, 3, 'unused', false],
+    ['alt1', 0, 1, 'unused', false],
+    ['b0', 1, 1, 'original', true],
+    ['gone', -1, 0, 'old', false],
+  ]);
+  assert.equal(u.find((x) => x.t.id === 'alt1').alt, true);
+  assert.equal(u[0].size, 1000);
+  assert.ok(!u.some((x) => x.t.chosen), 'a take in the export is never listed');
+  assert.ok(!u.some((x) => x.t.id === 'c2'), 'a take already deleted isn’t listed');
+  // Without the pickup, the old wording is just old.
+  const plain = unusedTakes(takes, bl.map(({ pickup, ...b }) => b), 2);
+  assert.equal(plain.find((x) => x.t.id === 'b0').why, 'old');
+  assert.deepEqual(unusedTakes([tk('x', 0, 1, { chosen: true })], bl), []);
+});
+
+test('a lead-in can be any length from 1 to 5 seconds, and anything else gets 3', () => {
+  assert.equal(recLead('3'), 3);
+  assert.equal(recLead(2.25), 2.3);
+  assert.equal(recLead('5'), 5);
+  assert.equal(recLead('12'), 5);
+  assert.equal(recLead(0), 1);
+  assert.equal(recLead(-4), 1);
+  assert.equal(recLead(90), 5);
+  assert.equal(recLead(''), REC_LEAD);
+  assert.equal(recLead(null), REC_LEAD);
+  assert.equal(recLead('abc'), REC_LEAD);
 });

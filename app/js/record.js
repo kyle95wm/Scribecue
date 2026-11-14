@@ -3,7 +3,7 @@
 // that); this file does the recording. The guide is Guides/RECORDING.md.
 
 import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
-import { slots, prevEnd, narrationTimeline, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, leadInParts, partEnds, stepEnd, videoDb, videoDbText, VIDEO_DB_MIN, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE, EDGE_FADE } from './recording.js';
+import { slots, prevEnd, narrationTimeline, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, unusedTakes, recLead, REC_LEAD, markerLabel, leadInParts, partEnds, stepEnd, videoDb, videoDbText, VIDEO_DB_MIN, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE, EDGE_FADE } from './recording.js';
 import { storeZip } from './zip.js';
 import { blockToHold, stillHeard, pauseList } from './extended.js';
 import { fmtTime } from './formats.js';
@@ -14,7 +14,6 @@ import { SESSION_EXT } from './session.js';
 import { picker } from './pickers.js';
 
 const $ = (id) => document.getElementById(id);
-const LEAD = [3, 4, 5];
 const LEVEL_WORDS = { good: 'in the pocket', note: 'fine', quiet: 'very quiet', loud: 'too loud: retake it' };
 const get = (k) => { try { return localStorage.getItem('scribecue.rec.' + k); } catch { return null; } };
 const put = (k, v) => { try { if (v == null) localStorage.removeItem('scribecue.rec.' + k); else localStorage.setItem('scribecue.rec.' + k, v); } catch { /* storage blocked */ } };
@@ -34,7 +33,7 @@ export function initRecord(h) {
   let level = 0, hold = 0;   // meter: current and held peak, 0…1
   let loudest = 0;           // the loudest peak since a check started or was reset, 0…1
   let raf = 0, playing = null, warned = new Set();
-  let leadSecs = LEAD.includes(+get('lead')) ? +get('lead') : 3;
+  let leadSecs = recLead(get('lead') ?? REC_LEAD);
   let syncMs = get('sync') != null ? +get('sync') : null; // null: use the browser's figure
   let wasPlaying = false;
   let where = 'browser';     // where takes are kept: 'folder' or 'browser' (a session)
@@ -106,6 +105,9 @@ export function initRecord(h) {
     $('recLinkRow').hidden = !rec?.project;
     $('recMoveRow').hidden = !rec || keep !== 'ready' || currentSession()?.where !== 'browser' || !canUseFolders();
     $('recMove').disabled = busy;
+    $('recCleanRow').hidden = !rec || keep !== 'ready';
+    $('recClean').disabled = busy;
+    cleanSync();
     const sn = currentSession()?.name;
     el.count.dataset.tip = where === 'folder' ? `Takes are kept in ${sn}, a folder you can copy to another computer`
       : currentSession() ? (canUseFolders() ? 'Takes are kept in this browser. Move them to a folder, under Microphone, lead-in and sync, to copy them to another computer'
@@ -234,13 +236,97 @@ export function initRecord(h) {
     const d = rec && state === 'idle' && deleted.pop();
     if (!d) return false;
     try {
-      if (!await restoreTake(rec.id, d.id)) throw new Error('it isn’t there any more');
+      for (const id of d.ids || [d.id]) if (!await restoreTake(rec.id, id)) throw new Error('it isn’t there any more');
       if (d.chosen) await chooseTake(rec.id, d.id);
     } catch (e) { h.toast(`Couldn’t bring back ${d.what}: ${e.message}`); return true; }
     await reload();
     h.toast(`Brought back ${d.what}`);
     return true;
   }
+
+  // ---- Clean up takes: the takes no export uses (see unusedTakes), for the narrator to
+  // choose which to delete. In a session they can be brought back with undo until the
+  // recording closes, as one; elsewhere they're gone for good, and the window says so.
+  const clean = { dlg: $('cleanDlg'), list: $('cleanList'), go: $('cleanGo'), all: $('cleanAll'), rows: [] };
+  const mbOf = (bytes) => (bytes < 1e6 ? 'less than 1 MB' : `${Math.round(bytes / 1e6)} MB`);
+  const cleanWhy = { unused: 'Not in the export.', old: 'Read for a line that has changed since.', original: 'The take this pickup replaced. Compare plays it.' };
+  function cleanTitle(u) {
+    if (u.block < 0) return `Old take, ${fmtTime(u.t.line?.start ?? u.t.start)}`;
+    const what = u.alt ? 'alt take' : 'take';
+    return u.why === 'old' || (u.why === 'original' && u.t.block < 0) ? `Block ${u.block + 1}, old ${what} ${u.n}` : `Block ${u.block + 1}, ${what} ${u.n}`;
+  }
+  function openClean() {
+    if (!rec || state !== 'idle' || keep !== 'ready') return;
+    const rows = unusedTakes(takes, h.blocks(), version());
+    if (!rows.length) return h.toast('Every take is in the export, so there’s nothing to clean up');
+    clean.rows = rows;
+    clean.list.replaceChildren(...rows.map((u) => {
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="what"><strong></strong><span class="dim small"></span></span><button data-play></button><button aria-pressed="false">Choose</button>';
+      li.querySelector('strong').textContent = cleanTitle(u);
+      const said = u.why === 'old' && u.t.line?.text ? `Read as “${u.t.line.text}”. The line has changed since.`
+        : u.alt && u.t.alt ? `${cleanWhy[u.why]} Read as “${u.t.alt}”` : cleanWhy[u.why];
+      li.querySelector('.small').textContent = `${placed(u.t).duration.toFixed(2)} s, ${mbOf(u.size)}. ${said}`;
+      const [play, pick] = li.querySelectorAll('button');
+      play.setAttribute('aria-label', `Play ${cleanTitle(u)}`);
+      play.addEventListener('click', () => (playing?.t.id === u.t.id ? stopPlay() : playTake(u.t)));
+      pick.setAttribute('aria-label', `Choose ${cleanTitle(u)}`);
+      pick.setAttribute('aria-pressed', String(!u.keep));
+      pick.addEventListener('click', () => { pick.setAttribute('aria-pressed', String(pick.getAttribute('aria-pressed') !== 'true')); cleanPicked(); });
+      return li;
+    }));
+    $('cleanIntro').textContent = rows.some((u) => u.keep)
+      ? 'These takes aren’t in the export. Choose the ones to delete. Takes a pickup replaced aren’t chosen, since Compare plays them.'
+      : 'These takes aren’t in the export. Choose the ones to delete.';
+    $('cleanWarn').textContent = currentSession()
+      ? 'Press Ctrl/Cmd+Z to bring them back. Once you close the recording, they’re gone.'
+      : 'This can’t be undone. Export any narration you still need first.';
+    cleanSync();
+    cleanPicked();
+    clean.dlg.showModal();
+    clean.go.focus();
+  }
+  function cleanPicked() {
+    const btns = [...clean.list.querySelectorAll('button[aria-pressed]')];
+    const chosen = clean.rows.filter((_, i) => btns[i]?.getAttribute('aria-pressed') === 'true');
+    clean.all.setAttribute('aria-pressed', String(chosen.length === clean.rows.length));
+    const bytes = chosen.reduce((n, u) => n + u.size, 0);
+    clean.go.textContent = chosen.length ? `Delete ${chosen.length} take${chosen.length === 1 ? '' : 's'}, ${mbOf(bytes)}` : 'Delete';
+    clean.go.disabled = !chosen.length;
+    return chosen;
+  }
+  // The window's Play buttons, to match what's playing.
+  function cleanSync() {
+    if (!clean.dlg.open && !clean.rows.length) return;
+    clean.list.querySelectorAll('button[data-play]').forEach((b, i) => { b.textContent = playing?.t.id === clean.rows[i]?.t.id ? 'Stop' : 'Play'; });
+  }
+  async function cleanDelete() {
+    const chosen = cleanPicked();
+    if (!chosen.length || state !== 'idle') return;
+    clean.go.disabled = true;
+    stopPlay();
+    const done = [];
+    try {
+      for (const u of chosen) { await deleteTake(rec.id, u.t.id); done.push(u.t.id); }
+    } catch (e) { h.toast(`Couldn’t delete every take: ${e.message}`); }
+    clean.dlg.close();
+    await reload();
+    if (!done.length) return;
+    const what = `${done.length} take${done.length === 1 ? '' : 's'}`;
+    if (!currentSession()) return h.toast(`Deleted ${what}`);
+    deleted.push({ ids: done, chosen: false, what });
+    h.toast(`Deleted ${what}. Undo: ⌘Z`, undoDelete);
+  }
+  $('recClean').addEventListener('click', openClean);
+  clean.all.addEventListener('click', () => {
+    const on = clean.all.getAttribute('aria-pressed') !== 'true';
+    for (const b of clean.list.querySelectorAll('button[aria-pressed]')) b.setAttribute('aria-pressed', String(on));
+    cleanPicked();
+  });
+  clean.go.addEventListener('click', cleanDelete);
+  $('cleanCancel').addEventListener('click', () => clean.dlg.close());
+  clean.dlg.addEventListener('click', (e) => { if (e.target === clean.dlg) clean.dlg.close(); });
+  clean.dlg.addEventListener('close', () => { if (playing) stopPlay(); clean.rows = []; });
 
   // match: put takes with the blocks of this version of the script (see relink), as when
   // it's opened. A recording from before projects has only one script, so its takes just
@@ -596,7 +682,7 @@ export function initRecord(h) {
     } catch { /* no devices to list */ }
   }
   el.dev.addEventListener('change', () => put('dev', el.dev.value || null));
-  el.lead.addEventListener('change', () => { leadSecs = +el.lead.value; put('lead', leadSecs); });
+  el.lead.addEventListener('change', () => { leadSecs = recLead(el.lead.value); el.lead.value = leadSecs; put('lead', leadSecs); });
   // The video's sound, under the video: from as it is down to −30 dB. Double-click for −30.
   function showVol() {
     el.vol.value = String(vidDb);
