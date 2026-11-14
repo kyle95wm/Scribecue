@@ -98,8 +98,8 @@ go, the block ends there.
 
 ### The transcribing loop
 
-In **Transcribe** mode. Open the video with `Ctrl/Cmd+Shift+O`. If you don't hear the
-description, press `T` to switch audio tracks. Then repeat:
+In **Transcribe** mode. Open the video with `Ctrl/Cmd+Shift+O`. Press `T` to switch to
+the description track. Then repeat:
 
 1. **Play** to the next line with `Space`.
 2. **Mark it.** Hold `H` while the narrator speaks, and let go when they stop. A block
@@ -321,8 +321,8 @@ speak and how long each gap is, so you can see where description fits.
 ## Files with several audio tracks
 
 If a file has more than one audio track, such as the original mix and a description mix,
-an **Audio** picker appears under the video. `T` / `Shift+T` switch tracks. A track marked
-as audio description is picked for you.
+an **Audio** picker appears under the video. The file's default track plays first.
+`T` / `Shift+T` switch tracks.
 
 The first time you use a track, the video goes silent until **Getting the sound ready**
 finishes. After that, switching to it is instant until you close the video.

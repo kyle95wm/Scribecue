@@ -5912,13 +5912,12 @@ async function loadTracks(file) {
   S.tracks = tracks;
   renderTrackPicker();
   if (tracks.length < 2) return buildWaveform(file, 0, needsCopy(0));
-  // transcribing description is the point, so prefer a track marked as AD
-  let pick = tracks.findIndex((t) => t.ad);
-  if (pick >= 0) toast(`Using the audio description track (${trackLabel(pick)}). Press T to switch tracks`);
-  else {
-    pick = Math.max(0, tracks.findIndex((t) => t.default));
-    toast(`This file has ${tracks.length} audio tracks. Press T to switch`);
-  }
+  // start on the file's own default track; people switch to description themselves
+  const pick = Math.max(0, tracks.findIndex((t) => t.default));
+  const ad = tracks.findIndex((t, i) => t.ad && i !== pick);
+  toast(ad >= 0
+    ? `This file has an audio description track (${trackLabel(ad)}). Press T to switch tracks`
+    : `This file has ${tracks.length} audio tracks. Press T to switch`);
   selectTrack(pick);
 }
 
