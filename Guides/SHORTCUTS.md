@@ -18,9 +18,12 @@ Press `?` and click **Change shortcuts**, or open **Settings → Keyboard shortc
 - **Remove** a key: click it.
 - **Reset** puts an action back to its usual keys, and **Reset all** does every action.
 - **Export** and **Import** share a layout with your team.
+- **Record mode** keys only work in Record mode. They can share a key with an action that
+  doesn't work there, so `S` still sets a block's end outside Record mode.
 
 Keys with `Ctrl/Cmd`, keys used while typing, and `?` `/` `[` `]` `+` `−` `Esc` can't be
-changed. Your shortcuts are kept in this browser. **Export settings…**, under **Storage**,
+changed. In Record mode, `Esc` always discards a take, and you can add a key of your own
+for it. Your shortcuts are kept in this browser. **Export settings…**, under **Storage**,
 takes them to another browser with your other settings.
 
 <details open>

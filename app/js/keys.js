@@ -2,7 +2,7 @@
 // as a file, and showing them wherever keys are listed. The shortcuts themselves are in
 // keymap.js.
 import {
-  GROUPS, RESERVED, comboOf, bindings, lookup, assign, unassign, resetAction, exportKeys, importKeys,
+  GROUPS, RESERVED, comboOf, bindings, lookup, owners, assign, unassign, resetAction, exportKeys, importKeys,
   keyLabels, comboText, KEYS_FILE,
 } from './keymap.js';
 
@@ -19,7 +19,7 @@ let capturing = null; // the action waiting for a key
 function changed(next) {
   changes = next;
   try { localStorage.setItem(KEY, JSON.stringify(changes)); } catch { /* ignore */ }
-  hooks.onChange(lookup(changes));
+  hooks.onChange(lookup(changes), lookup(changes, 'record'));
   showKeys();
   render();
 }
@@ -41,7 +41,9 @@ function showKeys() {
     const ids = dt.dataset.keys.split(' ');
     if (!custom(ids)) { dt.innerHTML = dt.dataset.orig; continue; }
     const prefix = ids[0] === 'hold' ? 'Hold ' : '';
-    dt.innerHTML = prefix + ids.map((id) => (all[id][0] ? kbds(all[id][0]) : '—')).join(' ');
+    // data-fixed: a key that always does it too, such as Esc for discarding a take.
+    const fixed = dt.dataset.fixed ? kbds(dt.dataset.fixed) + ' ' : '';
+    dt.innerHTML = prefix + fixed + ids.map((id) => (all[id][0] ? kbds(all[id][0]) : (fixed ? '' : '—'))).join(' ');
     delete dt.dataset.pc; // its own keys now, not the Mac-to-PC swap
   }
   for (const b of document.querySelectorAll('[data-ctl]')) {
@@ -122,13 +124,13 @@ function capture(e) {
   e.preventDefault();
   const id = capturing, text = comboText(combo, hooks.mac);
   if (RESERVED[combo]) return status(`${text} can’t be changed: ${RESERVED[combo]}. Try another.`);
-  const owner = lookup(changes).get(combo);
-  if (owner === id) { capturing = null; status(`${text} is already a key for this.`); return render(); }
-  if (owner && !confirm(`${text} is the key for “${labelOf(owner)}”. Use it for “${labelOf(id)}” instead?`)) return;
+  if (bindings(changes)[id].includes(combo)) { capturing = null; status(`${text} is already a key for this.`); return render(); }
+  // Only actions that work in the same mode count: S can set an end and, in Record mode, trim a take.
+  const was = owners(changes, id, combo).map((k) => `“${labelOf(k)}”`).join(' and ');
+  if (was && !confirm(`${text} is the key for ${was}. Use it for “${labelOf(id)}” instead?`)) return;
   capturing = null;
-  const { changes: next, movedFrom } = assign(changes, id, combo);
-  changed(next);
-  status(movedFrom ? `${text} now does “${labelOf(id)}”, and no longer “${labelOf(movedFrom)}”.` : `${text} now does “${labelOf(id)}”.`);
+  changed(assign(changes, id, combo).changes);
+  status(was ? `${text} now does “${labelOf(id)}”, and no longer ${was}.` : `${text} now does “${labelOf(id)}”.`);
 }
 
 // One entry for each shortcut, for searching Settings. Picking one opens the list at it.
@@ -169,7 +171,7 @@ async function load(file) {
   }
 }
 
-// onChange(lookup) runs with the new shortcuts whenever they change.
+// onChange(lookup, recordLookup) runs with the new shortcuts whenever they change.
 export function initKeys(h) {
   hooks = { ...hooks, ...h };
   const d = $('keysDlg');

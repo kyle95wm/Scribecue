@@ -117,6 +117,9 @@ The writer's notes for a block, such as how to say a name, show above its text.
 | Space | Play or pause, or stop recording |
 | Alt+Shift+Left / Right | Previous or next block |
 
+To change these keys, see [Changing shortcuts](SHORTCUTS.md#changing-shortcuts). They're under
+**Record mode**.
+
 A block's **slot** runs from its start to the end of its grace. The writer picks the grace in the
 recording file, from none to 2 seconds. It's half a second unless they change it. A slot never runs into the
 next block. A take that runs past it isn't cut off. It's marked in red until you [trim or move it](#editing-a-take).

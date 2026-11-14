@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACTIONS, RESERVED, comboOf, bindings, lookup, assign, unassign, resetAction, ownerOf, exportKeys, importKeys, keyLabels, comboText } from '../app/js/keymap.js';
+import { ACTIONS, RESERVED, RECORD, clash, owners, comboOf, bindings, lookup, assign, unassign, resetAction, ownerOf, exportKeys, importKeys, keyLabels, comboText } from '../app/js/keymap.js';
 
-test('the defaults are the Frazier layout, with no key doing two things', () => {
+test('the defaults are the Frazier layout, with no key doing two things in one mode', () => {
   const seen = new Map();
   for (const { id, keys } of ACTIONS) {
     for (const k of keys) {
-      assert.ok(!seen.has(k), `${k} is on both ${seen.get(k)} and ${id}`);
+      for (const other of seen.get(k) || []) assert.ok(!clash(id, other), `${k} is on both ${other} and ${id}`);
       assert.ok(!RESERVED[k], `${k} on ${id} is reserved`);
-      seen.set(k, id);
+      seen.set(k, [...(seen.get(k) || []), id]);
     }
   }
   const m = lookup();
@@ -39,6 +39,44 @@ test('giving a key to an action takes it from the one that had it', () => {
   assert.deepEqual(Object.keys(changes), ['newBlock']);
   assert.deepEqual(assign({}, 'play', 'Escape').refused, RESERVED.Escape);
   assert.deepEqual(assign({}, 'play', 'Space').changes, {}); // already its own
+});
+
+test('Record mode keys share keys only with actions locked in Record mode', () => {
+  const rec = lookup({}, 'record'), other = lookup();
+  assert.equal(rec.get('KeyS'), 'recTrim');
+  assert.equal(other.get('KeyS'), 'setEnd');
+  assert.equal(rec.get('Enter'), 'recToggle');
+  assert.equal(rec.get('Shift+KeyR'), 'recPunch');
+  assert.equal(rec.get('KeyX'), 'split'); // still splits a take
+  assert.equal(rec.get('Space'), 'play');
+  assert.equal(rec.get('KeyQ'), 'startBack'); // locked: pressing it says so
+  for (const id of RECORD) assert.ok(![...other.values()].includes(id), `${id} works outside Record mode`);
+  assert.ok(!clash('recTrim', 'setEnd'));
+  assert.ok(clash('recTrim', 'play'));
+  assert.ok(clash('recTrim', 'split'));
+  assert.ok(clash('play', 'setEnd'));
+  assert.deepEqual(bindings().recDiscard, []); // Esc does it, and can't be changed
+});
+
+test('giving a Record mode key takes it only from actions that work in Record mode', () => {
+  // Q only adjusts a start, which is locked in Record mode, so nothing moves.
+  let { changes, moved } = assign({}, 'recZoom', 'KeyQ');
+  assert.deepEqual(moved, []);
+  assert.equal(ownerOf(changes, 'KeyQ', 'record'), 'recZoom');
+  assert.equal(ownerOf(changes, 'KeyQ'), 'startBack');
+  ({ changes, moved } = assign({}, 'recPickup', 'KeyV'));
+  assert.deepEqual(moved, ['read']);
+  // An action that works everywhere takes a key from both kinds.
+  assert.deepEqual(owners({}, 'play', 'KeyS').sort(), ['recTrim', 'setEnd']);
+  ({ changes, moved } = assign({}, 'play', 'KeyS'));
+  assert.deepEqual(moved.sort(), ['recTrim', 'setEnd']);
+  assert.deepEqual(bindings(changes).recTrim, []);
+  assert.equal(lookup(changes, 'record').get('KeyS'), 'play');
+  ({ changes } = assign({}, 'recDiscard', 'KeyW'));
+  assert.equal(lookup(changes, 'record').get('KeyW'), 'recDiscard');
+  assert.equal(lookup(changes).get('KeyW'), 'startFwd');
+  // D finds gaps in Record mode too, so it moves.
+  assert.deepEqual(assign({}, 'recDiscard', 'KeyD').moved, ['gapNext']);
 });
 
 test('shortcuts go out to a file and come back', () => {

@@ -5,6 +5,9 @@
 // Some keys aren't here and can't be changed: Ctrl/Cmd combinations (undo, open, save,
 // export), keys inside text boxes, and keys that go by the character on the key so they
 // suit every layout (? / [ ] + − Esc). Those combos are RESERVED.
+//
+// The Record mode group only works in Record mode, and the actions in REC_LOCKED don't work
+// there, so one key can do one of each: S sets a block's end, and in Record mode trims a take.
 
 // [id, what it does, default combos], in groups as the customize panel shows them.
 export const GROUPS = [
@@ -83,6 +86,17 @@ export const GROUPS = [
     ['comments', 'Comments', ['Alt+Shift+KeyC']],
     ['aiHelp', 'AI help', ['Alt+Shift+KeyA']],
   ]],
+  ['Record mode', [
+    ['recToggle', 'Record the selected block, or stop', ['Enter', 'NumpadEnter', 'KeyR']],
+    ['recDiscard', 'Stop recording, and discard the take (Esc always does too)', []],
+    ['recPunch', 'Punch in: pick up the block’s take from the playhead', ['Shift+Enter', 'Shift+NumpadEnter', 'Shift+KeyR']],
+    ['recPartNext', 'Playhead to the end of the next part of the block’s take', ['KeyE']],
+    ['recPartPrev', 'Playhead to the end of the previous part of the block’s take', ['Shift+KeyE']],
+    ['recTrim', 'Trim the silence off the block’s take and start it at the block', ['KeyS']],
+    ['recPickup', 'Go to the next pickup', ['KeyP']],
+    ['recAlt', 'Alt: switch between the block and your own wording for it', ['KeyA']],
+    ['recZoom', 'Zoom to the block’s take, or back', ['KeyZ']],
+  ]],
   ['View', [
     ['help', 'Keyboard shortcuts', ['Shift+KeyO']],
     ['settings', 'Settings', ['Alt+Shift+KeyS']],
@@ -94,6 +108,20 @@ export const GROUPS = [
 
 export const ACTIONS = GROUPS.flatMap(([, list]) => list.map(([id, label, keys]) => ({ id, label, keys })));
 const DEFAULTS = Object.fromEntries(ACTIONS.map((a) => [a.id, a.keys]));
+
+// Actions that only work in Record mode.
+export const RECORD = new Set(GROUPS.find(([g]) => g === 'Record mode')[1].map(([id]) => id));
+// Actions that change the script, or help with writing it: off in Record mode.
+export const REC_LOCKED = new Set(['createEdit', 'newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'findReplace', 'setStart', 'setEnd',
+  'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10',
+  'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'aiHelp', 'comments', 'offset']);
+// In Record mode, X and Delete still split a take and delete part of one, so their actions
+// can't share a key with a Record mode action.
+const IN_RECORD_TOO = new Set(['split', 'deleteNow']);
+const inRecord = (id) => !REC_LOCKED.has(id) || IN_RECORD_TOO.has(id);
+const elsewhere = (id) => !RECORD.has(id);
+// Whether two actions can't share a key: they both work in some mode.
+export const clash = (a, b) => a !== b && ((inRecord(a) && inRecord(b)) || (elsewhere(a) && elsewhere(b)));
 
 // Keys that keep their own meaning, so they can't be given to anything else.
 export const RESERVED = {
@@ -117,11 +145,22 @@ export function comboOf(e) {
 export function bindings(changes = {}) {
   return Object.fromEntries(ACTIONS.map(({ id }) => [id, changes[id] ?? DEFAULTS[id]]));
 }
-// combo -> action id
-export function lookup(changes = {}) {
-  const m = new Map();
-  for (const [id, combos] of Object.entries(bindings(changes))) for (const c of combos) m.set(c, id);
+// combo -> action id, for one mode. In Record mode the Record mode actions come first; a
+// locked action keeps the keys left over, so pressing one says the script is locked.
+// Outside Record mode, the Record mode actions aren't there.
+export function lookup(changes = {}, mode = null) {
+  const m = new Map(), all = Object.entries(bindings(changes));
+  const rec = mode === 'record';
+  for (const [id, combos] of all) {
+    if (rec ? !inRecord(id) : RECORD.has(id)) continue;
+    for (const c of combos) m.set(c, id);
+  }
+  if (rec) for (const [id, combos] of all) if (!inRecord(id)) for (const c of combos) if (!m.has(c)) m.set(c, id);
   return m;
+}
+// The actions that have this combo and would clash with id.
+export function owners(changes, id, combo) {
+  return Object.entries(bindings(changes)).filter(([k, combos]) => clash(k, id) && combos.includes(combo)).map(([k]) => k);
 }
 // Only what differs from the defaults is kept.
 function tidy(all) {
@@ -130,14 +169,14 @@ function tidy(all) {
   return out;
 }
 
-// Gives combo to action id. If another action had it, that one loses it: movedFrom says which.
+// Gives combo to action id. Actions it clashes with lose it: moved lists them, and
+// movedFrom is the first, or null.
 export function assign(changes, id, combo) {
   if (RESERVED[combo]) return { changes, refused: RESERVED[combo] };
-  const all = bindings(changes);
-  const movedFrom = Object.keys(all).find((k) => k !== id && all[k].includes(combo)) || null;
-  if (movedFrom) all[movedFrom] = all[movedFrom].filter((c) => c !== combo);
+  const all = bindings(changes), moved = owners(changes, id, combo);
+  for (const k of moved) all[k] = all[k].filter((c) => c !== combo);
   if (!all[id].includes(combo)) all[id] = [...all[id], combo];
-  return { changes: tidy(all), movedFrom };
+  return { changes: tidy(all), moved, movedFrom: moved[0] || null };
 }
 export function unassign(changes, id, combo) {
   const all = bindings(changes);
@@ -148,8 +187,8 @@ export function resetAction(changes, id) {
   const { [id]: _, ...rest } = changes;
   return rest;
 }
-// Which action has this combo now, if any.
-export const ownerOf = (changes, combo) => lookup(changes).get(combo) || null;
+// Which action has this combo now outside Record mode (or in it, with mode 'record'), if any.
+export const ownerOf = (changes, combo, mode = null) => lookup(changes, mode).get(combo) || null;
 
 // ---- sharing
 
@@ -163,19 +202,20 @@ const COMBO = /^(Alt\+)?(Shift\+)?[A-Z][A-Za-z0-9]*$/;
 export function importKeys(json) {
   if (!json || json.scribecue !== 'shortcuts' || typeof json.keys !== 'object') throw new Error('this isn’t a Scribecue shortcuts file');
   if (json.version > 1) throw new Error('it was saved by a newer version of Scribecue');
-  const all = bindings({}), skipped = [], taken = new Map();
+  const all = bindings({}), skipped = [], taken = new Map(); // combo -> [ids]
+  const free = (c, id) => !(taken.get(c) || []).some((k) => clash(k, id));
   for (const [id, combos] of Object.entries(json.keys)) {
     if (!(id in all) || !Array.isArray(combos)) { skipped.push(id); continue; }
     all[id] = combos.filter((c) => {
-      const ok = typeof c === 'string' && COMBO.test(c) && !RESERVED[c] && !taken.has(c);
-      if (!ok) skipped.push(`${id}: ${c}`); else taken.set(c, id);
+      const ok = typeof c === 'string' && COMBO.test(c) && !RESERVED[c] && free(c, id);
+      if (!ok) skipped.push(`${id}: ${c}`); else taken.set(c, [...(taken.get(c) || []), id]);
       return ok;
     });
   }
   // Defaults the file didn't mention keep their keys, unless the file gave them away.
   for (const id of Object.keys(all)) {
     if (id in json.keys) continue;
-    all[id] = all[id].filter((c) => !taken.has(c));
+    all[id] = all[id].filter((c) => free(c, id));
   }
   return { changes: tidy(all), skipped };
 }
