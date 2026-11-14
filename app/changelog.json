@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.112.0",
+    "date": "2026-11-13",
+    "notes": "## Recording keys\n\n- You can now change the keys for Record mode. Press `?`, click **Change shortcuts**, and look under **Record mode**.\n- That covers record, punch in, part ends, trim, next pickup, alt and zoom to take.\n- Want a key for discarding a take, such as a foot pedal? Add one to **Stop recording, and discard the take**. Esc still does it too.\n- Record mode keys don't take keys away from other modes. S still sets a block's end when you're writing."
+  },
+  {
     "version": "0.111.0",
     "date": "2026-11-13",
     "notes": "## Recording files\n\n- Made test recording files first? Click **Start a new recording file** in the Recording file window to start again at version 1. Takes of the earlier versions don't carry over.\n- Scribecue asks you to type `START OVER` first, since it can't be undone.\n- The programme's start timecode is now `00:00:00:00` unless you type another.\n- Enter in the timecode field saves the file."
