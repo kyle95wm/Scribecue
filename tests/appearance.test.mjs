@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { CHOICES, DEFAULTS, NAMES, describeAppearance, readAppearance, storedAppearance, attributes, loadAppearance, saveAppearance, KEY } from '../app/js/appearance.js';
+import { CHOICES, DEFAULTS, NAMES, shownAppearance, fixedChoice, describeAppearance, readAppearance, storedAppearance, attributes, loadAppearance, saveAppearance, KEY } from '../app/js/appearance.js';
 import { settingNames } from '../app/js/settingsfile.js';
 
 const css = readFileSync(new URL('../app/css/style.css', import.meta.url), 'utf8');
@@ -99,4 +99,16 @@ test('Classic brings back the look from before 0.114.0', () => {
   assert.match(css, /:root\[data-sub-style="classic"\]\[data-sub-bg="none"\] \.overlay span \{\s*-webkit-text-stroke: 0;/);
   assert.match(css, /:root\[data-sub-style="classic"\]\[data-sub-pos="top"\] \.overlay \.subtext \{ top: 6%/);
   assert.deepEqual(describeAppearance({ ...DEFAULTS, subStyle: 'classic' }), ['Text over the video looks: Classic']);
+});
+
+test('Burnt in has its own size and background; Classic uses the ones picked, kept meanwhile', () => {
+  const picked = { ...DEFAULTS, subSize: 'xl', subBg: 'dark', subPos: 'top' };
+  assert.deepEqual(shownAppearance(picked), { ...picked, subSize: 'm', subBg: 'none' });
+  assert.deepEqual(shownAppearance({ ...picked, subStyle: 'classic' }), { ...picked, subStyle: 'classic' });
+  assert.equal(storedAppearance(picked), '{"subSize":"xl","subBg":"dark","subPos":"top"}', 'still stored for Classic');
+  assert.ok(fixedChoice(picked, 'subSize') && fixedChoice(picked, 'subBg'));
+  assert.ok(!fixedChoice(picked, 'subPos'), 'position still applies');
+  assert.ok(!fixedChoice({ ...picked, subStyle: 'classic' }, 'subSize'));
+  assert.deepEqual(describeAppearance(picked), ['Text over the video goes at the top']);
+  assert.equal(attributes(shownAppearance(picked))['data-sub-bg'], 'none');
 });

@@ -10,7 +10,7 @@ import { initComments, toggleComments, refreshComments, openBlockComments, showN
 import { parseSubs, parseAdc, tidyText, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
-import { CHOICES, DEFAULTS, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
+import { CHOICES, DEFAULTS, shownAppearance, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
 import { initFloat, loadKind, saveKind, canOwnWindow } from './floatvideo.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initCheck, openCheck, checkFirst } from './proofdialog.js';
@@ -5740,11 +5740,12 @@ function showBurn() {
   }
   $('burnRes').hidden = fits.length < 2;
   // The script looks as it does over the video.
-  const name = (k) => CHOICES[k][0].find(([v]) => v === look[k])?.[1].toLowerCase();
-  $('burnLook').textContent = burnOpts.subs ? `${look.subStyle === 'classic' ? 'The script is burnt in with' : 'The script looks as it does over the video:'} ${name('subSize')} text, ${look.subBg === 'none'
+  const shown = shownAppearance(look);
+  const name = (k) => CHOICES[k][0].find(([v]) => v === shown[k])?.[1].toLowerCase();
+  $('burnLook').textContent = burnOpts.subs ? `${look.subStyle === 'classic' ? 'The script is burnt in with' : 'The script looks as it does over the video:'} ${name('subSize')} text, ${shown.subBg === 'none'
     ? 'outlined' : `on a ${name('subBg')} background`}, at the ${look.subPos}. Change it in Settings, under Appearance.` : '';
 }
-const burnLook = () => ({ size: look.subSize, bg: look.subBg, pos: look.subPos });
+const burnLook = () => { const s = shownAppearance(look); return { size: s.subSize, bg: s.subBg, pos: s.subPos }; };
 const burnJob = () => ({ ...burnOpts, height: burnHeight(burnOpts.height, video.videoHeight), ...burnLook() });
 function setBurn(k, v) {
   burnOpts = { ...burnOpts, [k]: v };
