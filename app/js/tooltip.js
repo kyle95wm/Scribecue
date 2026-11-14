@@ -5,8 +5,13 @@
 
 // Where a tooltip goes. `a`: its element's box ({ left, top, right, bottom }); `size`:
 // the tooltip's { width, height }; `view`: the window's. Below unless `above`; the other
-// side when it doesn't fit; always inside the window, `margin` from its edges.
-export function placeTip(a, size, view, { above = false, gap = 8, margin = 8 } = {}) {
+// side when it doesn't fit; always inside the window, `margin` from its edges. `left`, for
+// the icons down the right edge: beside its element, level with it, if there's room.
+export function placeTip(a, size, view, { above = false, left = false, gap = 8, margin = 8 } = {}) {
+  if (left && a.left - gap - size.width >= margin) {
+    const y = Math.max(margin, Math.min((a.top + a.bottom) / 2 - size.height / 2, view.height - size.height - margin));
+    return { x: Math.round(a.left - gap - size.width), y: Math.round(y), side: 'left' };
+  }
   const maxX = view.width - size.width - margin;
   const x = Math.max(margin, Math.min((a.left + a.right) / 2 - size.width / 2, maxX));
   const below = a.bottom + gap, over = a.top - gap - size.height;
@@ -47,7 +52,7 @@ export function startTips(doc = document) {
     const r = anchor.getBoundingClientRect(), view = { width: doc.documentElement.clientWidth, height: doc.documentElement.clientHeight };
     // Its element scrolled out of sight, or went.
     if (!anchor.isConnected || !r.width && !r.height || r.bottom < 0 || r.top > view.height || r.right < 0 || r.left > view.width) { hide(); return; }
-    const p = placeTip(r, { width: tip.offsetWidth, height: tip.offsetHeight }, view, { above: !!anchor.closest('.status') });
+    const p = placeTip(r, { width: tip.offsetWidth, height: tip.offsetHeight }, view, { above: !!anchor.closest('.status'), left: !!anchor.closest('.rail') });
     tip.style.left = p.x + 'px'; tip.style.top = p.y + 'px';
     tip.dataset.side = p.side;
   }

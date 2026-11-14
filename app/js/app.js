@@ -3107,7 +3107,7 @@ function setListShare(share, keep = true) {
   listShare = share;
   const hidden = share === 0;
   if (share === null) mainEl.style.removeProperty('--listw');
-  else mainEl.style.setProperty('--listw', hidden ? '0px' : `max(${LIST_MIN}px, min(${(share * 100).toFixed(2)}%, calc(100% - ${VIDEO_MIN}px)))`);
+  else mainEl.style.setProperty('--listw', hidden ? '0px' : `max(${LIST_MIN}px, min(${(share * 100).toFixed(2)}%, calc(100% - ${VIDEO_MIN}px - var(--rail))))`);
   if (hidden && $('listWrap').contains(document.activeElement)) document.activeElement.blur();
   document.body.classList.toggle('listhidden', hidden);
   const total = mainEl.clientWidth;
@@ -3125,7 +3125,8 @@ setListShare(listShare, false);
 function listEdge() {
   const r = mainEl.getBoundingClientRect();
   const swapped = document.body.classList.contains('swapped');
-  return { total: r.width, width: (x) => swapped ? r.right - x : x - r.left };
+  const rail = $('rail').offsetWidth; // the side panels' icons, at the right edge
+  return { total: r.width, width: (x) => swapped ? r.right - rail - x : x - r.left };
 }
 splitter.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
@@ -6905,6 +6906,8 @@ const actions = {
   exportPickups: () => recorder.exportWav(true),
   exportSession: () => recorder.exportSession(),
   exportMenu: () => toggleMenu(exportMenu),
+  fileMenu: () => toggleMenu($('fileMenu')),
+  saveProjectAs: () => saveProject(true),
   help: () => toggleHelp(),
   settings: () => showGeneral(),
   newProject: () => startAgain(),
@@ -7068,7 +7071,7 @@ initAi({
     return true;
   },
 });
-document.querySelector('nav').addEventListener('click', (e) => {
+for (const bar of [document.querySelector('nav'), $('rail')]) bar.addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
   b.blur(); // keep Space/Enter for the editor, not the button

@@ -25,7 +25,8 @@ starting point. You're still the describer.
 
 ## What it does
 
-Click **AI** at the top, or press `Alt+Shift+A`, and a drawer slides out beside the video.
+Click the **AI help** icon at the right edge, or press `Alt+Shift+A`, and a drawer slides
+out beside the video.
 
 ![The AI help drawer beside the video, with a draft for a block](../docs/screenshots/ai-help.png)
 

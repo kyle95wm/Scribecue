@@ -215,8 +215,8 @@ programme. `Ctrl/Cmd+O` opens it again.
   project and its video.
 - **The video reopens with the project.** If you're asked, click **Reopen**. If the video
   has moved, open it again with `Ctrl/Cmd+Shift+O`.
-- **New**, at the top left, either clears the blocks and keeps the video, or starts a
-  whole new project. `Ctrl/Cmd+Z` brings the blocks back.
+- **File, New** either clears the blocks and keeps the video, or starts a whole new
+  project. `Ctrl/Cmd+Z` brings the blocks back.
 
 Saving to the file, autosave and reopening the video need Chrome or Edge. Other browsers
 download a copy each time you save, and you open the video yourself.
@@ -226,7 +226,7 @@ download a copy each time you save, and you open the video yourself.
 Comments work in Write and QC, so you can leave notes on your own script.
 
 - **On a block:** click **Comment** in the open block.
-- **At the playhead:** click **Comments** at the top.
+- **At the playhead:** click the **Comments** icon at the right edge.
 - **At a time:** right-click the timeline.
 
 Add your name if you like, write the comment, then click **Post comment**. Comments save
@@ -243,7 +243,7 @@ where an act starts, or where you left off.
 
 - **Add one:** press `B`. It goes at the playhead. Type a name, then press `Enter`. The
   video keeps playing.
-- **See them all:** click **Bookmarks** at the top, or press `Alt+Shift+B`.
+- **See them all:** click the **Bookmarks** icon at the right edge, or press `Alt+Shift+B`.
 - **Go to one:** click its time in the list, or its flag on the ruler. Hover over a flag
   to see its name.
 - **Change one:** click **Edit** to change its time, name, kind or notes.
@@ -398,6 +398,8 @@ finishes. After that, switching to it is instant until you close the video.
   in every block at once, such as a character's name.
 - **Quick navigation:** `Shift+F`.
 - **Swap sides:** the ⇄ button at the top puts the video on the other side.
+- **Side panels:** Comments, Bookmarks and AI help open from the icons at the right edge.
+  Point at one for its name. Click it again to close it.
 - **Resize the video:** drag the bar between the list and the video. Drag it to the edge
   to hide the list, and double-click it to go back to the usual width. Typing in a block or
   pressing `/` brings a hidden list back. With the Burnt in style, the text over the video keeps

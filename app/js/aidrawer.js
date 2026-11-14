@@ -351,7 +351,7 @@ export function toggleAi(open = $('aiDrawer').hidden) {
   if (open && !document.getElementById('commentsDrawer').hidden) document.getElementById('commentsClose').click();
   if (open && document.getElementById('bookmarksDrawer')?.hidden === false) document.getElementById('bookmarksClose').click();
   $('aiDrawer').hidden = !open;
-  $('aiBtn').classList.toggle('on', open);
+  $('aiBtn').setAttribute('aria-pressed', String(open));
   if (!open) { document.activeElement?.blur(); return; }
   renderWho();
   if (!ready()) note('To start, connect an AI provider: click Settings, above. Scribecue sends it nothing until you send a message or ask for a draft.');

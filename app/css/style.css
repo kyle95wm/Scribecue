@@ -20,6 +20,8 @@
   --sub-bg: transparent;
   --list-text: 14px;
   --editor-text: 18px;
+  /* The side panels' icons, down the right edge. */
+  --rail: 40px;
   --cue: #5aa9ff;
   --cue-bg: rgba(90, 169, 255, 0.16);
   --play: #ff4f70;
@@ -106,7 +108,7 @@ kbd + kbd { margin-left: 2px; }
 .mode-record .not-record { display: none; }
 /* Record mode: the script is locked, so nothing offers to change or save it. */
 .mode-record .rowdel, .mode-record .edmove, .mode-record #edAuto, .mode-record #edTts, .mode-record #replaceBtn, .mode-record #aiBtn,
-.mode-record nav [data-act=newProject], .mode-record nav [data-act=saveProject],
+.mode-record nav [data-act=newProject], .mode-record nav [data-act=saveProject], .mode-record nav [data-act=saveProjectAs],
 .mode-record .script-export, .mode-record .check-export, .mode-record .hint:not(.record-only) { display: none; }
 /* Where the mode switch was, and shaped like it: the mode, and the way out. */
 .recbadge { align-items: center; flex-shrink: 0; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font: 12px var(--sans); }
@@ -192,6 +194,8 @@ nav { display: flex; gap: 6px; margin-left: auto; }
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
 }
 .navmenu[hidden] { display: none; }
+/* File opens under itself, to the right, as File menus do. */
+.filemenu { right: auto; left: 0; min-width: 300px; }
 .navmenu button, .floatmenu button { justify-content: space-between; text-align: left; border-color: transparent; background: none; padding: 6px 8px; }
 .navmenu button:hover, .navmenu button:focus-visible, .floatmenu button:not(:disabled):hover, .floatmenu button:focus-visible { background: var(--raise); border-color: var(--line); outline: none; }
 .navmenu button > span { display: flex; flex-direction: column; gap: 1px; }
@@ -220,13 +224,23 @@ button kbd { font-size: 10px; }
 main {
   display: grid;
   /* --listw is set when the bar between the list and the video is dragged. */
-  grid-template-columns: var(--listw, minmax(380px, 38%)) 0 minmax(0, 1fr);
+  grid-template-columns: var(--listw, minmax(380px, 38%)) 0 minmax(0, 1fr) var(--rail);
   min-height: 0;
   border-bottom: 1px solid var(--line);
 }
 .right { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 /* Swap sides: the video on the left, the editor and list on the right. */
-body.swapped main { grid-template-columns: minmax(0, 1fr) 0 var(--listw, minmax(380px, 38%)); }
+body.swapped main { grid-template-columns: minmax(0, 1fr) 0 var(--listw, minmax(380px, 38%)) var(--rail); }
+body.swapped .rail { order: 4; }
+/* The side panels: an icon for each drawer, down the right edge. Above the drawers, so one
+   slides out from under it. */
+.rail { position: relative; z-index: 41; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; background: var(--panel); border-left: 1px solid var(--line); }
+.rail button { width: 30px; height: 30px; padding: 0; justify-content: center; border-color: transparent; background: none; color: var(--dim); }
+.rail button:hover { color: var(--text); background: var(--raise); border-color: var(--line); }
+.rail svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+/* Record mode has no drawers. */
+.mode-record { --rail: 0px; }
+.mode-record .rail { display: none; }
 body.swapped .right { order: 1; }
 body.swapped .splitter { order: 2; }
 body.swapped .listwrap { order: 3; border-right: 0; border-left: 1px solid var(--line); }
@@ -943,7 +957,9 @@ dt { white-space: nowrap; color: var(--dim); }
 dd { margin: 0; }
 
 @media (max-width: 900px) {
-  main, body.swapped main { grid-template-columns: 1fr; grid-template-rows: 40% minmax(0, 1fr); }
+  main, body.swapped main { grid-template-columns: minmax(0, 1fr) var(--rail); grid-template-rows: 40% minmax(0, 1fr); }
+  .right, .listwrap { grid-column: 1; }
+  .rail, body.swapped .rail { grid-column: 2; grid-row: 1 / -1; }
   .right, body.swapped .right { order: -1; }
   .splitter { display: none; }
   .listwrap, body.swapped .listwrap { order: 0; border-right: 0; border-left: 0; border-top: 1px solid var(--line); }
@@ -1157,9 +1173,6 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 .shareexpiry { font-family: var(--mono); }
 /* Shared projects: the header button, and one card for each kept in this browser. */
 #sharedBtn { white-space: nowrap; }
-/* Narrower windows: the header drops the key hints on Open and Save to fit. Their tooltips
-   still give the keys. */
-@media (max-width: 1500px) { header.top nav > button:not([data-act="help"]) > kbd { display: none; } }
 .sharedlist { display: flex; flex-direction: column; max-height: 56vh; overflow: auto; }
 .sharedrow { margin: 4px 0; }
 .sharedrow strong { overflow-wrap: anywhere; }
@@ -1273,6 +1286,7 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
   transition: opacity 0.12s, transform 0.12s;
 }
 #tip[data-side="above"] { transform: translateY(3px); }
+#tip[data-side="left"] { transform: translateX(3px); }
 #tip.on { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { #tip { transition: none; } }
 
@@ -1324,9 +1338,9 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 .aidrawer {
   position: fixed;
   top: 44px;
-  right: 0;
+  right: var(--rail); /* beside the side panels' icons */
   bottom: 238px; /* above the timeline, which stays in use while writing */
-  width: min(420px, 100vw);
+  width: min(420px, calc(100vw - var(--rail)));
   z-index: 40;
   display: flex;
   flex-direction: column;
@@ -1369,7 +1383,7 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 .airow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .airow label { display: inline-flex; align-items: center; gap: 4px; }
 #aiStop[hidden] { display: none; }
-#aiBtn.on { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+#aiBtn[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 .aidrawer [hidden] { display: none !important; }
 #aiNotes { width: 100%; margin: 6px 0 2px; font: 13px/1.45 var(--sans); }
 #aiNotesBtn.on { color: var(--accent); border-color: var(--accent); }
@@ -1556,7 +1570,7 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 /* Hidden in a shared project: QC's playback choices, and the voice pickers locked to the owner's. */
 .airow[hidden], .ttsvoice[hidden], .ttsgrid select[hidden] { display: none; }
 /* A project shared with you: its owner saves and exports it. */
-.no-files [data-act="saveProject"], .no-files .save-key, .no-files .export-wrap, .no-files .export-key, .no-files .export-panel { display: none; }
+.no-files [data-act="saveProject"], .no-files [data-act="saveProjectAs"], .no-files .save-key, .no-files .export-wrap, .no-files .export-key, .no-files .export-panel { display: none; }
 /* A reviewer with a QC package open saves it and sends it back: nothing to export. */
 .mode-qc.qc-package .export-wrap { display: none; }
 
