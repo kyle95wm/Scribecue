@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.119.1",
+    "date": "2026-11-14",
+    "notes": "## A tidier window\n\n- **Swap sides** has moved to **Settings**, **Appearance**, **Video side**. Pick **Left** to put the video on the left. Your choice carries over.\n- **Shortcuts** is now a small **?** button at the top right. Pressing ? still opens it.\n- In the open block, the voice menu reads **Default** with the voice's name, short enough to see whole.\n- In QC, **Comments only** at the top no longer looks stretched.\n- The Bookmarks drawer's **Add at playhead** and **Import from Frazier…** sit side by side."
+  },
+  {
     "version": "0.119.0",
     "date": "2026-11-14",
     "notes": "## A tidier header\n\n- **File** holds **New**, **Open**, **Save** and **Save as**, with **Shared projects** when you have some. The keys are the same as before.\n- **Comments**, **Bookmarks** and **AI help** are now icons down the right edge. Point at one for its name. Click it to open its drawer, and again to close it.\n\n## Bookmarks\n\n- In Write and Transcribe, press B to bookmark the playhead: who appears when, where an act starts, or where you left off. Type a name and press Enter. The video keeps playing.\n- Each bookmark is a flag on the timeline's ruler. Click it to go there.\n- Give each one a kind, such as Character or Scene, and show only the kinds you want.\n- Markers in a Frazier script come in as bookmarks. **Import from Frazier…** adds them to an open project.\n\n## Floating video\n\n- Double-clicking the video floats or docks it without playing or pausing it."
