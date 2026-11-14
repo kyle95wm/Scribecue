@@ -5199,7 +5199,7 @@ $('recFreshGo').addEventListener('click', () => {
 // Keys stay in these windows, away from the app's shortcuts. Stopped here, before they reach
 // a field, so a field's own keys are handled here too: Enter in the timecode saves.
 document.addEventListener('keydown', (e) => {
-  if (!(recFileDlg.open || $('recFreshDlg').open || $('recExportDlg').open || $('narrDlg').open || $('recSessionDlg').open || $('recPackDlg').open)) return;
+  if (!(recFileDlg.open || $('recFreshDlg').open || $('recExportDlg').open || $('narrDlg').open || $('recSessionDlg').open || $('recPackDlg').open || $('cleanDlg').open)) return;
   e.stopPropagation();
   if (e.key === 'Enter' && !e.isComposing && e.target === $('recFileStart')) { e.preventDefault(); saveRecordingFile(); }
 }, true);

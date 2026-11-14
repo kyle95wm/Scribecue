@@ -262,13 +262,16 @@
           <summary>Microphone, lead-in and sync</summary>
           <div class="recrow">
             <label>Microphone <select id="recDev"><option value="">Default microphone</option></select></label>
-            <label>Lead-in <select id="recLead"><option value="3">3 s</option><option value="4">4 s</option><option value="5">5 s</option></select></label>
+            <label data-tip="How much of the video plays before each block, from 1 to 5 seconds">Lead-in <input type="number" id="recLead" min="1" max="5" step="0.5" value="3"> s</label>
             <label data-tip="Raise this until the flash and the beep happen together. Empty uses the browser's own figure. Wired headphones need little or none">Sync <input type="number" id="recSync" step="10" min="-500" max="1000" placeholder="auto"> ms</label>
             <button id="recTest">Sync test</button>
             <span id="recFlash" class="recflash" hidden></span>
           </div>
           <div class="recrow" id="recMoveRow" hidden>
             <button id="recMove" data-tip="Takes are only in this browser. Move them to a folder, which you can copy to another computer. New takes are saved there too">Move takes to a folder…</button>
+          </div>
+          <div class="recrow" id="recCleanRow" hidden>
+            <button id="recClean" data-tip="List the takes no export uses, such as those not chosen for their block, and delete the ones you choose">Clean up takes…</button>
           </div>
           <div class="recrow" id="recLinkRow" hidden>
             <button id="recLink" data-tip="Takes recorded with Scribecue 0.67 or earlier stay with that version's recording file. Choose it to bring its takes into this one">Bring in takes from an older recording file</button>
@@ -847,6 +850,14 @@ docker compose up -d --build</code></pre>
     <ul id="takesList" class="offlinelist takeslist"></ul>
     <p id="takesWarn" class="warnbox">This can’t be undone. Takes in folders on your computer stay. Export any narration you still need first.</p>
     <div class="updbtns"><button id="takesGo" class="danger" disabled>Delete</button><button id="takesCancel">Cancel</button></div>
+  </dialog>
+  <dialog id="cleanDlg" class="updbox" aria-labelledby="cleanTitle">
+    <h2 id="cleanTitle">Clean up takes</h2>
+    <p id="cleanIntro">These takes aren’t in the export. Choose the ones to delete.</p>
+    <p class="updstatus"><button id="cleanAll" aria-pressed="false">All takes listed</button></p>
+    <ul id="cleanList" class="offlinelist takeslist"></ul>
+    <p id="cleanWarn" class="warnbox"></p>
+    <div class="updbtns"><button id="cleanGo" class="danger" disabled>Delete</button><button id="cleanCancel">Cancel</button></div>
   </dialog>
   <dialog id="leaveDlg" class="updbox" aria-labelledby="leaveTitle">
     <h2 id="leaveTitle">Leave this shared project?</h2>
