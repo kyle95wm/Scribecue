@@ -43,11 +43,17 @@ raw, for the mixer to work with.
 
 1. Open the script and its video in Write mode.
 2. Choose **Export → Recording file**.
-3. Type the timecode of the video's first frame, such as `01:00:00:00`.
+3. Check the timecode of the video's first frame. It's `00:00:00:00` unless you typed another before.
 4. Pick the **Grace after each block**: how far a take may run past its block. See [slots](#recording).
 5. Click **Save the file**.
 
 Open the video first, so Scribecue can check the narrator has the same copy.
+
+Each file you save is the next version, so takes carry over. Made test files first? Click
+**Start a new recording file** to save version 1, then type `START OVER` to confirm.
+
+- Takes of the earlier versions don't carry over.
+- It can't be undone.
 
 [Extended blocks](WRITING.md#extended-ad) go in the file, and the narrator reads them with the
 video stopped. See [Extended blocks](#extended-blocks).

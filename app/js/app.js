@@ -19,7 +19,7 @@ import { collaborationJob, retainHistory, makesFiles } from './collaboration.js'
 import { initReviewCompare, openReviewCompare, finishReview } from './qcreviewdrawer.js';
 import { initPending, startPending, addPending, endPending, pendingGhost, livePending } from './qcpending.js';
 import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanNotes, cleanWords, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
-import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, readGrace, GRACE, sameVideo, compareScript, newProjectId, pickupsFor, takesKey } from './recording.js';
+import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, readGrace, GRACE, sameVideo, compareScript, nextRecording, typedStartOver, pickupsFor, takesKey } from './recording.js';
 import { readNote, narrationSound } from './bwf.js';
 import { inPause } from './narrationscan.js';
 import { readZip } from './zip.js';
@@ -5112,7 +5112,7 @@ const recFileDlg = $('recFileDlg');
 const listNums = (n) => (n.length < 2 ? String(n[0] ?? '') : `${n.slice(0, -1).join(', ')} and ${n[n.length - 1]}`);
 function askRecordingFile() {
   if (!S.cues.some((c) => c.text.trim())) return toast('Write some blocks first: the recording file holds the script');
-  let last = '01:00:00:00';
+  let last = '00:00:00:00';
   try { last = localStorage.getItem('scribecue.recStart') || last; } catch { /* ignore */ }
   $('recFileStart').value = last;
   // The grace this script's last recording file had, or the last one picked.
@@ -5120,31 +5120,51 @@ function askRecordingFile() {
   if (grace == null) try { grace = readGrace(Number(localStorage.getItem('scribecue.recGrace') ?? GRACE)); } catch { grace = GRACE; }
   $('recFileGrace').value = String(grace);
   $('recFileFps').textContent = String(S.fps);
-  // Which version this is, and the lines it asks the narrator for again.
-  const lines = narratorBlocks().filter((c) => c.text.trim()), picks = pickupsFor(lines, S.recording?.sent);
-  const nums = picks.flatMap((p, i) => (p ? [idx(lines[i].id) + 1] : []));
-  const v = (S.recording?.version || 0) + 1;
-  $('recFileVersion').textContent = v > 1
-    ? `Version ${v}. ` + (nums.length ? `It asks for ${nums.length === 1 ? 'a pickup' : `${nums.length} pickups`}: block${nums.length === 1 ? '' : 's'} ${listNums(nums)}. Takes of the other blocks carry over.` : 'It asks for no pickups. Takes carry over.')
-    : nums.length ? `It asks for ${nums.length === 1 ? 'a pickup' : `${nums.length} pickups`}: block${nums.length === 1 ? '' : 's'} ${listNums(nums)}.` : '';
-  $('recFileVersion').hidden = !$('recFileVersion').textContent;
+  $('recFileFresh').setAttribute('aria-pressed', 'false');
+  $('recFileFreshRow').hidden = !S.recording?.id;
+  showRecordingVersion();
   recFileDlg.showModal();
   $('recFileStart').select();
 }
+// Which version the file will be, and the lines it asks the narrator for again.
+function showRecordingVersion() {
+  const fresh = $('recFileFresh').getAttribute('aria-pressed') === 'true';
+  const next = nextRecording(S.recording, fresh), v = next.version;
+  const lines = narratorBlocks().filter((c) => c.text.trim()), picks = pickupsFor(lines, next.sent);
+  const nums = picks.flatMap((p, i) => (p ? [idx(lines[i].id) + 1] : []));
+  const asks = nums.length ? `It asks for ${nums.length === 1 ? 'a pickup' : `${nums.length} pickups`}: block${nums.length === 1 ? '' : 's'} ${listNums(nums)}.` : '';
+  $('recFileVersion').textContent = fresh
+    ? `Version 1 of a new recording file. ${asks ? `${asks} ` : ''}Takes of the earlier versions don’t carry over: the narrator starts a new session. It can’t be undone.`
+    : v > 1 ? `Version ${v}. ` + (asks ? `${asks} Takes of the other blocks carry over.` : 'It asks for no pickups. Takes carry over.') : asks;
+  $('recFileVersion').hidden = !$('recFileVersion').textContent;
+}
+$('recFileFresh').addEventListener('click', (e) => {
+  e.currentTarget.setAttribute('aria-pressed', String(e.currentTarget.getAttribute('aria-pressed') !== 'true'));
+  showRecordingVersion();
+});
 // The script as a narrator gets it: an extended block's marker is too short to record in,
 // so its slot runs as long as its reading, up to the next block.
 function narratorBlocks() {
   return S.cues.map((c) => (isExt(c) && spoken(c.text) ? { ...c, extended: true } : c));
 }
-function saveRecordingFile() {
+function saveRecordingFile(sure = false) {
   const start = readTime($('recFileStart').value.trim());
-  if (start == null || !(start >= 0)) return toast('That isn’t a timecode. Type it like 01:00:00:00');
+  if (start == null || !(start >= 0)) return toast('That isn’t a timecode. Type it like 00:00:00:00');
+  // Starting over can't be undone for the narrator, so it's spelled out first.
+  if ($('recFileFresh').getAttribute('aria-pressed') === 'true' && !sure) {
+    const v = S.recording?.version || 1;
+    $('recFreshWas').textContent = v === 1 ? 'version 1' : `versions 1 to ${v}`;
+    $('recFreshNext').textContent = `version ${v + 1}`;
+    $('recFreshType').value = '';
+    $('recFreshGo').disabled = true;
+    return $('recFreshDlg').showModal();
+  }
   try { localStorage.setItem('scribecue.recStart', $('recFileStart').value.trim()); } catch { /* ignore */ }
   const grace = readGrace(Number($('recFileGrace').value));
   try { localStorage.setItem('scribecue.recGrace', String(grace)); } catch { /* ignore */ }
   const m = S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size, duration: S.hasVideo ? duration() : null } : S.projectMedia;
-  const rid = S.recording?.id || newProjectId(), version = (S.recording?.version || 0) + 1;
-  const file = toRecordingFile({ app: VERSION, blocks: narratorBlocks(), media: m, start, fps: S.fps, grace, project: rid, version, sent: S.recording?.sent });
+  const { id: rid, version, sent } = nextRecording(S.recording, $('recFileFresh').getAttribute('aria-pressed') === 'true');
+  const file = toRecordingFile({ app: VERSION, blocks: narratorBlocks(), media: m, start, fps: S.fps, grace, project: rid, version, sent });
   S.recording = { id: rid, version, grace, sent: file.blocks.map(({ start: s, end, text }) => ({ start: s, end, text })) };
   changed();
   const name = `${baseName()}${RECORDING_EXT}`;
@@ -5157,10 +5177,17 @@ function saveRecordingFile() {
   const asked = file.blocks.filter((b) => b.pickup).length;
   toast(`Saved ${name}: version ${version}, ${file.blocks.length} blocks${asked ? `, ${asked} pickup${asked === 1 ? '' : 's'}` : ''}` + (m ? '' : '. Open the video first next time, so it can check the narrator has the right copy'));
 }
-$('recFileGo').addEventListener('click', saveRecordingFile);
+$('recFileGo').addEventListener('click', () => saveRecordingFile());
 $('recFileStart').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveRecordingFile(); } });
 $('recFileCancel').addEventListener('click', () => recFileDlg.close());
-document.addEventListener('keydown', (e) => { if (recFileDlg.open || $('recExportDlg').open || $('narrDlg').open || $('recSessionDlg').open || $('recPackDlg').open) e.stopPropagation(); }, true);
+$('recFreshCancel').addEventListener('click', () => $('recFreshDlg').close());
+$('recFreshType').addEventListener('input', (e) => { $('recFreshGo').disabled = !typedStartOver(e.target.value); });
+$('recFreshGo').addEventListener('click', () => {
+  if (!typedStartOver($('recFreshType').value)) return;
+  $('recFreshDlg').close();
+  saveRecordingFile(true);
+});
+document.addEventListener('keydown', (e) => { if (recFileDlg.open || $('recFreshDlg').open || $('recExportDlg').open || $('narrDlg').open || $('recSessionDlg').open || $('recPackDlg').open) e.stopPropagation(); }, true);
 
 // A narration zip (from Record mode) is checked by the narration WAV inside it.
 async function openPackage(f) {

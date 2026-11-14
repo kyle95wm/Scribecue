@@ -452,13 +452,29 @@ docker compose up -d --build</code></pre>
     <h2 id="recFileTitle">Recording file</h2>
     <p>A narrator opens this in Scribecue to record each block. The script and timings are locked.</p>
     <label class="recfield">Programme starts at
-      <input id="recFileStart" value="01:00:00:00" spellcheck="false" autocomplete="off" aria-describedby="recFileNote"></label>
+      <input id="recFileStart" value="00:00:00:00" spellcheck="false" autocomplete="off" aria-describedby="recFileNote"></label>
     <p class="dim small" id="recFileNote">Timecode at the video's first frame, at <span id="recFileFps"></span> fps. The mixer's software uses it to place the narration.</p>
     <label class="recfield">Grace after each block
       <select id="recFileGrace" aria-describedby="recFileGraceNote"><option value="0">None</option><option value="0.25">0.25 s</option><option value="0.5">0.5 s</option><option value="1">1 s</option><option value="2">2 s</option></select></label>
     <p class="dim small" id="recFileGraceNote">How far a take may run past its block before it's marked to fix. It never runs into the next block.</p>
     <p id="recFileVersion" hidden></p>
+    <p id="recFileFreshRow" hidden><button id="recFileFresh" aria-pressed="false" data-tip="Start again at version 1, for example after test files. Takes of the earlier versions don’t carry over, and no blocks are asked for as pickups unless you marked them. It can’t be undone">Start a new recording file</button></p>
     <div class="updbtns"><button id="recFileCancel">Cancel</button><button id="recFileGo" class="hl">Save the file</button></div>
+  </dialog>
+
+  <dialog id="recFreshDlg" class="updbox" aria-labelledby="recFreshTitle" aria-describedby="recFreshWhat">
+    <h2 id="recFreshTitle">Start a new recording file?</h2>
+    <p id="recFreshWhat">This saves version 1 of a new recording file, instead of <span id="recFreshNext"></span> of the current one.</p>
+    <p><strong>This can't be undone.</strong> Undo doesn't bring the old versions back, and every file after this one counts on from the new version 1.</p>
+    <p>For the narrator:</p>
+    <ul>
+      <li>None of the takes recorded for <span id="recFreshWas"></span> carry over. Every block is recorded again.</li>
+      <li>Blocks you changed since the last file aren't asked for as pickups.</li>
+    </ul>
+    <p>Only start over if nothing recorded so far needs keeping, such as after test files.</p>
+    <label class="recfield"><span>To start over, type <code>START OVER</code> in capitals</span>
+      <input id="recFreshType" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+    <div class="updbtns"><button id="recFreshCancel" class="hl" autofocus>Cancel</button><button id="recFreshGo" class="danger" disabled>Start over at version 1</button></div>
   </dialog>
 
   <dialog id="recSessionDlg" class="updbox wizard" aria-labelledby="recSessionTitle">
