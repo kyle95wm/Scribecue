@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.111.0",
+    "date": "2026-11-13",
+    "notes": "## Recording files\n\n- Made test recording files first? Click **Start a new recording file** in the Recording file window to start again at version 1. Takes of the earlier versions don't carry over.\n- Scribecue asks you to type `START OVER` first, since it can't be undone.\n- The programme's start timecode is now `00:00:00:00` unless you type another.\n- Enter in the timecode field saves the file."
+  },
+  {
     "version": "0.110.0",
     "date": "2026-11-13",
     "notes": "## Floating video\n\n- Double-click the video to float it in a window you can move and resize. Drag the picture to move it, and a corner to resize it. A click still plays or pauses.\n- Double-click it again, close it, or double-click the spot it left to put it back.\n- Every key still works while it floats. The text over the video grows and shrinks with the picture.\n- Handy for recording: put the picture next to the script, or make it bigger.\n- In Chrome and Edge, it can open in a window of its own, to put on another screen. Choose **In its own window** under **Settings → Appearance → Floating video**."
