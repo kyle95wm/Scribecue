@@ -80,11 +80,26 @@ const browser = {
     return all.length;
   },
   audio: async (t) => t.wav,
-  async clear() {
+  async removeRecording(rec) {
     const db = await open();
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).clear();
+    const tx = db.transaction(STORE, 'readwrite'), st = tx.objectStore(STORE);
+    for (const id of await done(st.index('rec').getAllKeys(rec))) st.delete(id);
     await finish(tx);
+  },
+  // [{ rec, count, bytes }]: reads the keys and sizes, not the sound.
+  async byRecording() {
+    const db = await open(), by = new Map();
+    await new Promise((ok, fail) => {
+      const q = db.transaction(STORE).objectStore(STORE).openCursor();
+      q.onsuccess = () => {
+        const c = q.result; if (!c) return ok();
+        const g = by.get(c.value.rec) || { rec: c.value.rec, count: 0, bytes: 0 };
+        g.count++; g.bytes += c.value.wav?.size || 0; by.set(g.rec, g);
+        c.continue();
+      };
+      q.onerror = () => fail(q.error);
+    });
+    return [...by.values()];
   },
   // Reads the keys and sizes, not the sound.
   async info() {
@@ -378,12 +393,57 @@ async function browserSessions() {
   return out;
 }
 
-// Deletes every take kept in the browser, from every recording. Sessions in
-// folders on disk are the narrator's own files, and stay.
-export async function clearTakes() {
-  await browser.clear();
-  try { await (await navigator.storage.getDirectory()).removeEntry(SESSIONS, { recursive: true }); } catch (e) { if (!NOT_FOUND(e)) throw e; }
-  if (session?.where === 'browser') session.reset();
+// The recordings whose takes are kept in the browser, for choosing which to delete. sessions:
+// [{ key, recording, count, bytes }] from the browser's own folder; older: [{ rec, count,
+// bytes }], takes kept before sessions, by recording. openKey: the recording open in Record
+// mode. Older takes without a session of their own have nothing to name them by, so they're
+// one group. Returns [{ keys, video, version, saved, count, bytes, open, older }], the most
+// recently saved first, and older takes last.
+export function groupTakes(sessions, older = [], openKey = null) {
+  const out = sessions.map(({ key, recording, count, bytes }) => ({
+    keys: [key], video: recording?.media?.name || null, version: recording?.project ? recording.version || 0 : null,
+    saved: recording?.saved || null, count, bytes, open: key === openKey, older: false,
+  }));
+  const rest = { keys: [], video: null, version: null, saved: null, count: 0, bytes: 0, open: false, older: true };
+  for (const o of older) {
+    const g = out.find((s) => s.keys[0] === o.rec) || rest;
+    g.count += o.count; g.bytes += o.bytes;
+    if (g === rest) { rest.keys.push(o.rec); rest.open ||= o.rec === openKey; }
+  }
+  out.sort((a, b) => String(b.saved || '').localeCompare(String(a.saved || '')));
+  return [...out, ...(rest.count ? [rest] : [])].filter((g) => g.count);
+}
+
+// The recordings whose takes are kept in the browser: see groupTakes.
+export async function takeGroups() {
+  const sessions = [];
+  try {
+    const root = await (await navigator.storage.getDirectory()).getDirectoryHandle(SESSIONS);
+    for await (const [key, dir] of root.entries()) {
+      if (dir.kind !== 'directory') continue;
+      const json = await readJson(dir, SESSION_FILE).catch(() => null);
+      let s = null;
+      try { s = json && fromSession(json); } catch { /* damaged: counted as empty */ }
+      const takes = s?.takes.filter((t) => !t.deleted) || [];
+      sessions.push({ key, recording: s?.recording || null, count: takes.length, bytes: takes.reduce((n, t) => n + (t.size || 0), 0) });
+    }
+  } catch { /* none */ }
+  let older = [];
+  try { older = await browser.byRecording(); } catch { /* none */ }
+  return groupTakes(sessions, older, session?.where === 'browser' ? session.key : null);
+}
+
+// Deletes the takes kept in the browser for these recordings (keys, as takeGroups gives
+// them), and leaves the others. Sessions in folders on disk are the narrator's own files,
+// and stay.
+export async function deleteTakesOf(keys) {
+  let root = null;
+  try { root = await (await navigator.storage.getDirectory()).getDirectoryHandle(SESSIONS); } catch (e) { if (!NOT_FOUND(e)) throw e; }
+  for (const key of keys) {
+    await browser.removeRecording(key);
+    try { await root?.removeEntry(key, { recursive: true }); } catch (e) { if (!NOT_FOUND(e)) throw e; }
+  }
+  if (session?.where === 'browser' && keys.includes(session.key)) session.reset();
 }
 
 // How many takes are kept in the browser, all recordings together, and the bytes they use,

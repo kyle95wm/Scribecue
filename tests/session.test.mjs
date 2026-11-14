@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { toSession, fromSession, cleanTake, rebuild, takeNote, isSessionPackage, SESSION_FILE } from '../app/js/session.js';
-import { openSession } from '../app/js/takestore.js';
+import { openSession, groupTakes } from '../app/js/takestore.js';
 import { wav24, withTakeNote, readTakeNote, plainTake, readNote, WAV24_HEADER } from '../app/js/bwf.js';
 import { crc32, storeZip, readZip } from '../app/js/zip.js';
 
@@ -191,4 +191,19 @@ test('rebuild adds unlisted WAVs in the order they were made', () => {
   assert.equal(found, 2);
   assert.equal(missing, 0);
   assert.deepEqual(takes.map((t) => [t.id, t.chosen]), [[a.id, false], [b.id, false], [c.id, true]]);
+});
+
+test('takes kept in the browser are grouped by recording, to choose which to delete', () => {
+  const rec = (name, saved, project) => ({ media: { name }, saved, ...(project ? { project, version: 2 } : {}) });
+  const groups = groupTakes([
+    { key: 'a-0', recording: rec('old.mp4', '2026-10-01T00:00:00Z', 'a'), count: 4, bytes: 40 },
+    { key: 'b', recording: rec('new.mp4', '2026-11-01T00:00:00Z'), count: 2, bytes: 20 },
+    { key: 'empty', recording: rec('none.mp4', '2026-11-02T00:00:00Z'), count: 0, bytes: 0 },
+  ], [{ rec: 'b', count: 1, bytes: 5 }, { rec: 'x', count: 3, bytes: 30 }, { rec: 'y', count: 1, bytes: 1 }], 'y');
+  assert.deepEqual(groups.map((g) => [g.keys, g.video, g.version, g.count, g.bytes, g.open, g.older]), [
+    [['b'], 'new.mp4', null, 3, 25, false, false], // newest first, with its older takes
+    [['a-0'], 'old.mp4', 2, 4, 40, false, false],
+    [['x', 'y'], null, null, 4, 31, true, true], // older takes have no name, so they go together
+  ]);
+  assert.deepEqual(groupTakes([], []), [], 'nothing kept, nothing to choose');
 });

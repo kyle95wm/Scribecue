@@ -71,7 +71,7 @@ export async function keepStorage({ ask = false } = {}) {
   return ask || chromium(navigator.userAgent, navigator.userAgentData?.brands || []) ? s.persist() : false;
 }
 
-let hooks = { toast: () => {}, voices: () => [], whisper: () => false, readings: async () => null, takes: async () => null, clearReadings: async () => {}, clearTakes: async () => {}, openTts: () => {}, openStt: () => {}, guides: async () => false,
+let hooks = { toast: () => {}, voices: () => [], whisper: () => false, readings: async () => null, takes: async () => null, clearReadings: async () => {}, takeGroups: async () => [], deleteTakes: async () => {}, openTts: () => {}, openStt: () => {}, guides: async () => false,
   unsaved: () => 0, save: async () => {}, shares: () => ({ owned: 0, unrecovered: 0, joined: 0 }) };
 
 // The warning before removing everything, from what would be lost.
@@ -133,7 +133,7 @@ async function render() {
     ? (!online() ? 'You’re offline. Everything below with a ✓ works now.'
       : 'What this browser has for working without a connection. Get what you need before you go offline.')
     : `${!online() ? 'You’re offline, but that’s fine: ' : ''}Scribecue runs from this computer, in Docker, so it works without a connection. Until you save a project, your blocks and settings are kept in this browser.`;
-  const btn = { voices: 'Choose a voice', whisper: 'Set up', persist: refused ? 'Ask again' : 'Keep it safe', readings: 'Clear', takes: 'Delete all' };
+  const btn = { voices: 'Choose a voice', whisper: 'Set up', persist: refused ? 'Ask again' : 'Keep it safe', readings: 'Clear', takes: 'Delete…' };
   $('offlineList').replaceChildren(...checklist(s).map(([ok, title, detail, act]) => {
     const li = document.createElement('li');
     li.className = ok === null ? 'info' : ok ? 'ok' : 'no';
@@ -144,7 +144,7 @@ async function render() {
     if (act) {
       const a = document.createElement('button');
       a.textContent = btn[act];
-      a.addEventListener('click', () => act === 'persist' ? persist() : act === 'readings' ? clearReadings() : act === 'takes' ? clearTakes()
+      a.addEventListener('click', () => act === 'persist' ? persist() : act === 'readings' ? clearReadings() : act === 'takes' ? chooseTakes()
         : ($('offlineDlg').close(), act === 'voices' ? hooks.openTts() : hooks.openStt()));
       li.append(a);
     }
@@ -165,11 +165,73 @@ async function clearReadings() {
   await render();
 }
 
-// Takes can't be brought back, and a narrator may still need them, so this asks first.
-async function clearTakes() {
-  const t = await hooks.takes();
-  if (!t?.count || !confirm(`Delete all ${t.count} recorded take${t.count === 1 ? '' : 's'} kept in this browser, from every recording? This can’t be undone. Takes in folders stay. Export any narration you still need first.`)) return;
-  try { await hooks.clearTakes(); } catch (e) { hooks.toast(`Couldn’t delete the takes: ${e.message}`); }
+// What each recording in the window for deleting takes says: { title, detail }, from a
+// group as takeGroups gives it. date: how to show when it was saved.
+export function takeGroupText(g, date = (iso) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })) {
+  const takes = `${g.count} take${g.count === 1 ? '' : 's'}, ${mb(g.bytes)}`;
+  if (g.older) return { title: 'Older takes', detail: `${takes}. Recorded before Scribecue kept takes by recording, so they can’t be told apart.${g.open ? ' Some are in the recording open now.' : ''}` };
+  const when = g.saved && !Number.isNaN(Date.parse(g.saved)) ? `last saved ${date(g.saved)}` : '';
+  return {
+    title: g.video || 'Recording without a video',
+    detail: [g.version ? `Version ${g.version}` : '', takes, when].filter(Boolean).join(', ') + '.' + (g.open ? ' Open in Record mode now.' : ''),
+  };
+}
+
+// The delete button, for the recordings chosen.
+export function deleteTakesLabel(groups) {
+  const n = groups.reduce((t, g) => t + g.count, 0);
+  return n ? `Delete ${n} take${n === 1 ? '' : 's'}` : 'Delete';
+}
+
+// Takes can't be brought back, and a narrator may still need them, so the narrator
+// chooses the recordings, and the window warns.
+let groups = [];
+const TAKES_WARN = 'This can’t be undone. Takes in folders on your computer stay. Export any narration you still need first.';
+async function chooseTakes() {
+  groups = await hooks.takeGroups();
+  if (!groups.length) return render();
+  const list = $('takesList');
+  list.replaceChildren(...groups.map((g) => {
+    const { title, detail } = takeGroupText(g);
+    const li = document.createElement('li');
+    li.innerHTML = '<span class="what"><strong></strong><span class="dim small"></span></span><button aria-pressed="false">Choose</button>';
+    li.querySelector('strong').textContent = title;
+    li.querySelector('.small').textContent = detail;
+    const b = li.querySelector('button');
+    b.setAttribute('aria-label', `Choose ${title}`);
+    b.addEventListener('click', () => { b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); pickedTakes(); });
+    return li;
+  }));
+  $('takesWarn').textContent = TAKES_WARN;
+  pickedTakes();
+  $('takesDlg').showModal();
+  list.querySelector('button')?.focus();
+}
+
+// The recordings chosen in the window, and the buttons to match.
+function pickedTakes() {
+  const btns = [...$('takesList').querySelectorAll('button')];
+  const chosen = groups.filter((_, i) => btns[i]?.getAttribute('aria-pressed') === 'true');
+  $('takesAll').setAttribute('aria-pressed', String(chosen.length === groups.length));
+  $('takesGo').textContent = deleteTakesLabel(chosen);
+  $('takesGo').disabled = !chosen.length;
+  return chosen;
+}
+
+async function deleteChosen() {
+  const chosen = pickedTakes();
+  if (!chosen.length) return;
+  $('takesGo').disabled = true;
+  $('takesGo').textContent = 'Deleting…';
+  // Settings stays open behind, so the Recorded takes row shows what's left. A toast
+  // would be hidden behind it, so a failure shows in the window.
+  try {
+    await hooks.deleteTakes(chosen.flatMap((g) => g.keys));
+    $('takesDlg').close();
+  } catch (e) {
+    $('takesWarn').textContent = `Couldn’t delete the takes: ${e.message}`;
+    pickedTakes();
+  }
   await render();
 }
 
@@ -198,6 +260,14 @@ export function initOffline(h) {
   $('offlineTitle').textContent = HOSTED ? 'Offline and storage' : 'Storage';
   for (const el of d.querySelectorAll('.hosted-only')) el.hidden = !HOSTED;
   for (const el of d.querySelectorAll('.docker-only')) el.hidden = HOSTED;
+  $('takesAll').addEventListener('click', () => {
+    const on = $('takesAll').getAttribute('aria-pressed') !== 'true';
+    for (const b of $('takesList').querySelectorAll('button')) b.setAttribute('aria-pressed', String(on));
+    pickedTakes();
+  });
+  $('takesGo').addEventListener('click', deleteChosen);
+  $('takesCancel').addEventListener('click', () => $('takesDlg').close());
+  $('takesDlg').addEventListener('click', (e) => { if (e.target === $('takesDlg')) $('takesDlg').close(); });
   $('wipeBtn').addEventListener('click', () => askWipe(true));
   $('wipeCancel').addEventListener('click', () => askWipe(false));
   $('wipeSave').addEventListener('click', async () => { await hooks.save(); askWipe(true); });
