@@ -135,6 +135,12 @@ export function guideLink(href) {
   return m && GUIDES[m[1]] ? { file: m[1], hash: m[2] ? decodeURIComponent(m[2].slice(1)) : '' } : null;
 }
 
+// Where the row of tabs scrolls to so a tab shows, with room either side; it moves as
+// little as it can, and not at all if the tab already shows.
+export function tabScroll({ left, width, scroll, view, room = 20 }) {
+  return Math.max(0, Math.min(scroll, left - room), left + width + room - view);
+}
+
 // ---------------------------------------------------------------- the window
 
 const $ = (id) => document.getElementById(id);
@@ -174,6 +180,9 @@ export async function openGuide(file = 'README.md', hash = '', { remember = true
   // Here the guides sit together, with docs/ beside them, so ../docs/ from Guides/ is docs/.
   for (const img of body.querySelectorAll('img')) if (!/^https?:/.test(img.getAttribute('src'))) img.src = base + img.getAttribute('src').replace(/^\.\.\//, '');
   if (!d.open) d.showModal();
+  // The tabs are one row that scrolls: bring this guide's tab into sight.
+  const tab = $('guideTabs').querySelector('button.on'), tabs = $('guideTabs');
+  if (tab) tabs.scrollLeft = tabScroll({ left: tab.offsetLeft - tabs.offsetLeft, width: tab.offsetWidth, scroll: tabs.scrollLeft, view: tabs.clientWidth });
   const target = hash && body.querySelector(`#${CSS.escape(hash)}`);
   body.scrollTop = target ? target.offsetTop - body.offsetTop - 8 : 0;
 }
@@ -188,6 +197,13 @@ export function initGuides({ path = 'guides/' } = {}) {
     b.addEventListener('click', () => openGuide(file));
     return b;
   }));
+  // A mouse wheel without a sideways scroll moves the row of tabs sideways.
+  $('guideTabs').addEventListener('wheel', (e) => {
+    const t = e.currentTarget;
+    if (e.deltaX || !e.deltaY || t.scrollWidth <= t.clientWidth) return;
+    e.preventDefault();
+    t.scrollLeft += e.deltaY;
+  }, { passive: false });
   $('guideClose').addEventListener('click', () => d.close());
   $('guideBack').addEventListener('click', async () => {
     const prev = back.pop();

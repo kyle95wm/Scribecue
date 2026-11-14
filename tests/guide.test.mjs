@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { renderMarkdown as md, inline, slug, guideLink, repoPath, GUIDES } from '../app/js/guide.js';
+import { renderMarkdown as md, inline, slug, guideLink, repoPath, tabScroll, GUIDES } from '../app/js/guide.js';
 
 test('headings get GitHub’s anchors, so links between the guides land', () => {
   assert.equal(slug('Speech to text with Whisper'), 'speech-to-text-with-whisper');
@@ -62,4 +62,15 @@ test('every guide renders with nothing left as raw Markdown, and its anchors exi
       assert.ok(existsSync(new URL(ref, new URL(`../${repoPath(f)}`, import.meta.url))), `${repoPath(f)} links to ${ref}, which isn't there`);
     }
   }
+});
+
+test('the row of guide tabs scrolls just enough to show the open guide', () => {
+  // Already showing: it stays put.
+  assert.equal(tabScroll({ left: 300, width: 100, scroll: 200, view: 600 }), 200);
+  // Off to the right: scrolls until it shows, with room after it.
+  assert.equal(tabScroll({ left: 1400, width: 150, scroll: 0, view: 900 }), 670);
+  // Off to the left: scrolls back, with room before it.
+  assert.equal(tabScroll({ left: 100, width: 80, scroll: 500, view: 900 }), 80);
+  // Never before the start.
+  assert.equal(tabScroll({ left: 0, width: 80, scroll: 300, view: 900 }), 0);
 });
