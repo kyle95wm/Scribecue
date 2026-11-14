@@ -305,7 +305,7 @@ Your project is your master copy, so keep it. The other files are made for one p
 | The writer, after a review | The package or project you were sent, saved with your review | `Ctrl/Cmd+S` |
 | A narrator | [Recording file](RECORDING.md#making-the-recording-file) (`.scribecuerec`) | **Export → Recording file** |
 | Your other computer, partway through recording | [Session package](RECORDING.md#moving-to-another-computer) (`.scribesession`) | **Export → Session package** |
-| A mixer | [Narration WAV](RECORDING.md#exporting-the-narration), or a Narration zip with alts | **Export**, in Record mode |
+| A mixer | [Narration WAV](MIXING.md#the-narration-wav), or a Narration zip with alts | **Export**, in Record mode |
 | Someone using another tool | SRT or WebVTT | **Export** |
 
 - **Send the video too.** Reviewers and narrators need their own copy. No Scribecue file contains it.

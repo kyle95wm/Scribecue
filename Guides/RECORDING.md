@@ -34,7 +34,7 @@ raw, for the mixer to work with.
 3. **The narrator** opens both in Scribecue and records each block.
 4. **The narrator** exports the narration WAV and sends it to the mixer. With
    [alts](#alts), it's a zip.
-5. **The mixer** imports it into their DAW.
+5. **The mixer** imports it into their DAW. See [Mixing](MIXING.md).
 6. **You** can open the WAV or zip in Scribecue to [check it](#checking-the-narration).
 7. **For a fix,** you send a new version of the recording file, and the narrator records
    only the [pickups](#pickups).
@@ -310,31 +310,8 @@ With an alt recorded, **Export → Narration zip** saves:
 
 ## For the mixer
 
-Mix the narration in your DAW. Scribecue won't get a mixing mode: a DAW already does
-that well, and audio plugins don't work reliably in a browser.
-
-The narration is one Broadcast WAV file:
-
-- Mono, 48 kHz, 24-bit, as long as the programme.
-- Silent apart from the takes, each where it was read.
-- Timestamped with the programme's start. In Pro Tools, use **Spot to original time
-  stamp**.
-- Marked at each block, with its number and first words, for DAWs that read markers,
-  such as Reaper and Nuendo.
-
-With extended blocks, the WAV is longer than the programme. Each take sits where the video
-stops for it, for as long as the narrator read. A pause list comes with it, as a CSV. A
-pickup of an extended block can change the pauses after it, so export the narration again.
-
-Mix against a video that stops for the narrator's pauses, not the writer's text to speech
-ones. To make it, see [An extended video for the narration](#an-extended-video-for-the-narration).
-
-A pickups WAV is the same, with only the pickups in it. Put it on its own track over the
-first narration, and mute the old takes under it. Its markers say `PICKUP`, with the
-note.
-
-An alts WAV is the same, with only the alts in it. Put it on its own track. To use an
-alt, mute the narration under it. Its markers say `ALT`, with the wording.
+The narration is one Broadcast WAV, timestamped and marked at each block. Pickups and alts
+come as WAVs of their own. [Mixing](MIXING.md) says how to bring them into a DAW.
 
 ## Checking the narration
 

@@ -58,6 +58,7 @@ when the question is about how something works inside, or to check a guide is ri
 | Amazon Polly voices, keys and spending limits | `Guides/POLLY-VOICES.md` |
 | Transcribe mode, speech to text | `Guides/TRANSCRIBING.md` |
 | Record mode, takes, levels, pickups, exporting narration | `Guides/RECORDING.md` |
+| Mixing: the full mix, stems, description track, narration WAV in a DAW, no mixing mode | `Guides/MIXING.md` |
 | QC reviews, comments, review packages, comparing a returned review | `Guides/QC.md` |
 | Keys, and changing them | `Guides/SHORTCUTS.md` |
 | AI help: providers, models, privacy, costs | `Guides/AI.md` |

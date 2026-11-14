@@ -159,7 +159,7 @@ For a video with several audio tracks, it uses the one that's playing.
 Both work with MP4, MOV, MKV and WebM videos. In Docker, ffmpeg can also save the mix as
 AAC, AC-3 or E-AC-3.
 
-To mix it yourself instead, export the [description track](VOICES.md#piper-voices).
+To mix it yourself instead, see [Mixing](MIXING.md).
 
 ## Sounds like
 
