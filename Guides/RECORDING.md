@@ -310,6 +310,9 @@ With an alt recorded, **Export → Narration zip** saves:
 
 ## For the mixer
 
+Mix the narration in your DAW. Scribecue won't get a mixing mode: a DAW already does
+that well, and audio plugins don't work reliably in a browser.
+
 The narration is one Broadcast WAV file:
 
 - Mono, 48 kHz, 24-bit, as long as the programme.

@@ -122,6 +122,13 @@ layouts. It stays its own product.
 - Don't reverse-engineer another product's code, private file formats or data. Open formats
   such as SRT, WebVTT and BWF are fine.
 
+## Not planned
+
+Some features won't be added. Don't build or suggest them.
+
+- **A mixing mode.** Mixing belongs in a DAW, which does it better. Audio plugins don't
+  work reliably in a browser. Scribecue hands the mixer clean, timestamped files instead.
+
 ## Pull requests
 
 - Work on a branch and open a pull request against `main`.
