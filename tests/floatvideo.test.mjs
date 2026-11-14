@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fitPicture, readRect, readKind, defaultRect, place, resized, isDrag, MIN_W, BAR, SCALES, scaleName, scaledWidth, resizedTo, centered } from '../app/js/floatvideo.js';
+import { fitPicture, readRect, readKind, defaultRect, place, resized, isDrag, MIN_W, BAR, SCALES, scaleName, scaledWidth, resizedTo, centered, floatScale } from '../app/js/floatvideo.js';
 import { settingNames } from '../app/js/settingsfile.js';
 
 test('the picture fits its box as the video shows it', () => {
@@ -111,4 +111,11 @@ test('a panel resized from the menu keeps its middle, and Center puts it in the 
   const c = centered({ x: 0, y: 0, w: 640 }, 16 / 9, 1920, 1080);
   assert.equal(c.x, 640);
   assert.equal(c.y, Math.round((1080 - 360 - BAR) / 2));
+});
+
+test('Classic text floating: the docked size, grown with the picture', () => {
+  assert.equal(floatScale(600, 1200), 2);
+  assert.equal(floatScale(800, 400), 0.5);
+  assert.equal(floatScale(0, 400), 1, 'nothing docked to measure: as docked');
+  assert.equal(floatScale(600, 0), 1);
 });

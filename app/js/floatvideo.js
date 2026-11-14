@@ -66,6 +66,10 @@ export function place(r, viewW, viewH, aspect) {
 
 export const CORNERS = ['nw', 'ne', 'sw', 'se'];
 
+// How much bigger a floating picture `w` px wide is than the docked one, `dockW` px wide,
+// for the Classic text over the video, which grows with it as it did before 0.114.0.
+export const floatScale = (dockW, w) => (dockW > 0 && w > 0 ? w / dockW : 1);
+
 // Sizes to pick from the floating video's right-click menu, against the video's own size:
 // Original size shows each of its pixels as one of the screen's (CSS pixels).
 export const SCALES = [0.25, 0.5, 1, 2, 3];
@@ -187,12 +191,23 @@ export function initFloat({ stage, video, parts, kind, canFloat = () => true, no
   const cover = (el, r) => Object.assign(el.style, r ? { left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px` }
     : { left: '', top: '', width: '', height: '' });
   function layout() {
-    if (!floating) return cover(overlay, fitPicture(stage.clientWidth, stage.clientHeight, aspect()));
+    const docked = fitPicture(stage.clientWidth, stage.clientHeight, aspect());
+    if (!floating) {
+      overlay.style.removeProperty('--float-k');
+      overlay.style.removeProperty('--dock-vw');
+      return cover(overlay, docked);
+    }
     const host = floating === 'window' ? pip.document.body : box;
-    cover(pic, fitPicture(host.clientWidth, host.clientHeight, aspect()));
+    const fit = fitPicture(host.clientWidth, host.clientHeight, aspect());
+    cover(pic, fit);
     // Full screen, the picture's box is the screen, of another shape than the picture.
     const full = pic.ownerDocument.fullscreenElement === pic;
-    cover(overlay, full ? fitPicture(pic.clientWidth, pic.clientHeight, aspect()) : null);
+    const shown = full ? fitPicture(pic.clientWidth, pic.clientHeight, aspect()) : fit;
+    cover(overlay, full ? shown : null);
+    // For the Classic style, which is sized against this window: how much bigger the
+    // picture is than docked, and this window's width, which a window of its own lacks.
+    overlay.style.setProperty('--float-k', String(floatScale(docked.w, shown.w)));
+    overlay.style.setProperty('--dock-vw', `${doc.defaultView.innerWidth / 100}px`);
   }
 
   // Right-click the floating video for sizes, full screen and centring, as in Logic. The

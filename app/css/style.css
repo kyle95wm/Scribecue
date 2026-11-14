@@ -343,8 +343,11 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
   font: calc(var(--sub-scale) * clamp(16px, 2.2vw, 30px)) / 1.4 var(--sans);
   text-wrap: wrap;
 }
-/* Floating, it grows with the picture, as it did. */
-:root[data-sub-style="classic"] .floatpic .overlay .subtext { font-size: calc(var(--sub-scale) * 3.5cqw); }
+/* Floating, it's the docked size, grown with the picture, as it was (floatvideo.js sets
+   --float-k, and --dock-vw for a window of its own, whose vw is its own width). */
+:root[data-sub-style="classic"] .floatpic .overlay .subtext {
+  font-size: calc(var(--sub-scale) * var(--float-k, 1) * clamp(16px, calc(2.2 * var(--dock-vw, 1vw)), 30px));
+}
 :root[data-sub-style="classic"][data-sub-pos="top"] .overlay .subtext { top: 6%; bottom: auto; }
 :root[data-sub-style="classic"][data-sub-bg="none"] .overlay span {
   -webkit-text-stroke: 0;
