@@ -1,4 +1,5 @@
 import { cleanComments } from './comments.js';
+import { cleanBookmarks } from './bookmarks.js';
 import { cleanEdited } from './edits.js';
 import { GRACES } from './recording.js';
 
@@ -51,7 +52,7 @@ export const cleanSay = (say) => (Array.isArray(say) ? say : [])
 
 // state: { blocks, media, settings, view, app, notes }. Returns the object to save as JSON.
 // notes: what the writer tells AI help about the programme (characters, setting, style).
-export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', words = [], comments = [], recording = null, projectId = null, reviewHistory = null, reviewAudio = null }) {
+export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', words = [], comments = [], bookmarks = [], recording = null, projectId = null, reviewHistory = null, reviewAudio = null }) {
   return {
     scribecue: PROJECT_FORMAT,
     ...(validIdentity(projectId) ? { projectId } : {}),
@@ -62,6 +63,7 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     ...(notes.trim() ? { notes } : {}),
     ...(cleanWords(words).length ? { words: cleanWords(words) } : {}),
     ...(cleanComments(comments, true).length ? { comments: cleanComments(comments, true) } : {}),
+    ...(cleanBookmarks(bookmarks).length ? { bookmarks: cleanBookmarks(bookmarks) } : {}),
     media: media && media.name ? { name: media.name, size: media.size ?? null, duration: num(media.duration) ? media.duration : null } : null,
     ...(cleanRecording(recording) ? { recording: cleanRecording(recording) } : {}),
     settings,
@@ -139,6 +141,7 @@ export function fromProject(json) {
     ...(json.reviewAudio != null ? { reviewAudio: cleanReviewAudio(json.reviewAudio) } : {}),
     recording: cleanRecording(json.recording),
     comments: cleanComments(json.comments, true),
+    bookmarks: cleanBookmarks(json.bookmarks),
     notes: typeof json.notes === 'string' ? json.notes : '',
     words: cleanWords(json.words),
     media: m && typeof m.name === 'string' ? { name: m.name, size: num(m.size) ? m.size : null, duration: num(m.duration) ? m.duration : null } : null,

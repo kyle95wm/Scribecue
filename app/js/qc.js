@@ -161,6 +161,8 @@ export async function openReview(file) {
 // sink: optional disk writer with write/close/abort/file. Without one, Blob parts are
 // still individual readings, never a decoded full-film track.
 export async function buildReview(project, make, { sink = null, progress = () => {}, signal, allowEdits = false, handoff = false, googleReviewKey = '', pollyReviewKey = null } = {}) {
+  // Bookmarks are the writer's own: a QC package goes without them.
+  if (project?.bookmarks) { const { bookmarks, ...rest } = project; project = rest; }
   if (googleReviewKey && (allowEdits !== true || typeof googleReviewKey !== 'string' || googleReviewKey.length > 512 || /\s/.test(googleReviewKey))) throw new Error('A review key needs an editable QC package and a valid key');
   if (pollyReviewKey && (allowEdits !== true || !validPollyKey(pollyReviewKey))) throw new Error('A review key needs an editable QC package and a valid key');
   project = { ...project, blocks: project.blocks.map(({ qcReading, ...b }) => b) };

@@ -92,6 +92,11 @@ export const STEPS = [
     text: (mode) => `Share makes a link and a password, so others can work on this project with you, live. Each link says what it allows: editing, suggesting changes or commenting.${mode === 'transcribe' ? '' : ' Comments, next to it, holds notes on blocks and times, saved with the project.'}`,
   },
   {
+    target: '#bookmarksBtn',
+    title: 'Bookmarks',
+    text: () => `Bookmarks are your own notes along the timeline: who appears when, where an act starts, where you left off. Press ${keyFor('bookmarkAdd')} to add one at the playhead and name it. Each shows as a flag on the ruler: click it to go there. Markers in a Frazier script come in as bookmarks. QC packages and recording files leave them out.`,
+  },
+  {
     target: '#aiBtn',
     title: 'AI help, if you want it',
     text: () => 'Connect your own AI provider in Settings, or Ollama on your own computer, to ask about a scene or draft a block from its frames. Drafts only go in when you choose. It’s off until you connect one.',

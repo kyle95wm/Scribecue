@@ -6,6 +6,7 @@
 // and the video stay on each computer.
 import * as Y from '../vendor/yjs.js';
 import { cleanComments } from './comments.js';
+import { cleanBookmarks } from './bookmarks.js';
 
 export const LOCAL = 'local';
 export const SHARED_FIELDS = ['start', 'end', 'speed', 'voice', 'dip', 'dipBy', 'vol', 'auto', 'fit', 'pinned', 'say', 'extended', 'notes', 'edited'];
@@ -49,6 +50,8 @@ export class SharedProject {
     // Google voices with, and `voice`, the voice the project reads with. In the script, so
     // only those who can edit change it; the app lets only the owner.
     this.access = this.docs.script.getMap('access');
+    // The writers' bookmarks, by id. In the script, so only those who can edit change them.
+    this.bookmarks = this.docs.script.getMap('bookmarks');
     this.comments = this.docs.comments.getMap('comments');
     // By block uid: { uid, by (link id), name, who (editor id), at, block (null: remove it) }.
     this.proposals = this.docs.review.getMap('proposals');
@@ -57,8 +60,9 @@ export class SharedProject {
   // Copies blocks and comments in, as this person's change. `only` is a list of block uids
   // to check; leave it out to check them all, including blocks and comments that went.
   // Returns how many blocks and comments changed.
-  // `script: false` leaves the blocks alone, for those who can't change them.
-  write(blocks, timeline = [], only = null, { script = true } = {}) {
+  // `script: false` leaves the blocks alone, for those who can't change them. `bookmarks`,
+  // when given, is the whole list of bookmarks, and goes with the script.
+  write(blocks, timeline = [], only = null, { script = true, bookmarks = null } = {}) {
     let n = 0;
     const list = only ? blocks.filter((b) => only.includes(b.uid)) : blocks;
     if (script) this.docs.script.transact(() => {
@@ -66,6 +70,11 @@ export class SharedProject {
       if (!only) {
         const kept = new Set(blocks.map((b) => b.uid));
         for (const uid of [...this.blocks.keys()]) if (!kept.has(uid)) { this.blocks.delete(uid); n++; }
+      }
+      if (bookmarks) {
+        const wanted = new Map(bookmarks.map((b) => [b.id, { id: b.id, time: b.time, title: b.title, notes: b.notes, kind: b.kind }]));
+        for (const [id, b] of wanted) if (!same(this.bookmarks.get(id), b)) { this.bookmarks.set(id, b); n++; }
+        for (const id of [...this.bookmarks.keys()]) if (!wanted.has(id)) { this.bookmarks.delete(id); n++; }
       }
     }, LOCAL);
     this.docs.comments.transact(() => {
@@ -139,6 +148,7 @@ export class SharedProject {
     }));
   }
   readTimeline() { return plainComments([...this.comments.values()].filter((c) => !c.block), true); }
+  readBookmarks() { return cleanBookmarks([...this.bookmarks.values()]); }
 
   // The owner's separate Google key for this project, or ''. Setting '' takes it out.
   googleKey() { return this.#access('googleKey'); }
@@ -178,12 +188,12 @@ export class SharedProject {
       if (comments.length) b.comments = comments;
       return b;
     }).sort((a, z) => a.start - z.start || a.uid.localeCompare(z.uid));
-    return { blocks, comments: plainComments(timeline, true) };
+    return { blocks, comments: plainComments(timeline, true), bookmarks: this.readBookmarks() };
   }
 
-  // Calls `fn(uids, timeline, suggestions)` with the uids of blocks changed by someone else,
-  // whether timeline comments changed, and whether it's suggestions that changed. A block
-  // whose comments changed counts as changed.
+  // Calls `fn(uids, timeline, suggestions, bookmarks)` with the uids of blocks changed by
+  // someone else, whether timeline comments changed, whether it's suggestions that changed,
+  // and whether bookmarks did. A block whose comments changed counts as changed.
   observe(fn) {
     const handler = (events, tx) => {
       if (tx.origin === LOCAL) return;
@@ -209,17 +219,19 @@ export class SharedProject {
     const onComments = (e, tx) => handler([e], tx); // the comments document's own changes
     // Suggestions: the blocks they're for, and that they changed.
     const onProposals = (e, tx) => { if (tx.origin !== LOCAL) fn([...e.keysChanged], false, true); };
+    const onBookmarks = (e, tx) => { if (tx.origin !== LOCAL) fn([], false, false, true); };
     this.blocks.observeDeep(handler);
     this.comments.observe(onComments);
     this.proposals.observe(onProposals);
-    return () => { this.blocks.unobserveDeep(handler); this.comments.unobserve(onComments); this.proposals.unobserve(onProposals); };
+    this.bookmarks.observe(onBookmarks);
+    return () => { this.blocks.unobserveDeep(handler); this.comments.unobserve(onComments); this.proposals.unobserve(onProposals); this.bookmarks.unobserve(onBookmarks); };
   }
 
   // Undo and redo of this person's own changes only: others' changes stay. `step()` starts
   // a step and returns where it starts; until the next, typing a sentence stays one step.
   // `undoTo(mark)` undoes back to it and says how far, for `redo` to go forward again.
   undoer() {
-    const scope = { script: this.blocks, comments: this.comments, review: this.proposals };
+    const scope = { script: [this.blocks, this.bookmarks], comments: this.comments, review: this.proposals };
     const managers = Object.fromEntries(DOCS.map((d) => [d, new Y.UndoManager(scope[d], { trackedOrigins: new Set([LOCAL]), captureTimeout: Infinity })]));
     const each = (fn) => Object.fromEntries(DOCS.map((d) => [d, fn(managers[d], d)]));
     return {

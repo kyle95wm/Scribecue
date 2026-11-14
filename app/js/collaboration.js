@@ -97,6 +97,9 @@ export function mergeProjects(base, local, remote, progress = () => {}, resoluti
     project[field] = choose(b[field], l[field], r[field], { kind: 'project', field });
   }
   project.comments = commentsOf(b.comments, l.comments, r.comments, { kind: 'project', field: 'comments' });
+  // Bookmarks merge one by one too, by id.
+  const bookmarks = commentsOf(b.bookmarks, l.bookmarks, r.bookmarks, { kind: 'project', field: 'bookmarks' });
+  if (bookmarks.length) project.bookmarks = bookmarks; else delete project.bookmarks;
   // Words people added are only ever added to, so both sides' count.
   const words = cleanWords([...(l.words || []), ...(r.words || [])]);
   if (words.length) project.words = words;

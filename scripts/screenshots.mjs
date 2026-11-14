@@ -229,6 +229,35 @@ await js(`document.getElementById('settab-ai').click(); document.activeElement?.
 await shot('ai-settings', '#settingsDlg', 0);
 await js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`); await sleep(300);
 
+// Bookmarks: markers from a Frazier script, then B at the playhead, named in the drawer.
+await js(`(async () => {
+  const markers = [
+    { start: 1000, title: 'Opening titles', notes: '' },
+    { start: 9500, title: 'Mara', notes: 'First seen at the window.\\nRed coat, silver hair.' },
+    { start: 33000, title: 'Act 2: the storm', notes: '' },
+    { start: 44000, title: 'Left off here', notes: '' },
+  ];
+  const m = await import('./js/bookmarksdrawer.js');
+  await m.importBookmarks(new File([JSON.stringify({ cue_points: [], markers })], 'lights.adc'));
+  document.getElementById('video').currentTime = 21.5;
+  await new Promise((r) => setTimeout(r, 300));
+  document.activeElement?.blur();
+  document.body.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyB', key: 'b', bubbles: true, cancelable: true }));
+  await new Promise((r) => setTimeout(r, 300));
+  const t = document.querySelector('.bm-edit input[aria-label="Bookmark title"]');
+  t.value = 'Teal light returns'; t.dispatchEvent(new Event('input'));
+  const f = document.querySelector('.bm-edit');
+  [...f.querySelectorAll('.bm-kinds button')].find((b) => b.textContent === 'Scene').click();
+  document.getElementById('toast').classList.add('fade');
+  return 1;
+})()`);
+await sleep(500);
+await shot('bookmarks-new', '#bookmarksDrawer', 0);
+await js(`(() => { const t = document.querySelector('.bm-edit input[aria-label="Bookmark title"]'); t.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); document.activeElement?.blur(); document.getElementById('bookmarksStatus').textContent = ''; document.getElementById('toast').classList.add('fade'); return 1; })()`);
+await sleep(500);
+await shot('bookmarks');
+await js(`document.getElementById('bookmarksClose').click(); 1`); await sleep(300);
+
 // QC comments beside the same editor and timeline.
 await js(`document.querySelector('#modeSw [data-mode=qc]').click(); 1`); await sleep(300);
 await js(`document.getElementById('edComment').click(); document.getElementById('commentAuthor').value = 'Sam'; document.getElementById('commentText').value = 'Could we describe the direction of the light here?'; document.getElementById('commentPost').click(); document.getElementById('commentsClose').click(); document.getElementById('commentsBtn').click(); document.getElementById('commentAt').value = '00:00:26:00'; document.getElementById('commentText').value = 'Check the pause before the next reading.'; document.getElementById('commentPost').click(); document.getElementById('toast').classList.add('fade'); document.activeElement?.blur(); 1`);

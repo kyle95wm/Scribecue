@@ -98,6 +98,7 @@
       <span id="sharePeople" hidden></span>
       <button data-act="share" id="shareBtn" class="not-record" hidden data-tip="Share this project with a link and a password, to work on it together">Share</button>
       <button data-act="comments" id="commentsBtn" aria-pressed="false" aria-controls="commentsDrawer" data-tip="Comments on blocks and timeline times, saved with the project (⌥⇧C)">Comments</button>
+      <button data-act="bookmarks" id="bookmarksBtn" class="bm-mode" aria-pressed="false" aria-controls="bookmarksDrawer" data-tip="Your own bookmarks: who appears when, acts, where you left off. B adds one at the playhead (⌥⇧B)">Bookmarks</button>
       <button data-act="ai" id="aiBtn" class="tip-end" data-tip="AI help: chat about the scene and draft descriptions (⌥⇧A)">AI</button>
       <button data-act="settings" class="tip-end" data-tip="Settings: text to speech, speech to text, AI help, shortcuts, storage and more (⌥⇧S)">Settings</button>
       <button data-act="help" class="hl tip-end" data-tip="Show all keyboard shortcuts (? or ⇧O)">Shortcuts <kbd>?</kbd></button>
@@ -285,6 +286,7 @@
 
   <section class="timeline" id="tl" aria-hidden="true">
     <canvas id="ruler"></canvas>
+    <div id="bmHot" class="bm-hot" hidden data-tip=""></div>
     <div class="lane" id="lane">
       <canvas id="wave"></canvas>
       <div id="cues"></div>
@@ -318,7 +320,7 @@
     <span id="announce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></span>
     <span class="hint">
       <kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>⌥⇧←</kbd><kbd>⌥⇧→</kbd> block
-      <kbd>↵</kbd> create/edit <kbd>⇧F</kbd> find <span class="write-only"><kbd>⌥⇧C</kbd> comments </span><kbd>⇧O</kbd> all keys
+      <kbd>↵</kbd> create/edit <kbd>⇧F</kbd> find <span class="write-only"><kbd>⌥⇧C</kbd> comments </span><kbd>B</kbd> bookmark <kbd>⇧O</kbd> all keys
     </span>
     <span class="hint qc-only"><kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>↑</kbd><kbd>↓</kbd> block <kbd>V</kbd> hear block <span class="qc-edit-only"><kbd>↵</kbd> edit </span><kbd>⌥⇧C</kbd> comments <kbd>⇧O</kbd> all keys</span>
     <span class="hint record-only">
@@ -889,6 +891,18 @@ docker compose up -d --build</code></pre>
     <div class="aicompose"><button id="commentsResolved" aria-pressed="false">Show resolved</button></div>
     <div id="commentsLog" class="ailog" aria-label="Project comments"></div>
     <div id="commentsPager" class="aicompose airow"><button id="commentsPrev">Previous</button><span id="commentsPage" class="dim small"></span><button id="commentsNext">Next</button></div>
+  </aside>
+
+  <aside id="bookmarksDrawer" class="aidrawer bm-mode" hidden aria-label="Bookmarks">
+    <header class="aihead"><strong class="grow">Bookmarks</strong><button id="bookmarksClose" aria-label="Close Bookmarks (Esc)">×</button></header>
+    <div class="aicompose airow">
+      <button id="bookmarkAdd" class="hl" data-tip="Add a bookmark at the playhead (B)">Add at playhead</button>
+      <button id="bookmarkImport" data-tip="Add the markers from a Frazier .adc script. Ones already here are skipped">Import from Frazier…</button>
+      <input id="bookmarkFile" type="file" accept=".adc" hidden>
+    </div>
+    <div class="aicompose"><div id="bookmarksKinds" class="bm-kinds" role="group" aria-label="Kinds to show"></div></div>
+    <div id="bookmarksLog" class="ailog" aria-label="Bookmarks"></div>
+    <div class="aicompose airow"><span id="bookmarksCount" class="dim small"></span><span id="bookmarksStatus" class="dim small" role="status"></span></div>
   </aside>
 
   <aside id="aiDrawer" class="aidrawer" hidden aria-label="AI help">
@@ -1586,6 +1600,8 @@ docker compose up -d --build</code></pre>
             <dt data-keys="overBack overNext"><kbd>⇧</kbd><kbd>U</kbd> <kbd>U</kbd></dt><dd>Previous / next block over dialogue</dd>
             <dt data-keys="videoStart videoEnd" data-pc="&lt;kbd&gt;Home&lt;/kbd&gt; &lt;kbd&gt;End&lt;/kbd&gt;"><kbd>Fn</kbd><kbd>←</kbd> <kbd>Fn</kbd><kbd>→</kbd></dt><dd data-pc="Beginning / end of video">Beginning / end of video (Home / End)</dd>
             <dt data-keys="jumpTime"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>J</kbd></dt><dd>Jump to a timecode</dd>
+            <dt data-keys="bookmarkAdd" class="bm-mode"><kbd>B</kbd></dt><dd class="bm-mode">Bookmark at the playhead, ready to name</dd>
+            <dt data-keys="bookmarks" class="bm-mode"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>B</kbd></dt><dd class="bm-mode">Bookmarks</dd>
             <dt data-keys="quickNav"><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Quick navigation (search blocks)</dd>
             <dt data-keys="help"><kbd>⇧</kbd><kbd>O</kbd></dt><dd>This overlay</dd>
             <dt data-keys="settings"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>S</kbd></dt><dd>Settings</dd>

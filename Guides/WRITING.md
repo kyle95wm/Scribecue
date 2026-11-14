@@ -221,8 +221,8 @@ later in the text to speech settings.
 ## Good to know
 
 - **Saving:** block speeds, voices, sounds-like words and Extended are saved in projects
-  and WebVTT exports. SRT files can't hold them. Frazier `.adc` scripts bring their speeds and base
-  speed with them.
+  and WebVTT exports. SRT files can't hold them. Frazier `.adc` scripts bring their speeds, base
+  speed and markers with them. The markers become [bookmarks](GETTING-STARTED.md#bookmarks).
 - **Stored readings:** Piper, Kokoro, Google and Amazon Polly readings are kept in your browser,
   up to 250 MB, so they play straight away next time and Google or Amazon isn't asked again. The **Storage** section
   of Settings shows them and can clear them.

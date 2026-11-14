@@ -84,6 +84,8 @@ export const GROUPS = [
     ['ttsPanel', 'Text to speech settings', ['Alt+Shift+KeyV']],
     ['soundsLike', 'Sounds like: how words in this block are said', ['Alt+Shift+KeyP']],
     ['comments', 'Comments', ['Alt+Shift+KeyC']],
+    ['bookmarkAdd', 'Add a bookmark at the playhead', ['KeyB']],
+    ['bookmarks', 'Bookmarks', ['Alt+Shift+KeyB']],
     ['aiHelp', 'AI help', ['Alt+Shift+KeyA']],
   ]],
   ['Record mode', [
@@ -114,7 +116,7 @@ export const RECORD = new Set(GROUPS.find(([g]) => g === 'Record mode')[1].map((
 // Actions that change the script, or help with writing it: off in Record mode.
 export const REC_LOCKED = new Set(['createEdit', 'newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'findReplace', 'setStart', 'setEnd',
   'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10',
-  'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'aiHelp', 'comments', 'offset']);
+  'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'aiHelp', 'comments', 'bookmarkAdd', 'bookmarks', 'offset']);
 // In Record mode, X and Delete still split a take and delete part of one, so their actions
 // can't share a key with a Record mode action.
 const IN_RECORD_TOO = new Set(['split', 'deleteNow']);

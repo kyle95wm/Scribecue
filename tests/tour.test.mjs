@@ -34,6 +34,12 @@ test('the tour covers sharing, comments, exports and what sharing sends', () => 
   // Transcribe mode has no comments.
   assert.match(share.text('write'), /Comments/);
   assert.doesNotMatch(share.text('transcribe'), /Comments/);
+  // Bookmarks are the writer's: their button is hidden in QC, so the step is too.
+  const marks = STEPS.find((s) => s.target === '#bookmarksBtn');
+  assert.equal(marks.title, 'Bookmarks');
+  assert.match(marks.text('write'), /flag on the ruler/);
+  assert.match(marks.text('transcribe'), /Frazier/);
+  assert.equal(STEPS.indexOf(marks), STEPS.indexOf(share) + 1, 'right after Share and Comments, as in the header');
   const out = STEPS.find((s) => s.title === 'Projects and exports');
   assert.match(out.text('write'), /QC package for a reviewer, a recording file for a narrator/);
   assert.doesNotMatch(out.text('transcribe'), /QC package|narrator/);

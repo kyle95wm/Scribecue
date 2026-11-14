@@ -137,6 +137,10 @@ try {
  await wait(`!!document.querySelector('.recopts #recDev') && !!document.querySelector('.recopts #recLead') && !!document.querySelector('.recopts #recTest')`);
  assert.equal((await modes()).record,true);
  await sleep(1500);
+ // Record mode's loop card shows once, after its setup (since 0.109.0); Got it closes it.
+ assert.equal(await js(`document.getElementById('tour').hidden`),false);
+ assert.equal(await js(`document.getElementById('tourNext').textContent`),'Got it');
+ await click('tourNext');
  assert.equal(await js(`document.getElementById('tour').hidden`),true);
  // Mic check, in its own window: the meter standing up, and the microphone let go when it closes.
  await js(`window.__long=[];true`);

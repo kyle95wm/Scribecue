@@ -38,6 +38,7 @@ takes them to another browser with your other settings.
 | `Shift+U` `U` | Previous / next block over dialogue, with a dialogue lane showing |
 | `Alt+Shift+←` `Alt+Shift+→` | Start of the block you're in, then the previous block / the next block, from the playhead |
 | `Home` `End` | Beginning / end of the video (`Fn+←` `Fn+→` on Mac laptops) |
+| `B` | [Bookmark](GETTING-STARTED.md#bookmarks) at the playhead, ready to name (Write and Transcribe) |
 | `Alt+Shift+J` | Jump to a timecode (`hh:mm:ss:ff`, `hh:mm:ss.mmm`, `mm:ss` or seconds) |
 | `Shift+F` | Quick navigation: find a block by text or number |
 | `+` `-` | Faster / slower playback |
@@ -102,6 +103,7 @@ takes them to another browser with your other settings.
 | `Alt+Shift+V` | Text to speech settings |
 | `Alt+Shift+P` | [Sounds like](WRITING.md) for the selected block |
 | `Alt+Shift+C` | Open or close Comments (Write and QC) |
+| `Alt+Shift+B` | Open or close Bookmarks (Write and Transcribe) |
 | `Alt+Shift+A` | Open or close [AI help](AI.md) |
 | `Alt+Shift+S` | Settings |
 | `Alt+=` `Alt+-` `Alt+0` | Zoom the timeline in / out / to fit |

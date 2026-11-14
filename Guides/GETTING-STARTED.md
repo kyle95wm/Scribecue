@@ -203,7 +203,7 @@ Double-click the video to float it in a window of its own. Every key still works
 ## Saving
 
 Press `Ctrl/Cmd+S` to save a **project** (`.scribecue`). It keeps everything: the blocks,
-their speeds, comments, your settings, where you were and which video goes with it. Keep one per
+their speeds, comments, bookmarks, your settings, where you were and which video goes with it. Keep one per
 programme. `Ctrl/Cmd+O` opens it again.
 
 - **Autosave:** once a project has a file, your changes are saved to it a couple of
@@ -233,6 +233,38 @@ Add your name if you like, write the comment, then click **Post comment**. Comme
 with the project or QC package.
 
 The [QC guide](QC.md) covers reviewing, resolving comments and returning the project.
+
+## Bookmarks
+
+Bookmarks are your own notes along the timeline, in Write and Transcribe: who appears when,
+where an act starts, or where you left off.
+
+![The Bookmarks list beside the video, with flags on the timeline's ruler](../docs/screenshots/bookmarks.png)
+
+- **Add one:** press `B`. It goes at the playhead. Type a name, then press `Enter`. The
+  video keeps playing.
+- **See them all:** click **Bookmarks** at the top, or press `Alt+Shift+B`.
+- **Go to one:** click its time in the list, or its flag on the ruler. Hover over a flag
+  to see its name.
+- **Change one:** click **Edit** to change its time, name, kind or notes.
+
+Each bookmark has a kind, with its own colour. The buttons at the top of the list show or
+hide each kind.
+
+| Kind | For |
+| --- | --- |
+| **Note** | Anything else |
+| **Character** | Someone's first appearance, with notes on who they are |
+| **Scene** | An act, a scene or an event, such as the credits |
+| **Left off here** | Where to pick up next time |
+
+Bookmarks save with the project. Others with an editing link see them too. QC packages and
+recording files leave them out.
+
+**From Frazier:** opening a Frazier `.adc` script brings its markers in as bookmarks. To add
+them to a project later, click **Import from Frazier…** in the list. Markers already there
+are skipped. Each one's kind is guessed from its name, such as **Left off here**. Everything
+else is a **Note**.
 
 ## Exporting
 
