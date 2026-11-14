@@ -69,7 +69,8 @@ To keep clear of captions already in the video, pick Classic and put the text at
 
 **Back up settings**, under **Storage**, saves your settings to a file. Import it in another
 browser to set it up the same way. Projects aren't in the file. API keys are only in it if
-you turn on **Include API keys** when exporting.
+you turn on **Include API keys** when exporting. To take everything, see
+[Moving your work](INSTALL.md#moving-your-work).
 
 ![Settings, with its sections down the left and General showing](../docs/screenshots/settings.png)
 

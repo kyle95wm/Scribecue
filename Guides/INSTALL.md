@@ -17,6 +17,7 @@ included, or to run Piper, Kokoro, Whisper or Ollama in containers next to it.
 - [The full mix in the video (ffmpeg)](#the-full-mix-in-the-video-ffmpeg)
 - [Ollama in Docker](#ollama-in-docker)
 - [On another computer](#on-another-computer)
+- [Moving your work](#moving-your-work), between the web version and Docker, or to another computer
 - [Updating](#updating)
 - [If something goes wrong](#if-something-goes-wrong)
 - [Development](#development), [Claude Code and Codex skills](#claude-code-and-codex-skills), and [running your own copy](#running-your-own-copy)
@@ -350,6 +351,39 @@ Restart Caddy. It gets the HTTPS certificate by itself.
   you trust.
 - **Give Scribecue its own domain or subdomain.** Other sites at the same address can read
   what the browser keeps for it, keys included.
+
+## Moving your work
+
+Each address keeps its own work in the browser. The web version, `http://localhost:8484/`
+and another port or computer don't see each other's. To move, take your work across in
+files.
+
+**In the copy you're leaving:**
+
+1. **Save each project:** **File → Save**. Blocks you haven't saved stay behind.
+2. **Back up your settings:** **Settings → Storage → Export settings…**. Turn on
+   **Include API keys** to take your Google, Amazon Polly, AI and TMDB keys too.
+3. **Recordings:** **Export → Session package**, or copy the takes folder. See
+   [Moving to another computer](RECORDING.md#moving-to-another-computer).
+4. **Projects you share:** make a [recovery link](SHARING.md#recovery-link). Only the
+   browser you shared from can change the links.
+
+**In the new copy:**
+
+1. **Settings → Storage → Import settings…**, and choose the file.
+2. Open each project. On another computer, copy the videos across first.
+3. Open each session package, and choose a folder for its takes.
+4. Open each shared project's link once.
+
+**Check the voices.** A project keeps its voice choices, not the voices.
+
+| Moving to | Do this |
+|---|---|
+| The web version | Download the Piper voices you use again. Kokoro isn't there: see [Voices on another computer](VOICES.md#voices-on-another-computer). |
+| Docker | Turn on Piper or Kokoro if you used them. |
+
+Another voice can take a different time to read, so timings may change. Waveforms are
+made again.
 
 ## Updating
 
