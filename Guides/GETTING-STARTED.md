@@ -247,7 +247,7 @@ use the **Export** menu at the top:
 - **DAW markers:** a WAV to record and place lines in another program. See below.
 - **Video with subtitles:** a copy of the video, as an MP4, with the script and the
   timecode on the picture. The script looks as it does over the video in Scribecue. Pick
-  a resolution: Original, 480p, 720p or 1080p. A smaller video is never made bigger. This
+  a resolution: Original, 480p, 720p or 1080p. Only those smaller than the video show. This
   needs [ffmpeg in Docker](INSTALL.md#the-full-mix-in-the-video-ffmpeg). Without it, you
   get the script and an ffmpeg command to run yourself.
 

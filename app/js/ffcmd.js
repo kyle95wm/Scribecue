@@ -49,6 +49,11 @@ export function extendedCommand({ video, mix, filter, out }) {
 // The script looks as it does over the video (see ffmpeg/server.py): size, bg and pos are
 // the "Text over the video" settings.
 export const BURN_HEIGHTS = [0, 480, 720, 1080];
+// The resolutions worth offering for a video `source` lines high: only those that make it
+// smaller, since the others would look the same as the original. 0 if unknown: all of them.
+export const burnHeights = (source) => BURN_HEIGHTS.filter((h) => !h || !source || h < source);
+// The resolution to use: the one chosen, or the original when the video is already smaller.
+export const burnHeight = (chosen, source) => (burnHeights(source).includes(chosen) ? chosen : 0);
 export const scaleTo = (h) => `scale=-2:min(${h}\\,trunc(ih/2)*2)`;
 export const BURN_SIZES = { s: 16, m: 20, l: 25, xl: 30 };
 const BOXES = { none: null, light: '8C', dark: '40', solid: '00' };

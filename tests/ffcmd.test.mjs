@@ -46,7 +46,7 @@ test('the extended video command uses the filter file and suits the container', 
   assert.match(extendedCommand({ video: 'a.webm', mix: 'm.wav', filter: 'p.txt', out: 'o.webm' }), /libvpx-vp9.*libopus/);
 });
 
-import { burnFilter, burnCommand, ffRate, plainName } from '../app/js/ffcmd.js';
+import { burnFilter, burnCommand, burnHeights, burnHeight, ffRate, plainName } from '../app/js/ffcmd.js';
 
 test('burn in: smaller first, then the timecode, then the script, as the server does', () => {
   const vf = burnFilter({ subs: true, timecode: true, size: 'l', bg: 'none', pos: 'top', height: 720 }, '25/1', 'Film.srt');
@@ -115,4 +115,15 @@ test('burn in: each resolution is a most, so a smaller video is never made bigge
   for (const h of [480, 720, 1080]) {
     assert.ok(burnFilter({ subs: true, height: h }, '25/1', 'x.srt').startsWith(`scale=-2:min(${h}\\,trunc(ih/2)*2),`), h);
   }
+});
+
+test('burn in: only resolutions that make the video smaller are offered', () => {
+  assert.deepEqual(burnHeights(2160), [0, 480, 720, 1080]);
+  assert.deepEqual(burnHeights(1080), [0, 480, 720]);
+  assert.deepEqual(burnHeights(720), [0, 480]);
+  assert.deepEqual(burnHeights(480), [0]);
+  assert.deepEqual(burnHeights(0), [0, 480, 720, 1080], 'not known yet: all of them');
+  assert.equal(burnHeight(720, 1080), 720);
+  assert.equal(burnHeight(1080, 1080), 0, 'the same size is the original');
+  assert.equal(burnHeight(720, 576), 0);
 });

@@ -47,7 +47,7 @@ import { initKeys, keyChanges, openKeys, shortcutEntries } from './keys.js';
 import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, RUN_OVER, runsPast, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey, isPersonalGoogleKey, checkGoogleKey, setProjectGoogleKey, usingProjectGoogleKey, useProjectVoice, VOICE_LOCKED } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
-import { ffmpegCommands, holdFilter, extendedCommand, burnCommand, BURN_HEIGHTS, ffRate, plainName } from './ffcmd.js';
+import { ffmpegCommands, holdFilter, extendedCommand, burnCommand, BURN_HEIGHTS, burnHeights, burnHeight, ffRate, plainName } from './ffcmd.js';
 import { buildDawMarkers, DAW_KINDS } from './dawmarkers.js';
 import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS } from './codecs.js';
 import { createLog, watchErrors, pictureWatch, report as diagReport, exposeReport } from './diagnostics.js';
@@ -5732,13 +5732,20 @@ const burnBar = $('burnBar'), burnStatus = $('burnStatus'), burnGo = $('burnGo')
 function showBurn() {
   $('burnSubs').setAttribute('aria-pressed', String(!!burnOpts.subs));
   $('burnTc').setAttribute('aria-pressed', String(!!burnOpts.timecode));
-  for (const b of $('burnHeight').querySelectorAll('button')) b.setAttribute('aria-pressed', String(+b.dataset.height === burnOpts.height));
+  // Only resolutions that make this video smaller. The choice is kept for the next video.
+  const fits = burnHeights(video.videoHeight), height = burnHeight(burnOpts.height, video.videoHeight);
+  for (const b of $('burnHeight').querySelectorAll('button')) {
+    b.hidden = !fits.includes(+b.dataset.height);
+    b.setAttribute('aria-pressed', String(+b.dataset.height === height));
+  }
+  $('burnRes').hidden = fits.length < 2;
   // The script looks as it does over the video.
   const name = (k) => CHOICES[k][0].find(([v]) => v === look[k])?.[1].toLowerCase();
   $('burnLook').textContent = burnOpts.subs ? `The script looks as it does over the video: ${name('subSize')} text, ${look.subBg === 'none'
     ? 'outlined' : `on a ${name('subBg')} background`}, at the ${look.subPos}. Change it in Settings, under Appearance.` : '';
 }
 const burnLook = () => ({ size: look.subSize, bg: look.subBg, pos: look.subPos });
+const burnJob = () => ({ ...burnOpts, height: burnHeight(burnOpts.height, video.videoHeight), ...burnLook() });
 function setBurn(k, v) {
   burnOpts = { ...burnOpts, [k]: v };
   try { localStorage.setItem('scribecue.burn', JSON.stringify(burnOpts)); } catch {}
@@ -5791,12 +5798,12 @@ async function makeBurn() {
     if (!(await ffmpegBurns())) {
       const srtName = `${plainName(base)} - script.srt`;
       saveBlob(new Blob([srt], { type: 'text/plain;charset=utf-8' }), srtName);
-      $('burnCmd').textContent = burnCommand({ video: file.name, srt: srtName, out: `${name}.mp4`, opts: { ...burnOpts, ...burnLook() }, rate: ffRate(S.fps), track: S.track });
+      $('burnCmd').textContent = burnCommand({ video: file.name, srt: srtName, out: `${name}.mp4`, opts: burnJob(), rate: ffRate(S.fps), track: S.track });
       $('burnCmds').hidden = false;
       return report(burnStatus, `Saved ${srtName}.`);
     }
     if (!FF_VIDEOS.includes(ext)) throw new Error(`ffmpeg can make it from an MP4, MOV, MKV or WebM video, not a .${ext} file`);
-    const { id } = await ffCall('POST', 'jobs', { burn: { ...burnOpts, ...burnLook() }, video: ext, track: S.track || 0, name });
+    const { id } = await ffCall('POST', 'jobs', { burn: burnJob(), video: ext, track: S.track || 0, name });
     ffJob = id;
     if (burnOpts.subs) await ffPut(`jobs/${id}/subs`, new Blob([srt], { type: 'text/plain' }), () => {});
     const gb = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.round(n / 1e6)} MB`);
