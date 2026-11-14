@@ -36,6 +36,23 @@ export function from24(bytes) {
   return out;
 }
 
+// Raw 24-bit samples (a Blob) with the first `fadeIn` and last `fadeOut` samples faded,
+// in a straight line from and to silence: a part of a take, so its cut ends don't click.
+// Only the ends are read; the rest stays in the Blob.
+export async function fadeEnds24(pcm, fadeIn, fadeOut) {
+  const n = Math.floor(pcm.size / 3), a = Math.min(fadeIn, n), z = Math.min(fadeOut, n - a);
+  if (!a && !z) return pcm;
+  const ramp = async (from, m, up) => {
+    const b = new Uint8Array(await pcm.slice(from * 3, (from + m) * 3).arrayBuffer());
+    for (let k = 0, o = 0; k < m; k++, o += 3) {
+      const v = Math.round(((b[o] | (b[o + 1] << 8) | (b[o + 2] << 16)) << 8 >> 8) * (up ? k + 0.5 : m - k - 0.5) / m);
+      b[o] = v & 255; b[o + 1] = (v >> 8) & 255; b[o + 2] = (v >> 16) & 255;
+    }
+    return b;
+  };
+  return new Blob([await ramp(0, a, true), pcm.slice(a * 3, (n - z) * 3), await ramp(n - z, z, false)]);
+}
+
 // A 24-bit mono WAV file from raw 24-bit samples (a Blob or bytes): what a take is kept as.
 export function wav24(pcm, rate = 48000) {
   const len = pcm.byteLength ?? pcm.size;

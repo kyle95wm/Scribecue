@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, nextRecording, START_OVER, typedStartOver, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, GRACES, readGrace, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver, videoDb, videoDbText, VIDEO_DB_MIN, leadInParts, partEnds, stepEnd } from '../app/js/recording.js';
-import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
+import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, nextRecording, START_OVER, typedStartOver, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, GRACES, readGrace, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver, videoDb, videoDbText, VIDEO_DB_MIN, leadInParts, partEnds, stepEnd, EDGE_FADE } from '../app/js/recording.js';
+import { buildBwf, wav24, to24, from24, readNote, fadeEnds24 } from '../app/js/bwf.js';
 
 const blocks = [
   { start: 2, end: 5, text: 'One.', speed: 1.1 },
@@ -702,4 +702,42 @@ test('starting over needs START OVER typed exactly, in capitals', () => {
   assert.ok(typedStartOver('START OVER'));
   assert.ok(typedStartOver('  START OVER\n'));
   for (const t of ['start over', 'Start Over', 'START OVER!', 'STARTOVER', 'START  OVER', '', null, undefined]) assert.equal(typedStartOver(t), false, String(t));
+});
+
+test('each part of a take fades in and out, except where it carries straight on', () => {
+  const t = { id: 'a', start: 10, duration: 4 };
+  const [whole] = pieces(t);
+  assert.deepEqual([whole.fadeIn, whole.fadeOut], [EDGE_FADE, EDGE_FADE], 'a take on its own');
+  const split = { ...t, edit: splitAt(t, 12) };
+  const [a, b] = pieces(split);
+  assert.deepEqual([a.fadeIn, a.fadeOut, b.fadeIn, b.fadeOut], [EDGE_FADE, 0, 0, EDGE_FADE], 'a split nobody moved plays on without a dip');
+  const moved = { ...t, edit: { splits: [2], parts: [{ shift: 0, head: 0, tail: 0 }, { shift: 0.5, head: 0, tail: 0 }] } };
+  assert.deepEqual(pieces(moved).map((p) => [p.fadeIn, p.fadeOut]), [[EDGE_FADE, EDGE_FADE], [EDGE_FADE, EDGE_FADE]], 'moved apart');
+  const trimmed = { ...t, edit: { splits: [2], parts: [{ shift: 0, head: 0, tail: 0.3 }, { shift: -0.3, head: 0, tail: 0 }] } };
+  assert.deepEqual(pieces(trimmed).map((p) => [p.fadeIn, p.fadeOut]), [[EDGE_FADE, EDGE_FADE], [EDGE_FADE, EDGE_FADE]], 'a pause cut out');
+  const tiny = pieces({ id: 'b', start: 0, duration: 0.004 })[0];
+  assert.equal(tiny.fadeIn, 0.002, 'never more than half the part');
+});
+
+test('a part’s ends are faded from and to silence in the export', async () => {
+  const n = 1000, flat = new Float32Array(n).fill(0.5);
+  const out = from24(new Uint8Array(await (await fadeEnds24(new Blob([to24(flat)]), 10, 20)).arrayBuffer()));
+  assert.equal(out.length, n);
+  assert.ok(Math.abs(out[0] - 0.025) < 1e-4, 'starts near silence');
+  assert.ok(out[0] < out[5] && out[5] < out[9]);
+  assert.ok(Math.abs(out[10] - 0.5) < 1e-6 && Math.abs(out[n - 21] - 0.5) < 1e-6, 'the middle is as recorded');
+  assert.ok(Math.abs(out[n - 1] - 0.0125) < 1e-4, 'ends near silence');
+  const same = new Blob([to24(flat)]);
+  assert.equal(await fadeEnds24(same, 0, 0), same, 'nothing to fade: the same Blob');
+  const short = from24(new Uint8Array(await (await fadeEnds24(new Blob([to24(flat.subarray(0, 4))]), 10, 10)).arrayBuffer()));
+  assert.equal(short.length, 4, 'a fade longer than the part keeps its length');
+});
+
+test('the BWF export fades each part where it was cut', async () => {
+  const pcm = await fadeEnds24(new Blob([to24(new Float32Array(480).fill(0.5))]), 240, 240);
+  const wav = buildBwf({ takes: [{ start: 0, pcm }], secs: 0.02, rate: 48000 });
+  const bytes = new Uint8Array(await wav.arrayBuffer());
+  const data = bytes.length - 960 * 3; // the samples are at the end
+  const s = from24(bytes.subarray(data));
+  assert.ok(s[0] < 0.01 && s[479] < 0.01 && s[240] > 0.49, 'silence at the cuts, full in the middle');
 });

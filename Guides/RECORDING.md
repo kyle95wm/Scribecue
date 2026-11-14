@@ -199,6 +199,7 @@ waveform and the video's are sharp enough to line up single sounds.
 | Trim silence, start at block, fit in slot or reset | Right-click it |
 
 - Dragged edges snap to the block's start, the slot's end, the playhead and the other parts.
+- Each part fades in and out over 5 ms as it plays and exports, so cutting into a word doesn't click. A split you haven't moved plays straight on.
 - **Trim silence** cuts the quiet off both ends of every part. A click on its own goes too, such as the key you stopped with.
 - **Start at block** moves the take so its sound starts where the block does.
 - **Trim and start at block** does both, in that order. S does the same.

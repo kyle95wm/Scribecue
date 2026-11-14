@@ -331,13 +331,22 @@ export function fullEdit(t) {
 const bounds = (t, splits) => [0, ...splits, t.duration];
 
 // The parts of a take as heard and exported, in time order: { ...t, start, duration, head,
-// part, key }, where head is how far into the recording the part's sound begins.
+// part, key, fadeIn, fadeOut }, where head is how far into the recording the part's sound
+// begins. A trim or split can cut into a word, and the jump to silence clicks, so each end
+// fades over EDGE_FADE seconds (fadeIn, fadeOut). Where a part carries straight on from the
+// one before, in the recording and in time, as after a split nobody moved, there's no fade.
+export const EDGE_FADE = 0.005;
 export function pieces(t) {
   const { splits, parts } = fullEdit(t), b = bounds(t, splits);
-  return parts.flatMap((p, k) => {
+  const ps = parts.flatMap((p, k) => {
     if (p.cut) return [];
     const head = b[k] + p.head;
     return [{ ...t, start: t.start + head + p.shift, duration: Math.max(0, b[k + 1] - p.tail - head), head, part: k, key: `${t.id}:${k}` }];
+  });
+  const joins = (a, z) => !!a && !!z && Math.abs(a.head + a.duration - z.head) < 5e-4 && Math.abs(a.start + a.duration - z.start) < 5e-4;
+  return ps.map((p, i) => {
+    const f = Math.min(EDGE_FADE, p.duration / 2);
+    return { ...p, fadeIn: joins(ps[i - 1], p) ? 0 : f, fadeOut: joins(p, ps[i + 1]) ? 0 : f };
   });
 }
 
