@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.116.1",
+    "date": "2026-11-14",
+    "notes": "## Text over the video\n\n- With **Style: Burnt in**, the text over the video is now always at the bottom, as burnt-in subtitles are. **Position** is greyed out, with Size and Background.\n- To keep clear of captions already in the video, pick **Classic** and put the text at the **Top**. Scribecue keeps the position you chose before."
+  },
+  {
     "version": "0.116.0",
     "date": "2026-11-14",
     "notes": "## Text over the video\n\n- With **Style: Burnt in**, the text over the video always looks as burnt-in subtitles do: medium, outlined, with no background. **Size** and **Background** are greyed out.\n- Pick **Classic** to choose them again. Scribecue keeps what you chose before.\n- **Position** works with both styles."
