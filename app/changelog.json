@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.115.0",
+    "date": "2026-11-14",
+    "notes": "## Text over the video\n\n- Don't like the new look? In **Settings → Appearance**, set **Style** to **Classic** for the text over the video as it was before 0.114.0.\n- For the old dark box too, set **Background** to **Dark**.\n- **Burnt in** stays the default."
+  },
+  {
     "version": "0.114.0",
     "date": "2026-11-14",
     "notes": "## Exports for other tools\n\n- **Export → DAW markers** saves a WAV with a marker or a region for each block. Import it into Logic Pro or Reaper to record and place lines there.\n- A tone plays while each block lasts, so you can see the blocks on the timeline.\n- **Export → Video with subtitles** makes an MP4 with the script and the timecode on the picture, to record or review against.\n- Pick a resolution for it. Only sizes smaller than the video are offered.\n\n## Text over the video\n\n- The text now has white letters with an outline and a soft shadow, as burnt-in subtitles do. **Background behind it** now starts as **None**.\n- It keeps the same size against the picture, at any player size, docked or floating.\n\n## Floating video\n\n- Right-click the floating video to pick a size (0.25× to 3×), go full screen or center it."
