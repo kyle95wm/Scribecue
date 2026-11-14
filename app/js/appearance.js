@@ -9,6 +9,8 @@ export const KEY = 'scribecue.appearance';
 // [name, choices, default]. Each choice is [value, label].
 export const CHOICES = {
   accent: [[['amber', 'Amber'], ['violet', 'Violet'], ['teal', 'Teal'], ['magenta', 'Magenta']], 'amber'],
+  // Burnt in: as in a video with subtitles (0.114.0 on). Classic: as before 0.114.0.
+  subStyle: [[['burnt', 'Burnt in'], ['classic', 'Classic']], 'burnt'],
   subSize: [[['s', 'Small'], ['m', 'Medium'], ['l', 'Large'], ['xl', 'Extra large']], 'm'],
   // No background by default: an outline and a shadow, as subtitles are burnt in.
   subBg: [[['none', 'None'], ['light', 'Light'], ['dark', 'Dark'], ['solid', 'Solid']], 'none'],
@@ -19,6 +21,7 @@ export const CHOICES = {
 // What each choice is called, for setup's summary.
 export const NAMES = {
   accent: 'Highlight colour',
+  subStyle: 'Text over the video looks',
   subSize: 'Text over the video',
   subBg: 'Background behind it',
   subPos: 'Text over the video goes at the',
