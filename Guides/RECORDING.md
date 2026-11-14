@@ -408,7 +408,7 @@ copied folder.
 ### Deleting takes
 
 - **In a folder,** the takes are your own files. Delete the folder when you're done.
-- **In the browser,** click **Delete all** next to **Recorded takes** in **Settings →
-  Offline and storage**. It deletes them from every recording.
+- **In the browser,** click **Delete…** next to **Recorded takes** in **Settings → Storage**
+  (**Offline and storage** on the web). Choose the recordings to delete, by video name. The others stay.
 
 Export any narration you still need first.

@@ -24,7 +24,7 @@ import { readNote, narrationSound } from './bwf.js';
 import { inPause } from './narrationscan.js';
 import { readZip } from './zip.js';
 import { initRecord } from './record.js';
-import { takesInfo, clearTakes, unpackSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser } from './takestore.js';
+import { takesInfo, takeGroups, deleteTakesOf, unpackSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser } from './takestore.js';
 import { isSessionPackage, fromSession, SESSION_FILE } from './session.js';
 import { picker, refused } from './pickers.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
@@ -7281,7 +7281,8 @@ initOffline({
   whisper: () => stt.ready,
   readings: () => savedReadings(),
   takes: () => takesInfo(),
-  clearTakes: async () => { await clearTakes(); await recorder.refreshSession(); },
+  takeGroups: () => takeGroups(),
+  deleteTakes: async (keys) => { await deleteTakesOf(keys); await recorder.refreshSession(); },
   clearReadings: () => clearSavedReadings(),
   openTts: () => openTts(),
   openStt: () => openStt(),

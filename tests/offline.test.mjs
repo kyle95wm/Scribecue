@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { offlineLabel, checklist, wipeWarning } from '../app/js/offline.js';
+import { offlineLabel, checklist, wipeWarning, takeGroupText, deleteTakesLabel } from '../app/js/offline.js';
 
 test('the bottom bar says when you’re offline, and in the web version when it isn’t ready', () => {
   assert.deepEqual(offlineLabel({ hosted: true, offline: true, ready: true }), { text: 'offline', on: true });
@@ -71,4 +71,17 @@ test('removing everything warns about shared projects kept here', () => {
   assert.match(w, /You own 1 shared project here without a recovery link\. Afterwards, nobody can change its links or stop sharing it/);
   assert.match(w, /To open 2 shared projects you joined again, you’ll need their links and passwords/);
   assert.equal(wipeWarning({ unsaved: 0, offline: false, hosted: true, shares: { owned: 1, unrecovered: 0, joined: 0 } }), 'This can’t be undone. Afterwards Scribecue opens as if for the first time.');
+});
+
+test('the window for deleting takes names each recording', () => {
+  const date = (iso) => iso.slice(0, 10);
+  const g = { keys: ['p1-0'], video: 'film.mp4', version: 3, saved: '2026-11-12T10:00:00Z', count: 120, bytes: 900e6, open: false, older: false };
+  assert.deepEqual(takeGroupText(g, date), { title: 'film.mp4', detail: 'Version 3, 120 takes, 900 MB, last saved 2026-11-12.' });
+  assert.match(takeGroupText({ ...g, open: true }, date).detail, /Open in Record mode now/);
+  assert.deepEqual(takeGroupText({ ...g, video: null, version: null, saved: null, count: 1, bytes: 10 }, date),
+    { title: 'Recording without a video', detail: '1 take, less than 1 MB.' });
+  assert.equal(takeGroupText({ ...g, older: true }, date).title, 'Older takes');
+  assert.equal(deleteTakesLabel([]), 'Delete');
+  assert.equal(deleteTakesLabel([{ count: 1 }]), 'Delete 1 take');
+  assert.equal(deleteTakesLabel([{ count: 2 }, { count: 3 }]), 'Delete 5 takes');
 });

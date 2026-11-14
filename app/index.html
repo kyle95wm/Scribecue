@@ -806,6 +806,14 @@ docker compose up -d --build</code></pre>
       pay for what they use. Keep it private, and delete it once it's imported.</p>
     <div class="updbtns"><button id="setsSave" class="hl">Export</button><button id="setsExportCancel">Cancel</button></div>
   </dialog>
+  <dialog id="takesDlg" class="updbox" aria-labelledby="takesTitle">
+    <h2 id="takesTitle">Delete recorded takes</h2>
+    <p>Choose the recordings whose takes to delete from this browser. The others stay.</p>
+    <p class="updstatus"><button id="takesAll" aria-pressed="false">All recordings</button></p>
+    <ul id="takesList" class="offlinelist takeslist"></ul>
+    <p id="takesWarn" class="warnbox">This can’t be undone. Takes in folders on your computer stay. Export any narration you still need first.</p>
+    <div class="updbtns"><button id="takesGo" class="danger" disabled>Delete</button><button id="takesCancel">Cancel</button></div>
+  </dialog>
   <dialog id="leaveDlg" class="updbox" aria-labelledby="leaveTitle">
     <h2 id="leaveTitle">Leave this shared project?</h2>
     <p>You won’t see others’ changes, and yours won’t reach them.</p>
