@@ -103,6 +103,41 @@ the nearest existing part and reuse how it does it.
 - If something truly needs a new style or token, add it to `style.css` with the others, and
   say so.
 
+## Where things go
+
+Every part of the window has a job. Put a new feature in the part whose job it fits. Don't
+add a button to the header for it.
+
+| Part | What goes there |
+|---|---|
+| Header, left | The name, the mode switch, and the project and media names. |
+| Header, right | Menus and actions for the whole project: ⇄, **File**, **Export**, Share, Settings, Shortcuts. Nothing else. |
+| **File** menu | Starting, opening and saving projects. |
+| **Export** menu | Anything that makes a file to hand on, in the group for who it's for. |
+| Side bar (`#rail`) | One icon for each drawer beside the video: Comments, Bookmarks, AI help. |
+| Drawers (`.aidrawer`) | Work that sits beside the video while you write, opened from the side bar. |
+| Block editor, in the list | Anything about one block. |
+| Under the video (`#ctrls`, `#ind`) | Playback, and settings that are on now. Indicators show only while on. |
+| Timeline | Things at a time: blocks, takes, bookmarks, comments. |
+| Footer | Key hints for the mode, and the version. |
+| Settings | Choices you set once. Add a section with `addSection`, or add to the nearest one. |
+| Dialogs (`.updbox`) | One task at a time, such as an export's options. |
+| Toasts | Short messages that something happened, or why it didn't. |
+| Under the header (`#jobBox`) | Long jobs, with progress and Stop. |
+
+- **Header space is spent.** It must fit a window about 900 px wide. If something seems to
+  belong there, ask first, and say what moves to make room.
+- **A new drawer** gets an icon in the side bar: our own line drawing, a short name in
+  `aria-label` and `data-tip`, with its key. Opening it closes the other drawers, and opening
+  them closes it (see `closeOthers` and `closeAi` in `app.js`). Hide its icon in modes it
+  doesn't work in.
+- **A new menu item** goes in the group it fits, with its key on the right, as in File and
+  Export.
+- **Keys:** every action has one in `keymap.js`, shown in the shortcuts overlay. Add it to
+  the footer's hints only if it's used all the time.
+- When a part gets crowded, say so, and suggest a home for its contents, rather than
+  squeezing more in.
+
 ## Screenshots
 
 If a change visibly alters what the README screenshots show, retake them with
