@@ -45,9 +45,9 @@ line.
 
 ### Choosing the description track
 
-If the file has more than one audio track, an **Audio** picker appears under the video, and
-a track marked as audio description is picked for you. If you can't hear the narration,
-press `T` to switch tracks.
+If the file has more than one audio track, an **Audio** picker appears under the video.
+The file's default track plays first, which is usually the original mix. Press `T` to
+switch to the description track.
 
 The best track to work from is **narration only**, if your file has one: the waveform
 shows exactly where each line is, and speech to text hears only the narrator. Most files
