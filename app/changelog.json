@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.117.0",
+    "date": "2026-11-14",
+    "notes": "## Opening Frazier scripts\n\n- If you use the script's voices and they're all set up in Scribecue, such as your Google Cloud voices, Scribecue keeps the script's timings without asking. Frazier timed the blocks with those voices, so they already fit.\n- Choose other voices, or open a script whose voices aren't set up here, and Scribecue still asks what to do with the timings."
+  },
+  {
     "version": "0.116.1",
     "date": "2026-11-14",
     "notes": "## Text over the video\n\n- With **Style: Burnt in**, the text over the video is now always at the bottom, as burnt-in subtitles are. **Position** is greyed out, with Size and Background.\n- To keep clear of captions already in the video, pick **Classic** and put the text at the **Top**. Scribecue keeps the position you chose before."
