@@ -28,9 +28,9 @@ export const NAMES = {
   textSize: 'Text size in the list and editor',
 };
 
-// Burnt in has the burn-in script's size and background, so those two only apply to
-// Classic. They stay stored, and come back when Classic is picked again.
-export const BURNT_FIXED = { subSize: 'm', subBg: 'none' };
+// Burnt in has the burn-in script's size, background and position, so those only apply
+// to Classic. They stay stored, and come back when Classic is picked again.
+export const BURNT_FIXED = { subSize: 'm', subBg: 'none', subPos: 'bottom' };
 export const shownAppearance = (a) => (a.subStyle === 'classic' ? a : { ...a, ...BURNT_FIXED });
 export const fixedChoice = (a, name) => a.subStyle !== 'classic' && name in BURNT_FIXED;
 
