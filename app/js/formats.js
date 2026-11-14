@@ -195,6 +195,12 @@ export function scriptVoices({ cues, voice }) {
   }
   return out;
 }
+// The script's timings were made with its voices, so they hold when every one of them is
+// here to read with, and no block falls back to another voice for want of one.
+export function scriptVoicesHere({ cues, voice }, here) {
+  const list = scriptVoices({ cues, voice });
+  return list.length > 0 && list.every((v) => here.includes(v.uri)) && (!!voice || cues.every((c) => c.voice));
+}
 // Each block voice swapped for the one picked: swaps maps a voice to another, or to '' for
 // the project's voice (main). A block left with the project's voice has none of its own.
 export function swapVoices(cues, swaps, main) {

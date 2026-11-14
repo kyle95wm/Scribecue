@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseTime, fmtTime, fmtTC, parseTC, isDropFrame, parseSubs, parseAdc, scriptVoices, swapVoices, adcText, tidyText, toSRT, toVTT } from '../app/js/formats.js';
+import { parseTime, fmtTime, fmtTC, parseTC, isDropFrame, parseSubs, parseAdc, scriptVoices, scriptVoicesHere, swapVoices, adcText, tidyText, toSRT, toVTT } from '../app/js/formats.js';
 
 test('timecode counts frames at the video’s rate', () => {
   assert.equal(fmtTC(0, 25), '00:00:00:00');
@@ -218,6 +218,23 @@ test('parseAdc gives the document’s voice, and scriptVoices lists every voice 
   assert.deepEqual(scriptVoices(parseAdc(JSON.stringify({ cue_points: [{ start: 0, end: 1, text: 'a' }] }))), []);
   assert.deepEqual(scriptVoices(parseAdc(JSON.stringify({ cue_points: [{ start: 0, end: 1, text: 'a', voice: 'en-GB-Standard-A' }] }))),
     [{ uri: 'google:en-GB-Standard-A', main: false, blocks: 1 }]);
+});
+
+test('scriptVoicesHere: the script’s timings hold only when every voice it reads with is here', () => {
+  const adc = parseAdc(JSON.stringify({ voice: 'en-US-Standard-J', cue_points: [
+    { start: 0, end: 500, text: 'a' },
+    { start: 1000, end: 1500, text: 'b', voice: 'en-GB-Standard-A' },
+  ] }));
+  const both = ['google:en-US-Standard-J', 'google:en-GB-Standard-A'];
+  assert.equal(scriptVoicesHere(adc, both), true);
+  assert.equal(scriptVoicesHere(adc, ['google:en-US-Standard-J']), false);
+  assert.equal(scriptVoicesHere(adc, []), false);
+  // No voice for the script: blocks without their own read with another voice.
+  const some = parseAdc(JSON.stringify({ cue_points: [{ start: 0, end: 1, text: 'a', voice: 'en-GB-Standard-A' }, { start: 2, end: 3, text: 'b' }] }));
+  assert.equal(scriptVoicesHere(some, both), false);
+  const all = parseAdc(JSON.stringify({ cue_points: [{ start: 0, end: 1, text: 'a', voice: 'en-GB-Standard-A' }] }));
+  assert.equal(scriptVoicesHere(all, both), true);
+  assert.equal(scriptVoicesHere(parseAdc(JSON.stringify({ cue_points: [{ start: 0, end: 1, text: 'a' }] })), both), false);
 });
 
 test('swapVoices replaces block voices, and drops one that becomes the project’s voice', () => {

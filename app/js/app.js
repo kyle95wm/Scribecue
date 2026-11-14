@@ -7,7 +7,7 @@ import { cleanComments, commentsAllowed } from './comments.js';
 import { cleanEdited, stampEdits, seedEdits, editorCount, editedLine, blockSig } from './edits.js';
 import { savedName, saveName, editorId, validEditorId } from './profile.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
-import { parseSubs, parseAdc, tidyText, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
+import { parseSubs, parseAdc, tidyText, scriptVoices, scriptVoicesHere, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
 import { CHOICES, DEFAULTS, shownAppearance, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
@@ -3587,9 +3587,12 @@ function runImportChoice(choice) {
   if (choice !== 'fit' && choice !== 'ends') return;
   asJob(() => (choice === 'fit' ? fitAllSpeeds(false) : updateAllTimings(false)));
 }
-function afterImport(name) {
+// ownVoices, the toast from loading it: the script reads with its own voices, all here, as
+// Frazier read it, so its timings already fit. Keep them without asking.
+function afterImport(name, ownVoices = '') {
   if (!ttsOn() || !S.cues.some((c) => spoken(c.text))) return;
   if (tts.onImport !== 'ask') return runImportChoice(tts.onImport);
+  if (ownVoices) return toast(`${ownVoices}. Its timings stay as they are, since it reads with its own voice${voiceList.length > 1 ? 's' : ''}`);
   const n = S.cues.length;
   $('impWhat').textContent = `${name} has ${n} block${n > 1 ? 's' : ''} with timings of ${n > 1 ? 'their' : 'its'} own.`;
   $('impAlways').checked = false;
@@ -5852,21 +5855,25 @@ async function loadSubsFile(file) {
   // A Frazier script's base speed comes with it.
   const base = adc && adc.base !== tts.base ? adc.base : null;
   if (base) setTtsOption('base', base);
-  toast(`Loaded ${parsed.length} cues from ${file.name}${base ? `, at a base speed of ${Math.round(base * 100)}%` : ''}${undoStack.length > 1 ? ' — undo restores previous' : ''}`);
-  await askVoices(adc, file.name);
-  afterImport(file.name);
+  const loaded = `Loaded ${parsed.length} cues from ${file.name}${base ? `, at a base speed of ${Math.round(base * 100)}%` : ''}`;
+  toast(`${loaded}${undoStack.length > 1 ? ' — undo restores previous' : ''}`);
+  afterImport(file.name, await askVoices(adc, file.name) && loaded);
 }
 
 // A Frazier script names a Google voice for itself, and maybe others for some blocks: ask
 // whether to read with them, or with others. Closing the question, or with text to speech
-// off, keeps the voice in Settings, and blocks keep their own.
+// off, keeps the voice in Settings, and blocks keep their own. Gives true when the script
+// reads with its own voices, all of them here, so its timings already fit the readings.
 const voiceDlg = $('voiceDlg');
-let voiceList = [], voiceDone = null;
+let voiceList = [], voiceDone = null, voiceAdc = null, voiceKept = false;
 const andList = (a) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} and ${a.at(-1)}` : a[0]);
 const blocksOf = (n) => `${n} block${n === 1 ? '' : 's'}`;
 function askVoices(adc, name) {
   voiceList = adc ? scriptVoices({ cues: S.cues, voice: adc.voice }) : [];
-  if (!ttsOn() || voiceLocked() || !voiceList.length || (voiceList.length === 1 && voiceList[0].main && [tts.voice, chosenVoice()].includes(voiceList[0].uri))) return Promise.resolve();
+  voiceAdc = adc && { cues: S.cues, voice: adc.voice };
+  voiceKept = false;
+  if (!ttsOn() || voiceLocked() || !voiceList.length) return Promise.resolve(false);
+  if (voiceList.length === 1 && voiceList[0].main && [tts.voice, chosenVoice()].includes(voiceList[0].uri)) return Promise.resolve(scriptHere());
   const main = voiceList.find((v) => v.main), own = voiceList.filter((v) => !v.main);
   $('voiceWhat').textContent = main
     ? `${name} reads with ${voiceLabel(main.uri)}${own.length ? `, and ${andList(own.map((v) => `${blocksOf(v.blocks)} with ${voiceLabel(v.uri)}`))}` : ''}.`
@@ -5887,6 +5894,7 @@ function askVoices(adc, name) {
   voiceDlg.querySelector('.wzchoice').focus();
   return new Promise((resolve) => { voiceDone = resolve; });
 }
+const scriptHere = () => !!voiceAdc && scriptVoicesHere(voiceAdc, reviewVoices().map((v) => v.id));
 // One menu for each of the script's voices: the project's voice starts at the one in
 // Settings, and a block voice at itself, or the project's voice.
 function fillVoiceRows() {
@@ -5914,7 +5922,10 @@ function useVoices(picks) {
 }
 for (const b of voiceDlg.querySelectorAll('.wzchoice')) {
   b.addEventListener('click', () => {
-    if (b.dataset.choice === 'script') return useVoices(voiceList.map((v) => ({ ...v, to: v.uri })));
+    if (b.dataset.choice === 'script') {
+      voiceKept = scriptHere();
+      return useVoices(voiceList.map((v) => ({ ...v, to: v.uri })));
+    }
     fillVoiceRows();
     $('voiceAsk').hidden = true;
     $('voicePick').hidden = false;
@@ -5929,7 +5940,7 @@ $('voiceBack').addEventListener('click', () => {
 $('voiceUse').addEventListener('click', () => {
   useVoices([...$('voiceRows').querySelectorAll('select')].map((sel) => ({ uri: sel.dataset.uri, main: !!sel.dataset.main, to: sel.value })));
 });
-voiceDlg.addEventListener('close', () => { voiceDone?.(); voiceDone = null; });
+voiceDlg.addEventListener('close', () => { voiceDone?.(voiceKept); voiceDone = null; });
 voiceDlg.addEventListener('click', (e) => { if (e.target === voiceDlg) voiceDlg.close(); });
 document.addEventListener('keydown', (e) => { if (voiceDlg.open) e.stopPropagation(); }, true);
 

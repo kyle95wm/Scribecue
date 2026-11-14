@@ -210,6 +210,9 @@ asks whether to update the blocks' ends to match, or leave them.
 **When a Frazier `.adc` script names voices,** Scribecue first asks whether to use them.
 Choose other voices to pick one in place of each.
 
+If you use the script's voices and all of them are set up here, its timings already fit.
+Scribecue keeps them and doesn't ask about timings.
+
 Tick **Always do this** on the timings questions to stop them asking. You can change your answer
 later in the text to speech settings.
 
