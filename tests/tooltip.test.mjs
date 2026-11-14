@@ -41,3 +41,11 @@ test('a tooltip that fits neither way takes the side with more room, still insid
 test('a tooltip wider than the window starts at its margin', () => {
   assert.equal(placeTip(box(100, 100), { width: 2000, height: 40 }, view).x, 8);
 });
+
+test('an icon down the right edge has its tooltip beside it, level with it', () => {
+  const size = { width: 120, height: 28 };
+  const p = placeTip(box(1245, 60, 30, 30), size, view, { left: true });
+  assert.deepEqual(p, { x: 1245 - 8 - 120, y: 61, side: 'left' });
+  // No room on the left: below, as usual.
+  assert.equal(placeTip(box(20, 60, 30, 30), size, view, { left: true }).side, 'below');
+});

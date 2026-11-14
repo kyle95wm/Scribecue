@@ -48,7 +48,7 @@ for its part of Scribecue: see [More help](#more-help).
 | Blocks and settings are gone, in Docker | Open Scribecue at the same address and port as before. Each address keeps its own work. |
 | Moving to another browser or computer | In **Settings → Storage**, click **Export settings…**. In the new browser, click **Import settings…**. Save your work as a project to take it too. |
 | Worried the browser may clear your work | In **Settings → Offline and storage**, click **Keep it safe**. Saving a project keeps it safe either way. |
-| Wrong blocks after **New** | Press `Ctrl/Cmd+Z` to bring them back. |
+| Wrong blocks after **File, New** | Press `Ctrl/Cmd+Z` to bring them back. |
 
 ## Voices
 

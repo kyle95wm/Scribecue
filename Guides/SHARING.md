@@ -65,7 +65,7 @@ the owner saves and exports it.
 
 ## Coming back to a shared project
 
-Click **Shared projects** in the header, then click the project. It opens without its link
+Click **File**, then **Shared projects…**, then click the project. It opens without its link
 or password.
 
 - **The list** has the shared projects in this browser, last opened first. Yours say
@@ -162,7 +162,7 @@ the start of the link, before the `#`, to your Docker address, such as `http://l
 | Replace a link | **Turn off**, then **Make link** | Only people with the new link and password can open it |
 | Stop sharing | **Stop sharing**, in Share | Every link stops working, and the sharing service's copy is deleted. The project closes for everyone else. Your copy stays |
 | Leave someone's project | **Leave**, in Share | The project is removed from this browser. To keep it as your own, click **Keep a copy here** first |
-| Work on something else | **New**, or open another project | The shared project stays in this browser. Open it again from **Shared projects**. Changes not sent yet go then |
+| Work on something else | **File, New…**, or open another project | The shared project stays in this browser. Open it again from **File, Shared projects…**. Changes not sent yet go then |
 
 **Your saved project file** is a copy of the shared project as it was when you saved. If
 you open it in a browser that has the shared project, Scribecue asks first. It can open the

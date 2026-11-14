@@ -31,16 +31,23 @@ test('the tour covers sharing, comments, exports and what sharing sends', () => 
   const share = STEPS.find((s) => s.target === '#shareBtn');
   assert.equal(share.title, 'Working together');
   assert.match(share.text('write'), /link and a password/);
-  // Transcribe mode has no comments.
-  assert.match(share.text('write'), /Comments/);
-  assert.doesNotMatch(share.text('transcribe'), /Comments/);
-  // Bookmarks are the writer's: their button is hidden in QC, so the step is too.
+  // The side panels: only those each mode has. Transcribe mode has no comments.
+  const rail = STEPS.find((s) => s.target === '#rail');
+  assert.equal(rail.title, 'Side panels');
+  assert.match(rail.text('write'), /^Comments, Bookmarks and AI help open/);
+  assert.match(rail.text('write'), /again to close it/);
+  assert.match(rail.text('qc'), /^Comments opens/);
+  assert.doesNotMatch(rail.text('qc'), /Bookmarks|AI help/);
+  assert.doesNotMatch(rail.text('transcribe'), /Comments/);
+  assert.equal(STEPS.indexOf(rail), STEPS.indexOf(share) + 1, 'right after Share');
+  // Bookmarks are the writer's: their icon is hidden in QC, so the step is too.
   const marks = STEPS.find((s) => s.target === '#bookmarksBtn');
   assert.equal(marks.title, 'Bookmarks');
   assert.match(marks.text('write'), /flag on the ruler/);
   assert.match(marks.text('transcribe'), /Frazier/);
-  assert.equal(STEPS.indexOf(marks), STEPS.indexOf(share) + 1, 'right after Share and Comments, as in the header');
+  assert.equal(STEPS.indexOf(marks), STEPS.indexOf(rail) + 1, 'the side panels in order, from the top');
   const out = STEPS.find((s) => s.title === 'Projects and exports');
+  assert.match(out.text('write'), /^File has New, Open and Save/);
   assert.match(out.text('write'), /QC package for a reviewer, a recording file for a narrator/);
   assert.doesNotMatch(out.text('transcribe'), /QC package|narrator/);
   assert.match(out.text('transcribe'), /SRT or WebVTT/);

@@ -49,10 +49,16 @@
     <button id="autosaveBtn" class="autosave tip-end" hidden></button>
     <nav>
       <button data-act="swapSides" id="swapBtn" class="swapbtn" aria-label="Swap sides" aria-pressed="false" data-tip="Swap sides: the video on the left and the editor on the right, or back">⇄</button>
-      <button data-act="newProject" data-tip="Start again: clear the blocks and keep the video, or start a new project">New</button>
-      <button data-act="openSubs" data-tip="Open a project, a script (SRT or VTT), or a video or audio file, or several at once ({mod}O). Only video or audio: {mod}⇧O">Open <kbd><span class="mod"></span>O</kbd></button>
-      <button data-act="sharedProjects" id="sharedBtn" class="not-record" hidden data-tip="Shared projects in this browser: open one again without its link">Shared projects</button>
-      <button data-act="saveProject" data-tip="Save the project: blocks, settings and where you were ({mod}S). Save as a new file with {mod}⇧S">Save <kbd><span class="mod"></span>S</kbd></button>
+      <span class="navwrap file-wrap">
+        <button data-act="fileMenu" id="fileBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="fileMenu">File <span class="caret" aria-hidden="true">▾</span></button>
+        <div class="navmenu filemenu" id="fileMenu" role="menu" aria-labelledby="fileBtn" hidden>
+          <button role="menuitem" data-act="newProject"><span><strong>New…</strong><span class="dim">clear the blocks and keep the video, or start a new project</span></span></button>
+          <button role="menuitem" data-act="openSubs"><span><strong>Open…</strong><span class="dim">a project, a script (SRT or VTT), or video or audio</span></span><kbd><span class="mod"></span>O</kbd></button>
+          <button role="menuitem" data-act="sharedProjects" id="sharedBtn" class="not-record" hidden><span><strong>Shared projects…</strong><span class="dim">open one kept in this browser again, without its link</span></span></button>
+          <button role="menuitem" data-act="saveProject"><span><strong>Save</strong><span class="dim">blocks, settings and where you were</span></span><kbd><span class="mod"></span>S</kbd></button>
+          <button role="menuitem" data-act="saveProjectAs"><span><strong>Save as…</strong><span class="dim">the project as a new file</span></span><kbd><span class="mod"></span>⇧S</kbd></button>
+        </div>
+      </span>
       <span class="navwrap export-wrap">
         <button data-act="exportMenu" id="exportBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenu">Export <span class="caret" aria-hidden="true">▾</span></button>
         <div class="navmenu" id="exportMenu" role="menu" aria-labelledby="exportBtn" hidden>
@@ -97,9 +103,6 @@
       <span id="shareState" class="autotag" hidden aria-live="polite"></span>
       <span id="sharePeople" hidden></span>
       <button data-act="share" id="shareBtn" class="not-record" hidden data-tip="Share this project with a link and a password, to work on it together">Share</button>
-      <button data-act="comments" id="commentsBtn" aria-pressed="false" aria-controls="commentsDrawer" data-tip="Comments on blocks and timeline times, saved with the project (⌥⇧C)">Comments</button>
-      <button data-act="bookmarks" id="bookmarksBtn" class="bm-mode" aria-pressed="false" aria-controls="bookmarksDrawer" data-tip="Your own bookmarks: who appears when, acts, where you left off. B adds one at the playhead (⌥⇧B)">Bookmarks</button>
-      <button data-act="ai" id="aiBtn" class="tip-end" data-tip="AI help: chat about the scene and draft descriptions (⌥⇧A)">AI</button>
       <button data-act="settings" class="tip-end" data-tip="Settings: text to speech, speech to text, AI help, shortcuts, storage and more (⌥⇧S)">Settings</button>
       <button data-act="help" class="hl tip-end" data-tip="Show all keyboard shortcuts (? or ⇧O)">Shortcuts <kbd>?</kbd></button>
     </nav>
@@ -282,6 +285,18 @@
         <ol id="recTakes" class="rectakes" aria-label="Takes of the selected block"></ol>
       </section>
     </section>
+    <!-- The drawers' icons, down the right edge. A drawer slides out from under it. -->
+    <div class="rail" id="rail" role="group" aria-label="Side panels">
+      <button data-act="comments" id="commentsBtn" aria-label="Comments" aria-pressed="false" aria-controls="commentsDrawer" data-tip="Comments (⌥⇧C)">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4.5h12a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H9l-3.5 3v-3H4A1.5 1.5 0 0 1 2.5 13V6A1.5 1.5 0 0 1 4 4.5z"/><path d="M6 8.5h8M6 11h5"/></svg>
+      </button>
+      <button data-act="bookmarks" id="bookmarksBtn" class="bm-mode" aria-label="Bookmarks" aria-pressed="false" aria-controls="bookmarksDrawer" data-tip="Bookmarks (⌥⇧B)">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 3h9v14.5L10 14l-4.5 3.5z"/></svg>
+      </button>
+      <button data-act="ai" id="aiBtn" aria-label="AI help" aria-pressed="false" aria-controls="aiDrawer" data-tip="AI help (⌥⇧A)">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M9 2.5c.6 3.6 1.9 4.9 5.5 5.5-3.6.6-4.9 1.9-5.5 5.5-.6-3.6-1.9-4.9-5.5-5.5 3.6-.6 4.9-1.9 5.5-5.5z"/><path d="M15 12.5c.3 1.6.9 2.2 2.5 2.5-1.6.3-2.2.9-2.5 2.5-.3-1.6-.9-2.2-2.5-2.5 1.6-.3 2.2-.9 2.5-2.5z"/></svg>
+      </button>
+    </div>
   </main>
 
   <section class="timeline" id="tl" aria-hidden="true">

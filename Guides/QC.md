@@ -62,7 +62,7 @@ accept a review into your authoring project, you can edit it in QC too. The head
 Older QC packages without a saved permission open as comments-only. New packages need
 an updated Scribecue on both computers so the creator’s choice is respected.
 
-To leave a review and start different work, click **New**, then **New project**.
+To leave a review and start different work, click **File**, **New…**, then **New project**.
 If you have unsaved changes, choose **Save and start new project** or **Start without saving**.
 The new project opens in Write mode. Reopen your saved package to return to the review.
 
@@ -232,7 +232,7 @@ Names are labels, not verified accounts.
 ### At a time on the timeline
 
 Right-click the point you want to comment on. Or put the playhead there, then open
-**Comments** at the top (`Alt+Shift+C`). The **Time** field can be changed before posting.
+the **Comments** icon at the right edge (`Alt+Shift+C`). The **Time** field can be changed before posting.
 It accepts a timecode such as `00:00:23:12`, or seconds.
 
 Use a timeline comment for a missing block, a sound or picture problem, or an observation

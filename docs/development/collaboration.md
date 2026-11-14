@@ -254,7 +254,7 @@ project (a room). See `relay/README.md` to run or deploy it. The rules are in
 - Someone who joined can **Leave**. By default the project goes from this browser, undo
   included, and a new one starts. **Keep a copy here** keeps it as a project of their own.
 - Links changed while offline reach the relay on reconnecting.
-- **Shared projects** in the header lists the projects kept in this browser, from their
+- **Shared projects…** in the File menu lists the projects kept in this browser, from their
   `scribecue.share.*` records, last opened first (`sharedProjects` in `sharing.js`,
   `sharedListDialog` in `sharedialog.js`). Each record also keeps `title` and `opened`,
   for the list only. The owner's project name travels in `access` as `name`.

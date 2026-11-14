@@ -64,7 +64,7 @@ export const STEPS = [
   {
     target: '#stage',
     title: 'Your video',
-    text: () => 'Open a video or audio file with Open at the top, or drop it here. It plays straight from your computer and is never uploaded. Files with an audio description mix get an audio track picker. Drag the bar beside it to make it bigger, or to hide the list. Double-click the video to float it in a window you can move and resize.',
+    text: () => 'Open a video or audio file from File at the top, or drop it here. It plays straight from your computer and is never uploaded. Files with an audio description mix get an audio track picker. Drag the bar beside it to make it bigger, or to hide the list. Double-click the video to float it in a window you can move and resize.',
   },
   {
     target: '#tl',
@@ -89,7 +89,14 @@ export const STEPS = [
   {
     target: '#shareBtn',
     title: 'Working together',
-    text: (mode) => `Share makes a link and a password, so others can work on this project with you, live. Each link says what it allows: editing, suggesting changes or commenting.${mode === 'transcribe' ? '' : ' Comments, next to it, holds notes on blocks and times, saved with the project.'}`,
+    text: () => `Share makes a link and a password, so others can work on this project with you, live. Each link says what it allows: editing, suggesting changes or commenting.`,
+  },
+  {
+    target: '#rail',
+    title: 'Side panels',
+    text: (mode) => mode === 'qc'
+      ? 'Comments opens from the icon at the right edge. Click it to open the drawer beside the video, and again to close it. Comments go on blocks and times, and are saved with the package.'
+      : `${mode === 'write' ? 'Comments, Bookmarks and AI help open' : 'Bookmarks and AI help open'} from the icons down the right edge. Point at one for its name. Click it to open its drawer beside the video, and again to close it. Opening another closes the one that’s open.${mode === 'write' ? ' Comments holds notes on blocks and times, saved with the project.' : ''}`,
   },
   {
     target: '#bookmarksBtn',
@@ -111,9 +118,9 @@ export const STEPS = [
   {
     target: 'nav',
     title: 'Projects and exports',
-    text: (mode) => `Save keeps everything as a Scribecue project, so you can pick up where you left off. ${mode === 'write'
+    text: (mode) => `File has New, Open and Save. Save keeps everything as a Scribecue project, so you can pick up where you left off. ${mode === 'write'
       ? 'Export is grouped by who it’s for: a QC package for a reviewer, a recording file for a narrator, finished audio, and files for other tools: the script as SRT or WebVTT, DAW markers and a video with subtitles.'
-      : 'Export gives you the script as SRT or WebVTT, DAW markers or a video with subtitles, to hand off.'} It can check spelling and grammar first. New starts again.`,
+      : 'Export gives you the script as SRT or WebVTT, DAW markers or a video with subtitles, to hand off.'} It can check spelling and grammar first.`,
   },
   {
     title: 'Your work stays yours',
