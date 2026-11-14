@@ -334,6 +334,22 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
   text-shadow: calc(3 * var(--u)) calc(3 * var(--u)) 0 rgb(0 0 0 / 0.5);
 }
 :root[data-sub-pos="top"] .overlay .subtext { top: calc(50 * var(--u)); bottom: auto; }
+/* Classic (Appearance → Style): the look from before 0.114.0, in the app's own font, sized
+   against the window, with a soft glow where there's no background. */
+:root[data-sub-style="classic"] .overlay .subtext {
+  left: 5%;
+  right: 5%;
+  bottom: 6%;
+  font: calc(var(--sub-scale) * clamp(16px, 2.2vw, 30px)) / 1.4 var(--sans);
+  text-wrap: wrap;
+}
+/* Floating, it grows with the picture, as it did. */
+:root[data-sub-style="classic"] .floatpic .overlay .subtext { font-size: calc(var(--sub-scale) * 3.5cqw); }
+:root[data-sub-style="classic"][data-sub-pos="top"] .overlay .subtext { top: 6%; bottom: auto; }
+:root[data-sub-style="classic"][data-sub-bg="none"] .overlay span {
+  -webkit-text-stroke: 0;
+  text-shadow: 0 0 3px rgb(0, 0, 0), 0 1px 2px rgb(0, 0, 0), 0 0 1px rgb(0, 0, 0);
+}
 
 /* Floating video (floatvideo.js): the video in a panel over the app, or in a window of its
    own. The spot it leaves keeps its size, and the text keeps its size against the picture. */

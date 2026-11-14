@@ -5741,7 +5741,7 @@ function showBurn() {
   $('burnRes').hidden = fits.length < 2;
   // The script looks as it does over the video.
   const name = (k) => CHOICES[k][0].find(([v]) => v === look[k])?.[1].toLowerCase();
-  $('burnLook').textContent = burnOpts.subs ? `The script looks as it does over the video: ${name('subSize')} text, ${look.subBg === 'none'
+  $('burnLook').textContent = burnOpts.subs ? `${look.subStyle === 'classic' ? 'The script is burnt in with' : 'The script looks as it does over the video:'} ${name('subSize')} text, ${look.subBg === 'none'
     ? 'outlined' : `on a ${name('subBg')} background`}, at the ${look.subPos}. Change it in Settings, under Appearance.` : '';
 }
 const burnLook = () => ({ size: look.subSize, bg: look.subBg, pos: look.subPos });

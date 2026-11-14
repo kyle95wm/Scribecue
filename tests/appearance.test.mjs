@@ -47,7 +47,7 @@ test('blocked storage still gives the usual look', () => {
 
 test('each choice is an attribute on the page', () => {
   assert.deepEqual(attributes(DEFAULTS), {
-    'data-accent': 'amber', 'data-sub-size': 'm', 'data-sub-bg': 'none', 'data-sub-pos': 'bottom', 'data-text-size': 'm',
+    'data-accent': 'amber', 'data-sub-style': 'burnt', 'data-sub-size': 'm', 'data-sub-bg': 'none', 'data-sub-pos': 'bottom', 'data-text-size': 'm',
   });
 });
 
@@ -90,4 +90,13 @@ test('setup and Settings offer the same rows', () => {
   };
   assert.deepEqual(rows('setLook'), Object.keys(CHOICES));
   assert.deepEqual(rows('wzLook'), Object.keys(CHOICES));
+});
+
+test('Classic brings back the look from before 0.114.0', () => {
+  assert.equal(DEFAULTS.subStyle, 'burnt');
+  const classic = css.slice(css.indexOf(':root[data-sub-style="classic"] .overlay .subtext {'));
+  assert.match(classic, /font: calc\(var\(--sub-scale\) \* clamp\(16px, 2\.2vw, 30px\)\) \/ 1\.4 var\(--sans\)/);
+  assert.match(css, /:root\[data-sub-style="classic"\]\[data-sub-bg="none"\] \.overlay span \{\s*-webkit-text-stroke: 0;/);
+  assert.match(css, /:root\[data-sub-style="classic"\]\[data-sub-pos="top"\] \.overlay \.subtext \{ top: 6%/);
+  assert.deepEqual(describeAppearance({ ...DEFAULTS, subStyle: 'classic' }), ['Text over the video looks: Classic']);
 });

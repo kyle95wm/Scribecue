@@ -56,9 +56,12 @@ Once someone else has changed blocks too, an open block shows who changed it las
 | Setting | What it changes |
 |---|---|
 | **Highlight colour** | Buttons and switches that are on, the mode switch, and the chosen block |
-| **Text over the video** | The size, background and position of the block shown over the picture |
+| **Text over the video** | The style, size, background and position of the block shown over the picture |
 | **Text size** | The blocks in the list and the block editor |
 | **Floating video** | Whether the video floats in this tab or in its own window |
+
+For the text over the video, **Burnt in** looks as it does in a video with subtitles. Pick
+**Classic** for the look from before 0.114.0. For its dark box too, pick a **Dark** background.
 
 **Reset to defaults** undoes them all.
 
@@ -363,8 +366,8 @@ finishes. After that, switching to it is instant until you close the video.
 - **Swap sides:** the ⇄ button at the top puts the video on the other side.
 - **Resize the video:** drag the bar between the list and the video. Drag it to the edge
   to hide the list, and double-click it to go back to the usual width. Typing in a block or
-  pressing `/` brings a hidden list back. The text over the video keeps its size against
-  the picture.
+  pressing `/` brings a hidden list back. With the Burnt in style, the text over the video keeps
+  its size against the picture.
 - **Player controls:** the buttons under the video. Hover over one to see its key.
 - **The tour and the loop:** **Take the tour** and **Show the loop**, in the shortcuts
   overlay (`?`), show them again.
