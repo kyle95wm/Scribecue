@@ -26,6 +26,11 @@
   --ok: #4fd18b;
   --warn: #ffd166;
   --bad: #ff6b6b;
+  /* Bookmark kinds, on the timeline and in the Bookmarks drawer. */
+  --bm-note: var(--dim);
+  --bm-character: var(--hl-violet);
+  --bm-scene: var(--hl-teal);
+  --bm-left: var(--warn);
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme: dark;
@@ -1154,7 +1159,7 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 #sharedBtn { white-space: nowrap; }
 /* Narrower windows: the header drops the key hints on Open and Save to fit. Their tooltips
    still give the keys. */
-@media (max-width: 1360px) { header.top nav > button:not([data-act="help"]) > kbd { display: none; } }
+@media (max-width: 1500px) { header.top nav > button:not([data-act="help"]) > kbd { display: none; } }
 .sharedlist { display: flex; flex-direction: column; max-height: 56vh; overflow: auto; }
 .sharedrow { margin: 4px 0; }
 .sharedrow strong { overflow-wrap: anywhere; }
@@ -1500,6 +1505,28 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 #commentAuthor { flex: 1; }
 #commentText { min-height: 56px; resize: vertical; max-height: 120px; }
 #commentsDrawer .ailog { overscroll-behavior: contain; }
+
+/* Bookmarks reuse the comments drawer's look; each kind is marked in its own colour (--k). */
+.mode-qc .bm-mode, .mode-record .bm-mode { display: none !important; }
+#bookmarksBtn[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+#bookmarksDrawer input, #bookmarksDrawer textarea { min-width: 0; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+#bookmarksDrawer textarea { min-height: 52px; max-height: 140px; resize: vertical; }
+#bookmarksDrawer .aicompose, #bookmarksDrawer .aihead { flex-shrink: 0; }
+#bookmarksDrawer .ailog { overscroll-behavior: contain; }
+.bm-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.bm-kinds button { border-left: 3px solid var(--k); }
+.bm-kinds button[aria-pressed="true"] { color: var(--bg); background: var(--k); border-color: var(--k); }
+.aimsg.bm { border-left: 3px solid var(--k); white-space: normal; }
+.bm-head { display: flex; align-items: center; gap: 8px; }
+.bm-kind { font: 12px var(--sans); color: var(--k); }
+.bm-title { margin: 4px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.bm-title.dim { font-weight: 400; font-style: italic; }
+.bm .comment-body { white-space: pre-wrap; }
+.bm-edit { display: flex; flex-direction: column; gap: 6px; }
+.bm-edit .airow input { flex: 1; }
+.bm-edit input.bm-time { flex: 0 1 9.5em; font: 12px var(--mono); }
+#bookmarksCount { flex: 1; }
+.bm-hot { position: absolute; top: 0; left: 0; width: 12px; height: 26px; cursor: pointer; z-index: 2; }
 .mode-record .script-only { display: none; }
 
 /* QC reuses the editor and playback controls, with editing and comments scoped by mode. */

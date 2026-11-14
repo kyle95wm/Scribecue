@@ -373,6 +373,37 @@ try {
       await press('Enter', 'Enter'); await sleep(300);
       await press('Escape', 'Escape');
     });
+    await step('Bookmark with B while playing, and name it', async () => {
+      await seekTo(1300); await sleep(300);
+      await press(' ', 'Space', { text: ' ' }); await sleep(800);
+      await press('b', 'KeyB', { text: 'b' }); await sleep(200);
+      await type('Left off here', 60);
+      await press('Enter', 'Enter'); await sleep(300);
+      await press(' ', 'Space', { text: ' ' });
+      return js(`!document.getElementById('bookmarksDrawer').hidden && document.querySelectorAll('#bookmarksLog article').length + ' in the drawer'`);
+    });
+    await step('Playback on the fitted timeline, 10 s', async () => {
+      await click('#bookmarksClose');
+      await click('#tlZoom [data-zoom=fit]'); await sleep(400);
+      await seekTo(1000); await sleep(400);
+      return playback(10);
+    });
+    await step('Bring in 300 Frazier markers', async () => {
+      await js(`(async () => {
+        const markers = Array.from({ length: 300 }, (_, i) => ({ id: i, start: 20000 + i * 23000, title: i % 25 ? 'Character ' + i : 'Left off here', notes: i % 3 ? '' : 'Notes for ' + i, tag: '' }));
+        const m = await import('./js/bookmarksdrawer.js');
+        await m.importBookmarks(new File([JSON.stringify({ cue_points: [], markers })], 'markers.adc'));
+        return 1;
+      })()`);
+      await sleep(800);
+      return js(`JSON.parse(localStorage.getItem('scribecue.v1')).bookmarks.length + ' bookmarks'`);
+    });
+    await step('Playback with 300 bookmarks on the fitted timeline, 10 s', async () => {
+      await click('#bookmarksClose');
+      await click('#tlZoom [data-zoom=fit]'); await sleep(400);
+      await seekTo(1000); await sleep(400);
+      return playback(10);
+    });
   }
 
   if (section('modes')) {

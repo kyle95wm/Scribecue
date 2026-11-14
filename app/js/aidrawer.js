@@ -349,6 +349,7 @@ function toggleNotes(show = $('aiNotesBox').hidden) {
 
 export function toggleAi(open = $('aiDrawer').hidden) {
   if (open && !document.getElementById('commentsDrawer').hidden) document.getElementById('commentsClose').click();
+  if (open && document.getElementById('bookmarksDrawer')?.hidden === false) document.getElementById('bookmarksClose').click();
   $('aiDrawer').hidden = !open;
   $('aiBtn').classList.toggle('on', open);
   if (!open) { document.activeElement?.blur(); return; }

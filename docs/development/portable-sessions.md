@@ -11,7 +11,7 @@ the takes container. `scripts/session-smoke.mjs` checks it in Chrome.
 
 | Data | Kept in | Travels with a file? |
 |---|---|---|
-| Script, timings, notes, pickups, comments | `.scribecue` (JSON) | Yes |
+| Script, timings, notes, pickups, comments, bookmarks | `.scribecue` (JSON) | Yes |
 | The narrator's script | `.scribecuerec` (JSON) | Yes |
 | Takes and alts, their edits and which is chosen | IndexedDB | No |
 | TTS readings | Made when needed, held in memory | No, made again |

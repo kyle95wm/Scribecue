@@ -219,6 +219,7 @@ Once the whole programme is marked:
 | `←` `→` | One frame back / forward |
 | `Alt+Shift+←` `Alt+Shift+→` | Start of this block, then the previous / the next block |
 | `/` | Search the blocks |
+| `B` | [Bookmark](GETTING-STARTED.md#bookmarks) the playhead, such as where you left off |
 
 To change them, see [Changing shortcuts](SHORTCUTS.md#changing-shortcuts).
 

@@ -7,6 +7,8 @@ import { cleanComments, commentsAllowed } from './comments.js';
 import { cleanEdited, stampEdits, seedEdits, editorCount, editedLine, blockSig } from './edits.js';
 import { savedName, saveName, editorId, validEditorId } from './profile.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
+import { bookmarksAllowed, cleanBookmarks, adcBookmarks, bookmarkNear, shownTitle, KINDS as BOOKMARK_KINDS } from './bookmarks.js';
+import { initBookmarks, toggleBookmarks, refreshBookmarks, addBookmark, revealBookmark, bookmarksOpen } from './bookmarksdrawer.js';
 import { parseSubs, parseAdc, tidyText, scriptVoices, scriptVoicesHere, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
@@ -149,6 +151,7 @@ applyAppearance(look);
 const css = getComputedStyle(document.documentElement);
 const C = Object.fromEntries(['panel', 'line', 'dim', 'faint', 'accent', 'bg', 'cue', 'text'].map((k) => [k, css.getPropertyValue('--' + k).trim()]));
 C.wave = '#3b7f86';
+const BM_COLOR = Object.fromEntries(BOOKMARK_KINDS.map((k) => [k.id, css.getPropertyValue(k.token).trim()]));
 C.grid = '#1b2028';
 
 // Modes show the features for the task at hand. Transcribe: existing audio description
@@ -202,6 +205,7 @@ const S = {
   pendingPlayhead: null, // where to put the playhead once that video is open
   previousAudio: null, review: null, reviewId: '', qcSource: 'video', qcPreviewVoice: '', qcSettings: null, loadingProject: false, makingReview: false,
   comments: [], // comments at fixed timeline times
+  bookmarks: [], // the writer's own bookmarks: { id, time, title, notes, kind }
   notes: '', // the writer's notes about the programme, for AI help
   words: [], // names and terms the spelling check accepts in this project
   projectId: newIdentity(), reviewHistory: null, reviewAudio: null,
@@ -545,7 +549,7 @@ function followPlayhead(t) {
 const undoStack = [], redoStack = [];
 let lastUndoTag = null, lastUndoTime = 0;
 // Checkpoints are immutable: undo shares them rather than copying whole scripts.
-const snapshot = () => ({ data: JSON.stringify({ cues: S.cues, sel: S.sel, comments: S.comments, projectId: S.projectId, extendedAll: S.extendedAll, ttsOff: S.ttsOff }), reviewHistory: S.reviewHistory, reviewAudio: S.reviewAudio, authorReadings: S.reviewId ? null : S.review });
+const snapshot = () => ({ data: JSON.stringify({ cues: S.cues, sel: S.sel, comments: S.comments, bookmarks: S.bookmarks, projectId: S.projectId, extendedAll: S.extendedAll, ttsOff: S.ttsOff }), reviewHistory: S.reviewHistory, reviewAudio: S.reviewAudio, authorReadings: S.reviewId ? null : S.review });
 
 // `tag` coalesces repeated identical actions (e.g. holding a nudge key) into one undo step.
 function pushUndo(snap = snapshot(), tag = null) {
@@ -571,6 +575,7 @@ function restore(snap) {
   if (!S.reviewId) { S.reviewAudio = snap.reviewAudio || null; S.review = snap.authorReadings || null; S.qcSource = S.review ? 'package' : 'video'; syncQcPermission(); }
   S.cues = o.cues;
   S.comments = o.comments || [];
+  S.bookmarks = o.bookmarks || [];
   S.extendedAll = o.extendedAll === true;
   setTtsOff(o.ttsOff === true);
   nextId = S.cues.reduce((m, c) => Math.max(m, c.id), 0) + 1;
@@ -756,7 +761,7 @@ async function startShared() {
   // and what that holds and the relay doesn't is sent once it's online.
   const fill = reopening === id && !!saved;
   reopening = null;
-  if (joined || fill) applyShared([...new Set([...shared.blocks.keys(), ...S.cues.map((c) => c.uid)])], true);
+  if (joined || fill) applyShared([...new Set([...shared.blocks.keys(), ...S.cues.map((c) => c.uid)])], true, false, true);
   else if (!fresh) writeShared(null);
   if (!record) endLive(); else refreshLive();
   // Undo from here on takes back this tab's changes only; earlier steps undo as before.
@@ -978,7 +983,7 @@ async function openShared(record, id, keep = false) {
   undoStack.length = 0; redoStack.length = 0;
   S.projectId = id;
   sharedLib.setShare(S.projectId, record);
-  S.reviewHistory = null; S.cues = []; S.comments = []; S.handle = null; handleStore.set(null);
+  S.reviewHistory = null; S.cues = []; S.comments = []; S.bookmarks = []; S.handle = null; handleStore.set(null);
   clearReview(); // a QC package open here isn't the shared project's
   changed();
   select(null);
@@ -1201,7 +1206,8 @@ function writeShared(only) {
   // relay, none are.
   if (relay?.status === 'online' && !relay.unsent()) unsent.clear();
   if (only && role !== 'review' && role !== 'comment') for (const uid of only) unsent.set(uid, performance.now());
-  shared.write(S.cues, S.comments, only, { script: role !== 'review' && role !== 'comment' });
+  const script = role !== 'review' && role !== 'comment';
+  shared.write(S.cues, S.comments, only, { script, bookmarks: script ? S.bookmarks : null });
   if (role === 'review') shared.propose(S.cues, only, { link: myShare.link, name: savedName(), who: editorId() });
 }
 // The caret, after someone else's letters arrive in the text being typed: it stays with the
@@ -1218,8 +1224,8 @@ function keepCaret(was, now) {
 }
 // Puts others' changes into the script: blocks by uid, with their comments, and the timeline
 // comments. Pickups, readings and selection here stay as they are.
-function applyShared(uids, timeline, suggestions = false) {
-  if (!uids.length && !timeline) return;
+function applyShared(uids, timeline, suggestions = false, marks = false) {
+  if (!uids.length && !timeline && !marks) return;
   // Suggestions are for the owner and editors to choose from; a reviewer sees their own.
   if (suggestions && myShare?.role !== 'review') { refreshLive(); return; }
   const incoming = shared.readBlocks(uids);
@@ -1257,8 +1263,9 @@ function applyShared(uids, timeline, suggestions = false) {
     S.cues.splice(i, 1);
   }
   if (timeline) S.comments = shared.readTimeline();
+  if (marks) S.bookmarks = shared.readBookmarks();
   sharedIn = new Set(uids);
-  try { changed(gone || many || timeline || one == null ? null : one); } finally { sharedIn = null; }
+  try { changed(gone || many || timeline || marks || one == null ? null : one); } finally { sharedIn = null; }
   if (lostSel) select(null, { seek: false });
   if (!suggestions) refreshLive();
   if (lost.length) noteLost(lost);
@@ -1380,6 +1387,7 @@ function changed(id = null) {
   }
   updateEditor();
   refreshComments();
+  refreshBookmarks();
   configureQcAudio();
   if (id != null && !sharedIn) { const c = S.cues[idx(id)]; if (c && qc() && !qcLocked()) noteEdit(c); scheduleAutoRewrite(id); }
   S.activeId = undefined; // force overlay/active refresh
@@ -1400,6 +1408,7 @@ function save() {
       notes: S.notes,
       words: S.words,
       comments: S.comments,
+      bookmarks: S.bookmarks,
       extendedAll: S.extendedAll,
       ttsOff: S.ttsOff,
       reviewId: S.reviewId, qcSettings: S.qcSettings, recording: S.recording,
@@ -1410,11 +1419,12 @@ function save() {
 function loadSaved() {
   try {
     const o = JSON.parse(localStorage.getItem(STORE_KEY));
-    if (o && (o.cues?.length || o.comments?.length || validIdentity(o.projectId))) {
+    if (o && (o.cues?.length || o.comments?.length || o.bookmarks?.length || validIdentity(o.projectId))) {
       S.projectId = validIdentity(o.projectId) ? o.projectId : newIdentity();
       S.reviewHistory = cleanReviewHistory(o.reviewHistory);
       S.cues = (o.cues || []).map(revive);
       S.comments = cleanComments(o.comments, true);
+      S.bookmarks = cleanBookmarks(o.bookmarks);
       S.reviewId = typeof o.reviewId === 'string' ? o.reviewId : '';
       S.reviewAudio = S.reviewId ? null : cleanReviewAudio(o.reviewAudio);
       S.qcSettings = o.qcSettings && typeof o.qcSettings === 'object' ? o.qcSettings : null;
@@ -1426,7 +1436,7 @@ function loadSaved() {
       S.ttsOff = o.ttsOff === true;
       S.words = cleanWords(o.words);
       S.recording = cleanRecording(o.recording);
-      return S.cues.length || S.comments.length;
+      return S.cues.length || S.comments.length || S.bookmarks.length;
     }
   } catch { /* ignore */ }
   return 0;
@@ -2604,6 +2614,16 @@ function drawTimeline() {
     rc.fillRect(x, 1, 4, 4); lastCommentX = x;
   }
 
+  // Bookmarks, in Write and Transcribe: a line down the ruler with a flag in its kind's colour.
+  if (bookmarksAllowed(S.mode)) for (const b of S.bookmarks) {
+    if (b.time < t0) continue;
+    const x = Math.round((b.time - t0) * pps);
+    if (x > rw) break;
+    rc.fillStyle = BM_COLOR[b.kind] || C.dim;
+    rc.fillRect(x, 0, 1, rh);
+    rc.beginPath(); rc.moveTo(x + 1, 0); rc.lineTo(x + 8, 3.5); rc.lineTo(x + 1, 7); rc.closePath(); rc.fill();
+  }
+
   // grid + waveform
   const [wc, ww, wh] = fitCanvas(wave);
   wc.fillStyle = C.grid;
@@ -2886,6 +2906,36 @@ lane.addEventListener('dblclick', (e) => {
   const el = e.target.closest('.cue');
   if (el) { select(+el.dataset.id, { seek: false, reveal: false }); if (S.mode !== 'record') editText(); }
 });
+
+// A bookmark's flag on the ruler shows its title on hover, and goes to it on a click, through
+// one element moved under the pointer, so the page's tooltips work for it.
+const bmHot = $('bmHot');
+let bmHere = null;
+function bookmarkAt(clientX) {
+  if (!bookmarksAllowed(S.mode) || !S.bookmarks.length) return null;
+  const r = ruler.getBoundingClientRect(), t = S.view + (clientX - r.left - 4) / S.pps;
+  return bookmarkNear(S.bookmarks, t, 6 / S.pps);
+}
+ruler.addEventListener('pointermove', (e) => {
+  if (scrubbing) return;
+  const b = bookmarkAt(e.clientX);
+  if (!b) return;
+  bmHere = b;
+  bmHot.style.left = `${Math.round((b.time - S.view) * S.pps) - 2}px`;
+  bmHot.dataset.tip = shownTitle(b) + (b.notes ? ` · ${b.notes.split('\n')[0]}` : '');
+  bmHot.hidden = false;
+});
+bmHot.addEventListener('pointerleave', () => { bmHot.hidden = true; bmHere = null; });
+bmHot.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  const b = bmHere;
+  bmHot.hidden = true;
+  if (!b) return;
+  S.playUntil = null;
+  seek(b.time, false);
+  revealBookmark(b.id);
+});
+bmHot.addEventListener('contextmenu', (e) => { e.preventDefault(); bmHot.hidden = true; });
 
 let scrubbing = false;
 ruler.addEventListener('pointerdown', (e) => {
@@ -4424,6 +4474,7 @@ function setMode(m, quiet = false) {
   if (m === 'qc') measuring = false;
   if (m === 'qc' && S.mode !== 'qc') S.qcSettings = readingSettings();
   if (!commentsAllowed(m) && !$('commentsDrawer').hidden) toggleComments(false);
+  if (!bookmarksAllowed(m) && bookmarksOpen()) toggleBookmarks(false);
   if (m === 'qc' && !$('aiDrawer').hidden) toggleAi(false);
   stopPreviousReading();
   qcPlayer.stop();
@@ -4861,6 +4912,7 @@ function projectData() {
     notes: S.notes,
     words: S.words,
     comments: S.comments,
+    bookmarks: S.bookmarks,
     recording: S.recording,
     media: m,
     settings: { mode: S.mode, offset: S.offset, ...reviewSettings(),
@@ -4907,7 +4959,7 @@ async function saveProject(as = false) {
   if (!canMakeFiles()) return toast('Your changes reach the shared project as you make them. Its owner saves the file');
   if (S.reviewId && !S.review) return toast('Reopen the QC package to restore its audio before saving');
   if (S.mode === 'record') return toast('Takes are kept as you record them. Export the narration when you’re done');
-  if (!S.cues.length && !S.comments.length && !S.dirty) return toast('Nothing to save yet');
+  if (!S.cues.length && !S.comments.length && !S.bookmarks.length && !S.dirty) return toast('Nothing to save yet');
   const text = projectFileData();
   const name = `${baseName()}${S.reviewId ? REVIEW_EXT : PROJECT_EXT}`;
   if (!window.showSaveFilePicker) {
@@ -5072,6 +5124,7 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
   else showAutosave();
   S.projectMedia = p.media;
   S.comments = p.comments;
+  S.bookmarks = p.bookmarks;
   S.notes = p.notes;
   S.words = p.words;
   S.recording = p.recording;
@@ -5444,6 +5497,7 @@ async function enterRecording(r, name, raw = null) {
   S.projectMedia = r.media;
   clearReview();
   S.comments = [];
+  S.bookmarks = [];
   S.notes = '';
   S.words = [];
   aiNotesChanged();
@@ -5555,7 +5609,7 @@ async function openAny() {
 const newDlg = $('newDlg');
 function startAgain() {
   const blocks = S.cues.length, media = S.videoFile?.name;
-  if (!blocks && !media && !S.comments.length && !S.dirty && !S.reviewId) return newProject(false);
+  if (!blocks && !media && !S.comments.length && !S.bookmarks.length && !S.dirty && !S.reviewId) return newProject(false);
   const n = blocks === 1 ? '1 block' : `${blocks} blocks`;
   $('newWhat').textContent = S.comments.length && !blocks && !media ? `This project has ${S.comments.length} timeline comments.` : blocks ? `This project has ${n}${media ? `, with ${media} open` : ''}.` : media ? `${media} is open, with no blocks yet.` : 'This project has no blocks yet.';
   // Clearing a shared project's blocks clears them for everyone: only its owner may.
@@ -5629,6 +5683,7 @@ function newProject(ask = true) {
   S.qcSettings = null;
   S.qcPreviewVoice = '';
   S.comments = [];
+  S.bookmarks = [];
   if (!$('commentsDrawer').hidden) toggleComments(false);
   S.notes = '';
   S.words = [];
@@ -5838,6 +5893,8 @@ async function loadSubsFile(file) {
   pushUndo();
   clearReview();
   S.comments = [];
+  // A Frazier script's markers become bookmarks.
+  S.bookmarks = adc ? adcBookmarks(text) : [];
   S.projectId = newIdentity();
   S.reviewHistory = null;
   S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.voice ? { voice: c.voice } : {}, blockDipOf(c), isVol(c.vol) ? { vol: c.vol } : {}, c.say ? { say: c.say } : {}));
@@ -5855,7 +5912,8 @@ async function loadSubsFile(file) {
   // A Frazier script's base speed comes with it.
   const base = adc && adc.base !== tts.base ? adc.base : null;
   if (base) setTtsOption('base', base);
-  const loaded = `Loaded ${parsed.length} cues from ${file.name}${base ? `, at a base speed of ${Math.round(base * 100)}%` : ''}`;
+  const marks = S.bookmarks.length ? `, with ${S.bookmarks.length} bookmark${S.bookmarks.length === 1 ? '' : 's'}` : '';
+  const loaded = `Loaded ${parsed.length} cues from ${file.name}${marks}${base ? `, at a base speed of ${Math.round(base * 100)}%` : ''}`;
   toast(`${loaded}${undoStack.length > 1 ? ' — undo restores previous' : ''}`);
   afterImport(file.name, await askVoices(adc, file.name) && loaded);
 }
@@ -6851,9 +6909,10 @@ const actions = {
   settings: () => showGeneral(),
   newProject: () => startAgain(),
   comments: () => toggleComments(),
+  bookmarks: () => toggleBookmarks(),
   share: () => shareUi?.open(),
   sharedProjects: () => sharedListUi?.open(),
-  ai: () => { if (qc()) return; if (!$('commentsDrawer').hidden) toggleComments(false); toggleAi(); },
+  ai: () => { if (qc()) return; if (!$('commentsDrawer').hidden) toggleComments(false); if (bookmarksOpen()) toggleBookmarks(false); toggleAi(); },
 };
 
 function configureQcAudio() {
@@ -6962,8 +7021,16 @@ initCheck({
 initComments({
   blocks: () => S.cues, selected: selCue, comments: () => S.comments,
   canComment, toast,
-  now, tc, readTime, duration, closeAi: () => { if (!$('aiDrawer').hidden) toggleAi(false); },
+  now, tc, readTime, duration, closeAi: () => { if (!$('aiDrawer').hidden) toggleAi(false); if (bookmarksOpen()) toggleBookmarks(false); },
   go: ({ block, time }) => { if (block) select(block.id); else { select(null, { seek: false }); seek(time); } },
+  change: (apply) => { pushUndo(); apply(); changed(); },
+});
+initBookmarks({
+  bookmarks: () => S.bookmarks, canBookmark: () => bookmarksAllowed(S.mode),
+  now, tc, readTime, duration, toast,
+  closeOthers: () => { if (!$('commentsDrawer').hidden) toggleComments(false); if (!$('aiDrawer').hidden) toggleAi(false); },
+  go: (time) => { S.playUntil = null; seek(time); },
+  focusOut: () => document.activeElement?.blur(),
   change: (apply) => { pushUndo(); apply(); changed(); },
 });
 // Right-click anywhere on the timeline to comment at that time.
@@ -7192,7 +7259,7 @@ document.addEventListener('keydown', (e) => {
     if (S.mode === 'record' && id === 'deleteNow' && recorder.cutPart()) return; // deletes a part of it
     // Play / pause stops a recording, and keeps the take. Held down, it doesn't start playing.
     if (S.mode === 'record' && id === 'play' && (recorder.active || e.repeat)) { if (!e.repeat) recorder.finish(); return; }
-    if (qc() && REC_LOCKED.has(id) && !['createEdit', 'comments'].includes(id) && (!qcEditable() || !QC_EDIT_KEYS.has(id))) return toast('The script and timings are fixed in QC mode');
+    if (qc() && REC_LOCKED.has(id) && !['createEdit', 'comments', 'bookmarkAdd', 'bookmarks'].includes(id) && (!qcEditable() || !QC_EDIT_KEYS.has(id))) return toast('The script and timings are fixed in QC mode');
     if (S.mode === 'record' && REC_LOCKED.has(id)) return toast('The script is locked in Record mode');
     RUN[id](e);
     return;
@@ -7296,6 +7363,8 @@ const RUN = {
   ttsPanel: () => openTts(),
   soundsLike: () => openSay(),
   comments: () => toggleComments(),
+  bookmarkAdd: () => addBookmark(),
+  bookmarks: () => toggleBookmarks(),
   aiHelp: () => { if (!qc()) toggleAi(); },
   help: () => toggleHelp(),
   settings: () => showGeneral(),
@@ -7454,7 +7523,7 @@ initOffline({
   openStt: () => openStt(),
   guides: () => guidesHere(),
   shares: () => sharedLib?.sharesHere() || { owned: 0, unrecovered: 0, joined: 0 },
-  unsaved: () => (S.dirty && !myShare ? Math.max(1, S.cues.length + S.comments.length) : 0),
+  unsaved: () => (S.dirty && !myShare ? Math.max(1, S.cues.length + S.comments.length + S.bookmarks.length) : 0),
   save: () => saveProject(),
 });
 // Settings go to a file and back. Importing reloads, so the blocks are kept first.
