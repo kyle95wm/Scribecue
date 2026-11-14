@@ -2,14 +2,20 @@
 # full mix, from a mix (a WAV) and, to put the mix into the video, the video; or a copy
 # of a video that a browser without H.264 or AAC can play:
 #
-#   GET    /status              -> {"ffmpeg": "6.1.1"}
+#   GET    /status              -> {"ffmpeg": "6.1.1", "burn": true}
 #   POST   /jobs                {"codec": "aac" | "ac3" | "eac3", "video": "mp4" | null,
 #                                "replace": false, "name": "Film - full mix"} -> {"id": "..."}
 #                                or {"copy": "webm" | "mp4", "video": "mp4", "name": "Film"}
 #                                or {"codec": "aac", "video": "mp4", "name": "Film",
 #                                    "pauses": [[120.5, 4.2], ...]}, seconds, for an
 #                                    extended video: the picture held at each pause
+#                                or {"burn": {"subs": true, "timecode": true, "size": "m",
+#                                    "bg": "none", "pos": "bottom", "height": 720}, "video": "mp4",
+#                                    "track": 0, "name": "Film"},
+#                                    for a copy of the video with the script and the timecode
+#                                    burnt in, as an MP4
 #   PUT    /jobs/<id>/mix       the mix, a WAV, for the full mix
+#   PUT    /jobs/<id>/subs      the script, an SRT, for a burn with subs
 #   PUT    /jobs/<id>/video     the video, with video set
 #   POST   /jobs/<id>/start
 #   GET    /jobs/<id>           -> {"state": "waiting" | "running" | "done" | "failed",
@@ -44,10 +50,25 @@ VIDEOS = {"mp4", "m4v", "mov", "mkv", "webm"}
 # small, since it's for working on; "mp4" keeps the picture as it is, for a browser that
 # plays it but not its sound. Either way the sound becomes Opus, in stereo.
 COPIES = {"webm", "mp4"}
-SCALE = "scale=-2:min(720\\,trunc(ih/2)*2)"
+HEIGHTS = (0, 480, 720, 1080)  # the most lines a burnt-in copy keeps; 0: the video's own
+
+
+def scale_to(height):
+    return f"scale=-2:min({height}\\,trunc(ih/2)*2)"
+
+
+SCALE = scale_to(720)
 CHUNK = 1 << 20
 MAX_JOB = 1 << 20  # a long film can have thousands of pauses to describe
 MAX_PAUSES = 20000
+# Burnt in, the script looks as it does over the video in Scribecue (see .overlay in
+# style.css): its size, as libass measures it (a screen 288 units high, so it looks the
+# same at any size), and its background, as how opaque the box behind each line is, from
+# 00 to FF. Without one, an outline and a shadow.
+SIZES = {"s": 16, "m": 20, "l": 25, "xl": 30}
+BOXES = {"none": None, "light": "8C", "dark": "40", "solid": "00"}
+MONO = "/usr/share/fonts/dejavu/DejaVuSansMono.ttf"
+MAX_SUBS = 8 << 20
 STALE = 300  # seconds without a word from the page before a job is deleted
 
 jobs = {}
@@ -105,6 +126,52 @@ def probe(path):
     return audio, float(info.get("format", {}).get("duration") or 0)
 
 
+def frame_rate(path):
+    """The video's frame rate, as ffprobe gives it, such as 30000/1001."""
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate", "-of", "csv=p=0", path],
+        capture_output=True, text=True,
+    ).stdout.strip()
+    return out if re.fullmatch(r"[1-9]\d{0,6}/[1-9]\d{0,6}", out) else "25/1"
+
+
+def good_burn(burn):
+    return (isinstance(burn, dict) and set(burn) <= {"subs", "timecode", "size", "bg", "pos", "height"}
+            and all(type(burn.get(k, False)) is bool for k in ("subs", "timecode"))
+            and burn.get("height", 0) in HEIGHTS and type(burn.get("height", 0)) is int
+            and bool(burn.get("subs") or burn.get("timecode")) and burn.get("size", "m") in SIZES
+            and burn.get("bg", "none") in BOXES and burn.get("pos", "bottom") in ("bottom", "top"))
+
+
+def script_style(burn):
+    box = BOXES[burn.get("bg", "none")]
+    look = (["BorderStyle=1", "OutlineColour=&H00000000&", "BackColour=&H80000000&", "Outline=2", "Shadow=3"] if box is None
+            else ["BorderStyle=3", f"OutlineColour=&H{box}000000&", "BackColour=&HFF000000&", "Outline=2", "Shadow=0"])
+    return ["PrimaryColour=&H00FFFFFF&", *look, f"Alignment={8 if burn.get('pos') == 'top' else 2}",
+            "MarginV=50", "MarginL=12", "MarginR=12"]
+
+
+def burn_filter(burn, rate, subs):
+    """The picture's filters: smaller, then the timecode, then the script, so each is drawn
+    at the size the video ends up. 29.97 and 59.94 count drop-frame timecode, as Scribecue
+    shows it."""
+    parts = []
+    height = burn.get("height", 0)
+    if height:
+        parts.append(scale_to(height))
+    if burn.get("timecode"):
+        num, den = map(int, rate.split("/"))
+        drop = den == 1001 and num in (30000, 60000)
+        parts.append(
+            f"drawtext=fontfile={MONO}:timecode='00\\:00\\:00\\{';' if drop else ':'}00':rate={rate}"
+            ":fontsize=h/24:fontcolor=white:x=h/72:y=h/72:box=1:boxcolor=black@0.67:boxborderw=6")
+    if burn.get("subs"):
+        style = "\\,".join(["FontName=DejaVu Sans", f"FontSize={SIZES[burn.get('size', 'm')]}", *script_style(burn)])
+        parts.append(f"subtitles=filename={subs}:force_style='{style}'")
+    parts.append("format=yuv420p")
+    return ",".join(parts)
+
+
 def sums(terms):
     """Adds terms in halves: ffmpeg's expressions can't go too deep, as one long chain would."""
     if len(terms) < 2:
@@ -139,6 +206,14 @@ def command(job):
             "-i", video, "-map", "0:v:0", "-map", "0:a?", *picture,
             "-c:a", "libopus", "-b:a", "128k", "-ac", "2", "-map_metadata", "0",
             os.path.join(folder, "out." + job["copy"]),
+        ], probe(video)[1]
+    if job.get("burn"):
+        video = os.path.join(folder, "video." + job["video"])
+        return [
+            "-i", video, "-vf", burn_filter(job["burn"], frame_rate(video), os.path.join(folder, "subs.srt")),
+            "-map", "0:v:0", "-map", f"0:a:{job.get('track') or 0}?",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-c:a", "aac", "-b:a", "192k",
+            "-movflags", "+faststart", "-map_metadata", "0", os.path.join(folder, "out.mp4"),
         ], probe(video)[1]
     mix = os.path.join(folder, "mix.wav")
     if job.get("pauses"):
@@ -221,7 +296,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/status":
-            return self.reply(200, {"ffmpeg": self.server.version})
+            return self.reply(200, {"ffmpeg": self.server.version, "burn": os.path.exists(MONO)})
         job, part = self.job()
         if not job:
             return self.reply(404, {"error": "no such job"})
@@ -248,7 +323,11 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:
                 return self.reply(400, {"error": "not JSON"})
             codec, video, copy, pauses = body.get("codec"), body.get("video"), body.get("copy"), body.get("pauses")
-            if (copy not in COPIES or video not in VIDEOS) if copy else (codec not in CODECS or (video and video not in VIDEOS)):
+            burn, track = body.get("burn"), body.get("track", 0)
+            if burn is not None and (not good_burn(burn) or video not in VIDEOS or copy or pauses is not None
+                                     or type(track) is not int or not 0 <= track < 64):
+                return self.reply(400, {"error": "unknown burn"})
+            if burn is None and ((copy not in COPIES or video not in VIDEOS) if copy else (codec not in CODECS or (video and video not in VIDEOS))):
                 return self.reply(400, {"error": "unknown format"})
             if pauses is not None and (not video or copy or not good_pauses(pauses)):
                 return self.reply(400, {"error": "unknown pauses"})
@@ -258,13 +337,15 @@ class Handler(BaseHTTPRequestHandler):
                 clear()
                 os.makedirs(os.path.join(WORK, id))
                 jobs[id] = {"dir": os.path.join(WORK, id), "codec": codec, "video": video or None, "copy": copy or None, "pauses": pauses,
-                            "replace": bool(body.get("replace")), "name": name, "state": "waiting", "done": 0, "error": None,
+                            "replace": bool(body.get("replace")), "name": name,
+                            "burn": burn, "track": track if burn else 0, "state": "waiting", "done": 0, "error": None,
                             "seen": time.monotonic()}
             return self.reply(200, {"id": id})
         job, part = self.job()
         if not job or part != "/start":
             return self.reply(404, {"error": "no such job"})
-        need = ([] if job["copy"] else ["mix.wav"]) + (["video." + job["video"]] if job["video"] else [])
+        need = (["subs.srt"] if (job["burn"] or {}).get("subs") else [] if job["burn"] or job["copy"] else ["mix.wav"]) + (
+            ["video." + job["video"]] if job["video"] else [])
         if job["state"] != "waiting" or not all(os.path.exists(os.path.join(job["dir"], f)) for f in need):
             return self.reply(409, {"error": "the files haven't all arrived"})
         job["state"] = "running"
@@ -273,15 +354,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         job, part = self.job()
-        if not job or part not in ("/mix", "/video") or (part == "/video" and not job["video"]) or (part == "/mix" and job["copy"]):
+        if (not job or part not in ("/mix", "/video", "/subs") or (part == "/video" and not job["video"])
+                or (part == "/mix" and (job["copy"] or job["burn"])) or (part == "/subs" and not (job["burn"] or {}).get("subs"))):
             return self.reply(404, {"error": "no such job"})
         size = int(self.headers.get("Content-Length") or 0)
         if size <= 0:
             return self.reply(411, {"error": "the file is empty"})
+        if part == "/subs" and size > MAX_SUBS:
+            return self.reply(413, {"error": "the script is too big"})
         # Room for this file and what ffmpeg makes from it, with some to spare.
         if shutil.disk_usage(WORK).free < size * 2 + (512 << 20):
             return self.reply(507, {"error": f"Docker has too little disk space for a {size / 1e9:.1f} GB file"})
-        name = "mix.wav" if part == "/mix" else "video." + job["video"]
+        name = {"/mix": "mix.wav", "/subs": "subs.srt"}.get(part) or "video." + job["video"]
         path, left = os.path.join(job["dir"], name), size
         with open(path + ".part", "wb") as f:
             while left:

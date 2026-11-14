@@ -10,7 +10,7 @@ import { initComments, toggleComments, refreshComments, openBlockComments, showN
 import { parseSubs, parseAdc, tidyText, scriptVoices, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
 import { HOSTED } from './config.js';
-import { DEFAULTS, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
+import { CHOICES, DEFAULTS, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
 import { initFloat, loadKind, saveKind, canOwnWindow } from './floatvideo.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
 import { initCheck, openCheck, checkFirst } from './proofdialog.js';
@@ -47,7 +47,8 @@ import { initKeys, keyChanges, openKeys, shortcutEntries } from './keys.js';
 import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, RUN_OVER, runsPast, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey, isPersonalGoogleKey, checkGoogleKey, setProjectGoogleKey, usingProjectGoogleKey, useProjectVoice, VOICE_LOCKED } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
-import { ffmpegCommands, holdFilter, extendedCommand } from './ffcmd.js';
+import { ffmpegCommands, holdFilter, extendedCommand, burnCommand, BURN_HEIGHTS, burnHeights, burnHeight, ffRate, plainName } from './ffcmd.js';
+import { buildDawMarkers, DAW_KINDS } from './dawmarkers.js';
 import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS } from './codecs.js';
 import { createLog, watchErrors, pictureWatch, report as diagReport, exposeReport } from './diagnostics.js';
 import { waveKey, loadWave, saveWave, loadSound, saveSound } from './wavestore.js';
@@ -2923,12 +2924,14 @@ const esc = (s) => s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>
 function renderOverlay(c) {
   overlay.textContent = '';
   if (!c || !c.text) return;
-  const span = document.createElement('span');
+  const line = document.createElement('div'), span = document.createElement('span');
+  line.className = 'subtext';
+  line.append(span);
   // With Alt on in Record mode, the narrator reads the alt's wording.
   const text = (S.mode === 'record' && recorder?.altWording(idx(c.id))) || c.text;
   // allow basic <i>/<b>/<u> markup, strip everything else
   span.innerHTML = esc(text.replace(/\{[^}]*\}/g, '')).replace(/&lt;(\/?)([ibu])&gt;/gi, '<$1$2>');
-  overlay.append(span);
+  overlay.append(line);
 }
 
 function updateActive(t) {
@@ -3717,6 +3720,23 @@ function ffPut(path, blob, progress) {
     x.send(blob);
   });
 }
+// Starts a job whose files have all gone, follows it to the end, and saves what it made.
+async function ffResult(id, progress) {
+  await ffCall('POST', `jobs/${id}/start`);
+  for (;;) {
+    const j = await ffCall('GET', `jobs/${id}`);
+    if (j.state === 'failed') throw new Error(`ffmpeg: ${j.error}`);
+    progress(j.done);
+    if (j.state === 'done') break;
+    await new Promise((ok) => setTimeout(ok, 500));
+  }
+  // ffmpeg sends the file with its name, and deletes it once it has gone.
+  const a = document.createElement('a');
+  a.href = `ffmpeg/jobs/${id}/result`;
+  a.download = '';
+  a.click();
+  ffJob = null;
+}
 // With pauses, it's a new video, which takes far longer: at is how much of the bar comes first.
 async function ffmpegMix(mix, video, codec, name, show, pauses = null, at = 0.7) {
   const ext = video && video.name.split('.').pop().toLowerCase();
@@ -3729,20 +3749,7 @@ async function ffmpegMix(mix, video, codec, name, show, pauses = null, at = 0.7)
   const sending = (n) => show(at + (sent - at) * n / total, `Sending to ffmpeg: ${gb(n)} of ${gb(total)}`);
   await ffPut(`jobs/${id}/mix`, mix, (f) => sending(f * mix.size));
   if (video) await ffPut(`jobs/${id}/video`, video, (f) => sending(mix.size + f * video.size));
-  await ffCall('POST', `jobs/${id}/start`);
-  for (;;) {
-    const j = await ffCall('GET', `jobs/${id}`);
-    if (j.state === 'failed') throw new Error(`ffmpeg: ${j.error}`);
-    show(sent + (1 - sent) * j.done, `${pauses ? 'Making the video' : video ? 'Putting it in the video' : 'Making the file'}: ${Math.round(j.done * 100)}%`);
-    if (j.state === 'done') break;
-    await new Promise((ok) => setTimeout(ok, 500));
-  }
-  // ffmpeg sends the file with its name, and deletes it once it has gone.
-  const a = document.createElement('a');
-  a.href = `ffmpeg/jobs/${id}/result`;
-  a.download = '';
-  a.click();
-  ffJob = null;
+  await ffResult(id, (done) => show(sent + (1 - sent) * done, `${pauses ? 'Making the video' : video ? 'Putting it in the video' : 'Making the file'}: ${Math.round(done * 100)}%`));
   return name + '.' + (video ? ext : mixFormat(tts.mixAs).ext);
 }
 function runMix(job, transfer, progress) {
@@ -5649,10 +5656,13 @@ function exportSubs(fmt) {
   if (!S.cues.length) return toast('Nothing to export yet');
   checkFirst(() => writeSubs(fmt));
 }
+// Blocks marked extended are short on the timeline, but not in another tool. pauses: timed
+// to the extended video, rather than the programme.
+const readLength = (c) => (spoken(c.text) ? speechLength(said(c), c.speed, c.voice) : { secs: 0, exact: true });
+const scriptCues = (pauses = withPauses()) => (hasExtended() ? timedScript(S.cues, S.extendedAll, (c) => readLength(c).secs, pauses) : S.cues);
 function writeSubs(fmt) {
-  // Blocks marked extended are short on the timeline, but not in another tool.
-  const ext = hasExtended(), length = (c) => (spoken(c.text) ? speechLength(said(c), c.speed, c.voice) : { secs: 0, exact: true });
-  const cues = ext ? timedScript(S.cues, S.extendedAll, (c) => length(c).secs, withPauses()) : S.cues;
+  const ext = hasExtended(), length = readLength;
+  const cues = scriptCues();
   const text = fmt === 'vtt' ? toVTT(cues) : toSRT(cues);
   const name = `${baseName()}.${fmt}`;
   const a = document.createElement('a');
@@ -5664,6 +5674,150 @@ function writeSubs(fmt) {
   const about = ext && S.cues.some((c) => isExt(c) && !length(c).exact);
   toast(`Exported ${name} (${S.cues.length} cues)` + (withPauses() ? ', timed to the extended video' : '') + (speeds ? '. SRT can’t store block speeds: export VTT to keep them' : '') +
     (about ? '. Some reading lengths are estimates' : ''));
+}
+
+// DAW markers: a WAV with a tone while each block lasts, named by its text, to record and
+// place lines in another program. Markers suit Logic Pro, regions Reaper. Times are the
+// programme's, as in the SRT.
+const DAW_INFO = {
+  markers: 'Each block is a marker at its start. Logic Pro reads these.',
+  regions: 'Each block is a region from its start to its end. Reaper reads these.',
+};
+let dawKind = (() => { try { const k = localStorage.getItem('scribecue.dawKind'); return DAW_KINDS.includes(k) ? k : 'markers'; } catch { return 'markers'; } })();
+function showDawKind() {
+  for (const b of document.querySelectorAll('#dawKind button')) b.setAttribute('aria-pressed', String(b.dataset.value === dawKind));
+  $('dawKindInfo').textContent = DAW_INFO[dawKind];
+}
+for (const b of document.querySelectorAll('#dawKind button')) {
+  b.addEventListener('click', () => {
+    dawKind = b.dataset.value;
+    try { localStorage.setItem('scribecue.dawKind', dawKind); } catch {}
+    showDawKind();
+  });
+}
+const dawBlocks = () => scriptCues(false).filter((c) => c.text.trim());
+function openDaw() {
+  if (!dawBlocks().length) return toast('Nothing to export yet');
+  showDawKind();
+  $('dawDlg').showModal();
+}
+$('dawClose').addEventListener('click', () => $('dawDlg').close());
+$('dawGo').addEventListener('click', () => {
+  const blocks = dawBlocks();
+  const secs = S.videoFile && Number.isFinite(video.duration) ? video.duration : 0;
+  try {
+    const blob = buildDawMarkers({ blocks: blocks.map((c) => ({ start: c.start, end: c.end, text: c.text })), secs, kind: dawKind });
+    const name = `${baseName()} - ${dawKind}.wav`;
+    saveBlob(blob, name);
+    $('dawDlg').close();
+    toast(`Exported ${name} (${blocks.length} ${blocks.length === 1 ? dawKind.slice(0, -1) : dawKind})`);
+  } catch (e) {
+    toast(`Couldn’t export DAW markers: ${e.message}`);
+  }
+});
+
+// Video with subtitles: the script and the timecode burnt into a copy of the video, by
+// ffmpeg in Docker (see ffmpeg/server.py). Without it, the script and a command to run.
+const BURN_DEFAULTS = { subs: true, timecode: true, height: 720 };
+let burnOpts = (() => {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('scribecue.burn') || '{}') || {}; } catch {}
+  const o = { ...BURN_DEFAULTS };
+  for (const k of ['subs', 'timecode']) if (typeof saved[k] === 'boolean') o[k] = saved[k];
+  if (BURN_HEIGHTS.includes(saved.height)) o.height = saved.height;
+  return o;
+})();
+let burnStopped = false;
+const burnBar = $('burnBar'), burnStatus = $('burnStatus'), burnGo = $('burnGo'), burnStop = $('burnStop');
+function showBurn() {
+  $('burnSubs').setAttribute('aria-pressed', String(!!burnOpts.subs));
+  $('burnTc').setAttribute('aria-pressed', String(!!burnOpts.timecode));
+  // Only resolutions that make this video smaller. The choice is kept for the next video.
+  const fits = burnHeights(video.videoHeight), height = burnHeight(burnOpts.height, video.videoHeight);
+  for (const b of $('burnHeight').querySelectorAll('button')) {
+    b.hidden = !fits.includes(+b.dataset.height);
+    b.setAttribute('aria-pressed', String(+b.dataset.height === height));
+  }
+  $('burnRes').hidden = fits.length < 2;
+  // The script looks as it does over the video.
+  const name = (k) => CHOICES[k][0].find(([v]) => v === look[k])?.[1].toLowerCase();
+  $('burnLook').textContent = burnOpts.subs ? `The script looks as it does over the video: ${name('subSize')} text, ${look.subBg === 'none'
+    ? 'outlined' : `on a ${name('subBg')} background`}, at the ${look.subPos}. Change it in Settings, under Appearance.` : '';
+}
+const burnLook = () => ({ size: look.subSize, bg: look.subBg, pos: look.subPos });
+const burnJob = () => ({ ...burnOpts, height: burnHeight(burnOpts.height, video.videoHeight), ...burnLook() });
+function setBurn(k, v) {
+  burnOpts = { ...burnOpts, [k]: v };
+  try { localStorage.setItem('scribecue.burn', JSON.stringify(burnOpts)); } catch {}
+  showBurn();
+}
+$('burnSubs').addEventListener('click', () => setBurn('subs', !burnOpts.subs));
+$('burnTc').addEventListener('click', () => setBurn('timecode', !burnOpts.timecode));
+$('burnHeight').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setBurn('height', +b.dataset.height); });
+// Whether ffmpeg in Docker can burn in: an older image has no fonts for it.
+async function ffmpegBurns() {
+  if (HOSTED) return null;
+  try {
+    const r = await fetch('ffmpeg/status', { cache: 'no-store' });
+    return r.ok ? !!(await r.json()).burn : null;
+  } catch { return null; }
+}
+async function openBurn() {
+  if (!S.videoFile || !S.hasVideo) return toast('Open the programme’s video first');
+  if (!dawBlocks().length) return toast('Nothing to export yet');
+  showBurn();
+  if (burnStop.hidden) { burnStatus.textContent = ''; $('burnCmds').hidden = true; }
+  $('burnWhere').textContent = '';
+  $('burnDlg').showModal();
+  const can = await ffmpegBurns();
+  $('burnWhere').textContent = can ? 'ffmpeg in Docker makes it, which can take a while for a long film.'
+    : can === false ? 'ffmpeg in Docker needs updating to make it: run docker compose up -d --build. Until then, you get the script and a command for ffmpeg of your own.'
+      : 'This needs ffmpeg in Docker. Without it, you get the script and a command for ffmpeg of your own.';
+}
+$('burnClose').addEventListener('click', () => $('burnDlg').close());
+$('burnCmdCopy').addEventListener('click', async () => toast(await copyText($('burnCmd').textContent) ? 'Copied the command' : 'Couldn’t copy: the browser blocked clipboard access'));
+burnStop.addEventListener('click', () => {
+  burnStopped = true;
+  ffXhr?.abort();
+  if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
+});
+burnGo.addEventListener('click', () => checkFirst(makeBurn));
+async function makeBurn() {
+  const file = S.videoFile;
+  if (!file || !S.hasVideo) return report(burnStatus, 'Open the programme’s video first.');
+  if (!burnOpts.subs && !burnOpts.timecode) return report(burnStatus, 'Choose the script, the timecode or both.');
+  if (ffJob) return report(burnStatus, 'Wait for ffmpeg to finish the other file first.');
+  const srt = toSRT(dawBlocks()), base = baseName(), name = `${base} - subtitles`;
+  const ext = file.name.split('.').pop().toLowerCase();
+  burnStopped = false;
+  busy(burnGo, burnBar, true);
+  burnStop.hidden = false;
+  $('burnCmds').hidden = true;
+  const show = (f, text) => { if (burnStopped) throw stopped(); burnBar.value = f; burnStatus.textContent = text; };
+  try {
+    if (!(await ffmpegBurns())) {
+      const srtName = `${plainName(base)} - script.srt`;
+      saveBlob(new Blob([srt], { type: 'text/plain;charset=utf-8' }), srtName);
+      $('burnCmd').textContent = burnCommand({ video: file.name, srt: srtName, out: `${name}.mp4`, opts: burnJob(), rate: ffRate(S.fps), track: S.track });
+      $('burnCmds').hidden = false;
+      return report(burnStatus, `Saved ${srtName}.`);
+    }
+    if (!FF_VIDEOS.includes(ext)) throw new Error(`ffmpeg can make it from an MP4, MOV, MKV or WebM video, not a .${ext} file`);
+    const { id } = await ffCall('POST', 'jobs', { burn: burnJob(), video: ext, track: S.track || 0, name });
+    ffJob = id;
+    if (burnOpts.subs) await ffPut(`jobs/${id}/subs`, new Blob([srt], { type: 'text/plain' }), () => {});
+    const gb = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.round(n / 1e6)} MB`);
+    await ffPut(`jobs/${id}/video`, file, (f) => show(0.2 * f, `Sending to ffmpeg: ${gb(f * file.size)} of ${gb(file.size)}`));
+    await ffResult(id, (f) => show(0.2 + 0.8 * f, `Making the video: ${Math.round(f * 100)}%`));
+    report(burnStatus, `Saved ${name}.mp4.`);
+  } catch (e) {
+    if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
+    if (e.stopped || burnStopped) burnStatus.textContent = 'Stopped.';
+    else report(burnStatus, `Couldn’t make the video: ${e.message}`);
+  } finally {
+    busy(burnGo, burnBar, false);
+    burnStop.hidden = true;
+  }
 }
 
 // Scripts Scribecue opens: SRT, VTT, plain text, and Frazier's .adc files.
@@ -6674,6 +6828,8 @@ const actions = {
     ttsPauseList.scrollIntoView({ block: 'center' });
     if (!ttsPauseList.disabled) ttsPauseList.click();
   },
+  exportDaw: () => (canMakeFiles() ? checkFirst(openDaw) : toast('Only the owner exports a shared project')),
+  exportBurn: () => (canMakeFiles() ? openBurn() : toast('Only the owner exports a shared project')),
   exportQc: () => (S.reviewId ? openQcExport() : checkFirst(openQcExport)),
   exportRecording: () => checkFirst(askRecordingFile),
   checkSpelling: () => openCheck(),

@@ -10,7 +10,8 @@ export const KEY = 'scribecue.appearance';
 export const CHOICES = {
   accent: [[['amber', 'Amber'], ['violet', 'Violet'], ['teal', 'Teal'], ['magenta', 'Magenta']], 'amber'],
   subSize: [[['s', 'Small'], ['m', 'Medium'], ['l', 'Large'], ['xl', 'Extra large']], 'm'],
-  subBg: [[['none', 'None'], ['light', 'Light'], ['dark', 'Dark'], ['solid', 'Solid']], 'dark'],
+  // No background by default: an outline and a shadow, as subtitles are burnt in.
+  subBg: [[['none', 'None'], ['light', 'Light'], ['dark', 'Dark'], ['solid', 'Solid']], 'none'],
   subPos: [[['bottom', 'Bottom'], ['top', 'Top']], 'bottom'],
   textSize: [[['m', 'Default'], ['l', 'Large'], ['xl', 'Larger']], 'm'],
 };

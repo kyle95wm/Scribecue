@@ -7,8 +7,8 @@
 //   window  a window of its own (Document Picture-in-Picture), which can go on another
 //           screen. Chrome and Edge only; elsewhere it floats as a panel.
 //
-// The text over the video keeps its size against the picture: in a window twice as wide as
-// the docked picture, it's twice as big. The keys pressed in a window of its own are passed
+// The text over the video covers the picture, docked or floating, and style.css sizes it
+// against the picture, so it looks the same in any size of player. The keys pressed in a window of its own are passed
 // to the app, so every shortcut still works.
 
 export const KIND_KEY = 'scribecue.floatVideo';
@@ -66,6 +66,31 @@ export function place(r, viewW, viewH, aspect) {
 
 export const CORNERS = ['nw', 'ne', 'sw', 'se'];
 
+// Sizes to pick from the floating video's right-click menu, against the video's own size:
+// Original size shows each of its pixels as one of the screen's (CSS pixels).
+export const SCALES = [0.25, 0.5, 1, 2, 3];
+export const scaleName = (k) => (k === 1 ? 'Original size' : `${k}× size`);
+
+// The width of the picture at scale k, or 0 when it can't be shown that size: smaller than
+// a panel can be, or bigger than room (roomW, roomH: the space for the picture and its bar).
+export function scaledWidth(k, videoW, aspect, roomW, roomH) {
+  const a = aspect > 0 ? aspect : 16 / 9, w = Math.round(videoW * k);
+  return videoW > 0 && w >= MIN_W && w <= roomW && w / a + BAR <= roomH ? w : 0;
+}
+
+// A panel `r` at width w, keeping its middle where it was, then kept on the screen.
+export function resizedTo(r, w, aspect, viewW, viewH) {
+  const a = aspect > 0 ? aspect : 16 / 9;
+  const mx = r.x + r.w / 2, my = r.y + (r.w / a + BAR) / 2;
+  return place({ x: mx - w / 2, y: my - (w / a + BAR) / 2, w }, viewW, viewH, a);
+}
+
+// A panel `r` in the middle of the window.
+export const centered = (r, aspect, viewW, viewH) => {
+  const a = aspect > 0 ? aspect : 16 / 9;
+  return place({ x: (viewW - r.w) / 2, y: (viewH - (r.w / a + BAR)) / 2, w: r.w }, viewW, viewH, a);
+};
+
 // A panel resized by dragging one of its corners ('nw', 'ne', 'sw' or 'se') by dx, dy.
 // The opposite corner stays put, and the picture keeps its shape, following whichever
 // way the pointer went further.
@@ -87,16 +112,6 @@ export function resized(r, dx, dy, aspect, viewW, viewH, corner = 'se') {
 // Moving the picture by less than this many px is a click, not a drag.
 export const DRAG_FROM = 4;
 export const isDrag = (dx, dy) => Math.hypot(dx, dy) >= DRAG_FROM;
-
-// The text's size and width in a floating picture `w` px wide, from its size and width
-// over a docked picture `dockW` px wide. Where the docked text is wider than its picture
-// (a small picture, as in Record mode), it scales as if the picture were wide enough to
-// hold it, so it never fills more than 90% of the floating picture's width.
-export function scaledText(font, width, dockW, w) {
-  const ref = Math.max(dockW, width / 0.9);
-  const k = ref > 0 && w > 0 ? w / ref : 1;
-  return { font: font * k, width: width * k };
-}
 
 const get = (k) => { try { return globalThis.localStorage?.getItem(k) ?? null; } catch { return null; } };
 const set = (k, v) => { try { globalThis.localStorage?.setItem(k, v); } catch { /* storage blocked */ } };
@@ -125,13 +140,6 @@ export function initFloat({ stage, video, parts, kind, canFloat = () => true, no
   hold.append(back);
   stage.append(hold);
   hold.addEventListener('dblclick', () => dock());
-
-  // An empty copy of the overlay that stays in the stage, to measure the docked text by.
-  const probe = doc.createElement('div');
-  probe.className = 'overlay floatprobe';
-  probe.setAttribute('aria-hidden', 'true');
-  probe.innerHTML = '<span>M</span>';
-  stage.append(probe);
 
   // The panel: a title bar to drag, the picture, and a corner to resize by.
   const panel = doc.createElement('div');
@@ -174,18 +182,83 @@ export function initFloat({ stage, video, parts, kind, canFloat = () => true, no
   const spots = moving.map((el) => [el, el.parentNode, el.nextSibling]);
   const aspect = () => (video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9);
 
-  // Sizes the picture in its box, and the text to match the docked picture.
+  // Sizes the picture in its box, and puts the text over the picture. Floating, the
+  // picture has a box of its own, which the text covers as it is.
+  const cover = (el, r) => Object.assign(el.style, r ? { left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px` }
+    : { left: '', top: '', width: '', height: '' });
   function layout() {
-    if (!floating) return;
+    if (!floating) return cover(overlay, fitPicture(stage.clientWidth, stage.clientHeight, aspect()));
     const host = floating === 'window' ? pip.document.body : box;
-    const fit = fitPicture(host.clientWidth, host.clientHeight, aspect());
-    Object.assign(pic.style, { left: `${fit.x}px`, top: `${fit.y}px`, width: `${fit.w}px`, height: `${fit.h}px` });
-    const docked = fitPicture(stage.clientWidth, stage.clientHeight, aspect());
-    const span = probe.firstChild;
-    const t = scaledText(parseFloat(getComputedStyle(span).fontSize) || 0, probe.offsetWidth, docked.w, fit.w);
-    overlay.style.setProperty('--float-font', `${t.font}px`);
-    overlay.style.setProperty('--float-width', `${t.width}px`);
+    cover(pic, fitPicture(host.clientWidth, host.clientHeight, aspect()));
+    // Full screen, the picture's box is the screen, of another shape than the picture.
+    const full = pic.ownerDocument.fullscreenElement === pic;
+    cover(overlay, full ? fitPicture(pic.clientWidth, pic.clientHeight, aspect()) : null);
   }
+
+  // Right-click the floating video for sizes, full screen and centring, as in Logic. The
+  // menu goes in whichever document the picture is in: this one, or its own window's.
+  let menu = null;
+  function closeMenu() { if (menu) { menu.remove(); menu = null; } }
+  function openMenu(e) {
+    e.preventDefault();
+    closeMenu();
+    const d = pic.ownerDocument, view = d.defaultView, own = floating === 'window';
+    const scr = view.screen;
+    // A window of its own can be as big as the screen; a panel, as the tab.
+    const roomW = own ? scr.availWidth : innerWidth, roomH = own ? scr.availHeight : innerHeight;
+    const nowW = own ? view.innerWidth : rect?.w;
+    menu = d.createElement('div');
+    menu.className = 'floatmenu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Video size');
+    const item = (label, run, { checked = null, disabled = false } = {}) => {
+      const b = d.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', checked === null ? 'menuitem' : 'menuitemradio');
+      if (checked !== null) b.setAttribute('aria-checked', String(checked));
+      b.textContent = label;
+      b.disabled = disabled;
+      b.addEventListener('click', () => { closeMenu(); run(); });
+      menu.append(b);
+    };
+    const line = () => { const hr = d.createElement('div'); hr.className = 'menusep'; hr.setAttribute('role', 'separator'); menu.append(hr); };
+    for (const k of SCALES) {
+      const w = scaledWidth(k, video.videoWidth, aspect(), roomW, own ? roomH + BAR : roomH);
+      item(scaleName(k), () => sizeTo(w), { checked: !!w && Math.abs(w - nowW) < 2, disabled: !w });
+    }
+    const full = d.fullscreenElement === pic;
+    item(full ? 'Leave full screen' : 'Full screen', () => (full ? d.exitFullscreen() : pic.requestFullscreen()).catch?.(() => note('This browser can’t show the video full screen here')),
+      { disabled: own || !d.fullscreenEnabled });
+    line();
+    item('Center', () => { rect = centered(rect, aspect(), innerWidth, innerHeight); showPanel(); saveRect(); }, { disabled: own });
+    d.body.append(menu);
+    const r = menu.getBoundingClientRect();
+    menu.style.left = `${Math.max(4, Math.min(e.clientX, view.innerWidth - r.width - 4))}px`;
+    menu.style.top = `${Math.max(4, Math.min(e.clientY, view.innerHeight - r.height - 4))}px`;
+    menu.querySelector('button:not(:disabled)')?.focus();
+    menu.addEventListener('keydown', (k) => {
+      const items = [...menu.querySelectorAll('button:not(:disabled)')], at = items.indexOf(d.activeElement);
+      const go = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: items.length - 1 }[k.key];
+      if (k.key === 'Escape' || k.key === 'Tab') { k.preventDefault(); closeMenu(); }
+      else if (go !== undefined) { k.preventDefault(); items[(go + items.length) % items.length]?.focus(); }
+      else return;
+      k.stopPropagation();
+    });
+  }
+  function sizeTo(w) {
+    if (!w) return;
+    if (floating === 'window') {
+      const v = pip;
+      try { v.resizeBy(w - v.innerWidth, Math.round(w / aspect()) - v.innerHeight); } catch { note('This window can’t be resized from here: drag its edge'); }
+      return;
+    }
+    rect = resizedTo(rect, w, aspect(), innerWidth, innerHeight);
+    showPanel();
+    saveRect();
+  }
+  pic.addEventListener('contextmenu', (e) => { if (floating) openMenu(e); });
+  doc.addEventListener('pointerdown', (e) => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
+  doc.addEventListener('fullscreenchange', layout);
 
   function showPanel() {
     const vw = innerWidth, vh = innerHeight;
@@ -256,7 +329,8 @@ export function initFloat({ stage, video, parts, kind, canFloat = () => true, no
         if (!doc.body.dispatchEvent(copy)) e.preventDefault();
       });
     }
-    w.addEventListener('resize', layout);
+    w.addEventListener('resize', () => { closeMenu(); layout(); });
+    w.document.addEventListener('pointerdown', (e) => { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
     w.addEventListener('pagehide', () => { if (pip === w) dock(); });
   }
   function copyLook(w = pip) {
@@ -299,17 +373,18 @@ export function initFloat({ stage, video, parts, kind, canFloat = () => true, no
 
   function dock() {
     if (!floating) return;
+    closeMenu();
+    if (doc.fullscreenElement === pic) doc.exitFullscreen().catch(() => {});
     const w = pip;
     floating = null;
     pip = null;
     for (const [el, parent, next] of spots) parent.insertBefore(el, next && next.parentNode === parent ? next : null);
-    overlay.style.removeProperty('--float-font');
-    overlay.style.removeProperty('--float-width');
     box.append(pic);
     panel.hidden = true;
     hold.hidden = true;
     stage.classList.remove('floating');
     try { w?.close(); } catch { /* already closed */ }
+    layout();
     changed(false);
   }
 

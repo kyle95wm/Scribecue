@@ -17,7 +17,7 @@
   --hl-magenta: #ff7fd6;
   /* Subtitles over the video, and the text in the list and the block editor. */
   --sub-scale: 1;
-  --sub-bg: rgba(0, 0, 0, 0.75);
+  --sub-bg: transparent;
   --list-text: 14px;
   --editor-text: 18px;
   --cue: #5aa9ff;
@@ -37,7 +37,7 @@
 :root[data-sub-size="s"] { --sub-scale: 0.8; }
 :root[data-sub-size="l"] { --sub-scale: 1.25; }
 :root[data-sub-size="xl"] { --sub-scale: 1.5; }
-:root[data-sub-bg="none"] { --sub-bg: transparent; }
+:root[data-sub-bg="dark"] { --sub-bg: rgba(0, 0, 0, 0.75); }
 :root[data-sub-bg="light"] { --sub-bg: rgba(0, 0, 0, 0.45); }
 :root[data-sub-bg="solid"] { --sub-bg: rgb(0, 0, 0); }
 :root[data-text-size="l"] { --list-text: 16px; --editor-text: 20px; }
@@ -171,7 +171,7 @@ nav { display: flex; gap: 6px; margin-left: auto; }
 /* menus that drop down from a header button, such as Export */
 .navwrap { position: relative; display: inline-flex; }
 .caret { font-size: 10px; color: var(--dim); }
-.navmenu {
+.navmenu, .floatmenu {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
@@ -187,8 +187,8 @@ nav { display: flex; gap: 6px; margin-left: auto; }
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
 }
 .navmenu[hidden] { display: none; }
-.navmenu button { justify-content: space-between; text-align: left; border-color: transparent; background: none; padding: 6px 8px; }
-.navmenu button:hover, .navmenu button:focus-visible { background: var(--raise); border-color: var(--line); outline: none; }
+.navmenu button, .floatmenu button { justify-content: space-between; text-align: left; border-color: transparent; background: none; padding: 6px 8px; }
+.navmenu button:hover, .navmenu button:focus-visible, .floatmenu button:not(:disabled):hover, .floatmenu button:focus-visible { background: var(--raise); border-color: var(--line); outline: none; }
 .navmenu button > span { display: flex; flex-direction: column; gap: 1px; }
 .navmenu .dim { font-size: 12px; }
 .menugroup { flex-direction: column; }
@@ -295,36 +295,48 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
   pointer-events: none;
 }
 .has-video .empty { display: none; }
+/* The text over the video looks as it does burnt into a video with subtitles (see
+   ffmpeg/server.py), at any size of player, docked or floating. The overlay covers the
+   picture (floatvideo.js places it), and everything is measured against the picture's
+   height, as libass does: a screen 288 units high, the text 20 units, 50 up from the
+   bottom, 12 in from the sides of a screen 384 wide. */
 .overlay {
   position: absolute;
-  left: 5%;
-  right: 5%;
-  bottom: 6%;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  container-type: size;
   text-align: center;
   pointer-events: none;
+  --u: calc(100cqh / 288);
+}
+.overlay .subtext {
+  position: absolute;
+  left: 3.125%;
+  right: 3.125%;
+  bottom: calc(50 * var(--u));
+  font: calc(20 * var(--u) * var(--sub-scale)) / 1.25 "DejaVu Sans", Verdana, var(--sans);
+  text-wrap: balance;
 }
 .overlay span {
   background: var(--sub-bg);
   color: #fff;
-  font-size: calc(var(--sub-scale) * clamp(16px, 2.2vw, 30px));
-  line-height: 1.4;
   padding: 0.08em 0.4em;
   white-space: pre-line;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
-/* With no background, an outline keeps the words readable on bright pictures. */
-:root[data-sub-bg="none"] .overlay span { text-shadow: 0 0 3px rgb(0, 0, 0), 0 1px 2px rgb(0, 0, 0), 0 0 1px rgb(0, 0, 0); }
-:root[data-sub-pos="top"] .overlay { top: 6%; bottom: auto; }
-/* Beside the list, the text keeps the width it has with the list at its usual size, so a
-   narrower or hidden list doesn't stretch its lines out. The usual size is in split.js. */
-@media (min-width: 901px) {
-  .overlay { left: 0; right: 0; width: 90%; margin-inline: auto; max-width: calc(0.9 * (100vw - max(380px, 38vw))); }
+/* With no background: an outline and a shadow, as burnt in. */
+:root[data-sub-bg="none"] .overlay span {
+  -webkit-text-stroke: calc(4 * var(--u)) rgb(0, 0, 0);
+  paint-order: stroke fill;
+  text-shadow: calc(3 * var(--u)) calc(3 * var(--u)) 0 rgb(0 0 0 / 0.5);
 }
+:root[data-sub-pos="top"] .overlay .subtext { top: calc(50 * var(--u)); bottom: auto; }
 
 /* Floating video (floatvideo.js): the video in a panel over the app, or in a window of its
    own. The spot it leaves keeps its size, and the text keeps its size against the picture. */
-.floatprobe { visibility: hidden; }
 .floathold {
   position: absolute;
   inset: 0;
@@ -374,8 +386,13 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
 .floatbox { position: relative; flex: 1; min-height: 0; }
 .floatpic { position: absolute; }
 .floatpic video { width: 100%; height: 100%; }
-.floatpic .overlay { left: 0; right: 0; width: var(--float-width, 90%); max-width: none; margin-inline: auto; }
-.floatpic .overlay span { font-size: var(--float-font, 20px); }
+.floatmenu { position: fixed; top: auto; right: auto; min-width: 200px; z-index: 1000; }
+.floatmenu button::before { content: ""; display: inline-block; width: 1.2em; }
+.floatmenu [role="menuitemradio"][aria-checked="true"]::before { content: "✓"; }
+.floatmenu button { justify-content: flex-start; }
+.floatmenu button:disabled { color: var(--faint); background: none; border-color: transparent; }
+.menusep { height: 1px; margin: 3px 4px; background: var(--line); }
+.floatpic:fullscreen { background: rgb(0, 0, 0); }
 .floatgrip { position: absolute; width: 14px; height: 14px; z-index: 1; touch-action: none; }
 .floatgrip[data-corner="nw"] { left: 0; top: 0; cursor: nwse-resize; }
 .floatgrip[data-corner="ne"] { right: 0; top: 0; cursor: nesw-resize; }
@@ -1478,7 +1495,7 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 #qcPlaybackDlg { max-width: 720px; }
 #qcExportDlg { max-width: 680px; }
 #qcVoiceList, #qcExportVoices { font: 13px/1.5 var(--sans); max-height: 200px; overflow-y: auto; }
-#qcPlaybackDlg button[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+#qcPlaybackDlg button[aria-pressed="true"], #burnDlg button[aria-pressed="true"], #dawDlg button[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 #qcExportProgress { width: 100%; }
 .mode-qc #edText { font-family: var(--sans); }
 

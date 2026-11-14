@@ -135,3 +135,70 @@ class Forgetting(unittest.TestCase):
                 self.assertEqual(os.listdir(work), ["new"])
             finally:
                 server.jobs.clear()
+
+
+class Burning(unittest.TestCase):
+    def burn(self, burn, rate="25/1", track=0):
+        job = {"dir": "/work/j", "codec": None, "video": "mkv", "replace": False, "copy": None, "burn": burn, "track": track}
+        with mock.patch.object(server, "probe", return_value=(ENG, 60.0)), mock.patch.object(server, "frame_rate", return_value=rate):
+            return server.command(job)
+
+    def test_an_mp4_with_the_picture_encoded_and_the_chosen_track(self):
+        args, secs = self.burn({"subs": True, "timecode": True, "size": "m", "height": 720}, track=1)
+        self.assertEqual(after(args, "-i"), ["/work/j/video.mkv"])
+        self.assertEqual(after(args, "-map"), ["0:v:0", "0:a:1?"])
+        self.assertEqual(after(args, "-c:v"), ["libx264"])
+        self.assertEqual(after(args, "-c:a"), ["aac"])
+        self.assertEqual(args[-1], "/work/j/out.mp4")
+        self.assertEqual(secs, 60.0)
+
+    def test_smaller_first_then_the_timecode_then_the_script(self):
+        vf = after(self.burn({"subs": True, "timecode": True, "height": 720})[0], "-vf")[0]
+        order = [vf.index(k) for k in ("scale=", "drawtext=", "subtitles=", "format=yuv420p")]
+        self.assertEqual(order, sorted(order))
+        self.assertIn("filename=/work/j/subs.srt", vf)
+        self.assertIn("FontSize=20", vf)
+        self.assertIn("fontsize=h/24", vf)  # grows with the picture, as the script does
+
+    def test_each_resolution_is_a_most(self):
+        for h in (480, 720, 1080):
+            vf = after(self.burn({"subs": True, "height": h})[0], "-vf")[0]
+            self.assertTrue(vf.startswith(f"scale=-2:min({h}\\,trunc(ih/2)*2),"), vf)
+        self.assertNotIn("scale=", after(self.burn({"subs": True, "height": 0})[0], "-vf")[0])
+
+    def test_only_what_was_asked_for(self):
+        vf = after(self.burn({"timecode": True})[0], "-vf")[0]
+        self.assertNotIn("scale=", vf)
+        self.assertNotIn("subtitles=", vf)
+        vf = after(self.burn({"subs": True, "size": "l"})[0], "-vf")[0]
+        self.assertNotIn("drawtext=", vf)
+        self.assertIn("FontSize=25", vf)
+
+    def test_the_script_looks_as_it_does_over_the_video(self):
+        vf = after(self.burn({"subs": True, "bg": "none"})[0], "-vf")[0]
+        self.assertIn("BorderStyle=1", vf)  # an outline and a shadow
+        self.assertIn("Shadow=3", vf)
+        self.assertIn("Alignment=2", vf)
+        vf = after(self.burn({"subs": True, "bg": "light", "pos": "top"})[0], "-vf")[0]
+        self.assertIn("BorderStyle=3", vf)  # a box behind each line
+        self.assertIn("OutlineColour=&H8C000000&", vf)
+        self.assertIn("Alignment=8", vf)
+        vf = after(self.burn({"subs": True})[0], "-vf")[0]  # by default, as the burn-in script did
+        for style in ("BorderStyle=1", "Outline=2", "Shadow=3", "BackColour=&H80000000&", "FontSize=20", "MarginV=50"):
+            self.assertIn(style, vf)
+
+    def test_drop_frame_timecode_at_29_97_and_59_94_only(self):
+        for rate, sep in [("30000/1001", ";"), ("60000/1001", ";"), ("24000/1001", ":"), ("25/1", ":"), ("30/1", ":")]:
+            vf = after(self.burn({"timecode": True}, rate)[0], "-vf")[0]
+            self.assertIn(f"timecode='00\\:00\\:00\\{sep}00':rate={rate}", vf, rate)
+
+    def test_burns_are_checked(self):
+        self.assertTrue(server.good_burn({"subs": True}))
+        self.assertTrue(server.good_burn({"timecode": True, "size": "xl", "bg": "solid", "pos": "top", "height": 0}))
+        for h in (480, 720, 1080):
+            self.assertTrue(server.good_burn({"subs": True, "height": h}))
+        for bad in ({}, {"subs": False, "timecode": False}, {"subs": 1}, {"subs": True, "size": "huge"},
+                    {"subs": True, "bg": "red"}, {"subs": True, "pos": "middle"},
+                    {"subs": True, "font": "x"}, {"subs": True, "height": 600},
+                    {"subs": True, "height": "720"}, {"subs": True, "small": True}, "subs", None):
+            self.assertFalse(server.good_burn(bad), bad)

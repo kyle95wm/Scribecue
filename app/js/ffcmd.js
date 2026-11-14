@@ -40,3 +40,54 @@ export function extendedCommand({ video, mix, filter, out }) {
     : '-c:v libx264 -preset veryfast -crf 18 -c:a aac -b:a 256k';
   return `ffmpeg -i ${quote(video)} -i ${quote(mix)} -filter_complex_script ${quote(filter)} -map "[v]" -map 1:a ${coded} -shortest ${quote(out)}`;
 }
+
+// A copy of the video with the script and the timecode burnt in, as ffmpeg/server.py makes
+// it, for people with ffmpeg of their own. opts: { subs, timecode, size, height }, height being
+// the most lines the picture keeps (480, 720 or 1080), or 0 for the video's own size. rate: the
+// frame rate as ffmpeg writes it, such as 30000/1001. srt: a file name of letters, digits,
+// spaces, dots, dashes and underscores, which needs no escaping in a filter.
+// The script looks as it does over the video (see ffmpeg/server.py): size, bg and pos are
+// the "Text over the video" settings.
+export const BURN_HEIGHTS = [0, 480, 720, 1080];
+// The resolutions worth offering for a video `source` lines high: only those that make it
+// smaller, since the others would look the same as the original. 0 if unknown: all of them.
+export const burnHeights = (source) => BURN_HEIGHTS.filter((h) => !h || !source || h < source);
+// The resolution to use: the one chosen, or the original when the video is already smaller.
+export const burnHeight = (chosen, source) => (burnHeights(source).includes(chosen) ? chosen : 0);
+export const scaleTo = (h) => `scale=-2:min(${h}\\,trunc(ih/2)*2)`;
+export const BURN_SIZES = { s: 16, m: 20, l: 25, xl: 30 };
+const BOXES = { none: null, light: '8C', dark: '40', solid: '00' };
+export function scriptStyle({ size = 'm', bg = 'none', pos = 'bottom' }) {
+  const box = BOXES[bg] ?? null;
+  const look = box === null ? ['BorderStyle=1', 'OutlineColour=&H00000000&', 'BackColour=&H80000000&', 'Outline=2', 'Shadow=3']
+    : ['BorderStyle=3', `OutlineColour=&H${box}000000&`, 'BackColour=&HFF000000&', 'Outline=2', 'Shadow=0'];
+  return [`FontSize=${BURN_SIZES[size] ?? 20}`, 'PrimaryColour=&H00FFFFFF&', ...look, `Alignment=${pos === 'top' ? 8 : 2}`,
+    'MarginV=50', 'MarginL=12', 'MarginR=12'];
+}
+export function burnFilter(opts, rate, srt) {
+  const { subs, timecode, height } = opts;
+  const parts = [];
+  if (BURN_HEIGHTS.includes(height) && height) parts.push(scaleTo(height));
+  if (timecode) {
+    const drop = rate === '30000/1001' || rate === '60000/1001';
+    parts.push(`drawtext=font=monospace:timecode='00\\:00\\:00\\${drop ? ';' : ':'}00':rate=${rate}` +
+      ':fontsize=h/24:fontcolor=white:x=h/72:y=h/72:box=1:boxcolor=black@0.67:boxborderw=6');
+  }
+  if (subs) {
+    const style = scriptStyle(opts).join('\\,');
+    parts.push(`subtitles=filename='${srt}':force_style='${style}'`);
+  }
+  parts.push('format=yuv420p');
+  return parts.join(',');
+}
+export function burnCommand({ video, srt, out, opts, rate, track = 0 }) {
+  return `ffmpeg -i ${quote(video)} -vf "${burnFilter(opts, rate, srt)}" -map 0:v:0 -map "0:a:${track}?" ` +
+    `-c:v libx264 -preset veryfast -crf 20 -c:a aac -b:a 192k -movflags +faststart ${quote(out)}`;
+}
+// A frame rate as ffmpeg writes it: 29.97 as 30000/1001.
+export function ffRate(fps) {
+  for (const n of [24, 30, 48, 60]) if (Math.abs(fps - n * 1000 / 1001) < 0.005) return `${n * 1000}/1001`;
+  return Number.isInteger(fps) ? `${fps}/1` : `${Math.round(fps * 1000)}/1000`;
+}
+// A file name safe to put in a filter as it is.
+export const plainName = (name) => name.replace(/[^\w .-]/g, '_').replace(/^[.\s]+/, '') || 'script';

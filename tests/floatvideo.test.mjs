@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fitPicture, readRect, readKind, defaultRect, place, resized, scaledText, isDrag, MIN_W, BAR } from '../app/js/floatvideo.js';
+import { fitPicture, readRect, readKind, defaultRect, place, resized, isDrag, MIN_W, BAR, SCALES, scaleName, scaledWidth, resizedTo, centered } from '../app/js/floatvideo.js';
 import { settingNames } from '../app/js/settingsfile.js';
 
 test('the picture fits its box as the video shows it', () => {
@@ -10,17 +10,6 @@ test('the picture fits its box as the video shows it', () => {
   assert.deepEqual(fitPicture(0, 300, 16 / 9), { x: 0, y: 0, w: 0, h: 0 });
   // Before the video says its size, the picture is the whole box.
   assert.deepEqual(fitPicture(640, 300, 0), { x: 0, y: 0, w: 640, h: 300 });
-});
-
-test('the text keeps its size against the picture', () => {
-  assert.deepEqual(scaledText(28, 700, 800, 400), { font: 14, width: 350 });
-  assert.deepEqual(scaledText(28, 700, 800, 1600), { font: 56, width: 1400 });
-  // Text wider than its docked picture fills no more than 90% of the floating one.
-  const t = scaledText(28, 720, 400, 600);
-  assert.equal(t.width, 540);
-  assert.equal(t.font, 21);
-  // Nothing to measure by: left as it is.
-  assert.deepEqual(scaledText(28, 700, 0, 0), { font: 28, width: 700 });
 });
 
 test('a stored panel is read back, and anything else is ignored', () => {
@@ -98,4 +87,28 @@ test('the setting goes in the settings file, and the page has its buttons', () =
   assert.ok(settingNames().includes('floatVideo'));
   const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
   for (const v of ['panel', 'window']) assert.match(html, new RegExp(`id="floatKind"[^\\n]*data-value="${v}"`));
+});
+
+test('sizes for the right-click menu: against the video’s own size, and only those that fit', () => {
+  assert.deepEqual(SCALES.map(scaleName), ['0.25× size', '0.5× size', 'Original size', '2× size', '3× size']);
+  // A 1280×720 video in a 1920×1080 tab.
+  assert.equal(scaledWidth(1, 1280, 16 / 9, 1920, 1080), 1280);
+  assert.equal(scaledWidth(0.5, 1280, 16 / 9, 1920, 1080), 640);
+  assert.equal(scaledWidth(2, 1280, 16 / 9, 1920, 1080), 0); // too big for the tab
+  assert.equal(scaledWidth(0.25, 640, 16 / 9, 1920, 1080), 0); // smaller than a panel can be
+  // Too tall with the title bar, though narrow enough.
+  assert.equal(scaledWidth(1, 1280, 16 / 9, 1920, 720 + BAR - 1), 0);
+  assert.equal(scaledWidth(1, 1280, 16 / 9, 1920, 720 + BAR), 1280);
+  // Before the video says its size.
+  assert.equal(scaledWidth(1, 0, 16 / 9, 1920, 1080), 0);
+});
+
+test('a panel resized from the menu keeps its middle, and Center puts it in the middle', () => {
+  const r = resizedTo({ x: 100, y: 100, w: 640 }, 320, 16 / 9, 1920, 1080);
+  assert.equal(r.w, 320);
+  assert.equal(r.x + r.w / 2, 100 + 320);
+  assert.equal(Math.round(r.y + (320 / (16 / 9) + BAR) / 2), Math.round(100 + (360 + BAR) / 2));
+  const c = centered({ x: 0, y: 0, w: 640 }, 16 / 9, 1920, 1080);
+  assert.equal(c.x, 640);
+  assert.equal(c.y, Math.round((1080 - 360 - BAR) / 2));
 });
