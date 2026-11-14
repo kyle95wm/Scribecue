@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.115.1",
+    "date": "2026-11-14",
+    "notes": "## Text over the video\n\n- With **Style: Classic**, the text over the floating video is now the same size against the picture as when docked. It grows and shrinks with the video, as it did before 0.114.0.\n- Before, on a wide screen, it could come out much bigger than docked."
+  },
+  {
     "version": "0.115.0",
     "date": "2026-11-14",
     "notes": "## Text over the video\n\n- Don't like the new look? In **Settings → Appearance**, set **Style** to **Classic** for the text over the video as it was before 0.114.0.\n- For the old dark box too, set **Background** to **Dark**.\n- **Burnt in** stays the default."
