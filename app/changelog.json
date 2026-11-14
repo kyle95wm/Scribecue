@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.119.2",
+    "date": "2026-11-14",
+    "notes": "## Guides\n\n- A new **Features** guide lists what works in the web version and what needs Docker.\n- **Running it yourself** now says how to move your projects, settings and recordings between the web version, Docker and another computer.\n- The guides' tabs sit in one row. Scroll it sideways to see the rest. The guide you're reading always shows."
+  },
+  {
     "version": "0.119.1",
     "date": "2026-11-14",
     "notes": "## A tidier window\n\n- **Swap sides** has moved to **Settings**, **Appearance**, **Video side**. Pick **Left** to put the video on the left. Your choice carries over.\n- **Shortcuts** is now a small **?** button at the top right. Pressing ? still opens it.\n- In the open block, the voice menu reads **Default** with the voice's name, short enough to see whole.\n- In QC, **Comments only** at the top no longer looks stretched.\n- The Bookmarks drawer's **Add at playhead** and **Import from Frazier…** sit side by side."
