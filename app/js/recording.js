@@ -31,6 +31,18 @@ export const scriptPrint = (blocks) => hash(JSON.stringify(blocks.map((b) => [b.
 // takes carry over from one to the next. 16 letters and digits.
 const PROJECT_ID = /^[a-z0-9]{16}$/;
 export const newProjectId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => (b % 36).toString(36)).join('');
+// The next recording file's project id, version and the lines sent before it. last: the
+// project's recording ({ id, version, sent }) or null. fresh: start a new recording file at
+// version 1, whose takes don't mix with the old one's. Only renumbering would let old takes
+// count as pickups already recorded, and give two different files the same version.
+// What the writer types to start a new recording file: exactly this, in capitals, so it can't
+// be clicked or keyed through by habit.
+export const START_OVER = 'START OVER';
+export const typedStartOver = (text) => String(text ?? '').trim() === START_OVER;
+export function nextRecording(last, fresh = false) {
+  if (!last?.id || fresh) return { id: newProjectId(), version: 1, sent: null };
+  return { id: last.id, version: (last.version || 0) + 1, sent: last.sent || null };
+}
 // Where a recording's takes are kept: under its project, or for a recording file from before
 // projects, under its script (recordingId). Shaped like the latter, so a store takes both.
 export const takesKey = (file) => (file.project ? `${file.project}-0` : recordingId(file));

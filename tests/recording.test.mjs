@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, GRACES, readGrace, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver, videoDb, videoDbText, VIDEO_DB_MIN, leadInParts, partEnds, stepEnd } from '../app/js/recording.js';
+import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, nextRecording, START_OVER, typedStartOver, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, GRACES, readGrace, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver, videoDb, videoDbText, VIDEO_DB_MIN, leadInParts, partEnds, stepEnd } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote } from '../app/js/bwf.js';
 
 const blocks = [
@@ -681,4 +681,25 @@ test('E steps the playhead through the ends of a take’s parts, going round', (
   assert.equal(stepEnd(ends, 12, -1), 14);
   assert.equal(stepEnd([], 3), null);
   assert.deepEqual(partEnds({ id: 'b', start: 1, duration: 2 }), [3]);
+});
+
+test('the next recording file carries on the project, or starts a new one at version 1', () => {
+  const first = nextRecording(null);
+  assert.match(first.id, /^[a-z0-9]{16}$/);
+  assert.equal(first.version, 1); assert.equal(first.sent, null);
+  const sent = [{ start: 1, end: 2, text: 'One.' }];
+  const last = { id: 'abcdefghijklmnop', version: 3, sent };
+  assert.deepEqual(nextRecording(last), { id: 'abcdefghijklmnop', version: 4, sent });
+  const fresh = nextRecording(last, true);
+  assert.notEqual(fresh.id, last.id);
+  assert.equal(fresh.version, 1); assert.equal(fresh.sent, null);
+  // Old takes are from another project, so none counts as a pickup recorded for it.
+  assert.notEqual(takesKey({ project: fresh.id }), takesKey({ project: last.id }));
+});
+
+test('starting over needs START OVER typed exactly, in capitals', () => {
+  assert.equal(START_OVER, 'START OVER');
+  assert.ok(typedStartOver('START OVER'));
+  assert.ok(typedStartOver('  START OVER\n'));
+  for (const t of ['start over', 'Start Over', 'START OVER!', 'STARTOVER', 'START  OVER', '', null, undefined]) assert.equal(typedStartOver(t), false, String(t));
 });
