@@ -60,7 +60,7 @@ Blocks opened from a file, or marked with `H`, keep their timing until you edit 
 ## Voice per block
 
 A block can have its own voice, such as a second voice for translated dialogue. Pick it
-from the voice menu in the open block. **Same as Settings** goes back to the main voice.
+from the voice menu in the open block. **Default** goes back to the voice in Settings.
 **Replace all voices**, in the text to speech settings, sets every block back to the main
 voice.
 

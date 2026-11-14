@@ -397,7 +397,7 @@ finishes. After that, switching to it is instant until you close the video.
 - **Find and replace:** `Alt+Shift+F`, or **Replace…** next to the search box, changes text
   in every block at once, such as a character's name.
 - **Quick navigation:** `Shift+F`.
-- **Swap sides:** the ⇄ button at the top puts the video on the other side.
+- **Video on the left:** in **Settings**, **Appearance**, set **Video side** to **Left**.
 - **Side panels:** Comments, Bookmarks and AI help open from the icons at the right edge.
   Point at one for its name. Click it again to close it.
 - **Resize the video:** drag the bar between the list and the video. Drag it to the edge

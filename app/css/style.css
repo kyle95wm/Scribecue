@@ -174,7 +174,9 @@ kbd + kbd { margin-left: 2px; }
 .autosave { flex-shrink: 0; margin-left: -6px; padding: 1px 8px; font: 11px var(--mono); color: var(--dim); background: none; }
 .autosave[data-state="paused"], .autosave[data-state="error"] { color: var(--warn); border-color: var(--warn); }
 .autosave[data-state="saved"], .autosave[data-state="saving"] { cursor: default; } /* only a status */
-nav { display: flex; gap: 6px; margin-left: auto; }
+nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+/* Shortcuts: a square button with a question mark. */
+.helpbtn { width: 28px; justify-content: center; padding: 4px 0; font: 600 13px var(--mono); }
 /* menus that drop down from a header button, such as Export */
 .navwrap { position: relative; display: inline-flex; }
 .caret { font-size: 10px; color: var(--dim); }
@@ -269,7 +271,6 @@ body.listhidden.swapped .splitter .grip { left: -14px; border-right: 0; border-r
 .splitter.drag::before { background: linear-gradient(90deg, transparent 4px, var(--accent) 4px, var(--accent) 6px, transparent 6px); }
 body.splitting, body.splitting * { cursor: col-resize !important; user-select: none; }
 body.splitting video { pointer-events: none; }
-.swapbtn { font-size: 15px; line-height: 1; }
 .stage {
   position: relative;
   flex: 1;
@@ -964,7 +965,6 @@ dd { margin: 0; }
   .splitter { display: none; }
   .listwrap, body.swapped .listwrap { order: 0; border-right: 0; border-left: 0; border-top: 1px solid var(--line); }
   body.listhidden .listwrap { visibility: visible; }
-  .swapbtn { display: none; }
   nav button kbd, .hint, .mode-record .hint.record-only { display: none; }
   .cols { grid-template-columns: 1fr; }
 }
@@ -1513,6 +1513,8 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 .comment-body { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .comment-meta { font: 12px var(--sans); color: var(--dim); }
 .mode-record #commentsBtn, .mode-record #commentsDrawer { display: none; }
+/* A drawer's row of buttons or counts: side by side, from the left. */
+.aicompose.airow { flex-direction: row; }
 #commentsPager { flex-direction: row; justify-content: space-between; }
 #commentsDrawer .aicompose { flex-shrink: 0; }
 #commentsDrawer .aihead { flex-shrink: 0; }

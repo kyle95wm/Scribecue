@@ -48,7 +48,6 @@
     </div>
     <button id="autosaveBtn" class="autosave tip-end" hidden></button>
     <nav>
-      <button data-act="swapSides" id="swapBtn" class="swapbtn" aria-label="Swap sides" aria-pressed="false" data-tip="Swap sides: the video on the left and the editor on the right, or back">⇄</button>
       <span class="navwrap file-wrap">
         <button data-act="fileMenu" id="fileBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="fileMenu">File <span class="caret" aria-hidden="true">▾</span></button>
         <div class="navmenu filemenu" id="fileMenu" role="menu" aria-labelledby="fileBtn" hidden>
@@ -104,7 +103,7 @@
       <span id="sharePeople" hidden></span>
       <button data-act="share" id="shareBtn" class="not-record" hidden data-tip="Share this project with a link and a password, to work on it together">Share</button>
       <button data-act="settings" class="tip-end" data-tip="Settings: text to speech, speech to text, AI help, shortcuts, storage and more (⌥⇧S)">Settings</button>
-      <button data-act="help" class="hl tip-end" data-tip="Show all keyboard shortcuts (? or ⇧O)">Shortcuts <kbd>?</kbd></button>
+      <button data-act="help" class="helpbtn tip-end" aria-label="Keyboard shortcuts" data-tip="Keyboard shortcuts (? or ⇧O)">?</button>
     </nav>
   </header>
 
@@ -161,7 +160,7 @@
           <div class="edtts" id="edTts" hidden>
             <label id="edSpeedWrap" class="edspeed" hidden data-tip="Text to speech speed for this block. [ and ] change it">
               <select id="edSpeed" aria-label="Speed"></select></label>
-            <label id="edVoiceWrap" class="edspeed" hidden data-tip="Text to speech voice for this block, such as a second voice for translated dialogue. Same as Settings follows the voice chosen there">
+            <label id="edVoiceWrap" class="edspeed" hidden data-tip="Text to speech voice for this block, such as a second voice for translated dialogue. Default follows the voice chosen in Settings">
               <select id="edVoice" aria-label="Voice"></select></label>
             <span id="edDipWrap" class="edspeed" hidden data-tip="Dip: how far the programme is lowered under this block's reading, when playing and in the full mix: as set in the text to speech settings, or that much more or less. Custom: type the dB more, or less with a minus, then press Enter">
               <select id="edDip" aria-label="Programme lowered"></select>
@@ -1552,6 +1551,9 @@ docker compose up -d --build</code></pre>
       <p class="updstatus lookrow" role="group" aria-labelledby="floatKindTitle" id="floatKind"><button type="button" data-value="panel" aria-pressed="true">In this tab</button><button type="button" data-value="window" aria-pressed="false">In its own window</button></p>
       <p class="dim small">Double-click the video to float it in a window you can move and resize. Double-click
         it again, or close the window, to put it back. Its own window can go on another screen, in Chrome and Edge.</p>
+      <h3 id="sideTitle">Video side</h3>
+      <p class="updstatus lookrow" role="group" aria-labelledby="sideTitle" id="videoSide"><button type="button" data-value="right" aria-pressed="true">Right</button><button type="button" data-value="left" aria-pressed="false">Left</button></p>
+      <p class="dim small">Which side of the window the video is on. Left swaps it with the list and block editor.</p>
       <p class="updstatus"><button id="lookReset">Reset to defaults</button></p>
     </div>
     <div id="setMarking" hidden>

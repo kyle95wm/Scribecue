@@ -3089,12 +3089,12 @@ durEl.addEventListener('click', () => {
 // Swap sides: the video on the left and the editor on the right, or back. Remembered.
 function setSwapped(on) {
   document.body.classList.toggle('swapped', on);
-  $('swapBtn').setAttribute('aria-pressed', String(on));
+  for (const b of document.querySelectorAll('#videoSide button')) b.setAttribute('aria-pressed', String((b.dataset.value === 'left') === on));
   tlDirty = true;
 }
 setSwapped((() => { try { return localStorage.getItem('scribecue.swapped') === '1'; } catch { return false; } })());
-function swapSides() {
-  const on = !document.body.classList.contains('swapped');
+// Settings, Appearance: Video side.
+function swapSides(on = !document.body.classList.contains('swapped')) {
   setSwapped(on);
   try { localStorage.setItem('scribecue.swapped', on ? '1' : '0'); } catch { /* ignore */ }
 }
@@ -4053,7 +4053,9 @@ function fillEdVoice(c, force = false) {
   if (!force && key === edVoiceFor) return;
   edVoiceFor = key;
   fillVoiceSelect(edVoice, c.voice || '');
-  edVoice.prepend(new Option(`Same as Settings (${qc() ? voiceLabel(mainVoice) : chosenVoiceName()})`, ''));
+  // Short enough for the editor's row: the voice's name, without its language.
+  const main = qc() ? voiceLabel(mainVoice) : chosenVoiceName();
+  edVoice.prepend(new Option(`Default (${main.replace(/\s*\(.*\)\s*$/, '') || main})`, ''));
   // A voice that isn't here, such as Kokoro's in the web version, stays chosen and says so.
   if (c.voice && ![...edVoice.options].some((o) => o.value === c.voice)) edVoice.add(new Option(`${voiceLabel(c.voice)}: not available here`, c.voice), 1);
   edVoice.value = c.voice || '';
@@ -6866,8 +6868,8 @@ window.addEventListener('drop', (e) => {
   })).catch(() => {});
 });
 
+for (const b of document.querySelectorAll('#videoSide button')) b.addEventListener('click', () => swapSides(b.dataset.value === 'left'));
 const actions = {
-  swapSides,
   openSubs: () => openAny(),
   saveProject: () => saveProject(),
   openVideo: () => openVideoPicker(),
@@ -7623,7 +7625,7 @@ function setLook(next, save = true) {
 }
 fillChoices($('setLook'), (name, value) => setLook({ ...look, [name]: value }));
 markChoices($('setLook'), look);
-$('lookReset').addEventListener('click', () => { setLook({ ...DEFAULTS }); setFloatKind('panel'); });
+$('lookReset').addEventListener('click', () => { setLook({ ...DEFAULTS }); setFloatKind('panel'); swapSides(false); });
 // In Record mode, setup is Record mode's, so it can't switch away from the recording.
 $('setSetup').addEventListener('click', () => { closeSettings(); openWelcome(S.mode === 'record' ? 'record' : null); });
 $('setTour').addEventListener('click', () => { closeSettings(); startTour(S.mode); });

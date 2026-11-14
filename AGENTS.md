@@ -111,7 +111,7 @@ add a button to the header for it.
 | Part | What goes there |
 |---|---|
 | Header, left | The name, the mode switch, and the project and media names. |
-| Header, right | Menus and actions for the whole project: ⇄, **File**, **Export**, Share, Settings, Shortcuts. Nothing else. |
+| Header, right | Menus and actions for the whole project: **File**, **Export**, Share, Settings, and **?** for the shortcuts. Nothing else. |
 | **File** menu | Starting, opening and saving projects. |
 | **Export** menu | Anything that makes a file to hand on, in the group for who it's for. |
 | Side bar (`#rail`) | One icon for each drawer beside the video: Comments, Bookmarks, AI help. |
