@@ -107,8 +107,8 @@ export const STEPS = [
     target: 'nav',
     title: 'Projects and exports',
     text: (mode) => `Save keeps everything as a Scribecue project, so you can pick up where you left off. ${mode === 'write'
-      ? 'Export is grouped by who it’s for: a QC package for a reviewer, a recording file for a narrator, finished audio, and the script as SRT or WebVTT.'
-      : 'Export gives you the script as SRT or WebVTT to hand off.'} It can check spelling and grammar first. New starts again.`,
+      ? 'Export is grouped by who it’s for: a QC package for a reviewer, a recording file for a narrator, finished audio, and files for other tools: the script as SRT or WebVTT, DAW markers and a video with subtitles.'
+      : 'Export gives you the script as SRT or WebVTT, DAW markers or a video with subtitles, to hand off.'} It can check spelling and grammar first. New starts again.`,
   },
   {
     title: 'Your work stays yours',

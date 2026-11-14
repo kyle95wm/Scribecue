@@ -88,6 +88,8 @@
             <div class="menuhead" id="expTools">For other tools</div>
             <button role="menuitem" data-act="exportSrt"><span><strong>Script as SRT</strong><span class="dim">to hand off, or for the final output</span></span><kbd><span class="mod"></span>E</kbd></button>
             <button role="menuitem" data-act="exportVtt"><span><strong>Script as WebVTT</strong><span class="dim">also keeps block speeds and sounds-like words</span></span><kbd><span class="mod"></span>⇧E</kbd></button>
+            <button role="menuitem" data-act="exportDaw"><span><strong>DAW markers</strong><span class="dim">a WAV with a marker or region for each block, to record and place lines in a DAW</span></span></button>
+            <button role="menuitem" data-act="exportBurn"><span><strong>Video with subtitles</strong><span class="dim">the script and timecode burnt into a copy of the video, to record or review against</span></span></button>
           </div>
         </div>
       </span>
@@ -769,6 +771,34 @@ docker compose up -d --build</code></pre>
     <p id="qcExportStatus" class="dim small" role="status"></p>
     <progress id="qcExportProgress" max="1" value="0" hidden aria-label="QC package progress"></progress>
     <div class="updbtns"><button id="qcExportStart" class="hl">Make QC package</button><button id="qcExportStop" hidden>Stop</button><button id="qcExportClose">Close</button></div>
+  </dialog>
+
+  <dialog id="dawDlg" class="updbox" aria-labelledby="dawTitle">
+    <h2 id="dawTitle">DAW markers</h2>
+    <p>A WAV as long as the programme. It plays a tone while each block lasts, and each block’s text names it.</p>
+    <h3 id="dawKindTitle">Blocks as</h3>
+    <p class="updstatus lookrow" role="group" aria-labelledby="dawKindTitle" id="dawKind"><button type="button" data-value="markers" aria-pressed="true">Markers</button><button type="button" data-value="regions" aria-pressed="false">Regions</button></p>
+    <p class="dim small" id="dawKindInfo"></p>
+    <div class="updbtns"><button id="dawGo" class="hl">Export</button><button id="dawClose">Cancel</button></div>
+  </dialog>
+  <dialog id="burnDlg" class="updbox" aria-labelledby="burnTitle">
+    <h2 id="burnTitle">Video with subtitles</h2>
+    <p>A copy of the video, as an MP4, with the script and the timecode on the picture.</p>
+    <h3 id="burnShowTitle">Show</h3>
+    <p class="updstatus lookrow" role="group" aria-labelledby="burnShowTitle"><button type="button" id="burnSubs" aria-pressed="true">The script</button><button type="button" id="burnTc" aria-pressed="true">Timecode</button></p>
+    <p class="dim small" id="burnLook"></p>
+    <p class="updstatus"><button type="button" id="burnSmall" aria-pressed="true">720p at most</button></p>
+    <p class="dim small">Smaller, and quicker to make. Turn it off to keep the video’s own size.</p>
+    <p class="dim small" id="burnWhere"></p>
+    <p id="burnStatus" class="dim small" role="status"></p>
+    <progress id="burnBar" max="1" value="0" hidden aria-label="Video with subtitles progress"></progress>
+    <div id="burnCmds" class="ffcmds" hidden>
+      <p>To make the video with <a href="https://ffmpeg.org" target="_blank" rel="noopener">ffmpeg</a> on
+        your computer, run this in a folder with the video and the script you just saved:</p>
+      <p class="ffcmdhead">Video with subtitles <button id="burnCmdCopy">Copy</button></p>
+      <pre id="burnCmd"></pre>
+    </div>
+    <div class="updbtns"><button id="burnGo" class="hl">Make video</button><button id="burnStop" hidden>Stop</button><button id="burnClose">Close</button></div>
   </dialog>
 
   <dialog id="shareDlg" class="updbox" aria-labelledby="shareTitle">

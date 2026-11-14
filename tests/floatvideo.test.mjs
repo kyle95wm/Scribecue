@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fitPicture, readRect, readKind, defaultRect, place, resized, scaledText, isDrag, MIN_W, BAR } from '../app/js/floatvideo.js';
+import { fitPicture, readRect, readKind, defaultRect, place, resized, isDrag, MIN_W, BAR } from '../app/js/floatvideo.js';
 import { settingNames } from '../app/js/settingsfile.js';
 
 test('the picture fits its box as the video shows it', () => {
@@ -10,17 +10,6 @@ test('the picture fits its box as the video shows it', () => {
   assert.deepEqual(fitPicture(0, 300, 16 / 9), { x: 0, y: 0, w: 0, h: 0 });
   // Before the video says its size, the picture is the whole box.
   assert.deepEqual(fitPicture(640, 300, 0), { x: 0, y: 0, w: 640, h: 300 });
-});
-
-test('the text keeps its size against the picture', () => {
-  assert.deepEqual(scaledText(28, 700, 800, 400), { font: 14, width: 350 });
-  assert.deepEqual(scaledText(28, 700, 800, 1600), { font: 56, width: 1400 });
-  // Text wider than its docked picture fills no more than 90% of the floating one.
-  const t = scaledText(28, 720, 400, 600);
-  assert.equal(t.width, 540);
-  assert.equal(t.font, 21);
-  // Nothing to measure by: left as it is.
-  assert.deepEqual(scaledText(28, 700, 0, 0), { font: 28, width: 700 });
 });
 
 test('a stored panel is read back, and anything else is ignored', () => {

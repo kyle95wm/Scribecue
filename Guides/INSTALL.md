@@ -228,6 +228,10 @@ docker compose up -d --build
 Reload Scribecue, and the new choices appear under **Export full mix** in the text to
 speech settings. The container takes about 240 MB.
 
+ffmpeg also makes a [video with subtitles](GETTING-STARTED.md#exporting): the script and the
+timecode burnt into a copy of the video. If ffmpeg was set up before this came in, run
+`docker compose up -d --build` again first, for the fonts it needs.
+
 ffmpeg also makes [copies a browser can play](GETTING-STARTED.md#if-a-video-wont-play),
 for browsers without H.264 or AAC. When only the sound won't play, it changes just the
 sound, which takes seconds. Otherwise it makes a 720p WebM, which takes about five minutes for

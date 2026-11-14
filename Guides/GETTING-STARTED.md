@@ -241,6 +241,21 @@ use the **Export** menu at the top:
   or [Amazon Polly](VOICES.md#amazon-polly-voices) voice.
 - **Full mix:** the programme's sound with the readings, the programme lowered under each
   one, as one WAV or MP3 file. See [Exporting the full mix](WRITING.md#exporting-the-full-mix).
+- **DAW markers:** a WAV to record and place lines in another program. See below.
+- **Video with subtitles:** a copy of the video, as an MP4, with the script and the
+  timecode on the picture. The script looks as it does over the video in Scribecue. It
+  needs [ffmpeg in Docker](INSTALL.md#the-full-mix-in-the-video-ffmpeg). Without it, you
+  get the script and an ffmpeg command to run yourself.
+
+### DAW markers
+
+The WAV plays a tone while each block lasts, and is silent between them. Drop it at the
+start of a project in your DAW, and each block's text names its place.
+
+| Blocks as | What you get | Works in |
+| --- | --- | --- |
+| **Markers** | A marker at each block's start | Logic Pro |
+| **Regions** | A region from each block's start to its end | Reaper |
 
 `Ctrl/Cmd+O` opens SRT and WebVTT scripts too, and Frazier's `.adc` scripts.
 
@@ -344,7 +359,8 @@ finishes. After that, switching to it is instant until you close the video.
 - **Swap sides:** the ⇄ button at the top puts the video on the other side.
 - **Resize the video:** drag the bar between the list and the video. Drag it to the edge
   to hide the list, and double-click it to go back to the usual width. Typing in a block or
-  pressing `/` brings a hidden list back. The text over the video keeps its usual width.
+  pressing `/` brings a hidden list back. The text over the video keeps its size against
+  the picture.
 - **Player controls:** the buttons under the video. Hover over one to see its key.
 - **The tour and the loop:** **Take the tour** and **Show the loop**, in the shortcuts
   overlay (`?`), show them again.

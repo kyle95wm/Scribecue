@@ -47,7 +47,7 @@ test('blocked storage still gives the usual look', () => {
 
 test('each choice is an attribute on the page', () => {
   assert.deepEqual(attributes(DEFAULTS), {
-    'data-accent': 'amber', 'data-sub-size': 'm', 'data-sub-bg': 'dark', 'data-sub-pos': 'bottom', 'data-text-size': 'm',
+    'data-accent': 'amber', 'data-sub-size': 'm', 'data-sub-bg': 'none', 'data-sub-pos': 'bottom', 'data-text-size': 'm',
   });
 });
 

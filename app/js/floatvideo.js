@@ -7,8 +7,8 @@
 //   window  a window of its own (Document Picture-in-Picture), which can go on another
 //           screen. Chrome and Edge only; elsewhere it floats as a panel.
 //
-// The text over the video keeps its size against the picture: in a window twice as wide as
-// the docked picture, it's twice as big. The keys pressed in a window of its own are passed
+// The text over the video covers the picture, docked or floating, and style.css sizes it
+// against the picture, so it looks the same in any size of player. The keys pressed in a window of its own are passed
 // to the app, so every shortcut still works.
 
 export const KIND_KEY = 'scribecue.floatVideo';
@@ -88,16 +88,6 @@ export function resized(r, dx, dy, aspect, viewW, viewH, corner = 'se') {
 export const DRAG_FROM = 4;
 export const isDrag = (dx, dy) => Math.hypot(dx, dy) >= DRAG_FROM;
 
-// The text's size and width in a floating picture `w` px wide, from its size and width
-// over a docked picture `dockW` px wide. Where the docked text is wider than its picture
-// (a small picture, as in Record mode), it scales as if the picture were wide enough to
-// hold it, so it never fills more than 90% of the floating picture's width.
-export function scaledText(font, width, dockW, w) {
-  const ref = Math.max(dockW, width / 0.9);
-  const k = ref > 0 && w > 0 ? w / ref : 1;
-  return { font: font * k, width: width * k };
-}
-
 const get = (k) => { try { return globalThis.localStorage?.getItem(k) ?? null; } catch { return null; } };
 const set = (k, v) => { try { globalThis.localStorage?.setItem(k, v); } catch { /* storage blocked */ } };
 
@@ -125,13 +115,6 @@ export function initFloat({ stage, video, parts, kind, canFloat = () => true, no
   hold.append(back);
   stage.append(hold);
   hold.addEventListener('dblclick', () => dock());
-
-  // An empty copy of the overlay that stays in the stage, to measure the docked text by.
-  const probe = doc.createElement('div');
-  probe.className = 'overlay floatprobe';
-  probe.setAttribute('aria-hidden', 'true');
-  probe.innerHTML = '<span>M</span>';
-  stage.append(probe);
 
   // The panel: a title bar to drag, the picture, and a corner to resize by.
   const panel = doc.createElement('div');
@@ -174,17 +157,15 @@ export function initFloat({ stage, video, parts, kind, canFloat = () => true, no
   const spots = moving.map((el) => [el, el.parentNode, el.nextSibling]);
   const aspect = () => (video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 16 / 9);
 
-  // Sizes the picture in its box, and the text to match the docked picture.
+  // Sizes the picture in its box, and puts the text over the picture. Floating, the
+  // picture has a box of its own, which the text covers as it is.
+  const cover = (el, r) => Object.assign(el.style, r ? { left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px` }
+    : { left: '', top: '', width: '', height: '' });
   function layout() {
-    if (!floating) return;
+    if (!floating) return cover(overlay, fitPicture(stage.clientWidth, stage.clientHeight, aspect()));
     const host = floating === 'window' ? pip.document.body : box;
-    const fit = fitPicture(host.clientWidth, host.clientHeight, aspect());
-    Object.assign(pic.style, { left: `${fit.x}px`, top: `${fit.y}px`, width: `${fit.w}px`, height: `${fit.h}px` });
-    const docked = fitPicture(stage.clientWidth, stage.clientHeight, aspect());
-    const span = probe.firstChild;
-    const t = scaledText(parseFloat(getComputedStyle(span).fontSize) || 0, probe.offsetWidth, docked.w, fit.w);
-    overlay.style.setProperty('--float-font', `${t.font}px`);
-    overlay.style.setProperty('--float-width', `${t.width}px`);
+    cover(pic, fitPicture(host.clientWidth, host.clientHeight, aspect()));
+    cover(overlay, null);
   }
 
   function showPanel() {
@@ -303,13 +284,12 @@ export function initFloat({ stage, video, parts, kind, canFloat = () => true, no
     floating = null;
     pip = null;
     for (const [el, parent, next] of spots) parent.insertBefore(el, next && next.parentNode === parent ? next : null);
-    overlay.style.removeProperty('--float-font');
-    overlay.style.removeProperty('--float-width');
     box.append(pic);
     panel.hidden = true;
     hold.hidden = true;
     stage.classList.remove('floating');
     try { w?.close(); } catch { /* already closed */ }
+    layout();
     changed(false);
   }
 
