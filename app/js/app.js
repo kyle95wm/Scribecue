@@ -47,7 +47,7 @@ import { initKeys, keyChanges, openKeys, shortcutEntries } from './keys.js';
 import { VERSION } from './update.js';
 import { FIT_MIN, MAX_SPEED, RUN_OVER, runsPast, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey, isPersonalGoogleKey, checkGoogleKey, setProjectGoogleKey, usingProjectGoogleKey, useProjectVoice, VOICE_LOCKED } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
-import { ffmpegCommands, holdFilter, extendedCommand, burnCommand, ffRate, plainName } from './ffcmd.js';
+import { ffmpegCommands, holdFilter, extendedCommand, burnCommand, BURN_HEIGHTS, ffRate, plainName } from './ffcmd.js';
 import { buildDawMarkers, DAW_KINDS } from './dawmarkers.js';
 import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS } from './codecs.js';
 import { createLog, watchErrors, pictureWatch, report as diagReport, exposeReport } from './diagnostics.js';
@@ -5718,16 +5718,21 @@ $('dawGo').addEventListener('click', () => {
 
 // Video with subtitles: the script and the timecode burnt into a copy of the video, by
 // ffmpeg in Docker (see ffmpeg/server.py). Without it, the script and a command to run.
-const BURN_DEFAULTS = { subs: true, timecode: true, small: true };
+const BURN_DEFAULTS = { subs: true, timecode: true, height: 720 };
 let burnOpts = (() => {
-  try { return { ...BURN_DEFAULTS, ...JSON.parse(localStorage.getItem('scribecue.burn') || '{}') }; } catch { return { ...BURN_DEFAULTS }; }
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('scribecue.burn') || '{}') || {}; } catch {}
+  const o = { ...BURN_DEFAULTS };
+  for (const k of ['subs', 'timecode']) if (typeof saved[k] === 'boolean') o[k] = saved[k];
+  if (BURN_HEIGHTS.includes(saved.height)) o.height = saved.height;
+  return o;
 })();
 let burnStopped = false;
 const burnBar = $('burnBar'), burnStatus = $('burnStatus'), burnGo = $('burnGo'), burnStop = $('burnStop');
 function showBurn() {
   $('burnSubs').setAttribute('aria-pressed', String(!!burnOpts.subs));
   $('burnTc').setAttribute('aria-pressed', String(!!burnOpts.timecode));
-  $('burnSmall').setAttribute('aria-pressed', String(!!burnOpts.small));
+  for (const b of $('burnHeight').querySelectorAll('button')) b.setAttribute('aria-pressed', String(+b.dataset.height === burnOpts.height));
   // The script looks as it does over the video.
   const name = (k) => CHOICES[k][0].find(([v]) => v === look[k])?.[1].toLowerCase();
   $('burnLook').textContent = burnOpts.subs ? `The script looks as it does over the video: ${name('subSize')} text, ${look.subBg === 'none'
@@ -5741,7 +5746,7 @@ function setBurn(k, v) {
 }
 $('burnSubs').addEventListener('click', () => setBurn('subs', !burnOpts.subs));
 $('burnTc').addEventListener('click', () => setBurn('timecode', !burnOpts.timecode));
-$('burnSmall').addEventListener('click', () => setBurn('small', !burnOpts.small));
+$('burnHeight').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setBurn('height', +b.dataset.height); });
 // Whether ffmpeg in Docker can burn in: an older image has no fonts for it.
 async function ffmpegBurns() {
   if (HOSTED) return null;

@@ -49,7 +49,7 @@ test('the extended video command uses the filter file and suits the container', 
 import { burnFilter, burnCommand, ffRate, plainName } from '../app/js/ffcmd.js';
 
 test('burn in: smaller first, then the timecode, then the script, as the server does', () => {
-  const vf = burnFilter({ subs: true, timecode: true, size: 'l', bg: 'none', pos: 'top', small: true }, '25/1', 'Film.srt');
+  const vf = burnFilter({ subs: true, timecode: true, size: 'l', bg: 'none', pos: 'top', height: 720 }, '25/1', 'Film.srt');
   const order = ['scale=', 'drawtext=', 'subtitles=', 'format=yuv420p'].map((k) => vf.indexOf(k));
   assert.deepEqual(order, [...order].sort((a, b) => a - b));
   assert.ok(!order.includes(-1));
@@ -64,6 +64,8 @@ test('burn in: only what was asked for, and drop-frame timecode at 29.97 and 59.
   assert.ok(!burnFilter({ timecode: true }, '25/1', 'x.srt').includes('subtitles='));
   assert.ok(!burnFilter({ subs: true }, '25/1', 'x.srt').includes('drawtext='));
   assert.ok(!burnFilter({ subs: true }, '25/1', 'x.srt').includes('scale='));
+  assert.ok(!burnFilter({ subs: true, height: 0 }, '25/1', 'x.srt').includes('scale='));
+  assert.ok(!burnFilter({ subs: true, height: 333 }, '25/1', 'x.srt').includes('scale='));
   assert.match(burnFilter({ timecode: true }, '30000/1001', 'x.srt'), /00\\;00/);
   assert.match(burnFilter({ timecode: true }, '60000/1001', 'x.srt'), /00\\;00/);
   assert.match(burnFilter({ timecode: true }, '24000/1001', 'x.srt'), /00\\:00'/);
@@ -106,5 +108,11 @@ test('the text over the video and the burnt-in script have the same proportions'
     assert.ok(css.includes(`[data-sub-bg="${k}"] { --sub-bg: rgba(0, 0, 0, ${alpha}); }`), k);
     assert.equal(Math.round((1 - alpha) * 255).toString(16).toUpperCase(), hex);
     assert.match(server, new RegExp(`"${k}": "${hex}"`));
+  }
+});
+
+test('burn in: each resolution is a most, so a smaller video is never made bigger', () => {
+  for (const h of [480, 720, 1080]) {
+    assert.ok(burnFilter({ subs: true, height: h }, '25/1', 'x.srt').startsWith(`scale=-2:min(${h}\\,trunc(ih/2)*2),`), h);
   }
 });

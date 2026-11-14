@@ -42,11 +42,14 @@ export function extendedCommand({ video, mix, filter, out }) {
 }
 
 // A copy of the video with the script and the timecode burnt in, as ffmpeg/server.py makes
-// it, for people with ffmpeg of their own. opts: { subs, timecode, size, small }. rate: the
+// it, for people with ffmpeg of their own. opts: { subs, timecode, size, height }, height being
+// the most lines the picture keeps (480, 720 or 1080), or 0 for the video's own size. rate: the
 // frame rate as ffmpeg writes it, such as 30000/1001. srt: a file name of letters, digits,
 // spaces, dots, dashes and underscores, which needs no escaping in a filter.
 // The script looks as it does over the video (see ffmpeg/server.py): size, bg and pos are
 // the "Text over the video" settings.
+export const BURN_HEIGHTS = [0, 480, 720, 1080];
+export const scaleTo = (h) => `scale=-2:min(${h}\\,trunc(ih/2)*2)`;
 export const BURN_SIZES = { s: 16, m: 20, l: 25, xl: 30 };
 const BOXES = { none: null, light: '8C', dark: '40', solid: '00' };
 export function scriptStyle({ size = 'm', bg = 'none', pos = 'bottom' }) {
@@ -57,9 +60,9 @@ export function scriptStyle({ size = 'm', bg = 'none', pos = 'bottom' }) {
     'MarginV=50', 'MarginL=12', 'MarginR=12'];
 }
 export function burnFilter(opts, rate, srt) {
-  const { subs, timecode, small } = opts;
+  const { subs, timecode, height } = opts;
   const parts = [];
-  if (small) parts.push('scale=-2:min(720\\,trunc(ih/2)*2)');
+  if (BURN_HEIGHTS.includes(height) && height) parts.push(scaleTo(height));
   if (timecode) {
     const drop = rate === '30000/1001' || rate === '60000/1001';
     parts.push(`drawtext=font=monospace:timecode='00\\:00\\:00\\${drop ? ';' : ':'}00':rate=${rate}` +

@@ -10,7 +10,7 @@
 #                                    "pauses": [[120.5, 4.2], ...]}, seconds, for an
 #                                    extended video: the picture held at each pause
 #                                or {"burn": {"subs": true, "timecode": true, "size": "m",
-#                                    "bg": "none", "pos": "bottom", "small": true}, "video": "mp4",
+#                                    "bg": "none", "pos": "bottom", "height": 720}, "video": "mp4",
 #                                    "track": 0, "name": "Film"},
 #                                    for a copy of the video with the script and the timecode
 #                                    burnt in, as an MP4
@@ -50,7 +50,14 @@ VIDEOS = {"mp4", "m4v", "mov", "mkv", "webm"}
 # small, since it's for working on; "mp4" keeps the picture as it is, for a browser that
 # plays it but not its sound. Either way the sound becomes Opus, in stereo.
 COPIES = {"webm", "mp4"}
-SCALE = "scale=-2:min(720\\,trunc(ih/2)*2)"
+HEIGHTS = (0, 480, 720, 1080)  # the most lines a burnt-in copy keeps; 0: the video's own
+
+
+def scale_to(height):
+    return f"scale=-2:min({height}\\,trunc(ih/2)*2)"
+
+
+SCALE = scale_to(720)
 CHUNK = 1 << 20
 MAX_JOB = 1 << 20  # a long film can have thousands of pauses to describe
 MAX_PAUSES = 20000
@@ -129,8 +136,9 @@ def frame_rate(path):
 
 
 def good_burn(burn):
-    return (isinstance(burn, dict) and set(burn) <= {"subs", "timecode", "size", "bg", "pos", "small"}
-            and all(type(burn.get(k, False)) is bool for k in ("subs", "timecode", "small"))
+    return (isinstance(burn, dict) and set(burn) <= {"subs", "timecode", "size", "bg", "pos", "height"}
+            and all(type(burn.get(k, False)) is bool for k in ("subs", "timecode"))
+            and burn.get("height", 0) in HEIGHTS and type(burn.get("height", 0)) is int
             and bool(burn.get("subs") or burn.get("timecode")) and burn.get("size", "m") in SIZES
             and burn.get("bg", "none") in BOXES and burn.get("pos", "bottom") in ("bottom", "top"))
 
@@ -148,8 +156,9 @@ def burn_filter(burn, rate, subs):
     at the size the video ends up. 29.97 and 59.94 count drop-frame timecode, as Scribecue
     shows it."""
     parts = []
-    if burn.get("small"):
-        parts.append(SCALE)
+    height = burn.get("height", 0)
+    if height:
+        parts.append(scale_to(height))
     if burn.get("timecode"):
         num, den = map(int, rate.split("/"))
         drop = den == 1001 and num in (30000, 60000)

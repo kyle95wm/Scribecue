@@ -144,7 +144,7 @@ class Burning(unittest.TestCase):
             return server.command(job)
 
     def test_an_mp4_with_the_picture_encoded_and_the_chosen_track(self):
-        args, secs = self.burn({"subs": True, "timecode": True, "size": "m", "small": True}, track=1)
+        args, secs = self.burn({"subs": True, "timecode": True, "size": "m", "height": 720}, track=1)
         self.assertEqual(after(args, "-i"), ["/work/j/video.mkv"])
         self.assertEqual(after(args, "-map"), ["0:v:0", "0:a:1?"])
         self.assertEqual(after(args, "-c:v"), ["libx264"])
@@ -153,12 +153,18 @@ class Burning(unittest.TestCase):
         self.assertEqual(secs, 60.0)
 
     def test_smaller_first_then_the_timecode_then_the_script(self):
-        vf = after(self.burn({"subs": True, "timecode": True, "small": True})[0], "-vf")[0]
+        vf = after(self.burn({"subs": True, "timecode": True, "height": 720})[0], "-vf")[0]
         order = [vf.index(k) for k in ("scale=", "drawtext=", "subtitles=", "format=yuv420p")]
         self.assertEqual(order, sorted(order))
         self.assertIn("filename=/work/j/subs.srt", vf)
         self.assertIn("FontSize=20", vf)
         self.assertIn("fontsize=h/24", vf)  # grows with the picture, as the script does
+
+    def test_each_resolution_is_a_most(self):
+        for h in (480, 720, 1080):
+            vf = after(self.burn({"subs": True, "height": h})[0], "-vf")[0]
+            self.assertTrue(vf.startswith(f"scale=-2:min({h}\\,trunc(ih/2)*2),"), vf)
+        self.assertNotIn("scale=", after(self.burn({"subs": True, "height": 0})[0], "-vf")[0])
 
     def test_only_what_was_asked_for(self):
         vf = after(self.burn({"timecode": True})[0], "-vf")[0]
@@ -188,8 +194,11 @@ class Burning(unittest.TestCase):
 
     def test_burns_are_checked(self):
         self.assertTrue(server.good_burn({"subs": True}))
-        self.assertTrue(server.good_burn({"timecode": True, "size": "xl", "bg": "solid", "pos": "top", "small": False}))
+        self.assertTrue(server.good_burn({"timecode": True, "size": "xl", "bg": "solid", "pos": "top", "height": 0}))
+        for h in (480, 720, 1080):
+            self.assertTrue(server.good_burn({"subs": True, "height": h}))
         for bad in ({}, {"subs": False, "timecode": False}, {"subs": 1}, {"subs": True, "size": "huge"},
                     {"subs": True, "bg": "red"}, {"subs": True, "pos": "middle"},
-                    {"subs": True, "font": "x"}, "subs", None):
+                    {"subs": True, "font": "x"}, {"subs": True, "height": 600},
+                    {"subs": True, "height": "720"}, {"subs": True, "small": True}, "subs", None):
             self.assertFalse(server.good_burn(bad), bad)

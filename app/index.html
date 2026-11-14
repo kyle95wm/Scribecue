@@ -787,8 +787,9 @@ docker compose up -d --build</code></pre>
     <h3 id="burnShowTitle">Show</h3>
     <p class="updstatus lookrow" role="group" aria-labelledby="burnShowTitle"><button type="button" id="burnSubs" aria-pressed="true">The script</button><button type="button" id="burnTc" aria-pressed="true">Timecode</button></p>
     <p class="dim small" id="burnLook"></p>
-    <p class="updstatus"><button type="button" id="burnSmall" aria-pressed="true">720p at most</button></p>
-    <p class="dim small">Smaller, and quicker to make. Turn it off to keep the video’s own size.</p>
+    <h3 id="burnHeightTitle">Resolution</h3>
+    <p class="updstatus lookrow" role="group" aria-labelledby="burnHeightTitle" id="burnHeight"><button type="button" data-height="0">Original</button><button type="button" data-height="480">480p</button><button type="button" data-height="720">720p</button><button type="button" data-height="1080">1080p</button></p>
+    <p class="dim small">Smaller is quicker to make. A smaller video is never made bigger.</p>
     <p class="dim small" id="burnWhere"></p>
     <p id="burnStatus" class="dim small" role="status"></p>
     <progress id="burnBar" max="1" value="0" hidden aria-label="Video with subtitles progress"></progress>
