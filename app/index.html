@@ -318,7 +318,7 @@
     <span class="hint qc-only"><kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> frame <kbd>↑</kbd><kbd>↓</kbd> block <kbd>V</kbd> hear block <span class="qc-edit-only"><kbd>↵</kbd> edit </span><kbd>⌥⇧C</kbd> comments <kbd>⇧O</kbd> all keys</span>
     <span class="hint record-only">
       <kbd>Space</kbd> play <kbd>⌥⇧←</kbd><kbd>⌥⇧→</kbd> block
-      <kbd>↵</kbd> record <kbd>⇧↵</kbd> punch in <kbd>Space</kbd> stop <kbd>X</kbd> split take <kbd>P</kbd> next pickup <kbd>A</kbd> alt <kbd>Z</kbd> zoom to take <kbd>V</kbd> hear it read <kbd>⇧O</kbd> all keys
+      <span data-keys="recToggle"><kbd>↵</kbd></span> record <span data-keys="recPunch"><kbd>⇧↵</kbd></span> punch in <span data-keys="play"><kbd>Space</kbd></span> stop <span data-keys="split"><kbd>X</kbd></span> split take <span data-keys="recPickup"><kbd>P</kbd></span> next pickup <span data-keys="recAlt"><kbd>A</kbd></span> alt <span data-keys="recZoom"><kbd>Z</kbd></span> zoom to take <kbd>V</kbd> hear it read <kbd>⇧O</kbd> all keys
     </span>
     <a id="ghLink" class="ghlink tip-end" href="https://github.com/kyle95wm/Scribecue" target="_blank" rel="noopener noreferrer"
       aria-label="Scribecue on GitHub" data-tip="Scribecue on GitHub: the source, releases and issues"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg></a>
@@ -385,7 +385,7 @@ docker compose up -d --build</code></pre>
   <dialog id="keysDlg" class="updbox keysbox" aria-labelledby="keysTitle">
     <h2 id="keysTitle">Change shortcuts</h2>
     <p class="small">Click <strong>Add</strong> next to an action, then press the keys for it. Click a key to
-      take it off. Keys with Ctrl/Cmd, keys in text boxes, and <kbd>?</kbd> <kbd>/</kbd> <kbd>[</kbd>
+      take it off. Record mode keys only clash with keys that work in Record mode. Keys with Ctrl/Cmd, keys in text boxes, and <kbd>?</kbd> <kbd>/</kbd> <kbd>[</kbd>
       <kbd>]</kbd> <kbd>+</kbd> <kbd>−</kbd> <kbd>Esc</kbd> stay as they are.</p>
     <input id="keysFind" type="search" placeholder="Find an action" spellcheck="false" autocomplete="off" aria-label="Find an action">
     <div id="keysList" class="keyslist"></div>
@@ -1569,18 +1569,18 @@ docker compose up -d --build</code></pre>
           </dl>
           <h3 class="record-only">Record mode</h3>
           <dl class="record-only">
-            <dt><kbd>↵</kbd> <kbd>R</kbd></dt><dd>Record the selected block, or stop</dd>
-            <dt><kbd>⇧</kbd><kbd>↵</kbd> <kbd>⇧</kbd><kbd>R</kbd></dt><dd>Punch in: pick up the block's take from the playhead</dd>
-            <dt><kbd>E</kbd> <kbd>⇧</kbd><kbd>E</kbd></dt><dd>Playhead to the end of the next or previous part of the block's take</dd>
+            <dt data-keys="recToggle"><kbd>↵</kbd> <kbd>R</kbd></dt><dd>Record the selected block, or stop</dd>
+            <dt data-keys="recPunch"><kbd>⇧</kbd><kbd>↵</kbd> <kbd>⇧</kbd><kbd>R</kbd></dt><dd>Punch in: pick up the block's take from the playhead</dd>
+            <dt data-keys="recPartNext recPartPrev"><kbd>E</kbd> <kbd>⇧</kbd><kbd>E</kbd></dt><dd>Playhead to the end of the next or previous part of the block's take</dd>
             <dt data-keys="split"><kbd>X</kbd></dt><dd>Split the block's take at the playhead</dd>
-            <dt><kbd>S</kbd></dt><dd>Trim the silence off the block's take and start it at the block</dd>
+            <dt data-keys="recTrim"><kbd>S</kbd></dt><dd>Trim the silence off the block's take and start it at the block</dd>
             <dt data-keys="deleteNow"><kbd>Delete</kbd></dt><dd>Delete the part of a take you last clicked</dd>
             <dt><kbd><span class="mod"></span>Z</kbd></dt><dd>Bring back the take you deleted or discarded</dd>
-            <dt><kbd>P</kbd></dt><dd>Go to the next pickup</dd>
-            <dt><kbd>A</kbd></dt><dd>Alt: switch between the block and your own wording for it</dd>
-            <dt><kbd>Z</kbd></dt><dd>Zoom to the block's take, or back</dd>
-            <dt><kbd>Space</kbd></dt><dd>Stop recording</dd>
-            <dt><kbd>Esc</kbd></dt><dd>Stop recording, and discard the take</dd>
+            <dt data-keys="recPickup"><kbd>P</kbd></dt><dd>Go to the next pickup</dd>
+            <dt data-keys="recAlt"><kbd>A</kbd></dt><dd>Alt: switch between the block and your own wording for it</dd>
+            <dt data-keys="recZoom"><kbd>Z</kbd></dt><dd>Zoom to the block's take, or back</dd>
+            <dt data-keys="play"><kbd>Space</kbd></dt><dd>Stop recording</dd>
+            <dt data-keys="recDiscard" data-fixed="Escape"><kbd>Esc</kbd></dt><dd>Stop recording, and discard the take</dd>
             <dt><kbd>V</kbd></dt><dd>Hear the block read by text to speech, as a guide</dd>
           </dl>
           <h3 class="write-only">Text to speech</h3>

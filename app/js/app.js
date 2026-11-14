@@ -41,7 +41,7 @@ import { initSettingsFile } from './settingsfile.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
-import { comboOf, lookup } from './keymap.js';
+import { comboOf, lookup, REC_LOCKED } from './keymap.js';
 import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList } from './extended.js';
 import { initKeys, keyChanges, openKeys, shortcutEntries } from './keys.js';
 import { VERSION } from './update.js';
@@ -6965,7 +6965,7 @@ pal.addEventListener('mousedown', (e) => { if (e.target === pal) { e.preventDefa
 const isHelpKey = (e) => e.key === '?' || ((e.code === 'Slash' || e.key === '/') && e.shiftKey);
 // match the printed character so + and - work on any layout (e.g. the German "+" key)
 // The shortcuts in use: the defaults, with the person's changes on top.
-let keyLookup = lookup(keyChanges());
+let keyLookup = lookup(keyChanges()), recLookup = lookup(keyChanges(), 'record');
 const isPlus = (e) => e.key === '+' || e.code === 'NumpadAdd' || (e.key === '=' && !e.shiftKey);
 const isMinus = (e) => e.key === '-' || e.code === 'NumpadSubtract';
 const FRAZIER_ONLY = {
@@ -6999,18 +6999,10 @@ document.addEventListener('keydown', (e) => {
   if (isHelpKey(e)) { e.preventDefault(); toggleHelp(); return; }
   if (e.key === '/' && !e.altKey) { e.preventDefault(); showList(); listSearch.focus(); listSearch.select(); return; }
 
-  // Record mode: Enter or R records the selected line, and Esc stops and discards the take. [ ] change a block's speed, which is locked.
+  // Record mode: Esc always stops and discards the take. [ ] change a block's speed, which is locked.
+  // Its other keys are in the keymap's Record mode group.
   if (S.mode === 'record') {
     if (e.code === 'Escape' && recorder.active) { e.preventDefault(); recorder.finish(true); document.activeElement?.blur(); return; }
-    if (!e.altKey && !e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.toggle(); return; }
-    if (!e.altKey && e.shiftKey && ['Enter', 'NumpadEnter', 'KeyR'].includes(e.code)) { e.preventDefault(); if (!e.repeat) recorder.punch(); return; }
-    if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyP') { e.preventDefault(); recorder.nextPickup(); return; }
-    if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyA') { e.preventDefault(); recorder.toggleAlt(); return; }
-    if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyZ') { e.preventDefault(); zoomToTake(); return; }
-    // E: the playhead to the end of the take's next part, Shift+E the previous: where to punch in.
-    if (!e.altKey && !mod && e.code === 'KeyE' && recorder.toTakeEnd(e.shiftKey ? -1 : 1)) { e.preventDefault(); return; }
-    // S: trim the take's silence and start it at the block.
-    if (!e.altKey && !e.shiftKey && !mod && e.code === 'KeyS' && recorder.trimTake()) { e.preventDefault(); return; }
     if (e.key === '[' || e.key === ']') { e.preventDefault(); return; }
   }
   // [ ] by the character typed, since some layouts need ⌥ or AltGr for them.
@@ -7027,9 +7019,10 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   // Everything else is in the keymap, which people can change (see keymap.js).
-  const id = keyLookup.get(comboOf(e));
+  const id = (S.mode === 'record' ? recLookup : keyLookup).get(comboOf(e));
   if (id) {
     e.preventDefault();
+    if (REC_RUN[id]) { REC_RUN[id](e); return; }
     if (S.mode === 'record' && id === 'split' && recorder.splitTake()) return; // splits the take being edited
     if (S.mode === 'record' && id === 'deleteNow' && recorder.cutPart()) return; // deletes a part of it
     // Play / pause stops a recording, and keeps the take. Held down, it doesn't start playing.
@@ -7058,10 +7051,20 @@ document.addEventListener('close', (e) => {
 
 const QC_EDIT_KEYS = new Set(['newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'setStart', 'setEnd', 'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10', 'moveBack10', 'moveFwd10', 'soundsLike']);
 
-// Keys that change the script, or help with writing it: off in Record mode.
-const REC_LOCKED = new Set(['createEdit', 'newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'findReplace', 'setStart', 'setEnd',
-  'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10',
-  'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'aiHelp', 'comments', 'offset']);
+// What each Record mode action does (keymap.js's Record mode group). Only looked up in Record mode.
+// E, Shift+E and S say the script is locked when no block is selected, as their editor keys would.
+const recLockedToast = () => toast('The script is locked in Record mode');
+const REC_RUN = {
+  recToggle: (e) => { if (!e.repeat) recorder.toggle(); },
+  recPunch: (e) => { if (!e.repeat) recorder.punch(); },
+  recDiscard: () => { if (recorder.active) { recorder.finish(true); document.activeElement?.blur(); } },
+  recPartNext: () => recorder.toTakeEnd(1) || recLockedToast(),
+  recPartPrev: () => recorder.toTakeEnd(-1) || recLockedToast(),
+  recTrim: () => recorder.trimTake() || recLockedToast(),
+  recPickup: () => recorder.nextPickup(),
+  recAlt: () => recorder.toggleAlt(),
+  recZoom: () => zoomToTake(),
+};
 
 // What each keymap action does.
 const RUN = {
@@ -7266,7 +7269,7 @@ initTts({
 initTour();
 $('helpTour').addEventListener('click', () => { toggleHelp(false); startTour(S.mode); });
 $('helpLoop').addEventListener('click', () => { toggleHelp(false); showLoop(S.mode); });
-initKeys({ mac: IS_MAC, toast, onChange: (m) => { keyLookup = m; } });
+initKeys({ mac: IS_MAC, toast, onChange: (m, rec) => { keyLookup = m; recLookup = rec; } });
 $('helpKeys').addEventListener('click', () => { toggleHelp(false); openKeys(); });
 $('helpGuides').addEventListener('click', () => { toggleHelp(false); openGuide(); });
 // The guides, inside Scribecue when this copy has them; the Guides button shows then.
