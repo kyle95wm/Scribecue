@@ -3,11 +3,11 @@
 // that); this file does the recording. The guide is Guides/RECORDING.md.
 
 import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
-import { slots, prevEnd, narrationTimeline, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, leadInParts, partEnds, stepEnd, videoDb, videoDbText, VIDEO_DB_MIN, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE } from './recording.js';
+import { slots, prevEnd, narrationTimeline, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, markerLabel, leadInParts, partEnds, stepEnd, videoDb, videoDbText, VIDEO_DB_MIN, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE, EDGE_FADE } from './recording.js';
 import { storeZip } from './zip.js';
 import { blockToHold, stillHeard, pauseList } from './extended.js';
 import { fmtTime } from './formats.js';
-import { to24, from24, wav24, buildBwf, WAV24_HEADER } from './bwf.js';
+import { to24, from24, wav24, buildBwf, fadeEnds24, WAV24_HEADER } from './bwf.js';
 import { listTakes, saveTake, chooseTake, editTake, deleteTake, restoreTake, takeAudio, takesWhere, relinkTakes, moveTakes, openSession, useSession, currentSession,
   rememberedSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser, sessionFolder, unpackSession, forgetBrowserFolder } from './takestore.js';
 import { SESSION_EXT } from './session.js';
@@ -705,7 +705,8 @@ export function initRecord(h) {
       if (!base) return h.toast(`Block ${i + 1} has no ${side ? 'alt take' : 'take'} to pick up from. Press Enter to record it`);
       if (side && base.alt !== alt) return h.toast('The alt’s wording has changed since that take. Press Enter to record it again');
       if (at < placed(base).start + PUNCH_MIN || at >= s.end) return h.toast(`Put the playhead where you want to pick up, inside block ${i + 1}’s take, then press Shift+Enter`);
-      p = { base, at, ps: pieces(base), on: null };
+      p = { base, at, ps: pieces(base) };
+      outCtx(); // now, on the key press: Safari won't play sound otherwise
     }
     const from = video.currentTime; // where Esc puts the playhead back
     stopPlay();
@@ -717,11 +718,13 @@ export function initRecord(h) {
     }
     if (p) {
       // The earlier take plays in the lead-in, up to the join, so the narrator can match it.
-      try { p.wav = await takeAudio(p.base); } catch (e) {
+      try {
+        p.wav = await takeAudio(p.base);
+        p.player = partPlayer(await pb.ctx.decodeAudioData(await p.wav.arrayBuffer()));
+      } catch (e) {
         state = 'idle'; disarm(); status(''); render();
         return h.toast(`Couldn’t get the take to pick up from: ${e.message}`);
       }
-      p.audio = new Audio(URL.createObjectURL(p.wav));
     }
     cap.block = i; cap.slot = s; cap.prevEnd = prevEndOf(i); cap.punch = p; cap.alt = alt; cap.from = from;
     cap.trail = peakTrail(RATE / PR);
@@ -743,7 +746,7 @@ export function initRecord(h) {
       }
       const p = cap.punch;
       if (p) {
-        p.on = follow(p.audio, p.ps, video.currentTime, p.on, p.at);
+        p.player.follow(p.ps, video.currentTime, p.at);
       }
       if (state === 'lead') status(p ? `Picks up in ${Math.max(0, p.at - video.currentTime).toFixed(1)} s` : `Starts in ${Math.ceil(Math.max(0, cap.slot.start - video.currentTime))} s: set your level`);
       if (state === 'rec' && cap.slot.hold) {
@@ -776,7 +779,7 @@ export function initRecord(h) {
     state = 'saving'; status('Saving the take…'); render();
     video.pause();
     if (discard) h.seek(c.from);
-    if (c.punch) { c.punch.audio.pause(); URL.revokeObjectURL(c.punch.audio.src); }
+    c.punch?.player?.stop();
     const samples = await new Promise((ok) => {
       if (!wasRec) return ok(new Float32Array(0));
       c.finish = () => {
@@ -1049,22 +1052,32 @@ export function initRecord(h) {
   }
 
   // ---- playing a take back, against the video where it was read
-  // Plays the recording in an <audio> in step with the video, part by part, until `until`.
-  // on: the part playing, or null; returns the part playing now.
-  function follow(audio, ps, now, on, until = Infinity) {
-    const here = now < until ? takeAt(ps, now) : null;
-    if (here && on !== here.take.key) { audio.currentTime = here.take.head + here.from; audio.play().catch(() => {}); return here.take.key; }
-    if (!here && on) audio.pause();
-    return here ? on : null;
+  // Plays a take's parts in step with a clock (the video's, usually), each with its ends
+  // faded (see pieces()). The part due next starts on the audio clock, at its moment, so
+  // one that carries straight on from the part before leaves no gap.
+  function partPlayer(buf) {
+    const live = new Map(); // part key → its sound
+    return {
+      // ps: the parts; now: where the clock is; until: stop there (punching in).
+      follow(ps, now, until = Infinity) {
+        const here = now < until ? takeAt(ps, now) : null;
+        const next = ps.find((p) => p.start > now && p.start - now <= 0.25 && p.start < until);
+        for (const [k, s] of live) if (k !== here?.take.key && k !== next?.key) { stopSrc(s); live.delete(k); }
+        if (here && !live.has(here.take.key) && here.from < here.take.duration - 0.02) live.set(here.take.key, fadedSource(here.take, buf, 0, here.from));
+        if (next && !live.has(next.key)) live.set(next.key, fadedSource(next, buf, pb.ctx.currentTime + next.start - now, 0));
+      },
+      stop() { for (const s of live.values()) stopSrc(s); live.clear(); },
+    };
   }
   // then: what to do when it plays to the end, rather than stop.
   async function playTake(raw, then = null, cmp = null) {
     stopPlay();
+    outCtx();
     const t = placed(raw), ps = pieces(raw), held = sl()[raw.block]?.hold;
-    let wav;
-    try { wav = await takeAudio(t); } catch (e) { return h.toast(`Couldn’t play the take: ${e.message}`); }
-    const audio = new Audio(URL.createObjectURL(wav));
-    playing = { t, audio, on: null, then, cmp };
+    let player;
+    try { player = partPlayer(await pb.ctx.decodeAudioData(await (await takeAudio(t)).arrayBuffer())); } catch (e) { return h.toast(`Couldn’t play the take: ${e.message}`); }
+    stopPlay();
+    playing = { t, player, then, cmp };
     h.seek(Math.max(0, t.start - 2));
     video.play().catch(() => {});
     render();
@@ -1074,7 +1087,7 @@ export function initRecord(h) {
     const tick = () => {
       if (!playing) return;
       if (held && !stoppedAt && video.currentTime >= t.start) { video.pause(); stoppedAt = performance.now(); }
-      playing.on = follow(audio, ps, when(), playing.on);
+      playing.player.follow(ps, when());
       const on = stoppedAt ? video.paused : !video.paused;
       if (!on || when() >= t.start + t.duration) {
         const next = on && playing.then;
@@ -1088,8 +1101,7 @@ export function initRecord(h) {
   const compare = (orig, pick) => playTake(orig, () => playTake(pick, null, 'pickup'), 'original');
   function stopPlay() {
     if (!playing) return;
-    playing.audio.pause();
-    URL.revokeObjectURL(playing.audio.src);
+    playing.player.stop();
     playing = null;
     video.pause();
     render();
@@ -1112,13 +1124,7 @@ export function initRecord(h) {
     const buf = await pb.bufs.get(t.id);
     if (pb.hold !== hold) return;
     const ps = pieces(t), first = ps[0].start, at = pb.ctx.currentTime + 0.02;
-    hold.srcs = buf ? ps.map((p) => {
-      const src = pb.ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(pb.gain);
-      src.start(at + p.start - first, p.head, p.duration);
-      return src;
-    }) : [];
+    hold.srcs = buf ? ps.map((p) => fadedSource(p, buf, at + p.start - first, 0)) : [];
     const z = ps[ps.length - 1], secs = buf ? z.start + z.duration - first : 0;
     hold.timer = setTimeout(() => {
       if (pb.hold !== hold) return;
@@ -1134,19 +1140,47 @@ export function initRecord(h) {
     for (const src of hold.srcs || []) stopSrc(src);
   }
   // Made on a key press or click: Safari won't play sound otherwise.
-  const wake = () => {
-    if (!rec || !hear) return;
+  function outCtx() {
     if (!pb.ctx) {
       pb.ctx = new AudioContext({ latencyHint: 'interactive' });
       pb.gain = pb.ctx.createGain();
       pb.gain.connect(pb.ctx.destination);
     }
     if (pb.ctx.state === 'suspended') pb.ctx.resume().catch(() => {});
-  };
+    return pb.ctx;
+  }
+  const wake = () => { if (rec && hear) outCtx(); };
   document.addEventListener('keydown', wake, true);
   document.addEventListener('pointerdown', wake, true);
 
-  const stopSrc = (src) => { try { src.stop(); } catch { /* not started */ } src.disconnect(); };
+  // A part's sound, from `from` seconds into it, at `when` on the audio clock (0 for now),
+  // its ends faded: the part's own fades, or a short one in if it starts partway through.
+  // Returns { src, g }, for stopSrc.
+  function fadedSource(p, buf, when, from, rate = 1) {
+    const ctx = pb.ctx, t0 = Math.max(when, ctx.currentTime), len = Math.max(0, p.duration - from), secs = len / rate;
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    src.buffer = buf;
+    src.playbackRate.value = rate;
+    src.connect(g);
+    g.connect(pb.gain);
+    const fin = Math.min(from > 0.001 ? EDGE_FADE : p.fadeIn ?? 0, len / 2) / rate, fout = Math.min(p.fadeOut ?? 0, len / 2) / rate;
+    g.gain.setValueAtTime(fin ? 0 : 1, t0);
+    if (fin) g.gain.linearRampToValueAtTime(1, t0 + fin);
+    if (fout) { g.gain.setValueAtTime(1, t0 + secs - fout); g.gain.linearRampToValueAtTime(0, t0 + secs); }
+    src.onended = () => g.disconnect();
+    src.start(t0, p.head + from, len);
+    return { src, g };
+  }
+  // Stops a part's sound, fading it out quickly rather than cutting it off with a click.
+  function stopSrc({ src, g }) {
+    const at = pb.ctx.currentTime;
+    try {
+      g.gain.cancelScheduledValues(at);
+      g.gain.setValueAtTime(g.gain.value, at);
+      g.gain.linearRampToValueAtTime(0, at + EDGE_FADE);
+      src.stop(at + EDGE_FADE);
+    } catch { src.disconnect(); g.disconnect(); }
+  }
   function silence() {
     if (pb.src) stopSrc(pb.src);
     if (pb.queued) stopSrc(pb.queued.src);
@@ -1166,11 +1200,7 @@ export function initRecord(h) {
   // part. queue: start it alongside the part playing, to follow straight on from it.
   function startAt(t, buf, when, from, queue = false) {
     if (!queue) silence();
-    const src = pb.ctx.createBufferSource();
-    src.buffer = buf;
-    src.playbackRate.value = video.playbackRate;
-    src.connect(pb.gain);
-    src.start(when, t.head + from, Math.max(0, t.duration - from));
+    const src = fadedSource(t, buf, when, from, video.playbackRate);
     const s = { src, id: t.key, tid: t.id, at: when || pb.ctx.currentTime, from, rate: video.playbackRate };
     if (queue) { if (pb.queued) stopSrc(pb.queued.src); pb.queued = s; } else Object.assign(pb, s);
   }
@@ -1192,7 +1222,7 @@ export function initRecord(h) {
     const here = takeAt(list, now), next = nextTake(list, now, 4);
     for (const id of pb.bufs.keys()) if (id !== here?.take.id && id !== next?.id && id !== pb.tid && id !== pb.queued?.tid) pb.bufs.delete(id);
     // The part queued to follow on has begun: it's the one playing now.
-    if (here && pb.queued?.id === here.take.key) { if (pb.src) pb.src.disconnect(); Object.assign(pb, pb.queued); pb.queued = null; }
+    if (here && pb.queued?.id === here.take.key) { if (pb.src) stopSrc(pb.src); Object.assign(pb, pb.queued); pb.queued = null; }
     if (here) {
       const buf = buffer(here.take);
       // Where the sound is now, if it's this part: put back in step if it's drifted.
@@ -1319,7 +1349,8 @@ export function initRecord(h) {
         const wav = await takeAudio(t);
         for (const p of pieces(t)) {
           const from = WAV24_HEADER + Math.round(p.head * RATE) * 3;
-          parts.push({ start: p.start + line.moved[t.block], pcm: wav.slice(from, from + Math.round(p.duration * RATE) * 3) });
+          const pcm = await fadeEnds24(wav.slice(from, from + Math.round(p.duration * RATE) * 3), Math.round(p.fadeIn * RATE), Math.round(p.fadeOut * RATE));
+          parts.push({ start: p.start + line.moved[t.block], pcm });
         }
       }
       parts.sort((a, z) => a.start - z.start);
