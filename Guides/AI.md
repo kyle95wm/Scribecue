@@ -1,7 +1,7 @@
 # AI help
 
-An AI model can draft a block from stills of the video, or answer questions about a
-scene.
+An AI model can draft a block from stills of the video, draft a whole script, or answer
+questions about a scene.
 
 **AI can't write audio description on its own yet.** It misreads scenes, misses what
 matters, and sometimes describes things that aren't there. Treat every draft as a
@@ -10,6 +10,7 @@ starting point. You're still the describer.
 ## Contents
 
 - [What it does](#what-it-does)
+- [Drafting the whole script](#drafting-the-whole-script)
 - [Choosing where it runs](#choosing-where-it-runs)
 - [Connecting a provider](#connecting-a-provider)
   - [Claude, OpenAI or Gemini](#claude-openai-or-gemini)
@@ -31,7 +32,7 @@ out beside the video.
 ![The AI help drawer beside the video, with a draft for a block](../docs/screenshots/ai-help.png)
 
 - **Draft this block:** select a block and click it. Scribecue sends stills from the block,
-  the script around it, and how many words fit. **Use for block #n** puts the draft in the
+  the script and subtitles around it, and how many words fit. **Use for block #n** puts the draft in the
   block, and **Try again** asks for another.
 - **Chat:** ask about the scene, such as "what's on the sign behind her?". Tick **Send the
   frame at the playhead** so it sees the frame you're on.
@@ -40,6 +41,44 @@ out beside the video.
 - **New chat** starts again.
 - **Check grammar with AI:** in the [spelling and grammar check](GETTING-STARTED.md#checking-spelling-and-grammar).
   It suggests fixes for mistakes the offline check misses. Nothing changes until you choose a fix.
+
+## Drafting the whole script
+
+**Draft the script…** in the AI help drawer, or `Alt+Shift+I`, writes a first draft for
+every free gap in the dialogue. It needs a [dialogue lane](GETTING-STARTED.md): pick
+subtitles next to **Dialogue**, under the video.
+
+1. Choose what to draft: the whole video, from the playhead, or between two times.
+2. Leave **Listen for speech** on, if you have [speech to text](TRANSCRIBING.md#speech-to-text-with-whisper) set up.
+3. Check the count and the estimate, then click **Draft**.
+4. Keep working while it runs. Progress shows under the header, with **Stop**.
+
+How it fills the gaps:
+
+- Only gaps with no block, of 2 seconds or more. Your blocks stay as they are.
+- A gap over 10 seconds gets a block for each shot, about 4–10 seconds each.
+- Drafts are written in order, so each sees the ones before it.
+- **Stop** keeps the drafts already made. `Ctrl/Cmd+Z` takes back the whole run, if
+  you haven't changed anything since.
+
+Each new block is tagged **AI draft** in the list and dashed on the timeline, until you
+check it:
+
+| Key | What it does |
+| --- | --- |
+| `I` / `Shift+I` | Next / previous AI draft |
+| `Y` | Accept the AI draft, or click **AI draft ✓** in the block |
+
+Editing a draft's words accepts it too. **Export** says how many are left unchecked.
+
+**Gaps come from the subtitles,** which can miss speech, such as a song or background
+talk. With **Listen for speech** on, speech to text listens to each gap first. Where it
+hears words, the block says **speech under it?**, and the block shows what it heard. `U`
+goes to these, as it does to blocks over dialogue. Without it, play each draft through
+before accepting it.
+
+A two-hour film can have 400–600 gaps. With an online model that's a few dollars, and
+with Ollama it can take hours; the dialog estimates both. Try a 10-minute stretch first.
 
 ## Choosing where it runs
 
@@ -246,7 +285,8 @@ Online providers charge by the amount sent and received. A draft with 3 frames s
 cent with Sonnet 5.5, and a fraction of a cent with Haiku 5.5. With OpenAI, it's about
 2–3 cents with GPT-6 Astra, half a cent with GPT-6.1 Sol, and a tiny fraction of a cent
 with GPT-6 Luna. These are estimates; your
-provider's dashboard shows the real figures. Long chats cost more, though only the latest
+provider's dashboard shows the real figures. **Draft the script** makes one draft per gap,
+so a whole film costs a few hundred drafts. Long chats cost more, though only the latest
 messages resend their frames. **Check grammar with AI** sends the whole script, so a long
 script costs more than a draft. Ollama costs nothing to use.
 

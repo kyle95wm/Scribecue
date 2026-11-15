@@ -9,7 +9,7 @@ import { cleanComments } from './comments.js';
 import { cleanBookmarks } from './bookmarks.js';
 
 export const LOCAL = 'local';
-export const SHARED_FIELDS = ['start', 'end', 'speed', 'voice', 'dip', 'dipBy', 'vol', 'auto', 'fit', 'pinned', 'say', 'extended', 'notes', 'edited'];
+export const SHARED_FIELDS = ['start', 'end', 'speed', 'voice', 'dip', 'dipBy', 'vol', 'auto', 'fit', 'pinned', 'say', 'extended', 'notes', 'edited', 'ai', 'heard'];
 // What's shared about a block, as plain values: what a change is compared by.
 const shareable = (b) => {
   const o = { text: b.text || '' };

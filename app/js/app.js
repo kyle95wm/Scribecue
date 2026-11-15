@@ -14,7 +14,7 @@ import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.
 import { HOSTED } from './config.js';
 import { CHOICES, DEFAULTS, shownAppearance, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
 import { initFloat, loadKind, saveKind, canOwnWindow } from './floatvideo.js';
-import { initAi, toggleAi, aiNotesChanged, openAiSettings } from './aidrawer.js';
+import { initAi, toggleAi, aiNotesChanged, openAiSettings, openDraftScript } from './aidrawer.js';
 import { initCheck, openCheck, checkFirst } from './proofdialog.js';
 import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
 import { collaborationJob, retainHistory, makesFiles } from './collaboration.js';
@@ -45,7 +45,7 @@ import { initSettingsFile } from './settingsfile.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
-import { comboOf, lookup, REC_LOCKED } from './keymap.js';
+import { comboOf, lookup, REC_LOCKED, bindings, comboText } from './keymap.js';
 import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList } from './extended.js';
 import { initKeys, keyChanges, openKeys, shortcutEntries } from './keys.js';
 import { VERSION } from './update.js';
@@ -271,7 +271,9 @@ const revive = (b) => Object.assign(mk(b.start, b.end, b.text, b.speed),
   cleanPickup(b.pickup) ? { pickup: cleanPickup(b.pickup) } : {},
   b.extended === true ? { extended: true } : {},
   cleanNotes(b.notes) ? { notes: cleanNotes(b.notes) } : {},
-  cleanEdited(b.edited) ? { edited: cleanEdited(b.edited) } : {});
+  cleanEdited(b.edited) ? { edited: cleanEdited(b.edited) } : {},
+  b.ai === true ? { ai: true } : {},
+  b.ai === true && typeof b.heard === 'string' && b.heard ? { heard: b.heard.slice(0, 200) } : {});
 // What text to speech reads for a block: its text, with its "sounds like" words.
 const said = (c) => soundsLike(c.text, c.say);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -1414,7 +1416,7 @@ function save() {
       extendedAll: S.extendedAll,
       ttsOff: S.ttsOff,
       reviewId: S.reviewId, qcSettings: S.qcSettings, recording: S.recording,
-      cues: S.cues.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes, edited }) => ({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes, edited })),
+      cues: S.cues.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes, edited, ai, heard }) => ({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, notes, edited, ai, heard })),
     }));
   } catch { /* storage full or blocked */ }
 }
@@ -1954,6 +1956,7 @@ function updateEditor() {
     if (document.activeElement !== edEnd) edEnd.value = '';
     edDur.textContent = '';
     edClash.hidden = true;
+    showAiDraft(null);
     edStats.textContent = '';
     if (!edit) edText.value = '';
     return;
@@ -2017,8 +2020,14 @@ function updateEditor() {
     edStats.append(s);
   }
   const clash = overDialogue(c);
-  edClash.hidden = !clash;
-  edClash.textContent = clash ? `${clash.toFixed(1)} s over dialogue` : '';
+  const heard = heardUnder(c);
+  edClash.hidden = !clash && !heard;
+  edClash.textContent = clash ? `${clash.toFixed(1)} s over dialogue` : heard ? `Speech under it? Heard “${heard}”` : '';
+  showAiDraft(c);
+}
+// An AI draft nobody has checked yet: a button in the editor accepts it.
+function showAiDraft(c) {
+  $('edAi').hidden = !(c?.ai && writing());
 }
 
 // With a Piper or Google voice, make the selected block's reading once typing pauses, so its
@@ -2197,6 +2206,7 @@ edText.addEventListener('input', () => {
   if (!c) return;
   if (!edit.pushed) { pushUndo(); edit.pushed = true; }
   c.text = edText.value;
+  if (c.ai) { delete c.ai; delete c.heard; showAiDraft(c); }
   adapt(c);
   fitAuto(c);
   changed(c.id);
@@ -2375,9 +2385,11 @@ function fillRow(r, c, i) {
   if (c.pickup) dur += ' · pickup';
   const clash = overDialogue(c) > 0;
   const ready = !!reading?.exact;
+  const aiDraft = !!c.ai && writing();
+  const heard = heardUnder(c);
   // Unchanged rows are left alone: long jobs refresh the list often, and rewriting every
   // row each time made the browser lay it all out again.
-  const was = `${i}|${times}|${dur}|${clash}|${ready}|${query}|${c.text}`;
+  const was = `${i}|${times}|${dur}|${clash}|${ready}|${aiDraft}|${heard}|${query}|${c.text}`;
   if (r.dataset.was === was) return;
   r.dataset.was = was;
   n.textContent = i + 1;
@@ -2385,6 +2397,8 @@ function fillRow(r, c, i) {
   d.textContent = dur;
   d.classList.toggle('over', over);
   if (clash) d.append(Object.assign(document.createElement('span'), { className: 'clash', textContent: ' · over dialogue' }));
+  if (heard) d.append(Object.assign(document.createElement('span'), { className: 'clash', textContent: ' · speech under it?', title: `Speech to text heard: “${heard}”` }));
+  if (aiDraft) d.append(Object.assign(document.createElement('span'), { className: 'aidraft', textContent: ' · AI draft' }));
   // A dot when the reading has been made, at this voice and speed. Piper, Kokoro and Google
   // readings are kept in the browser, so they play straight away, even after a reload.
   if (ready) {
@@ -2392,7 +2406,7 @@ function fillRow(r, c, i) {
       title: cloudOf(c.voice) ? `Reading kept: plays straight away, and isn't sent to ${cloudOf(c.voice)} again`
         : usingAudioVoice(c.voice) ? 'Reading kept: its length is exact, and it plays straight away' : 'Reading made: its length is exact' }));
   }
-  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, overDialogue: clash, ready, extended: ext }) + (c.notes ? ', has notes' : '') + (c.pickup ? ', pickup' : ''));
+  r.setAttribute('aria-label', blockLabel({ n: i + 1, start: tc(c.start), secs: (c.end - c.start).toFixed(2), text: c.text, tooLong: over, overDialogue: clash, ready, extended: ext }) + (c.notes ? ', has notes' : '') + (c.pickup ? ', pickup' : '') + (heard ? ', speech may be under it' : '') + (aiDraft ? ', AI draft not yet checked' : ''));
   fillText(tx, c);
   tx.classList.toggle('blank', !c.text);
   r.hidden = false;
@@ -2717,8 +2731,9 @@ function drawCues(W) {
     el.classList.toggle('changing', !!ghost?.theirs && c.uid === ghost.uid);
     el.classList.toggle('removing', !!ghost?.removed && c.uid === ghost.uid);
     // Too narrow to show, and a long film zoomed out draws thousands of these.
-    el.classList.toggle('clash', w >= 8 && overDialogue(c) > 0);
-    el.children[1].textContent = w >= EXT_MARK ? '#' + (i + 1) + (ttsOn() && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') + (canComment() && c.comments?.some((n) => !n.resolved) ? ' · ●' : '') : '';
+    el.classList.toggle('clash', w >= 8 && (overDialogue(c) > 0 || !!heardUnder(c)));
+    el.classList.toggle('aidraft', !!c.ai && writing());
+    el.children[1].textContent = w >= EXT_MARK ? '#' + (i + 1) + (c.ai && writing() && w > 50 ? ' · AI' : '') + (ttsOn() && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') + (canComment() && c.comments?.some((n) => !n.resolved) ? ' · ●' : '') : '';
     if (el._text !== c.text) { el._text = c.text; el.children[2].textContent = c.text; }
   }
   for (const [id, el] of cueEls) if (!seen.has(id)) { el.remove(); cueEls.delete(id); }
@@ -3399,6 +3414,7 @@ let measuring = false;
 // wherever they were started, and in the text to speech settings too.
 const jobBox = $('jobBox'), jobBar = $('jobBar'), jobText = $('jobText');
 let jobActive = false;
+let aiRun = null; // AbortController of the AI drafting the script, while it runs
 async function asJob(fn) {
   if (jobActive) return toast('Another job is running. Wait for it to finish, or press Stop at the top');
   jobActive = true;
@@ -3415,11 +3431,13 @@ function progress(ui, frac, text) {
 async function stopJob() {
   if (!jobActive) return;
   measuring = false;
+  aiRun?.abort();
   stopSpeech();
   while (jobActive) await new Promise((r) => setTimeout(r, 50));
 }
 $('jobStop').addEventListener('click', () => {
   measuring = false;
+  aiRun?.abort();
   stopSpeech();
   // An extended video from a narration runs here too.
   if (narrWorker || mixWorker || ffJob) {
@@ -6565,6 +6583,57 @@ function overDialogue(c) {
   return secs >= MIN_CLASH ? secs : 0;
 }
 
+// ---- AI drafts nobody has checked yet
+
+// The first key for an action, as people see it.
+const keyText = (id) => { const k = bindings(keyChanges())[id]?.[0]; return k ? comboText(k, IS_MAC) : ''; };
+const aiDrafts = () => S.cues.filter((c) => c.ai);
+// Words speech to text heard under an AI draft that the subtitles don't have, until it's checked.
+const heardUnder = (c) => (c?.ai && c.heard && writing() ? c.heard : '');
+// Goes to the next (or previous) AI draft after the selected block, round to the first.
+function jumpAiDraft(dir) {
+  if (!writing()) return toast('AI drafts are checked in Write mode');
+  const list = aiDrafts();
+  if (!list.length) return toast('No AI drafts left to check');
+  const sel = selCue(), from = sel ? sel.start : now(), near = 0.02;
+  const c = (dir > 0 ? list.find((b) => b.start > from + near) : list.findLast((b) => b.start < from - near)) || (dir > 0 ? list[0] : list.at(-1));
+  S.playUntil = null;
+  select(c.id);
+  toast(`Block #${idx(c.id) + 1}: AI draft. ${list.length} left to check`);
+}
+// Marks the selected AI draft as checked. Editing its words does too.
+function acceptAiDraft() {
+  if (!writing()) return toast('AI drafts are checked in Write mode');
+  const c = selCue();
+  if (!c?.ai) return toast(c ? 'This block isn’t an AI draft' : 'Select an AI draft first');
+  pushUndo();
+  delete c.ai;
+  delete c.heard;
+  changed(c.id);
+  const left = aiDrafts().length;
+  toast(left ? `Accepted. ${left} AI draft${left === 1 ? '' : 's'} left: ${keyText('aiNext')} goes to the next` : 'Accepted. No AI drafts left to check');
+}
+$('edAi').addEventListener('click', (e) => { e.currentTarget.blur(); acceptAiDraft(); });
+// The AI drafting the script, as a job under the header. fn(signal, progress) adds the
+// blocks; it all comes back with one undo, as long as nothing else was done meanwhile.
+function runAiScript(fn) {
+  return asJob(async () => {
+    aiRun = new AbortController();
+    pushUndo();
+    const before = undoStack.at(-1), had = S.cues.length;
+    const progress = (frac, text) => { jobBar.value = frac; jobText.textContent = `AI drafts: ${text}`; jobBox.hidden = false; };
+    try {
+      const out = await fn(aiRun.signal, progress);
+      // Undo takes the whole run back while it's the last thing done.
+      return out && { ...out, undoable: undoStack.at(-1) === before && S.cues.length > had };
+    } finally {
+      aiRun = null;
+      // Nothing added: the undo step would do nothing.
+      if (undoStack.at(-1) === before && S.cues.length === had) undoStack.pop();
+    }
+  });
+}
+
 function showClashes() {
   refreshList();
   updateEditor();
@@ -6573,12 +6642,13 @@ function showClashes() {
 
 function jumpClash(dir) {
   if (!S.dialogue) return toast(NO_LANE);
-  const t = now(), near = 0.02, over = S.cues.filter((c) => overDialogue(c));
+  const t = now(), near = 0.02, over = S.cues.filter((c) => overDialogue(c) || heardUnder(c));
   const c = dir > 0 ? over.find((b) => b.start > t + near) : over.findLast((b) => b.start < t - near);
   if (!c) return toast(dir < 0 ? 'No block over dialogue before the playhead' : 'No block over dialogue after the playhead');
   S.playUntil = null;
   select(c.id);
-  toast(`Block #${idx(c.id) + 1}: ${overDialogue(c).toFixed(1)} s over dialogue`);
+  const secs = overDialogue(c);
+  toast(`Block #${idx(c.id) + 1}: ${secs ? `${secs.toFixed(1)} s over dialogue` : 'speech under it? Speech to text heard words the subtitles don’t have'}`);
 }
 
 function useAltAudio(a) {
@@ -7101,6 +7171,31 @@ tl.addEventListener('contextmenu', (e) => {
 // AI help: the drawer asks the editor for the script and puts drafts into blocks.
 initAi({
   cues: () => S.cues,
+  dialogueLines: () => S.dialogue?.lines || [],
+  // The stretches no dialogue or block covers, or null without a dialogue lane.
+  freeGaps: (min) => (S.dialogue ? freeGaps(currentGaps(), S.cues, min) : null),
+  duration: () => duration(),
+  noLane: NO_LANE,
+  identity: () => S.projectId,
+  isFree: (b) => !S.cues.some((c) => c.start < b.end && c.end > b.start),
+  jobBusy: () => jobActive,
+  runJob: runAiScript,
+  undoKey: () => (IS_MAC ? '⌘Z' : 'Ctrl+Z'),
+  nextKey: () => keyText('aiNext'),
+  // A draft from the AI going through the script: tagged until someone checks it.
+  // Speech to text, to hear speech the subtitles miss. listen gives '' for silence.
+  canListen: () => stt.ready,
+  setUpListening: () => openStt(),
+  listen: async (b) => transcribe(await clipAudio(Math.max(0, b.start - 0.1), b.end + 0.1)),
+  insertDraft(b, text, heard = '') {
+    const c = mk(b.start, b.end, text);
+    c.ai = true;
+    if (heard) c.heard = heard;
+    if (ttsOn()) c.auto = true;
+    S.cues.push(c);
+    changed();
+    return c;
+  },
   selIndex: () => selIdx(),
   playhead: () => now(),
   video: () => (S.hasVideo ? video : null),
@@ -7143,6 +7238,12 @@ function toggleMenu(menu, open = menu.hidden) {
   closeMenus();
   if (!open) return;
   if (menu === exportMenu) $('exportExtended').hidden = $('exportPauses').hidden = !hasExtended();
+  // AI drafts nobody has checked yet go out like any other block, so say so first.
+  if (menu === exportMenu) {
+    const n = writing() ? S.cues.filter((c) => c.ai).length : 0;
+    $('exportAiWarn').hidden = !n;
+    if (n) $('exportAiWarn').textContent = `${n} AI draft${n === 1 ? '' : 's'} not yet checked. ${keyText('aiNext')} goes to the next.`;
+  }
   // With alts recorded, the narration goes out as a zip.
   if (menu === exportMenu && S.mode === 'record') {
     const [name, what] = $('exportNarration').firstElementChild.children;
@@ -7425,6 +7526,10 @@ const RUN = {
   bookmarkAdd: () => addBookmark(),
   bookmarks: () => toggleBookmarks(),
   aiHelp: () => { if (!qc()) toggleAi(); },
+  aiScript: () => { if (!qc()) openDraftScript(); },
+  aiNext: () => jumpAiDraft(1),
+  aiBack: () => jumpAiDraft(-1),
+  aiAccept: () => acceptAiDraft(),
   help: () => toggleHelp(),
   settings: () => showGeneral(),
   zoomIn: () => zoom(1.5),

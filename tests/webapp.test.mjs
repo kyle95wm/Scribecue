@@ -39,6 +39,16 @@ test('every file the offline copy keeps exists', () => {
   }
 });
 
+test('every module the app imports is kept offline', async () => {
+  const { readdirSync } = await import('node:fs');
+  const files = read('sw.js').match(/const FILES = (\[[\s\S]*?\]);/)[1];
+  for (const f of readdirSync(new URL('../app/js/', import.meta.url)).filter((n) => n.endsWith('.js'))) {
+    for (const [, dep] of read(`js/${f}`).matchAll(/from '\.\/([\w-]+\.js)'/g)) {
+      assert.ok(files.includes(`'js/${dep}'`), `js/${dep}, imported by ${f}, isn't kept offline`);
+    }
+  }
+});
+
 test('the app installs: its manifest names it and has the icons browsers need', () => {
   const m = JSON.parse(read('manifest.webmanifest'));
   assert.equal(m.name, 'Scribecue');

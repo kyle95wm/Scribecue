@@ -68,7 +68,7 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     ...(cleanRecording(recording) ? { recording: cleanRecording(recording) } : {}),
     settings,
     view,
-    blocks: blocks.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, ownSecs, notes, edited }) => ({
+    blocks: blocks.map(({ uid, start, end, text, speed, voice, dip, dipBy, vol, auto, fit, pinned, say, comments, qcReading, pickup, extended, ownSecs, notes, edited, ai, heard }) => ({
       ...(validIdentity(uid) ? { uid } : {}),
       ...(cleanEdited(edited) ? { edited: cleanEdited(edited) } : {}),
       start, end, text,
@@ -87,6 +87,8 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
       ...(auto ? { auto: true } : {}),
       ...(fit ? { fit: true } : {}),
       ...(pinned ? { pinned: true } : {}),
+      ...(ai === true ? { ai: true } : {}),
+      ...(ai === true && typeof heard === 'string' && heard ? { heard: heard.slice(0, 200) } : {}),
     })),
   };
 }
@@ -128,6 +130,8 @@ export function fromProject(json) {
       ...(cleanPickup(b.pickup) ? { pickup: cleanPickup(b.pickup) } : {}),
       ...(b.extended === true ? { extended: true } : {}),
       ...(num(b.ownSecs) && b.ownSecs > 0 ? { ownSecs: b.ownSecs } : {}),
+      ...(b.ai === true ? { ai: true } : {}),
+      ...(b.ai === true && typeof b.heard === 'string' && b.heard ? { heard: b.heard.slice(0, 200) } : {}),
     });
   }
   blocks.sort((a, z) => a.start - z.start);

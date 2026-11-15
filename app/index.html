@@ -61,6 +61,7 @@
       <span class="navwrap export-wrap">
         <button data-act="exportMenu" id="exportBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenu">Export <span class="caret" aria-hidden="true">▾</span></button>
         <div class="navmenu" id="exportMenu" role="menu" aria-labelledby="exportBtn" hidden>
+          <p id="exportAiWarn" class="menuwarn" role="status" hidden></p>
           <div role="group" class="menugroup qc-export" aria-labelledby="expReviewer">
             <div class="menuhead" id="expReviewer">For a reviewer</div>
             <button role="menuitem" data-act="exportQc"><span><strong>QC package</strong><span class="dim">the project and its Google, Amazon Polly and Kokoro readings, ready to review on another computer</span></span></button>
@@ -146,6 +147,7 @@
             <span id="edEdited" class="dim" hidden data-tip="The last person to change this block. Shown once more than one person has worked on the project, or it’s shared. Set your name in Settings, under General"></span>
             <span id="edOthers" hidden aria-live="polite" data-tip="Others in this shared project who have this block open"></span>
             <span id="edClash" hidden data-tip="Subtitles can stay up after the words end, so check it by ear"></span>
+            <button id="edAi" hidden data-tip="Drafted by AI and not checked yet. Check it against the picture, then accept it (Y). Editing its words accepts it too">AI draft ✓</button>
             <span class="grow"></span>
             <span class="modesw edaltsw" id="edAltSw" role="radiogroup" aria-label="Wording to record">
               <button role="radio" data-side="orig" aria-checked="true" data-tip="Record the block as written (A)">Original</button>
@@ -851,6 +853,26 @@ docker compose up -d --build</code></pre>
     <p id="noticeText"></p>
     <div class="updbtns"><button id="noticeOk" class="hl">OK</button></div>
   </dialog>
+  <dialog id="aiScriptDlg" class="updbox" aria-labelledby="aiScriptTitle">
+    <h2 id="aiScriptTitle">Draft the script with AI</h2>
+    <p>The AI drafts a block for each free gap in the dialogue, in order. Long gaps get a block for each shot. Blocks you've written stay as they are.</p>
+    <p id="aiScriptModel" class="dim small"></p>
+    <p class="updstatus"><label for="aiScriptRange">Draft</label>
+      <select id="aiScriptRange">
+        <option value="all">the whole video</option>
+        <option value="playhead">from the playhead to the end</option>
+        <option value="between">between two times</option>
+      </select></p>
+    <p id="aiScriptTimes" class="updstatus" hidden><label for="aiScriptFrom">From</label> <input id="aiScriptFrom" class="time" spellcheck="false" autocomplete="off" placeholder="0:00">
+      <label for="aiScriptTo">to</label> <input id="aiScriptTo" class="time" spellcheck="false" autocomplete="off" placeholder="10:00"></p>
+    <p id="aiScriptCount" role="status"></p>
+    <p class="updstatus"><button id="aiScriptListen" aria-pressed="true" data-tip="Speech to text checks each gap for speech the subtitles miss">Listen for speech</button>
+      <button id="aiScriptListenSetup" hidden>Set up speech to text…</button></p>
+    <p id="aiScriptListenNote" class="dim small"></p>
+    <p id="aiScriptPrivacy" class="dim small"></p>
+    <p class="dim small">Each draft is tagged until you edit or accept it. Check every one against the picture: AI misses things, and sometimes describes what isn't there.</p>
+    <div class="updbtns"><button id="aiScriptGo" class="hl">Draft</button><button id="aiScriptCancel">Cancel</button></div>
+  </dialog>
   <dialog id="setsExportDlg" class="updbox" aria-labelledby="setsExportTitle">
     <h2 id="setsExportTitle">Export settings</h2>
     <p>Saves your settings to a file. API keys are left out unless you include them.</p>
@@ -993,6 +1015,9 @@ docker compose up -d --build</code></pre>
       <div class="airow">
         <button id="aiDraft" class="hl" data-tip="Write a description for the selected block, from its frames and the script around it">Draft this block</button>
         <label class="small dim"><input type="checkbox" id="aiFrame" checked> Send the frame at the playhead</label>
+      </div>
+      <div class="airow">
+        <button id="aiScript" data-tip="Draft a block for every free gap in the dialogue, through the video or part of it (⌥⇧I)">Draft the script…</button>
       </div>
       <textarea id="aiInput" rows="3" placeholder="Ask about this scene… (↵ sends, ⇧↵ new line)"></textarea>
       <div class="airow">
@@ -1683,6 +1708,9 @@ docker compose up -d --build</code></pre>
             <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>This block's reading slower / faster</dd>
             <dt data-keys="soundsLike"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd></dt><dd>Sounds like: how words in this block are said</dd>
             <dt data-keys="aiHelp"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>A</kbd></dt><dd>AI help: chat and draft descriptions</dd>
+            <dt data-keys="aiScript"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>I</kbd></dt><dd>Draft the script with AI</dd>
+            <dt data-keys="aiBack aiNext"><kbd>⇧</kbd><kbd>I</kbd> <kbd>I</kbd></dt><dd>Previous / next AI draft to check</dd>
+            <dt data-keys="aiAccept"><kbd>Y</kbd></dt><dd>Accept the AI draft</dd>
             <dt data-keys="comments" class="write-only"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>C</kbd></dt><dd class="write-only">Comments at the playhead</dd>
             <dt data-keys="ttsPanel"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Settings: voice, speed, online voices, update all timings</dd>
           </dl>

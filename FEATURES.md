@@ -75,6 +75,7 @@ See [Exporting](Guides/GETTING-STARTED.md#exporting) and [Mixing](Guides/MIXING.
 | AI providers, with your own key | ✓ | ✓ |
 | **Ollama app on your computer** | ✓ Once `OLLAMA_ORIGINS` allows the web version | ✓ Nothing extra |
 | **Ollama in a container** | No | `ollama` container |
+| Draft the whole script | ✓ | ✓ |
 | Look up the cast with TMDB | ✓ | ✓ |
 
 See [AI help](Guides/AI.md).

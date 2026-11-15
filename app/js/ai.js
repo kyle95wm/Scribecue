@@ -62,13 +62,30 @@ export function nearbyScript(cues, i, before = 4, after = 2) {
   return lines.join('\n');
 }
 
-// What to ask for when drafting block i. budget from fitBudget.
-export function draftPrompt(cues, i, budget, frameTimes = []) {
+// The subtitles either side of a block, so the description fits what's being said.
+// dialogue: { before: [lines], after: [lines] }, from dialogueAround in aiscript.js.
+// heard: words speech to text heard in the block itself, which the subtitles don't have.
+function dialogueText({ before = [], after = [], heard = '' } = {}) {
+  if (!before.length && !after.length && !heard) return '';
+  const q = (l) => `  "${l}"`;
+  return [
+    ...(before.length || after.length ? ['Dialogue around it, from the subtitles:'] : []),
+    ...(before.length ? ['Before:', ...before.map(q)] : []),
+    ...(after.length ? ['After:', ...after.map(q)] : []),
+    ...(heard ? [`Someone may be speaking during this block, with no subtitle: "${heard}". Keep the description short, and don't describe the speech.`] : []),
+    '',
+  ].join('\n');
+}
+
+// What to ask for when drafting block i. budget from fitBudget. dialogue: the subtitles
+// either side, when there's a dialogue lane.
+export function draftPrompt(cues, i, budget, frameTimes = [], dialogue = null) {
   const c = cues[i], secs = c.end - c.start;
   return [
     `Here is the script around block #${i + 1} (marked >):`,
     nearbyScript(cues, i),
     '',
+    dialogueText(dialogue || {}),
     `Write the description for block #${i + 1}, from ${clock(c.start)} to ${clock(c.end)} (${secs.toFixed(1)} s). ` +
       `About ${budget.words} words (${budget.chars} characters) fit when it's read aloud; use fewer if that says it well.`,
     c.text.trim() ? `It currently says: "${c.text.trim()}". Improve it, or write a better one.` : '',

@@ -156,3 +156,21 @@ test('an extended block keeps the length it had by hand', () => {
   assert.equal(back.blocks[0].ownSecs, 4);
   assert.equal('ownSecs' in back.blocks[1], false);
 });
+
+test('an AI draft keeps its tag until it’s checked', () => {
+  const saved = JSON.parse(JSON.stringify(toProject({ ...state, blocks: [{ id: 1, start: 0, end: 2, text: 'A door opens.', ai: true }, { id: 2, start: 3, end: 4, text: 'Checked.', ai: false }] })));
+  assert.equal(saved.blocks[0].ai, true);
+  assert.ok(!('ai' in saved.blocks[1]));
+  const p = fromProject({ ...saved, blocks: [...saved.blocks, { start: 5, end: 6, text: 'x', ai: 'yes' }] });
+  assert.deepEqual(p.blocks.map((b) => b.ai), [true, undefined, undefined]);
+});
+
+test('what speech to text heard under an AI draft is kept only while it’s a draft', () => {
+  const saved = JSON.parse(JSON.stringify(toProject({ ...state, blocks: [
+    { id: 1, start: 0, end: 2, text: 'A door opens.', ai: true, heard: 'Over here!' },
+    { id: 2, start: 3, end: 4, text: 'Checked.', heard: 'stale' },
+  ] })));
+  assert.equal(saved.blocks[0].heard, 'Over here!');
+  assert.ok(!('heard' in saved.blocks[1]));
+  assert.deepEqual(fromProject(saved).blocks.map((b) => b.heard), ['Over here!', undefined]);
+});

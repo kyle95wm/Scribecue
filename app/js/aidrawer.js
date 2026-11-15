@@ -8,6 +8,10 @@ import { tts, chosenVoice, DEFAULT_CPS, atBase } from './tts.js';
 import { HOSTED } from './config.js';
 import { lookup as lookUpCast, KEY_PAGE as TMDB_KEY_PAGE } from './tmdb.js';
 import { openSettings as showSettings } from './settings.js';
+import { parseTime } from './formats.js';
+import {
+  gapsToDraft, splitGap, cutSamples, findCuts, dialogueAround, withBlock, estimate, estimateText, heardSpeech, SPLIT_OVER, DRAFT_MIN,
+} from './aiscript.js';
 
 const $ = (id) => document.getElementById(id);
 const KEY = 'scribecue.ai', KEYS = 'scribecue.ai.keys', PKCE = 'scribecue.ai.pkce';
@@ -15,7 +19,7 @@ const load = (store, k) => { try { return JSON.parse(store.getItem(k)) || {}; } 
 const keep = (store, k, v) => { try { store.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
 
 // { provider, models: { provider: model }, lists: { provider: [models] }, base, frames, remember }
-const ai = { provider: '', models: {}, lists: {}, base: PROVIDERS.ollama.base, frames: 3, remember: true, ...load(localStorage, KEY) };
+const ai = { provider: '', models: {}, lists: {}, base: PROVIDERS.ollama.base, frames: 3, remember: true, listen: true, ...load(localStorage, KEY) };
 // Keys live apart from the settings: in this browser only, or for this tab only.
 const keys = () => ({ ...load(sessionStorage, KEYS), ...load(localStorage, KEYS) });
 function setKey(provider, key) {
@@ -28,13 +32,16 @@ function setKey(provider, key) {
   const store = ai.remember ? localStorage : sessionStorage;
   keep(store, KEYS, { ...load(store, KEYS), [provider]: key });
 }
-const save = () => { const { provider, models, lists, base, frames, remember } = ai; keep(localStorage, KEY, { provider, models, lists, base, frames, remember }); };
+const save = () => { const { provider, models, lists, base, frames, remember, listen } = ai; keep(localStorage, KEY, { provider, models, lists, base, frames, remember, listen }); };
 
 const ready = () => !!ai.provider && !!ai.models[ai.provider] && (PROVIDERS[ai.provider]?.local || !!keys()[ai.provider]);
 
 let hooks = {
   cues: () => [], selIndex: () => -1, playhead: () => 0, video: () => null, apply: () => {}, toast: () => {}, writing: () => true,
   notes: () => '', setNotes: () => {},
+  dialogueLines: () => [], freeGaps: () => null, duration: () => 0, noLane: '', identity: () => null, isFree: () => true,
+  jobBusy: () => false, runJob: async () => null, insertDraft: () => null, undoKey: () => 'Ctrl+Z', nextKey: () => '',
+  canListen: () => false, setUpListening: () => {}, listen: async () => '',
 };
 let chat = []; // the conversation, as ai.js messages
 let running = null; // AbortController of the request under way
@@ -47,29 +54,64 @@ const once = (el, ev, ms) => new Promise((ok, no) => {
   const h = () => { clearTimeout(t); ok(); };
   el.addEventListener(ev, h, { once: true });
 });
-// Stills from the video at these times, from a hidden copy so the playhead stays put.
+// The hidden copy of the video stills come from, so the playhead stays put. One job uses
+// it at a time: a draft asked for while the script is being drafted waits its turn.
+let grabTurn = Promise.resolve();
+function withGrabber(fn) {
+  const go = grabTurn.then(async () => {
+    const v = hooks.video();
+    if (!v?.currentSrc || !v.videoWidth) return null;
+    if (!grabber || grabber.src !== v.currentSrc) {
+      grabber = document.createElement('video');
+      grabber.muted = true;
+      grabber.preload = 'auto';
+      grabber.src = v.currentSrc;
+      await once(grabber, 'loadeddata', 10000);
+    }
+    return fn(grabber);
+  });
+  grabTurn = go.catch(() => {});
+  return go;
+}
+const seekTo = async (g, at) => {
+  g.currentTime = Math.max(0, Math.min(at, (g.duration || at + 1) - 0.05));
+  await once(g, 'seeked', 5000);
+};
+// Stills from the video at these times, as JPEGs for the AI.
 async function grabFrames(times) {
-  const v = hooks.video();
-  if (!v?.currentSrc || !v.videoWidth || !times.length) return [];
-  if (!grabber || grabber.src !== v.currentSrc) {
-    grabber = document.createElement('video');
-    grabber.muted = true;
-    grabber.preload = 'auto';
-    grabber.src = v.currentSrc;
-    await once(grabber, 'loadeddata', 10000);
-  }
-  const w = Math.min(768, grabber.videoWidth), h = Math.round(w * grabber.videoHeight / grabber.videoWidth);
-  const cv = document.createElement('canvas');
-  cv.width = w; cv.height = h;
-  const out = [];
-  for (const at of times) {
-    grabber.currentTime = Math.max(0, Math.min(at, (grabber.duration || at + 1) - 0.05));
-    await once(grabber, 'seeked', 5000);
-    cv.getContext('2d').drawImage(grabber, 0, 0, w, h);
-    const url = cv.toDataURL('image/jpeg', 0.75);
-    out.push({ at, url, data: url.slice(url.indexOf(',') + 1) });
-  }
-  return out;
+  if (!times.length) return [];
+  return (await withGrabber(async (g) => {
+    const w = Math.min(768, g.videoWidth), h = Math.round(w * g.videoHeight / g.videoWidth);
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    const out = [];
+    for (const at of times) {
+      await seekTo(g, at);
+      cv.getContext('2d').drawImage(g, 0, 0, w, h);
+      const url = cv.toDataURL('image/jpeg', 0.75);
+      out.push({ at, url, data: url.slice(url.indexOf(',') + 1) });
+    }
+    return out;
+  })) || [];
+}
+// Tiny greyscale stills, enough to see where the picture cuts. Stops between stills when
+// signal is aborted.
+async function grabGrey(times, signal) {
+  return (await withGrabber(async (g) => {
+    const cv = document.createElement('canvas');
+    cv.width = 32; cv.height = 18;
+    const cx = cv.getContext('2d', { willReadFrequently: true });
+    const out = [];
+    for (const at of times) {
+      if (signal?.aborted) break;
+      await seekTo(g, at);
+      cx.drawImage(g, 0, 0, 32, 18);
+      const rgba = cx.getImageData(0, 0, 32, 18).data, px = new Uint8Array(32 * 18);
+      for (let i = 0; i < px.length; i++) px[i] = (rgba[i * 4] * 77 + rgba[i * 4 + 1] * 150 + rgba[i * 4 + 2] * 29) >> 8;
+      out.push({ at, px });
+    }
+    return out;
+  })) || [];
 }
 // n times spread across a block, away from its very edges where shots often change.
 export function framesFor(start, end, n) {
@@ -182,7 +224,7 @@ async function draftBlock(id = null, extra = '') {
   const budget = fitBudget(c.end - c.start, tts.cps[chosenVoice()] || DEFAULT_CPS, atBase(c.speed ?? 1, tts.base));
   let frames = [];
   try { frames = await grabFrames(framesFor(c.start, c.end, ai.frames)); } catch (e) { note(`No frames: ${e.message}.`); }
-  const prompt = draftPrompt(cues, i, budget, frames.map((f) => f.at)) + (extra ? `\n${extra}` : '');
+  const prompt = draftPrompt(cues, i, budget, frames.map((f) => f.at), dialogueAround(hooks.dialogueLines(), c.start, c.end)) + (extra ? `\n${extra}` : '');
   await send(prompt, `Draft block #${i + 1}${extra ? ` · ${extra}` : ''}`, frames, { id: c.id, n: i + 1 });
 }
 
@@ -196,6 +238,156 @@ async function sendChat() {
   }
   const ctx = chatContext(hooks.cues(), hooks.selIndex(), hooks.playhead());
   await send(`${ctx}\n\n${text}`, text, frames);
+}
+
+// ---- drafting the whole script
+
+const pause = (ms, signal) => new Promise((ok, no) => {
+  const t = setTimeout(ok, ms);
+  signal?.addEventListener('abort', () => { clearTimeout(t); no(new DOMException('Stopped', 'AbortError')); }, { once: true });
+});
+const unquote = (t) => t.trim().replace(/^["“]|["”]$/g, '').trim();
+// One draft, outside the chat. Busy providers are tried again after a wait. Returns
+// { text }, { declined: true } or { failed: message } for this block alone; throws when
+// no other block would do better either, such as a key that's refused.
+async function requestDraft(text, frames, signal) {
+  const provider = ai.provider, name = PROVIDERS[provider].name;
+  const req = buildRequest(provider, {
+    key: keys()[provider], model: ai.models[provider], base: ai.base, system: systemWith(hooks.notes()),
+    messages: [{ role: 'user', text, images: frames.map(({ data, at }) => ({ data, at })) }],
+  });
+  for (let attempt = 0; ; attempt++) {
+    let r;
+    try {
+      r = await fetch(req.url, { method: 'POST', headers: req.headers, body: JSON.stringify(req.body), signal });
+    } catch (e) {
+      if (e.name === 'AbortError') throw e;
+      if (attempt < 2) { await pause(5000 * (attempt + 1), signal); continue; }
+      throw new Error(`Couldn’t reach ${name}. ${PROVIDERS[provider].local ? 'Is Ollama running?' : 'Check your connection.'}`);
+    }
+    if (r.ok) {
+      const reply = await readReply(provider, r);
+      if (reply.stop === 'refusal' || (!reply.text && reply.stop)) return { declined: true };
+      return { text: unquote(reply.text) };
+    }
+    if ((r.status === 429 || r.status >= 500) && attempt < 4) {
+      const wait = +r.headers.get('retry-after');
+      await pause(wait > 0 ? Math.min(wait, 120) * 1000 : 5000 * 2 ** attempt, signal);
+      continue;
+    }
+    const msg = await failure(provider, r);
+    if ([400, 413, 422].includes(r.status)) return { failed: msg };
+    throw new Error(msg);
+  }
+}
+
+// The stretches a run would draft, between from and to, before looking for cuts.
+function planFor(from, to) {
+  const free = hooks.freeGaps(DRAFT_MIN);
+  if (!free) return null;
+  const gaps = gapsToDraft(free, from, to);
+  return { gaps, count: gaps.reduce((n, g) => n + splitGap(g).length, 0) };
+}
+
+async function draftScript(from, to, listen = false) {
+  const project = hooks.identity();
+  const out = await hooks.runJob(async (signal, progress) => {
+    const { gaps } = planFor(from, to) || { gaps: [] };
+    let total = gaps.reduce((n, g) => n + splitGap(g).length, 0), done = 0, made = 0, empty = 0, heardIn = 0, stopped = '', deaf = '';
+    progress(0, `0 of ${total}`);
+    const lost = () => hooks.identity() !== project || !hooks.writing();
+    try {
+      for (const g of gaps) {
+        if (signal.aborted || lost()) break;
+        let pieces = splitGap(g);
+        if (g.end - g.start > SPLIT_OVER) {
+          progress(done / total, `${done} of ${total}, looking for cuts`);
+          const found = splitGap(g, findCuts(await grabGrey(cutSamples(g), signal)));
+          total += found.length - pieces.length;
+          pieces = found;
+        }
+        for (const p of pieces) {
+          if (signal.aborted || lost()) break;
+          progress(done / total, `${done} of ${total}`);
+          if (!hooks.isFree(p)) { done++; continue; } // someone wrote a block there meanwhile
+          let frames = [];
+          try { frames = await grabFrames(framesFor(p.start, p.end, ai.frames)); } catch { /* drafted from the script alone */ }
+          // Speech the subtitles miss, such as a song or talk in the background. The block is
+          // still drafted, and marked; if speech to text fails, the run carries on without it.
+          let heard = '';
+          if (listen && !deaf) {
+            try { heard = heardSpeech(await hooks.listen(p)); } catch (e) { deaf = e.message; }
+            if (signal.aborted) break;
+          }
+          const { cues, i } = withBlock(hooks.cues(), p);
+          const budget = fitBudget(p.end - p.start, tts.cps[chosenVoice()] || DEFAULT_CPS, atBase(1, tts.base));
+          const prompt = `${draftPrompt(cues, i, budget, frames.map((f) => f.at), { ...dialogueAround(hooks.dialogueLines(), p.start, p.end), heard })}
+This is one of a run of drafts through the whole programme, in order. Don't repeat what the blocks before it say.`;
+          const r = await requestDraft(prompt, frames, signal);
+          if (signal.aborted || lost()) break;
+          if (!hooks.isFree(p)) { done++; continue; }
+          hooks.insertDraft(p, r.text || '', heard);
+          if (r.text) made++; else empty++;
+          if (heard) heardIn++;
+          done++;
+        }
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') stopped = e.message;
+    }
+    return { made, empty, heardIn, deaf, stopped, aborted: signal.aborted, lost: lost() };
+  });
+  if (!out) return;
+  const n = out.made + out.empty;
+  const what = n ? `${out.made} AI draft${out.made === 1 ? '' : 's'} added${out.empty ? `, and ${out.empty} empty block${out.empty === 1 ? '' : 's'} the AI couldn’t draft` : ''}` : 'No AI drafts added';
+  const why = out.stopped ? `. Stopped: ${out.stopped}` : out.lost ? '. Stopped when the project or mode changed' : out.aborted ? '. Stopped' : '';
+  const next = n ? `. ${hooks.nextKey() || 'The next key'} goes to the next one to check${out.undoable ? `; ${hooks.undoKey()} takes them all back` : ''}` : '';
+  const heard = out.heardIn ? ` Speech to text heard speech under ${out.heardIn}, marked “speech under it?”: U goes to them.` : '';
+  const deaf = out.deaf ? ` Speech to text stopped listening: ${out.deaf}.` : '';
+  hooks.toast(`${what}${why}${next}`);
+  if (n) note(`${what}${why}. They’re tagged AI draft until you edit or accept them.${heard}${deaf}`);
+}
+
+// The dialog: what to draft, and what it'll cost, before anything is sent.
+const dlg = () => $('aiScriptDlg');
+function rangeOf() {
+  const how = $('aiScriptRange').value, dur = hooks.duration();
+  if (how === 'playhead') return { from: hooks.playhead(), to: dur };
+  if (how === 'between') {
+    const from = parseTime($('aiScriptFrom').value), to = parseTime($('aiScriptTo').value);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return null;
+    return { from, to: Math.min(to, dur) };
+  }
+  return { from: 0, to: dur };
+}
+function renderScriptDlg() {
+  $('aiScriptTimes').hidden = $('aiScriptRange').value !== 'between';
+  const r = rangeOf(), plan = r && planFor(r.from, r.to);
+  const P = PROVIDERS[ai.provider], local = !!P?.local;
+  $('aiScriptGo').disabled = !plan?.count;
+  if (!r) { $('aiScriptCount').textContent = 'Type a start and an end, such as 1:30 and 12:00.'; return; }
+  if (!plan.count) { $('aiScriptCount').textContent = 'No free gaps of 2 s or more here: every gap already has a block, or there’s dialogue throughout.'; return; }
+  $('aiScriptCount').textContent = `About ${estimateText(estimate(plan.count, ai.models[ai.provider], ai.frames, local), P.name, local)}`;
+  const can = hooks.canListen(), on = can && ai.listen;
+  $('aiScriptListen').disabled = !can;
+  $('aiScriptListen').setAttribute('aria-pressed', String(on));
+  $('aiScriptListenNote').textContent = !can ? 'It needs speech to text, which isn’t set up yet.'
+    : on ? 'Speech to text listens to each gap first, on this computer, and marks blocks where it hears words with no subtitle. It adds a few seconds a block.'
+      : 'Gaps come from the subtitles alone. Speech with no subtitle, such as a song, can end up under a draft.';
+  $('aiScriptListenSetup').hidden = can;
+  $('aiScriptPrivacy').textContent = local ? 'Everything stays on this computer.'
+    : `${ai.frames} still${ai.frames === 1 ? '' : 's'} from each gap, the nearby blocks and subtitles, and your project notes go to ${P.name}.`;
+}
+export function openDraftScript() {
+  if (!hooks.writing()) return hooks.toast('Drafting descriptions is part of Write mode');
+  if (!ready()) { toggleAi(true); openAiSettings(); return; }
+  if (hooks.freeGaps() == null) return hooks.toast(hooks.noLane);
+  if (hooks.jobBusy()) return hooks.toast('Another job is running. Wait for it to finish, or press Stop at the top');
+  if (unreachable()) return hooks.toast(`You’re offline, so ${PROVIDERS[ai.provider].name} can’t be reached`);
+  $('aiScriptModel').textContent = `${PROVIDERS[ai.provider].name} · ${ai.models[ai.provider]} · ${ai.frames} still${ai.frames === 1 ? '' : 's'} a block`;
+  renderScriptDlg();
+  dlg().showModal();
+  $('aiScriptRange').focus();
 }
 
 // ---- settings
@@ -430,6 +622,19 @@ export function initAi(h) {
   });
   $('aiNew').addEventListener('click', () => { if (running) running.abort(); chat = []; $('aiLog').textContent = ''; note('New conversation.'); });
   $('aiDraft').addEventListener('click', () => draftBlock());
+  $('aiScript').addEventListener('click', openDraftScript);
+  for (const id of ['aiScriptRange', 'aiScriptFrom', 'aiScriptTo']) $(id).addEventListener('input', renderScriptDlg);
+  $('aiScriptCancel').addEventListener('click', () => dlg().close());
+  $('aiScriptGo').addEventListener('click', () => {
+    const r = rangeOf();
+    if (!r) return;
+    dlg().close();
+    draftScript(r.from, r.to, hooks.canListen() && ai.listen);
+  });
+  $('aiScriptListen').addEventListener('click', () => { ai.listen = !ai.listen; save(); renderScriptDlg(); });
+  $('aiScriptListenSetup').addEventListener('click', () => { dlg().close(); hooks.setUpListening(); });
+  // Typing in the dialog leaves the editor's keys alone.
+  dlg().addEventListener('keydown', (e) => { if (e.key !== 'Escape') e.stopPropagation(); });
   $('aiSend').addEventListener('click', sendChat);
   $('aiStop').addEventListener('click', () => running?.abort());
   $('aiInput').addEventListener('keydown', (e) => {
