@@ -105,6 +105,9 @@ takes them to another browser with your other settings.
 | `Alt+Shift+C` | Open or close Comments (Write and QC) |
 | `Alt+Shift+B` | Open or close Bookmarks (Write and Transcribe) |
 | `Alt+Shift+A` | Open or close [AI help](AI.md) |
+| `Alt+Shift+I` | [Draft the script with AI](AI.md#drafting-the-whole-script) |
+| `I` / `Shift+I` | Next / previous AI draft to check |
+| `Y` | Accept the AI draft |
 | `Alt+Shift+S` | Settings |
 | `Alt+=` `Alt+-` `Alt+0` | Zoom the timeline in / out / to fit |
 | `\` | Reset speed to 1× |
