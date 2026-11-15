@@ -27,28 +27,81 @@ export function cleanLine(raw) {
     .trim();
 }
 
-// Whether a line only describes a sound, as subtitles for deaf viewers do, such as
-// "[door slams]", or "MAN: (sighs)". Nobody's speaking, so it doesn't fill a gap.
-export function isSoundOnly(line) {
-  const left = line.replace(/\[[^\]]*\]|\([^)]*\)|[♪♫#]/g, ' ').replace(/^[\s-]+|[\s-]+$/g, '');
-  return !left || (left !== line.trim() && /^[A-Z][A-Z '.-]*:$/.test(left));
+// A turn's speaker label, as subtitles for deaf viewers give it: "MAN:", "JOHN (ON PHONE):".
+const LABEL = /^[A-Z][A-Z0-9 '.-]*(?:\s*[[(][^\])]*[\])])?:\s*/;
+// A sound note, or a stretch of song between music notes (to the end, if not closed).
+const NOTE = /\[[^\]]*\]|\([^)]*\)|[♪♫][^♪♫]*(?:[♪♫]|$)/g;
+// Where a new speaker starts, as in "- Hi. - Hello."
+const TURN = /(?:^|\s)-\s+|^-(?=[^\s-])/;
+const hasWords = (t) => /[\p{L}\p{N}]/u.test(t);
+
+// A cleaned subtitle -> its parts in order, as [{ speech, text, weight }]. Speech parts
+// carry the words alone. Sounds and songs take time, so they count for how a line's time
+// is shared out: a note before the words in a turn, such as "[whispering] Hello", says how
+// they're said, and takes none.
+export function partsOf(line) {
+  const parts = [];
+  const add = (speech, text) => {
+    const last = parts.at(-1);
+    if (last && last.speech === speech) {
+      last.text += speech ? ` - ${text}` : '';
+      last.weight += text.length;
+    } else parts.push({ speech, text: speech ? text : '', weight: text.length });
+  };
+  for (const raw of line.split(TURN)) {
+    const turn = raw.replace(/#/g, ' ').trim().replace(LABEL, '');
+    if (!turn) continue;
+    const bits = [];
+    let at = 0;
+    for (const m of turn.matchAll(NOTE)) {
+      bits.push({ text: turn.slice(at, m.index) }, { note: m[0], song: !/^[[(]/.test(m[0]) });
+      at = m.index + m[0].length;
+    }
+    bits.push({ text: turn.slice(at) });
+    const said = bits.filter((b) => b.text !== undefined && hasWords(b.text));
+    if (!said.length) { add(false, turn); continue; }
+    const lastSaid = bits.lastIndexOf(said.at(-1));
+    let words = [];
+    const flush = () => { if (words.length) add(true, words.join(' ').replace(/\s+/g, ' ').trim()); words = []; };
+    bits.forEach((b, i) => {
+      if (b.text !== undefined) { if (hasWords(b.text)) words.push(b.text.trim()); }
+      else if (b.song || i > lastSaid) { flush(); add(false, b.note); }
+    });
+    flush();
+  }
+  return parts;
 }
+
+// Whether a line has no one speaking in it, only sounds or song, such as "[door slams]",
+// "MAN: (sighs)" or "♪ Happy birthday ♪".
+export const isSoundOnly = (line) => !partsOf(line).some((p) => p.speech);
 
 // Subtitles -> what the lane draws: { lines: [{ start, end, text }], spans: [[start, end]] },
 // in order. Spans are the stretches with someone speaking, with overlapping lines joined.
+// A subtitle with sound or song in it is cut down to its words: they get its time in
+// proportion to their length, which is a guess, since a subtitle doesn't say more.
 export function buildDialogue(raw) {
   const sorted = raw
     .map((c) => ({ start: c.start, end: c.end, text: cleanLine(c.text) }))
-    .filter((c) => c.text && !isSoundOnly(c.text) && Number.isFinite(c.start))
+    .filter((c) => c.text && Number.isFinite(c.start))
     .sort((a, b) => a.start - b.start);
   const lines = [];
+  let before = null;
   sorted.forEach((c, i) => {
-    const before = lines.at(-1);
     if (before && before.start === c.start && before.text === c.text) return; // a styled copy
+    before = c;
     const next = sorted[i + 1]?.start ?? Infinity;
-    if (!(c.end > c.start)) c.end = Math.max(c.start + 0.1, Math.min(c.start + DEFAULT_LINE, next));
-    lines.push(c);
+    const end = c.end > c.start ? c.end : Math.max(c.start + 0.1, Math.min(c.start + DEFAULT_LINE, next));
+    const parts = partsOf(c.text);
+    const total = parts.reduce((n, p) => n + p.weight, 0) || 1;
+    let at = c.start;
+    for (const p of parts) {
+      const until = p === parts.at(-1) ? end : at + (end - c.start) * p.weight / total;
+      if (p.speech) lines.push({ start: at, end: until, text: p.text });
+      at = until;
+    }
   });
+  lines.sort((a, b) => a.start - b.start);
   const spans = [];
   for (const { start, end } of lines) {
     const last = spans.at(-1);

@@ -373,7 +373,9 @@ speak and how long each gap is, so you can see where description fits.
   Check with the waveform.
 - **An MKV's subtitles can take a while the first time.** They load while the video is
   paused, so it plays smoothly. After that they show straight away.
-- **Sound notes don't count as speech,** such as `[door slams]`.
+- **Only the words count as speech.** Subtitles for deaf viewers also note sounds, such as
+  `[door slams]`, and song lyrics between ♪. The lane leaves them out, along with speaker
+  names such as `JOHN:`.
 - **Picture subtitles can't be read.** Blu-ray and DVD subtitles are images. They show in
   the list, greyed out. Load a subtitle file instead.
 - **The lane stays in this browser.** It isn't part of your script, project or exports.
