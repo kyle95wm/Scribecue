@@ -10,7 +10,32 @@ test('takes the styling out of a subtitle', () => {
 
 test('tells sound notes from speech', () => {
   for (const s of ['[door slams]', '(sighs)', '♪ ♪', '- [gasps]', 'MAN: (sighs)']) assert.ok(isSoundOnly(s), s);
-  for (const s of ['Hello', '[sighs] Fine.', '♪ Happy birthday ♪', 'Dr. Lee: Sit down.']) assert.ok(!isSoundOnly(s), s);
+  for (const s of ['Hello', '[sighs] Fine.', 'Dr. Lee: Sit down.']) assert.ok(!isSoundOnly(s), s);
+});
+
+test('song lyrics are not speech', () => {
+  for (const s of ['♪ Happy birthday ♪', '- ♪ All your darkness...♪', '♪ Brace yourself world, it\'s about to blow your mind ♪', '♪ Still going']) assert.ok(isSoundOnly(s), s);
+});
+
+test('keeps only the words, without sound notes or speaker labels', () => {
+  const text = (t) => buildDialogue([{ start: 0, end: 2, text: t }]).lines.map((l) => l.text);
+  assert.deepEqual(text('[whispering]\nIt was just a dream.'), ['It was just a dream.']);
+  assert.deepEqual(text('- [louder] Hi,\nI\'m Rachel.'), ['Hi, I\'m Rachel.']);
+  assert.deepEqual(text('JOHN (ON PHONE): Where are you?'), ['Where are you?']);
+  assert.deepEqual(text('- Really?\n- [whispering] Yes.'), ['Really? - Yes.']);
+  assert.deepEqual(text('- You still haven\'t finished\nunpacking?'), ['You still haven\'t finished unpacking?']);
+});
+
+test('sounds and songs before or after the words take part of the time', () => {
+  const at = (t) => buildDialogue([{ start: 10, end: 13, text: t }]).lines.map((l) => [+l.start.toFixed(2), +l.end.toFixed(2), l.text]);
+  // 17 characters of words, 9 of sound: the words get 17/26 of the 3 seconds.
+  assert.deepEqual(at('It can\'t be real.\n[panting]'), [[10, 11.96, 'It can\'t be real.']]);
+  assert.deepEqual(at('[overlapping chatter]\n- Who\'s that?'), [[11.97, 13, 'Who\'s that?']]);
+  assert.deepEqual(at('Best day ever.\n- ♪ The world goes dancing ♪'), [[10, 11.05, 'Best day ever.']]);
+  // A note before the words in the same turn says how they're said: no time of its own.
+  assert.deepEqual(at('[sighs] Fine.'), [[10, 13, 'Fine.']]);
+  // Words either side of a song are two lines.
+  assert.deepEqual(at('Wait. ♪ la la ♪ Go.').map((l) => l[2]), ['Wait.', 'Go.']);
 });
 
 test('joins overlapping lines into one stretch of speech, and skips sound notes', () => {
