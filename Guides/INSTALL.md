@@ -19,7 +19,7 @@ included, or to run Piper, Kokoro, Whisper or Ollama in containers next to it.
 - [Ollama in Docker](#ollama-in-docker)
 - [On another computer](#on-another-computer)
 - [Moving your work](#moving-your-work), between the web version and Docker, or to another computer
-- [Updating](#updating)
+- [Updating](#updating), and [trying the next version](#trying-the-next-version)
 - [If something goes wrong](#if-something-goes-wrong)
 - [Development](#development), [Claude Code and Codex skills](#claude-code-and-codex-skills), and [running your own copy](#running-your-own-copy)
 
@@ -416,6 +416,43 @@ folder with it, and run `docker compose up -d --build` inside it.
 Your text blocks and settings are kept, as long as you open Scribecue at the same address
 and port as before.
 
+### Trying the next version
+
+New features land on the `dev` branch first, before a release. You can run it to try them
+early. It's for testing, so expect some things to be unfinished or broken.
+
+**Before you switch:** save each project with **File → Save**, and back up your settings
+with **Settings → Storage → Export settings…**. Projects and settings saved by `dev` may not
+open in a release.
+
+To switch to `dev`, run these in the `Scribecue` folder, then reload the page:
+
+```bash
+git switch dev
+```
+
+```bash
+git pull
+```
+
+```bash
+scripts/docker-up.sh
+```
+
+The footer then shows "· dev" after the version.
+
+- **To get the latest:** run `git pull`, then `scripts/docker-up.sh`. Scribecue doesn't tell
+  you about changes on `dev`, only about releases.
+- **Rebuild with `scripts/docker-up.sh`.** `docker compose up -d --build` runs `dev` too,
+  but without "· dev" in the footer.
+- **What's new** and the guides only describe changes once they're released.
+- **Reporting a problem:** include the report from **Settings → Diagnostics**. It says the
+  copy is from `dev`.
+
+To go back to the release, run `git switch main`, then `docker compose up -d --build`. Both
+use the same address, so the release opens the work and settings `dev` left in the browser.
+If something won't open, import the settings you exported before switching.
+
 ### If you used the takes container
 
 Scribecue no longer has a takes container. Takes are kept in a folder you choose: see
@@ -472,8 +509,8 @@ Served like this, the guides don't open inside Scribecue (links to them go to Gi
 they're copied next to the app only when the web version and the Docker image are built.
 
 To try a branch in Docker, run `scripts/docker-up.sh` instead of `docker compose up -d --build`.
-The footer then shows the branch next to the version, such as "v0.124.0 · dev", unless it's
-`main`.
+The footer then shows the branch after the version, as in
+[Trying the next version](#trying-the-next-version).
 
 Run the checks before committing, pushing or opening a pull request:
 
