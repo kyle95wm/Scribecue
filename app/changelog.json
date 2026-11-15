@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.122.0",
+    "date": "2026-11-14",
+    "notes": "## Scene summaries for AI drafts\n\n- **Summarise scenes**, in AI help → Notes → Scenes, writes a short summary of every 2–3 minutes of the programme.\n- Check and fix them, then draft. Your edits stay when you summarise again, and **Again** rewrites one scene.\n- Draft the script, Draft this block and chat use the scene's summary and the story so far, so drafts get names and the story right.\n- The Draft the script dialog says how many scenes are summarised, and offers to summarise first.\n- Summaries are saved with the project."
+  },
+  {
     "version": "0.121.0",
     "date": "2026-11-14",
     "notes": "## Draft the script with AI\n\n- **Draft the script…** in AI help, or Alt+Shift+I, drafts a block for every free gap in the dialogue: the whole video, from the playhead, or between two times.\n- Your blocks stay as they are. Long gaps get a block for each shot.\n- It runs in the background, with Stop. Ctrl/Cmd+Z takes back the whole run.\n- New blocks are tagged **AI draft** until you edit or accept them. I goes to the next one, and Y accepts it. Export says how many are left.\n\n## Listen for speech\n\n- With speech to text set up, **Listen for speech** checks each gap for speech the subtitles miss, such as a song.\n- Where it hears words, the block says **speech under it?** and shows what it heard. U goes to it.\n\n## Also\n\n- **Draft this block** now also sends the subtitles either side.\n- The block editor's frame buttons, and Alt+Shift+Left or Right, now move the playhead to the block's new start.\n- The installed app starts again without a connection."
