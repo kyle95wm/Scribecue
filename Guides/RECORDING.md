@@ -70,8 +70,10 @@ video stopped. See [Extended blocks](#extended-blocks).
   [Where takes are kept](#where-takes-are-kept).
 - **Leave** closes the recording, and the script with it. Your takes are kept: open the
   recording file again to carry on.
-- **Use wired headphones.** You don't hear yourself through Scribecue: use your audio
-  interface for that.
+- **Use wired headphones.** Not Bluetooth.
+- **To hear yourself,** plug your headphones into your audio interface, or into your USB
+  microphone if it has a headphone socket. Scribecue doesn't play your voice back.
+- **No socket?** Slide one side of the headphones off your ear, so you hear your own voice.
 - **Set the video's sound** with **Video** under the video, from 0 dB (as it is) down to
   −30 dB. It starts at −30 dB. Double-click it to go back there.
 - **Follow the setup.** The first time you open a recording file, it helps you pick your
@@ -84,7 +86,7 @@ video stopped. See [Extended blocks](#extended-blocks).
   [Floating the video](GETTING-STARTED.md#floating-the-video).
 
   ![Record mode with the video floating beside the script, larger than its usual spot](../docs/screenshots/recording-floating.png)
-- **Set your interface to 48 kHz** if you can. Scribecue tells you if it's converting.
+- **Set your microphone or interface to 48 kHz** if you can. Scribecue tells you if it's converting.
 - **Use Chrome, Edge, Firefox or Safari.**
 - **Return to start**, under **Settings → Editing**, puts the playhead back where you
   started playing when you stop. It's off at first. `RETURN` shows under the video while
