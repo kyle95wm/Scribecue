@@ -133,7 +133,7 @@ export function report(info, { names = false } = {}) {
 
   const a = info.app || {};
   L.push('', 'App');
-  row('Version', [a.version, a.web ? 'web version' : 'run with Docker', a.installed && 'installed app'].filter(Boolean).join(', '));
+  row('Version', [a.version, a.branch && `${a.branch} branch`, a.web ? 'web version' : 'run with Docker', a.installed && 'installed app'].filter(Boolean).join(', '));
   row('Mode', a.mode);
 
   const b = info.browser || {};

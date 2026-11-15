@@ -987,6 +987,8 @@ button.link:disabled { color: var(--faint); cursor: default; text-decoration: no
   color: var(--dim);
   white-space: nowrap;
 }
+.ver .verbranch { color: var(--warn); }
+.ver.new .verbranch { color: inherit; }
 .ver.new { color: var(--bg); background: var(--accent); border-color: var(--accent); font-weight: 600; }
 .ver.new:hover { background: var(--warn); }
 .updbox {

@@ -11,7 +11,7 @@ import { bookmarksAllowed, cleanBookmarks, adcBookmarks, bookmarkNear, shownTitl
 import { initBookmarks, toggleBookmarks, refreshBookmarks, addBookmark, revealBookmark, bookmarksOpen } from './bookmarksdrawer.js';
 import { parseSubs, parseAdc, tidyText, scriptVoices, scriptVoicesHere, swapVoices, toSRT, toVTT, fmtTC, fmtTime, parseTC } from './formats.js';
 import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.js';
-import { HOSTED } from './config.js';
+import { HOSTED, BRANCH } from './config.js';
 import { CHOICES, DEFAULTS, shownAppearance, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
 import { initFloat, loadKind, saveKind, canOwnWindow } from './floatvideo.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings, openDraftScript, openaiKey } from './aidrawer.js';
@@ -8121,7 +8121,7 @@ async function diagnosticsInfo() {
   return {
     now: Date.now(),
     names: [f?.name, S.projectMedia?.name, S.handle?.name, S.subName, baseName()],
-    app: { version: VERSION, web: HOSTED, installed: matchMedia('(display-mode: standalone)').matches, mode: MODE_NAMES[S.mode] || S.mode },
+    app: { version: VERSION, branch: BRANCH || undefined, web: HOSTED, installed: matchMedia('(display-mode: standalone)').matches, mode: MODE_NAMES[S.mode] || S.mode },
     browser: { name: browserVersion(), platform: navigator.userAgentData?.platform || navigator.platform, cores: navigator.hardwareConcurrency,
       memory: navigator.deviceMemory, screen: `${screen.width}×${screen.height}`, dpr: devicePixelRatio || 1 },
     storage,

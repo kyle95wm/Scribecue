@@ -1,6 +1,10 @@
 services:
   scribecue:
-    build: .
+    build:
+      context: .
+      # Shown next to the version. scripts/docker-up.sh sets it to the branch, unless main.
+      args:
+        BRANCH: ${SCRIBECUE_BRANCH:-}
     image: scribecue:latest
     container_name: scribecue
     # Bound to 127.0.0.1 so only this machine can reach the editor.
