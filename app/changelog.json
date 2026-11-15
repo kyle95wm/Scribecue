@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.121.0",
+    "date": "2026-11-14",
+    "notes": "## Draft the script with AI\n\n- **Draft the script…** in AI help, or Alt+Shift+I, drafts a block for every free gap in the dialogue: the whole video, from the playhead, or between two times.\n- Your blocks stay as they are. Long gaps get a block for each shot.\n- It runs in the background, with Stop. Ctrl/Cmd+Z takes back the whole run.\n- New blocks are tagged **AI draft** until you edit or accept them. I goes to the next one, and Y accepts it. Export says how many are left.\n\n## Listen for speech\n\n- With speech to text set up, **Listen for speech** checks each gap for speech the subtitles miss, such as a song.\n- Where it hears words, the block says **speech under it?** and shows what it heard. U goes to it.\n\n## Also\n\n- **Draft this block** now also sends the subtitles either side.\n- The block editor's frame buttons, and Alt+Shift+Left or Right, now move the playhead to the block's new start.\n- The installed app starts again without a connection."
+  },
+  {
     "version": "0.120.1",
     "date": "2026-11-14",
     "notes": "## Recording\n\n- Record mode's setup and the Recording guide now say how to hear yourself with a USB microphone: plug your headphones into the microphone, if it has a headphone socket.\n- No socket? Slide one side of the headphones off your ear."
