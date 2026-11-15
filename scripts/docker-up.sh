@@ -7,6 +7,8 @@
 #                               branch after the version in the footer.
 #   scripts/docker-up.sh main   The release copy, from main, whatever is checked out.
 #   scripts/docker-up.sh stop   Stops the test copy.
+#   scripts/docker-up.sh clean  Stops the test copy and removes what it left: its image and
+#                               network. The release copy isn't touched.
 #
 # The test copy uses the release copy's voices, speech to text and ffmpeg. Change its port
 # with SCRIBECUE_DEV_PORT in .env. Extra arguments go to docker compose up.
@@ -16,6 +18,15 @@ cd "$(dirname "$0")/.."
 here=$(git branch --show-current 2>/dev/null || true)
 case "${1:-}" in
   stop) exec docker compose -f docker-compose.dev.yml down ;;
+  clean)
+    docker compose -f docker-compose.dev.yml down --rmi all
+    if docker network inspect scribecue-dev-voices >/dev/null 2>&1; then
+      docker network rm scribecue-dev-voices >/dev/null
+    fi
+    echo "Removed the test copy. To free more space, clear Docker's unused build cache:"
+    echo "  docker builder prune -f"
+    echo "That clears it for everything built with Docker, not only Scribecue."
+    exit ;;
   main) shift; want=main ;;
   *) want=$here ;;
 esac

@@ -456,14 +456,14 @@ Then open <http://localhost:9484/>. The footer shows "· dev" after the version.
 
 To stop trying `dev`, run `scripts/docker-up.sh stop`, then `git switch main`.
 
-**Optional:** to free the space it used, remove its image:
+**Optional:** to remove what it left too, such as its image, run this instead of `stop`:
 
 ```bash
-docker rmi scribecue:dev
+scripts/docker-up.sh clean
 ```
 
-Most of it is shared with the release, so this frees little. Clearing Docker's unused build
-cache frees more, often a few hundred MB:
+The release isn't touched. Most of the image is shared with the release, so this frees
+little. Clearing Docker's unused build cache frees more, often a few hundred MB:
 
 ```bash
 docker builder prune -f
