@@ -240,7 +240,7 @@
           data-tip="Audio track to hear and draw in the waveform. T / ⇧T switch tracks">Audio
           <select id="trackSel"></select></label>
         <label class="trackpick" id="dialPick" hidden
-          data-tip="Subtitles to show as dialogue on the timeline, so you can see the gaps. They stay in this browser and aren’t part of the script">Dialogue
+          data-tip="Subtitles to show as dialogue on the timeline, so you can see the gaps. No subtitles? Find the dialogue with speech to text. It stays in this browser and isn’t part of the script">Dialogue
           <select id="dialSel"></select></label>
         <label class="mixbox tip-end" id="mixBox" hidden>Video
           <input type="range" id="mix" min="-100" max="100" step="5" value="0"
@@ -308,7 +308,7 @@
       <div id="cues"></div>
       <div id="dragtip" hidden></div>
     </div>
-    <div class="dialtrack" id="dialTrack" hidden data-tip="Dialogue from the subtitles, with the length of each gap. Click to move the playhead. Double-click a gap to make a block. D and Shift+D jump between free gaps"><canvas id="dialWave"></canvas></div>
+    <div class="dialtrack" id="dialTrack" hidden data-tip="Dialogue from the subtitles or speech to text, with the length of each gap. Click to move the playhead. Double-click a gap to make a block. D and Shift+D jump between free gaps"><canvas id="dialWave"></canvas></div>
     <div class="taketrack record-only" id="takeTrack"><canvas id="takeWave"></canvas></div>
     <div class="overview" id="overview"><div id="ovWin"></div></div>
     <div class="playhead" id="playhead"></div>
@@ -874,6 +874,18 @@ docker compose up -d --build</code></pre>
     <p id="aiScriptPrivacy" class="dim small"></p>
     <p class="dim small">Each draft is tagged until you edit or accept it. Check every one against the picture: AI misses things, and sometimes describes what isn't there.</p>
     <div class="updbtns"><button id="aiScriptGo" class="hl">Draft</button><button id="aiScriptCancel">Cancel</button></div>
+  </dialog>
+  <dialog id="heardDlg" class="updbox" aria-labelledby="heardTitle">
+    <h2 id="heardTitle">Find the dialogue</h2>
+    <p>This video has no subtitles. Speech to text can listen to it and make a dialogue lane from what’s said, so you can see the gaps. AI drafts use it too.</p>
+    <p class="updstatus"><span>Listen</span>
+      <button id="heardLocal" aria-pressed="true" data-tip="Whisper, on this computer">On this computer</button>
+      <button id="heardOnline" aria-pressed="false" data-tip="OpenAI’s Whisper, with your OpenAI key">With OpenAI</button></p>
+    <p id="heardNote" class="small"></p>
+    <p class="updstatus"><button id="heardSetup" hidden></button></p>
+    <p id="heardResume" class="small" hidden></p>
+    <p class="dim small">Check the lane against the sound. Speech to text can miss speech under music, and sometimes hears words that aren’t there.</p>
+    <div class="updbtns"><button id="heardGo" class="hl">Find dialogue</button><button id="heardAgain" hidden>Start again</button><button id="heardCancel">Cancel</button></div>
   </dialog>
   <dialog id="setsExportDlg" class="updbox" aria-labelledby="setsExportTitle">
     <h2 id="setsExportTitle">Export settings</h2>
@@ -1716,6 +1728,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="fitToReading"><kbd>⇧</kbd><kbd>V</kbd></dt><dd>Set the block's end to where the reading finishes</dd>
             <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>This block's reading slower / faster</dd>
             <dt data-keys="soundsLike"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd></dt><dd>Sounds like: how words in this block are said</dd>
+            <dt data-keys="findDialogue"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>L</kbd></dt><dd>Find the dialogue with speech to text</dd>
             <dt data-keys="aiHelp"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>A</kbd></dt><dd>AI help: chat and draft descriptions</dd>
             <dt data-keys="aiScript"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>I</kbd></dt><dd>Draft the script with AI</dd>
             <dt data-keys="aiBack aiNext"><kbd>⇧</kbd><kbd>I</kbd> <kbd>I</kbd></dt><dd>Previous / next AI draft to check</dd>

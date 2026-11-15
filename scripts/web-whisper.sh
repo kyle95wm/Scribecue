@@ -18,8 +18,9 @@ trap 'rm -rf "$work"' EXIT
 
 TRANSFORMERS=@huggingface/transformers@4.3.1
 ORT=onnxruntime-web@1.31.0-dev.20260914-8d85527a0 # the version transformers.js was built with
-MODEL=onnx-community/whisper-base.en
-MODEL_REV=51eefc0af78b103839eda9e7e4f4186acc6517fe # huggingface.co/onnx-community/whisper-base.en
+# The _timestamped export also gives when each word was said, which a dialogue lane needs.
+MODEL=onnx-community/whisper-base.en_timestamped
+MODEL_REV=fa239a41836c3305f6beec180e5940f3823ff5b8 # huggingface.co/onnx-community/whisper-base.en_timestamped
 
 check() { # file sha256
   echo "$2  $1" | shasum -a 256 -c --quiet - || { echo "Checksum mismatch: $1" >&2; exit 1; }
@@ -42,8 +43,8 @@ generation_config.json 3479b1f44a07e41db799e22599222fee5816738036def94a39841cb9c
 preprocessor_config.json a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d
 tokenizer.json 5eb60cec1e77aeeb6869a2bb5a8e01a84c3fe5d072d75369343021fe6f5310d0
 tokenizer_config.json 93879c3dccdd4b976f709acd85b44778873f30c275e67026f30ca1e4c975230c
-onnx/encoder_model.onnx 1cc86302d480b061452d348638064383ab41b6f3333ddd0e423532d14edaf535
-onnx/decoder_model_merged_quantized.onnx dd4761a3f7add26afda3512abff4706920404c2517e85a9f2ff090b0c0987909
+onnx/encoder_model.onnx f9fafccf043f762fea42ce685a097b1c1f7c3a062d2208a568481716312f8e35
+onnx/decoder_model_merged_quantized.onnx afa8065a5f023f6e524417f9459cc09969023dd38149cd4dce16628b2c3a1773
 "
 mkdir -p "$out/models/$MODEL/onnx"
 files=()

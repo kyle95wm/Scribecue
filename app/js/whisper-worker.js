@@ -3,7 +3,7 @@
 // engine and an English Whisper model from Scribecue's own site (scripts/web-whisper.sh)
 // and keeps them in the browser's storage, so they download once and then work offline.
 //
-// Messages in: { id, op: 'status' | 'download' | 'remove' | 'transcribe', ... }.
+// Messages in: { id, op: 'status' | 'download' | 'remove' | 'transcribe' | 'timed', ... }.
 // Messages out: { id, ok, result | error }, and { op: 'progress', loaded, total } while
 // downloading.
 
@@ -51,6 +51,10 @@ async function download(report) {
     const blob = new Blob(parts, { type: r.headers.get('content-type') || 'application/octet-stream' });
     await c.put(url(f), new Response(blob, { headers: { 'Content-Type': blob.type, 'Content-Length': String(blob.size) } }));
   }
+  // A model from before, replaced by this one, makes room.
+  const keep = new Set(list.files.map(url));
+  for (const k of await c.keys()) if (!keep.has(k.url)) await c.delete(k);
+  pipe = null;
   report(total, total);
 }
 
@@ -65,7 +69,9 @@ let pipe = null;
 function load() {
   pipe ||= (async () => {
     const list = await manifest();
-    const model = list?.model || 'onnx-community/whisper-base.en';
+    // Offline, the model is the one that's stored.
+    const stored = (await (await store()).keys()).map((k) => k.url.match(/\/models\/([^/]+\/[^/]+)\//)?.[1]).find(Boolean);
+    const model = list?.model || stored || 'onnx-community/whisper-base.en_timestamped';
     const read = async (n) => {
       const r = await (await store()).match(url(n));
       if (!r) throw new Error('Whisper isn’t downloaded');
@@ -102,6 +108,21 @@ async function transcribe({ audio }) {
   return out.text || '';
 }
 
+// What's said, with when: word by word where the model can tell, else sentence by
+// sentence. { segments, words }, in seconds from the audio's start.
+let wordsWork = true;
+async function timed({ audio }) {
+  const p = await load();
+  // Scribecue sends parts that fit in one of Whisper's 30-second windows: joining windows
+  // puts the times out.
+  const opts = { chunk_length_s: audio.length > 30 * 16000 ? 30 : 0, stride_length_s: 5 };
+  const pairs = (out) => (out.chunks || []).map((c) => ({ start: c.timestamp?.[0], end: c.timestamp?.[1], text: c.text }));
+  if (wordsWork) {
+    try { return { segments: null, words: pairs(await p(audio, { ...opts, return_timestamps: 'word' })) }; } catch { wordsWork = false; }
+  }
+  return { segments: pairs(await p(audio, { ...opts, return_timestamps: true })), words: null };
+}
+
 // One job at a time, in order: a transcription keeps the engine busy.
 let queue = Promise.resolve();
 self.addEventListener('message', ({ data: m }) => {
@@ -114,6 +135,7 @@ self.addEventListener('message', ({ data: m }) => {
     download: () => download((loaded, total) => self.postMessage({ op: 'progress', loaded, total })),
     remove: () => remove(),
     transcribe: () => transcribe(m),
+    timed: () => timed(m),
     warm: () => load().then(() => true),
   }[m.op] || (() => Promise.reject(new Error(`unknown request ${m.op}`)));
   queue = queue.then(() => reply(run()));

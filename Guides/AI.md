@@ -47,8 +47,9 @@ out beside the video.
 ## Drafting the whole script
 
 **Draft the script…** in the AI help drawer, or `Alt+Shift+I`, writes a first draft for
-every free gap in the dialogue. It needs a [dialogue lane](GETTING-STARTED.md): pick
-subtitles next to **Dialogue**, under the video.
+every free gap in the dialogue. It needs a [dialogue lane](GETTING-STARTED.md#see-the-dialogue-on-the-timeline):
+pick subtitles next to **Dialogue**, under the video. No subtitles?
+[Find the dialogue with speech to text](GETTING-STARTED.md#no-subtitles) first.
 
 1. Choose what to draft: the whole video, from the playhead, or between two times.
 2. Leave **Listen for speech** on, if you have [speech to text](TRANSCRIBING.md#speech-to-text-with-whisper) set up.
@@ -77,7 +78,7 @@ Editing a draft's words accepts it too. **Export** says how many are left unchec
 talk. With **Listen for speech** on, speech to text listens to each gap first. Where it
 hears words, the block says **speech under it?**, and the block shows what it heard. `U`
 goes to these, as it does to blocks over dialogue. Without it, play each draft through
-before accepting it.
+before accepting it. With a lane from speech to text, there's no need: it listened already.
 
 ### Scene summaries
 
@@ -292,6 +293,7 @@ And always check a draft against the picture: AI is confident even when it's wro
   Scribecue's own server never sees them.
 - **Summarise scenes** sends 8 stills from each scene, its subtitles and the summaries
   before it. Drafts and chat then send their scene's summary too.
+- **Find dialogue with OpenAI** sends the programme's audio to OpenAI.
 - **Check grammar with AI** sends the whole script and your project notes, in parts.
 - With Ollama, everything stays on your computer.
 - Keys stay in your browser, and only go to their own provider. Your TMDB key, if you look

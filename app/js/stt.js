@@ -122,6 +122,19 @@ export async function transcribe(samples) {
   return spelled(cleanText((await r.json()).text));
 }
 
+// What's said in some audio (16 kHz mono), with when: { segments, words }, either of which
+// can be null, in seconds from the audio's start. Spelling is left to the caller.
+export async function transcribeTimed(samples) {
+  if (silent(samples)) return { segments: [], words: [] };
+  if (stt.engine === 'web') return ask('timed', { audio: samples }, [samples.buffer]);
+  const r = await fetch('stt/transcribe?timings=1', { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: toWav(samples) });
+  if (!r.ok) throw new Error(r.status === 502 || r.status === 504 ? 'the Whisper container isn’t answering' : `Whisper answered ${r.status}`);
+  const j = await r.json();
+  if (!j.segments) throw new Error('the Whisper container needs updating. Run docker compose up -d --build');
+  return { segments: j.segments, words: j.words };
+}
+export { spelled };
+
 // Loads the model ahead of the first block, which would otherwise wait for it.
 export function warmStt() {
   if (stt.engine === 'web' && stt.ready) ask('warm').catch(() => {});

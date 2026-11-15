@@ -86,6 +86,7 @@ export const GROUPS = [
     ['comments', 'Comments', ['Alt+Shift+KeyC']],
     ['bookmarkAdd', 'Add a bookmark at the playhead', ['KeyB']],
     ['bookmarks', 'Bookmarks', ['Alt+Shift+KeyB']],
+    ['findDialogue', 'Find the dialogue with speech to text, for a video with no subtitles', ['Alt+Shift+KeyL']],
     ['aiHelp', 'AI help', ['Alt+Shift+KeyA']],
     ['aiScript', 'Draft the script with AI', ['Alt+Shift+KeyI']],
     ['aiNext', 'Next AI draft to check', ['KeyI']],
@@ -120,7 +121,7 @@ export const RECORD = new Set(GROUPS.find(([g]) => g === 'Record mode')[1].map((
 // Actions that change the script, or help with writing it: off in Record mode.
 export const REC_LOCKED = new Set(['createEdit', 'newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'findReplace', 'setStart', 'setEnd',
   'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10',
-  'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'aiHelp', 'aiScript', 'aiNext', 'aiBack', 'aiAccept', 'comments', 'bookmarkAdd', 'bookmarks', 'offset']);
+  'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'findDialogue', 'aiHelp', 'aiScript', 'aiNext', 'aiBack', 'aiAccept', 'comments', 'bookmarkAdd', 'bookmarks', 'offset']);
 // In Record mode, X and Delete still split a take and delete part of one, so their actions
 // can't share a key with a Record mode action.
 const IN_RECORD_TOO = new Set(['split', 'deleteNow']);

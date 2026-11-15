@@ -94,8 +94,10 @@ Speech to text uses [Whisper](https://github.com/openai/whisper), an open-source
 that runs on your computer, to type each line you mark. You still time every block
 yourself.
 
-In Write mode, [Draft the script](AI.md#drafting-the-whole-script) uses it too, to listen
-for speech the subtitles miss.
+It's used in Write mode too:
+
+- [Draft the script](AI.md#drafting-the-whole-script) listens for speech the subtitles miss.
+- For a video with no subtitles, it can [find the dialogue](GETTING-STARTED.md#no-subtitles).
 
 ### Setting it up
 

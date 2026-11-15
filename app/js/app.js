@@ -14,7 +14,9 @@ import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.
 import { HOSTED } from './config.js';
 import { CHOICES, DEFAULTS, shownAppearance, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
 import { initFloat, loadKind, saveKind, canOwnWindow } from './floatvideo.js';
-import { initAi, toggleAi, aiNotesChanged, openAiSettings, openDraftScript } from './aidrawer.js';
+import { initAi, toggleAi, aiNotesChanged, openAiSettings, openDraftScript, openaiKey } from './aidrawer.js';
+import { LABEL as HEARD, PART_LOCAL, PART_ONLINE, PART_WEB, partsOf, linesFrom, keepIn, openaiCost, span, timeLeft, openaiRequest, openaiHeard } from './heardlane.js';
+import { failure } from './ai.js';
 import { cleanScenes } from './aiscript.js';
 import { initCheck, openCheck, checkFirst } from './proofdialog.js';
 import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
@@ -58,7 +60,7 @@ import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrows
 import { createLog, watchErrors, pictureWatch, report as diagReport, exposeReport } from './diagnostics.js';
 import { waveKey, loadWave, saveWave, loadSound, saveSound } from './wavestore.js';
 import { buildDialogue, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, MIN_CLASH, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue } from './dialogue.js';
-import { stt, initStt, openStt, transcribe, warmStt, RATE as STT_RATE } from './stt.js';
+import { stt, initStt, openStt, transcribe, transcribeTimed, checkStt, toWav, spelled, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { startTips } from './tooltip.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, readWav, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
@@ -196,6 +198,7 @@ const S = {
   peakMax: 0,
   waveStatus: '',
   subTracks: [],    // the video's subtitle tracks, from the worker
+  heardKept: null,  // a dialogue lane speech to text made for this video, kept to pick again
   dialogue: null,   // the dialogue lane: { lines, spans, choice, label }
   dialStatus: '',   // and how reading it is going
   tracks: [], // audio tracks in the media file, as listed by the worker
@@ -3436,12 +3439,14 @@ async function stopJob() {
   if (!jobActive) return;
   measuring = false;
   aiRun?.abort();
+  heardRun?.abort();
   stopSpeech();
   while (jobActive) await new Promise((r) => setTimeout(r, 50));
 }
 $('jobStop').addEventListener('click', () => {
   measuring = false;
   aiRun?.abort();
+  heardRun?.abort();
   stopSpeech();
   // An extended video from a narration runs here too.
   if (narrWorker || mixWorker || ffJob) {
@@ -6381,6 +6386,7 @@ function resetDialogue() {
   dialWorker?.terminate();
   dialWorker = null;
   S.subTracks = [];
+  S.heardKept = null;
   S.dialogue = null;
   S.dialStatus = '';
   delete $('dialSel').dataset.reading;
@@ -6407,7 +6413,10 @@ function renderDialPick() {
   add('off', 'Off');
   S.subTracks.forEach((t, i) => add(`t${i}`, dialLabel(t), !t.text));
   if (d?.choice === 'file') add('file', d.label);
+  const heard = d?.choice === 'heard' ? d : S.heardKept;
+  if (heard) add('heard', heardLabel(heard));
   add('load', 'Load a subtitle file…');
+  if (!S.subTracks.some((t) => t.text)) add('find', 'Find dialogue with speech to text…');
   sel.value = sel.dataset.reading || d?.choice || 'off';
   dialTrack.hidden = !d && !S.dialStatus;
   dialDrawn = '';
@@ -6415,13 +6424,18 @@ function renderDialPick() {
 }
 
 function useDialogue(file, entry, { keep = true } = {}) {
-  S.dialogue = { ...buildDialogue(entry.lines), choice: entry.choice, label: entry.label };
+  const heardTo = entry.choice === 'heard' ? { heardTo: entry.heardTo ?? 0 } : {};
+  S.dialogue = { ...buildDialogue(entry.lines), choice: entry.choice, label: entry.label, ...heardTo };
+  if (entry.choice === 'heard') S.heardKept = { choice: 'heard', label: HEARD, lines: S.dialogue.lines, ...heardTo };
   S.dialStatus = '';
   delete $('dialSel').dataset.reading;
   dialGapsFor = '';
   renderDialPick();
   showClashes();
-  if (keep) saveDialogue(dialogueKey(file), { choice: entry.choice, label: entry.label, lines: S.dialogue.lines });
+  if (keep) {
+    saveDialogue(dialogueKey(file), { choice: entry.choice, label: entry.label, lines: S.dialogue.lines, ...heardTo });
+    if (entry.choice === 'heard') saveDialogue(`${dialogueKey(file)}|heard`, S.heardKept);
+  }
   return S.dialogue.lines.length;
 }
 
@@ -6441,8 +6455,9 @@ function offDialogue(file) {
 async function startDialogue(file, subs) {
   S.subTracks = subs;
   renderDialPick();
-  const gen = dialGen, kept = await loadDialogue(dialogueKey(file));
+  const gen = dialGen, kept = await loadDialogue(dialogueKey(file)), heard = await loadDialogue(`${dialogueKey(file)}|heard`);
   if (gen !== dialGen || S.videoFile !== file) return;
+  if (heard?.lines) { S.heardKept = heard; renderDialPick(); }
   if (kept?.choice === 'off') return;
   if (kept) { useDialogue(file, kept, { keep: false }); return; }
   const best = bestTrack(subs);
@@ -6519,13 +6534,21 @@ $('dialSel').addEventListener('change', (e) => {
   if (!file) return;
   if (v === 'off') offDialogue(file);
   else if (v === 'load') { renderDialPick(); loadDialogueFile(); }
+  else if (v === 'find') { renderDialPick(); openFindDialogue(); }
+  else if (v === 'heard' && S.heardKept) {
+    dialGen++;
+    dialWorker?.terminate();
+    dialWorker = null;
+    useDialogue(file, S.heardKept);
+  }
   else if (v[0] === 't') readSubTrack(file, +v.slice(1));
 });
 
 const currentGaps = () => {
-  const d = S.dialogue, dur = duration(), key = `${dur}`;
+  const d = S.dialogue, dur = duration(), end = d?.heardTo != null ? Math.min(dur, d.heardTo) : dur, key = `${dur}|${end}`;
   if (!d) return [];
-  if (key !== dialGapsFor) { dialGaps = gapsOf(d.spans, dur); dialGapsFor = key; }
+  // Speech to text that hasn't got to the end yet: past where it got to, nothing is known.
+  if (key !== dialGapsFor) { dialGaps = gapsOf(d.spans, end); dialGapsFor = key; }
   return dialGaps;
 };
 
@@ -6553,7 +6576,128 @@ dialTrack.addEventListener('dblclick', (e) => {
   if (S.mode !== 'record') gapBlock(xToT(e.clientX), true);
 });
 
-const NO_LANE = 'No dialogue lane. Pick subtitles next to Dialogue, under the video';
+// ---------------------------------------------------------------- dialogue from speech to text
+//
+// For a video with no subtitles: speech to text listens to the programme a part at a time,
+// on this computer or on OpenAI, and what it hears becomes the dialogue lane (heardlane.js).
+// Each part is saved as it's done, so Stop keeps them, and running it again carries on.
+
+let heardRun = null;
+const HEARD_KEY = 'scribecue.heard';
+let heardEngine = (() => { try { return JSON.parse(localStorage.getItem(HEARD_KEY))?.engine === 'openai' ? 'openai' : 'local'; } catch { return 'local'; } })();
+const heardFull = (d) => d.heardTo >= duration() - 0.5;
+const heardLabel = (d) => (heardFull(d) ? HEARD : `${HEARD}, first ${span(d.heardTo)}`);
+const heardDlg = () => $('heardDlg');
+
+async function openFindDialogue() {
+  if (!S.videoFile) return toast('Open the video first');
+  if (S.subTracks.some((t) => t.text)) return toast('This video has subtitles. Pick them next to Dialogue, under the video');
+  if (jobActive) return toast('Another job is running. Wait for it to finish, or press Stop at the top');
+  if (!stt.ready) await checkStt();
+  renderHeardDlg();
+  heardDlg().showModal();
+  $('heardGo').hidden ? $('heardAgain').focus() : $('heardGo').focus();
+}
+
+function renderHeardDlg() {
+  const dur = duration(), kept = S.heardKept, from = kept ? Math.min(dur, kept.heardTo) : 0, left = dur - from;
+  const local = heardEngine === 'local', key = openaiKey();
+  $('heardLocal').setAttribute('aria-pressed', String(local));
+  $('heardOnline').setAttribute('aria-pressed', String(!local));
+  $('heardNote').textContent = local
+    ? (stt.ready ? `Whisper listens on this computer, so nothing leaves it. A film can take from a few minutes to over an hour, depending on the computer. It keeps going while you work.`
+      : 'Speech to text isn’t set up on this computer yet.')
+    : (key ? `The programme’s audio goes to OpenAI, ${span(PART_ONLINE)} at a time. For the ${span(left)} to do, that’s ${openaiCost(left)}. It’s quicker, and its timings are a little tighter.`
+      : 'It needs an OpenAI key, as in AI help.');
+  const setup = $('heardSetup');
+  setup.hidden = local ? stt.ready : !!key;
+  setup.textContent = local ? 'Set up speech to text…' : 'Add an OpenAI key…';
+  const resume = $('heardResume');
+  resume.hidden = !kept;
+  resume.textContent = !kept ? '' : heardFull(kept) ? `This video has a dialogue lane from speech to text already, with ${kept.lines.length.toLocaleString('en')} lines. Start again to replace it.`
+    : `It stopped after the first ${span(kept.heardTo)}. Find dialogue carries on from there.`;
+  const done = kept && heardFull(kept);
+  $('heardGo').hidden = !!done;
+  $('heardAgain').hidden = !kept;
+  for (const b of [$('heardGo'), $('heardAgain')]) b.disabled = local ? !stt.ready : !key;
+}
+
+function setHeardEngine(e) {
+  heardEngine = e;
+  try { localStorage.setItem(HEARD_KEY, JSON.stringify({ engine: e })); } catch { /* ignore */ }
+  renderHeardDlg();
+}
+
+// OpenAI's Whisper, for one part: tries again a few times when it's busy.
+async function heardOnline(samples, key, signal) {
+  const { url, init } = openaiRequest(toWav(samples), key);
+  for (let tries = 0; ; tries++) {
+    const r = await fetch(url, { ...init, signal });
+    if (r.ok) return openaiHeard(await r.json());
+    if ((r.status === 429 || r.status >= 500) && tries < 3) {
+      await new Promise((ok) => setTimeout(ok, 2000 * 2 ** tries));
+      if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
+      continue;
+    }
+    throw new Error(await failure('openai', r));
+  }
+}
+
+function findDialogue(again = false) {
+  const file = S.videoFile, dur = duration(), engine = heardEngine, key = openaiKey();
+  if (!file || !(dur > 0)) return;
+  const kept = again ? null : S.heardKept;
+  let lines = kept ? kept.lines.map(({ start, end, text }) => ({ start, end, text })) : [];
+  const size = engine === 'openai' ? PART_ONLINE : stt.engine === 'web' ? PART_WEB : PART_LOCAL;
+  const parts = partsOf(dur, size, kept ? kept.heardTo : 0);
+  if (!parts.length) return;
+  dialGen++;
+  dialWorker?.terminate();
+  dialWorker = null;
+  useDialogue(file, { choice: 'heard', label: HEARD, lines, heardTo: kept ? kept.heardTo : 0 });
+  return asJob(async () => {
+    heardRun = new AbortController();
+    const { signal } = heardRun, t0 = performance.now();
+    let done = 0, problem = '';
+    const show = () => {
+      const at = parts[done]?.start ?? dur;
+      jobBar.value = at / dur;
+      jobText.textContent = `Finding dialogue: ${span(at)} of ${span(dur)}${done ? `, ${timeLeft((performance.now() - t0) / 1000, done, parts.length - done)}` : ''}`;
+      jobBox.hidden = false;
+    };
+    show();
+    try {
+      for (const part of parts) {
+        const samples = await clipAudio(part.clipFrom, part.clipTo);
+        if (signal.aborted || S.videoFile !== file) break;
+        const heard = engine === 'openai' ? await heardOnline(samples, key, signal) : await transcribeTimed(samples);
+        if (signal.aborted || S.videoFile !== file) break;
+        const got = keepIn(linesFrom(heard, part.clipFrom), part).map((l) => ({ ...l, text: spelled(l.text) }));
+        lines = lines.filter((l) => (l.start + l.end) / 2 < part.start).concat(got);
+        useDialogue(file, { choice: 'heard', label: HEARD, lines, heardTo: part.end });
+        done++;
+        show();
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') problem = e.message;
+    } finally { heardRun = null; }
+    if (S.videoFile !== file) return;
+    const d = S.dialogue, n = d?.lines.length || 0;
+    if (problem) toast(`Couldn’t finish finding the dialogue: ${problem}. What was found is kept`);
+    else if (d && !heardFull(d)) toast(`Stopped after the first ${span(d.heardTo)}. Find dialogue again to carry on`);
+    else toast(n ? `Dialogue lane: ${n.toLocaleString('en')} lines from speech to text. Check them against the sound. D and Shift+D jump between free gaps` : 'Speech to text heard no dialogue in this video');
+  });
+}
+
+$('heardLocal').addEventListener('click', () => setHeardEngine('local'));
+$('heardOnline').addEventListener('click', () => setHeardEngine('openai'));
+$('heardSetup').addEventListener('click', () => { heardDlg().close(); if (heardEngine === 'local') openStt(); else openAiSettings(); });
+$('heardGo').addEventListener('click', () => { heardDlg().close(); findDialogue(); });
+$('heardAgain').addEventListener('click', () => { heardDlg().close(); findDialogue(true); });
+$('heardCancel').addEventListener('click', () => heardDlg().close());
+heardDlg().addEventListener('keydown', (e) => { if (e.key !== 'Escape') e.stopPropagation(); });
+
+const NO_LANE = 'No dialogue lane. Pick subtitles next to Dialogue, under the video, or find the dialogue with speech to text';
 
 // Goes to the next stretch with room for a block, so it passes gaps already filled.
 function jumpGap(dir) {
@@ -7192,7 +7336,8 @@ initAi({
   nextKey: () => keyText('aiNext'),
   // A draft from the AI going through the script: tagged until someone checks it.
   // Speech to text, to hear speech the subtitles miss. listen gives '' for silence.
-  canListen: () => stt.ready,
+  canListen: () => stt.ready && S.dialogue?.choice !== 'heard',
+  laneHeard: () => S.dialogue?.choice === 'heard',
   setUpListening: () => openStt(),
   listen: async (b) => transcribe(await clipAudio(Math.max(0, b.start - 0.1), b.end + 0.1)),
   insertDraft(b, text, heard = '') {
@@ -7546,6 +7691,7 @@ const RUN = {
   bookmarks: () => toggleBookmarks(),
   aiHelp: () => { if (!qc()) toggleAi(); },
   aiScript: () => { if (!qc()) openDraftScript(); },
+  findDialogue: () => { if (S.mode !== 'record') openFindDialogue(); },
   aiNext: () => jumpAiDraft(1),
   aiBack: () => jumpAiDraft(-1),
   aiAccept: () => acceptAiDraft(),

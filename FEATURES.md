@@ -17,6 +17,7 @@ What Scribecue does, and where each part works: the web version at
 | Familiar Frazier keys, and changing keys | ✓ | ✓ |
 | Spelling and grammar check | ✓ | ✓ |
 | Dialogue lane from the video's subtitles | ✓ | ✓ |
+| Dialogue lane from speech to text, for a video with no subtitles | ✓ Whisper in the browser, or OpenAI | ✓ `whisper` container, or OpenAI |
 | Floating the video | ✓ | ✓ |
 | Comments and bookmarks | ✓ | ✓ |
 | Extended blocks, which pause the video | ✓ | ✓ |

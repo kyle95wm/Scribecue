@@ -35,13 +35,16 @@ function setKey(provider, key) {
 }
 const save = () => { const { provider, models, lists, base, frames, remember, listen } = ai; keep(localStorage, KEY, { provider, models, lists, base, frames, remember, listen }); };
 
+// The OpenAI key, if there is one: a dialogue lane can be found with it too.
+export const openaiKey = () => keys().openai || '';
+
 const ready = () => !!ai.provider && !!ai.models[ai.provider] && (PROVIDERS[ai.provider]?.local || !!keys()[ai.provider]);
 
 let hooks = {
   cues: () => [], selIndex: () => -1, playhead: () => 0, video: () => null, apply: () => {}, toast: () => {}, writing: () => true,
   notes: () => '', setNotes: () => {},
   dialogueLines: () => [], freeGaps: () => null, duration: () => 0, noLane: '', identity: () => null, isFree: () => true,
-  jobBusy: () => false, runJob: async () => null, insertDraft: () => null, undoKey: () => 'Ctrl+Z', nextKey: () => '',
+  jobBusy: () => false, runJob: async () => null, laneHeard: () => false, insertDraft: () => null, undoKey: () => 'Ctrl+Z', nextKey: () => '',
   canListen: () => false, setUpListening: () => {}, listen: async () => '',
   scenes: () => [], setScenes: () => {}, dialogueGaps: () => [], seek: () => {},
 };
@@ -471,10 +474,12 @@ function renderScriptDlg() {
   const can = hooks.canListen(), on = can && ai.listen;
   $('aiScriptListen').disabled = !can;
   $('aiScriptListen').setAttribute('aria-pressed', String(on));
-  $('aiScriptListenNote').textContent = !can ? 'It needs speech to text, which isn’t set up yet.'
+  const heard = hooks.laneHeard();
+  $('aiScriptListenNote').textContent = heard ? 'The dialogue lane comes from speech to text already, so the gaps are where it heard none.'
+    : !can ? 'It needs speech to text, which isn’t set up yet.'
     : on ? 'Speech to text listens to each gap first, on this computer, and marks blocks where it hears words with no subtitle. It adds a few seconds a block.'
       : 'Gaps come from the subtitles alone. Speech with no subtitle, such as a song, can end up under a draft.';
-  $('aiScriptListenSetup').hidden = can;
+  $('aiScriptListenSetup').hidden = can || heard;
   $('aiScriptPrivacy').textContent = local ? 'Everything stays on this computer.'
     : `${ai.frames} still${ai.frames === 1 ? '' : 's'} from each gap, the nearby blocks and subtitles, and your project notes go to ${P.name}.`;
 }
