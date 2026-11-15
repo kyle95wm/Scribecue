@@ -62,7 +62,7 @@ async function refresh() {
   const blocks = withText();
   try {
     const found = await runWorker(blocks.map(({ id, text }) => ({ id, text })),
-      knownWords({ words: h.words(), notes: h.notes(), blocks }), showProgress);
+      knownWords({ words: h.words(), notes: `${h.generalNotes()}\n${h.notes()}`, blocks }), showProgress);
     issues = mergeIssues(blocks, aiIssues(suggestions, blocks), found).filter((i) => !ignored.has(issueKey(i)));
     rows = groupIssues(issues);
   } finally {
@@ -193,7 +193,7 @@ async function checkWithAi() {
     for (const [i, batch] of batches.entries()) {
       note.textContent = `Part ${i + 1} of ${batches.length}…`;
       showProgress(i, batches.length);
-      const reply = await askAi(aiCheckSystem(h.notes()), aiCheckPrompt(batch), run.signal);
+      const reply = await askAi(aiCheckSystem(h.notes(), h.generalNotes()), aiCheckPrompt(batch), run.signal);
       try { suggestions.push(...readAiCheck(reply, batch)); } catch { unread++; }
       await refresh();
       showProgress(i + 1, batches.length);

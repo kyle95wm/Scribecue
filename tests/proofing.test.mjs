@@ -130,6 +130,9 @@ test('splits a script into pieces for AI help, without empty blocks', () => {
   assert.deepEqual(aiBatches([block('x'.repeat(5000), 1), block('y'.repeat(5000), 2)]).map((b) => b.length), [1, 1]);
   assert.deepEqual(JSON.parse(aiCheckPrompt(batches[2].slice(0, 1))), [{ block: 62, text: 'Text' }]);
   assert.match(aiCheckSystem('Mara is a nurse'), /Mara is a nurse/);
+  const both = aiCheckSystem('Mara is a nurse', 'British spelling.');
+  assert.ok(both.indexOf('British spelling.') < both.indexOf('Mara is a nurse'));
+  assert.match(aiCheckSystem('', 'British spelling.'), /every programme.*British spelling\./s);
 });
 
 test('reads AI help’s suggestions, and drops any it can’t back up', () => {

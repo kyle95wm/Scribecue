@@ -1,7 +1,7 @@
 // The AI help drawer: settings for the person's AI provider, a chat about the scene, and
 // "Draft this block". The requests themselves are built in ai.js.
 import {
-  PROVIDERS, buildRequest, recentFrames, systemWith, readReply, failure, listModels, fitBudget, draftPrompt, chatContext, clock, SCENE_SYSTEM,
+  PROVIDERS, buildRequest, recentFrames, withNotes, SYSTEM, readReply, failure, listModels, fitBudget, draftPrompt, chatContext, clock, SCENE_SYSTEM,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from './ai.js';
 import { tts, chosenVoice, DEFAULT_CPS, atBase } from './tts.js';
@@ -19,8 +19,9 @@ const KEY = 'scribecue.ai', KEYS = 'scribecue.ai.keys', PKCE = 'scribecue.ai.pkc
 const load = (store, k) => { try { return JSON.parse(store.getItem(k)) || {}; } catch { return {}; } };
 const keep = (store, k, v) => { try { store.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
 
-// { provider, models: { provider: model }, lists: { provider: [models] }, base, frames, remember }
-const ai = { provider: '', models: {}, lists: {}, base: PROVIDERS.ollama.base, frames: 3, remember: true, listen: true, ...load(localStorage, KEY) };
+// { provider, models: { provider: model }, lists: { provider: [models] }, base, frames, remember, notes }
+// notes: the writer's notes for every project, in Settings.
+const ai = { provider: '', models: {}, lists: {}, base: PROVIDERS.ollama.base, frames: 3, remember: true, listen: true, notes: '', ...load(localStorage, KEY) };
 // Keys live apart from the settings: in this browser only, or for this tab only.
 const keys = () => ({ ...load(sessionStorage, KEYS), ...load(localStorage, KEYS) });
 function setKey(provider, key) {
@@ -33,7 +34,11 @@ function setKey(provider, key) {
   const store = ai.remember ? localStorage : sessionStorage;
   keep(store, KEYS, { ...load(store, KEYS), [provider]: key });
 }
-const save = () => { const { provider, models, lists, base, frames, remember, listen } = ai; keep(localStorage, KEY, { provider, models, lists, base, frames, remember, listen }); };
+const save = () => { const { provider, models, lists, base, frames, remember, listen, notes } = ai; keep(localStorage, KEY, { provider, models, lists, base, frames, remember, listen, notes }); };
+
+// The notes for every project, which go with the project's own to every request.
+export const generalNotes = () => (typeof ai.notes === 'string' ? ai.notes : '');
+const instructions = (base = SYSTEM) => withNotes(base, { general: generalNotes(), notes: hooks.notes() });
 
 // The OpenAI key, if there is one: a dialogue lane can be found with it too.
 export const openaiKey = () => keys().openai || '';
@@ -171,7 +176,7 @@ async function send(msg, shown, frames, draft = null) {
   bubble('user', shown, frames);
   const turn = { role: 'user', text: msg, images: frames.map(({ data, at }) => ({ data, at })) };
   const provider = ai.provider, model = ai.models[provider];
-  const req = buildRequest(provider, { key: keys()[provider], model, base: ai.base, system: systemWith(hooks.notes()), messages: recentFrames([...chat, turn]) });
+  const req = buildRequest(provider, { key: keys()[provider], model, base: ai.base, system: instructions(), messages: recentFrames([...chat, turn]) });
   const out = bubble(`assistant${draft ? ' draft' : ''}`);
   const tag = document.createElement('span');
   tag.className = 'tag';
@@ -255,7 +260,7 @@ const unquote = (t) => t.trim().replace(/^["“]|["”]$/g, '').trim();
 // One draft, outside the chat. Busy providers are tried again after a wait. Returns
 // { text }, { declined: true } or { failed: message } for this block alone; throws when
 // no other block would do better either, such as a key that's refused.
-async function requestDraft(text, frames, signal, system = systemWith(hooks.notes())) {
+async function requestDraft(text, frames, signal, system = instructions()) {
   const provider = ai.provider, name = PROVIDERS[provider].name;
   const req = buildRequest(provider, {
     key: keys()[provider], model: ai.models[provider], base: ai.base, system,
@@ -417,7 +422,7 @@ async function summariseScenes(from = 0, to = Infinity, only = null) {
         let frames = [];
         try { frames = await grabFrames(framesFor(s.start, s.end, SCENE_STILLS), 512); } catch { /* the subtitles alone */ }
         const prompt = summaryPrompt(s, hooks.dialogueLines(), storySoFar(hooks.scenes(), k), frames.map((f) => f.at), short);
-        const r = await requestDraft(prompt, frames, signal, systemWith(hooks.notes(), SCENE_SYSTEM));
+        const r = await requestDraft(prompt, frames, signal, instructions(SCENE_SYSTEM));
         if (signal.aborted || lost()) break;
         // Someone may have typed one meanwhile: theirs stays, unless they asked for this one again.
         const now = hooks.scenes();
@@ -481,7 +486,7 @@ function renderScriptDlg() {
       : 'Gaps come from the subtitles alone. Speech with no subtitle, such as a song, can end up under a draft.';
   $('aiScriptListenSetup').hidden = can || heard;
   $('aiScriptPrivacy').textContent = local ? 'Everything stays on this computer.'
-    : `${ai.frames} still${ai.frames === 1 ? '' : 's'} from each gap, the nearby blocks and subtitles, and your project notes go to ${P.name}.`;
+    : `${ai.frames} still${ai.frames === 1 ? '' : 's'} from each gap, the nearby blocks and subtitles, and your notes go to ${P.name}.`;
 }
 export function openDraftScript() {
   if (!hooks.writing()) return hooks.toast('Drafting descriptions is part of Write mode');
@@ -534,6 +539,7 @@ export function openAiSettings() {
   $('aiProvider').value = ai.provider || 'anthropic';
   renderSetup();
   renderTmdb();
+  $('setAiNotesText').value = generalNotes();
   showSettings('ai');
 }
 function renderTmdb() {
@@ -713,6 +719,9 @@ export function initAi(h) {
     $('setTmdbStatus').textContent = e.target.value ? 'Saved.' : 'Forgotten.';
   });
   $('setTmdbForget').addEventListener('click', () => { setKey('tmdb', ''); renderTmdb(); $('setTmdbStatus').textContent = 'Forgotten.'; });
+  $('setAiNotesText').value = generalNotes();
+  $('setAiNotesText').addEventListener('input', (e) => { ai.notes = e.target.value; save(); });
+  $('aiNotesGeneral').addEventListener('click', openAiSettings);
   $('aiNotesBtn').addEventListener('click', () => toggleNotes());
   $('aiNotes').addEventListener('input', () => { hooks.setNotes($('aiNotes').value); showNotesState(); });
   $('aiTmdbGet').href = TMDB_KEY_PAGE;

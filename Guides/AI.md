@@ -40,6 +40,9 @@ out beside the video.
 - **Notes:** tell the AI what the frames can't show, such as who's who. Every draft and
   message includes them, and they're saved with the project. **Scenes**, under the notes,
   holds [scene summaries](#scene-summaries).
+- **Notes for every project:** in Settings, under **AI help**. Rules for all your work go
+  here, such as "don't describe the credits". Every project's drafts and messages include
+  them. Where they disagree with a project's notes, the project's notes win.
 - **New chat** starts again.
 - **Check grammar with AI:** in the [spelling and grammar check](GETTING-STARTED.md#checking-spelling-and-grammar).
   It suggests fixes for mistakes the offline check misses. Nothing changes until you choose a fix.
@@ -258,13 +261,15 @@ script around a block. A model that needs more can take a higher `OLLAMA_CONTEXT
 
 ## Getting the best descriptions
 
-1. **Write project notes.** This helps more than anything after the model. Tell the AI what
-   it can't see in a still:
+1. **Write notes.** This helps more than anything after the model. In the project's
+   **Notes**, tell the AI what it can't see in a still:
    - who's who, and how to tell them apart: "Mara: woman in her 40s, short grey hair, red
      coat. Her son Theo, about 10, curly hair.";
-   - where and when: "A hospital in Leeds, winter, present day.";
-   - your team's style: "Present tense. Name characters once they've been introduced.
-     British spelling. No 'we see'."
+   - where and when: "A hospital in Leeds, winter, present day."
+
+   Put your team's style in **Notes for every project**, in Settings, so you write it once:
+   "Present tense. British spelling. No 'we see'. Don't describe the opening or closing
+   credits."
 
    **Look up the cast**, under the notes, fills in the character names for you: paste the
    programme's IMDb link (an episode's own link adds its guest cast too), or type its title,
@@ -293,12 +298,12 @@ And always check a draft against the picture: AI is confident even when it's wro
 - Nothing is sent anywhere until you connect a provider and send a message or ask for a
   draft.
 - With an online provider, each message or draft sends the frames it uses, the selected
-  block and those around it, and your project notes, to that provider only, under its terms.
+  block and those around it, and your notes, to that provider only, under its terms.
   Scribecue's own server never sees them.
 - **Summarise scenes** sends 8 stills from each scene, its subtitles and the summaries
   before it. Drafts and chat then send their scene's summary too.
 - **Find dialogue with OpenAI** sends the programme's audio to OpenAI.
-- **Check grammar with AI** sends the whole script and your project notes, in parts.
+- **Check grammar with AI** sends the whole script and your notes, in parts.
 - With Ollama, everything stays on your computer.
 - Keys stay in your browser, and only go to their own provider. Your TMDB key, if you look
   up a cast, only goes to TMDB, with the IMDb link or title you looked up.

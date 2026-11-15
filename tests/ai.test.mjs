@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PROVIDERS, SYSTEM, systemWith, usefulOpenAI, usefulGemini, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, nearbyScript, draftPrompt,
+  PROVIDERS, SYSTEM, systemWith, withNotes, usefulOpenAI, usefulGemini, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, nearbyScript, draftPrompt,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from '../app/js/ai.js';
 
@@ -165,6 +165,19 @@ test('project notes go with the instructions, and nothing extra goes without the
     const r = JSON.stringify(buildRequest(p, { key: 'k', model: 'm', system: s, messages: [{ role: 'user', text: 'hi' }] }).body);
     assert.match(r, /Mara: red coat/, p);
   }
+});
+
+test('notes for every project go first, and the project’s own notes win', () => {
+  assert.equal(withNotes(SYSTEM, { general: ' \n ', notes: '' }), SYSTEM);
+  const g = systemWith('', SYSTEM, 'Skip the credits.');
+  assert.ok(g.startsWith(SYSTEM));
+  assert.match(g, /notes for every programme.*\nSkip the credits\.$/s);
+  assert.doesNotMatch(g, /about this programme/);
+  const both = systemWith('Mara: red coat.', SYSTEM, 'Skip the credits.');
+  assert.ok(both.indexOf('Skip the credits.') < both.indexOf('Mara: red coat.'));
+  assert.match(both, /about this programme, which come first where the two disagree/);
+  // project notes alone read as before
+  assert.doesNotMatch(systemWith('Mara: red coat.'), /every programme|disagree/);
 });
 
 test('models that can’t see the frames or write a description aren’t offered', () => {
