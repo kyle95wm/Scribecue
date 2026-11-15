@@ -52,7 +52,9 @@ try {
     if (m.result?.exceptionDetails) throw Error(m.result.exceptionDetails.exception?.description || 'script error');
     return m.result.result.value;
   };
-  for (let i = 0; i < 50 && !(await js('document.readyState === "complete"').catch(() => false)); i++) await new Promise((r) => setTimeout(r, 100));
+  // A new tab starts as about:blank, which is already "complete": wait for the app's own page.
+  const loaded = `location.href.startsWith(${JSON.stringify(site)}) && document.readyState === "complete"`;
+  for (let i = 0; i < 100 && !(await js(loaded).catch(() => false)); i++) await new Promise((r) => setTimeout(r, 100));
 
   const results = await js(`import('./js/pickers.js').then(async ({ PICKERS, picker }) => {
     const out = {};

@@ -118,6 +118,8 @@ const watcher = setInterval(() => { const now = pssMB(); peakPss = Math.max(peak
 
 const results = [];
 const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * p))] : 0; };
+// The largest, or 0: a long step can collect too many to spread into Math.max.
+const most = (a) => a.reduce((m, v) => (v > m ? v : m), 0);
 async function reset() { await js(`(() => { const m = window.__m; m.long.length = m.gaps.length = m.events.length = m.late.length = 0; })()`); }
 async function collect() {
   // Lets the responses to the last keys and clicks arrive.
@@ -131,10 +133,10 @@ const HOVER = /^(pointer|mouse)(over|out|enter|leave|move)$/;
 function row(name, ms, s, note = '') {
   const felt = s.events.filter((e) => !HOVER.test(e[0]));
   const r = {
-    name, ms: Math.round(ms), longTasks: s.long.length, longestTask: Math.round(Math.max(0, ...s.long)),
+    name, ms: Math.round(ms), longTasks: s.long.length, longestTask: Math.round(most(s.long)),
     blocked: Math.round(s.long.reduce((a, b) => a + Math.max(0, b - 50), 0)),
-    worstGap: Math.round(Math.max(0, ...s.gaps)), p95Gap: Math.round(pct(s.gaps, 0.95)),
-    worstResponse: Math.round(Math.max(0, ...felt.map((e) => e[1]))), responses: felt.length,
+    worstGap: Math.round(most(s.gaps)), p95Gap: Math.round(pct(s.gaps, 0.95)),
+    worstResponse: Math.round(most(felt.map((e) => e[1]))), responses: felt.length,
     heapMB: Math.round(s.heap / 1048576), pssMB: Math.max(pssMB(), stepPeak), note,
   };
   results.push(r);
@@ -482,6 +484,25 @@ try {
     await js(`(async () => { const t = await import('./js/tts.js'); t.setTtsOption('trackAs', 'mp3-96'); return 1; })()`);
     await exporting('Export description track, MP3', '#ttsExport', 'ttsExportStatus', 900);
     await exporting('Export the full mix, WAV', '#ttsMixExport', 'ttsMixStatus', 1800);
+    // In the video, as the web version does it: the browser writes the copy (mux-worker.js).
+    // Nobody can answer the save picker here, so it hands over a file in the browser's storage.
+    await js(`(async () => { const t = await import('./js/tts.js'); t.setTtsOption('mixInto', 'add');
+      const dir = await navigator.storage.getDirectory();
+      window.showSaveFilePicker = () => dir.getFileHandle('tour-mix.mp4', { create: true }); return 1; })()`);
+    await step('Export the full mix in the video', async () => {
+      // The last export may still be finishing: wait for its button, then for this one's message.
+      await until(`!document.getElementById('ttsMixExport').hidden`, 600, 500);
+      await press('V', 'KeyV', { mods: MODS.alt | MODS.shift, text: 'V' }); await sleep(500);
+      await js(`document.getElementById('ttsMixStatus').textContent = ''; 1`);
+      await click('#ttsMixExport');
+      await until(`/^Saved .*\\.mp4|^Couldn|Couldn’t put/.test(document.getElementById('ttsMixStatus').textContent)`, 2400, 500);
+      const said = await js(`document.getElementById('ttsMixStatus').textContent`);
+      const mb = await js(`(async () => { const d = await navigator.storage.getDirectory();
+        const n = (await (await d.getFileHandle('tour-mix.mp4')).getFile()).size; await d.removeEntry('tour-mix.mp4'); return Math.round(n / 1e6); })()`);
+      await closeDialogs();
+      return `${said.slice(0, 70)} (${mb} MB)`;
+    });
+    await js(`(async () => { const t = await import('./js/tts.js'); t.setTtsOption('mixInto', ''); return 1; })()`);
     // The same with a pause for every block: without ffmpeg here, the extended video is the
     // audio and a filter file.
     await js(`document.getElementById('ttsExtendedAll').click(); 1`);

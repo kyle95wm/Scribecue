@@ -60,7 +60,7 @@ See [The web version and Docker compared](Guides/TRANSCRIBING.md#the-web-version
 | Description track, WAV or MP3 | ✓ | ✓ |
 | Full mix, WAV or MP3, with stems and loudness | ✓ | ✓ |
 | **Full mix as AAC, AC-3 or E-AC-3** | No | `ffmpeg` container |
-| **Full mix in the video** | An ffmpeg command to run yourself | `ffmpeg` container, or the command |
+| **Full mix in the video** | ✓ Without subtitle tracks | ✓ With the `ffmpeg` container, subtitle tracks too |
 | **Extended video** | The audio and an ffmpeg command | `ffmpeg` container, or the command |
 | **Video with subtitles** | The script and an ffmpeg command | `ffmpeg` container, or the command |
 | DAW markers and pause list | ✓ | ✓ |

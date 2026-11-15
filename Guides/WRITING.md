@@ -130,7 +130,7 @@ picture holds while the block is read, then carries on.
 
 - **To mix it yourself:** turn off **Include the narration** first. You get the programme's sound at its own level, silent during each pause.
 - **It takes time:** the whole picture is made again, so a film can take as long as it runs.
-- **It needs ffmpeg:** in Docker, it's made for you. Without it, you get the audio and a filter file. Run the command Scribecue shows in a folder with those and the video.
+- **It needs ffmpeg:** in Docker, it's made for you. Without it, you get the audio, a filter file and a command to [run yourself](GETTING-STARTED.md#running-ffmpeg-yourself).
 - **Once the narrator has recorded:** make it from their narration WAV instead, so it stops for their reads. See [An extended video for the narration](RECORDING.md#an-extended-video-for-the-narration).
 
 ## Exporting the full mix
@@ -150,14 +150,15 @@ For a video with several audio tracks, it uses the one that's playing.
 
 ### Putting it in the video
 
-- **With ffmpeg on your computer:** after the export, Scribecue shows a command. Copy it,
-  and run it in a folder with the video and the mix.
-- **Running Scribecue in Docker:** add [ffmpeg](INSTALL.md#the-full-mix-in-the-video-ffmpeg),
-  then choose **In the video**. You get the video back with the mix as an extra audio
-  description track, or in place of its sound.
+Choose **In the video** before you export: as an extra audio description track, or in
+place of its sound. It works with MP4, MOV, MKV and WebM videos.
 
-Both work with MP4, MOV, MKV and WebM videos. In Docker, ffmpeg can also save the mix as
-AAC, AC-3 or E-AC-3.
+- **In Chrome or Edge:** Scribecue asks where to save the video, then makes it. The picture
+  and sound tracks are copied as they are, so it's quick. Subtitle tracks are left out.
+- **With [ffmpeg in Docker](INSTALL.md#the-full-mix-in-the-video-ffmpeg):** ffmpeg makes
+  it instead, and keeps subtitle tracks. It can also save the mix as AAC, AC-3 or E-AC-3.
+- **In other browsers, or if it can't be done:** you get the mix and an ffmpeg command to
+  [run yourself](GETTING-STARTED.md#running-ffmpeg-yourself).
 
 To mix it yourself instead, see [Mixing](MIXING.md).
 

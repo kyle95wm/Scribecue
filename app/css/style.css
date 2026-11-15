@@ -1111,6 +1111,10 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 .ffcmds[hidden] { display: none; }
 .ffcmds .ffcmdhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 0; }
 .ffcmds pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px var(--mono); }
+.ffhelp { margin-top: 10px; }
+.ffhelp summary { cursor: pointer; color: var(--dim); }
+.ffhelp summary:hover { color: var(--text); }
+.ffhelp > p.small:first-of-type { margin-top: 6px; }
 .updbox pre { margin: 8px 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; user-select: all; }
 .updbtns { display: flex; gap: 8px; margin-top: 16px; }
 .updnew { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 6px; }

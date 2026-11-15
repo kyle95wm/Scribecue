@@ -19,8 +19,14 @@ export const PICKERS = {
   authorProject: { kind: 'save', types: [{ description: 'Scribecue project', accept: { 'application/json': [PROJECT_EXT] } }] },
   qcPackage: { kind: 'save', types: [{ description: 'QC package', accept: { 'application/octet-stream': [REVIEW_EXT] } }] },
   session: { kind: 'save', id: 'scribecue-session', types: [{ description: 'Scribecue recording session', accept: { 'application/zip': [SESSION_EXT] } }] },
+  // A copy of the video with the full mix in it (muxplan.js). videoOut(ext) gives its type.
+  videoOut: { kind: 'save', id: 'scribecue-video', types: [{ description: 'Video', accept: { 'video/mp4': ['.mp4'] } }] },
   folder: { kind: 'folder', id: 'scribecue-session', mode: 'readwrite', startIn: 'documents' },
 };
+
+const VIDEO_TYPES = { mp4: 'video/mp4', m4v: 'video/x-m4v', mov: 'video/quicktime', mkv: 'video/x-matroska', webm: 'video/webm' };
+// The save picker's type for a video of this extension.
+export const videoOut = (ext) => [{ description: 'Video', accept: { [VIDEO_TYPES[ext] || 'video/mp4']: [`.${ext}`] } }];
 
 const FN = { open: 'showOpenFilePicker', save: 'showSaveFilePicker', folder: 'showDirectoryPicker' };
 
