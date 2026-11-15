@@ -306,16 +306,20 @@ And always check a draft against the picture: AI is confident even when it's wro
 
 ## Costs
 
-Online providers charge by the amount sent and received. A draft with 3 frames sends about
-2,000 tokens and gets a short reply back: roughly 1–2 cents with Claude Opus 5.5, about a
-cent with Sonnet 5.5, and a fraction of a cent with Haiku 5.5. With OpenAI, it's about
-2–3 cents with GPT-6 Astra, half a cent with GPT-6.1 Sol, and a tiny fraction of a cent
-with GPT-6 Luna. These are estimates; your
-provider's dashboard shows the real figures. **Draft the script** makes one draft per gap,
-so a whole film costs a few hundred drafts. Scene summaries add about 50 requests for a
-two-hour film. Long chats cost more, though only the latest
-messages resend their frames. **Check grammar with AI** sends the whole script, so a long
-script costs more than a draft. Ollama costs nothing to use.
+Online providers charge by the amount sent and received. These are estimates; your
+provider's dashboard shows the real figures.
+
+- **A draft** sends 3 frames, about 2,000 tokens, and gets a short reply. With Claude, it's
+  roughly 1–2 cents with Opus 5.5, about a cent with Sonnet 5.5, and a fraction of a cent
+  with Haiku 5.5. With OpenAI, it's about 2–3 cents with GPT-6 Astra, half a cent with
+  GPT-6.1 Sol, and a tiny fraction of a cent with GPT-6 Luna.
+- **Draft the script** makes one draft per gap, so a whole film costs a few hundred drafts.
+- **Scene summaries** add about 50 requests for a two-hour film.
+- **Chats** cost more as they grow, though only the latest messages resend their frames.
+- **Check grammar with AI** sends the whole script, so a long script costs more than a draft.
+- **Find dialogue with OpenAI** costs about 36 cents an hour of programme. Its window shows
+  the price before you start.
+- **Ollama** costs nothing to use.
 
 ## If something goes wrong
 
