@@ -1,0 +1,34 @@
+# A test copy of Scribecue from another branch, such as dev, beside the release copy.
+# Start it with scripts/docker-up.sh, which fills in the branch and the network below.
+# It has its own address, so its work in the browser stays apart from the release's.
+# It uses the release copy's Piper, Kokoro, Whisper and ffmpeg, so they don't run twice.
+name: scribecue-dev
+
+services:
+  scribecue:
+    build:
+      context: .
+      args:
+        # Shown after the version in the footer.
+        BRANCH: ${SCRIBECUE_BRANCH:-dev}
+    image: scribecue:dev
+    container_name: scribecue-dev
+    # Bound to 127.0.0.1 so only this machine can reach it. Change the port with
+    # SCRIBECUE_DEV_PORT in .env.
+    ports:
+      - "127.0.0.1:${SCRIBECUE_DEV_PORT:-9484}:8080"
+    networks: [default, voices]
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+networks:
+  # The release copy's internal network, where its voices and ffmpeg are.
+  voices:
+    external: true
+    name: ${SCRIBECUE_VOICES_NETWORK:-scribecue-dev-voices}

@@ -421,11 +421,10 @@ and port as before.
 New features land on the `dev` branch first, before a release. You can run it to try them
 early. It's for testing, so expect some things to be unfinished or broken.
 
-**Before you switch:** save each project with **File → Save**, and back up your settings
-with **Settings → Storage → Export settings…**. Projects and settings saved by `dev` may not
-open in a release.
+`dev` runs beside the release, at its own address. The release stays at
+<http://localhost:8484/>, with your work as it was.
 
-To switch to `dev`, run these in the `Scribecue` folder, then reload the page:
+To start it, run these in the `Scribecue` folder:
 
 ```bash
 git switch dev
@@ -439,19 +438,23 @@ git pull
 scripts/docker-up.sh
 ```
 
-The footer then shows "· dev" after the version.
+Then open <http://localhost:9484/>. The footer shows "· dev" after the version.
 
+- **It starts empty.** Each address keeps its own work. To bring your settings, use
+  **Settings → Storage → Export settings…** in the release, then **Import settings…** in
+  `dev`. To try a project, save it in the release and open the file in `dev`.
+- **Keep your work in the release.** Projects saved in `dev` may not open in a release.
+- **Voices, speech to text and ffmpeg** come from the release, so start the release first.
 - **To get the latest:** run `git pull`, then `scripts/docker-up.sh`. Scribecue doesn't tell
   you about changes on `dev`, only about releases.
-- **Rebuild with `scripts/docker-up.sh`.** `docker compose up -d --build` runs `dev` too,
-  but without "· dev" in the footer.
+- **To update the release** while on `dev`, run `scripts/docker-up.sh main`. Running
+  `docker compose up -d --build` here would put `dev` at the release's address.
 - **What's new** and the guides only describe changes once they're released.
 - **Reporting a problem:** include the report from **Settings → Diagnostics**. It says the
   copy is from `dev`.
+- **Another port:** add `SCRIBECUE_DEV_PORT=9500` to `.env`, then run `scripts/docker-up.sh`.
 
-To go back to the release, run `git switch main`, then `docker compose up -d --build`. Both
-use the same address, so the release opens the work and settings `dev` left in the browser.
-If something won't open, import the settings you exported before switching.
+To stop trying `dev`, run `scripts/docker-up.sh stop`, then `git switch main`.
 
 ### If you used the takes container
 
@@ -508,8 +511,8 @@ python3 -m http.server -d app 8484
 Served like this, the guides don't open inside Scribecue (links to them go to GitHub), since
 they're copied next to the app only when the web version and the Docker image are built.
 
-To try a branch in Docker, run `scripts/docker-up.sh` instead of `docker compose up -d --build`.
-The footer then shows the branch after the version, as in
+To try a branch in Docker, run `scripts/docker-up.sh` on it. It runs beside the release at
+<http://localhost:9484/>, with the branch after the version in the footer, as in
 [Trying the next version](#trying-the-next-version).
 
 Run the checks before committing, pushing or opening a pull request:
