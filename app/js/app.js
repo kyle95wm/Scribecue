@@ -1565,8 +1565,15 @@ function moveToPlayhead() {
   changed(c.id);
   revealRange(c.start, c.end);
 }
-$('edBack').addEventListener('click', (e) => { e.currentTarget.blur(); nudge('move', -frame()); });
-$('edFwd').addEventListener('click', (e) => { e.currentTarget.blur(); nudge('move', frame()); });
+// The block editor's frame buttons and keys: the block moves a frame and the playhead goes
+// to its new start, so you see and hear where it now begins.
+function nudgeFrame(d) {
+  const c = selCue(), was = c?.start;
+  nudge('move', d);
+  if (c && c.start !== was) seek(c.start);
+}
+$('edBack').addEventListener('click', (e) => { e.currentTarget.blur(); nudgeFrame(-frame()); });
+$('edFwd').addEventListener('click', (e) => { e.currentTarget.blur(); nudgeFrame(frame()); });
 $('edHere').addEventListener('click', (e) => { e.currentTarget.blur(); moveToPlayhead(); });
 $('edComment').addEventListener('click', () => openBlockComments());
 // Pickup: the block goes in the next recording file as one to record again, with a note.
@@ -2126,7 +2133,7 @@ function editorKeys(e, field) {
   if (qcLocked() && ((os && ['ArrowLeft', 'ArrowRight', 'KeyD'].includes(e.code)) || (mod && ['b','i','u','z','y'].includes(e.key.toLowerCase())))) { e.preventDefault(); return true; }
   if (os && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
     e.preventDefault();
-    nudge('move', e.code === 'ArrowLeft' ? -frame() : frame());
+    nudgeFrame(e.code === 'ArrowLeft' ? -frame() : frame());
     updateEditorTimes();
     return true;
   }
