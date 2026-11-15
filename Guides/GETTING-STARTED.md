@@ -386,9 +386,9 @@ Speech to text can listen to the programme and make the lane from what's said.
 2. Choose where it listens:
    - **On this computer:** [Whisper](TRANSCRIBING.md#speech-to-text-with-whisper). Nothing
      leaves your computer. A film can take from a few minutes to over an hour.
-   - **With OpenAI:** quicker, with slightly tighter timings. It uses the OpenAI key from
-     [AI help](AI.md#connecting-a-provider), and sends the programme's audio to OpenAI. It
-     costs about 36 cents an hour of programme.
+   - **With OpenAI:** quicker, with slightly tighter timings. It uses an OpenAI key saved in
+     [AI help](AI.md#connecting-a-provider), even if you write with another provider. It
+     sends the programme's audio to OpenAI, and costs about 36 cents an hour of programme.
 3. Click **Find dialogue**. Progress shows under the header, with **Stop**. You can keep
    working.
 
