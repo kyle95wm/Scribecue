@@ -149,6 +149,8 @@ voice and reading time. The buttons after the times move it:
 - to start at the playhead;
 - forward one frame.
 
+After a one-frame move, the playhead goes to the block's new start.
+
 The × deletes it.
 
 **Notes** sit above the text. Use them to tell the narrator something, such as how to say

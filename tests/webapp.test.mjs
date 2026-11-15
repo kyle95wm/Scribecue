@@ -81,3 +81,10 @@ test('the guides and every screenshot they show are built in and kept offline', 
   const voices = readFileSync(new URL('../Guides/VOICES.md', import.meta.url), 'utf8');
   for (const s of samples) assert.ok(voices.includes(`(../docs/voices/${s})`), `VOICES.md doesn't link to ${s}`);
 });
+
+test("the block editor's frame buttons and keys move the playhead to the block's new start", () => {
+  const app = read('js/app.js');
+  assert.match(app, /function nudgeFrame\(d\) \{[^}]*nudge\('move', d\);\s*if \(c && c\.start !== was\) seek\(c\.start\);/);
+  for (const id of ['edBack', 'edFwd']) assert.match(app, new RegExp(`\\$\\('${id}'\\)\\.addEventListener\\('click', \\(e\\) => \\{ e\\.currentTarget\\.blur\\(\\); nudgeFrame\\(`));
+  assert.match(app, /nudgeFrame\(e\.code === 'ArrowLeft' \? -frame\(\) : frame\(\)\);/);
+});
