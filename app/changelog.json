@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.120.1",
+    "date": "2026-11-14",
+    "notes": "## Recording\n\n- Record mode's setup and the Recording guide now say how to hear yourself with a USB microphone: plug your headphones into the microphone, if it has a headphone socket.\n- No socket? Slide one side of the headphones off your ear."
+  },
+  {
     "version": "0.120.0",
     "date": "2026-11-14",
     "notes": "## The full mix in the video, without ffmpeg\n\n- **In the video** now works in the web version, and in Docker without ffmpeg. Choose it under **Export full mix** in the text to speech settings.\n- In Chrome or Edge, Scribecue asks where to save the video, then makes it. The picture and sound are copied as they are, so it's quick.\n- Subtitle tracks are left out. With ffmpeg in Docker, ffmpeg still makes it, and keeps them.\n\n## Help with ffmpeg\n\n- Under each ffmpeg command, **Don't have ffmpeg?** shows how to install it on your computer, and how to open a terminal in the right folder.\n- A new guide section, **Running ffmpeg yourself**, walks through it."
