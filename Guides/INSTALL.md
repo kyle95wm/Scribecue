@@ -471,6 +471,10 @@ python3 -m http.server -d app 8484
 Served like this, the guides don't open inside Scribecue (links to them go to GitHub), since
 they're copied next to the app only when the web version and the Docker image are built.
 
+To try a branch in Docker, run `scripts/docker-up.sh` instead of `docker compose up -d --build`.
+The footer then shows the branch next to the version, such as "v0.124.0 · dev", unless it's
+`main`.
+
 Run the checks before committing, pushing or opening a pull request:
 
 ```bash

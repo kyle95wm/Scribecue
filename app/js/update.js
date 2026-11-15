@@ -4,7 +4,7 @@
 // carries no cookies, no referrer and nothing about the user's work.
 
 export const VERSION = '0.124.0';
-import { HOSTED, REPO } from './config.js';
+import { HOSTED, REPO, BRANCH } from './config.js';
 import { openWhatsNew } from './whatsnew.js';
 import { openSettings } from './settings.js';
 
@@ -21,6 +21,26 @@ const set = (k, v) => { try { v === null ? localStorage.removeItem(k) : localSto
 const lastCheck = () => { try { return JSON.parse(get(K_LAST)) || null; } catch { return null; } };
 
 // 1.10.0 > 1.9.2; a leading "v" and anything after "-" are ignored.
+// The branch a test build came from, to show next to the version: '' for a release.
+export function branchTag(branch = BRANCH) {
+  const b = String(branch || '').trim();
+  return b && b !== 'main' ? b : '';
+}
+
+// The footer's version text, with the branch after it in the warning colour.
+function showVersion(btn, text) {
+  const tag = branchTag();
+  btn.replaceChildren(text);
+  if (!tag) return;
+  const span = document.createElement('span');
+  span.className = 'verbranch';
+  span.textContent = tag;
+  btn.append(' · ', span);
+}
+
+// The tooltip, saying which branch a test build came from.
+const branchTip = (tip) => branchTag() ? `Built from the ${branchTag()} branch, not a release. ${tip}` : tip;
+
 export function newer(a, b) {
   const p = (v) => String(v).replace(/^v/, '').split('-')[0].split('.').map((n) => parseInt(n, 10) || 0);
   const x = p(a), y = p(b);
@@ -74,10 +94,10 @@ function available() {
 function render() {
   const up = available();
   const btn = $('verBtn');
-  btn.textContent = up ? `Update available: ${up.latest.replace(/^v/, '')}` : `v${VERSION}`;
+  showVersion(btn, up ? `Update available: ${up.latest.replace(/^v/, '')}` : `v${VERSION}`);
   btn.classList.toggle('new', !!up);
-  btn.dataset.tip = up ? 'A newer version of Scribecue is out. Click for what\'s new and how to update'
-    : 'Scribecue version and update settings';
+  btn.dataset.tip = branchTip(up ? 'A newer version of Scribecue is out. Click for what\'s new and how to update'
+    : 'Scribecue version and update settings');
   // The alert drops down at the top for people who check for updates, until they skip
   // that version or put it off for this session.
   const alert = $('updAlert');
@@ -137,10 +157,10 @@ const STARTUP_MS = 20000;
 
 function initWebApp(opts = {}) {
   const btn = $('verBtn');
-  btn.textContent = `v${VERSION}`;
+  showVersion(btn, `v${VERSION}`);
   const idle = opts.idle || (() => false);
   const plain = () => {
-    btn.textContent = `v${VERSION}`;
+    showVersion(btn, `v${VERSION}`);
     btn.classList.remove('on');
     btn.dataset.tip = 'The web version of Scribecue updates itself. Click to see what’s new in this version';
   };
@@ -161,7 +181,7 @@ function initWebApp(opts = {}) {
   const ready = (w) => {
     waiting = w;
     if (Date.now() - opened < STARTUP_MS && idle()) return apply();
-    btn.textContent = `v${VERSION} · update ready`;
+    showVersion(btn, `v${VERSION} · update ready`);
     btn.classList.add('on');
     btn.dataset.tip = 'A new version is ready. Click to update now, or it’s used the next time you open Scribecue';
   };
