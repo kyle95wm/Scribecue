@@ -1010,7 +1010,8 @@ docker compose up -d --build</code></pre>
       <textarea id="aiNotes" rows="6" spellcheck="true"
         placeholder="Mara: woman in her 40s, short grey hair, red coat. Her son Theo, about 10.&#10;Set in a hospital in Leeds, winter.&#10;Name characters once they've been introduced. British spelling."></textarea>
       <p class="dim small">Useful: who's who and how to tell them apart, places, the period, and your
-        team's style. These go to your AI provider with the frames.</p>
+        team's style. These go to your AI provider with the frames.
+        <button id="aiNotesGeneral" class="link">Notes for every project</button> are in Settings.</p>
       <div class="ailookup">
         <label for="aiLookup" class="small"><strong>Look up the cast</strong> from an IMDb link, or a title</label>
         <p class="updstatus"><input id="aiLookup" type="text" spellcheck="false" autocomplete="off"
@@ -1614,6 +1615,14 @@ docker compose up -d --build</code></pre>
       <p class="dim small">Blocks you mark, and reads you time, with <kbd>H</kbd> move back by this much, because
         you let go a moment after you hear the voice. 200 ms suits most people. <kbd>⇧</kbd><kbd>H</kbd> changes it too.</p>
       <h3>Speech to text</h3>
+    </div>
+    <div id="setAiNotes" hidden>
+      <h3>Notes for every project</h3>
+      <label for="setAiNotesText" class="small">What AI help should always know, such as your team's style and what
+        to leave out. They go with each project's own notes to every draft, message and grammar check.</label>
+      <textarea id="setAiNotesText" rows="5" spellcheck="true"
+        placeholder="Don't describe opening or closing credits, logos or title cards.&#10;Do read a caption or sign that matters to the story.&#10;British spelling."></textarea>
+      <p class="dim small">Kept on this computer. Where they disagree with a project's notes, the project's notes win.</p>
     </div>
     <div id="setTmdb" hidden>
       <h3>Looking up the cast</h3>

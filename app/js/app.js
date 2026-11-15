@@ -14,7 +14,7 @@ import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.
 import { HOSTED, BRANCH } from './config.js';
 import { CHOICES, DEFAULTS, shownAppearance, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
 import { initFloat, loadKind, saveKind, canOwnWindow } from './floatvideo.js';
-import { initAi, toggleAi, aiNotesChanged, openAiSettings, openDraftScript, openaiKey } from './aidrawer.js';
+import { initAi, toggleAi, aiNotesChanged, openAiSettings, openDraftScript, openaiKey, generalNotes } from './aidrawer.js';
 import { LABEL as HEARD, PART_LOCAL, PART_ONLINE, PART_WEB, partsOf, linesFrom, keepIn, openaiCost, span, timeLeft, openaiRequest, openaiHeard } from './heardlane.js';
 import { failure } from './ai.js';
 import { cleanScenes } from './aiscript.js';
@@ -7286,7 +7286,7 @@ initQc({
 });
 
 initCheck({
-  blocks: () => S.cues, words: () => S.words, notes: () => S.notes, project: () => S.projectId,
+  blocks: () => S.cues, words: () => S.words, notes: () => S.notes, generalNotes, project: () => S.projectId,
   locked: () => S.mode === 'record', canEdit: () => !qc() && S.mode !== 'record', toast, tc,
   addWord(word) { S.words = cleanWords([...S.words, word]); changed(); },
   // Changes several blocks as one step to undo.
@@ -7927,6 +7927,7 @@ adopt($('ttsDlg'), 'tts', { skip: ['#ttsClose'] });
 addSection('voices', 'Online voices', { open: () => { openTts(); openSettings('voices'); } });
 share($('ttsDlg'), 'voices', [$('ttsOnlineVoices')]);
 addSection('ai', 'AI help', { open: openAiSettings, content: $('aiSetup') });
+place($('setAiNotes'), 'ai');
 place($('setTmdb'), 'ai');
 addSection('keys', 'Keyboard shortcuts', { open: () => openKeys(), search: shortcutEntries });
 adopt($('keysDlg'), 'keys', { skip: ['#keysDone'] });

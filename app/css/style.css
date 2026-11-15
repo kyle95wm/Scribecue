@@ -1411,7 +1411,7 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 #aiStop[hidden] { display: none; }
 #aiBtn[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 .aidrawer [hidden] { display: none !important; }
-#aiNotes { width: 100%; margin: 6px 0 2px; font: 13px/1.45 var(--sans); }
+#aiNotes, #setAiNotesText { width: 100%; margin: 6px 0 2px; font: 13px/1.45 var(--sans); }
 #aiNotesBtn.on { color: var(--accent); border-color: var(--accent); }
 #verBtn.on { color: var(--accent); border-color: var(--accent); }
 #newDlg [hidden], #sttDlg [hidden] { display: none; }

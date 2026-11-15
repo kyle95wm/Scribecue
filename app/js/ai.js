@@ -33,12 +33,17 @@ Keep the names and style the script already uses, and don't name someone the scr
 
 Video frames you're given are stills from the programme, each labelled with its timecode.`;
 
-// The instructions with the writer's notes about this programme, which can say what the
-// frames can't: who the characters are, where it's set, how the team writes.
-export function systemWith(notes = '', base = SYSTEM) {
-  const n = notes.trim();
-  return n ? `${base}\n\nThe writer's notes about this programme. Follow them, and use the names they give:\n${n}` : base;
+// The instructions with the writer's notes, which can say what the frames can't. Notes for
+// every project (Settings) come first: the team's style, what to leave out. The notes about
+// this programme come last, so they win where the two disagree.
+export function withNotes(base, { general = '', notes = '', intro = "Follow them, and use the names they give:" } = {}) {
+  const g = general.trim(), n = notes.trim();
+  let s = base;
+  if (g) s += `\n\nThe writer's notes for every programme. Follow them:\n${g}`;
+  if (n) s += `\n\nThe writer's notes about this programme${g ? ', which come first where the two disagree' : ''}. ${intro}\n${n}`;
+  return s;
 }
+export const systemWith = (notes = '', base = SYSTEM, general = '') => withNotes(base, { general, notes });
 
 // The instructions for summarising scenes, before any drafting.
 export const SCENE_SYSTEM = `You help a writer prepare audio description for blind and partially sighted viewers. Before they draft, you summarise each part of the programme from stills and the subtitles, so later descriptions know who people are and what has happened.
