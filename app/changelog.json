@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.124.0",
+    "date": "2026-11-15",
+    "notes": "## Subtitles for deaf viewers in the dialogue lane\n\n- The dialogue lane keeps only the words. Sound notes such as [whispering] and speaker names such as JOHN: are left out.\n- Song lyrics between ♪ don't count as speech, so the gaps over songs open up for description.\n- A sound or song before or after the words no longer counts as speech, so the gap beside it is wider.\n\n## Also\n\n- The AI guide says an OpenAI key saved in AI help can find the dialogue while Claude stays connected."
+  },
+  {
     "version": "0.123.0",
     "date": "2026-11-15",
     "notes": "## Find the dialogue with speech to text\n\n- No subtitles? Pick **Find dialogue with speech to text…** in **Dialogue**, under the video, or press Alt+Shift+L.\n- Speech to text listens to the programme and makes a dialogue lane from what's said, so D, U and Draft the script work.\n- It listens on this computer, or with OpenAI using your AI help key, which is quicker but sends the audio.\n- Stop keeps what's found, and running it again carries on.\n\n## Also\n\n- In the web version, Whisper is now a version of the same model that knows when each word is said. If you've downloaded it already, click **Download Whisper** in the speech to text settings once more (166 MB)."
