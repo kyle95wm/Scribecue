@@ -15,6 +15,7 @@ import { HOSTED } from './config.js';
 import { CHOICES, DEFAULTS, shownAppearance, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
 import { initFloat, loadKind, saveKind, canOwnWindow } from './floatvideo.js';
 import { initAi, toggleAi, aiNotesChanged, openAiSettings, openDraftScript } from './aidrawer.js';
+import { cleanScenes } from './aiscript.js';
 import { initCheck, openCheck, checkFirst } from './proofdialog.js';
 import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
 import { collaborationJob, retainHistory, makesFiles } from './collaboration.js';
@@ -209,6 +210,7 @@ const S = {
   comments: [], // comments at fixed timeline times
   bookmarks: [], // the writer's own bookmarks: { id, time, title, notes, kind }
   notes: '', // the writer's notes about the programme, for AI help
+  scenes: [], // AI help's summary of each stretch: [{ start, end, text, edited }]
   words: [], // names and terms the spelling check accepts in this project
   projectId: newIdentity(), reviewHistory: null, reviewAudio: null,
   recording: null, // this project's recording files: { id, version, sent } (see cleanRecording)
@@ -1410,6 +1412,7 @@ function save() {
       // The open video, so it can be reopened after a reload, or else the project's.
       projectMedia: S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size } : S.projectMedia,
       notes: S.notes,
+      scenes: S.scenes,
       words: S.words,
       comments: S.comments,
       bookmarks: S.bookmarks,
@@ -1436,6 +1439,7 @@ function loadSaved() {
       S.savedDirty = o.dirty !== false;
       S.projectMedia = o.projectMedia || null;
       S.notes = typeof o.notes === 'string' ? o.notes : '';
+      S.scenes = cleanScenes(o.scenes);
       S.extendedAll = o.extendedAll === true;
       S.ttsOff = o.ttsOff === true;
       S.words = cleanWords(o.words);
@@ -4985,6 +4989,7 @@ function projectData() {
     projectId: S.projectId, reviewHistory: S.reviewHistory, reviewAudio: S.reviewId ? null : S.reviewAudio,
     blocks: S.cues,
     notes: S.notes,
+    scenes: S.scenes,
     words: S.words,
     comments: S.comments,
     bookmarks: S.bookmarks,
@@ -5201,6 +5206,7 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
   S.comments = p.comments;
   S.bookmarks = p.bookmarks;
   S.notes = p.notes;
+  S.scenes = p.scenes || [];
   S.words = p.words;
   S.recording = p.recording;
   aiNotesChanged();
@@ -5574,6 +5580,7 @@ async function enterRecording(r, name, raw = null) {
   S.comments = [];
   S.bookmarks = [];
   S.notes = '';
+  S.scenes = [];
   S.words = [];
   aiNotesChanged();
   setFps(r.fps);
@@ -5761,6 +5768,7 @@ function newProject(ask = true) {
   S.bookmarks = [];
   if (!$('commentsDrawer').hidden) toggleComments(false);
   S.notes = '';
+  S.scenes = [];
   S.words = [];
   S.recording = null;
   setTtsOff(false);
@@ -6616,12 +6624,12 @@ function acceptAiDraft() {
 $('edAi').addEventListener('click', (e) => { e.currentTarget.blur(); acceptAiDraft(); });
 // The AI drafting the script, as a job under the header. fn(signal, progress) adds the
 // blocks; it all comes back with one undo, as long as nothing else was done meanwhile.
-function runAiScript(fn) {
+function runAiScript(fn, label = 'AI drafts') {
   return asJob(async () => {
     aiRun = new AbortController();
     pushUndo();
     const before = undoStack.at(-1), had = S.cues.length;
-    const progress = (frac, text) => { jobBar.value = frac; jobText.textContent = `AI drafts: ${text}`; jobBox.hidden = false; };
+    const progress = (frac, text) => { jobBar.value = frac; jobText.textContent = `${label}: ${text}`; jobBox.hidden = false; };
     try {
       const out = await fn(aiRun.signal, progress);
       // Undo takes the whole run back while it's the last thing done.
@@ -7202,6 +7210,17 @@ initAi({
   writing: () => writing(),
   toast,
   notes: () => S.notes,
+  scenes: () => S.scenes,
+  // The dialogue's gaps, for where scenes end; [] without a lane.
+  dialogueGaps: () => currentGaps(),
+  setScenes(list) {
+    S.scenes = list;
+    S.dirty = true;
+    showDocName();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 400);
+  },
+  seek: (t) => { S.playUntil = null; seek(t); },
   setNotes(text) {
     if (text === S.notes) return;
     S.notes = text;

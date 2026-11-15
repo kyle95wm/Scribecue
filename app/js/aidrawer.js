@@ -1,7 +1,7 @@
 // The AI help drawer: settings for the person's AI provider, a chat about the scene, and
 // "Draft this block". The requests themselves are built in ai.js.
 import {
-  PROVIDERS, buildRequest, recentFrames, systemWith, readReply, failure, listModels, fitBudget, draftPrompt, chatContext,
+  PROVIDERS, buildRequest, recentFrames, systemWith, readReply, failure, listModels, fitBudget, draftPrompt, chatContext, clock, SCENE_SYSTEM,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from './ai.js';
 import { tts, chosenVoice, DEFAULT_CPS, atBase } from './tts.js';
@@ -11,6 +11,7 @@ import { openSettings as showSettings } from './settings.js';
 import { parseTime } from './formats.js';
 import {
   gapsToDraft, splitGap, cutSamples, findCuts, dialogueAround, withBlock, estimate, estimateText, heardSpeech, SPLIT_OVER, DRAFT_MIN,
+  scenesFor, sceneContext, storySoFar, summaryPrompt, SCENE_STILLS,
 } from './aiscript.js';
 
 const $ = (id) => document.getElementById(id);
@@ -42,6 +43,7 @@ let hooks = {
   dialogueLines: () => [], freeGaps: () => null, duration: () => 0, noLane: '', identity: () => null, isFree: () => true,
   jobBusy: () => false, runJob: async () => null, insertDraft: () => null, undoKey: () => 'Ctrl+Z', nextKey: () => '',
   canListen: () => false, setUpListening: () => {}, listen: async () => '',
+  scenes: () => [], setScenes: () => {}, dialogueGaps: () => [], seek: () => {},
 };
 let chat = []; // the conversation, as ai.js messages
 let running = null; // AbortController of the request under way
@@ -77,11 +79,11 @@ const seekTo = async (g, at) => {
   g.currentTime = Math.max(0, Math.min(at, (g.duration || at + 1) - 0.05));
   await once(g, 'seeked', 5000);
 };
-// Stills from the video at these times, as JPEGs for the AI.
-async function grabFrames(times) {
+// Stills from the video at these times, as JPEGs for the AI, at most width pixels wide.
+async function grabFrames(times, width = 768) {
   if (!times.length) return [];
   return (await withGrabber(async (g) => {
-    const w = Math.min(768, g.videoWidth), h = Math.round(w * g.videoHeight / g.videoWidth);
+    const w = Math.min(width, g.videoWidth), h = Math.round(w * g.videoHeight / g.videoWidth);
     const cv = document.createElement('canvas');
     cv.width = w; cv.height = h;
     const out = [];
@@ -224,7 +226,7 @@ async function draftBlock(id = null, extra = '') {
   const budget = fitBudget(c.end - c.start, tts.cps[chosenVoice()] || DEFAULT_CPS, atBase(c.speed ?? 1, tts.base));
   let frames = [];
   try { frames = await grabFrames(framesFor(c.start, c.end, ai.frames)); } catch (e) { note(`No frames: ${e.message}.`); }
-  const prompt = draftPrompt(cues, i, budget, frames.map((f) => f.at), dialogueAround(hooks.dialogueLines(), c.start, c.end)) + (extra ? `\n${extra}` : '');
+  const prompt = draftPrompt(cues, i, budget, frames.map((f) => f.at), dialogueAround(hooks.dialogueLines(), c.start, c.end), sceneContext(hooks.scenes(), c.start)) + (extra ? `\n${extra}` : '');
   await send(prompt, `Draft block #${i + 1}${extra ? ` · ${extra}` : ''}`, frames, { id: c.id, n: i + 1 });
 }
 
@@ -236,7 +238,7 @@ async function sendChat() {
   if ($('aiFrame').checked) {
     try { frames = await grabFrames([hooks.playhead()]); } catch (e) { note(`No frame: ${e.message}.`); }
   }
-  const ctx = chatContext(hooks.cues(), hooks.selIndex(), hooks.playhead());
+  const ctx = chatContext(hooks.cues(), hooks.selIndex(), hooks.playhead(), sceneContext(hooks.scenes(), hooks.playhead()));
   await send(`${ctx}\n\n${text}`, text, frames);
 }
 
@@ -250,10 +252,10 @@ const unquote = (t) => t.trim().replace(/^["“]|["”]$/g, '').trim();
 // One draft, outside the chat. Busy providers are tried again after a wait. Returns
 // { text }, { declined: true } or { failed: message } for this block alone; throws when
 // no other block would do better either, such as a key that's refused.
-async function requestDraft(text, frames, signal) {
+async function requestDraft(text, frames, signal, system = systemWith(hooks.notes())) {
   const provider = ai.provider, name = PROVIDERS[provider].name;
   const req = buildRequest(provider, {
-    key: keys()[provider], model: ai.models[provider], base: ai.base, system: systemWith(hooks.notes()),
+    key: keys()[provider], model: ai.models[provider], base: ai.base, system,
     messages: [{ role: 'user', text, images: frames.map(({ data, at }) => ({ data, at })) }],
   });
   for (let attempt = 0; ; attempt++) {
@@ -321,7 +323,7 @@ async function draftScript(from, to, listen = false) {
           }
           const { cues, i } = withBlock(hooks.cues(), p);
           const budget = fitBudget(p.end - p.start, tts.cps[chosenVoice()] || DEFAULT_CPS, atBase(1, tts.base));
-          const prompt = `${draftPrompt(cues, i, budget, frames.map((f) => f.at), { ...dialogueAround(hooks.dialogueLines(), p.start, p.end), heard })}
+          const prompt = `${draftPrompt(cues, i, budget, frames.map((f) => f.at), { ...dialogueAround(hooks.dialogueLines(), p.start, p.end), heard }, sceneContext(hooks.scenes(), p.start))}
 This is one of a run of drafts through the whole programme, in order. Don't repeat what the blocks before it say.`;
           const r = await requestDraft(prompt, frames, signal);
           if (signal.aborted || lost()) break;
@@ -348,6 +350,95 @@ This is one of a run of drafts through the whole programme, in order. Don't repe
   if (n) note(`${what}${why}. They’re tagged AI draft until you edit or accept them.${heard}${deaf}`);
 }
 
+// ---- scene summaries
+
+const short = (t) => clock(t).replace(/^00:/, '').replace(/\.\d+$/, '');
+const sceneLabel = (s) => `${short(s.start)}–${short(s.end)}`;
+// The list in the Notes box: each stretch's times, its summary to check, and Again.
+function renderScenes() {
+  const list = $('aiScenes'), scenes = hooks.scenes();
+  const done = scenes.filter((s) => s.text.trim()).length;
+  $('aiScenesStatus').textContent = !scenes.length ? 'None yet.' : `${done} of ${scenes.length} summarised.`;
+  // Typing in one keeps its place: only a different list is drawn again.
+  const sig = scenes.map((s) => `${s.start}|${s.end}`).join(',');
+  if (list.dataset.sig === sig) {
+    [...list.children].forEach((li, k) => { const ta = li.querySelector('textarea'); if (document.activeElement !== ta) ta.value = scenes[k].text; });
+    return;
+  }
+  list.dataset.sig = sig;
+  list.textContent = '';
+  scenes.forEach((s, k) => {
+    const li = document.createElement('li');
+    const when = Object.assign(document.createElement('button'), { className: 'when', textContent: sceneLabel(s) });
+    when.dataset.tip = 'Go to this scene';
+    when.addEventListener('click', () => hooks.seek(hooks.scenes()[k].start));
+    const again = Object.assign(document.createElement('button'), { textContent: 'Again' });
+    again.dataset.tip = 'Summarise this scene again, replacing what’s here';
+    again.addEventListener('click', () => summariseScenes(0, Infinity, k));
+    const ta = Object.assign(document.createElement('textarea'), { rows: 3, value: s.text, placeholder: 'Not summarised yet' });
+    ta.setAttribute('aria-label', `Summary of ${sceneLabel(s)}`);
+    ta.spellcheck = true;
+    ta.addEventListener('input', () => {
+      const all = hooks.scenes().map((x, j) => (j === k ? { ...x, text: ta.value, edited: true } : x));
+      hooks.setScenes(all);
+      $('aiScenesStatus').textContent = `${all.filter((x) => x.text.trim()).length} of ${all.length} summarised.`;
+    });
+    li.append(when, again, ta);
+    list.append(li);
+  });
+}
+
+// Summarises the stretches between from and to that have no summary yet, in order, or
+// only scene `only`, replacing it. Runs as a job under the header.
+async function summariseScenes(from = 0, to = Infinity, only = null) {
+  if (!hooks.writing()) return hooks.toast('Drafting descriptions is part of Write mode');
+  if (!ready()) { toggleAi(true); openAiSettings(); return; }
+  if (unreachable()) return hooks.toast(`You’re offline, so ${PROVIDERS[ai.provider].name} can’t be reached`);
+  if (!hooks.video()) return hooks.toast('Open the video first');
+  const project = hooks.identity();
+  hooks.setScenes(scenesFor(hooks.scenes(), hooks.duration(), hooks.dialogueGaps()));
+  renderScenes();
+  const todo = hooks.scenes().map((s, k) => k).filter((k) => {
+    const s = hooks.scenes()[k];
+    return only != null ? k === only : !s.text.trim() && s.end > from && s.start < to;
+  });
+  if (!todo.length) { hooks.toast('Every scene here has a summary'); return true; }
+  const out = await hooks.runJob(async (signal, progress) => {
+    let done = 0, stopped = '';
+    const lost = () => hooks.identity() !== project || !hooks.writing();
+    try {
+      for (const k of todo) {
+        if (signal.aborted || lost()) break;
+        progress(done / todo.length, `${done} of ${todo.length}`);
+        const s = hooks.scenes()[k];
+        let frames = [];
+        try { frames = await grabFrames(framesFor(s.start, s.end, SCENE_STILLS), 512); } catch { /* the subtitles alone */ }
+        const prompt = summaryPrompt(s, hooks.dialogueLines(), storySoFar(hooks.scenes(), k), frames.map((f) => f.at), short);
+        const r = await requestDraft(prompt, frames, signal, systemWith(hooks.notes(), SCENE_SYSTEM));
+        if (signal.aborted || lost()) break;
+        // Someone may have typed one meanwhile: theirs stays, unless they asked for this one again.
+        const now = hooks.scenes();
+        if (r.text && now[k] && (only != null || !now[k].text.trim())) {
+          hooks.setScenes(now.map((x, j) => (j === k ? { start: x.start, end: x.end, text: r.text } : x)));
+          renderScenes();
+        }
+        done++;
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') stopped = e.message;
+    }
+    return { done, stopped, aborted: signal.aborted };
+  }, 'Scene summaries');
+  if (!out) return false;
+  const all = hooks.scenes(), have = all.filter((s) => s.text.trim()).length;
+  const why = out.stopped ? ` Stopped: ${out.stopped}.` : out.aborted ? ' Stopped.' : '';
+  hooks.toast(`${out.done} scene${out.done === 1 ? '' : 's'} summarised.${why} Check them in Notes, then draft`);
+  toggleAi(true);
+  toggleNotes(true, true);
+  note(`${have} of ${all.length} scenes summarised.${why} Check them in Notes, under Scenes: fix names and anything the AI got wrong. Drafts use them as they are.`);
+  return !out.stopped && !out.aborted;
+}
+
 // The dialog: what to draft, and what it'll cost, before anything is sent.
 const dlg = () => $('aiScriptDlg');
 function rangeOf() {
@@ -365,9 +456,18 @@ function renderScriptDlg() {
   const r = rangeOf(), plan = r && planFor(r.from, r.to);
   const P = PROVIDERS[ai.provider], local = !!P?.local;
   $('aiScriptGo').disabled = !plan?.count;
+  $('aiScriptScenes').textContent = '';
+  $('aiScriptScenesGo').hidden = true;
   if (!r) { $('aiScriptCount').textContent = 'Type a start and an end, such as 1:30 and 12:00.'; return; }
   if (!plan.count) { $('aiScriptCount').textContent = 'No free gaps of 2 s or more here: every gap already has a block, or there’s dialogue throughout.'; return; }
   $('aiScriptCount').textContent = `About ${estimateText(estimate(plan.count, ai.models[ai.provider], ai.frames, local), P.name, local)}`;
+  // Scenes: drafts go better once the story is summarised and checked.
+  const scenes = scenesFor(hooks.scenes(), hooks.duration(), hooks.dialogueGaps()).filter((s) => s.end > r.from && s.start < r.to);
+  const told = scenes.filter((s) => s.text.trim()).length;
+  $('aiScriptScenes').textContent = told === scenes.length
+    ? `All ${scenes.length} scene${scenes.length === 1 ? ' is' : 's are'} summarised. Drafts use the summaries.`
+    : `${told} of ${scenes.length} scenes here are summarised. Summaries help drafts get names and the story right: ${scenes.length - told} more request${scenes.length - told === 1 ? '' : 's'}, each with ${SCENE_STILLS} stills.`;
+  $('aiScriptScenesGo').hidden = told === scenes.length;
   const can = hooks.canListen(), on = can && ai.listen;
   $('aiScriptListen').disabled = !can;
   $('aiScriptListen').setAttribute('aria-pressed', String(on));
@@ -531,10 +631,15 @@ function showNotesState() {
 export function aiNotesChanged() {
   if (document.activeElement !== $('aiNotes')) $('aiNotes').value = hooks.notes();
   showNotesState();
+  renderScenes();
 }
-function toggleNotes(show = $('aiNotesBox').hidden) {
+function toggleNotes(show = $('aiNotesBox').hidden, scenes = false) {
   $('aiNotesBox').hidden = !show;
-  if (show) { $('aiNotes').value = hooks.notes(); $('aiNotes').focus(); }
+  if (!show) return;
+  $('aiNotes').value = hooks.notes();
+  renderScenes();
+  if (scenes) $('aiScenes').closest('.aiscenes').scrollIntoView({ block: 'start' });
+  else $('aiNotes').focus();
 }
 
 // ---- drawer
@@ -623,6 +728,7 @@ export function initAi(h) {
   $('aiNew').addEventListener('click', () => { if (running) running.abort(); chat = []; $('aiLog').textContent = ''; note('New conversation.'); });
   $('aiDraft').addEventListener('click', () => draftBlock());
   $('aiScript').addEventListener('click', openDraftScript);
+  $('aiScenesGo').addEventListener('click', () => summariseScenes());
   for (const id of ['aiScriptRange', 'aiScriptFrom', 'aiScriptTo']) $(id).addEventListener('input', renderScriptDlg);
   $('aiScriptCancel').addEventListener('click', () => dlg().close());
   $('aiScriptGo').addEventListener('click', () => {
@@ -632,6 +738,12 @@ export function initAi(h) {
     draftScript(r.from, r.to, hooks.canListen() && ai.listen);
   });
   $('aiScriptListen').addEventListener('click', () => { ai.listen = !ai.listen; save(); renderScriptDlg(); });
+  $('aiScriptScenesGo').addEventListener('click', () => {
+    const r = rangeOf();
+    if (!r) return;
+    dlg().close();
+    summariseScenes(r.from, r.to);
+  });
   $('aiScriptListenSetup').addEventListener('click', () => { dlg().close(); hooks.setUpListening(); });
   // Typing in the dialog leaves the editor's keys alone.
   dlg().addEventListener('keydown', (e) => { if (e.key !== 'Escape') e.stopPropagation(); });

@@ -11,6 +11,7 @@ starting point. You're still the describer.
 
 - [What it does](#what-it-does)
 - [Drafting the whole script](#drafting-the-whole-script)
+  - [Scene summaries](#scene-summaries)
 - [Choosing where it runs](#choosing-where-it-runs)
 - [Connecting a provider](#connecting-a-provider)
   - [Claude, OpenAI or Gemini](#claude-openai-or-gemini)
@@ -37,7 +38,8 @@ out beside the video.
 - **Chat:** ask about the scene, such as "what's on the sign behind her?". Tick **Send the
   frame at the playhead** so it sees the frame you're on.
 - **Notes:** tell the AI what the frames can't show, such as who's who. Every draft and
-  message includes them, and they're saved with the project.
+  message includes them, and they're saved with the project. **Scenes**, under the notes,
+  holds [scene summaries](#scene-summaries).
 - **New chat** starts again.
 - **Check grammar with AI:** in the [spelling and grammar check](GETTING-STARTED.md#checking-spelling-and-grammar).
   It suggests fixes for mistakes the offline check misses. Nothing changes until you choose a fix.
@@ -76,6 +78,22 @@ talk. With **Listen for speech** on, speech to text listens to each gap first. W
 hears words, the block says **speech under it?**, and the block shows what it heard. `U`
 goes to these, as it does to blocks over dialogue. Without it, play each draft through
 before accepting it.
+
+### Scene summaries
+
+A still or two can't tell the AI what's going on. Scene summaries can: a few sentences for
+every 2–3 minutes of the programme. Drafts, **Draft this block** and chat all get the
+summary for their scene, and the story so far.
+
+1. Click **Summarise scenes**, in **Notes** → **Scenes**. The **Draft the script** dialog
+   offers it too, for the stretch you chose.
+2. Read each summary, and fix what it got wrong. Click a scene's time to go there.
+3. Then draft.
+
+- Summarising again only fills scenes with no summary. Your edits stay.
+- **Again** rewrites one scene's summary.
+- Each scene costs one request with 8 stills and its subtitles.
+- Summaries are saved with the project. Like notes, they aren't shared.
 
 A two-hour film can have 400–600 gaps. With an online model that's a few dollars, and
 with Ollama it can take hours; the dialog estimates both. Try a 10-minute stretch first.
@@ -272,6 +290,8 @@ And always check a draft against the picture: AI is confident even when it's wro
 - With an online provider, each message or draft sends the frames it uses, the selected
   block and those around it, and your project notes, to that provider only, under its terms.
   Scribecue's own server never sees them.
+- **Summarise scenes** sends 8 stills from each scene, its subtitles and the summaries
+  before it. Drafts and chat then send their scene's summary too.
 - **Check grammar with AI** sends the whole script and your project notes, in parts.
 - With Ollama, everything stays on your computer.
 - Keys stay in your browser, and only go to their own provider. Your TMDB key, if you look
@@ -286,7 +306,8 @@ cent with Sonnet 5.5, and a fraction of a cent with Haiku 5.5. With OpenAI, it's
 2–3 cents with GPT-6 Astra, half a cent with GPT-6.1 Sol, and a tiny fraction of a cent
 with GPT-6 Luna. These are estimates; your
 provider's dashboard shows the real figures. **Draft the script** makes one draft per gap,
-so a whole film costs a few hundred drafts. Long chats cost more, though only the latest
+so a whole film costs a few hundred drafts. Scene summaries add about 50 requests for a
+two-hour film. Long chats cost more, though only the latest
 messages resend their frames. **Check grammar with AI** sends the whole script, so a long
 script costs more than a draft. Ollama costs nothing to use.
 

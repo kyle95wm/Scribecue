@@ -866,6 +866,8 @@ docker compose up -d --build</code></pre>
     <p id="aiScriptTimes" class="updstatus" hidden><label for="aiScriptFrom">From</label> <input id="aiScriptFrom" class="time" spellcheck="false" autocomplete="off" placeholder="0:00">
       <label for="aiScriptTo">to</label> <input id="aiScriptTo" class="time" spellcheck="false" autocomplete="off" placeholder="10:00"></p>
     <p id="aiScriptCount" role="status"></p>
+    <p class="updstatus"><span id="aiScriptScenes" class="small"></span>
+      <button id="aiScriptScenesGo" hidden data-tip="Summarise the scenes in this range, so you can check them before drafting">Summarise scenes first</button></p>
     <p class="updstatus"><button id="aiScriptListen" aria-pressed="true" data-tip="Speech to text checks each gap for speech the subtitles miss">Listen for speech</button>
       <button id="aiScriptListenSetup" hidden>Set up speech to text…</button></p>
     <p id="aiScriptListenNote" class="dim small"></p>
@@ -946,7 +948,7 @@ docker compose up -d --build</code></pre>
       <strong>AI help</strong>
       <span id="aiWho" class="dim small"></span>
       <button id="aiNew" data-tip="Start a new conversation">New chat</button>
-      <button id="aiNotesBtn" data-tip="Notes about the programme for the AI: characters, setting, style">Notes</button>
+      <button id="aiNotesBtn" data-tip="Notes about the programme for the AI: characters, setting, style, and a summary of each scene">Notes</button>
       <button id="aiSettings" data-tip="Choose and connect an AI provider">Settings</button>
       <button id="aiClose" aria-label="Close AI help (Esc)">×</button>
     </header>
@@ -1007,6 +1009,13 @@ docker compose up -d --build</code></pre>
         <p id="aiLookupStatus" class="small" aria-live="polite"></p>
         <p class="dim small">Characters and actors come from <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">TMDB</a>, which only gets the
           IMDb link or title you look up. This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+      </div>
+      <div class="ailookup aiscenes">
+        <p class="small"><strong>Scenes</strong>: a summary of every few minutes, from its stills and subtitles. Each
+          draft and message includes the one it's in, and the story so far. Check them before drafting the script.</p>
+        <p class="updstatus"><button id="aiScenesGo" data-tip="Summarise each stretch that has no summary yet. Summaries you've written or changed stay">Summarise scenes</button>
+          <span id="aiScenesStatus" class="dim small" aria-live="polite"></span></p>
+        <ol id="aiScenes" class="scenelist"></ol>
       </div>
     </section>
     <p id="aiOffline" class="warnbox" hidden></p>

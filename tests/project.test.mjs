@@ -174,3 +174,11 @@ test('what speech to text heard under an AI draft is kept only while it’s a dr
   assert.ok(!('heard' in saved.blocks[1]));
   assert.deepEqual(fromProject(saved).blocks.map((b) => b.heard), ['Over here!', undefined]);
 });
+
+test('scene summaries are saved with the project', () => {
+  const scenes = [{ start: 0, end: 150, text: 'Mara arrives.', edited: true }, { start: 150, end: 300, text: '' }];
+  const saved = JSON.parse(JSON.stringify(toProject({ ...state, scenes })));
+  assert.deepEqual(fromProject(saved).scenes, scenes);
+  assert.ok(!('scenes' in JSON.parse(JSON.stringify(toProject(state)))), 'none, none saved');
+  assert.deepEqual(fromProject({ ...saved, scenes: [{ start: 'x' }] }).scenes, []);
+});

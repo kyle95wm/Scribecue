@@ -1376,6 +1376,14 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 .ailookup { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .ailookup .updstatus { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .ailookup input { flex: 1; min-width: 12em; }
+/* Scene summaries, in the Notes box. */
+.scenelist { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.scenelist li { display: grid; grid-template-columns: 1fr auto; gap: 4px 6px; align-items: center; }
+.scenelist .when { justify-self: start; padding: 0 4px; border: 0; background: none; color: var(--dim); font: 12px var(--mono); cursor: pointer; }
+.scenelist .when:hover { color: var(--accent); }
+.scenelist textarea { grid-column: 1 / -1; width: 100%; box-sizing: border-box; resize: vertical; font: 13px/1.4 var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+.scenelist textarea:focus { outline: none; border-color: var(--accent); }
+.scenelist textarea:placeholder-shown { border-style: dashed; }
 #aiLookupStatus:empty { display: none; }
 .aisetup input:not([type="checkbox"]) {
   min-width: 0; font: 13px var(--sans); color: var(--text); background: var(--bg);
