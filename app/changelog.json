@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.123.0",
+    "date": "2026-11-15",
+    "notes": "## Find the dialogue with speech to text\n\n- No subtitles? Pick **Find dialogue with speech to text…** in **Dialogue**, under the video, or press Alt+Shift+L.\n- Speech to text listens to the programme and makes a dialogue lane from what's said, so D, U and Draft the script work.\n- It listens on this computer, or with OpenAI using your AI help key, which is quicker but sends the audio.\n- Stop keeps what's found, and running it again carries on.\n\n## Also\n\n- In the web version, Whisper is now a version of the same model that knows when each word is said. If you've downloaded it already, click **Download Whisper** in the speech to text settings once more (166 MB)."
+  },
+  {
     "version": "0.122.0",
     "date": "2026-11-14",
     "notes": "## Scene summaries for AI drafts\n\n- **Summarise scenes**, in AI help → Notes → Scenes, writes a short summary of every 2–3 minutes of the programme.\n- Check and fix them, then draft. Your edits stay when you summarise again, and **Again** rewrites one scene.\n- Draft the script, Draft this block and chat use the scene's summary and the story so far, so drafts get names and the story right.\n- The Draft the script dialog says how many scenes are summarised, and offers to summarise first.\n- Summaries are saved with the project."
