@@ -7,7 +7,7 @@ Handle pickups, work with text to speech, or transcribe existing description.
 
 - **Write** new audio description, and hear each line read aloud to check it fits before
   the next piece of dialogue. Export the readings as an audio track, or as a full mix with
-  the programme, ready to put into the video with ffmpeg.
+  the programme, or put the mix straight into a copy of the video.
 - **Transcribe** existing audio description: hold a key while the narrator speaks, and a
   block appears at that time. Speech to text can type the line for you.
 - **QC** scripts with optional corrections, comments and portable original TTS readings.
@@ -127,6 +127,12 @@ version of the [LAME](https://lame.sourceforge.io/) MP3 encoder (LGPL), unchange
 Vanilagy (MPL 2.0), which is [FFmpeg](https://ffmpeg.org)'s decoder (LGPL), also unchanged
 in `app/vendor`. The ffmpeg container installs [FFmpeg](https://ffmpeg.org) (LGPL and GPL)
 from Alpine Linux's packages when it's built.
+
+Without ffmpeg, the full mix goes into the video with
+[Mediabunny](https://github.com/Vanilagy/mediabunny) by Vanilagy (MPL 2.0). Browsers that
+can't encode AAC use its
+[@mediabunny/aac-encoder](https://github.com/Vanilagy/mediabunny/tree/main/packages/aac-encoder),
+which is FFmpeg's AAC encoder (LGPL). Both are unchanged, in `app/vendor`.
 
 Scribecue is an independent project. It is not affiliated with, endorsed by or connected
 to Frazier or videotovoice. Frazier is their product name, used here only to describe

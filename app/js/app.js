@@ -28,12 +28,14 @@ import { readZip } from './zip.js';
 import { initRecord } from './record.js';
 import { takesInfo, takeGroups, deleteTakesOf, unpackSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser } from './takestore.js';
 import { isSessionPackage, fromSession, SESSION_FILE } from './session.js';
-import { picker, refused } from './pickers.js';
+import { picker, refused, videoOut } from './pickers.js';
+import { canMux } from './muxplan.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
 import { afterEdit, blockFromPlayhead, blockUnder, nudgeFor, nudges, NUDGE, takeFrom, stopAt, returnsToStart, scrubber, cleanLead, leadFrom } from './nav.js';
 import { readShare, shareFor, stepShare, widthOf, LIST_MIN, VIDEO_MIN } from './split.js';
 import { initTour, startTour, showLoop, maybeShowLoop, loopSeen } from './tour.js';
 import { initDockerTip } from './dockertip.js';
+import { initFfHelp, installSentence } from './ffhelp.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
 import { initSettings, addSection, adopt, share, place, openSettings, closeSettings } from './settings.js';
 import { initReminder } from './reminder.js';
@@ -1610,8 +1612,8 @@ function showExtended() {
   $('ttsExtendedTotal').textContent = blocks ? `${blocks === 1 ? '1 block pauses' : `${blocks} blocks pause`} the video, adding ${exact ? '' : 'about '}${addedTime(secs)} to the running time.` : '';
   const any = hasExtended();
   $('ttsExtExports').hidden = $('ttsExtVideo').hidden = !any;
-  $('ttsMixLonger').hidden = !withPauses() || !tts.ffmpeg;
-  $('ttsMixInto').disabled = !tts.ffmpeg || withPauses();
+  $('ttsMixLonger').hidden = !withPauses();
+  $('ttsMixInto').disabled = withPauses();
 }
 $('ttsExtendedAll').addEventListener('click', () => {
   pushUndo();
@@ -3806,6 +3808,28 @@ async function ffmpegMix(mix, video, codec, name, show, pauses = null, at = 0.7)
   await ffResult(id, (done) => show(sent + (1 - sent) * done, `${pauses ? 'Making the video' : video ? 'Putting it in the video' : 'Making the file'}: ${Math.round(done * 100)}%`));
   return name + '.' + (video ? ext : mixFormat(tts.mixAs).ext);
 }
+// Without ffmpeg: the browser puts the mix in a copy of the video, written straight to the
+// file chosen (mux-worker.js). If it stops or fails, the half-made file goes.
+function browserMix(mix, video, handle, progress) {
+  const ext = video.name.split('.').pop().toLowerCase();
+  return new Promise((resolve, reject) => {
+    const w = mixWorker = new Worker('js/mux-worker.js');
+    const end = (f, v) => {
+      w.terminate();
+      if (mixWorker === w) mixWorker = null;
+      if (f === reject) handle.remove?.().catch(() => {});
+      f(v);
+    };
+    w.onmessage = ({ data: m }) => {
+      if (m.type === 'progress') progress(m.done);
+      else if (m.type === 'done') end(resolve, m);
+      else end(reject, new Error(m.message));
+    };
+    w.onerror = (e) => { e.preventDefault(); end(reject, new Error(e.message || 'the video writer didn’t load')); };
+    w.stop = () => end(reject, stopped());
+    w.postMessage({ video, mix, handle, ext, replace: tts.mixInto === 'replace' });
+  });
+}
 function runMix(job, transfer, progress) {
   return new Promise((resolve, reject) => {
     const w = mixWorker = new Worker('js/mix-worker.js');
@@ -3864,12 +3888,24 @@ async function exportMix() {
   const into = !pausing && tts.ffmpeg && tts.mixInto && FF_VIDEOS.includes(ext);
   if (!pausing && tts.ffmpeg && tts.mixInto && !into) return (ttsMixStatus.textContent = `ffmpeg can put the mix in an MP4, MOV, MKV or WebM video, not a .${ext} file.`);
   const ff = !!(tts.ffmpeg && (as.ffmpeg || into));
+  // Without ffmpeg, the browser puts it in the video, where it can save as it goes.
+  const inBrowser = !pausing && !tts.ffmpeg && !!tts.mixInto && S.hasVideo && canMux(ext) && !!window.showSaveFilePicker;
   mixStopped = false;
   $('ttsMixCmds').hidden = true;
-  // With ffmpeg, mixing ends at 70%, and sending and making the file take the rest.
-  const share = ff ? 0.7 : 1;
+  // With ffmpeg or in the browser, mixing ends at 70%, and making the file takes the rest.
+  const share = ff || inBrowser ? 0.7 : 1;
   const show = (f, text) => { if (mixStopped) throw stopped(); ttsMixBar.value = f; ttsMixStatus.textContent = text; };
+  let outFile = null, notInVideo = '';
   try {
+    // Asked first, while the click still counts: the mix takes a while.
+    if (inBrowser) {
+      try {
+        outFile = await picker('videoOut', { suggestedName: `${baseName()} - with audio description.${ext}`, types: videoOut(ext) });
+      } catch (e) {
+        if (e.name === 'AbortError') return (ttsMixStatus.textContent = 'Not saved.');
+        throw e;
+      }
+    }
     // Making the readings is the first 20% of the bar, and mixing the rest. Each reading
     // goes to the mixer as it is, at the level the voice gives it, as it plays.
     const made = await makeReadings(blocks, (k, n) => show(0.2 * k / n, `Making readings: ${k} of ${n}`));
@@ -3877,7 +3913,7 @@ async function exportMix() {
     const readings = made.map(({ w }, k) => ({ start: starts[k], samples: w.samples, rate: w.rate, dip: blocks[k].dip, gain: blocks[k].gain }));
     const levels = mixLevels(tts.mix), loud = LOUDNESS[tts.loudness] || LOUDNESS[''];
     const job = { readings, pauses, fade: tts.dipFade, video: levels.video, reading: levels.reading,
-      kbps: as.kbps || 0, wavMix: ff, target: loud.lufs ?? null, ceiling: loud.ceiling, stems: !!tts.stems };
+      kbps: as.kbps || 0, wavMix: ff || inBrowser, target: loud.lufs ?? null, ceiling: loud.ceiling, stems: !!tts.stems };
     // Meeting a loudness target mixes twice: measuring, then mixing.
     const progress = (f) => show(0.2 + (share - 0.2) * f, loud.lufs == null || f >= 0.5 ? `Mixing: ${Math.round(f * 100)}%` : `Measuring loudness: ${Math.round(f * 200)}%`);
     progress(0);
@@ -3891,8 +3927,19 @@ async function exportMix() {
         await new Promise((ok) => setTimeout(ok, 300));
         continue;
       }
+      if (part === 'mix' && outFile) {
+        try {
+          await browserMix(blob, file, outFile, (f) => show(0.7 + 0.3 * f, `Putting it in the video: ${Math.round(f * 100)}%`));
+          saved.push(outFile.name);
+          continue;
+        } catch (e) {
+          if (e.stopped || mixStopped) throw e;
+          // The mix is saved on its own, with the command to put it in the video.
+          notInVideo = ` Couldn’t put it in the video here: ${e.message}.`;
+        }
+      }
       // Stems from an ffmpeg format are WAVs.
-      const name = `${baseName()} - ${names[part]}.${as.ffmpeg ? 'wav' : as.ext}`;
+      const name = `${baseName()} - ${names[part]}.${as.ffmpeg || (part === 'mix' && outFile) ? 'wav' : as.ext}`;
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = name;
@@ -3902,7 +3949,7 @@ async function exportMix() {
       await new Promise((ok) => setTimeout(ok, 300)); // browsers can drop downloads started together
     }
     // Without ffmpeg here, the commands to put the mix in the video with ffmpeg of one's own.
-    const cmds = !into && !pausing && ffmpegCommands({ video: file.name, mix: saved[0], tracks: S.tracks.length || 1,
+    const cmds = !into && !pausing && (!outFile || notInVideo) && ffmpegCommands({ video: file.name, mix: saved[0], tracks: S.tracks.length || 1,
       out: `${baseName()} - with audio description.${ext}` });
     if (cmds && S.hasVideo) {
       $('ttsCmdAdd').textContent = cmds.add;
@@ -3910,7 +3957,7 @@ async function exportMix() {
       $('ttsMixCmds').hidden = false;
     }
     const lufs = (v) => (Number.isFinite(v) ? `${v.toFixed(1)} LUFS` : 'silent');
-    report(ttsMixStatus, `Saved ${saved.join(', ')}. Loudness: ${lufs(done.loudness)}` + (done.was != null ? `, from ${lufs(done.was)}.` : '.'));
+    report(ttsMixStatus, `Saved ${saved.join(', ')}. Loudness: ${lufs(done.loudness)}` + (done.was != null ? `, from ${lufs(done.was)}.` : '.') + notInVideo);
   } catch (e) {
     if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
     if (e.stopped || mixStopped) ttsMixStatus.textContent = 'Stopped.'; // ffmpeg may answer first
@@ -5406,7 +5453,7 @@ function exportNarrationVideo({ note, name, wav }) {
       saveBlob(mix, names.mix);
       await new Promise((ok) => setTimeout(ok, 300));
       saveBlob(new Blob([holdFilter(pauses)], { type: 'text/plain' }), names.filter);
-      notice('Extended video: run ffmpeg', `Saved ${names.mix} and ${names.filter}. ffmpeg isn’t running here, so make the video yourself: put those two files in a folder with ${file.name}, and run this there: ${extendedCommand({ video: file.name, mix: names.mix, filter: names.filter, out: names.out })}`);
+      notice('Extended video: run ffmpeg', `Saved ${names.mix} and ${names.filter}. ffmpeg isn’t running here, so make the video yourself: put those two files in a folder with ${file.name}, and run this there: ${extendedCommand({ video: file.name, mix: names.mix, filter: names.filter, out: names.out })} ${installSentence(navigator.userAgentData?.platform || navigator.platform)}`);
     } catch (e) {
       if (ffJob) { fetch(`ffmpeg/jobs/${ffJob}`, { method: 'DELETE' }).catch(() => {}); ffJob = null; }
       toast(e.stopped || mixStopped ? 'Stopped the extended video' : `Couldn’t make the extended video: ${e.message}`);
@@ -7632,6 +7679,9 @@ $('setTour').addEventListener('click', () => { closeSettings(); startTour(S.mode
 $('setDocker').addEventListener('click', () => { closeSettings(); openGuide('INSTALL.md'); });
 // Once setup and the first loop card are done, the web version mentions running it with
 // Docker, once: now, or when the tour or loop card ends.
+initFfHelp({ platform: navigator.userAgentData?.platform || navigator.platform, hosted: HOSTED,
+  copy: async (text) => toast(await copyText(text) ? 'Copied the command' : 'Couldn’t copy: the browser blocked clipboard access'),
+  guide: () => openGuide('INSTALL.md', 'the-full-mix-in-the-video-ffmpeg') });
 const dockerTip = initDockerTip({ hosted: HOSTED, welcomed, loopSeen: () => loopSeen(S.mode), guide: () => openGuide('INSTALL.md') });
 document.addEventListener('tourend', () => setTimeout(() => whenClear(dockerTip), 300));
 whenClear(dockerTip);

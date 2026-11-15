@@ -1677,7 +1677,8 @@ export function setTtsOption(k, v) {
 function renderFfmpeg() {
   for (const el of document.querySelectorAll('.ffonly')) el.hidden = el.disabled = !tts.ffmpeg;
   $('ttsMixAs').value = MIX_FORMATS[tts.mixAs] && (tts.ffmpeg || !MIX_FORMATS[tts.mixAs].ffmpeg) ? tts.mixAs : 'wav';
-  $('ttsMixInto').value = tts.ffmpeg ? tts.mixInto : '';
+  $('ttsMixInto').value = tts.mixInto;
+  $('ttsMixBrowser').hidden = !!tts.ffmpeg || !window.showSaveFilePicker;
   hooks.panelOpened?.(); // what's offered can depend on ffmpeg
 }
 

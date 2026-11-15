@@ -287,7 +287,7 @@ use the **Export** menu at the top:
   timecode on the picture. The script looks as it does over the video in Scribecue. Pick
   a resolution: Original, 480p, 720p or 1080p. Only those smaller than the video show. This
   needs [ffmpeg in Docker](INSTALL.md#the-full-mix-in-the-video-ffmpeg). Without it, you
-  get the script and an ffmpeg command to run yourself.
+  get the script and an ffmpeg command to [run yourself](#running-ffmpeg-yourself).
 
 ### DAW markers
 
@@ -452,6 +452,34 @@ If the video is slow to start or to jump, or stutters:
 | **Very large files** | Fine for MP4, MOV, M4A, MKV, WebM and WAV. Other formats need to be under 2 GB |
 | **AC-3, E-AC-3 audio** | Work, after a short wait the first time. See [If a video has no sound](#if-a-video-has-no-sound) |
 | **DTS, TrueHD audio** | The picture plays with no sound or waveform. See [If a video has no sound](#if-a-video-has-no-sound) |
+
+### Running ffmpeg yourself
+
+Without ffmpeg in Docker, some exports end with an ffmpeg command. **Don't have ffmpeg?**
+under the command shows how to install it on your system.
+
+1. Install ffmpeg once, in a terminal:
+
+   | System | Command |
+   |---|---|
+   | Windows | `winget install --id Gyan.FFmpeg -e`, then open a new terminal |
+   | Mac | `brew install ffmpeg`, which needs [Homebrew](https://brew.sh) |
+   | Linux | `sudo apt install ffmpeg`, or your system's package manager |
+
+2. Put the files Scribecue saved in the folder with the video. Your browser probably saved
+   them in Downloads.
+3. Open a terminal in that folder:
+
+   | System | How |
+   |---|---|
+   | Windows | In File Explorer, right-click an empty space in the folder, and choose **Open in Terminal**. |
+   | Mac | In Finder, right-click the folder, and choose **New Terminal at Folder**. |
+   | Linux | In your file manager, right-click the folder, and choose **Open in Terminal**. |
+
+4. Copy the command from Scribecue, paste it in the terminal and press Enter.
+
+To skip the terminal, run Scribecue with [ffmpeg in Docker](INSTALL.md#the-full-mix-in-the-video-ffmpeg),
+and it makes the file for you.
 
 ### If a video won't play
 

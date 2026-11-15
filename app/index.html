@@ -1216,8 +1216,8 @@ docker compose up -d --build</code></pre>
           <option value="ac3" class="ffonly" hidden>AC-3 (Dolby Digital), 384 kbps: about 173 MB an hour</option>
           <option value="eac3" class="ffonly" hidden>E-AC-3 (Dolby Digital Plus), 256 kbps: about 115 MB an hour</option>
         </select>
-        <label for="ttsMixInto" class="ffonly" hidden>In the video</label>
-        <select id="ttsMixInto" class="ffonly" hidden>
+        <label for="ttsMixInto">In the video</label>
+        <select id="ttsMixInto">
           <option value="">No, just the audio</option>
           <option value="add">Yes, as an extra audio description track</option>
           <option value="replace">Yes, in place of its sound</option>
@@ -1234,6 +1234,9 @@ docker compose up -d --build</code></pre>
       <p class="dim small ffonly">With ffmpeg: in the video, the mix is AAC, or AC-3 or E-AC-3 if chosen
         above (Opus in a WebM). The picture and other tracks are copied as they are. The video is sent to
         ffmpeg on this computer, so Docker needs room for a copy while it works.</p>
+      <p class="dim small" id="ttsMixBrowser">In the video, your browser makes the copy: it asks where to save
+        it first. The mix is AAC (Opus in a WebM). The picture and sound tracks are copied as they are,
+        but not subtitle tracks.</p>
       <label class="updopt"><input type="checkbox" id="ttsStems"> Also save the programme and the readings
         as separate files (stems), to mix again in an editor</label>
       <p class="updstatus"><button id="ttsMixExport">Export full mix</button>

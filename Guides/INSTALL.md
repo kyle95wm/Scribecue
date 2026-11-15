@@ -212,8 +212,9 @@ languages too.
 ## The full mix in the video (ffmpeg)
 
 With [ffmpeg](https://ffmpeg.org), the [full mix](WRITING.md#exporting-the-full-mix) can
-go straight into the video. It can also be saved as AAC, AC-3 or E-AC-3. Like Piper,
-ffmpeg runs in its own container with no internet access.
+also be saved as AAC, AC-3 or E-AC-3. Putting it in the video works without ffmpeg, but
+with it, the video keeps its subtitle tracks. Like Piper, ffmpeg runs in its own container
+with no internet access.
 
 Add `ffmpeg` to the profiles in `.env`, for example:
 
@@ -340,8 +341,8 @@ Restart Caddy. It gets the HTTPS certificate by itself.
 
 - **Videos and projects stay on each person's computer.** The other computer only sends
   the app and does the work for voices, Whisper and ffmpeg.
-- **Putting the mix into the video uploads the whole video** to that computer, and
-  downloads the result. Online, that can take a while.
+- **Putting the mix into the video with ffmpeg uploads the whole video** to that
+  computer, and downloads the result. Online, that can take a while.
 - **Kokoro and Whisper need a fast processor.** A small online server makes them slow. The
   memory table under [What you need](#what-you-need) still applies.
 - **Ollama has to run on the computer you open Scribecue on**, not the other one. Allow the
@@ -453,7 +454,7 @@ delete it. To move them, go back to 0.100.1 for a moment:
   `COMPOSE_PROFILES` in `.env` includes `kokoro`, then run `docker compose up -d --build`.
 - **"The Whisper container isn't running":** check that `COMPOSE_PROFILES` in `.env`
   includes `whisper`, then run `docker compose up -d --build`.
-- **No AAC, AC-3 or "In the video" choices for the full mix:** check that
+- **No AAC or AC-3 choices for the full mix:** check that
   `COMPOSE_PROFILES` in `.env` includes `ffmpeg`, then run `docker compose up -d --build`
   and reload.
 - **"Docker has too little disk space":** free some space in Docker Desktop's settings

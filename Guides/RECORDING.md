@@ -352,7 +352,7 @@ The picture stops for each of the narrator's pauses, so the narration lines up w
 | **Include the narration** | On: the narration is mixed in. Off: the programme's sound alone, to mix in an editor. |
 | **Export pause list** | Saves a CSV of where the video stops and for how long, for other editors. |
 
-- It needs ffmpeg, as Write mode's extended video does. Without it, you get the audio and a command to run.
+- It needs ffmpeg, as Write mode's extended video does. Without it, you get the audio and a command to [run yourself](GETTING-STARTED.md#running-ffmpeg-yourself).
 - A progress bar shows under the header. **Stop** there cancels it.
 - WAVs exported before Scribecue 0.87 don't keep their pauses. Export the narration again from Record mode.
 - Pickups and alts WAVs don't offer it. Use the full narration.
