@@ -35,10 +35,15 @@ Video frames you're given are stills from the programme, each labelled with its 
 
 // The instructions with the writer's notes about this programme, which can say what the
 // frames can't: who the characters are, where it's set, how the team writes.
-export function systemWith(notes = '') {
+export function systemWith(notes = '', base = SYSTEM) {
   const n = notes.trim();
-  return n ? `${SYSTEM}\n\nThe writer's notes about this programme. Follow them, and use the names they give:\n${n}` : SYSTEM;
+  return n ? `${base}\n\nThe writer's notes about this programme. Follow them, and use the names they give:\n${n}` : base;
 }
+
+// The instructions for summarising scenes, before any drafting.
+export const SCENE_SYSTEM = `You help a writer prepare audio description for blind and partially sighted viewers. Before they draft, you summarise each part of the programme from stills and the subtitles, so later descriptions know who people are and what has happened.
+
+Be factual and brief. Use the names the writer's notes or the dialogue give; otherwise describe people briefly ("a woman in a red coat"). Don't guess at what the stills and dialogue don't show. Tell what happens, not what the stills or subtitles are: "she finds her keys", not "the subtitle says she finds her keys".`;
 
 // How much fits in a block: the voice's characters per second times the block's length,
 // at the block's reading speed. About six characters make a word, with its space.
@@ -47,7 +52,7 @@ export function fitBudget(secs, cps = 15, speed = 1) {
   return { chars, words: Math.max(1, Math.round(chars / 6)) };
 }
 
-const clock = (t) => {
+export const clock = (t) => {
   const ms = Math.round(Math.max(0, t) * 1000), s = Math.floor(ms / 1000);
   return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}.${String(ms % 1000).padStart(3, '0')}`;
 };
@@ -77,11 +82,23 @@ function dialogueText({ before = [], after = [], heard = '' } = {}) {
   ].join('\n');
 }
 
+// Where a block is in the story, from the scene summaries: { summary, story }, from
+// sceneContext in aiscript.js.
+function sceneText(scene) {
+  if (!scene) return '';
+  const lines = [
+    scene.story ? `The story so far: ${scene.story}` : '',
+    scene.summary ? `This scene, some of it still to come: ${scene.summary}` : '',
+  ].filter(Boolean);
+  return lines.length ? `${lines.join('\n')}\n` : '';
+}
+
 // What to ask for when drafting block i. budget from fitBudget. dialogue: the subtitles
-// either side, when there's a dialogue lane.
-export function draftPrompt(cues, i, budget, frameTimes = [], dialogue = null) {
+// either side, when there's a dialogue lane. scene: from the scene summaries, if any.
+export function draftPrompt(cues, i, budget, frameTimes = [], dialogue = null, scene = null) {
   const c = cues[i], secs = c.end - c.start;
   return [
+    sceneText(scene),
     `Here is the script around block #${i + 1} (marked >):`,
     nearbyScript(cues, i),
     '',
@@ -94,9 +111,9 @@ export function draftPrompt(cues, i, budget, frameTimes = [], dialogue = null) {
   ].filter(Boolean).join('\n');
 }
 
-// Context for a chat message: where the writer is.
-export function chatContext(cues, i, playhead) {
-  const at = `The playhead is at ${clock(playhead)}.`;
+// Context for a chat message: where the writer is, and where that is in the story.
+export function chatContext(cues, i, playhead, scene = null) {
+  const at = `${sceneText(scene)}The playhead is at ${clock(playhead)}.`;
   if (i < 0) return at;
   return `${at} The selected block is #${i + 1}. The script around it:\n${nearbyScript(cues, i)}`;
 }

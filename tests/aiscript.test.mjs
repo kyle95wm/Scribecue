@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   gapsToDraft, splitGap, cutSamples, frameDiff, findCuts, dialogueAround, withBlock, estimate, estimateText, heardSpeech,
+  sceneStretches, cleanScenes, scenesFor, sceneIndex, storySoFar, sceneContext, summaryPrompt, SCENE_MIN, SCENE_MAX, STORY_CHARS,
   DRAFT_MIN, SPLIT_OVER, PIECE_MIN, PIECE_MAX, PIECE_PAUSE,
 } from '../app/js/aiscript.js';
-import { draftPrompt, fitBudget } from '../app/js/ai.js';
+import { draftPrompt, fitBudget, chatContext, clock } from '../app/js/ai.js';
 import { GAP_MARGIN } from '../app/js/dialogue.js';
 
 const close = (a, b) => Math.abs(a - b) < 1e-6;
@@ -114,4 +115,62 @@ test('the prompt says when someone may be speaking with no subtitle', () => {
   const p = draftPrompt(cues, 0, fitBudget(3), [6], { before: [], after: [], heard: 'Over here!' });
   assert.match(p, /Someone may be speaking during this block, with no subtitle: "Over here!"/);
   assert.doesNotMatch(p, /Dialogue around it/);
+});
+
+test('scenes end in a dialogue gap near 2½ minutes, or at it without one', () => {
+  const gaps = [{ start: 100, end: 104 }, { start: 140, end: 146 }, { start: 300, end: 302 }];
+  const out = sceneStretches(600, gaps);
+  assert.deepEqual(out.map((x) => [x.start, x.end]), [[0, 143], [143, 301], [301, 451], [451, 600]]);
+  for (const x of out.slice(0, -1)) assert.ok(x.end - x.start >= SCENE_MIN && x.end - x.start <= SCENE_MAX);
+  assert.deepEqual(sceneStretches(90), [{ start: 0, end: 90 }]);
+  assert.deepEqual(sceneStretches(0), []);
+});
+
+test('saved scenes are checked and put in order', () => {
+  const out = cleanScenes([{ start: 150, end: 300, text: 'B' }, { start: 0, end: 150, text: 'A', edited: true }, { start: 5, end: 2 }, null, { start: 1, end: 2, text: 7 }]);
+  assert.deepEqual(out, [{ start: 0, end: 150, text: 'A', edited: true }, { start: 1, end: 2, text: '' }, { start: 150, end: 300, text: 'B' }]);
+  assert.deepEqual(cleanScenes('no'), []);
+  assert.equal(scenesFor([], 200, []).length, 2);
+  assert.equal(scenesFor([{ start: 0, end: 10, text: 'x' }], 200, []).length, 1, 'existing scenes are kept');
+});
+
+const told = [
+  { start: 0, end: 150, text: 'Mara arrives at the hospital. She looks for Theo.' },
+  { start: 150, end: 300, text: 'Theo is in a ward. A nurse talks to Mara.' },
+  { start: 300, end: 450, text: '' },
+  { start: 450, end: 600, text: 'Mara and Theo leave. It is snowing.' },
+  { start: 600, end: 750, text: 'At home, Theo sleeps.' },
+  { start: 750, end: 900, text: 'Mara reads the letter. She cries.' },
+];
+
+test('the story so far: recent summaries whole, older ones shortened, within a limit', () => {
+  assert.equal(storySoFar(told, 0), '');
+  assert.equal(storySoFar(told, 2), 'Mara arrives at the hospital. She looks for Theo. Theo is in a ward. A nurse talks to Mara.');
+  const s = storySoFar(told, 6);
+  assert.ok(s.startsWith('Mara arrives at the hospital. Theo is in a ward.'), s);
+  assert.ok(s.endsWith('Mara reads the letter. She cries.'));
+  assert.ok(storySoFar(told, 6, 60).length <= 60);
+  assert.ok(storySoFar(told, 6, 60).endsWith('She cries.'), 'the most recent is kept');
+});
+
+test('a draft knows its scene and the story so far', () => {
+  assert.equal(sceneIndex(told, 160), 1);
+  assert.equal(sceneIndex(told, 2000), -1);
+  assert.deepEqual(sceneContext(told, 160), { summary: 'Theo is in a ward. A nurse talks to Mara.', story: 'Mara arrives at the hospital. She looks for Theo.' });
+  assert.equal(sceneContext([{ start: 0, end: 10, text: '' }], 5), null);
+  const p = draftPrompt([{ start: 160, end: 164, text: '' }], 0, fitBudget(4), [], null, sceneContext(told, 160));
+  assert.match(p, /^The story so far: Mara arrives/);
+  assert.match(p, /\nThis scene, some of it still to come: Theo is in a ward/);
+  assert.match(chatContext([], -1, 160, sceneContext(told, 160)), /This scene, some of it still to come: Theo is in a ward\. A nurse talks to Mara\.\nThe playhead is at 00:02:40/);
+  assert.equal(chatContext([], -1, 5), 'The playhead is at 00:00:05.000.');
+});
+
+test('a summary is asked for with its subtitles and the story so far', () => {
+  const lines = [{ start: 140, end: 142, text: 'Before.' }, { start: 160, end: 162, text: 'Where is he?' }, { start: 310, end: 312, text: 'After.' }];
+  const p = summaryPrompt(told[1], lines, 'Mara arrives.', [170, 200], clock);
+  assert.match(p, /from 00:02:30\.000 to 00:05:00\.000/);
+  assert.match(p, /The story so far, for context only: Mara arrives\./);
+  assert.match(p, /"Where is he\?"/);
+  assert.doesNotMatch(p, /Before\.|After\./);
+  assert.match(summaryPrompt(told[0], [], '', [], clock), /This is the start of the programme\.[\s\S]*There are no subtitles here\./);
 });

@@ -140,3 +140,82 @@ export function heardSpeech(text) {
   if (!bare || PHANTOMS.test(bare)) return '';
   return t.slice(0, 200);
 }
+
+// ---- scene summaries: a first pass that tells each draft the story so far
+
+// A stretch summarised at once aims for this long, ending in a dialogue gap between the
+// shortest and longest, so a conversation isn't cut in two.
+export const SCENE_AIM = 150;
+export const SCENE_MIN = 120;
+export const SCENE_MAX = 180;
+// Stills sent with each summary, and how much of the story so far goes with a request.
+export const SCENE_STILLS = 8;
+export const STORY_CHARS = 1500;
+
+// The stretches to summarise, as [{ start, end }], covering 0 to duration. gaps: the
+// dialogue's gaps ({ start, end }, in order), or [] without a dialogue lane.
+export function sceneStretches(duration, gaps = []) {
+  const out = [];
+  let at = 0;
+  while (duration - at > SCENE_MAX) {
+    const lo = at + SCENE_MIN, hi = at + SCENE_MAX, aim = at + SCENE_AIM;
+    const mids = gaps.map((g) => (g.start + g.end) / 2).filter((t) => t >= lo && t <= hi);
+    const cut = mids.length ? mids.reduce((a, b) => (Math.abs(b - aim) < Math.abs(a - aim) ? b : a)) : aim;
+    out.push({ start: round(at), end: round(cut) });
+    at = cut;
+  }
+  if (duration - at > 0) out.push({ start: round(at), end: round(duration) });
+  return out;
+}
+
+// Scenes as saved: [{ start, end, text, edited }], in order, without broken ones.
+export function cleanScenes(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((s) => s && Number.isFinite(s.start) && Number.isFinite(s.end) && s.end > s.start && s.start >= 0)
+    .map((s) => ({ start: s.start, end: s.end, text: typeof s.text === 'string' ? s.text.slice(0, 2000) : '', ...(s.edited === true ? { edited: true } : {}) }))
+    .sort((a, b) => a.start - b.start);
+}
+
+// The scenes for a programme: the ones there are, or new empty stretches when there are none.
+export const scenesFor = (scenes, duration, gaps) => (scenes.length ? scenes : sceneStretches(duration, gaps).map((s) => ({ ...s, text: '' })));
+
+// The scene a time falls in, or -1.
+export const sceneIndex = (scenes, t) => scenes.findIndex((s) => t >= s.start && t < s.end);
+
+// What's happened before scene i: the last three summaries whole, the first sentence of
+// earlier ones, and no more than STORY_CHARS, keeping the most recent.
+export function storySoFar(scenes, i, max = STORY_CHARS) {
+  const told = scenes.slice(0, Math.max(0, i)).filter((s) => s.text.trim());
+  const parts = told.map((s, k) => {
+    const t = s.text.trim().replace(/\s+/g, ' ');
+    return k >= told.length - 3 ? t : (t.match(/^.*?[.!?](\s|$)/)?.[0] || t).trim();
+  });
+  let out = '';
+  for (let k = parts.length - 1; k >= 0; k--) {
+    const next = out ? `${parts[k]} ${out}` : parts[k];
+    if (next.length > max) break;
+    out = next;
+  }
+  return out;
+}
+
+// What a draft or chat message is told about where it is: { summary, story }, or null.
+export function sceneContext(scenes, t) {
+  const i = sceneIndex(scenes, t);
+  if (i < 0) return null;
+  const summary = scenes[i].text.trim(), story = storySoFar(scenes, i);
+  return summary || story ? { summary, story } : null;
+}
+
+// The request for one scene's summary.
+export function summaryPrompt(scene, lines, story, frameTimes, clockOf) {
+  const said = lines.filter((l) => l.end > scene.start && l.start < scene.end).map((l) => `  ${clockOf(l.start)} "${l.text}"`);
+  return [
+    `Summarise this part of the programme, from ${clockOf(scene.start)} to ${clockOf(scene.end)}, for the writer drafting its audio description.`,
+    story ? `The story so far, for context only: ${story}` : 'This is the start of the programme.',
+    said.length ? `What's said, from the subtitles:\n${said.join('\n')}` : 'There are no subtitles here.',
+    frameTimes.length ? `The stills are from ${frameTimes.map(clockOf).join(', ')}.` : '',
+    'In 2 to 4 plain sentences: who is there, using the names the notes or dialogue give; where they are; what happens; and what has changed since before. Only this part: don’t retell the story so far. Only what the stills and dialogue show. Reply with only the summary.',
+  ].filter(Boolean).join('\n\n');
+}

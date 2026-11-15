@@ -2,6 +2,7 @@ import { cleanComments } from './comments.js';
 import { cleanBookmarks } from './bookmarks.js';
 import { cleanEdited } from './edits.js';
 import { GRACES } from './recording.js';
+import { cleanScenes } from './aiscript.js';
 
 // Scribecue project files (.scribecue): a whole piece of work in one JSON file, so you
 // can keep several projects and pick up where you left off. SRT and VTT exports are for
@@ -52,7 +53,7 @@ export const cleanSay = (say) => (Array.isArray(say) ? say : [])
 
 // state: { blocks, media, settings, view, app, notes }. Returns the object to save as JSON.
 // notes: what the writer tells AI help about the programme (characters, setting, style).
-export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', words = [], comments = [], bookmarks = [], recording = null, projectId = null, reviewHistory = null, reviewAudio = null }) {
+export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', scenes = [], words = [], comments = [], bookmarks = [], recording = null, projectId = null, reviewHistory = null, reviewAudio = null }) {
   return {
     scribecue: PROJECT_FORMAT,
     ...(validIdentity(projectId) ? { projectId } : {}),
@@ -61,6 +62,7 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     app,
     saved: new Date().toISOString(),
     ...(notes.trim() ? { notes } : {}),
+    ...(cleanScenes(scenes).length ? { scenes: cleanScenes(scenes) } : {}),
     ...(cleanWords(words).length ? { words: cleanWords(words) } : {}),
     ...(cleanComments(comments, true).length ? { comments: cleanComments(comments, true) } : {}),
     ...(cleanBookmarks(bookmarks).length ? { bookmarks: cleanBookmarks(bookmarks) } : {}),
@@ -147,6 +149,7 @@ export function fromProject(json) {
     comments: cleanComments(json.comments, true),
     bookmarks: cleanBookmarks(json.bookmarks),
     notes: typeof json.notes === 'string' ? json.notes : '',
+    scenes: cleanScenes(json.scenes),
     words: cleanWords(json.words),
     media: m && typeof m.name === 'string' ? { name: m.name, size: num(m.size) ? m.size : null, duration: num(m.duration) ? m.duration : null } : null,
     settings: {
