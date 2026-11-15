@@ -1583,7 +1583,7 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 #qcPlaybackDlg { max-width: 720px; }
 #qcExportDlg { max-width: 680px; }
 #qcVoiceList, #qcExportVoices { font: 13px/1.5 var(--sans); max-height: 200px; overflow-y: auto; }
-#qcPlaybackDlg button[aria-pressed="true"], #burnDlg button[aria-pressed="true"], #dawDlg button[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+#qcPlaybackDlg button[aria-pressed="true"], #burnDlg button[aria-pressed="true"], #dawDlg button[aria-pressed="true"], #heardDlg button[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 #qcExportProgress { width: 100%; }
 .mode-qc #edText { font-family: var(--sans); }
 

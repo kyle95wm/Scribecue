@@ -104,6 +104,7 @@ takes them to another browser with your other settings.
 | `Alt+Shift+P` | [Sounds like](WRITING.md) for the selected block |
 | `Alt+Shift+C` | Open or close Comments (Write and QC) |
 | `Alt+Shift+B` | Open or close Bookmarks (Write and Transcribe) |
+| `Alt+Shift+L` | [Find the dialogue with speech to text](GETTING-STARTED.md#no-subtitles), for a video with no subtitles |
 | `Alt+Shift+A` | Open or close [AI help](AI.md) |
 | `Alt+Shift+I` | [Draft the script with AI](AI.md#drafting-the-whole-script) |
 | `I` / `Shift+I` | Next / previous AI draft to check |

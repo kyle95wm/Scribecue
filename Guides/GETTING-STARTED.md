@@ -361,6 +361,7 @@ speak and how long each gap is, so you can see where description fits.
 | Move the playhead | Click the lane |
 | Pick other subtitles, or turn the lane off | Use **Dialogue** under the video |
 | Use a subtitle file (SRT or WebVTT) | Pick **Load a subtitle file…** in **Dialogue** |
+| Find the dialogue in a video with no subtitles | Pick **Find dialogue with speech to text…** in **Dialogue**, or press `Alt+Shift+L` |
 
 - **A free gap has room for a block.** `D` skips gaps that are already filled, and
   stretches under 1.5 seconds.
@@ -376,6 +377,26 @@ speak and how long each gap is, so you can see where description fits.
 - **Picture subtitles can't be read.** Blu-ray and DVD subtitles are images. They show in
   the list, greyed out. Load a subtitle file instead.
 - **The lane stays in this browser.** It isn't part of your script, project or exports.
+
+### No subtitles?
+
+Speech to text can listen to the programme and make the lane from what's said.
+
+1. Pick **Find dialogue with speech to text…** in **Dialogue**, under the video.
+2. Choose where it listens:
+   - **On this computer:** [Whisper](TRANSCRIBING.md#speech-to-text-with-whisper). Nothing
+     leaves your computer. A film can take from a few minutes to over an hour.
+   - **With OpenAI:** quicker, with slightly tighter timings. It uses the OpenAI key from
+     [AI help](AI.md#connecting-a-provider), and sends the programme's audio to OpenAI. It
+     costs about 36 cents an hour of programme.
+3. Click **Find dialogue**. Progress shows under the header, with **Stop**. You can keep
+   working.
+
+- **The lane fills in as it goes.** Past where it's got to, there are no gaps yet.
+- **Stop keeps what's found.** Find dialogue again to carry on.
+- **Check it against the sound.** Speech to text can miss speech under music, and
+  sometimes hears words that aren't there.
+- **It's kept for the video.** You can switch to it again in **Dialogue**.
 
 ## Files with several audio tracks
 

@@ -2,11 +2,14 @@
 #
 #   GET  /status      -> {"model": "small.en"}
 #   POST /transcribe  a WAV file, 16 kHz mono 16-bit  -> {"text": "..."}
+#   POST /transcribe?timings=1  the same, plus when each sentence and word was said:
+#        {"text", "segments": [{"start", "end", "text"}], "words": [{"start", "end", "text"}]}
 import io
 import json
 import os
 import threading
 import wave
+from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import numpy as np
@@ -37,7 +40,9 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(404, {"error": "not found"})
 
     def do_POST(self):
-        if self.path != "/transcribe":
+        url = urlsplit(self.path)
+        timings = parse_qs(url.query).get("timings") == ["1"]
+        if url.path != "/transcribe":
             return self.reply(404, {"error": "not found"})
         size = int(self.headers.get("Content-Length") or 0)
         if not 0 < size <= MAX_BYTES:
@@ -57,9 +62,15 @@ class Handler(BaseHTTPRequestHandler):
                 beam_size=5,
                 condition_on_previous_text=False,
                 vad_filter=True,  # skip silence, where Whisper imagines words such as "you"
+                word_timestamps=timings,
             )
-            text = " ".join(s.text.strip() for s in segments)
-        self.reply(200, {"text": text})
+            segments = list(segments)
+        body = {"text": " ".join(s.text.strip() for s in segments)}
+        if timings:
+            r = lambda t: round(t, 2)
+            body["segments"] = [{"start": r(s.start), "end": r(s.end), "text": s.text.strip()} for s in segments]
+            body["words"] = [{"start": r(w.start), "end": r(w.end), "text": w.word.strip()} for s in segments for w in (s.words or [])]
+        self.reply(200, body)
 
     def log_message(self, *args):
         pass  # don't log what's said
