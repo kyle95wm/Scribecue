@@ -456,6 +456,22 @@ Then open <http://localhost:9484/>. The footer shows "· dev" after the version.
 
 To stop trying `dev`, run `scripts/docker-up.sh stop`, then `git switch main`.
 
+**Optional:** to free the space it used, remove its image:
+
+```bash
+docker rmi scribecue:dev
+```
+
+Most of it is shared with the release, so this frees little. Clearing Docker's unused build
+cache frees more, often a few hundred MB:
+
+```bash
+docker builder prune -f
+```
+
+This clears the cache for everything you build with Docker, not only Scribecue. Starting
+`dev` again builds its image again.
+
 ### If you used the takes container
 
 Scribecue no longer has a takes container. Takes are kept in a folder you choose: see
