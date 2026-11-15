@@ -30,6 +30,7 @@ node scripts/picker-check.mjs
 echo '== Docker Compose file'
 COMPOSE_PROFILES=piper,whisper,kokoro,ollama,ffmpeg docker compose config --quiet
 COMPOSE_PROFILES=ollama docker compose -f docker-compose.yml -f ollama-gpu.yml config --quiet
+docker compose -f docker-compose.dev.yml config --quiet
 
 echo '== Docker build and smoke test'
 image=scribecue-check
