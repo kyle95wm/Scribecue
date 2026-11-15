@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.120.0",
+    "date": "2026-11-14",
+    "notes": "## The full mix in the video, without ffmpeg\n\n- **In the video** now works in the web version, and in Docker without ffmpeg. Choose it under **Export full mix** in the text to speech settings.\n- In Chrome or Edge, Scribecue asks where to save the video, then makes it. The picture and sound are copied as they are, so it's quick.\n- Subtitle tracks are left out. With ffmpeg in Docker, ffmpeg still makes it, and keeps them.\n\n## Help with ffmpeg\n\n- Under each ffmpeg command, **Don't have ffmpeg?** shows how to install it on your computer, and how to open a terminal in the right folder.\n- A new guide section, **Running ffmpeg yourself**, walks through it."
+  },
+  {
     "version": "0.119.2",
     "date": "2026-11-14",
     "notes": "## Guides\n\n- A new **Features** guide lists what works in the web version and what needs Docker.\n- **Running it yourself** now says how to move your projects, settings and recordings between the web version, Docker and another computer.\n- The guides' tabs sit in one row. Scroll it sideways to see the rest. The guide you're reading always shows."
