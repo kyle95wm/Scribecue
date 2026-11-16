@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.131.0",
+    "date": "2026-11-16",
+    "notes": "## Text over the video\n\n- A new button after Loop, under the video, hides the block's text over the picture. Click it again to bring the text back.\n- `Shift+C` does the same, in every mode.\n- Scribecue remembers your choice in this browser.\n- Exports with burnt-in text aren't affected."
+  },
+  {
     "version": "0.130.0",
     "date": "2026-11-16",
     "notes": "## Shared projects in Google Drive\n\n- With Google Drive connected, your shared projects follow you: the ones you share and the ones you joined.\n- They're in **File → Shared projects** in every browser on your Google account.\n- Make or turn off links from any of them. Changes made in two browsers are both kept.\n- A project you stop sharing or leave goes from your other browsers too.\n- Anyone who gets into your Google account could open them, so keep it safe."
