@@ -42,6 +42,9 @@ out beside the video.
 - **Notes:** tell the AI what the frames can't show, such as who's who. Every draft and
   message includes them, and they're saved with the project. **Scenes**, under the notes,
   holds [scene summaries](#scene-summaries).
+- **Style:** AI help follows common audio description practice: present tense, what can be
+  seen rather than opinion, no names before the story gives them, and nothing said over
+  dialogue that matters. Your notes can change any of it.
 - **Notes for every project:** in Settings, under **AI help**. Rules for all your work go
   here, such as "don't describe the credits". Every project's drafts and messages include
   them. Where they disagree with a project's notes, the project's notes win.
@@ -49,7 +52,8 @@ out beside the video.
   words, as chosen under **Spelling** in Settings, under Editing.
 - **New chat** starts again.
 - **Check grammar with AI:** in the [spelling and grammar check](GETTING-STARTED.md#checking-spelling-and-grammar).
-  It suggests fixes for mistakes the offline check misses. Nothing changes until you choose a fix.
+  It suggests fixes for mistakes the offline check misses, and for clear breaks of style,
+  such as "we see" or the past tense. Nothing changes until you choose a fix.
 
 ## Drafting the whole script
 
@@ -294,7 +298,7 @@ script around a block. A model that needs more can take a higher `OLLAMA_CONTEXT
    - where and when: "A hospital in Leeds, winter, present day."
 
    Put your team's style in **Notes for every project**, in Settings, so you write it once:
-   "Present tense. No 'we see'. Don't describe the opening or closing credits."
+   "Don't describe the opening or closing credits. Spell out numbers under ten."
 
    **Look up the cast**, under the notes, fills in the character names for you: paste the
    programme's IMDb link (an episode's own link adds its guest cast too), or type its title,

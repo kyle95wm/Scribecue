@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PROVIDERS, SYSTEM, systemWith, withNotes, usefulOpenAI, usefulGemini, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, shortenPrompt, nearbyScript, draftPrompt,
+  PROVIDERS, SYSTEM, SCENE_SYSTEM, systemWith, withNotes, usefulOpenAI, usefulGemini, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, shortenPrompt, nearbyScript, draftPrompt,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from '../app/js/ai.js';
 
@@ -212,4 +212,17 @@ test('a draft that runs long is asked to shorten', () => {
   assert.match(p, /"Mara crosses the empty square to the fountain\."/);
   assert.match(p, /at most 6 words \(40 characters\)/);
   assert.match(p, /Reply with only the description/);
+});
+
+test('every draft and chat gets the audio description style rules', () => {
+  for (const rule of [
+    /present tense/i, /no "we see"/, /Don't name someone until the dialogue or the story does/,
+    /Don't assume race, ethnicity or gender identity/, /Don't censor/, /Don't give away what's coming/,
+    /Don't describe over dialogue or lyrics that matter/, /same words each time|in the same words/,
+  ]) assert.match(SYSTEM, rule);
+  // Prompts stay neutral, so the English chosen under Spelling decides.
+  assert.doesNotMatch(SYSTEM, /colour|programme|label/i);
+  // Scene summaries keep the naming rules, so drafts don't name people too early.
+  assert.match(SCENE_SYSTEM, /first time/);
+  assert.match(SCENE_SYSTEM, /gender identity/);
 });
