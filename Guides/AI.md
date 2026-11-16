@@ -44,6 +44,8 @@ out beside the video.
 - **Notes for every project:** in Settings, under **AI help**. Rules for all your work go
   here, such as "don't describe the credits". Every project's drafts and messages include
   them. Where they disagree with a project's notes, the project's notes win.
+- **Spelling:** AI help writes American, British or Canadian English, with its spelling and
+  words, as chosen under **Spelling** in Settings, under Editing.
 - **New chat** starts again.
 - **Check grammar with AI:** in the [spelling and grammar check](GETTING-STARTED.md#checking-spelling-and-grammar).
   It suggests fixes for mistakes the offline check misses. Nothing changes until you choose a fix.
@@ -289,8 +291,7 @@ script around a block. A model that needs more can take a higher `OLLAMA_CONTEXT
    - where and when: "A hospital in Leeds, winter, present day."
 
    Put your team's style in **Notes for every project**, in Settings, so you write it once:
-   "Present tense. British spelling. No 'we see'. Don't describe the opening or closing
-   credits."
+   "Present tense. No 'we see'. Don't describe the opening or closing credits."
 
    **Look up the cast**, under the notes, fills in the character names for you: paste the
    programme's IMDb link (an episode's own link adds its guest cast too), or type its title,

@@ -327,7 +327,8 @@ To check without exporting, choose **Export → Check spelling and grammar**, or
   [Check grammar with AI](AI.md#what-it-does) goes further.
 - **In QC mode:** it lists problems but can't change text. Go to the block to comment.
 - **Settings:** under Editing, turn off **Check before exporting**, or choose American,
-  British or Canadian spelling. The check is English only, so turn it off for other languages.
+  British or Canadian **Spelling**. Speech to text and AI help use it too.
+- **Other languages:** the check is English only, so turn it off for them.
 
 ## Which file to send
 

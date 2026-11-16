@@ -172,7 +172,7 @@ test('a summary is asked for with its subtitles and the story so far', () => {
   assert.match(p, /The story so far, for context only: Mara arrives\./);
   assert.match(p, /"Where is he\?"/);
   assert.doesNotMatch(p, /Before\.|After\./);
-  assert.match(summaryPrompt(told[0], [], '', [], clock), /This is the start of the programme\.[\s\S]*There are no subtitles here\./);
+  assert.match(summaryPrompt(told[0], [], '', [], clock), /This is the start of the video\.[\s\S]*There are no subtitles here\./);
 });
 
 test('the next episode’s notes start with the story so far, replacing the one before', () => {

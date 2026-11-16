@@ -159,7 +159,7 @@ test('project notes go with the instructions, and nothing extra goes without the
   assert.equal(systemWith('  \n '), SYSTEM);
   const s = systemWith('Mara: red coat.\nSet in Leeds.');
   assert.ok(s.startsWith(SYSTEM));
-  assert.match(s, /notes about this programme.*\nMara: red coat\.\nSet in Leeds\.$/s);
+  assert.match(s, /notes about this video.*\nMara: red coat\.\nSet in Leeds\.$/s);
   // and they reach every provider
   for (const p of ['anthropic', 'openai', 'gemini', 'ollama']) {
     const r = JSON.stringify(buildRequest(p, { key: 'k', model: 'm', system: s, messages: [{ role: 'user', text: 'hi' }] }).body);
@@ -171,13 +171,23 @@ test('notes for every project go first, and the project’s own notes win', () =
   assert.equal(withNotes(SYSTEM, { general: ' \n ', notes: '' }), SYSTEM);
   const g = systemWith('', SYSTEM, 'Skip the credits.');
   assert.ok(g.startsWith(SYSTEM));
-  assert.match(g, /notes for every programme.*\nSkip the credits\.$/s);
-  assert.doesNotMatch(g, /about this programme/);
+  assert.match(g, /notes for every project.*\nSkip the credits\.$/s);
+  assert.doesNotMatch(g, /about this video/);
   const both = systemWith('Mara: red coat.', SYSTEM, 'Skip the credits.');
   assert.ok(both.indexOf('Skip the credits.') < both.indexOf('Mara: red coat.'));
-  assert.match(both, /about this programme, which come first where the two disagree/);
+  assert.match(both, /about this video, which come first where the two disagree/);
   // project notes alone read as before
-  assert.doesNotMatch(systemWith('Mara: red coat.'), /every programme|disagree/);
+  assert.doesNotMatch(systemWith('Mara: red coat.'), /every project|disagree/);
+});
+
+test('the English to use comes after the instructions, before the notes', () => {
+  const s = withNotes(SYSTEM, { english: 'Use American English.', general: 'Skip the credits.', notes: 'Mara: red coat.' });
+  assert.ok(s.startsWith(`${SYSTEM}\n\nUse American English.\n\n`));
+  assert.ok(s.indexOf('Use American English.') < s.indexOf('Skip the credits.'));
+  // so the notes can still ask for something else
+  assert.ok(s.indexOf('Skip the credits.') < s.indexOf('Mara: red coat.'));
+  // the instructions themselves lean to neither English
+  for (const w of [/programme/, /labell?ed/, /summari[sz]e/, /colou?r/]) assert.doesNotMatch(SYSTEM, w);
 });
 
 test('models that can’t see the frames or write a description aren’t offered', () => {

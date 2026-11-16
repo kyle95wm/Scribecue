@@ -132,7 +132,9 @@ test('splits a script into pieces for AI help, without empty blocks', () => {
   assert.match(aiCheckSystem('Mara is a nurse'), /Mara is a nurse/);
   const both = aiCheckSystem('Mara is a nurse', 'British spelling.');
   assert.ok(both.indexOf('British spelling.') < both.indexOf('Mara is a nurse'));
-  assert.match(aiCheckSystem('', 'British spelling.'), /every programme.*British spelling\./s);
+  assert.match(aiCheckSystem('', 'British spelling.'), /every project.*British spelling\./s);
+  const english = aiCheckSystem('Mara is a nurse', '', 'Use Canadian English.');
+  assert.ok(english.indexOf('Use Canadian English.') < english.indexOf('Mara is a nurse'));
 });
 
 test('reads AI help’s suggestions, and drops any it can’t back up', () => {

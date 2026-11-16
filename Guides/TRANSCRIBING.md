@@ -109,7 +109,7 @@ Open **Settings → Transcribing**, or press `Alt+Shift+H`.
   [Speech to text](INSTALL.md#speech-to-text-whisper).
 
 Then tick **Fill in blocks as I mark them**. `STT` shows under the video while it's on.
-You can also choose American or British and Canadian **Spelling**.
+It spells as chosen under **Spelling**, in Settings under Editing.
 
 ### Using it
 
@@ -137,8 +137,8 @@ It's good with clear narration, but check every line. Watch for:
 - **Names,** spelled the way they sound. Search for each one with `/` when you're done.
 - **Other voices.** On a mix track, a character speaking under the narration can end up
   in the text. Delete the extra words, or tighten the block and press `Alt+Shift+T`.
-- **Spelling.** Choose British and Canadian **Spelling** for colour, grey, centre and the
-  like.
+- **Spelling.** Whisper writes American spelling. Choose British or Canadian **Spelling**,
+  in Settings under Editing, for colour, grey, centre and the like.
 - **Short words run together,** such as "slide to" for "slides a".
 - **Other languages.** Only English is understood, unless you use a different model with
   Docker.

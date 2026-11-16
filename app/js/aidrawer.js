@@ -9,6 +9,7 @@ import { HOSTED } from './config.js';
 import { lookup as lookUpCast, KEY_PAGE as TMDB_KEY_PAGE } from './tmdb.js';
 import { openSettings as showSettings } from './settings.js';
 import { parseTime } from './formats.js';
+import { englishFor } from './spelling.js';
 import {
   gapsToDraft, splitGap, cutSamples, findCuts, dialogueAround, withBlock, estimate, estimateText, heardSpeech, SPLIT_OVER, DRAFT_MIN,
   scenesFor, sceneContext, storySoFar, summaryPrompt, SCENE_STILLS, RECAP_SYSTEM, recapPrompt, splitRecap,
@@ -38,7 +39,7 @@ const save = () => { const { provider, models, lists, base, frames, remember, li
 
 // The notes for every project, which go with the project's own to every request.
 export const generalNotes = () => (typeof ai.notes === 'string' ? ai.notes : '');
-const instructions = (base = SYSTEM) => withNotes(base, { general: generalNotes(), notes: hooks.notes() });
+const instructions = (base = SYSTEM) => withNotes(base, { english: englishFor(hooks.language()), general: generalNotes(), notes: hooks.notes() });
 
 // The OpenAI key, if there is one: a dialogue lane can be found with it too.
 export const openaiKey = () => keys().openai || '';
@@ -51,7 +52,7 @@ let hooks = {
   dialogueLines: () => [], freeGaps: () => null, duration: () => 0, noLane: '', identity: () => null, isFree: () => true,
   jobBusy: () => false, runJob: async () => null, laneHeard: () => false, insertDraft: () => null, undoKey: () => 'Ctrl+Z', nextKey: () => '',
   canListen: () => false, setUpListening: () => {}, listen: async () => '',
-  scenes: () => [], setScenes: () => {}, dialogueGaps: () => [], seek: () => {},
+  scenes: () => [], setScenes: () => {}, dialogueGaps: () => [], seek: () => {}, language: () => 'en-us',
 };
 let chat = []; // the conversation, as ai.js messages
 let running = null; // AbortController of the request under way
@@ -297,7 +298,7 @@ async function requestDraft(text, frames, signal, system = instructions()) {
 export const aiConnected = () => ready();
 export async function writeRecap(previous, scenes, episode, signal) {
   if (!ready()) return null;
-  const system = withNotes(RECAP_SYSTEM, { general: generalNotes(), notes: splitRecap(hooks.notes()).notes });
+  const system = withNotes(RECAP_SYSTEM, { english: englishFor(hooks.language()), general: generalNotes(), notes: splitRecap(hooks.notes()).notes });
   const r = await requestDraft(recapPrompt(previous, scenes, episode), [], signal, system);
   return r.text?.trim() || null;
 }

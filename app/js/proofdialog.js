@@ -6,13 +6,19 @@ import {
   aiBatches, aiCheckPrompt, aiCheckSystem, readAiCheck, defaultLanguage,
 } from './proofing.js';
 import { aiStatus, askAi } from './aidrawer.js';
+import { englishFor } from './spelling.js';
 
 const $ = (id) => document.getElementById(id);
 const KEY = 'scribecue.proof', PAGE = 200, IDLE = 30000;
 const SHOW_AFTER = 300; // ms: a quick check before an export shows no window at all
 const STILL_ALLOWED = 3000; // ms: past this, the browser may refuse to open a save window
 const opts = { warn: true, language: defaultLanguage(globalThis.navigator?.language) };
-try { Object.assign(opts, JSON.parse(localStorage.getItem(KEY))); } catch { /* ignore */ }
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY)) || {};
+  // Speech to text used to have its own spelling. A British choice there carries over.
+  if (!saved.language && JSON.parse(localStorage.getItem('scribecue.stt'))?.spelling === 'uk' && opts.language === 'en-us') saved.language = 'en-gb';
+  Object.assign(opts, saved);
+} catch { /* ignore */ }
 const saveOpts = () => { try { localStorage.setItem(KEY, JSON.stringify(opts)); } catch { /* ignore */ } };
 
 let h, dlg;
@@ -24,6 +30,8 @@ let showing = null; // the export the open window is for: closing it cancels onl
 let aiRun = null; // AbortController of the AI check under way
 
 const withText = () => h.blocks().filter((b) => b.text.trim());
+// The English chosen in Settings, under Editing: 'en-us', 'en-gb' or 'en-ca'.
+export const spellingLanguage = () => opts.language;
 
 // What was ignored or accepted goes with the project.
 function sameProject() {
@@ -193,7 +201,7 @@ async function checkWithAi() {
     for (const [i, batch] of batches.entries()) {
       note.textContent = `Part ${i + 1} of ${batches.length}…`;
       showProgress(i, batches.length);
-      const reply = await askAi(aiCheckSystem(h.notes(), h.generalNotes()), aiCheckPrompt(batch), run.signal);
+      const reply = await askAi(aiCheckSystem(h.notes(), h.generalNotes(), englishFor(opts.language)), aiCheckPrompt(batch), run.signal);
       try { suggestions.push(...readAiCheck(reply, batch)); } catch { unread++; }
       await refresh();
       showProgress(i + 1, batches.length);

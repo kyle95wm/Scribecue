@@ -31,22 +31,24 @@ Write in the present tense, plainly and concretely. Describe what can be seen: w
 
 Keep the names and style the script already uses, and don't name someone the script hasn't named yet. Fit the time available: a description that runs past its gap gets in the way of the dialogue.
 
-Video frames you're given are stills from the programme, each labelled with its timecode.`;
+Video frames you're given are stills from the video, each with its timecode.`;
 
-// The instructions with the writer's notes, which can say what the frames can't. Notes for
-// every project (Settings) come first: the team's style, what to leave out. The notes about
-// this programme come last, so they win where the two disagree.
-export function withNotes(base, { general = '', notes = '', intro = "Follow them, and use the names they give:" } = {}) {
+// The instructions with the English to use (englishFor in spelling.js) and the writer's
+// notes, which can say what the frames can't. Notes for every project (Settings) come
+// first: the team's style, what to leave out. The notes about this project come last, so
+// they win where the two disagree.
+export function withNotes(base, { english = '', general = '', notes = '', intro = "Follow them, and use the names they give:" } = {}) {
   const g = general.trim(), n = notes.trim();
   let s = base;
-  if (g) s += `\n\nThe writer's notes for every programme. Follow them:\n${g}`;
-  if (n) s += `\n\nThe writer's notes about this programme${g ? ', which come first where the two disagree' : ''}. ${intro}\n${n}`;
+  if (english) s += `\n\n${english}`;
+  if (g) s += `\n\nThe writer's notes for every project. Follow them:\n${g}`;
+  if (n) s += `\n\nThe writer's notes about this video${g ? ', which come first where the two disagree' : ''}. ${intro}\n${n}`;
   return s;
 }
 export const systemWith = (notes = '', base = SYSTEM, general = '') => withNotes(base, { general, notes });
 
 // The instructions for summarising scenes, before any drafting.
-export const SCENE_SYSTEM = `You help a writer prepare audio description for blind and partially sighted viewers. Before they draft, you summarise each part of the programme from stills and the subtitles, so later descriptions know who people are and what has happened.
+export const SCENE_SYSTEM = `You help a writer prepare audio description for blind and partially sighted viewers. Before they draft, you sum up each part of the video from stills and the subtitles, so later descriptions know who people are and what has happened.
 
 Be factual and brief. Use the names the writer's notes or the dialogue give; otherwise describe people briefly ("a woman in a red coat"). Don't guess at what the stills and dialogue don't show. Tell what happens, not what the stills or subtitles are: "she finds her keys", not "the subtitle says she finds her keys".`;
 
