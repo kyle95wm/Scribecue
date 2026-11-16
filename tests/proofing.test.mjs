@@ -135,6 +135,10 @@ test('splits a script into pieces for AI help, without empty blocks', () => {
   assert.match(aiCheckSystem('', 'British spelling.'), /every project.*British spelling\./s);
   const english = aiCheckSystem('Mara is a nurse', '', 'Use Canadian English.');
   assert.ok(english.indexOf('Use Canadian English.') < english.indexOf('Mara is a nurse'));
+  // It also flags clear breaks of audio description style, but not matters of taste.
+  for (const rule of [/past tense/, /"we see"/, /opinion/, /gender identity, when the notes don't give it/, /could mean more than one person/, /only a matter of taste/]) {
+    assert.match(aiCheckSystem(), rule);
+  }
 });
 
 test('reads AI help’s suggestions, and drops any it can’t back up', () => {
