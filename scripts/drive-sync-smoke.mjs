@@ -46,7 +46,7 @@ events.push(async (m) => {
   asked.push(`${request.method} ${url.host}${url.pathname}`);
   if (url.host === 'share.kyleadvoice.ca') {
     const path = url.pathname.split('/').pop();
-    if (path === 'token') { assert.equal(JSON.parse(body).code, 'the-code'); return reply({ access: 'acc', expires: 3599, sealed: 'sealed-1', email: 'writer@example.com', scope: 'openid email https://www.googleapis.com/auth/drive.appdata' }); }
+    if (path === 'token') { assert.equal(JSON.parse(body).code, 'the-code'); return reply({ access: 'acc', expires: 3599, sealed: 'sealed-1', email: 'writer@example.com', scope: 'openid email https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file' }); }
     if (path === 'refresh') return reply({ access: 'acc', expires: 3599 });
     if (path === 'revoke') return reply({ ok: true });
   }
@@ -97,7 +97,8 @@ try {
   assert.equal(g.searchParams.get('code_challenge_method'), 'S256');
   assert.equal(g.searchParams.get('access_type'), 'offline');
   assert.match(g.searchParams.get('scope'), /drive\.appdata/);
-  assert.doesNotMatch(g.searchParams.get('scope'), /drive(\.file)?(\s|$)/, 'only the hidden folder, not all of Drive');
+  assert.match(g.searchParams.get('scope'), /drive\.file/);
+  assert.doesNotMatch(g.searchParams.get('scope'), /auth\/drive(\s|$)/, 'never all of Drive');
   assert.match(await js(`document.getElementById('gdStatus').textContent`), /Finish connecting in the Google window/);
   // Google sends the window back to google.html, which passes the code on and closes.
   const back = new URL('google.html', site);
@@ -108,7 +109,7 @@ try {
   await wait(`!document.getElementById('gdOn').hidden && /Synced at/.test(document.getElementById('gdStatus').textContent)`);
   console.log(`connected and synced in ${Date.now() - t0} ms at ${slowdown}×; while syncing:`, await during);
   assert.equal(await js(`document.getElementById('gdWho').textContent`), 'writer@example.com');
-  assert.equal(await ls('google'), JSON.stringify({ sealed: 'sealed-1', email: 'writer@example.com' }));
+  assert.equal(await ls('google'), JSON.stringify({ sealed: 'sealed-1', email: 'writer@example.com', projects: true }));
   // First sync: Drive's settings win, and this browser's are added. The click to connect
   // counts as working, so they wait for Scribecue to open again.
   assert.equal(drive.body.settings.lead.v, '2.5');

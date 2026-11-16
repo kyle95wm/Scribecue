@@ -224,9 +224,15 @@ programme. `Ctrl/Cmd+O` opens it again.
   files and session packages you opened or saved. Search by name, or show one kind.
 - **Take a file off Recents** with its **×**, or click **Clear all**. The files themselves
   stay where they are.
+- **Keep a project in Google Drive** to open it on any computer: **File, Save to Google
+  Drive** (`Alt+Shift+U`). From then on, saving and autosave go there. Open it with **File,
+  Open from Google Drive** (`Alt+Shift+G`). The video stays on each computer.
+- **Saved as "Name (2)"?** The project changed on another computer since you opened it, so
+  Scribecue saved yours beside it rather than over it. Both are in Drive.
 
-Saving to the file, autosave, Recents and reopening the video need Chrome or Edge. Other browsers
-download a copy each time you save, and you open the video yourself.
+Saving to a file on this computer, autosave, Recents and reopening the video need Chrome or
+Edge. Other browsers download a copy each time you save, and you open the video yourself. In
+any browser, a project in Google Drive saves and autosaves there.
 
 ## Comments
 

@@ -46,7 +46,7 @@ To set it up for a fork:
 
 1. In Google Cloud, enable the **Google Drive API**.
 2. Under **Google Auth Platform**, fill in **Branding**, and add the scopes `openid`,
-   `userinfo.email` and `drive.appdata` under **Data Access**.
+   `userinfo.email`, `drive.appdata` and `drive.file` under **Data Access**.
 3. Make a **Web application** client. Add each address Scribecue runs at as a JavaScript
    origin, and the same address with `/google.html` as a redirect URI.
 4. Put the client id in `GOOGLE_CLIENT_ID`, both in `wrangler.toml` and in

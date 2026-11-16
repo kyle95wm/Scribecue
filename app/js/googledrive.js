@@ -10,8 +10,11 @@ import {
   SYNC_FILE, STATE, AUTH, KEYS, CHANNEL, syncedSettings, syncedSecrets, localValues, readState, readRemote,
   noteChanges, merge, nextState, writeValues,
 } from './drivesync.js';
+import { FOLDER, MARK, copyName, driveRef, changedElsewhere } from './driveprojects.js';
 
-const SCOPES = 'openid email https://www.googleapis.com/auth/drive.appdata';
+// drive.appdata: the hidden folder settings sync in. drive.file: only files Scribecue made,
+// for projects.
+const SCOPES = 'openid email https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file';
 const API = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
 const LOOK = 15000; // how often to look for settings changed here, while visible
@@ -27,7 +30,7 @@ let auth = readAuth(); // { sealed, email }
 let access = null; // { token, until }
 let status = { kind: auth ? 'idle' : 'off', text: '' };
 let running = null, again = false, settleTimer = 0, waiting = null;
-let hooks = { toast: () => {}, beforeReload: () => {} };
+let hooks = { toast: () => {}, beforeReload: () => {}, projectCopied: () => {} };
 
 function readAuth() {
   try { const a = JSON.parse(localStorage.getItem(AUTH)); return a && typeof a.sealed === 'string' ? a : null; } catch { return null; }
@@ -38,6 +41,9 @@ function saveState(s) { const { first, ...keep } = s; localStorage.setItem(STATE
 export const canConnect = () => !!GOOGLE_CLIENT_ID;
 export const connected = () => !!auth;
 export const driveEmail = () => auth?.email || '';
+// Whether this connection lets Scribecue keep projects in Drive. Connections made before it
+// could (settings only) connect again once.
+export const canProjects = () => !!auth?.projects;
 
 class SyncError extends Error {
   constructor(code, message) { super(message || code); this.code = code; }
@@ -62,12 +68,12 @@ async function helper(path, body) {
   return data;
 }
 
-// Must start from a click, or the browser blocks the window.
+// Must start from a click, or the browser blocks the window. Resolves true once connected.
 export async function connect() {
-  if (!canConnect()) return;
+  if (!canConnect()) return false;
   touched = true;
   const win = window.open('', 'scribecueGoogle', 'popup,width=500,height=650');
-  if (!win) return show('error', 'Your browser blocked the Google window. Allow pop-ups for this page, then try again.');
+  if (!win) { show(auth ? 'error' : 'off', 'Your browser blocked the Google window. Allow pop-ups for this page, then try again.'); hooks.toast('Your browser blocked the Google window. Allow pop-ups for Scribecue, then try again'); return false; }
   const verifier = random(32), state = random(16);
   const challenge = b64u(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -83,14 +89,20 @@ export async function connect() {
     show('waiting', 'Connecting…');
     const got = await helper('token', { code, verifier });
     if (!got.scope.includes('drive.appdata')) throw new SyncError('scope', 'Google Drive wasn’t allowed. Connect again and tick the box for Scribecue’s files');
-    auth = { sealed: got.sealed, email: got.email };
+    const fresh = !auth;
+    auth = { sealed: got.sealed, email: got.email, projects: got.scope.includes('drive.file') };
     access = { token: got.access, until: Date.now() + got.expires * 1000 };
+    folder = '';
     localStorage.setItem(AUTH, JSON.stringify(auth));
-    localStorage.removeItem(STATE); // a first sync: Drive's settings win
+    if (fresh) localStorage.removeItem(STATE); // a first sync: Drive's settings win
     await syncNow();
+    return true;
   } catch (e) {
-    if (e.code === 'replaced') return;
-    show(auth ? 'error' : 'off', e.code === 'cancelled' ? '' : `Couldn’t connect Google Drive: ${e.message}.`);
+    if (e.code === 'replaced') return false;
+    const msg = e.code === 'cancelled' ? '' : `Couldn’t connect Google Drive: ${e.message}.`;
+    show(auth ? 'error' : 'off', msg);
+    if (msg) hooks.toast(msg.replace(/\.$/, ''));
+    return false;
   }
 }
 
@@ -113,7 +125,7 @@ function answer(state) {
 
 export async function disconnect() {
   const was = auth;
-  auth = null; access = null;
+  auth = null; access = null; folder = '';
   localStorage.removeItem(AUTH);
   localStorage.removeItem(STATE);
   show('off', 'Disconnected. Your settings stay in this browser, and in Google Drive.');
@@ -141,6 +153,10 @@ async function drive(url, opts = {}, retry = true) {
   try { r = await fetch(url, { ...opts, headers: { ...opts.headers, authorization: `Bearer ${t}` } }); } catch { throw new SyncError('offline', 'Google Drive couldn’t be reached'); }
   if (r.status === 401 && retry) { access = null; return drive(url, opts, false); }
   if (r.status === 404) throw new SyncError('gone', 'not found');
+  if (r.status === 403 && /insufficient|scope/i.test(await r.clone().text().catch(() => ''))) {
+    if (auth) { auth.projects = false; localStorage.setItem(AUTH, JSON.stringify(auth)); }
+    throw new SyncError('scope', 'Scribecue isn’t allowed to keep projects in your Drive. Connect Google Drive again');
+  }
   if (!r.ok) throw new SyncError('drive', `Google Drive said ${r.status}`);
   return r;
 }
@@ -163,6 +179,97 @@ async function createFile(body) {
 }
 async function writeFile(id, body) {
   await drive(`${UPLOAD}/${encodeURIComponent(id)}?uploadType=media`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+}
+
+// ---- projects
+//
+// Kept in a Scribecue folder in My Drive, which people can see. Scribecue only reaches files
+// it made itself. A project opened from Drive gets a stand-in for a file handle
+// (driveHandle), so saving and autosave treat it like a file on this computer.
+
+let folder = '';
+const FIELDS = 'id,name,headRevisionId,modifiedTime,trashed';
+
+async function folderId() {
+  if (folder) return folder;
+  const q = encodeURIComponent(`name='${FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const found = (await (await drive(`${API}?q=${q}&fields=files(id)&spaces=drive`)).json()).files?.[0]?.id;
+  if (found) return (folder = found);
+  const r = await drive(`${API}?fields=id`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: FOLDER, mimeType: 'application/vnd.google-apps.folder' }) });
+  return (folder = (await r.json()).id);
+}
+
+// Every project Scribecue saved to this Drive, from any computer.
+export async function listProjects() {
+  const q = encodeURIComponent(`appProperties has { key='${MARK.key}' and value='${MARK.value}' } and trashed=false`);
+  const r = await drive(`${API}?q=${q}&fields=files(${FIELDS})&pageSize=500&orderBy=modifiedTime desc&spaces=drive`);
+  return (await r.json()).files || [];
+}
+
+async function names() {
+  const q = encodeURIComponent(`'${await folderId()}' in parents and trashed=false`);
+  return ((await (await drive(`${API}?q=${q}&fields=files(name)&pageSize=1000`)).json()).files || []).map((f) => f.name);
+}
+
+// A new project file in the Scribecue folder, named so it doesn't clash with another there.
+export async function createProject(name, blob) {
+  const meta = { name: copyName(name, await names()), parents: [await folderId()], mimeType: 'application/json', appProperties: { [MARK.key]: MARK.value } };
+  const boundary = 'scribecue' + random(12);
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n`,
+    blob, `\r\n--${boundary}--`,
+  ]);
+  const r = await drive(`${UPLOAD}?uploadType=multipart&fields=${FIELDS}`, { method: 'POST', headers: { 'content-type': `multipart/related; boundary=${boundary}` }, body });
+  const f = await r.json();
+  return driveHandle({ id: f.id, name: f.name, revision: f.headRevisionId });
+}
+
+// Writes a project back. If it changed in Drive since this browser read or wrote it, or is
+// gone, it's saved beside it as a copy instead, and the handle moves to the copy: nothing is
+// overwritten. Returns why it made a copy, or ''.
+async function writeProject(h, blob) {
+  let now = null;
+  try { now = await (await drive(`${API}/${encodeURIComponent(h.id)}?fields=${FIELDS}`)).json(); } catch (e) { if (e.code !== 'gone') throw e; }
+  const why = !now || now.trashed ? 'gone' : changedElsewhere(h.revision, now.headRevisionId) ? 'changed' : '';
+  if (why) {
+    const copy = await createProject(h.name, blob);
+    Object.assign(h, { id: copy.id, name: copy.name, revision: copy.revision });
+    return why;
+  }
+  const r = await drive(`${UPLOAD}/${encodeURIComponent(h.id)}?uploadType=media&fields=${FIELDS}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: blob });
+  h.revision = (await r.json()).headRevisionId;
+  return '';
+}
+
+// A project in Drive, behaving enough like a FileSystemFileHandle for saving, autosave and
+// Recents. Kept in storage as driveRef(handle).
+export function driveHandle(ref) {
+  const h = {
+    kind: 'drive', id: ref.id, name: ref.name, revision: ref.revision || '',
+    ref: () => driveRef(h),
+    queryPermission: async () => (auth ? 'granted' : 'prompt'),
+    requestPermission: async () => (auth ? 'granted' : 'denied'),
+    isSameEntry: async (o) => o?.kind === 'drive' && o.id === h.id,
+    async getFile() {
+      const meta = await (await drive(`${API}/${encodeURIComponent(h.id)}?fields=${FIELDS}`)).json();
+      if (meta.trashed) throw new SyncError('gone', 'it’s in the Drive bin');
+      const text = await (await drive(`${API}/${encodeURIComponent(h.id)}?alt=media`)).text();
+      Object.assign(h, { name: meta.name, revision: meta.headRevisionId });
+      return new File([text], meta.name, { type: 'application/json' });
+    },
+    async createWritable() {
+      const parts = [];
+      return {
+        write: async (x) => { parts.push(x); },
+        close: async () => {
+          const was = h.name;
+          const why = await writeProject(h, new Blob(parts, { type: 'application/json' }));
+          if (why) hooks.projectCopied(h, was, why);
+        },
+      };
+    },
+  };
+  return h;
 }
 
 // ---- syncing
@@ -247,6 +354,7 @@ function render() {
   $('gdOff').hidden = !canConnect() || !!auth;
   $('gdOn').hidden = !auth;
   if (auth) $('gdWho').textContent = auth.email || 'your Google account';
+  $('gdProjects').hidden = !auth || !!auth.projects;
   const keys = localStorage.getItem('scribecue.' + KEYS) === '1';
   $('gdKeys').setAttribute('aria-pressed', String(keys));
   const st = readLocalState();
@@ -265,6 +373,7 @@ export function initDrive(h) {
   addEventListener('pointerdown', () => { touched = true; }, { capture: true, once: true });
   addEventListener('keydown', () => { touched = true; }, { capture: true, once: true });
   $('gdConnect').addEventListener('click', connect);
+  $('gdReconnect').addEventListener('click', connect);
   $('gdDisconnect').addEventListener('click', disconnect);
   $('gdSync').addEventListener('click', () => syncNow());
   $('gdReload').addEventListener('click', () => { hooks.beforeReload(); location.reload(); });
