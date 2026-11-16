@@ -182,3 +182,12 @@ test('scene summaries are saved with the project', () => {
   assert.ok(!('scenes' in JSON.parse(JSON.stringify(toProject(state)))), 'none, none saved');
   assert.deepEqual(fromProject({ ...saved, scenes: [{ start: 'x' }] }).scenes, []);
 });
+
+test('a project keeps the dialogue lane’s edits, and leaves them out when there are none', () => {
+  const dialogueEdits = { 'track|0|en|': { '4000|Raindrops on roses': { cut: true }, '1000|Hello.': { start: 1.4, end: 2.5 } } };
+  const saved = JSON.parse(JSON.stringify(toProject({ ...state, dialogueEdits })));
+  assert.deepEqual(saved.dialogueEdits, dialogueEdits);
+  assert.deepEqual(fromProject(saved).dialogueEdits, dialogueEdits);
+  assert.equal('dialogueEdits' in toProject(state), false);
+  assert.deepEqual(fromProject(toProject(state)).dialogueEdits, {});
+});

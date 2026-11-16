@@ -19,6 +19,7 @@ What Scribecue does, and where each part works: the web version at
 | Dialogue lane from the video's subtitles | ✓ | ✓ |
 | Dialogue lane from OpenSubtitles, with your own key | ✓ | ✓ |
 | Dialogue lane from speech to text, for a video with no subtitles | ✓ Whisper in the browser, or OpenAI | ✓ `whisper` container, or OpenAI |
+| Fix the dialogue lane: take lines out, trim their ends | ✓ | ✓ |
 | Floating the video | ✓ | ✓ |
 | Comments and bookmarks | ✓ | ✓ |
 | Extended blocks, which pause the video | ✓ | ✓ |

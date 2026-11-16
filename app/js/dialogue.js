@@ -102,13 +102,87 @@ export function buildDialogue(raw) {
     }
   });
   lines.sort((a, b) => a.start - b.start);
+  return { lines, spans: spansOf(lines) };
+}
+
+// The stretches with someone speaking, with overlapping lines joined. lines: sorted by start.
+export function spansOf(lines) {
   const spans = [];
   for (const { start, end } of lines) {
     const last = spans.at(-1);
     if (last && start <= last[1]) last[1] = Math.max(last[1], end);
     else spans.push([start, end]);
   }
-  return { lines, spans };
+  return spans;
+}
+
+// ---------------------------------------------------------------- the writer's edits
+//
+// Lines can be taken out, such as song lyrics nobody marked, or have their start and end
+// moved to where the words really are. The edits are kept in the project, one set for
+// each source (a track, a file, speech to text), so going back to a source brings its
+// edits back. Each edit names a line by where it started in the source and its words.
+
+// The shortest a line can be made, in seconds.
+export const MIN_LINE = 0.1;
+// More than this many edits for one source, or sources, is something gone wrong.
+const MAX_EDITS = 20000, MAX_SOURCES = 50;
+
+export const lineKey = (l) => `${Math.round(l.start * 1000)}|${l.text}`;
+
+// A project's dialogue edits, with anything malformed dropped:
+// { [source]: { [lineKey]: { cut: true } | { start, end } } }.
+export function cleanLaneEdits(value) {
+  const out = {};
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return out;
+  for (const [source, edits] of Object.entries(value).slice(0, MAX_SOURCES)) {
+    if (!source || source.length > 500 || !edits || typeof edits !== 'object' || Array.isArray(edits)) continue;
+    const kept = {};
+    for (const [k, e] of Object.entries(edits).slice(0, MAX_EDITS)) {
+      if (!/^-?\d+\|/.test(k) || k.length > 2000 || !e || typeof e !== 'object') continue;
+      if (e.cut === true) kept[k] = { cut: true };
+      else if (Number.isFinite(e.start) && Number.isFinite(e.end) && e.start >= 0 && e.end - e.start >= MIN_LINE - 1e-9) kept[k] = { start: e.start, end: e.end };
+    }
+    if (Object.keys(kept).length) out[source] = kept;
+  }
+  return out;
+}
+
+// A source's lines with its edits made: each line carries its key, as k, and edited: true
+// if its times were changed. Lines taken out are left out. lines: as buildDialogue gives them.
+export function editLines(lines, edits = {}) {
+  const out = [];
+  for (const l of lines) {
+    const k = lineKey(l), e = edits[k];
+    if (e?.cut) continue;
+    out.push(e ? { start: e.start, end: e.end, text: l.text, k, edited: true } : { ...l, k });
+  }
+  return out.sort((a, b) => a.start - b.start);
+}
+
+// A line's new times, kept to the programme and at least MIN_LINE long. which: 'start',
+// 'end' or 'move'. Returns { start, end }.
+export function retimeLine(line, which, t, duration = Infinity) {
+  let { start, end } = line;
+  if (which === 'start') start = Math.min(Math.max(0, t), end - MIN_LINE);
+  else if (which === 'end') end = Math.max(Math.min(duration, t), start + MIN_LINE);
+  else {
+    const len = end - start;
+    start = Math.min(Math.max(0, t), Math.max(0, duration - len));
+    end = start + len;
+  }
+  return { start, end };
+}
+
+// The line at time t: of those under it, the one that starts last. null if none. lines: sorted.
+export function lineAt(lines, t) {
+  let lo = 0, hi = lines.length;
+  while (lo < hi) {
+    const m = (lo + hi) >> 1;
+    if (lines[m].start <= t) lo = m + 1; else hi = m;
+  }
+  for (let i = lo - 1; i >= 0 && i >= lo - 20; i--) if (lines[i].end > t) return lines[i];
+  return null;
 }
 
 // The gaps of at least MIN_GAP in a programme, as [{ start, end }].
@@ -191,8 +265,9 @@ const SHOW_TEXT = 40;    // pixels, at least, for a line to show its words
 const SHOW_GAP = 46;     // pixels, at least, for a gap to show its length
 const FONT = '11px ui-monospace, Menlo, monospace';
 
-// g: the lane's canvas, already sized. C: { bar, text, dim, panel }, from the tokens in style.css.
-export function drawDialogue(g, W, H, t0, pps, d, gaps, C) {
+// g: the lane's canvas, already sized. C: { bar, text, dim, panel, accent }, from the tokens in
+// style.css. sel: the selected line, drawn with grips at its ends, or null.
+export function drawDialogue(g, W, H, t0, pps, d, gaps, C, sel = null) {
   g.fillStyle = C.panel;
   g.fillRect(0, 0, W, H);
   g.font = FONT;
@@ -228,6 +303,17 @@ export function drawDialogue(g, W, H, t0, pps, d, gaps, C) {
     if (w >= SHOW_GAP) g.fillText(`${(end - start).toFixed(1)} s`, ((start + end) / 2 - t0) * pps, mid);
   }
   g.textAlign = 'left';
+  if (sel && sel.end > t0 && sel.start < t1) {
+    const x = (sel.start - t0) * pps, w = Math.max(2, (sel.end - sel.start) * pps);
+    g.strokeStyle = C.accent;
+    g.lineWidth = 1.5;
+    g.strokeRect(x + 0.75, y + 0.75, w - 1.5, h - 1.5);
+    g.fillStyle = C.accent;
+    if (w >= 12) {
+      g.fillRect(x + 2, y + h * 0.25, 3, h * 0.5);
+      g.fillRect(x + w - 5, y + h * 0.25, 3, h * 0.5);
+    }
+  }
 }
 
 // ---------------------------------------------------------------- kept in the browser

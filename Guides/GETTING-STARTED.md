@@ -375,7 +375,7 @@ speak and how long each gap is, so you can see where description fits.
 | Jump to the next or previous free gap | Press `D` or `Shift+D` |
 | Fill the gap with a new block | Press `Shift+N`, or double-click the gap |
 | Jump to a block over dialogue | Press `U` or `Shift+U` |
-| Move the playhead | Click the lane |
+| Move the playhead | Click the lane. Clicking a line also selects it, to [fix it](#fixing-the-lane) |
 | Pick other subtitles, or turn the lane off | Use **Dialogue** under the video |
 | Use a subtitle file (SRT or WebVTT) | Pick **Load a subtitle file…** in **Dialogue** |
 | Get subtitles from OpenSubtitles | Pick **Search OpenSubtitles…** in **Dialogue**, or press `Alt+Shift+O` |
@@ -396,7 +396,27 @@ speak and how long each gap is, so you can see where description fits.
   names such as `JOHN:`.
 - **Picture subtitles can't be read.** Blu-ray and DVD subtitles are images. They show in
   the list, greyed out. Load a subtitle file, or search OpenSubtitles, instead.
-- **The lane stays in this browser.** It isn't part of your script, project or exports.
+- **The lines stay in this browser.** Your changes to them are saved in the project. Neither is
+  exported.
+
+### Fixing the lane
+
+Subtitles and speech to text aren't always right. Song lyrics can show as speech, or a line can
+start before anyone speaks. Click a line on the lane to select it, then:
+
+| To do this | Do this |
+| --- | --- |
+| Take the line out, such as lyrics | Press `Del` |
+| Trim its start or end | Drag either end, or press `A` / `S` to set it to the playhead |
+| Nudge it | `Q` `W` for the start, `E` `R` for the end, `,` `.` to move it (with `Shift`: 10 ms) |
+| Go to its start or end | Press `G` or `Shift+G` |
+| Let go of it | Press `Esc`, or click a block |
+| Put back every line from these subtitles | Pick **Put back the original lines** in **Dialogue** |
+
+- **The keys work on the line while it's selected.** Selecting it closes the block you were on.
+- **Each set of subtitles keeps its own changes.** Switch to another and back, and they return.
+- **`Ctrl/Cmd+Z` undoes a change**, as for blocks.
+- **Zoom in to drag a line you haven't selected.**
 
 ### No subtitles?
 
