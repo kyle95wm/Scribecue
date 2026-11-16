@@ -364,7 +364,7 @@ files.
 
 1. **Save each project:** **File → Save**. Blocks you haven't saved stay behind.
 2. **Back up your settings:** **Settings → Storage → Export settings…**. Turn on
-   **Include API keys** to take your Google, Amazon Polly, AI and TMDB keys too.
+   **Include API keys** to take your Google, Amazon Polly, AI, TMDB and OpenSubtitles keys too.
 3. **Recordings:** **Export → Session package**, or copy the takes folder. See
    [Moving to another computer](RECORDING.md#moving-to-another-computer).
 4. **Projects you share:** make a [recovery link](SHARING.md#recovery-link). Only the

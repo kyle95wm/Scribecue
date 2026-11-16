@@ -38,7 +38,7 @@ const SETTINGS = [
 const SECRETS = [
   ['googleTts', 'json', 'Google key'],
   ['pollyTts', 'json', 'Amazon Polly key'],
-  ['ai.keys', 'merge', 'AI and TMDB keys'],
+  ['ai.keys', 'merge', 'AI, TMDB and OpenSubtitles keys'],
 ];
 const KNOWN = new Map([...SETTINGS, ...SECRETS].map(([name, kind, label]) => [name, { kind, label }]));
 export const settingNames = () => SETTINGS.map(([n]) => n);

@@ -77,6 +77,7 @@ The guides also open inside Scribecue: press `?` and click **Guides**.
   - an [AI provider](Guides/AI.md), once you connect one, when you send a message or ask for a
     draft;
   - TMDB, when you click **Look up the cast** in AI help;
+  - OpenSubtitles, when you search it for a video's subtitles;
   - [online, Google Cloud and Amazon Polly voices](Guides/VOICES.md), which send each line's text
     to be read;
   - the [sharing service](Guides/SHARING.md), once you share a project or open a shared one.

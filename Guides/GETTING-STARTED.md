@@ -32,7 +32,7 @@ you work. It's in sections down the left:
 | **Appearance** | Highlight colour, text over the video, text size, floating video |
 | **Text to speech** | Voices, reading aloud, timings, audio exports |
 | **Online voices** | Google Cloud and Amazon Polly keys, and the browser's online voices |
-| **AI help** | Your AI provider, and a TMDB key for the cast |
+| **AI help** | Your AI provider, a TMDB key for the cast, and an OpenSubtitles key |
 | **Keyboard shortcuts** | Changing your keys |
 | **Storage** | What's kept in this browser, and backing up your settings |
 | **Diagnostics** | Details to send with a problem report |
@@ -362,6 +362,7 @@ speak and how long each gap is, so you can see where description fits.
 | Move the playhead | Click the lane |
 | Pick other subtitles, or turn the lane off | Use **Dialogue** under the video |
 | Use a subtitle file (SRT or WebVTT) | Pick **Load a subtitle file…** in **Dialogue** |
+| Get subtitles from OpenSubtitles | Pick **Search OpenSubtitles…** in **Dialogue**, or press `Alt+Shift+O` |
 | Find the dialogue in a video with no subtitles | Pick **Find dialogue with speech to text…** in **Dialogue**, or press `Alt+Shift+L` |
 
 - **A free gap has room for a block.** `D` skips gaps that are already filled, and
@@ -378,12 +379,27 @@ speak and how long each gap is, so you can see where description fits.
   `[door slams]`, and song lyrics between ♪. The lane leaves them out, along with speaker
   names such as `JOHN:`.
 - **Picture subtitles can't be read.** Blu-ray and DVD subtitles are images. They show in
-  the list, greyed out. Load a subtitle file instead.
+  the list, greyed out. Load a subtitle file, or search OpenSubtitles, instead.
 - **The lane stays in this browser.** It isn't part of your script, project or exports.
 
 ### No subtitles?
 
-Speech to text can listen to the programme and make the lane from what's said.
+Try OpenSubtitles first. It's quicker, and its subtitles are written by people.
+
+1. Pick **Search OpenSubtitles…** in **Dialogue**, under the video.
+2. Check the title, and the season and episode or year. They're filled in from the file name.
+3. Click **Search**, then **Use** next to the one you want.
+
+- **It needs your own free key.** [Get one](https://www.opensubtitles.com/en/consumers), and
+  paste it in the window, or in Settings → **AI help**.
+- **"Fits this file" means it was timed for your exact file.** Others may be for another
+  release, and drift. Check them against the sound.
+- **You get a few downloads a day.** Sign in to your OpenSubtitles account in Settings →
+  **AI help** for more. Your password isn't kept.
+- **Only the search goes to OpenSubtitles:** the title, season, episode, year, language and
+  a short code worked out from your video file. The video itself stays on your computer.
+
+Nothing on OpenSubtitles? Speech to text can listen to the programme and make the lane from what's said.
 
 1. Pick **Find dialogue with speech to text…** in **Dialogue**, under the video.
 2. Choose where it listens:

@@ -1099,6 +1099,11 @@ body.blocked > :not(.blocker) { display: none !important; }
 .takeslist { max-height: 40vh; overflow-y: auto; }
 .takeslist li { align-items: center; }
 .takeslist .what strong { overflow-wrap: anywhere; }
+.oslist li { align-items: center; }
+.oslist .what span { display: block; }
+.osfit { font-family: var(--mono); color: var(--ok); white-space: nowrap; }
+#osDlg .osnum { width: 4.5em; }
+#osQuery { width: 22em; max-width: 100%; }
 #offlineBtn.on { color: var(--warn); border-color: var(--warn); }
 #offlineDlg [hidden] { display: none; }
 button.danger { color: var(--warn); border-color: var(--warn); font-weight: 600; }

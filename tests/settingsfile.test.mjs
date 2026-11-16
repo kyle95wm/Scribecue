@@ -70,7 +70,7 @@ test('a backup imports into an empty browser and gives the same settings', () =>
   const from = used(), to = memory();
   const file = readSettingsFile(JSON.parse(JSON.stringify(exportSettings(from, { secrets: true }))));
   assert.deepEqual(file.skipped, []);
-  assert.deepEqual(settingsChanges(file, to), ['Your name', 'Mode', 'Editing', 'Transcribing', 'Text to speech', 'AI help', 'Keyboard shortcuts', 'Recording', 'Google key', 'Amazon Polly key', 'AI and TMDB keys']);
+  assert.deepEqual(settingsChanges(file, to), ['Your name', 'Mode', 'Editing', 'Transcribing', 'Text to speech', 'AI help', 'Keyboard shortcuts', 'Recording', 'Google key', 'Amazon Polly key', 'AI, TMDB and OpenSubtitles keys']);
   assert.equal(applySettings(file, to), 12);
   assert.equal(to.getItem('scribecue.reviewer'), 'Sam Lee');
   assert.deepEqual(JSON.parse(to.getItem('scribecue.tts')), JSON.parse(from.getItem('scribecue.tts')));
