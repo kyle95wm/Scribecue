@@ -1,10 +1,10 @@
 // The AI help drawer: settings for the person's AI provider, a chat about the scene, and
 // "Draft this block". The requests themselves are built in ai.js.
 import {
-  PROVIDERS, buildRequest, recentFrames, withNotes, SYSTEM, readReply, failure, listModels, fitBudget, draftPrompt, chatContext, clock, SCENE_SYSTEM,
+  PROVIDERS, buildRequest, recentFrames, withNotes, SYSTEM, readReply, failure, listModels, fitBudget, shortenPrompt, draftPrompt, chatContext, clock, SCENE_SYSTEM,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from './ai.js';
-import { tts, chosenVoice, DEFAULT_CPS, atBase } from './tts.js';
+import { tts, chosenVoice, DEFAULT_CPS, atBase, runsPast, estimate as readTime } from './tts.js';
 import { HOSTED } from './config.js';
 import { lookup as lookUpCast, KEY_PAGE as TMDB_KEY_PAGE } from './tmdb.js';
 import { openSettings as showSettings } from './settings.js';
@@ -168,7 +168,7 @@ function busy(on) {
 }
 
 // Sends the conversation so far plus this message; shows the reply as it arrives. draft: { id, n } of the
-// block it's for, which adds buttons to use the reply.
+// block it's for, which adds buttons to use the reply. Returns the reply, or nothing if it failed.
 async function send(msg, shown, frames, draft = null) {
   if (!ready()) { openAiSettings(); return note('Connect a provider first, in Settings, under AI help.'); }
   if (running) return;
@@ -196,7 +196,9 @@ async function send(msg, shown, frames, draft = null) {
       return;
     }
     chat.push(turn, { role: 'assistant', text: reply.text, ...(reply.raw ? { raw: reply.raw } : {}) });
-    if (draft && reply.text.trim()) addDraftButtons(out, draft, reply.text.trim().replace(/^["“]|["”]$/g, ''));
+    const text = unquote(reply.text);
+    if (draft && text) addDraftButtons(out, draft, text);
+    return text;
   } catch (e) {
     out.classList.add('error');
     body.data = e.name === 'AbortError' ? (body.data ? `${body.data} [stopped]` : 'Stopped.')
@@ -224,6 +226,12 @@ function addDraftButtons(out, draft, text) {
   out.append(acts);
 }
 
+// A block's room, and what fits in it with the chosen voice at the block's speed.
+function room(b, speed = 1) {
+  const secs = b.end - b.start, cps = tts.cps[chosenVoice()] || DEFAULT_CPS, at = atBase(speed, tts.base);
+  return { secs, budget: fitBudget(secs, cps, at), said: (text) => readTime(text, cps, at) };
+}
+
 async function draftBlock(id = null, extra = '') {
   if (!hooks.writing()) return hooks.toast('Drafting descriptions is part of Write mode');
   const cues = hooks.cues();
@@ -231,11 +239,17 @@ async function draftBlock(id = null, extra = '') {
   if (i < 0) return note('Select the block to draft first: click it in the list or on the timeline.');
   const c = cues[i];
   // What a block can hold depends on the voice and the block's speed.
-  const budget = fitBudget(c.end - c.start, tts.cps[chosenVoice()] || DEFAULT_CPS, atBase(c.speed ?? 1, tts.base));
+  const { secs, budget, said } = room(c, c.speed ?? 1);
   let frames = [];
   try { frames = await grabFrames(framesFor(c.start, c.end, ai.frames)); } catch (e) { note(`No frames: ${e.message}.`); }
   const prompt = draftPrompt(cues, i, budget, frames.map((f) => f.at), dialogueAround(hooks.dialogueLines(), c.start, c.end), sceneContext(hooks.scenes(), c.start)) + (extra ? `\n${extra}` : '');
-  await send(prompt, `Draft block #${i + 1}${extra ? ` · ${extra}` : ''}`, frames, { id: c.id, n: i + 1 });
+  const draft = { id: c.id, n: i + 1 };
+  const text = await send(prompt, `Draft block #${i + 1}${extra ? ` · ${extra}` : ''}`, frames, draft);
+  // Too long to read in the block: asked once to shorten it, in the same conversation.
+  const long = text ? said(text) : 0;
+  if (runsPast(long, secs)) {
+    await send(shortenPrompt(text, long, secs, budget), `Too long: about ${long.toFixed(1)} s for ${secs.toFixed(1)} s. Shorten it.`, [], draft);
+  }
 }
 
 async function sendChat() {
@@ -314,7 +328,7 @@ async function draftScript(from, to, listen = false) {
   const project = hooks.identity();
   const out = await hooks.runJob(async (signal, progress) => {
     const { gaps } = planFor(from, to) || { gaps: [] };
-    let total = gaps.reduce((n, g) => n + splitGap(g).length, 0), done = 0, made = 0, empty = 0, heardIn = 0, stopped = '', deaf = '';
+    let total = gaps.reduce((n, g) => n + splitGap(g).length, 0), done = 0, made = 0, empty = 0, heardIn = 0, over = 0, stopped = '', deaf = '';
     progress(0, `0 of ${total}`);
     const lost = () => hooks.identity() !== project || !hooks.writing();
     try {
@@ -341,10 +355,17 @@ async function draftScript(from, to, listen = false) {
             if (signal.aborted) break;
           }
           const { cues, i } = withBlock(hooks.cues(), p);
-          const budget = fitBudget(p.end - p.start, tts.cps[chosenVoice()] || DEFAULT_CPS, atBase(1, tts.base));
+          const { secs, budget, said } = room(p);
           const prompt = `${draftPrompt(cues, i, budget, frames.map((f) => f.at), { ...dialogueAround(hooks.dialogueLines(), p.start, p.end), heard }, sceneContext(hooks.scenes(), p.start))}
 This is one of a run of drafts through the whole programme, in order. Don't repeat what the blocks before it say.`;
           const r = await requestDraft(prompt, frames, signal);
+          // Too long to read in the gap: asked once to shorten it, and the shorter one kept.
+          const long = r.text ? said(r.text) : 0;
+          if (runsPast(long, secs)) {
+            const s = await requestDraft(shortenPrompt(r.text, long, secs, budget), [], signal);
+            if (s.text && said(s.text) < long) r.text = s.text;
+            if (runsPast(said(r.text), secs)) over++;
+          }
           if (signal.aborted || lost()) break;
           if (!hooks.isFree(p)) { done++; continue; }
           hooks.insertDraft(p, r.text || '', heard);
@@ -356,7 +377,7 @@ This is one of a run of drafts through the whole programme, in order. Don't repe
     } catch (e) {
       if (e.name !== 'AbortError') stopped = e.message;
     }
-    return { made, empty, heardIn, deaf, stopped, aborted: signal.aborted, lost: lost() };
+    return { made, empty, heardIn, over, deaf, stopped, aborted: signal.aborted, lost: lost() };
   });
   if (!out) return;
   const n = out.made + out.empty;
@@ -365,8 +386,9 @@ This is one of a run of drafts through the whole programme, in order. Don't repe
   const next = n ? `. ${hooks.nextKey() || 'The next key'} goes to the next one to check${out.undoable ? `; ${hooks.undoKey()} takes them all back` : ''}` : '';
   const heard = out.heardIn ? ` Speech to text heard speech under ${out.heardIn}, marked “speech under it?”: U goes to them.` : '';
   const deaf = out.deaf ? ` Speech to text stopped listening: ${out.deaf}.` : '';
+  const over = out.over ? ` ${out.over === 1 ? '1 is' : `${out.over} are`} still too long to read in time, even shortened.` : '';
   hooks.toast(`${what}${why}${next}`);
-  if (n) note(`${what}${why}. They’re tagged AI draft until you edit or accept them.${heard}${deaf}`);
+  if (n) note(`${what}${why}. They’re tagged AI draft until you edit or accept them.${over}${heard}${deaf}`);
 }
 
 // ---- scene summaries

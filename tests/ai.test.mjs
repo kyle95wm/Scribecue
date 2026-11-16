@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PROVIDERS, SYSTEM, systemWith, withNotes, usefulOpenAI, usefulGemini, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, nearbyScript, draftPrompt,
+  PROVIDERS, SYSTEM, systemWith, withNotes, usefulOpenAI, usefulGemini, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, shortenPrompt, nearbyScript, draftPrompt,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from '../app/js/ai.js';
 
@@ -112,8 +112,11 @@ test('model lists keep chat models that can see frames', async () => {
 });
 
 test('drafts know how much fits and what is around them', () => {
-  assert.deepEqual(fitBudget(3, 15, 1), { chars: 45, words: 8 });
-  assert.deepEqual(fitBudget(3, 15, 1.5), { chars: 67, words: 11 });
+  // Aims for 90% of the block, since the voice's speed is an estimate.
+  assert.deepEqual(fitBudget(3, 15, 1), { chars: 40, words: 6 });
+  assert.deepEqual(fitBudget(3, 15, 1.5), { chars: 60, words: 10 });
+  assert.deepEqual(fitBudget(3, 15, 1, 1), { chars: 45, words: 7 });
+  assert.deepEqual(fitBudget(0.2, 15, 1), { chars: 2, words: 1 });
   const cues = [
     { start: 1, end: 3, text: 'Mara walks in.' },
     { start: 5, end: 8.5, text: '' },
@@ -122,7 +125,7 @@ test('drafts know how much fits and what is around them', () => {
   assert.match(nearbyScript(cues, 1), /^ {2}#1 00:00:01\.000–00:00:03\.000: Mara walks in\.\n> #2 00:00:05\.000–00:00:08\.500: \(empty\)\n {2}#3/);
   const p = draftPrompt(cues, 1, fitBudget(3.5), [5, 6.75]);
   assert.match(p, /block #2, from 00:00:05\.000 to 00:00:08\.500 \(3\.5 s\)/);
-  assert.match(p, /About 9 words \(52 characters\)/);
+  assert.match(p, /At most 7 words \(47 characters\)/);
   assert.match(p, /frames are from 00:00:05\.000, 00:00:06\.750/);
   assert.match(p, /Reply with only the description/);
   assert.doesNotMatch(p, /currently says/);
@@ -191,4 +194,12 @@ test('models that can’t see the frames or write a description aren’t offered
   for (const n of ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.8-flash', 'gemini-3.1-flash-lite']) assert.ok(g(n), n);
   for (const n of ['gemini-2.5-flash-image', 'gemini-2.5-flash-preview-tts', 'gemini-2.0-flash-live-001', 'gemini-embedding-001', 'gemini-pro', 'gemini-2.5-flash-native-audio-dialog']) assert.ok(!g(n), n);
   assert.ok(!g('gemini-2.5-flash', ['embedContent']));
+});
+
+test('a draft that runs long is asked to shorten', () => {
+  const p = shortenPrompt(' "Mara crosses the empty square to the fountain." ', 4.26, 3, fitBudget(3));
+  assert.match(p, /about 4\.3 s to read aloud, but the block is 3\.0 s/);
+  assert.match(p, /"Mara crosses the empty square to the fountain\."/);
+  assert.match(p, /at most 6 words \(40 characters\)/);
+  assert.match(p, /Reply with only the description/);
 });

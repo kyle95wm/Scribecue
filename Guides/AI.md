@@ -34,7 +34,8 @@ out beside the video.
 ![The AI help drawer beside the video, with a draft for a block](../docs/screenshots/ai-help.png)
 
 - **Draft this block:** select a block and click it. Scribecue sends stills from the block,
-  the script and subtitles around it, and how many words fit. **Use for block #n** puts the draft in the
+  the script and subtitles around it, and how many words fit. A draft too long to read
+  in the block is sent back once to shorten. **Use for block #n** puts the draft in the
   block, and **Try again** asks for another.
 - **Chat:** ask about the scene, such as "what's on the sign behind her?". Tick **Send the
   frame at the playhead** so it sees the frame you're on.
@@ -65,6 +66,8 @@ How it fills the gaps:
 - Only gaps with no block, of 2 seconds or more. Your blocks stay as they are.
 - A gap over 10 seconds gets a block for each shot, about 4–10 seconds each.
 - Drafts are written in order, so each sees the ones before it.
+- A draft too long to read in its gap is sent back once to shorten. The note in the drawer
+  says how many are still too long.
 - **Stop** keeps the drafts already made. `Ctrl/Cmd+Z` takes back the whole run, if
   you haven't changed anything since.
 
@@ -309,8 +312,9 @@ script around a block. A model that needs more can take a higher `OLLAMA_CONTEXT
 5. **Keep the script tidy around the block.** The AI reads the blocks before and after, so
    good descriptions there help it match your style and not repeat itself.
 6. **Mind the word count.** Each draft is told how many words fit, from the block's length
-   and the voice's speed. With text to speech on, check the reading time afterwards: red
-   means it runs over.
+   and the voice's speed, with a little to spare. The voice's speed is learned from its
+   readings, so make a few readings first. Afterwards, check the reading time: red means
+   it runs over.
 
 And always check a draft against the picture: AI is confident even when it's wrong.
 

@@ -50,11 +50,23 @@ export const SCENE_SYSTEM = `You help a writer prepare audio description for bli
 
 Be factual and brief. Use the names the writer's notes or the dialogue give; otherwise describe people briefly ("a woman in a red coat"). Don't guess at what the stills and dialogue don't show. Tell what happens, not what the stills or subtitles are: "she finds her keys", not "the subtitle says she finds her keys".`;
 
+// Drafts aim for this share of the block, since the voice's speed is only an estimate.
+export const FIT_AIM = 0.9;
 // How much fits in a block: the voice's characters per second times the block's length,
-// at the block's reading speed. About six characters make a word, with its space.
-export function fitBudget(secs, cps = 15, speed = 1) {
-  const chars = Math.max(0, Math.floor(secs * cps * speed));
-  return { chars, words: Math.max(1, Math.round(chars / 6)) };
+// at the block's reading speed, less a margin. About six characters make a word, with its space.
+export function fitBudget(secs, cps = 15, speed = 1, aim = FIT_AIM) {
+  const chars = Math.max(0, Math.floor(secs * cps * speed * aim));
+  return { chars, words: Math.max(1, Math.floor(chars / 6)) };
+}
+
+// What to ask when a draft runs past its block: said is how long it takes to read, in seconds.
+export function shortenPrompt(text, said, secs, budget) {
+  return [
+    `This takes about ${said.toFixed(1)} s to read aloud, but the block is ${secs.toFixed(1)} s:`,
+    `"${text.trim()}"`,
+    `Shorten it to at most ${budget.words} words (${budget.chars} characters). Keep what matters most to the story.`,
+    'Reply with only the description, without quotes or notes.',
+  ].join('\n');
 }
 
 export const clock = (t) => {
@@ -109,7 +121,7 @@ export function draftPrompt(cues, i, budget, frameTimes = [], dialogue = null, s
     '',
     dialogueText(dialogue || {}),
     `Write the description for block #${i + 1}, from ${clock(c.start)} to ${clock(c.end)} (${secs.toFixed(1)} s). ` +
-      `About ${budget.words} words (${budget.chars} characters) fit when it's read aloud; use fewer if that says it well.`,
+      `At most ${budget.words} words (${budget.chars} characters) fit when it's read aloud. Fewer is fine if that says it well.`,
     c.text.trim() ? `It currently says: "${c.text.trim()}". Improve it, or write a better one.` : '',
     frameTimes.length ? `The frames are from ${frameTimes.map(clock).join(', ')}.` : 'There are no frames, so work from the script and say if you need to see the scene.',
     'Reply with only the description, without quotes or notes.',
