@@ -227,6 +227,9 @@ programme. `Ctrl/Cmd+O` opens it again.
 - **Keep a project in Google Drive** to open it on any computer: **File, Save to Google
   Drive** (`Alt+Shift+U`). From then on, saving and autosave go there. Open it with **File,
   Open from Google Drive** (`Alt+Shift+G`). The video stays on each computer.
+- **A new project, with Drive connected:** the first `Ctrl/Cmd+S` asks for a name and where
+  to save it. Press **Always save new projects there** to stop being asked. Change it in
+  Settings, under **Google Drive**, with **Save new projects**.
 - **Saved as "Name (2)"?** The project changed on another computer since you opened it, so
   Scribecue saved yours beside it rather than over it. Both are in Drive.
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { copyName, filterProjects, isDriveRef, driveRef, changedElsewhere } from '../app/js/driveprojects.js';
+import { copyName, filterProjects, isDriveRef, driveRef, changedElsewhere, firstSaveGoes, projectName } from '../app/js/driveprojects.js';
 
 test('a copy gets the first free number, whatever the case', () => {
   assert.equal(copyName('Pilot.scribecue', []), 'Pilot.scribecue');
@@ -28,4 +28,24 @@ test('a Drive project is kept as plain data, and a change elsewhere is spotted',
   assert.ok(changedElsewhere('r1', 'r2'));
   assert.ok(!changedElsewhere('r1', 'r1'));
   assert.ok(!changedElsewhere('', 'r2'), 'nothing known yet: not a conflict');
+});
+
+test('a new project’s first save asks, unless the setting says where', () => {
+  assert.equal(firstSaveGoes(null, true), 'ask', 'nothing set yet: ask');
+  assert.equal(firstSaveGoes('ask', true), 'ask');
+  assert.equal(firstSaveGoes('drive', true), 'drive');
+  assert.equal(firstSaveGoes('local', true), 'local');
+  assert.equal(firstSaveGoes('nonsense', true), 'ask');
+  assert.equal(firstSaveGoes('drive', false), 'local', 'Drive not connected here: save as before');
+  assert.equal(firstSaveGoes('ask', false), 'local');
+});
+
+test('a typed project name is made safe for a file', () => {
+  assert.equal(projectName('  Pilot  ', 'script'), 'Pilot');
+  assert.equal(projectName('Pilot.scribecue', 'script'), 'Pilot');
+  assert.equal(projectName('Pilot.SCRIBECUE', 'script'), 'Pilot');
+  assert.equal(projectName('Ep 1/2: "Cold open"', 'script'), 'Ep 1 2 Cold open');
+  assert.equal(projectName('', 'script'), 'script');
+  assert.equal(projectName('  ..  ', 'script'), 'script');
+  assert.equal(projectName('a'.repeat(300), 'script').length, 120);
 });

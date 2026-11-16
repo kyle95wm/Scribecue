@@ -35,6 +35,7 @@ const SETTINGS = [
   ['rec.video', 'text', 'Recording'],
   ['recStart', 'text', 'Recording'],
   ['updates', 'text', 'Updates'],
+  ['saveNew', 'text', 'Saving'],
 ];
 const SECRETS = [
   ['googleTts', 'json', 'Google key'],
