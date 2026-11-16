@@ -54,9 +54,11 @@
           <button role="menuitem" data-act="newProject"><span><strong>New…</strong><span class="dim">clear the blocks and keep the video, or start a new project</span></span></button>
           <button role="menuitem" data-act="openSubs"><span><strong>Open…</strong><span class="dim">a project, a script (SRT or VTT), or video or audio</span></span><kbd><span class="mod"></span>O</kbd></button>
           <button role="menuitem" data-act="recents" id="recentsItem"><span><strong>Recents…</strong><span class="dim">projects, packages and recording files opened or saved lately</span></span><span data-keys="recents"><kbd>⌥⇧R</kbd></span></button>
+          <button role="menuitem" data-act="openDrive" id="openDriveItem" hidden><span><strong>Open from Google Drive…</strong><span class="dim">a project you saved to Drive, on any computer</span></span><span data-keys="openDrive"><kbd>⌥⇧G</kbd></span></button>
           <button role="menuitem" data-act="sharedProjects" id="sharedBtn" class="not-record" hidden><span><strong>Shared projects…</strong><span class="dim">open one kept in this browser again, without its link</span></span></button>
           <button role="menuitem" data-act="saveProject"><span><strong>Save</strong><span class="dim">blocks, settings and where you were</span></span><kbd><span class="mod"></span>S</kbd></button>
           <button role="menuitem" data-act="saveProjectAs"><span><strong>Save as…</strong><span class="dim">the project as a new file</span></span><kbd><span class="mod"></span>⇧S</kbd></button>
+          <button role="menuitem" data-act="saveDrive" id="saveDriveItem" class="not-record" hidden><span><strong>Save to Google Drive</strong><span class="dim">keep the project in your Drive, to open on any computer</span></span><span data-keys="saveDrive"><kbd>⌥⇧U</kbd></span></button>
           <button role="menuitem" data-act="exportDialog" class="export-item"><span><strong>Export…</strong><span class="dim">a file to hand on: a package, audio, the script or a video</span></span><span data-keys="exportDialog"><kbd>⌥⇧E</kbd></span></button>
         </div>
       </span>
@@ -876,6 +878,14 @@ docker compose up -d --build</code></pre>
     <p id="recentsEmpty" class="dim small" hidden></p>
     <div class="updbtns"><button id="recentsClear">Clear all</button><button id="recentsClose">Close</button></div>
   </dialog>
+  <dialog id="driveDlg" class="updbox recentsdlg" aria-labelledby="driveTitle">
+    <h2 id="driveTitle">Open from Google Drive</h2>
+    <p class="dim small">Projects you saved to the Scribecue folder in your Google Drive, from any computer. Choose one to open it. Its video stays on each computer: open it here if it doesn’t reopen.</p>
+    <input id="driveFind" type="search" placeholder="Search by name" spellcheck="false" autocomplete="off" aria-label="Search projects in Google Drive">
+    <div id="driveList" class="sharedlist recentslist"></div>
+    <p id="driveEmpty" class="dim small" role="status" hidden></p>
+    <div class="updbtns"><button id="driveClose">Close</button></div>
+  </dialog>
   <dialog id="noticeDlg" class="updbox" aria-labelledby="noticeTitle" aria-describedby="noticeText">
     <h2 id="noticeTitle"></h2>
     <p id="noticeText"></p>
@@ -1605,8 +1615,7 @@ docker compose up -d --build</code></pre>
       <h3>Sync settings</h3>
       <p class="small">Connect Google Drive to keep your settings the same in every browser you use Scribecue in,
         on this computer and others. They're kept in a hidden Scribecue folder in your Drive.</p>
-      <p class="dim small">Your mode and how wide the list is stay with each browser. Projects, videos and recordings
-        stay on this computer.</p>
+      <p class="dim small">Your mode and how wide the list is stay with each browser.</p>
       <p id="gdNotSetUp" class="small" hidden>This copy of Scribecue isn't set up to connect Google Drive.
         Use the web version, or see Running your own copy in the install guide.</p>
       <div id="gdOff" hidden>
@@ -1617,6 +1626,12 @@ docker compose up -d --build</code></pre>
       <div id="gdOn" hidden>
         <p class="small">Connected as <span id="gdWho"></span>.</p>
         <p class="updstatus"><button id="gdSync">Sync now</button> <button id="gdDisconnect">Disconnect</button></p>
+        <h3>Projects</h3>
+        <p class="small">File → Save to Google Drive keeps a project in a Scribecue folder in your Drive, to open on
+          any computer with File → Open from Google Drive. Changes save there as you work. Videos and recordings stay
+          on each computer.</p>
+        <p id="gdProjects" class="dim small" hidden>This connection only covers settings. Connect again to keep projects
+          in Drive too: <button id="gdReconnect">Connect again…</button></p>
         <h3>API keys</h3>
         <p class="updstatus"><button id="gdKeys" aria-pressed="false">Sync API keys</button></p>
         <p class="dim small">Syncs your Google, Amazon Polly, AI, TMDB and OpenSubtitles keys too, to every browser you
@@ -1804,6 +1819,8 @@ docker compose up -d --build</code></pre>
             <dt><kbd><span class="mod"></span>O</kbd> <kbd><span class="mod"></span>⇧O</kbd></dt><dd>Open a project or SRT/VTT · open video/audio</dd>
             <dt class="save-key"><kbd><span class="mod"></span>S</kbd> <kbd><span class="mod"></span>⇧S</kbd></dt><dd class="save-key">Save project · save project as</dd>
             <dt data-keys="recents"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>R</kbd></dt><dd>Recents: files opened or saved lately</dd>
+            <dt data-keys="openDrive"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>G</kbd></dt><dd>Open a project from Google Drive</dd>
+            <dt data-keys="saveDrive"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>U</kbd></dt><dd>Save the project to Google Drive</dd>
             <dt class="export-key" data-keys="exportDialog"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>E</kbd></dt><dd class="export-key">Export…</dd>
             <dt class="export-key"><kbd><span class="mod"></span>E</kbd> <kbd><span class="mod"></span>⇧E</kbd></dt><dd class="export-key">Export SRT · export VTT</dd>
           </dl>

@@ -51,6 +51,7 @@ See [The web version and Docker compared](Guides/TRANSCRIBING.md#the-web-version
 |---|---|---|
 | SRT, WebVTT and Frazier `.adc` scripts | ✓ | ✓ |
 | Recents: projects and packages opened lately, in Chrome and Edge | ✓ | ✓ |
+| Projects in Google Drive, with autosave in any browser | ✓ | ✓ at `localhost:8484` |
 | Videos the browser plays: MP4, MOV, MKV, WebM | ✓ | ✓ |
 | AC-3 and E-AC-3 sound | ✓ | ✓ |
 | **Make a copy that plays**, for videos or sound the browser can't play | No | `ffmpeg` container |

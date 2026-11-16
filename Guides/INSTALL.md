@@ -366,7 +366,8 @@ files.
 
 **In the copy you're leaving:**
 
-1. **Save each project:** **File → Save**. Blocks you haven't saved stay behind.
+1. **Save each project:** **File → Save**, or **File → Save to Google Drive** to open it
+   anywhere. Blocks you haven't saved stay behind.
 2. **Back up your settings:** **Settings → Storage → Export settings…**. Turn on
    **Include API keys** to take your Google, Amazon Polly, AI, TMDB and OpenSubtitles keys too.
 3. **Recordings:** **Export → Session package**, or copy the takes folder. See
@@ -408,7 +409,9 @@ in a hidden Scribecue folder in your Drive. Scribecue can't see your other files
 - **Each browser keeps its own** mode and list width.
 - **API keys** only sync with **Sync API keys** on. Turning it off, in any browser, takes
   them out of Drive.
-- **Projects, videos and recordings** don't sync. Move them as above.
+- **Projects** can live in Google Drive too: **File → Save to Google Drive**. See
+  [Saving](GETTING-STARTED.md#saving).
+- **Videos and recordings** don't sync. Move them as above.
 
 It works in the web version, and in Docker at `http://localhost:8484/` and
 `http://localhost:9484/`. At another address, Google refuses to connect.

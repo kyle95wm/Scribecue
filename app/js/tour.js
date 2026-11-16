@@ -118,7 +118,7 @@ export const STEPS = [
   {
     target: '#fileBtn',
     title: 'Projects and exports',
-    text: (mode) => `File has New, Open, Recents, Save and Export. Save keeps everything as a Scribecue project, so you can pick up where you left off. Export (${keyFor('exportDialog')}) opens a window of every file you can make. ${mode === 'write'
+    text: (mode) => `File has New, Open, Recents, Save and Export. Save keeps everything as a Scribecue project, so you can pick up where you left off, and Save to Google Drive lets you open it on any computer. Export (${keyFor('exportDialog')}) opens a window of every file you can make. ${mode === 'write'
       ? 'It’s grouped by who it’s for: a QC package for a reviewer, a recording file for a narrator, finished audio, and files for other tools: the script as SRT or WebVTT, DAW markers and a video with subtitles.'
       : 'It has the script as SRT or WebVTT, DAW markers or a video with subtitles, to hand off.'} It can check spelling and grammar first.`,
   },

@@ -47,7 +47,8 @@ import { initReminder } from './reminder.js';
 import { announce, speakable, blockLabel, keepsFocusAfterDialog, toastMs } from './a11y.js';
 import { initOffline, openOffline, keepStorage } from './offline.js';
 import { initSettingsFile } from './settingsfile.js';
-import { initDrive, refreshDrive } from './googledrive.js';
+import { initDrive, refreshDrive, canConnect as canDrive, canProjects, connect as connectDrive, listProjects, createProject, driveHandle } from './googledrive.js';
+import { isDriveRef, filterProjects } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
@@ -4915,13 +4916,15 @@ const handleStore = {
   async get(key = 'project') {
     try {
       const db = await this.db();
-      return await new Promise((ok) => { const q = db.transaction('files').objectStore('files').get(key); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); });
+      const v = await new Promise((ok) => { const q = db.transaction('files').objectStore('files').get(key); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); });
+      return isDriveRef(v) ? driveHandle(v) : v;
     } catch { return null; }
   },
   async set(h, key = 'project') {
     try {
       const db = await this.db();
       const st = db.transaction('files', 'readwrite').objectStore('files');
+      if (h?.kind === 'drive') h = h.ref(); // a project in Google Drive is kept as where it is
       h ? st.put(h, key) : st.delete(key);
     } catch { /* ignore */ }
   },
@@ -4984,6 +4987,113 @@ async function openVideoPicker() {
   }
 }
 
+// ---- projects in Google Drive (googledrive.js)
+//
+// Save to Google Drive makes the project's home a file in the Scribecue folder in Drive:
+// saving and autosave go there from then on. Open from Google Drive lists the projects
+// Scribecue saved there, from any computer.
+
+function driveNotReady() {
+  if (!canDrive()) return 'This copy of Scribecue isn’t set up to connect Google Drive';
+  if (!canMakeFiles()) return 'Your changes reach the shared project as you make them. Its owner saves the file';
+  return '';
+}
+// Connects first if needed, with access to projects. Must be called straight from a click.
+async function driveForProjects() {
+  if (canProjects()) return true;
+  if (!(await connectDrive())) return false;
+  if (canProjects()) return true;
+  toast('Google Drive didn’t let Scribecue keep projects there. Connect again, and allow it');
+  return false;
+}
+
+async function saveToDrive() {
+  closeMenus();
+  const no = driveNotReady();
+  if (no) return toast(no);
+  if (S.reviewId) return toast('QC packages stay as files. Save it with ⌘S');
+  if (S.mode === 'record') return toast('Takes are kept as you record them. Export the narration when you’re done');
+  if (inDrive()) return saveProject();
+  if (!S.cues.length && !S.comments.length && !S.bookmarks.length && !S.dirty) return toast('Nothing to save yet');
+  if (!(await driveForProjects())) return;
+  toast('Saving to Google Drive…');
+  try {
+    const data = projectFileData();
+    const h = await createProject(`${baseName()}${PROJECT_EXT}`, data instanceof Blob ? data : new Blob([data], { type: 'application/json' }));
+    S.handle = h;
+    handleStore.set(h);
+    noteRecent(h);
+    Object.assign(AUTO, { permission: 'granted', error: '' });
+    projectSaved(h.name);
+    showAutosave();
+    toast(`Saved ${h.name} to Google Drive. Changes save there as you work`);
+  } catch (e) {
+    notice('Project not saved', `Couldn’t save the project to Google Drive: ${e.message}.`);
+  }
+}
+
+const driveDlg = $('driveDlg'), driveFind = $('driveFind');
+let driveFiles = [];
+async function openFromDrive() {
+  closeMenus();
+  if (!canDrive()) return toast('This copy of Scribecue isn’t set up to connect Google Drive');
+  if (!(await driveForProjects())) return;
+  driveFiles = [];
+  driveFind.value = '';
+  $('driveList').replaceChildren();
+  $('driveEmpty').hidden = false;
+  $('driveEmpty').textContent = 'Looking in Google Drive…';
+  if (!driveDlg.open) driveDlg.showModal();
+  driveFind.focus();
+  try {
+    driveFiles = await listProjects();
+    renderDrive();
+  } catch (e) {
+    $('driveEmpty').textContent = `Couldn’t list your projects: ${e.message}.`;
+  }
+}
+function renderDrive() {
+  const shown = filterProjects(driveFiles, driveFind.value);
+  $('driveList').replaceChildren(...shown.map((f) => {
+    const b = document.createElement('button');
+    b.className = 'wzcard wzchoice sharedrow';
+    const body = document.createElement('span');
+    const name = document.createElement('strong');
+    name.textContent = f.name;
+    const facts = document.createElement('span');
+    facts.className = 'dim small sharedfacts';
+    facts.textContent = `Saved ${whenText(Date.parse(f.modifiedTime))}`;
+    body.append(name, facts);
+    b.append(body);
+    b.setAttribute('aria-label', `${f.name}. ${facts.textContent}`);
+    b.addEventListener('click', () => openDriveProject(f));
+    return b;
+  }));
+  const empty = $('driveEmpty');
+  empty.hidden = shown.length > 0;
+  empty.textContent = driveFiles.length ? 'Nothing here matches.' : 'No projects in Google Drive yet. File → Save to Google Drive puts the open one there.';
+}
+async function openDriveProject(f) {
+  const h = driveHandle({ id: f.id, name: f.name, revision: f.headRevisionId });
+  try {
+    $('driveEmpty').hidden = false;
+    $('driveEmpty').textContent = `Opening ${f.name}…`;
+    const file = await h.getFile();
+    driveDlg.close();
+    openProject(file, h);
+  } catch (e) {
+    $('driveEmpty').textContent = `Couldn’t open ${f.name}: ${e.code === 'gone' ? 'it’s no longer in Google Drive' : e.message}.`;
+  }
+}
+driveFind.addEventListener('input', renderDrive);
+$('driveClose').addEventListener('click', () => driveDlg.close());
+driveDlg.addEventListener('click', (e) => { if (e.target === driveDlg) driveDlg.close(); });
+document.addEventListener('keydown', (e) => {
+  if (!driveDlg.open) return;
+  e.stopPropagation();
+  if (e.key === 'Enter' && e.target === driveFind) { e.preventDefault(); $('driveList').querySelector('.sharedrow')?.click(); }
+}, true);
+
 // ---- Recents
 //
 // Project files opened or saved lately, newest first, with the browser's link to each, so a
@@ -4991,16 +5101,19 @@ async function openVideoPicker() {
 // Taking one off the list leaves the file alone.
 const RECENTS_OK = typeof window.showOpenFilePicker === 'function' && 'FileSystemFileHandle' in window;
 $('recentsItem').hidden = !RECENTS_OK;
+$('openDriveItem').hidden = $('saveDriveItem').hidden = !canDrive();
 let recentsQueue = Promise.resolve();
 const recentsList = async () => (await handleStore.get('recents')) || [];
 const changeRecents = (fn) => (recentsQueue = recentsQueue.then(async () => {
   await handleStore.set(await fn(await recentsList()), 'recents');
 }).catch(() => {}));
 function noteRecent(h, name = h?.name) {
-  if (!RECENTS_OK || h?.kind !== 'file' || !name) return;
+  if (!RECENTS_OK || !['file', 'drive'].includes(h?.kind) || !name) return;
+  const kept = h.kind === 'drive' ? h.ref() : h;
   changeRecents(async (list) => {
-    const dup = new Set(await Promise.all(list.map(async (e) => ((await e.handle?.isSameEntry?.(h).catch(() => false)) ? e : null))));
-    return addRecent(list, { handle: h, name, kind: kindOf(name), at: Date.now() }, (e) => dup.has(e));
+    const same = async (e) => (isDriveRef(e.handle) ? h.kind === 'drive' && e.handle.id === h.id : h.kind === 'file' && (await e.handle?.isSameEntry?.(h).catch(() => false)));
+    const dup = new Set(await Promise.all(list.map(async (e) => ((await same(e)) ? e : null))));
+    return addRecent(list, { handle: kept, name, kind: kindOf(name), at: Date.now() }, (e) => dup.has(e));
   });
 }
 
@@ -5041,7 +5154,7 @@ function renderRecents() {
     name.textContent = e.name;
     const facts = document.createElement('span');
     facts.className = 'dim small sharedfacts';
-    facts.textContent = `${kindLabel(e.kind)} · ${whenText(e.at)}`;
+    facts.textContent = `${kindLabel(e.kind)}${isDriveRef(e.handle) ? ' in Google Drive' : ''} · ${whenText(e.at)}`;
     body.append(name, facts);
     b.append(body);
     b.setAttribute('aria-label', `${e.name}. ${facts.textContent}`);
@@ -5068,7 +5181,8 @@ async function removeRecents(gone) {
   await changeRecents((list) => list.filter((e) => !gone.some((g) => g.at === e.at && g.name === e.name)));
 }
 async function openRecent(e) {
-  const h = e.handle;
+  const h = isDriveRef(e.handle) ? driveHandle(e.handle) : e.handle;
+  if (h.kind === 'drive' && !canProjects()) return toast(`${e.name} is in Google Drive. Connect Google Drive in Settings to open it`);
   try {
     let p = await h.queryPermission({ mode: 'read' }).catch(() => 'prompt');
     if (p !== 'granted') p = await h.requestPermission({ mode: 'read' }).catch(() => 'denied');
@@ -5077,7 +5191,7 @@ async function openRecent(e) {
     recentsDlg.close();
     openProject(file, h);
   } catch (err) {
-    toast(`Couldn’t open ${e.name}${err.name === 'NotFoundError' ? ': it has been moved or deleted. × takes it off Recents' : `: ${err.message}`}`);
+    toast(`Couldn’t open ${e.name}${err.name === 'NotFoundError' || err.code === 'gone' ? ': it has been moved or deleted. × takes it off Recents' : `: ${err.message}`}`);
   }
 }
 recentsFind.addEventListener('input', renderRecents);
@@ -5161,7 +5275,7 @@ async function saveProject(as = false) {
   if (!S.cues.length && !S.comments.length && !S.bookmarks.length && !S.dirty) return toast('Nothing to save yet');
   const text = projectFileData();
   const name = `${baseName()}${S.reviewId ? REVIEW_EXT : PROJECT_EXT}`;
-  if (!window.showSaveFilePicker) {
+  if (!window.showSaveFilePicker && !(inDrive() && !as)) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(text instanceof Blob ? text : new Blob([text], { type: 'application/json' }));
     a.download = name;
@@ -5175,15 +5289,18 @@ async function saveProject(as = false) {
     if (h && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted' &&
       (await h.requestPermission({ mode: 'readwrite' })) !== 'granted') h = null;
     if (!h) h = await picker('project', { suggestedName: name });
+    const was = h.id;
     await writeFile(h, text);
+    const copied = h.kind === 'drive' && h.id !== was ? h.id : '';
     S.handle = h;
     handleStore.set(h);
     noteRecent(h);
     Object.assign(AUTO, { permission: 'granted', error: '' });
     projectSaved(h.name);
-    toast(`Saved ${h.name}`);
+    if (h.kind !== 'drive') toast(`Saved ${h.name}`);
+    else if (copied !== h.id) toast(`Saved ${h.name} to Google Drive`);
   } catch (e) {
-    if (e.name !== 'AbortError') notice('Project not saved', `Couldn’t save the project: ${e.message}.`);
+    if (e.name !== 'AbortError') notice('Project not saved', `Couldn’t save the project${inDrive() ? ' to Google Drive' : ''}: ${e.message}.`);
   }
 }
 
@@ -5196,24 +5313,31 @@ async function writeFile(h, text) {
 // ---- autosave (see autosave.js)
 
 const AUTO = { can: canAutosave(window), permission: 'prompt', saving: false, error: '', timer: 0, first: 0 };
+// A project in Google Drive autosaves in any browser.
+const inDrive = () => S.handle?.kind === 'drive';
+const canAuto = () => AUTO.can || inDrive();
+const DRIVE_LABEL = { saving: 'saving to Drive…', saved: 'saved to Drive' };
+// Back online: try a Drive save that couldn't reach Google again.
+addEventListener('online', () => { if (inDrive() && AUTO.error) { AUTO.error = ''; scheduleAutosave(); } });
 
 function showAutosave() {
   const st = autosaveState({
-    can: AUTO.can && canMakeFiles(), file: !!S.handle, permission: AUTO.permission,
+    can: canAuto() && canMakeFiles(), file: !!S.handle, permission: AUTO.permission,
     saving: AUTO.saving, dirty: S.dirty, error: AUTO.error,
   });
   const b = $('autosaveBtn');
   b.hidden = !st;
   if (!st) return;
-  b.textContent = AUTOSAVE_LABEL[st];
+  b.textContent = inDrive() && (st === 'saved' || st === 'saving') ? DRIVE_LABEL[st] : AUTOSAVE_LABEL[st];
   b.dataset.state = st;
-  b.dataset.tip = pcKeys(AUTOSAVE_TIP[st].replace('{mod}', '⌘').replace('{error}', AUTO.error));
+  const tip = AUTOSAVE_TIP[st].replace('{mod}', '⌘').replace('{error}', AUTO.error);
+  b.dataset.tip = pcKeys(inDrive() ? tip.replace('the project file', 'Google Drive') : tip);
 }
 
 // Whether Scribecue may write to the project file now, which the browser asks again
 // after a reload.
 async function checkWrite() {
-  if (!AUTO.can) return showAutosave();
+  if (!canAuto()) return showAutosave();
   AUTO.permission = S.handle ? await S.handle.queryPermission({ mode: 'readwrite' }).catch(() => 'prompt') : 'prompt';
   showAutosave();
   if (AUTO.permission === 'granted' && S.dirty) scheduleAutosave();
@@ -5221,7 +5345,7 @@ async function checkWrite() {
 
 function scheduleAutosave() {
   clearTimeout(AUTO.timer);
-  if ((S.reviewId && !S.review) || !AUTO.can || !canMakeFiles() || !S.handle || AUTO.permission !== 'granted' || AUTO.error) return showAutosave();
+  if ((S.reviewId && !S.review) || !canAuto() || !canMakeFiles() || !S.handle || AUTO.permission !== 'granted' || AUTO.error) return showAutosave();
   const t = Date.now();
   AUTO.first ||= t;
   AUTO.timer = setTimeout(autosave, nextSave(t, S.lastChange || t, AUTO.first));
@@ -5232,7 +5356,7 @@ async function autosave() {
   const h = S.handle;
   if (AUTO.saving) return; // the save running now looks again when it's done
   AUTO.first = 0;
-  if (!AUTO.can || !h || !S.dirty || (S.reviewId && !S.review)) return showAutosave();
+  if (!canAuto() || !h || !S.dirty || (S.reviewId && !S.review)) return showAutosave();
   const gen = S.changeGen;
   AUTO.saving = true;
   showAutosave();
@@ -5245,6 +5369,7 @@ async function autosave() {
   } catch (e) {
     const first = !AUTO.error;
     AUTO.error = e.name === 'NotFoundError' ? 'the file has been moved or deleted' : e.message || String(e);
+    if (e.code === 'offline') { AUTO.error = 'you’re offline. It saves to Google Drive when you’re back'; toast(`Couldn’t save ${h.name} to Google Drive: ${AUTO.error}`); return; }
     const msg = `Couldn’t autosave ${h.name}: ${AUTO.error}. Save with ${IS_MAC ? '⌘S' : 'Ctrl+S'}`;
     if (first) notice('Autosave stopped', msg + '.'); else toast(msg);
   } finally {
@@ -5292,7 +5417,7 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
       if (myShare && S.projectId === p.projectId) { toast('That’s the shared project open now. It stays as it is'); return; }
       if (!(await sharingTools.reopen({ record: sharedHere, project: p.projectId }))) return;
       // The owner's file keeps up with the shared project, as autosave writes to it.
-      if (sharedHere.link === 'owner' && handle) { S.handle = handle; handleStore.set(handle); if (AUTO.can) handle.requestPermission({ mode: 'readwrite' }).catch(() => 'prompt').then(checkWrite); }
+      if (sharedHere.link === 'owner' && handle) { S.handle = handle; handleStore.set(handle); if (canAuto()) handle.requestPermission({ mode: 'readwrite' }).catch(() => 'prompt').then(checkWrite); }
       toast(`Opened the shared project as it is now, not the copy in ${file.name}`);
       return;
     }
@@ -5322,7 +5447,7 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
   AUTO.error = '';
   // Opening it is the moment to ask whether autosave may write to it; if the browser won't
   // ask now, autosave waits, paused, for a click.
-  if (handle && AUTO.can) handle.requestPermission({ mode: 'readwrite' }).catch(() => 'prompt').then(checkWrite);
+  if (handle && (AUTO.can || handle.kind === 'drive')) handle.requestPermission({ mode: 'readwrite' }).catch(() => 'prompt').then(checkWrite);
   else showAutosave();
   S.projectMedia = p.media;
   S.comments = p.comments;
@@ -7354,6 +7479,8 @@ const actions = {
   exportSession: () => recorder.exportSession(),
   exportDialog: () => openExport(),
   recents: () => openRecents(),
+  openDrive: () => openFromDrive(),
+  saveDrive: () => saveToDrive(),
   fileMenu: () => toggleMenu($('fileMenu')),
   saveProjectAs: () => saveProject(true),
   help: () => toggleHelp(),
@@ -7911,6 +8038,8 @@ const RUN = {
   settings: () => showGeneral(),
   exportDialog: () => openExport(),
   recents: () => openRecents(),
+  openDrive: () => openFromDrive(),
+  saveDrive: () => saveToDrive(),
   zoomIn: () => zoom(1.5),
   zoomOut: () => zoom(1 / 1.5),
   zoomFit: () => fitAll(),
@@ -8071,7 +8200,19 @@ initOffline({
 });
 // Settings go to a file and back. Importing reloads, so the blocks are kept first.
 initSettingsFile({ toast: (m) => toast(m), version: VERSION, beforeReload: () => { clearTimeout(saveTimer); save(); } });
-initDrive({ toast: (m) => toast(m), beforeReload: () => { clearTimeout(saveTimer); save(); } });
+initDrive({
+  toast: (m) => toast(m),
+  beforeReload: () => { clearTimeout(saveTimer); save(); },
+  // Saving found the project changed on another computer, or gone: it went into a copy.
+  projectCopied: (h, was, why) => {
+    if (h !== S.handle) return;
+    handleStore.set(h);
+    noteRecent(h);
+    toast(why === 'gone'
+      ? `${was} is no longer in Google Drive, so this was saved there as ${h.name}`
+      : `${was} was changed on another computer, so this was saved beside it as ${h.name}`);
+  },
+});
 initWelcome({
   getMode: () => S.mode,
   setMode,
