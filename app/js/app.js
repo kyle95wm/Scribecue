@@ -7945,11 +7945,15 @@ initAi({
   laneHeard: () => S.dialogue?.choice === 'heard',
   setUpListening: () => openStt(),
   listen: async (b) => transcribe(await clipAudio(Math.max(0, b.start - 0.1), b.end + 0.1)),
-  insertDraft(b, text, heard = '') {
+  // Text to speech reads the drafts, so a draft may be read a little faster to fit.
+  speaks: () => ttsOn(),
+  // speed: faster than normal when the draft needs it to fit, as if picked by hand.
+  insertDraft(b, text, heard = '', speed = 1) {
     const c = mk(b.start, b.end, text);
     c.ai = true;
     if (heard) c.heard = heard;
     if (ttsOn()) c.auto = true;
+    if (ttsOn() && isBlockSpeed(speed) && speed !== 1) { c.speed = speed; c.pinned = true; }
     S.cues.push(c);
     changed();
     return c;
@@ -7979,15 +7983,25 @@ initAi({
     clearTimeout(saveTimer);
     saveTimer = setTimeout(save, 400);
   },
-  apply(id, text) {
+  // speed: the faster one the draft needs to fit, set as if picked by hand.
+  apply(id, text, speed = null) {
     if (qc()) return false;
     const c = S.cues[idx(id)];
     if (!c) { toast('That block isn’t there any more'); return false; }
     pushUndo();
     c.text = text;
+    const sped = ttsOn() && isBlockSpeed(speed) && speed > (c.speed ?? 1);
+    if (sped) {
+      c.speed = speed;
+      c.pinned = true;
+      delete c.fit;
+      c.auto = true;
+      fitAuto(c);
+      tlDirty = true;
+    }
     changed();
     select(c.id, { seek: false });
-    toast(`Draft used for block #${idx(id) + 1} — ${IS_MAC ? '⌘' : 'Ctrl+'}Z to undo`);
+    toast(`Draft used for block #${idx(id) + 1}${sped ? `, read at ${speedLabel(speed)}` : ''} — ${IS_MAC ? '⌘' : 'Ctrl+'}Z to undo`);
     return true;
   },
 });

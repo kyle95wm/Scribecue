@@ -1,10 +1,10 @@
 // The AI help drawer: settings for the person's AI provider, a chat about the scene, and
 // "Draft this block". The requests themselves are built in ai.js.
 import {
-  PROVIDERS, buildRequest, recentFrames, withNotes, SYSTEM, readReply, failure, listModels, fitBudget, shortenPrompt, draftPrompt, chatContext, clock, SCENE_SYSTEM,
+  PROVIDERS, buildRequest, recentFrames, withNotes, SYSTEM, readReply, failure, listModels, fitBudget, shortenPrompt, draftPrompt, draftSpeed, toPace, PACES, chatContext, clock, SCENE_SYSTEM,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from './ai.js';
-import { tts, chosenVoice, DEFAULT_CPS, atBase, runsPast, estimate as readTime } from './tts.js';
+import { tts, chosenVoice, DEFAULT_CPS, atBase, estimate as readTime, speedLabel } from './tts.js';
 import { HOSTED } from './config.js';
 import { lookup as lookUpCast, KEY_PAGE as TMDB_KEY_PAGE } from './tmdb.js';
 import { openSettings as showSettings } from './settings.js';
@@ -20,8 +20,8 @@ const KEY = 'scribecue.ai', KEYS = 'scribecue.ai.keys', PKCE = 'scribecue.ai.pkc
 const load = (store, k) => { try { return JSON.parse(store.getItem(k)) || {}; } catch { return {}; } };
 const keep = (store, k, v) => { try { store.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
 
-// { provider, models: { provider: model }, lists: { provider: [models] }, base, frames, remember, notes }
-// notes: the writer's notes for every project, in Settings.
+// { provider, models: { provider: model }, lists: { provider: [models] }, base, frames, remember, notes, pace }
+// notes: the writer's notes for every project, in Settings. pace: the fastest speed a draft may be read at.
 const ai = { provider: '', models: {}, lists: {}, base: PROVIDERS.ollama.base, frames: 3, remember: true, listen: true, notes: '', ...load(localStorage, KEY) };
 // Keys live apart from the settings: in this browser only, or for this tab only.
 const keys = () => ({ ...load(sessionStorage, KEYS), ...load(localStorage, KEYS) });
@@ -35,7 +35,7 @@ function setKey(provider, key) {
   const store = ai.remember ? localStorage : sessionStorage;
   keep(store, KEYS, { ...load(store, KEYS), [provider]: key });
 }
-const save = () => { const { provider, models, lists, base, frames, remember, listen, notes } = ai; keep(localStorage, KEY, { provider, models, lists, base, frames, remember, listen, notes }); };
+const save = () => { const { provider, models, lists, base, frames, remember, listen, notes, pace } = ai; keep(localStorage, KEY, { provider, models, lists, base, frames, remember, listen, notes, pace }); };
 
 // The notes for every project, which go with the project's own to every request.
 export const generalNotes = () => (typeof ai.notes === 'string' ? ai.notes : '');
@@ -51,7 +51,7 @@ export const openaiKey = () => keys().openai || '';
 const ready = () => !!ai.provider && !!ai.models[ai.provider] && (PROVIDERS[ai.provider]?.local || !!keys()[ai.provider]);
 
 let hooks = {
-  cues: () => [], selIndex: () => -1, playhead: () => 0, video: () => null, apply: () => {}, toast: () => {}, writing: () => true,
+  cues: () => [], selIndex: () => -1, playhead: () => 0, video: () => null, apply: () => {}, speaks: () => false, toast: () => {}, writing: () => true,
   notes: () => '', setNotes: () => {},
   dialogueLines: () => [], freeGaps: () => null, duration: () => 0, noLane: '', identity: () => null, isFree: () => true,
   jobBusy: () => false, runJob: async () => null, laneHeard: () => false, insertDraft: () => null, undoKey: () => 'Ctrl+Z', nextKey: () => '',
@@ -220,9 +220,13 @@ function addDraftButtons(out, draft, text) {
   acts.className = 'acts';
   const use = document.createElement('button');
   use.className = 'hl';
-  use.textContent = `Use for block #${draft.n}`;
+  // A draft that needs a faster pace says so, and sets the block's speed when it's used.
+  const speed = draft.pace ? draft.pace(text).speed : null;
+  const sped = speed != null && speed > draft.from + 1e-9;
+  use.textContent = `Use for block #${draft.n}${sped ? ` at ${speedLabel(speed)}` : ''}`;
+  if (sped) use.dataset.tip = 'Read a little faster, so it fits the block';
   use.addEventListener('click', () => {
-    if (hooks.apply(draft.id, text)) { use.disabled = true; use.textContent = 'Used ✓'; }
+    if (hooks.apply(draft.id, text, sped ? speed : null)) { use.disabled = true; use.textContent = 'Used ✓'; }
   });
   const again = document.createElement('button');
   again.textContent = 'Try again';
@@ -231,10 +235,18 @@ function addDraftButtons(out, draft, text) {
   out.append(acts);
 }
 
-// A block's room, and what fits in it with the chosen voice at the block's speed.
+// A block's room, and what fits in it with the chosen voice at the block's speed. fast: what
+// fits at the fastest pace drafts may use, with text to speech on. pace(text): the speed a
+// draft needs, from draftSpeed. Drafting never slows a block down.
 function room(b, speed = 1) {
   const secs = b.end - b.start, cps = tts.cps[chosenVoice()] || DEFAULT_CPS, at = atBase(speed, tts.base);
-  return { secs, budget: fitBudget(secs, cps, at), said: (text) => readTime(text, cps, at) };
+  const max = hooks.speaks() ? Math.max(speed, toPace(ai.pace)) : speed;
+  return {
+    secs, budget: fitBudget(secs, cps, at),
+    fast: max > speed ? fitBudget(secs, cps, atBase(max, tts.base)) : null,
+    said: (text) => readTime(text, cps, at),
+    pace: (text) => draftSpeed(readTime(text, cps, atBase(1, tts.base)), secs, speed, max),
+  };
 }
 
 async function draftBlock(id = null, extra = '') {
@@ -244,16 +256,17 @@ async function draftBlock(id = null, extra = '') {
   if (i < 0) return note('Select the block to draft first: click it in the list or on the timeline.');
   const c = cues[i];
   // What a block can hold depends on the voice and the block's speed.
-  const { secs, budget, said } = room(c, c.speed ?? 1);
+  const { secs, budget, fast, said, pace } = room(c, c.speed ?? 1);
   let frames = [];
   try { frames = await grabFrames(framesFor(c.start, c.end, ai.frames)); } catch (e) { note(`No frames: ${e.message}.`); }
-  const prompt = draftPrompt(cues, i, budget, frames.map((f) => f.at), dialogueAround(hooks.dialogueLines(), c.start, c.end), sceneContext(hooks.scenes(), c.start)) + (extra ? `\n${extra}` : '');
-  const draft = { id: c.id, n: i + 1 };
+  const prompt = draftPrompt(cues, i, budget, frames.map((f) => f.at), dialogueAround(hooks.dialogueLines(), c.start, c.end), sceneContext(hooks.scenes(), c.start), fast) + (extra ? `\n${extra}` : '');
+  const draft = { id: c.id, n: i + 1, pace, from: c.speed ?? 1 };
   const text = await send(prompt, `Draft block #${i + 1}${extra ? ` · ${extra}` : ''}`, frames, draft);
-  // Too long to read in the block: asked once to shorten it, in the same conversation.
-  const long = text ? said(text) : 0;
-  if (runsPast(long, secs)) {
-    await send(shortenPrompt(text, long, secs, budget), `Too long: about ${long.toFixed(1)} s for ${secs.toFixed(1)} s. Shorten it.`, [], draft);
+  // Too long to read in the block, even at the fastest pace: asked once to shorten it, in
+  // the same conversation.
+  if (text && !pace(text).fits) {
+    const long = said(text);
+    await send(shortenPrompt(text, long, secs, fast || budget), `Too long: about ${long.toFixed(1)} s for ${secs.toFixed(1)} s. Shorten it.`, [], draft);
   }
 }
 
@@ -333,7 +346,7 @@ async function draftScript(from, to, listen = false) {
   const project = hooks.identity();
   const out = await hooks.runJob(async (signal, progress) => {
     const { gaps } = planFor(from, to) || { gaps: [] };
-    let total = gaps.reduce((n, g) => n + splitGap(g).length, 0), done = 0, made = 0, empty = 0, heardIn = 0, over = 0, stopped = '', deaf = '';
+    let total = gaps.reduce((n, g) => n + splitGap(g).length, 0), done = 0, made = 0, empty = 0, heardIn = 0, over = 0, faster = 0, stopped = '', deaf = '';
     progress(0, `0 of ${total}`);
     const lost = () => hooks.identity() !== project || !hooks.writing();
     try {
@@ -360,20 +373,24 @@ async function draftScript(from, to, listen = false) {
             if (signal.aborted) break;
           }
           const { cues, i } = withBlock(hooks.cues(), p);
-          const { secs, budget, said } = room(p);
-          const prompt = `${draftPrompt(cues, i, budget, frames.map((f) => f.at), { ...dialogueAround(hooks.dialogueLines(), p.start, p.end), heard }, sceneContext(hooks.scenes(), p.start))}
+          const { secs, budget, fast, said, pace } = room(p);
+          const prompt = `${draftPrompt(cues, i, budget, frames.map((f) => f.at), { ...dialogueAround(hooks.dialogueLines(), p.start, p.end), heard }, sceneContext(hooks.scenes(), p.start), fast)}
 This is one of a run of drafts through the whole programme, in order. Don't repeat what the blocks before it say.`;
           const r = await requestDraft(prompt, frames, signal);
-          // Too long to read in the gap: asked once to shorten it, and the shorter one kept.
-          const long = r.text ? said(r.text) : 0;
-          if (runsPast(long, secs)) {
-            const s = await requestDraft(shortenPrompt(r.text, long, secs, budget), [], signal);
+          // Too long to read in the gap, even at the fastest pace: asked once to shorten it,
+          // and the shorter one kept. What still runs over is read at the fastest pace.
+          let fit = pace(r.text || '');
+          if (r.text && !fit.fits) {
+            const long = said(r.text);
+            const s = await requestDraft(shortenPrompt(r.text, long, secs, fast || budget), [], signal);
             if (s.text && said(s.text) < long) r.text = s.text;
-            if (runsPast(said(r.text), secs)) over++;
+            fit = pace(r.text);
+            if (!fit.fits) over++;
           }
           if (signal.aborted || lost()) break;
           if (!hooks.isFree(p)) { done++; continue; }
-          hooks.insertDraft(p, r.text || '', heard);
+          hooks.insertDraft(p, r.text || '', heard, r.text ? fit.speed : 1);
+          if (r.text && fit.speed > 1) faster++;
           if (r.text) made++; else empty++;
           if (heard) heardIn++;
           done++;
@@ -382,7 +399,7 @@ This is one of a run of drafts through the whole programme, in order. Don't repe
     } catch (e) {
       if (e.name !== 'AbortError') stopped = e.message;
     }
-    return { made, empty, heardIn, over, deaf, stopped, aborted: signal.aborted, lost: lost() };
+    return { made, empty, heardIn, over, faster, deaf, stopped, aborted: signal.aborted, lost: lost() };
   });
   if (!out) return;
   const n = out.made + out.empty;
@@ -391,9 +408,10 @@ This is one of a run of drafts through the whole programme, in order. Don't repe
   const next = n ? `. ${hooks.nextKey() || 'The next key'} goes to the next one to check${out.undoable ? `; ${hooks.undoKey()} takes them all back` : ''}` : '';
   const heard = out.heardIn ? ` Speech to text heard speech under ${out.heardIn}, marked “speech under it?”: U goes to them.` : '';
   const deaf = out.deaf ? ` Speech to text stopped listening: ${out.deaf}.` : '';
+  const faster = out.faster ? ` ${out.faster === 1 ? '1 reads' : `${out.faster} read`} a little faster, to fit.` : '';
   const over = out.over ? ` ${out.over === 1 ? '1 is' : `${out.over} are`} still too long to read in time, even shortened.` : '';
   hooks.toast(`${what}${why}${next}`);
-  if (n) note(`${what}${why}. They’re tagged AI draft until you edit or accept them.${over}${heard}${deaf}`);
+  if (n) note(`${what}${why}. They’re tagged AI draft until you edit or accept them.${faster}${over}${heard}${deaf}`);
 }
 
 // ---- scene summaries
@@ -554,6 +572,7 @@ function renderSetup() {
   $('aiBase').value = ai.base;
   $('aiRemember').checked = ai.remember;
   $('aiFrames').value = String(ai.frames);
+  $('aiPace').value = String(toPace(ai.pace));
   const sel = $('aiModel'), list = ai.lists[p] || [], cur = ai.models[p] || P.defaultModel || '';
   sel.textContent = '';
   for (const m of [...new Set([cur, ...list].filter(Boolean))]) {
@@ -749,6 +768,9 @@ export function initAi(h) {
     sel.append(o);
   }
   sel.addEventListener('change', renderSetup);
+  for (const [v, label] of PACES) $('aiPace').add(new Option(label, String(v)));
+  $('aiPace').value = String(toPace(ai.pace));
+  $('aiPace').addEventListener('change', (e) => { ai.pace = +e.target.value; save(); });
   $('aiSettings').addEventListener('click', openAiSettings);
   $('setTmdbGet').href = TMDB_KEY_PAGE;
   $('setTmdbKey').addEventListener('change', (e) => {
