@@ -1,9 +1,9 @@
 // Syncing settings through Google Drive, in headless, muted Chrome at a CPU slowdown, with
 // Google, Drive and the relay's sign-in helper stood in for (no Google account needed).
 // Connects, checks the first sync takes Drive's settings and adds this browser's, syncs a
-// change each way, opens with a change from another browser, syncs API keys, and
-// disconnects. The Google window itself isn't opened: the page's request for it is caught,
-// and google.html is opened in a tab of its own with Google's answer.
+// change each way, opens with a change from another browser, syncs API keys and shared
+// projects, and disconnects. The Google window itself isn't opened: the page's request for
+// it is caught, and google.html is opened in a tab of its own with Google's answer.
 // Usage: node scripts/drive-sync-smoke.mjs <devtools port> <site url> [screenshot.png] [slowdown]
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
@@ -161,6 +161,30 @@ try {
   for (let i = 0; i < 60 && drive.body.settings['ai.keys']; i++) await sleep(250);
   assert.equal(drive.body.settings['ai.keys'], undefined, 'turning it off takes them out of Drive');
   assert.equal(await ls('ai.keys'), '{"openai":"sk-here"}', 'this browser keeps them');
+
+  // Shared projects: always synced. One owned here goes up, without when it was opened; 50
+  // joined in another browser come down, and are listed at once; one removed there goes here.
+  const rec = (i, extra = {}) => ({ relay: 'wss://share.kyleadvoice.ca', room: 'room' + i, link: 'L' + i, role: 'edit', priv: 'k' + i, ownerPub: 'o', projectKey: 'pk', keys: ['pk'], w: 'w', project: 'p' + i, title: 'Episode ' + i, ...extra });
+  await js(`localStorage.setItem('scribecue.share.mine',${JSON.stringify(JSON.stringify(rec(0, { link: 'owner', role: 'owner', n: 3, links: [], opened: 123 })))});true`);
+  const joinedThere = Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`share.p${i + 1}`, { v: JSON.stringify(rec(i + 1)), at: Date.now() }]));
+  drive.body = there({ ...drive.body.settings, ...joinedThere });
+  const shares = measure(5000);
+  const t2 = Date.now();
+  await click('#gdSync');
+  await wait(`!!localStorage.getItem('scribecue.share.p50') && !!(${JSON.stringify(drive.id)})`);
+  const came = Date.now() - t2;
+  await wait(`/50 shared projects from Google Drive/.test(document.getElementById('toast').textContent)`);
+  console.log(`50 shared projects came down in ${came} ms; while syncing:`, await shares);
+  for (let i = 0; i < 60 && !drive.body.settings['share.mine']; i++) await sleep(250);
+  const up = JSON.parse(drive.body.settings['share.mine'].v);
+  assert.equal(up.n, 3);
+  assert.equal(up.opened, undefined, 'when it was opened stays here');
+  assert.equal(JSON.parse(await ls('share.mine')).opened, 123);
+  assert.equal(await js(`document.getElementById('sharedBtn').hidden`), false, 'Shared projects is in File');
+  drive.body = there({ ...drive.body.settings, 'share.p50': { v: null, at: Date.now() } });
+  await click('#gdSync');
+  await wait(`!localStorage.getItem('scribecue.share.p50')`);
+  assert.ok(await ls('share.p49'));
 
   // Disconnect.
   await click('#gdDisconnect');

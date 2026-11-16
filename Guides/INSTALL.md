@@ -372,15 +372,15 @@ files.
    **Include API keys** to take your Google, Amazon Polly, AI, TMDB and OpenSubtitles keys too.
 3. **Recordings:** **Export → Session package**, or copy the takes folder. See
    [Moving to another computer](RECORDING.md#moving-to-another-computer).
-4. **Projects you share:** make a [recovery link](SHARING.md#recovery-link). Only the
-   browser you shared from can change the links.
+4. **Projects you share:** connect Google Drive, or make a
+   [recovery link](SHARING.md#recovery-link). Otherwise only this browser can change the links.
 
 **In the new copy:**
 
 1. **Settings → Storage → Import settings…**, and choose the file.
 2. Open each project. On another computer, copy the videos across first.
 3. Open each session package, and choose a folder for its takes.
-4. Open each shared project's link once.
+4. Open each shared project's link once. With Google Drive, they're already there.
 
 **Check the voices.** A project keeps its voice choices, not the voices.
 
@@ -409,6 +409,10 @@ in a hidden Scribecue folder in your Drive. Scribecue can't see your other files
 - **Each browser keeps its own** mode and list width.
 - **API keys** only sync with **Sync API keys** on. Turning it off, in any browser, takes
   them out of Drive.
+- **Shared projects** sync too, yours and ones you joined. They're in **File → Shared
+  projects** in every browser, and you can change your links from any of them.
+- **Your Google account** then opens your shared projects. Keep it safe, as you would a
+  recovery link.
 - **Projects** can live in Google Drive too: **File → Save to Google Drive**. See
   [Saving](GETTING-STARTED.md#saving).
 - **Videos and recordings** don't sync. Move them as above.

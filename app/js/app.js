@@ -47,7 +47,7 @@ import { initReminder } from './reminder.js';
 import { announce, speakable, blockLabel, keepsFocusAfterDialog, toastMs } from './a11y.js';
 import { initOffline, openOffline, keepStorage } from './offline.js';
 import { initSettingsFile } from './settingsfile.js';
-import { initDrive, refreshDrive, canConnect as canDrive, canProjects, connect as connectDrive, listProjects, createProject, driveHandle } from './googledrive.js';
+import { initDrive, refreshDrive, connected as driveOn, canConnect as canDrive, canProjects, connect as connectDrive, listProjects, createProject, driveHandle } from './googledrive.js';
 import { isDriveRef, filterProjects } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
@@ -1150,7 +1150,7 @@ if (sharedOn) {
         // When this person's own link stops working, if it does.
         recovery: () => { const r = sharedLib.getShare(S.projectId); return r ? sharedLib.recoveryUrl(r, sharedLib.linkBase(location.href)) : null; },
         webLinks: () => sharedLib.linksGoToWeb(location.href),
-        makeRecovery: sharingTools.makeRecovery, turnOffRecovery: sharingTools.turnOffRecovery, recoveryMin: sharedLib.RECOVERY_MIN,
+        makeRecovery: sharingTools.makeRecovery, turnOffRecovery: sharingTools.turnOffRecovery, recoveryMin: sharedLib.RECOVERY_MIN, driveOn,
         myExpiry: () => (myShare && myShare.link !== 'owner' ? relay?.links?.links.get(myShare.link)?.expires ?? null : null),
         maxDays: sharedLib.MAX_DAYS,
       });
@@ -8194,7 +8194,8 @@ initOffline({
   openTts: () => openTts(),
   openStt: () => openStt(),
   guides: () => guidesHere(),
-  shares: () => sharedLib?.sharesHere() || { owned: 0, unrecovered: 0, joined: 0 },
+  // With Google Drive connected, shared projects are kept there too, so none is lost.
+  shares: () => { const n = sharedLib?.sharesHere() || { owned: 0, unrecovered: 0, joined: 0 }; return driveOn() ? { ...n, unrecovered: 0, joined: 0 } : n; },
   unsaved: () => (S.dirty && !myShare ? Math.max(1, S.cues.length + S.comments.length + S.bookmarks.length) : 0),
   save: () => saveProject(),
 });
@@ -8211,6 +8212,12 @@ initDrive({
     toast(why === 'gone'
       ? `${was} is no longer in Google Drive, so this was saved there as ${h.name}`
       : `${was} was changed on another computer, so this was saved beside it as ${h.name}`);
+  },
+  // Shared projects come through Drive too. The one open now waits until Scribecue opens again.
+  openProject: () => (shared ? sharedProjectId : ''),
+  sharesChanged: (added) => {
+    showSharedBtn();
+    if (added) toast(added === 1 ? 'A shared project from Google Drive is in File → Shared projects' : `${added} shared projects from Google Drive are in File → Shared projects`);
   },
 });
 initWelcome({

@@ -267,11 +267,14 @@ trust the time a change says it was made.
 - **No forward secrecy.** Someone with a link can read everything up to when it's turned
   off, for as long as they keep the keys. A relay that kept old changes, and later got a
   link and its password, could read them too.
-- **The owner key can't be replaced.** Without a recovery link, if the owner's browser
-  storage is lost, nobody can change the links. Copies still work as plain projects.
+- **The owner key can't be replaced.** Without a recovery link or Google Drive, if the
+  owner's browser storage is lost, nobody can change the links. Copies still work as plain projects.
 - **A recovery link is the owner's key.** Someone who has used it keeps the owner key after
   it's turned off. Its password is guessed offline like a link's, with the link's address.
   It needs 10 characters.
+- **With Google Drive connected, keys are in Drive too,** in Scribecue's hidden folder. The
+  Google account then opens every project kept there, as owner where it's the owner's. See
+  `drive-sync.md`.
 - **Keys live in browser storage.** A script running in the page could read them. The
   CSP allows only Scribecue's own scripts.
 - **The relay sees** room ids, link ids and roles, browser ids and change numbers, sizes,

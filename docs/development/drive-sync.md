@@ -1,7 +1,7 @@
 # Google Drive sync
 
-Optional. Keeps settings the same in every browser that connects the same Google account,
-and keeps projects in Drive to open on any computer.
+Optional. Keeps settings and shared projects the same in every browser that connects the
+same Google account, and keeps projects in Drive to open on any computer.
 
 ## Parts
 
@@ -12,6 +12,7 @@ and keeps projects in Drive to open on any computer.
 | `app/js/syncstart.js` | First import of `app.js`: uses held changes before anything reads its settings. |
 | `app/google.html`, `app/js/googlecallback.js` | Where Google sends the sign-in window back. |
 | `relay/src/google.js` | Swaps the code and renews passes. Tested in `tests/relay-google.test.mjs`. |
+| `app/js/driveshares.js` | Shared projects changed in two browsers: which to keep. Tested in `tests/driveshares.test.mjs`. |
 | `app/js/driveprojects.js` | Projects: copy names, the list, kept references. Tested in `tests/driveprojects.test.mjs`. |
 | `scripts/drive-sync-smoke.mjs`, `scripts/drive-projects-smoke.mjs` | Settings and projects in Chrome, with Google faked. |
 
@@ -44,6 +45,23 @@ and keeps projects in Drive to open on any computer.
   `pending`, and `syncstart.js` uses them next time. The sync as the app opens, before
   any click or key, writes them and reloads straight away.
 
+## Shared projects
+
+- **Always synced** while Drive is connected, owned and joined (Kyle's picks, 2026-11-16).
+  No passphrase: the Google account protects them, as it does API keys.
+- Each `scribecue.share.<project>` record is a setting named `share.<project>` in
+  `settings.json`. `opened` stays with each browser. Records are compared as sorted JSON
+  (`shareText`), so field order doesn't count as a change.
+- **Changed on both sides**, or met for the first time on both: `combineShares`. For the
+  owner, `mergeApart` puts the older list's changes on top of the newer, as two owner
+  browsers do on the relay. Nothing is rolled back. Joined: more project keys wins.
+- **Removed** (stopped sharing, left, or no longer shared) syncs as null. A removal this
+  browser never synced doesn't remove its own copy.
+- **Used at once**, but for the project open now, which waits in `pending` like a setting.
+  New ones toast and show File → Shared projects.
+- The owner's combined list reaches the relay when the project next opens (`ownerOnline`).
+- With Drive connected, Remove all data doesn't warn about owned or joined projects.
+
 ## Projects
 
 - **Kept in** a `Scribecue` folder in My Drive, which people can see. Each file is marked with
@@ -58,6 +76,9 @@ and keeps projects in Drive to open on any computer.
 - QC packages, recording files and session packages stay as files: they can carry audio.
 
 ## Limits
+
+- **The Google account holds every shared project's keys,** owner keys included. Someone
+  who gets into it can connect Scribecue and read them, then change links and read projects.
 
 - Drive has no conditional write here. Two browsers syncing in the same second can lose
   one's change. For projects, the gap is between reading the revision and writing: under a

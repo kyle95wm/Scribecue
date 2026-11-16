@@ -90,6 +90,7 @@ See [AI help](Guides/AI.md).
 |---|---|---|
 | Sharing a project live, encrypted | ✓ | ✓ |
 | Recovery links | ✓ | ✓ Opens in the web version unless you change the address |
+| Shared projects in every browser, through Google Drive | ✓ | ✓ at `localhost:8484` |
 | **Your own relay** | No, it uses Scribecue's | ✓ |
 
 See [Sharing a project](Guides/SHARING.md).
