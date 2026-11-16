@@ -152,9 +152,9 @@ function renderAi() {
   $('checkAiStop').hidden = !aiRun;
   if (aiRun) return;
   ai.disabled = s.offline;
-  ai.textContent = s.ready ? 'Check grammar with AI' : 'Connect AI help';
+  ai.textContent = s.ready ? 'Check with AI' : 'Connect AI help';
   if (note.dataset.result) return;
-  note.textContent = !s.ready ? 'AI help catches harder grammar mistakes.'
+  note.textContent = !s.ready ? 'AI help catches harder mistakes, and breaks of style.'
     : s.offline ? `You’re offline, so ${s.name} can’t be reached.`
       : s.local ? `The script stays on this computer, with ${s.name}.`
         : `Sends the script to ${s.name}. This may cost money.`;
