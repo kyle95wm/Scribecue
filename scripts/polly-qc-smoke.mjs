@@ -113,7 +113,7 @@ await seed(MINE);
 await js(`localStorage.setItem('scribecue.v1',JSON.stringify({cues:[{start:1,end:3,text:'Mara arrives.'}],dirty:false}));true`);
 await send('Page.reload', { ignoreCache: true });
 await wait(`!!document.getElementById('qcExportStart')`); await sleep(2000);
-await js(`document.querySelector('[data-act=exportQc]').click();true`);
+await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportQc]').click();document.getElementById('exportGo').click();true`);
 await wait(`document.getElementById('qcExportDlg').open`); await sleep(400);
 assert.equal(await js(`document.getElementById('qcPollyAccess').hidden`), true, 'comments-only packages hold no key');
 await js(`document.getElementById('qcExportAllowEdits').click();true`); await sleep(200);

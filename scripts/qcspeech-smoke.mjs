@@ -114,7 +114,7 @@ try {
   await openQC();assert.ok((await js(`document.getElementById('qcKeyInfo').textContent`)).startsWith('Your Google key'));
   await click('qcPlaybackClose');
   // A reviewer sends the saved package back, so QC has no Export menu to choose from.
-  assert.equal(await js(`document.getElementById('exportBtn').offsetParent`),null,'Export is hidden for a QC package in QC');
+  assert.equal(await js(`getComputedStyle(document.querySelector('.export-item')).display`),'none','Export is hidden for a QC package in QC');
   await key('KeyE','e');
   assert.match(await js(`document.getElementById('toast').textContent`),/save the QC package/);
   assert.equal(await js('__calls.length'),calls);

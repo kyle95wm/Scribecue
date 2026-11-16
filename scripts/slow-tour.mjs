@@ -435,9 +435,9 @@ try {
     await open('Comments drawer', () => js(`document.querySelector('[data-act=comments]').click(); 1`), () => js(`document.getElementById('commentsClose')?.click(); 1`));
     await open('AI help drawer', () => js(`document.querySelector('[data-act=ai]').click(); 1`), () => js(`document.getElementById('aiClose')?.click(); 1`));
     await open('Diagnostics', async () => { await js(`document.querySelector('[data-act=settings]').click(); document.getElementById('settab-diagnostics').click(); 1`); await sleep(400); });
-    await open('Export menu', () => click('#exportBtn'), () => press('Escape', 'Escape'));
+    await open('Export window', () => click('[data-act=exportDialog]'), () => press('Escape', 'Escape'));
     await step('Save the project', async () => { await js(`(() => { window.showSaveFilePicker = undefined; })()`); await press('s', 'KeyS', { mods: MODS.ctrl }); await sleep(800); });
-    await step('Export SRT', async () => { await click('[data-act=exportSrt]'); await sleep(500); });
+    await step('Export SRT', async () => { await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportSrt]').click();document.getElementById('exportGo').click(); 1`); await sleep(500); });
   }
 
   if (section('tts')) {
@@ -511,7 +511,7 @@ try {
     await exporting('Export extended video, no ffmpeg', '#ttsExtVideoExport', 'ttsExtStatus', 1800);
     await js(`document.getElementById('ttsExtendedAll').click(); 1`);
     await step('Export a QC package', async () => {
-      await click('[data-act=exportQc]'); await sleep(500);
+      await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportQc]').click();document.getElementById('exportGo').click(); 1`); await sleep(500);
       const n = await saved();
       await click('#qcExportStart');
       await until(`window.__m.saved.length > ${n}`, 900, 500);

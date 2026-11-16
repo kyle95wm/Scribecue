@@ -91,18 +91,18 @@ try {
 
  // Chrome's fake microphone beeps above −6, which stops an export, alts included. The takes
  // are given a level in the pocket, as a narrator's would have.
- await js(`document.getElementById('exportNarration').click();true`);
+ await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportNarration]').click();document.getElementById('exportGo').click();true`);
  await wait(`document.getElementById('recExportDlg').open`);
  assert.match(await text('recReport'),/STOPPED: Block 1 \(alt\) peaks/);
  await js(`document.getElementById('recExportCancel').click();(async()=>{const T=await import('./js/takestore.js'),R=await import('./js/recording.js');
   for(const t of await T.listTakes(R.takesKey(window.__rec)))await T.saveTake({...t,peak:-9},t.chosen);return 1})()`);
 
  // The export is a package now.
- await js(`document.querySelector('[data-act=exportMenu]')?.click()||document.getElementById('exportBtn')?.click();true`);await sleep(300);
+ await js(`document.querySelector('[data-act=exportDialog]').click();true`);await sleep(300);
  assert.equal(await js(`document.querySelector('#exportNarration strong').textContent`),'Narration zip');
- await js(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true}));true`);
+ await js(`document.getElementById('exportCancel').click();true`);
  const long0=(await js(`__long`)).length, t0=Date.now();
- await js(`document.getElementById('exportNarration').click();true`);
+ await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportNarration]').click();document.getElementById('exportGo').click();true`);
  // Block 2 has no take, so the notes come up first.
  await wait(`document.getElementById('recExportDlg').open`);
  assert.match(await text('recReport'),/Block 2 has no take/);

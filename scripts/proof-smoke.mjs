@@ -30,7 +30,7 @@ const open = async (cues, extra = '') => {
   await js(setup);
 };
 const summary = () => js(`document.getElementById('checkSummary').textContent`);
-const exportSrt = `document.querySelector('[data-act=exportSrt]').click();true`;
+const exportSrt = `document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportSrt]').click();document.getElementById('exportGo').click();true`;
 const dlgOpen = `document.getElementById('checkDlg').open`;
 const settled = `document.getElementById('checkDlg').open&&document.getElementById('checkSummary').textContent!=='Checking…'`;
 const click = (selector) => js(`document.querySelector(${JSON.stringify(selector)}).click();true`);
@@ -115,7 +115,7 @@ try {
   await open([{ start: 1, end: 3, text: 'He go to the shop.' }, { start: 4, end: 6, text: 'She waves.' }],
     `localStorage.setItem('scribecue.ai',JSON.stringify({provider:'ollama',models:{ollama:'test'},base:'http://localhost:11434'}));`);
   await js(`window.__asked=[];const f=window.fetch;window.fetch=(u,o)=>{if(!String(u).includes('/api/chat'))return f(u,o);__asked.push(JSON.parse(o.body));return Promise.resolve(new Response(JSON.stringify({message:{content:'[{"block":1,"find":"He go","fix":"He goes","why":"The verb must agree"}]'},done:true})+'\\n'))};true`);
-  await click('[data-act=checkSpelling]');
+  await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=checkSpelling]').click();document.getElementById('exportGo').click(); 1`);
   await wait(settled, 'the check window');
   assert.equal(await summary(), 'No problems found.');
   assert.match(await js(`document.getElementById('checkAiNote').textContent`), /stays on this computer/);
@@ -132,7 +132,7 @@ try {
   // QC: it lists, and changes nothing.
   await js(`document.querySelector('[data-mode=qc]').click();true`); await sleep(500);
   await open([{ start: 1, end: 3, text: 'Teh door opens.' }], `localStorage.setItem('scribecue.mode','qc');`);
-  await click('[data-act=checkSpelling]');
+  await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=checkSpelling]').click();document.getElementById('exportGo').click(); 1`);
   await wait(settled, 'the QC check');
   assert.deepEqual(await js(`[...document.querySelectorAll('#checkList button')].map(b=>b.textContent)`), ['Go to block', 'Ignore']);
   await click('#checkClose');

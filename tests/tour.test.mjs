@@ -47,7 +47,9 @@ test('the tour covers sharing, comments, exports and what sharing sends', () => 
   assert.match(marks.text('transcribe'), /Frazier/);
   assert.equal(STEPS.indexOf(marks), STEPS.indexOf(rail) + 1, 'the side panels in order, from the top');
   const out = STEPS.find((s) => s.title === 'Projects and exports');
-  assert.match(out.text('write'), /^File has New, Open and Save/);
+  assert.equal(out.target, '#fileBtn');
+  assert.match(out.text('write'), /^File has New, Open, Save and Export/);
+  assert.match(out.text('write'), /Export \(.+\) opens a window/);
   assert.match(out.text('write'), /QC package for a reviewer, a recording file for a narrator/);
   assert.doesNotMatch(out.text('transcribe'), /QC package|narrator/);
   assert.match(out.text('transcribe'), /SRT or WebVTT/);

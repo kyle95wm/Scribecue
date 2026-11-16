@@ -96,7 +96,7 @@ try {
   assert.equal(await b.js(`[...document.querySelectorAll('#help .save-key')].every(e=>getComputedStyle(e).display==='none')`), true, 'no save keys in the shortcuts');
   assert.equal(await b.js(`(()=>{const e=new KeyboardEvent('keydown',{key:'s',ctrlKey:true,metaKey:true,bubbles:true,cancelable:true});document.body.dispatchEvent(e);return e.defaultPrevented})()`), true, 'the browser doesn’t save the page');
   assert.match(await b.js(`document.getElementById('toast').textContent`), /owner saves/);
-  const exportShown = `getComputedStyle(document.querySelector('.export-wrap')).display!=='none'`;
+  const exportShown = `getComputedStyle(document.querySelector('.export-item')).display!=='none'`;
   assert.equal(await a.js(exportShown), true, 'the owner has Export');
   assert.equal(await b.js(exportShown), false, 'a reviewer has no Export');
   assert.equal(await b.js(`[...document.querySelectorAll('#help .export-key, .export-panel')].every(e=>getComputedStyle(e).display==='none')`), true, 'no export keys or panel exports');

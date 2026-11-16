@@ -66,7 +66,7 @@ const GUIDES = [
   'guides/docs/screenshots/diagnostics.png',
   'guides/docs/screenshots/dialogue-lane.png',
   'guides/docs/screenshots/editor.png',
-  'guides/docs/screenshots/export-menu.png',
+  'guides/docs/screenshots/export.png',
   'guides/docs/screenshots/online-voices.png',
   'guides/docs/screenshots/settings-search.png',
   'guides/docs/screenshots/setup.png',

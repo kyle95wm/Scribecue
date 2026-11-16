@@ -44,9 +44,9 @@ try {
   assert.equal(await js(`document.querySelector('#modeSw [data-mode=write]').disabled`),false);
   assert.equal(await js(`document.getElementById('qcPermission').textContent`),'Authoring project');
   // The writer's own project keeps the script formats and has no return package.
-  await js(`document.getElementById('exportBtn').click();true`);
-  assert.deepEqual(await js(`(()=>{const shown=a=>!!document.querySelector('#exportMenu [data-act='+a+']').offsetParent;return{srt:shown('exportSrt'),vtt:shown('exportVtt'),qc:shown('exportQc')}})()`),{srt:true,vtt:true,qc:true});
-  await js(`document.getElementById('exportBtn').click();true`);
+  await js(`document.querySelector('[data-act=exportDialog]').click();true`);
+  assert.deepEqual(await js(`(()=>{const shown=a=>!!document.querySelector('#exportDlg input[value='+a+']').closest('label').offsetParent;return{srt:shown('exportSrt'),vtt:shown('exportVtt'),qc:shown('exportQc')}})()`),{srt:true,vtt:true,qc:true});
+  await js(`document.getElementById('exportCancel').click();true`);
   const accepted=await js(`(async()=>JSON.parse(typeof __saved==='string'?__saved:await __saved.text()))()`);
   assert.equal(accepted.scribecue,1);assert.equal(accepted.blocks[0].comments.length,1);assert.ok(accepted.reviewAudio.baselineId);
   assert.ok(!('permissions'in accepted));

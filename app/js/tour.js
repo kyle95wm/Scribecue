@@ -116,11 +116,11 @@ export const STEPS = [
       : `Start with Transcribing: Whisper can type each line for you. When you let go of ${keyFor('hold')}, it listens to the block and fills in what the narrator said, ready to check. It runs on your computer.`} AI help, your shortcuts, storage and how Scribecue looks are there too, and so are setup and this tour. Search at the top finds any setting.`,
   },
   {
-    target: 'nav',
+    target: '#fileBtn',
     title: 'Projects and exports',
-    text: (mode) => `File has New, Open and Save. Save keeps everything as a Scribecue project, so you can pick up where you left off. ${mode === 'write'
-      ? 'Export is grouped by who it’s for: a QC package for a reviewer, a recording file for a narrator, finished audio, and files for other tools: the script as SRT or WebVTT, DAW markers and a video with subtitles.'
-      : 'Export gives you the script as SRT or WebVTT, DAW markers or a video with subtitles, to hand off.'} It can check spelling and grammar first.`,
+    text: (mode) => `File has New, Open, Save and Export. Save keeps everything as a Scribecue project, so you can pick up where you left off. Export (${keyFor('exportDialog')}) opens a window of every file you can make. ${mode === 'write'
+      ? 'It’s grouped by who it’s for: a QC package for a reviewer, a recording file for a narrator, finished audio, and files for other tools: the script as SRT or WebVTT, DAW markers and a video with subtitles.'
+      : 'It has the script as SRT or WebVTT, DAW markers or a video with subtitles, to hand off.'} It can check spelling and grammar first.`,
   },
   {
     title: 'Your work stays yours',

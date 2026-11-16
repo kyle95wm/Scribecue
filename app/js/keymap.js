@@ -108,6 +108,7 @@ export const GROUPS = [
   ['View', [
     ['help', 'Keyboard shortcuts', ['Shift+KeyO']],
     ['settings', 'Settings', ['Alt+Shift+KeyS']],
+    ['exportDialog', 'Export…', ['Alt+Shift+KeyE']],
     ['zoomIn', 'Zoom the timeline in', ['Alt+Equal', 'Alt+NumpadAdd']],
     ['zoomOut', 'Zoom the timeline out', ['Alt+Minus', 'Alt+NumpadSubtract']],
     ['zoomFit', 'Zoom the timeline to fit', ['Alt+Digit0', 'Alt+Numpad0']],

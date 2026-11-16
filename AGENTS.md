@@ -111,9 +111,9 @@ add a button to the header for it.
 | Part | What goes there |
 |---|---|
 | Header, left | The name, the mode switch, and the project and media names. |
-| Header, right | Menus and actions for the whole project: **File**, **Export**, Share, Settings, and **?** for the shortcuts. Nothing else. |
-| **File** menu | Starting, opening and saving projects. |
-| **Export** menu | Anything that makes a file to hand on, in the group for who it's for. |
+| Header, right | Menus and actions for the whole project: **File**, Share, Settings, and **?** for the shortcuts. Nothing else. |
+| **File** menu | Starting, opening, saving and exporting projects. |
+| **Export** window (File → Export…) | Anything that makes a file to hand on, in the group for who it's for. |
 | Side bar (`#rail`) | One icon for each drawer beside the video: Comments, Bookmarks, AI help. |
 | Drawers (`.aidrawer`) | Work that sits beside the video while you write, opened from the side bar. |
 | Block editor, in the list | Anything about one block. |
@@ -131,8 +131,8 @@ add a button to the header for it.
   `aria-label` and `data-tip`, with its key. Opening it closes the other drawers, and opening
   them closes it (see `closeOthers` and `closeAi` in `app.js`). Hide its icon in modes it
   doesn't work in.
-- **A new menu item** goes in the group it fits, with its key on the right, as in File and
-  Export.
+- **A new menu item** goes in the group it fits, with its key on the right, as in File. A
+  new export is a choice in the Export window's group for who it's for.
 - **Keys:** every action has one in `keymap.js`, shown in the shortcuts overlay. Add it to
   the footer's hints only if it's used all the time.
 - When a part gets crowded, say so, and suggest a home for its contents, rather than

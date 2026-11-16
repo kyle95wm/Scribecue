@@ -45,7 +45,7 @@ computer, and it works offline.
 
 - **Lengths are exact straight away,** and each line always takes the same time.
 - **You can export a description track:** every reading as one audio file, ready to mix
-  with the programme. It's in the **Export** menu. Choose WAV or MP3 under **Save as**
+  with the programme. It's in **File → Export…**. Choose WAV or MP3 under **Save as**
   in the text to speech settings. An MP3 is much smaller, about 43 MB an hour at 96 kbps
   against 160 MB for a WAV. For the final mix, a WAV keeps full quality.
 

@@ -40,7 +40,7 @@ try {
  // Export actual Piper readings through the UI, then open them with no provider calls.
  await mode('write');
  await wait(`(async()=>{const t=await import('./js/tts.js');return t.reviewVoices().some(v=>v.exportable&&v.id.startsWith('piper:'));})()`);
- await js(`(async()=>{const t=await import('./js/tts.js');const v=t.reviewVoices().find(v=>v.exportable&&v.id.startsWith('piper:'));t.setTtsOption('voice',v.id);window.__anchorClick=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){if(this.download.endsWith('.scribecueqc'))window.__download=this.href;else __anchorClick.call(this);};document.querySelector('[data-act=exportQc]').click();return true;})()`);
+ await js(`(async()=>{const t=await import('./js/tts.js');const v=t.reviewVoices().find(v=>v.exportable&&v.id.startsWith('piper:'));t.setTtsOption('voice',v.id);window.__anchorClick=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){if(this.download.endsWith('.scribecueqc'))window.__download=this.href;else __anchorClick.call(this);};document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportQc]').click();document.getElementById('exportGo').click();return true;})()`);
  await click('qcExportStart');await wait(`!!window.__download`);
  const real=await js(`(async()=>{const q=await import('./js/qc.js');window.__realFile=await fetch(__download).then(r=>r.blob());const r=await q.openReview(__realFile);return {readings:r.readings.length,live:r.live,allowEdits:q.reviewAllowsEdits(r),baseline:r.baselineId};})()`);
  assert.equal(real.allowEdits,false);
@@ -48,7 +48,7 @@ try {
  console.log('Piper package exported:',JSON.stringify(real));
  await click('qcExportClose');
  assert.ok((await save()).reviewHistory.checkpoints.some(c=>c.id===real.baseline),'writer project keeps the QC starting point');
- await js(`window.__download=null;document.querySelector('[data-act=exportQc]').click();true`);
+ await js(`window.__download=null;document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportQc]').click();document.getElementById('exportGo').click();true`);
  assert.equal(await js(`document.getElementById('qcExportAllowEdits').getAttribute('aria-pressed')`),'false');
  await click('qcExportAllowEdits');await click('qcExportStart');await wait(`!!window.__download`);
  assert.equal(await js(`(async()=>{const q=await import('./js/qc.js');const r=await q.openReview(await fetch(__download).then(r=>r.blob()));return q.reviewAllowsEdits(r);})()`),true);
@@ -59,7 +59,7 @@ try {
  assert.equal(await js(`document.getElementById('edText').readOnly`),true);
  assert.equal(await js(`document.querySelector('#modeSw [data-mode=write]').disabled`),true);
  await mode('write');assert.equal(await js(`document.body.classList.contains('mode-qc')`),true);
- await js(`document.querySelector('[data-act=exportQc]').click();true`);
+ await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportQc]').click();document.getElementById('exportGo').click();true`);
  assert.equal(await js(`document.getElementById('qcExportDlg').open`),false);
  await click('edComment');await js(`document.getElementById('commentText').value='Read-only note';document.getElementById('commentPost').click();document.getElementById('commentsClose').click();true`);
  await js(`document.body.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyS',key:'s',metaKey:true,bubbles:true,cancelable:true}));true`);await sleep(350);
