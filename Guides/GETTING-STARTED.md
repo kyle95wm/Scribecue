@@ -331,7 +331,7 @@ To check without exporting, choose **Export → Check spelling and grammar**, or
   sounds-like count as right.
 - **Exporting again:** you're only asked about new problems.
 - **Harder mistakes:** the check works offline, but it only catches simple grammar.
-  [Check grammar with AI](AI.md#what-it-does) goes further.
+  [Check with AI](AI.md#what-it-does) goes further.
 - **In QC mode:** it lists problems but can't change text. Go to the block to comment.
 - **Settings:** under Editing, turn off **Check before exporting**, or choose American,
   British or Canadian **Spelling**. Speech to text and AI help use it too.

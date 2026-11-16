@@ -51,7 +51,7 @@ out beside the video.
 - **Spelling:** AI help writes American, British or Canadian English, with its spelling and
   words, as chosen under **Spelling** in Settings, under Editing.
 - **New chat** starts again.
-- **Check grammar with AI:** in the [spelling and grammar check](GETTING-STARTED.md#checking-spelling-and-grammar).
+- **Check with AI:** in the [spelling and grammar check](GETTING-STARTED.md#checking-spelling-and-grammar).
   It suggests fixes for mistakes the offline check misses, and for clear breaks of style,
   such as "we see" or the past tense. Nothing changes until you choose a fix.
 
@@ -333,7 +333,7 @@ And always check a draft against the picture: AI is confident even when it's wro
 - **Summarise scenes** sends 8 stills from each scene, its subtitles and the summaries
   before it. Drafts and chat then send their scene's summary too.
 - **Find dialogue with OpenAI** sends the programme's audio to OpenAI.
-- **Check grammar with AI** sends the whole script and your notes, in parts.
+- **Check with AI** sends the whole script and your notes, in parts.
 - **Next episode** sends the story so far, the scene summaries and your notes.
 - With Ollama, everything stays on your computer.
 - Keys stay in your browser, and only go to their own provider. Your TMDB key, if you look
@@ -353,7 +353,7 @@ provider's dashboard shows the real figures.
 - **Draft the script** makes one draft per gap, so a whole film costs a few hundred drafts.
 - **Scene summaries** add about 50 requests for a two-hour film.
 - **Chats** cost more as they grow, though only the latest messages resend their frames.
-- **Check grammar with AI** sends the whole script, so a long script costs more than a draft.
+- **Check with AI** sends the whole script, so a long script costs more than a draft.
 - **Find dialogue with OpenAI** costs about 36 cents an hour of programme. Its window shows
   the price before you start.
 - **Ollama** costs nothing to use.
