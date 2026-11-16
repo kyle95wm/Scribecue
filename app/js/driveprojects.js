@@ -32,3 +32,22 @@ export const driveRef = (h) => ({ kind: 'drive', id: h.id, name: h.name, revisio
 
 // Whether the copy in Drive changed since this browser last read or wrote it.
 export const changedElsewhere = (known, now) => !!known && !!now && known !== now;
+
+// Where a new project's first save goes, as the setting "Save new projects" says: 'ask',
+// 'local' or 'drive'. Drive only counts when it's connected for projects; otherwise saving
+// works as it always did. A setting synced from a browser with Drive falls back the same way.
+export const SAVE_NEW = 'saveNew';
+export const SAVE_NEW_CHOICES = ['ask', 'local', 'drive'];
+export function firstSaveGoes(setting, driveReady) {
+  if (!driveReady) return 'local';
+  return SAVE_NEW_CHOICES.includes(setting) ? setting : 'ask';
+}
+
+// The name someone typed for a new project, made safe as a file name, without the extension.
+// Falls back to `fallback` when nothing usable is left.
+export function projectName(typed, fallback, ext = EXT) {
+  let n = String(typed ?? '').replace(/[\u0000-\u001f<>:"/\\|?*]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (n.toLowerCase().endsWith(ext.toLowerCase())) n = n.slice(0, -ext.length).trim();
+  n = n.replace(/^\.+|\.+$/g, '').trim().slice(0, 120).trim();
+  return n || fallback;
+}

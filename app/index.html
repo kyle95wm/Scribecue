@@ -889,6 +889,14 @@ docker compose up -d --build</code></pre>
     <p id="driveEmpty" class="dim small" role="status" hidden></p>
     <div class="updbtns"><button id="driveClose">Close</button></div>
   </dialog>
+  <dialog id="firstSaveDlg" class="updbox" aria-labelledby="firstSaveTitle">
+    <h2 id="firstSaveTitle">Save the project</h2>
+    <p id="firstSaveNameRow" class="updstatus"><label for="firstSaveName">Name</label> <input id="firstSaveName" autocomplete="off" spellcheck="false" maxlength="120"></p>
+    <p id="firstSaveWhere" class="dim small">In Google Drive, it opens on any computer and saves as you work. The video stays on this computer.</p>
+    <p id="firstSaveAlwaysRow" class="updstatus"><button id="firstSaveAlways" aria-pressed="false">Always save new projects there</button></p>
+    <p id="firstSaveAlwaysNote" class="dim small">You can change this in Settings, under Google Drive.</p>
+    <div class="updbtns"><button id="firstSaveDrive">Save to Google Drive</button><button id="firstSaveLocal">Save on this computer</button><button id="firstSaveCancel">Cancel</button></div>
+  </dialog>
   <dialog id="noticeDlg" class="updbox" aria-labelledby="noticeTitle" aria-describedby="noticeText">
     <h2 id="noticeTitle"></h2>
     <p id="noticeText"></p>
@@ -1635,6 +1643,9 @@ docker compose up -d --build</code></pre>
         <p class="small">File → Save to Google Drive keeps a project in a Scribecue folder in your Drive, to open on
           any computer with File → Open from Google Drive. Changes save there as you work. Videos and recordings stay
           on each computer.</p>
+        <p id="gdSaveNewRow" class="updstatus" hidden><label for="gdSaveNew" class="small">Save new projects</label>
+          <select id="gdSaveNew"><option value="ask">Ask each time</option><option value="drive">In Google Drive</option><option value="local">On this computer</option></select></p>
+        <p id="gdSaveNewNote" class="dim small" hidden>Where <kbd><span class="mod"></span>S</kbd> saves a project that hasn’t been saved yet.</p>
         <p id="gdProjects" class="dim small" hidden>This connection only covers settings. Connect again to keep projects
           in Drive too: <button id="gdReconnect">Connect again…</button></p>
         <h3>API keys</h3>

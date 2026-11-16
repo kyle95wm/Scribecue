@@ -47,7 +47,8 @@ import { initReminder } from './reminder.js';
 import { announce, speakable, blockLabel, keepsFocusAfterDialog, toastMs } from './a11y.js';
 import { initOffline, openOffline, keepStorage } from './offline.js';
 import { initSettingsFile } from './settingsfile.js';
-import { initDrive, refreshDrive, connected as driveOn, canConnect as canDrive, canProjects, connect as connectDrive, listProjects, createProject, driveHandle } from './googledrive.js';
+import { initDrive, refreshDrive, connected as driveOn, canConnect as canDrive, canProjects, connect as connectDrive, listProjects, createProject, driveHandle, firstSave, setSaveNew } from './googledrive.js';
+import { projectName } from './driveprojects.js';
 import { isDriveRef, filterProjects } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
@@ -5025,7 +5026,7 @@ async function driveForProjects() {
   return false;
 }
 
-async function saveToDrive() {
+async function saveToDrive(typed = '') {
   closeMenus();
   const no = driveNotReady();
   if (no) return toast(no);
@@ -5033,11 +5034,17 @@ async function saveToDrive() {
   if (S.mode === 'record') return toast('Takes are kept as you record them. Export the narration when you’re done');
   if (inDrive()) return saveProject();
   if (!S.cues.length && !S.comments.length && !S.bookmarks.length && !S.dirty) return toast('Nothing to save yet');
+  // A project that's never been saved gets a name first.
+  if (!typed && neverSaved()) {
+    const pick = await askFirstSave({ driveOnly: true });
+    if (!pick) return;
+    typed = pick.name;
+  }
   if (!(await driveForProjects())) return;
   toast('Saving to Google Drive…');
   try {
     const data = projectFileData();
-    const h = await createProject(`${baseName()}${PROJECT_EXT}`, data instanceof Blob ? data : new Blob([data], { type: 'application/json' }));
+    const h = await createProject(`${typed || baseName()}${PROJECT_EXT}`, data instanceof Blob ? data : new Blob([data], { type: 'application/json' }));
     S.handle = h;
     handleStore.set(h);
     noteRecent(h);
@@ -5049,6 +5056,58 @@ async function saveToDrive() {
     notice('Project not saved', `Couldn’t save the project to Google Drive: ${e.message}.`);
   }
 }
+
+// Not yet saved as a project anywhere: no file to save to, and not opened from or downloaded
+// as one (browsers without file access download, so have no file to save to either).
+const neverSaved = () => !S.handle && !S.subName.toLowerCase().endsWith(PROJECT_EXT);
+
+// The first save of a new project, when Google Drive is connected: a name, and where it goes.
+// Resolves to { where: 'drive' | 'local', name } or null if cancelled. driveOnly: from
+// File → Save to Google Drive, which only needs the name. In browsers that can't save to a
+// file here, Google Drive comes first, since only it saves as you work.
+const firstSaveDlg = $('firstSaveDlg'), firstSaveName = $('firstSaveName'), firstSaveAlways = $('firstSaveAlways');
+let firstSaveDone = null;
+function askFirstSave({ driveOnly = false } = {}) {
+  firstSaveDone?.(null);
+  const files = !!window.showSaveFilePicker;
+  firstSaveName.value = baseName();
+  firstSaveAlways.setAttribute('aria-pressed', 'false');
+  $('firstSaveLocal').hidden = driveOnly;
+  $('firstSaveLocal').textContent = files ? 'Save on this computer' : 'Download a copy';
+  $('firstSaveAlwaysRow').hidden = $('firstSaveAlwaysNote').hidden = driveOnly;
+  const driveFirst = driveOnly || !files;
+  $('firstSaveDrive').classList.toggle('hl', driveFirst);
+  $('firstSaveLocal').classList.toggle('hl', !driveFirst);
+  // The highlighted button comes first, and is what Enter does.
+  const btns = firstSaveDlg.querySelector('.updbtns');
+  btns.prepend(driveFirst ? $('firstSaveDrive') : $('firstSaveLocal'));
+  firstSaveDlg.showModal();
+  firstSaveName.select();
+  return new Promise((done) => { firstSaveDone = done; });
+}
+function finishFirstSave(where) {
+  const done = firstSaveDone;
+  firstSaveDone = null;
+  if (where && firstSaveAlways.getAttribute('aria-pressed') === 'true') {
+    setSaveNew(where);
+    toast(where === 'drive' ? 'New projects save to Google Drive. Change this in Settings, under Google Drive' : 'New projects save on this computer. Change this in Settings, under Google Drive');
+  }
+  const name = projectName(firstSaveName.value, baseName());
+  if (firstSaveDlg.open) firstSaveDlg.close();
+  done?.(where ? { where, name } : null);
+}
+firstSaveAlways.addEventListener('click', () => firstSaveAlways.setAttribute('aria-pressed', String(firstSaveAlways.getAttribute('aria-pressed') !== 'true')));
+$('firstSaveDrive').addEventListener('click', () => finishFirstSave('drive'));
+$('firstSaveLocal').addEventListener('click', () => finishFirstSave('local'));
+$('firstSaveCancel').addEventListener('click', () => finishFirstSave(null));
+firstSaveDlg.addEventListener('close', () => finishFirstSave(null));
+firstSaveDlg.addEventListener('click', (e) => { if (e.target === firstSaveDlg) finishFirstSave(null); });
+firstSaveName.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault();
+  firstSaveDlg.querySelector('.updbtns .hl').click();
+});
+firstSaveDlg.addEventListener('keydown', (e) => e.stopPropagation());
 
 const driveDlg = $('driveDlg'), driveFind = $('driveFind');
 let driveFiles = [];
@@ -5291,8 +5350,20 @@ async function saveProject(as = false) {
   if (S.reviewId && !S.review) return toast('Reopen the QC package to restore its audio before saving');
   if (S.mode === 'record') return toast('Takes are kept as you record them. Export the narration when you’re done');
   if (!S.cues.length && !S.comments.length && !S.bookmarks.length && !S.dirty) return toast('Nothing to save yet');
+  // A new project, with Drive connected: ask where it goes, or go where Settings says.
+  let typed = '';
+  if (!as && !S.reviewId && neverSaved()) {
+    const goes = firstSave();
+    if (goes === 'drive') return saveToDrive(baseName());
+    if (goes === 'ask') {
+      const pick = await askFirstSave();
+      if (!pick) return;
+      if (pick.where === 'drive') return saveToDrive(pick.name);
+      typed = pick.name;
+    }
+  }
   const text = projectFileData();
-  const name = `${baseName()}${S.reviewId ? REVIEW_EXT : PROJECT_EXT}`;
+  const name = `${typed || baseName()}${S.reviewId ? REVIEW_EXT : PROJECT_EXT}`;
   if (!window.showSaveFilePicker && !(inDrive() && !as)) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(text instanceof Blob ? text : new Blob([text], { type: 'application/json' }));

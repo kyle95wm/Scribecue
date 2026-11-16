@@ -1,7 +1,8 @@
 // Projects in Google Drive, in headless, muted Chrome at a CPU slowdown, with Google, Drive
 // and the relay's sign-in helper stood in for. Saves a 1500-block project to Drive, autosaves
 // an edit, saves a copy when another computer changed it, keeps saving to Drive after a
-// reload, and opens a project from the list.
+// reload, and opens a project from the list. A new project's first save asks for a name and
+// where it goes, and can remember that.
 // Usage: node scripts/drive-projects-smoke.mjs <devtools port> <site url> [screenshot.png] [slowdown]
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
@@ -25,7 +26,7 @@ const wait = async (expression, tries = 160) => { for (let i = 0; i < tries; i++
 const waitFor = async (test, what, tries = 160) => { for (let i = 0; i < tries; i++) { if (test()) return; await sleep(250); } throw Error('Timed out: ' + what); };
 const shoot = async (name) => { if (!shot) return; const s = await send('Page.captureScreenshot', { format: 'png' }); writeFileSync(shot.replace(/\.png$/, `-${name}.png`), Buffer.from(s.result.data, 'base64')); };
 const open = async (n) => { await js(`document.activeElement?.blur();[...document.querySelectorAll('#list .row')][${n}].click();true`); await sleep(400); };
-const key = async (k, code) => { const p = { key: k, code, windowsVirtualKeyCode: { Escape: 27 }[k] }; await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...p }); await send('Input.dispatchKeyEvent', { type: 'keyUp', ...p }); await sleep(150); };
+const key = async (k, code) => { const p = { key: k, code, windowsVirtualKeyCode: { Escape: 27, Enter: 13 }[k] }; await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...p }); await send('Input.dispatchKeyEvent', { type: 'keyUp', ...p }); await sleep(150); };
 const type = async (text) => { for (const ch of text) await send('Input.insertText', { text: ch }); };
 const toast = () => js(`document.getElementById('toast').textContent`);
 
@@ -101,6 +102,12 @@ try {
   // Save to Google Drive.
   let t0 = Date.now();
   await js(`document.querySelector('[data-act="saveDrive"]').click(),true`);
+  // A new project asks for its name first. From this menu item, Drive is the only choice.
+  await wait(`document.getElementById('firstSaveDlg').open`);
+  assert.equal(await js(`document.getElementById('firstSaveName').value`), 'Pilot');
+  assert.equal(await js(`document.getElementById('firstSaveLocal').hidden && document.getElementById('firstSaveAlwaysRow').hidden`), true);
+  await shoot('name');
+  await key('Enter', 'Enter');
   await wait(`/to Google Drive\\. Changes save there/.test(document.getElementById('toast').textContent)`);
   console.log(`saved 1500 blocks to Drive in ${Date.now() - t0} ms`);
   assert.equal(projects().length, 1);
@@ -157,6 +164,36 @@ try {
   assert.match(await js(`document.title`), /^Pilot\.scribecue/);
   const long = await js(`window.__long`);
   console.log(`long tasks after reloading: ${long.length}, longest ${Math.round(Math.max(0, ...long))} ms`);
+
+  // A new project's first Save asks where. Always remembers it, and Settings shows it.
+  const fresh = (name) => js(`localStorage.setItem('scribecue.v1',JSON.stringify({dirty:true,subName:'${name}',cues:[{uid:'c0000000-0000-4000-8000-000000000000',start:1,end:3,text:'A new block.'}]}));true`);
+  await fresh('untitled.srt');
+  await send('Page.reload'); await sleep(3500);
+  await js(`window.__errors=[];addEventListener('error',e=>__errors.push(e.message));true`);
+  await js(`document.querySelector('[data-act="saveProject"]').click(),true`);
+  await wait(`document.getElementById('firstSaveDlg').open`);
+  assert.equal(await js(`!document.getElementById('firstSaveLocal').hidden && !document.getElementById('firstSaveAlwaysRow').hidden`), true, 'both places offered');
+  assert.equal(await js(`document.querySelector('#firstSaveDlg .updbtns .hl').id`), 'firstSaveLocal', 'Chrome can save here, so this computer comes first');
+  await js(`const f=document.getElementById('firstSaveName');f.value='Episode two.scribecue';document.getElementById('firstSaveAlways').click();true`);
+  await shoot('ask');
+  await js(`document.getElementById('firstSaveDrive').click(),true`);
+  await waitFor(() => projects().some((f) => f.name === 'Episode two.scribecue'), 'saved under the typed name');
+  assert.equal(await js(`localStorage.getItem('scribecue.saveNew')`), 'drive');
+  assert.equal(await js(`document.getElementById('gdSaveNew').value`), 'drive');
+  assert.equal(await js(`document.getElementById('gdSaveNewRow').hidden`), false);
+
+  // The next new project goes straight to Drive.
+  await fresh('Episode 3.srt');
+  await send('Page.reload'); await sleep(3500);
+  await js(`document.querySelector('[data-act="saveProject"]').click(),true`);
+  await waitFor(() => projects().some((f) => f.name === 'Episode 3.scribecue'), 'saved straight to Drive');
+  assert.equal(await js(`document.getElementById('firstSaveDlg').open`), false, 'not asked');
+  await wait(`document.getElementById('autosaveBtn').textContent==='saved to Drive'`);
+  // Once it's in Drive, Save saves it there, without asking.
+  await js(`document.querySelector('[data-act="saveProject"]').click(),true`);
+  await sleep(1000);
+  assert.equal(await js(`document.getElementById('firstSaveDlg').open`), false);
+  assert.equal(projects().filter((f) => f.name.startsWith('Episode 3')).length, 1);
   assert.deepEqual(await js(`window.__errors||[]`), []);
   console.log('requests:', asked.length);
   console.log('drive projects smoke passed');

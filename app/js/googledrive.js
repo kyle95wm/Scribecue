@@ -10,7 +10,7 @@ import {
   SYNC_FILE, STATE, AUTH, KEYS, CHANNEL, syncedSettings, syncedSecrets, localValues, readState, readRemote,
   noteChanges, merge, nextState, writeValues, shareNames, isShare, SHARE,
 } from './drivesync.js';
-import { FOLDER, MARK, copyName, driveRef, changedElsewhere } from './driveprojects.js';
+import { FOLDER, MARK, copyName, driveRef, changedElsewhere, SAVE_NEW, SAVE_NEW_CHOICES, firstSaveGoes } from './driveprojects.js';
 
 // drive.appdata: the hidden folder settings sync in. drive.file: only files Scribecue made,
 // for projects.
@@ -44,6 +44,15 @@ export const driveEmail = () => auth?.email || '';
 // Whether this connection lets Scribecue keep projects in Drive. Connections made before it
 // could (settings only) connect again once.
 export const canProjects = () => !!auth?.projects;
+
+// Where a new project's first save goes: 'ask', 'local' or 'drive' (Settings → Google Drive).
+const readSaveNew = () => { try { return localStorage.getItem('scribecue.' + SAVE_NEW); } catch { return null; } };
+export const firstSave = () => firstSaveGoes(readSaveNew(), canConnect() && canProjects());
+export function setSaveNew(v) {
+  if (!SAVE_NEW_CHOICES.includes(v)) return;
+  try { localStorage.setItem('scribecue.' + SAVE_NEW, v); } catch { /* blocked */ }
+  render();
+}
 
 class SyncError extends Error {
   constructor(code, message) { super(message || code); this.code = code; }
@@ -364,6 +373,8 @@ function render() {
   $('gdOn').hidden = !auth;
   if (auth) $('gdWho').textContent = auth.email || 'your Google account';
   $('gdProjects').hidden = !auth || !!auth.projects;
+  $('gdSaveNewRow').hidden = $('gdSaveNewNote').hidden = !auth?.projects;
+  $('gdSaveNew').value = firstSaveGoes(readSaveNew(), true);
   const keys = localStorage.getItem('scribecue.' + KEYS) === '1';
   $('gdKeys').setAttribute('aria-pressed', String(keys));
   const st = readLocalState();
@@ -386,6 +397,7 @@ export function initDrive(h) {
   $('gdDisconnect').addEventListener('click', disconnect);
   $('gdSync').addEventListener('click', () => syncNow());
   $('gdReload').addEventListener('click', () => { hooks.beforeReload(); location.reload(); });
+  $('gdSaveNew').addEventListener('change', (e) => setSaveNew(e.target.value));
   $('gdKeys').addEventListener('click', () => {
     const on = $('gdKeys').getAttribute('aria-pressed') !== 'true';
     localStorage.setItem('scribecue.' + KEYS, on ? '1' : '0');
