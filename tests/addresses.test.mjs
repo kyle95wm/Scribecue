@@ -60,3 +60,15 @@ test('links to Scribecue on GitHub go to REPO', () => {
   }
   assert.deepEqual(wrong, [], `point these at ${REPO}`);
 });
+
+test('the relay signs in to Google with the app’s client id, and the page may reach it', async () => {
+  const { GOOGLE_CLIENT_ID, SIGNIN } = await import('../app/js/config.js');
+  const toml = read('relay/wrangler.toml');
+  assert.equal(toml.match(/^GOOGLE_CLIENT_ID = "([^"]*)"/m)?.[1], GOOGLE_CLIENT_ID, 'set GOOGLE_CLIENT_ID in relay/wrangler.toml to the one in config.js');
+  assert.equal(new URL(SIGNIN).host, relay.host, 'the sign-in helper is the relay');
+  for (const f of ['app/index.html', 'nginx.conf']) {
+    for (const origin of [new URL(SIGNIN).origin, 'https://www.googleapis.com']) {
+      assert.ok(csp(read(f)).includes(origin), `add ${origin} to connect-src in ${f}`);
+    }
+  }
+});

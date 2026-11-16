@@ -47,6 +47,8 @@ for its part of Scribecue: see [More help](#more-help).
 | The video doesn't reopen with the project | Click **Reopen**. If the video has moved or changed, open it with `Ctrl/Cmd+Shift+O`. |
 | Blocks and settings are gone, in Docker | Open Scribecue at the same address and port as before. Each address keeps its own work. |
 | Moving to another browser or computer, or between the web version and Docker | Save your projects and export your settings. See [Moving your work](INSTALL.md#moving-your-work). |
+| Google Drive won't connect | Allow pop-ups for Scribecue. Use the web version, or Docker at `localhost:8484` or `9484`: Google refuses other addresses. |
+| Settings from another browser haven't arrived | They're used when Scribecue opens again. In **Settings → Google Drive**, click **Reload now**. |
 | Worried the browser may clear your work | In **Settings → Offline and storage**, click **Keep it safe**. Saving a project keeps it safe either way. |
 | Wrong blocks after **File, New** | Press `Ctrl/Cmd+Z` to bring them back. |
 

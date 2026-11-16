@@ -1,3 +1,4 @@
+import './syncstart.js'; // first: uses settings that came from Google Drive, before anything reads them
 import { startNewProject } from './newproject.js';
 import { createQcPlayer } from './qcplayer.js';
 import { REVIEW_EXT, isReview, openReview, resaveReview, liveBlock, reviewAllowsEdits, reviewReading, playbackReading, rewriteSpec, readingVoiceChanged, appendRewrite, previousReading, storedReview, voiceReport, reviewAudioKey } from './qc.js';
@@ -46,6 +47,7 @@ import { initReminder } from './reminder.js';
 import { announce, speakable, blockLabel, keepsFocusAfterDialog, toastMs } from './a11y.js';
 import { initOffline, openOffline, keepStorage } from './offline.js';
 import { initSettingsFile } from './settingsfile.js';
+import { initDrive, refreshDrive } from './googledrive.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
@@ -8069,6 +8071,7 @@ initOffline({
 });
 // Settings go to a file and back. Importing reloads, so the blocks are kept first.
 initSettingsFile({ toast: (m) => toast(m), version: VERSION, beforeReload: () => { clearTimeout(saveTimer); save(); } });
+initDrive({ toast: (m) => toast(m), beforeReload: () => { clearTimeout(saveTimer); save(); } });
 initWelcome({
   getMode: () => S.mode,
   setMode,
@@ -8144,6 +8147,7 @@ place($('setOpenSubs'), 'ai');
 place($('setTmdb'), 'ai');
 addSection('keys', 'Keyboard shortcuts', { open: () => openKeys(), search: shortcutEntries });
 adopt($('keysDlg'), 'keys', { skip: ['#keysDone'] });
+addSection('drive', 'Google Drive', { open: () => { refreshDrive(); openSettings('drive'); }, content: $('setDrive') });
 addSection('storage', HOSTED ? 'Offline and storage' : 'Storage', { open: () => openOffline() });
 adopt($('offlineDlg'), 'storage', { skip: ['.updbtns:has(#offlineClose)'] });
 addSection('diagnostics', 'Diagnostics', { open: () => openDiagnostics() });

@@ -63,6 +63,10 @@ body {
   overflow: hidden;
   user-select: none;
 }
+body.callback { display: block; padding: 32px 24px; overflow: auto; user-select: text; }
+body.doc main { display: block; height: auto; overflow: visible; max-width: 680px; margin: 0 auto; line-height: 1.6; }
+body.doc h2 { margin-top: 28px; font-size: 17px; }
+body.doc a { color: var(--accent); }
 .dim { color: var(--dim); }
 .grow { flex: 1; }
 kbd {

@@ -360,6 +360,10 @@ Each address keeps its own work in the browser. The web version, `http://localho
 and another port or computer don't see each other's. To move, take your work across in
 files.
 
+**Settings can follow you instead.** Connect Google Drive in each copy, under
+**Settings → Google Drive**, and they stay the same everywhere. See
+[Syncing settings](#syncing-settings). Then skip the settings steps below.
+
 **In the copy you're leaving:**
 
 1. **Save each project:** **File → Save**. Blocks you haven't saved stay behind.
@@ -386,6 +390,28 @@ files.
 
 Another voice can take a different time to read, so timings may change. Waveforms are
 made again.
+
+### Syncing settings
+
+Connect Google Drive to keep your settings the same in every browser you use. They're kept
+in a hidden Scribecue folder in your Drive. Scribecue can't see your other files.
+
+1. Open **Settings → Google Drive**, and click **Connect Google Drive…**.
+2. Choose your Google account, and allow Scribecue.
+3. Do the same in each browser or copy of Scribecue you use.
+
+- **The first time,** a browser takes the settings already in Drive. Settings Drive doesn't
+  have yet are added from it.
+- **Changes sync by themselves,** within about 15 seconds.
+- **A change from another browser** is used when Scribecue opens again. Click **Reload now**
+  to use it straight away.
+- **Each browser keeps its own** mode and list width.
+- **API keys** only sync with **Sync API keys** on. Turning it off, in any browser, takes
+  them out of Drive.
+- **Projects, videos and recordings** don't sync. Move them as above.
+
+It works in the web version, and in Docker at `http://localhost:8484/` and
+`http://localhost:9484/`. At another address, Google refuses to connect.
 
 ## Updating
 
@@ -440,9 +466,9 @@ scripts/docker-up.sh
 
 Then open <http://localhost:9484/>. The footer shows "· dev" after the version.
 
-- **It starts empty.** Each address keeps its own work. To bring your settings, use
-  **Settings → Storage → Export settings…** in the release, then **Import settings…** in
-  `dev`. To try a project, save it in the release and open the file in `dev`.
+- **It starts empty.** Each address keeps its own work. To bring your settings, connect
+  Google Drive in both, or use **Settings → Storage → Export settings…** in the release,
+  then **Import settings…** in `dev`. To try a project, save it in the release and open the file in `dev`.
 - **Keep your work in the release.** Projects saved in `dev` may not open in a release.
 - **Voices, speech to text and ffmpeg** come from the release, so start the release first.
 - **To get the latest:** run `git pull`, then `scripts/docker-up.sh`. Scribecue doesn't tell
@@ -652,10 +678,13 @@ To publish a fork under your own name and addresses:
    | `REPO` | Your GitHub repository, as `owner/name`. Update checks and guide links use it. |
    | `WEB_APP` | Your web version's address. |
    | `RELAY` | Your sharing relay's address. |
+   | `GOOGLE_CLIENT_ID` | Your Google Cloud project's client, for Google Drive sync. Leave it empty to turn sync off. |
 
 2. Run `scripts/check.sh`. Its tests list every other file that must match, such as the
    security policy, the relay's settings and the guides.
 3. Turn on GitHub Pages for your repository, with your own domain if you have one.
 4. Deploy your relay to your own Cloudflare account, as [relay/README.md](../relay/README.md) says.
+5. For Google Drive sync, set up a Google Cloud project, as
+   [relay/README.md](../relay/README.md#google-drive-sync) says.
 
 Until you do, your copy checks for this project's updates and shares through its relay.
