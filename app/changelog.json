@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.130.0",
+    "date": "2026-11-16",
+    "notes": "## Shared projects in Google Drive\n\n- With Google Drive connected, your shared projects follow you: the ones you share and the ones you joined.\n- They're in **File → Shared projects** in every browser on your Google account.\n- Make or turn off links from any of them. Changes made in two browsers are both kept.\n- A project you stop sharing or leave goes from your other browsers too.\n- Anyone who gets into your Google account could open them, so keep it safe."
+  },
+  {
     "version": "0.129.1",
     "date": "2026-11-16",
     "notes": "## Welcome screen\n\n- The welcome screen links to Scribecue's privacy notice.\n- It now says nothing is uploaded unless you choose to, since Google Drive and sharing can upload."
