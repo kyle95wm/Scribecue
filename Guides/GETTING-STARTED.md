@@ -461,6 +461,8 @@ finishes. After that, switching to it is instant until you close the video.
   pressing `/` brings a hidden list back. With the Burnt in style, the text over the video keeps
   its size against the picture.
 - **Player controls:** the buttons under the video. Hover over one to see its key.
+- **Hide the text over the video:** click the last player control, or press `Shift+C`. Click
+  it again to bring the text back. Exports aren't affected.
 - **The tour and the loop:** **Take the tour** and **Show the loop**, in the shortcuts
   overlay (`?`), show them again.
 - **What's new:** after an update, a window lists what changed. In the web version, click
