@@ -401,12 +401,13 @@ speak and how long each gap is, so you can see where description fits.
 
 ### Fixing the lane
 
-Subtitles and speech to text aren't always right. Song lyrics can show as speech, or a line can
-start before anyone speaks. Click a line on the lane to select it, then:
+Subtitles and speech to text aren't always right. Song lyrics can show as speech, a word can be
+misheard, or a line can start before anyone speaks. Click a line on the lane to select it, then:
 
 | To do this | Do this |
 | --- | --- |
 | Take the line out, such as lyrics | Press `Del` |
+| Correct its words | Double-click it, or press `Enter`. Type, then press `Enter`, or `Esc` to cancel |
 | Trim its start or end | Drag either end, or press `A` / `S` to set it to the playhead |
 | Nudge it | `Q` `W` for the start, `E` `R` for the end, `,` `.` to move it (with `Shift`: 10 ms) |
 | Go to its start or end | Press `G` or `Shift+G` |

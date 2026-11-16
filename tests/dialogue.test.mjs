@@ -210,3 +210,21 @@ test('drops malformed dialogue edits from a project', () => {
     'track|0||': 'nope',
   }), { 'file|a.srt': { '1000|Hi': { cut: true }, '2000|Bye': { start: 2.2, end: 3 } } });
 });
+
+test('a corrected line shows its new words, keeping its key', () => {
+  const k = lineKey(three[2]);
+  const lines = editLines(three, { [k]: { start: 7, end: 9, text: 'Good night.' } });
+  assert.deepEqual(lines[2], { start: 7, end: 9, text: 'Good night.', k, edited: true });
+});
+
+test('a project keeps a line’s corrected words, trimmed, and drops empty ones', () => {
+  assert.deepEqual(cleanLaneEdits({ heard: {
+    '1000|Helo': { start: 1, end: 2, text: '  Hello  ' },
+    '3000|Bye': { start: 3, end: 4, text: '   ' },
+    '5000|Long': { start: 5, end: 6, text: 'x'.repeat(2000) },
+  } }), { heard: {
+    '1000|Helo': { start: 1, end: 2, text: 'Hello' },
+    '3000|Bye': { start: 3, end: 4 },
+    '5000|Long': { start: 5, end: 6, text: 'x'.repeat(1000) },
+  } });
+});

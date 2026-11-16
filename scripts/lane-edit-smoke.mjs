@@ -2,6 +2,7 @@
 // trims them by dragging and with keys, undoes, reloads, and puts the lines back.
 // The video should be about a minute long; the subtitles should have lines at 2–4, 5–8,
 // 10–13, 13.5–16, 20–23 and 30–33 s, the 10–16 s ones being song lyrics nobody marked.
+// Also corrects a line's words, with a double-click and with Enter.
 // Usage: node scripts/lane-edit-smoke.mjs <devtools port> <site url> <video file> <subtitle file> [screenshot.png] [slowdown]
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
@@ -113,18 +114,42 @@ try {
   await letter('s');
   assert.match(await toast(), /^No text block selected/, 'S goes back to blocks');
 
+  // Correcting words: a double-click opens a field over the line; Enter keeps the words.
+  const fifth = async () => Object.entries(await edits()).find(([k]) => k.startsWith('20000|'))?.[1];
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: xOf(21), y: yMid(), button: 'left', buttons: 1, clickCount: 2 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: xOf(21), y: yMid(), button: 'left', buttons: 0, clickCount: 2 });
+  await sleep(400);
+  assert.equal(await js(`!document.getElementById('dialEdit').hidden && document.activeElement.id`), 'dialEdit', 'a double-click opens the field');
+  assert.equal(await js(`document.getElementById('dialEdit').value`), 'You should have called.');
+  await shoot('words');
+  await send('Input.insertText', { text: 'You should’ve called me.' });
+  await key('Enter', 'Enter', 13);
+  assert.equal((await fifth())?.text, 'You should’ve called me.', 'Enter keeps the words');
+  assert.equal(await js(`document.getElementById('dialEdit').hidden`), true);
+  // Enter on the selected line opens it again; Esc leaves the words as they were.
+  await key('Enter', 'Enter', 13);
+  assert.equal(await js(`document.activeElement.id`), 'dialEdit', 'Enter opens the field');
+  await send('Input.insertText', { text: 'Not this.' });
+  await key('Escape', 'Escape', 27);
+  assert.equal((await fifth())?.text, 'You should’ve called me.', 'Esc keeps the old words');
+  // A trim after a correction keeps the words.
+  await letter('w');
+  const after = await fifth();
+  assert.ok(after.text === 'You should’ve called me.' && Math.abs(after.start - 20.1) < 1e-6, `trim keeps the words (${JSON.stringify(after)})`);
+  await key('Escape', 'Escape', 27);
+
   // Kept in the project: after a reload, the lane comes back with its edits.
   await sleep(800);
   await send('Page.reload'); await sleep(2500);
   await js(`window.__errors=[];addEventListener('error',e=>__errors.push(e.message));true`);
   await openBoth();
   await seekTo(7); await letter('d');
-  assert.equal(await toast(), 'Gap of 12.8 s', 'edits come back after a reload');
+  assert.equal(await toast(), 'Gap of 12.9 s', 'edits come back after a reload');
 
   // Put back the original lines.
-  assert.match(await js(`document.querySelector('#dialSel option[value=original]')?.textContent||''`), /^Put back the original lines \(4 changed\)$/);
+  assert.match(await js(`document.querySelector('#dialSel option[value=original]')?.textContent||''`), /^Put back the original lines \(5 changed\)$/);
   await js(`(()=>{const s=document.getElementById('dialSel');s.value='original';s.dispatchEvent(new Event('change'))})();true`); await sleep(400);
-  assert.match(await toast(), /^4 dialogue lines put back/);
+  assert.match(await toast(), /^5 dialogue lines put back/);
   await seekTo(7); await letter('d');
   assert.equal(await toast(), 'Gap of 2.0 s', 'the lyrics are back');
   assert.equal(await js(`!!document.querySelector('#dialSel option[value=original]')`), false, 'nothing left to put back');

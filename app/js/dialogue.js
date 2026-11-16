@@ -118,8 +118,8 @@ export function spansOf(lines) {
 
 // ---------------------------------------------------------------- the writer's edits
 //
-// Lines can be taken out, such as song lyrics nobody marked, or have their start and end
-// moved to where the words really are. The edits are kept in the project, one set for
+// Lines can be taken out, such as song lyrics nobody marked, have their start and end
+// moved to where the words really are, or have their words corrected. The edits are kept in the project, one set for
 // each source (a track, a file, speech to text), so going back to a source brings its
 // edits back. Each edit names a line by where it started in the source and its words.
 
@@ -127,11 +127,13 @@ export function spansOf(lines) {
 export const MIN_LINE = 0.1;
 // More than this many edits for one source, or sources, is something gone wrong.
 const MAX_EDITS = 20000, MAX_SOURCES = 50;
+// The longest a corrected line's words can be.
+export const MAX_TEXT = 1000;
 
 export const lineKey = (l) => `${Math.round(l.start * 1000)}|${l.text}`;
 
 // A project's dialogue edits, with anything malformed dropped:
-// { [source]: { [lineKey]: { cut: true } | { start, end } } }.
+// { [source]: { [lineKey]: { cut: true } | { start, end, text? } } }.
 export function cleanLaneEdits(value) {
   const out = {};
   if (!value || typeof value !== 'object' || Array.isArray(value)) return out;
@@ -141,7 +143,9 @@ export function cleanLaneEdits(value) {
     for (const [k, e] of Object.entries(edits).slice(0, MAX_EDITS)) {
       if (!/^-?\d+\|/.test(k) || k.length > 2000 || !e || typeof e !== 'object') continue;
       if (e.cut === true) kept[k] = { cut: true };
-      else if (Number.isFinite(e.start) && Number.isFinite(e.end) && e.start >= 0 && e.end - e.start >= MIN_LINE - 1e-9) kept[k] = { start: e.start, end: e.end };
+      else if (Number.isFinite(e.start) && Number.isFinite(e.end) && e.start >= 0 && e.end - e.start >= MIN_LINE - 1e-9) {
+        kept[k] = { start: e.start, end: e.end, ...(typeof e.text === 'string' && e.text.trim() ? { text: e.text.trim().slice(0, MAX_TEXT) } : {}) };
+      }
     }
     if (Object.keys(kept).length) out[source] = kept;
   }
@@ -149,13 +153,13 @@ export function cleanLaneEdits(value) {
 }
 
 // A source's lines with its edits made: each line carries its key, as k, and edited: true
-// if its times were changed. Lines taken out are left out. lines: as buildDialogue gives them.
+// if its times or words were changed. Lines taken out are left out. lines: as buildDialogue gives them.
 export function editLines(lines, edits = {}) {
   const out = [];
   for (const l of lines) {
     const k = lineKey(l), e = edits[k];
     if (e?.cut) continue;
-    out.push(e ? { start: e.start, end: e.end, text: l.text, k, edited: true } : { ...l, k });
+    out.push(e ? { start: e.start, end: e.end, text: e.text ?? l.text, k, edited: true } : { ...l, k });
   }
   return out.sort((a, b) => a.start - b.start);
 }

@@ -65,7 +65,7 @@ import { buildDawMarkers, DAW_KINDS } from './dawmarkers.js';
 import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS } from './codecs.js';
 import { createLog, watchErrors, pictureWatch, report as diagReport, exposeReport } from './diagnostics.js';
 import { waveKey, loadWave, saveWave, loadSound, saveSound } from './wavestore.js';
-import { buildDialogue, spansOf, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, MIN_CLASH, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue, cleanLaneEdits, editLines, retimeLine, lineAt, MIN_LINE } from './dialogue.js';
+import { buildDialogue, spansOf, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, MIN_CLASH, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue, cleanLaneEdits, editLines, retimeLine, lineAt, MIN_LINE, MAX_TEXT } from './dialogue.js';
 import { stt, initStt, openStt, transcribe, transcribeTimed, checkStt, toWav, spelled, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { startTips } from './tooltip.js';
@@ -6770,6 +6770,7 @@ let dialWorker = null, dialGen = 0;
 // wait, so that kind of read rests until the video stops. See paceWave.
 let dialScans = false, dialWaiting = false;
 let dialDrawn = '', dialGaps = [], dialGapsFor = '';
+let dialEditing = null; // the line whose words are open to correct, on the lane
 const dialColors = () => ({ bar: C.line, text: C.text, dim: C.dim, panel: C.panel, accent: C.accent });
 
 function resetDialogue() {
@@ -6849,6 +6850,7 @@ function useDialogue(file, entry, { keep = true } = {}) {
 // warnings on blocks until the drag ends.
 function applyLaneEdits({ live = false } = {}) {
   S.laneGen++;
+  if (dialEditing && !live) closeLineText(false);
   const d = S.dialogue;
   if (!d) { S.laneSel = null; return; }
   d.lines = editLines(d.base, S.laneEdits[d.source]);
@@ -7026,11 +7028,16 @@ function selectLine(l) {
   tlDirty = true;
 }
 
-// One edit to the selected line. tag: as for pushUndo, so a held key is one step.
+// One edit to a line: its times, its words or both, kept with what was changed before.
+// tag: as for pushUndo, so a held key is one step.
 function editLine(l, change, tag = null) {
   pushUndo(undefined, tag);
-  (S.laneEdits[S.dialogue.source] ||= {})[l.k] = change;
+  setLineEdit(l, change);
   laneChanged();
+}
+function setLineEdit(l, change) {
+  const edits = S.laneEdits[S.dialogue.source] ||= {};
+  edits[l.k] = change.cut ? change : { start: l.start, end: l.end, ...(edits[l.k]?.cut ? {} : edits[l.k]), ...change };
 }
 
 function lineEdge(which) {
@@ -7108,7 +7115,7 @@ dialTrack.addEventListener('pointermove', (e) => {
   if (!laneDrag.moved && Math.abs(dx) < 3) return;
   if (!laneDrag.moved) { laneDrag.moved = true; document.body.classList.add('dragging', 'resize'); }
   const { l, which } = laneDrag, times = retimeLine(l, which, laneDrag.from + dx / S.pps, duration());
-  (S.laneEdits[S.dialogue.source] ||= {})[l.k] = times;
+  setLineEdit(l, times);
   applyLaneEdits({ live: true });
   dragtip.hidden = false;
   dragtip.textContent = `${tc(times.start)} → ${tc(times.end)}  ·  ${(times.end - times.start).toFixed(2)} s`;
@@ -7128,8 +7135,46 @@ dialTrack.addEventListener('pointerup', endLaneDrag);
 dialTrack.addEventListener('pointercancel', endLaneDrag);
 dialTrack.addEventListener('pointerleave', () => { if (!laneDrag) dialTrack.classList.remove('grip'); });
 dialTrack.addEventListener('dblclick', (e) => {
-  if (S.mode !== 'record') gapBlock(xToT(e.clientX), true);
+  if (S.mode === 'record' || e.target === dialEdit) return;
+  const l = laneEditable() && lineAt(S.dialogue.lines, xToT(e.clientX));
+  if (l) { selectLine(l); editLineText(); } else gapBlock(xToT(e.clientX), true);
 });
+
+// The selected line's words, in a field over it on the lane. Enter or clicking away keeps
+// them, Esc doesn't. Emptied, the line is taken out.
+const dialEdit = $('dialEdit');
+function editLineText() {
+  const l = laneLine();
+  if (!l) return;
+  revealRange(l.start, l.end);
+  dialEditing = l;
+  const W = dialTrack.clientWidth, x = (l.start - S.view) * S.pps, w = Math.max(240, (l.end - l.start) * S.pps);
+  dialEdit.style.width = Math.min(w, W) + 'px';
+  dialEdit.style.left = clamp(x, 0, Math.max(0, W - Math.min(w, W))) + 'px';
+  dialEdit.value = l.text;
+  dialEdit.hidden = false;
+  dialEdit.focus();
+  dialEdit.select();
+}
+function closeLineText(keep) {
+  const l = dialEditing;
+  if (!l) return;
+  dialEditing = null;
+  dialEdit.hidden = true;
+  if (document.activeElement === dialEdit) dialEdit.blur();
+  const text = dialEdit.value.replace(/\s+/g, ' ').trim().slice(0, MAX_TEXT);
+  if (!keep || !S.dialogue || text === l.text) return;
+  S.laneSel = l.k;
+  if (!text) return cutLine();
+  editLine(l, { text });
+}
+dialEdit.addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); closeLineText(true); }
+  else if (e.key === 'Escape') { e.preventDefault(); closeLineText(false); }
+});
+dialEdit.addEventListener('blur', () => closeLineText(true));
+dialEdit.addEventListener('pointerdown', (e) => e.stopPropagation());
 
 // ---------------------------------------------------------------- dialogue from speech to text
 //
@@ -8248,7 +8293,7 @@ const RUN = {
   toEnd: orLine(() => gotoSel(true), () => { S.playUntil = null; seek(laneLine().end); }),
   jumpTime: () => openPalette('time'),
   quickNav: () => openPalette('nav'),
-  createEdit: () => createOrEdit(),
+  createEdit: orLine(() => createOrEdit(), editLineText),
   newBlock: () => newCue(),
   gapBlock: () => gapBlock(),
   prevBlock: () => selectRel(-1),

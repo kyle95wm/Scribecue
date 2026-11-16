@@ -38,7 +38,7 @@ export const GROUPS = [
     ['quickNav', 'Quick navigation (search blocks)', ['Shift+KeyF']],
   ]],
   ['Blocks', [
-    ['createEdit', 'Create or edit a block at the playhead', ['Enter', 'NumpadEnter']],
+    ['createEdit', 'Create or edit a block at the playhead, or correct the selected dialogue line’s words', ['Enter', 'NumpadEnter']],
     ['newBlock', 'New block at the playhead', ['KeyN']],
     ['gapBlock', 'New block filling the gap at the playhead', ['Shift+KeyN']],
     ['prevBlock', 'Previous block in the list', ['ArrowUp', 'KeyK']],
