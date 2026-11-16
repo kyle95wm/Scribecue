@@ -63,6 +63,7 @@ takes them to another browser with your other settings.
 | `Ctrl/Cmd+B` `Ctrl/Cmd+I` `Ctrl/Cmd+U` | Bold / italic / underline |
 | `Ctrl/Cmd+Z` `Ctrl/Cmd+Shift+Z` | Undo / redo |
 | `Ctrl/Cmd+S` / `Ctrl/Cmd+Shift+S` | Save the project / save it as a new file. Only the owner, in a shared project |
+| `Alt+Shift+R` | Recents: files you opened or saved lately |
 | `Alt+Shift+E` | Export: every file you can make. Not with a QC package open in QC |
 | `Ctrl/Cmd+E` / `Ctrl/Cmd+Shift+E` | Export SRT / WebVTT. Not with a QC package open in QC. Only the owner, in a shared project |
 | `Ctrl/Cmd+O` / `Ctrl/Cmd+Shift+O` | Open a project or script / open a video or audio file |
