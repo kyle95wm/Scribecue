@@ -271,10 +271,13 @@ else is a **Note**.
 
 ## Exporting
 
-When the script is finished, or to share it with someone who doesn't use Scribecue,
-use the **Export** menu at the top:
+When the script is finished, or to share it with someone who doesn't use Scribecue:
 
-![The Export menu, grouped by who the file is for](../docs/screenshots/export-menu.png)
+1. Click **File**, then **Export…**, or press `Alt+Shift+E`.
+2. Pick a file. They're grouped by who they're for.
+3. Click **Export**, or press `Enter`. Double-clicking a file works too.
+
+![The Export window, grouped by who the file is for](../docs/screenshots/export.png)
 
 - **Script as SRT** (`Ctrl/Cmd+E`).
 - **Script as WebVTT** (`Ctrl/Cmd+Shift+E`). This also keeps each block's speed, voice and

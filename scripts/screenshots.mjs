@@ -144,7 +144,7 @@ await shot('sounds-like', '#sayDlg', 0);
 
 // Spelling and grammar: block 2's British "colours", with American spelling chosen.
 await js(`document.querySelectorAll('dialog[open]').forEach((d) => d.close()); 1`); await sleep(300);
-await js(`document.querySelector('[data-act=checkSpelling]').click(); 1`);
+await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=checkSpelling]').click();document.getElementById('exportGo').click(); 1`);
 await sleep(1500);
 await js(`document.activeElement?.blur(); 1`);
 await shot('spelling-check', '#checkDlg', 0);
@@ -169,10 +169,10 @@ await js(`document.activeElement?.blur(); document.getElementById('toast').class
 await shot('dialogue-lane', '#tl', 0);
 await key('Digit0', '0', { altKey: true }); await sleep(300);
 
-// The Export menu.
-await js(`document.getElementById('exportBtn').click(); 1`); await sleep(400);
-await shot('export-menu', '#exportMenu', 0);
-await key('Escape', 'Escape'); await js(`document.getElementById('exportMenu').hidden = true; document.getElementById('exportBtn').setAttribute('aria-expanded', 'false'); 1`); await sleep(200);
+// The Export window.
+await js(`document.querySelector('[data-act=exportDialog]').click(); document.querySelector('#exportDlg input[value=exportSrt]').click(); document.activeElement.blur(); 1`); await sleep(400);
+await shot('export', '#exportDlg', 0);
+await js(`document.getElementById('exportCancel').click(); 1`); await sleep(200);
 
 // Share, before a link is made.
 await js(`document.querySelector('[data-act=share]').click(); 1`); await sleep(800);
@@ -282,7 +282,7 @@ await js(`(async () => { document.getElementById('qcPlaybackClose').click();
  const d = new DataTransfer(); d.items.add(new File([JSON.stringify(__writer)], 'lights.scribecue')); window.dispatchEvent(new DragEvent('drop', { dataTransfer: d, bubbles: true, cancelable: true }));
  for (let i = 0; i < 100 && !document.getElementById('subName').textContent.startsWith('lights.scribecue'); i++) await new Promise((r) => setTimeout(r, 50));
  document.querySelectorAll('dialog[open]').forEach((d) => d.close());
- document.querySelector('#modeSw [data-mode=write]').click(); document.querySelector('[data-act=exportQc]').click(); return 1; })()`); await sleep(300);
+ document.querySelector('#modeSw [data-mode=write]').click(); document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportQc]').click();document.getElementById('exportGo').click(); return 1; })()`); await sleep(300);
 await shot('qc-package', '#qcExportDlg', 0);
 await js(`document.getElementById('qcExportClose').click(); 1`); await sleep(300);
 
@@ -368,7 +368,7 @@ fs.writeFileSync(`${outDir}/recording-menu.png`, Buffer.from((await send('Page.c
 console.log('saved recording-menu');
 await js(`document.getElementById('clipMenu').hidden = true; 1`);
 // The notes for the mixer, before exporting.
-await js(`document.querySelector('[data-act=exportNarration]').click(); 1`); await sleep(800);
+await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportNarration]').click();document.getElementById('exportGo').click(); 1`); await sleep(800);
 await shot('recording-export', '#recExportDlg', 0);
 await closeDialogs();
 
@@ -435,7 +435,7 @@ await shot('recording-pickups');
 
 // The pickups WAV, checked by the producer: first against the script as sent, then after
 // block 5 has changed since.
-await js(`document.querySelector('[data-act=exportPickups]').click(); 1`);
+await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportPickups]').click();document.getElementById('exportGo').click(); 1`);
 for (let i = 0; i < 40 && !(await js(`Object.keys(window.__got || {}).length`)); i++) await sleep(250);
 const wav = await js(`(async () => { const b = await fetch(Object.values(__got)[0]).then((r) => r.blob()); await (await caches.open('shots')).put('/pickups.wav', new Response(b)); return b.size })()`);
 console.log('pickups WAV', wav, 'bytes');

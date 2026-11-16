@@ -24,23 +24,33 @@ test('a block whose reading is ready says so', () => {
     'Block 2, at 00:00:11.500, 2.50 seconds, reading ready: The colours fold.');
 });
 
-test('every Export item sits in a named group', () => {
+test('every Export choice sits in a named group, and each one is an action', () => {
   const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
-  const menu = html.slice(html.indexOf('id="exportMenu"'), html.indexOf('id="qcPermission"'));
-  const groups = menu.split('role="group"').slice(1);
+  const app = readFileSync(new URL('../app/js/app.js', import.meta.url), 'utf8');
+  const dlg = html.slice(html.indexOf('<dialog id="exportDlg"'), html.indexOf('</dialog>', html.indexOf('<dialog id="exportDlg"')));
+  const groups = dlg.split('<section class="expgroup').slice(1);
   assert.equal(groups.length, 7);
   for (const g of groups) {
     const id = /aria-labelledby="(\w+)"/.exec(g)?.[1];
-    assert.ok(id && g.includes(`class="menuhead" id="${id}"`), `group ${id} has no heading`);
+    assert.ok(id && g.includes(`<h3 id="${id}">`), `group ${id} has no heading`);
   }
-  assert.equal(groups.join('').match(/role="menuitem"/g).length, menu.match(/role="menuitem"/g).length);
+  const picks = [...dlg.matchAll(/name="expPick" value="(\w+)"/g)].map((m) => m[1]);
+  assert.equal(picks.length, 14);
+  for (const act of picks) assert.match(app, new RegExp(`\\n  ${act}: `), `${act} has no action`);
 });
 
-test('a reviewer with a QC package open in QC has no Export menu: they save and send the package', () => {
+test('Export is in the File menu, not the header', () => {
+  const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
+  const file = html.slice(html.indexOf('id="fileMenu"'), html.indexOf('</div>', html.indexOf('id="fileMenu"')));
+  assert.match(file, /data-act="exportDialog"/);
+  assert.ok(!html.includes('id="exportMenu"') && !html.includes('id="exportBtn"'));
+});
+
+test('a reviewer with a QC package open in QC has no Export: they save and send the package', () => {
   const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
   const css = readFileSync(new URL('../app/css/style.css', import.meta.url), 'utf8');
-  assert.match(html, /<span class="navwrap export-wrap">\s*<button data-act="exportMenu"/);
-  assert.match(css, /\.mode-qc\.qc-package \.export-wrap \{ display: none; \}/);
+  assert.match(html, /data-act="exportDialog" class="export-item"/);
+  assert.match(css, /\.mode-qc\.qc-package \.export-item \{ display: none; \}/);
   assert.ok(!html.includes('exportReturn'), 'no Return package item');
 });
 

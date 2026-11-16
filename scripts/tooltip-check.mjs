@@ -74,7 +74,7 @@ for (const [w, h] of [[1440, 900], [1280, 720], [1024, 700]]) {
   await act('newProject'); await sleep(600); await check(`${w}×${h} new project`); await closeDialogs(); await sleep(300);
   await act('comments'); await sleep(600); await check(`${w}×${h} comments`); await act('comments'); await sleep(300);
   await act('ai'); await sleep(600); await check(`${w}×${h} AI`); await act('ai'); await closeDialogs(); await sleep(300);
-  await act('exportMenu'); await sleep(300); await check(`${w}×${h} export menu`); await closeDialogs(); await sleep(300);
+  await act('exportDialog'); await sleep(300); await check(`${w}×${h} export`); await closeDialogs(); await sleep(300);
 }
 const long = await js('__long');
 console.log(`${long.length} long tasks while showing ${results.reduce((n, r) => n + r.count, 0)} tooltips${long.length ? ` (longest ${Math.round(Math.max(...long))} ms)` : ''}`);

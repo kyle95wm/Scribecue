@@ -56,47 +56,7 @@
           <button role="menuitem" data-act="sharedProjects" id="sharedBtn" class="not-record" hidden><span><strong>Shared projects…</strong><span class="dim">open one kept in this browser again, without its link</span></span></button>
           <button role="menuitem" data-act="saveProject"><span><strong>Save</strong><span class="dim">blocks, settings and where you were</span></span><kbd><span class="mod"></span>S</kbd></button>
           <button role="menuitem" data-act="saveProjectAs"><span><strong>Save as…</strong><span class="dim">the project as a new file</span></span><kbd><span class="mod"></span>⇧S</kbd></button>
-        </div>
-      </span>
-      <span class="navwrap export-wrap">
-        <button data-act="exportMenu" id="exportBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenu">Export <span class="caret" aria-hidden="true">▾</span></button>
-        <div class="navmenu" id="exportMenu" role="menu" aria-labelledby="exportBtn" hidden>
-          <p id="exportAiWarn" class="menuwarn" role="status" hidden></p>
-          <div role="group" class="menugroup qc-export" aria-labelledby="expReviewer">
-            <div class="menuhead" id="expReviewer">For a reviewer</div>
-            <button role="menuitem" data-act="exportQc"><span><strong>QC package</strong><span class="dim">the project and its Google, Amazon Polly and Kokoro readings, ready to review on another computer</span></span></button>
-          </div>
-          <div role="group" class="menugroup write-only" aria-labelledby="expNarrator">
-            <div class="menuhead" id="expNarrator">For a narrator</div>
-            <button role="menuitem" data-act="exportRecording"><span><strong>Recording file</strong><span class="dim">the locked script and timings, for a narrator to record against</span></span></button>
-          </div>
-          <div role="group" class="menugroup record-only" aria-labelledby="expMixer">
-            <div class="menuhead" id="expMixer">For the mixer</div>
-            <button role="menuitem" data-act="exportNarration" id="exportNarration"><span><strong>Narration WAV</strong><span class="dim">the chosen takes in one timestamped file, for the mixer</span></span></button>
-            <button role="menuitem" data-act="exportPickups" id="exportPickups"><span><strong>Pickups WAV</strong><span class="dim">only the pickups, timestamped to drop into place, with their notes</span></span></button>
-          </div>
-          <div role="group" class="menugroup record-only" aria-labelledby="expComputer">
-            <div class="menuhead" id="expComputer">For another computer</div>
-            <button role="menuitem" data-act="exportSession"><span><strong>Session package</strong><span class="dim">the script and every take in one file, to carry on on another computer</span></span></button>
-          </div>
-          <div role="group" class="menugroup write-only" aria-labelledby="expAudio">
-            <div class="menuhead" id="expAudio">Finished audio</div>
-            <button role="menuitem" data-act="exportTrack"><span><strong>Description track</strong><span class="dim">every reading in one WAV or MP3 file, with a Piper, Google or Amazon Polly voice</span></span></button>
-            <button role="menuitem" data-act="exportMix"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></button>
-            <button role="menuitem" data-act="exportExtended" id="exportExtended" hidden><span><strong>Extended video</strong><span class="dim">a new video that stops while extended blocks are read</span></span></button>
-            <button role="menuitem" data-act="exportPauses" id="exportPauses" hidden><span><strong>Pause list</strong><span class="dim">where the video stops and for how long, as a CSV file</span></span></button>
-          </div>
-          <div role="group" class="menugroup check-export" aria-labelledby="expCheck">
-            <div class="menuhead" id="expCheck">Before you send it</div>
-            <button role="menuitem" data-act="checkSpelling"><span><strong>Check spelling and grammar</strong><span class="dim">see what needs fixing, without exporting anything</span></span></button>
-          </div>
-          <div role="group" class="menugroup script-export" aria-labelledby="expTools">
-            <div class="menuhead" id="expTools">For other tools</div>
-            <button role="menuitem" data-act="exportSrt"><span><strong>Script as SRT</strong><span class="dim">to hand off, or for the final output</span></span><kbd><span class="mod"></span>E</kbd></button>
-            <button role="menuitem" data-act="exportVtt"><span><strong>Script as WebVTT</strong><span class="dim">also keeps block speeds and sounds-like words</span></span><kbd><span class="mod"></span>⇧E</kbd></button>
-            <button role="menuitem" data-act="exportDaw"><span><strong>DAW markers</strong><span class="dim">a WAV with a marker or region for each block, to record and place lines in a DAW</span></span></button>
-            <button role="menuitem" data-act="exportBurn"><span><strong>Video with subtitles</strong><span class="dim">the script and timecode burnt into a copy of the video, to record or review against</span></span></button>
-          </div>
+          <button role="menuitem" data-act="exportDialog" class="export-item"><span><strong>Export…</strong><span class="dim">a file to hand on: a package, audio, the script or a video</span></span><span data-keys="exportDialog"><kbd>⌥⇧E</kbd></span></button>
         </div>
       </span>
       <span id="qcPermission" class="autotag qc-only" aria-live="polite">Comments only</span>
@@ -545,6 +505,62 @@ docker compose up -d --build</code></pre>
     <div class="updbtns"><button id="reviewCompareSave" class="hl" hidden>Save combined review</button><button id="reviewCompareClose">Close</button></div>
   </dialog>
 
+  <dialog id="exportDlg" class="updbox wizard exportdlg" aria-labelledby="exportTitle">
+    <h2 id="exportTitle">Export</h2>
+    <p id="exportAiWarn" class="menuwarn" role="status" hidden></p>
+    <div class="expgroups" role="radiogroup" aria-labelledby="exportTitle">
+      <section class="expgroup qc-export" aria-labelledby="expReviewer">
+        <h3 id="expReviewer">For a reviewer</h3>
+        <div class="expcards">
+          <label class="wzcard"><input type="radio" name="expPick" value="exportQc"><span><strong>QC package</strong><span class="dim">the project and its Google, Amazon Polly and Kokoro readings, ready to review on another computer</span></span></label>
+        </div>
+      </section>
+      <section class="expgroup write-only" aria-labelledby="expNarrator">
+        <h3 id="expNarrator">For a narrator</h3>
+        <div class="expcards">
+          <label class="wzcard"><input type="radio" name="expPick" value="exportRecording"><span><strong>Recording file</strong><span class="dim">the locked script and timings, for a narrator to record against</span></span></label>
+        </div>
+      </section>
+      <section class="expgroup record-only" aria-labelledby="expMixer">
+        <h3 id="expMixer">For the mixer</h3>
+        <div class="expcards">
+          <label class="wzcard" id="exportNarration"><input type="radio" name="expPick" value="exportNarration"><span><strong>Narration WAV</strong><span class="dim">the chosen takes in one timestamped file, for the mixer</span></span></label>
+          <label class="wzcard" id="exportPickups"><input type="radio" name="expPick" value="exportPickups"><span><strong>Pickups WAV</strong><span class="dim">only the pickups, timestamped to drop into place, with their notes</span></span></label>
+        </div>
+      </section>
+      <section class="expgroup record-only" aria-labelledby="expComputer">
+        <h3 id="expComputer">For another computer</h3>
+        <div class="expcards">
+          <label class="wzcard"><input type="radio" name="expPick" value="exportSession"><span><strong>Session package</strong><span class="dim">the script and every take in one file, to carry on on another computer</span></span></label>
+        </div>
+      </section>
+      <section class="expgroup write-only" aria-labelledby="expAudio">
+        <h3 id="expAudio">Finished audio</h3>
+        <div class="expcards">
+          <label class="wzcard"><input type="radio" name="expPick" value="exportTrack"><span><strong>Description track</strong><span class="dim">every reading in one WAV or MP3 file, with a Piper, Google or Amazon Polly voice</span></span></label>
+          <label class="wzcard"><input type="radio" name="expPick" value="exportMix"><span><strong>Full mix</strong><span class="dim">the programme with the readings, in one WAV or MP3 file</span></span></label>
+          <label class="wzcard" id="exportExtended" hidden><input type="radio" name="expPick" value="exportExtended"><span><strong>Extended video</strong><span class="dim">a new video that stops while extended blocks are read</span></span></label>
+          <label class="wzcard" id="exportPauses" hidden><input type="radio" name="expPick" value="exportPauses"><span><strong>Pause list</strong><span class="dim">where the video stops and for how long, as a CSV file</span></span></label>
+        </div>
+      </section>
+      <section class="expgroup check-export" aria-labelledby="expCheck">
+        <h3 id="expCheck">Before you send it</h3>
+        <div class="expcards">
+          <label class="wzcard"><input type="radio" name="expPick" value="checkSpelling"><span><strong>Check spelling and grammar</strong><span class="dim">see what needs fixing, without exporting anything</span></span></label>
+        </div>
+      </section>
+      <section class="expgroup script-export" aria-labelledby="expTools">
+        <h3 id="expTools">For other tools</h3>
+        <div class="expcards">
+          <label class="wzcard"><input type="radio" name="expPick" value="exportSrt"><span><strong>Script as SRT</strong><span class="dim">to hand off, or for the final output</span></span><kbd><span class="mod"></span>E</kbd></label>
+          <label class="wzcard"><input type="radio" name="expPick" value="exportVtt"><span><strong>Script as WebVTT</strong><span class="dim">also keeps block speeds and sounds-like words</span></span><kbd><span class="mod"></span>⇧E</kbd></label>
+          <label class="wzcard"><input type="radio" name="expPick" value="exportDaw"><span><strong>DAW markers</strong><span class="dim">a WAV with a marker or region for each block, to record and place lines in a DAW</span></span></label>
+          <label class="wzcard"><input type="radio" name="expPick" value="exportBurn"><span><strong>Video with subtitles</strong><span class="dim">the script and timecode burnt into a copy of the video, to record or review against</span></span></label>
+        </div>
+      </section>
+    </div>
+    <div class="updbtns"><button id="exportGo" class="hl">Export</button><button id="exportCancel">Cancel</button></div>
+  </dialog>
   <dialog id="newDlg" class="updbox wizard" aria-labelledby="newTitle">
     <h2 id="newTitle">Start again</h2>
     <p id="newWhat"></p>
@@ -1752,6 +1768,7 @@ docker compose up -d --build</code></pre>
           <dl>
             <dt><kbd><span class="mod"></span>O</kbd> <kbd><span class="mod"></span>⇧O</kbd></dt><dd>Open a project or SRT/VTT · open video/audio</dd>
             <dt class="save-key"><kbd><span class="mod"></span>S</kbd> <kbd><span class="mod"></span>⇧S</kbd></dt><dd class="save-key">Save project · save project as</dd>
+            <dt class="export-key" data-keys="exportDialog"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>E</kbd></dt><dd class="export-key">Export…</dd>
             <dt class="export-key"><kbd><span class="mod"></span>E</kbd> <kbd><span class="mod"></span>⇧E</kbd></dt><dd class="export-key">Export SRT · export VTT</dd>
           </dl>
           <h3 class="record-only">Record mode</h3>

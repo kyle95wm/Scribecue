@@ -33,7 +33,7 @@ try {
   const voice = await js(`(async()=>{const t=await import('./js/tts.js');const v=t.reviewVoices().find(v=>v.id.startsWith('piper:'));t.setTtsOption('voice',v.id);return v.id})()`);
 
   // The export reads nothing and the file stays small.
-  await js(`document.querySelector('[data-act=exportQc]').click();true`); await sleep(300);
+  await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportQc]').click();document.getElementById('exportGo').click();true`); await sleep(300);
   assert.match(await js(`document.getElementById('qcExportVoices').textContent`), /read on the reviewer’s computer/);
   const started = Date.now();
   await click('qcExportStart'); await wait(`!!window.__download`);

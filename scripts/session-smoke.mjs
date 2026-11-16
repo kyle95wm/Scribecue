@@ -79,7 +79,7 @@ try {
  assert.equal(await js(`document.getElementById('recSessionDlg').open`),false);
 
  // The session package.
- await js(`document.querySelector('[data-act=exportSession]').click();true`);
+ await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportSession]').click();document.getElementById('exportGo').click();true`);
  await wait(`/Saved out\\.scribecuesession: 2 takes/.test(document.getElementById('toast').textContent)`);
  const pkg=await js(`(async()=>{const Z=await import('./js/zip.js');const f=await (await (await navigator.storage.getDirectory()).getFileHandle('out.scribecuesession')).getFile();return (await Z.readZip(f)).map(x=>x.name.replace(/[0-9a-f-]{36}/,'ID'))})()`);
  assert.deepEqual(pkg,['session.json','takes/ID.wav','takes/ID.wav']);
@@ -106,7 +106,7 @@ try {
  await key('r','KeyR');await wait(`document.getElementById('recGo').classList.contains('on')`);
  await wait(`document.querySelector('video').currentTime>6.5`,400);
  await key('r','KeyR');await wait(`/Saved take 2/.test(document.getElementById('recStatus').textContent)`);
- await js(`document.querySelector('[data-act=exportSession]').click();true`);
+ await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportSession]').click();document.getElementById('exportGo').click();true`);
  await wait(`document.getElementById('recPackDlg').open`);
  assert.match(await text('recPackAll'),/^3 takes, \d+ MB/);
  assert.match(await text('recPackChosen'),/^2 takes, \d+ MB/);

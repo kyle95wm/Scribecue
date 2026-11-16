@@ -7236,7 +7236,7 @@ const actions = {
   exportNarration: () => recorder.exportWav(),
   exportPickups: () => recorder.exportWav(true),
   exportSession: () => recorder.exportSession(),
-  exportMenu: () => toggleMenu(exportMenu),
+  exportDialog: () => openExport(),
   fileMenu: () => toggleMenu($('fileMenu')),
   saveProjectAs: () => saveProject(true),
   help: () => toggleHelp(),
@@ -7451,25 +7451,10 @@ for (const bar of [document.querySelector('nav'), $('rail')]) bar.addEventListen
 
 document.querySelector('.recbadge button').addEventListener('click', (e) => { e.currentTarget.blur(); leaveRecord(); });
 
-// Header menus, such as Export: open on click, close on a choice, a click elsewhere or Esc.
-const exportMenu = $('exportMenu');
+// Header menus, such as File: open on click, close on a choice, a click elsewhere or Esc.
 function toggleMenu(menu, open = menu.hidden) {
   closeMenus();
   if (!open) return;
-  if (menu === exportMenu) $('exportExtended').hidden = $('exportPauses').hidden = !hasExtended();
-  // AI drafts nobody has checked yet go out like any other block, so say so first.
-  if (menu === exportMenu) {
-    const n = writing() ? S.cues.filter((c) => c.ai).length : 0;
-    $('exportAiWarn').hidden = !n;
-    if (n) $('exportAiWarn').textContent = `${n} AI draft${n === 1 ? '' : 's'} not yet checked. ${keyText('aiNext')} goes to the next.`;
-  }
-  // With alts recorded, the narration goes out as a zip.
-  if (menu === exportMenu && S.mode === 'record') {
-    const [name, what] = $('exportNarration').firstElementChild.children;
-    name.textContent = recorder.alts ? 'Narration zip' : 'Narration WAV';
-    what.textContent = recorder.alts ? 'a zip of the narration WAV, a WAV of the alts alone and the notes, for the mixer'
-      : 'the chosen takes in one timestamped file, for the mixer';
-  }
   menu.hidden = false;
   menu.previousElementSibling.setAttribute('aria-expanded', 'true');
   [...menu.querySelectorAll('[role="menuitem"]')].find((b) => b.offsetParent)?.focus();
@@ -7494,6 +7479,60 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     items[(k + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
   } else if (e.key === 'Tab') closeMenus();
+}, true);
+
+// ---------------------------------------------------------------- Export window
+
+// Every export, grouped by who it's for. Pick one, then Export, Enter or a double-click.
+const exportDlg = $('exportDlg'), exportGo = $('exportGo');
+const exportPick = () => exportDlg.querySelector('input[name="expPick"]:checked');
+const exportShown = () => [...exportDlg.querySelectorAll('input[name="expPick"]')].filter((i) => i.closest('.wzcard').offsetParent);
+let lastExport = null;
+function exportLabel() {
+  const pick = exportPick();
+  exportGo.textContent = pick?.value === 'checkSpelling' ? 'Check' : 'Export';
+}
+function openExport() {
+  if (document.body.classList.contains('no-files')) return toast('Only the owner exports a shared project');
+  if (qc() && document.body.classList.contains('qc-package')) return;
+  closeMenus();
+  $('exportExtended').hidden = $('exportPauses').hidden = !hasExtended();
+  // AI drafts nobody has checked yet go out like any other block, so say so first.
+  const n = writing() ? S.cues.filter((c) => c.ai).length : 0;
+  $('exportAiWarn').hidden = !n;
+  if (n) $('exportAiWarn').textContent = `${n} AI draft${n === 1 ? '' : 's'} not yet checked. ${keyText('aiNext')} goes to the next.`;
+  // With alts recorded, the narration goes out as a zip.
+  if (S.mode === 'record') {
+    const [name, what] = $('exportNarration').querySelector('span').children;
+    name.textContent = recorder.alts ? 'Narration zip' : 'Narration WAV';
+    what.textContent = recorder.alts ? 'a zip of the narration WAV, a WAV of the alts alone and the notes, for the mixer'
+      : 'the chosen takes in one timestamped file, for the mixer';
+  }
+  for (const i of exportDlg.querySelectorAll('input[name="expPick"]')) i.checked = false;
+  exportDlg.showModal();
+  const shown = exportShown();
+  // The last export made, or the first choice, is picked to start with.
+  const pick = shown.find((i) => i.value === lastExport) || shown[0];
+  if (pick) { pick.checked = true; pick.focus(); }
+  exportLabel();
+}
+function runExport() {
+  const pick = exportPick();
+  if (!pick || !exportDlg.open) return;
+  lastExport = pick.value;
+  exportDlg.close();
+  actions[pick.value]?.();
+}
+exportDlg.addEventListener('change', exportLabel);
+exportGo.addEventListener('click', runExport);
+exportDlg.addEventListener('dblclick', (e) => { if (e.target.closest('.wzcard')) runExport(); });
+$('exportCancel').addEventListener('click', () => exportDlg.close());
+exportDlg.addEventListener('click', (e) => { if (e.target === exportDlg) exportDlg.close(); });
+// The app's own keys stay off while it's open. Enter on a choice exports it.
+document.addEventListener('keydown', (e) => {
+  if (!exportDlg.open) return;
+  e.stopPropagation();
+  if (e.key === 'Enter' && e.target.name === 'expPick') { e.preventDefault(); runExport(); }
 }, true);
 
 // ---------------------------------------------------------------- quick navigation / jump to timecode
@@ -7753,6 +7792,7 @@ const RUN = {
   aiAccept: () => acceptAiDraft(),
   help: () => toggleHelp(),
   settings: () => showGeneral(),
+  exportDialog: () => openExport(),
   zoomIn: () => zoom(1.5),
   zoomOut: () => zoom(1 / 1.5),
   zoomFit: () => fitAll(),
@@ -7808,7 +7848,7 @@ document.querySelectorAll('[data-tip]').forEach((el) => { el.dataset.tip = pcKey
 if (!IS_MAC) {
   // Rows whose keys differ off the Mac carry their own markup in data-pc.
   document.querySelectorAll('[data-pc]').forEach((el) => { el.innerHTML = el.dataset.pc; });
-  for (const root of [helpEl, document.querySelector('nav'), document.querySelector('.hint'), $('stageEmpty'), $('ctrls'), $('welcome')]) {
+  for (const root of [helpEl, document.querySelector('nav'), $('exportDlg'), document.querySelector('.hint'), $('stageEmpty'), $('ctrls'), $('welcome')]) {
     const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     while (walk.nextNode()) walk.currentNode.nodeValue = pcKeys(walk.currentNode.nodeValue);
   }

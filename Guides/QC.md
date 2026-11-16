@@ -306,7 +306,7 @@ you spend time on it. See [Checking spelling and grammar](GETTING-STARTED.md#che
    If it says **autosave paused**, click it to allow saving, or save a new copy.
 2. Send the file you saved: the `.scribecueqc` package or the `.scribecue` project.
    Include changed media only if you've agreed to supply it.
-   With a QC package open in QC, there's no Export menu. SRT and WebVTT can't carry comments.
+   With a QC package open in QC, there's no Export. SRT and WebVTT can't carry comments.
 3. Say which source project and picture cut you reviewed. State whether you changed
    the script or timings, and whether any checks remain unfinished.
 
