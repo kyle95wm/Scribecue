@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.128.0",
+    "date": "2026-11-15",
+    "notes": "## Subtitles from OpenSubtitles\n\n- No subtitles in your video? Pick **Search OpenSubtitles…** in **Dialogue**, under the video, or press `Alt+Shift+O`.\n- The title, season and episode are filled in from the file name. Click **Search**, then **Use**.\n- Subtitles marked **Fits this file** were timed for your exact file. Check others against the sound.\n- It needs your own free OpenSubtitles key. Add it in the window, or in Settings → **AI help**.\n- You get a few downloads a day. Sign in to your OpenSubtitles account in Settings for more. Your password isn't kept."
+  },
+  {
     "version": "0.127.0",
     "date": "2026-11-15",
     "notes": "## AI drafts that fit\n\n- AI drafts now aim to fit their gaps, with a little time to spare.\n- A draft too long to read in its block goes back to the AI once, to shorten.\n- **Draft this block** shows both drafts, so you can use either.\n- After **Draft the script**, the note in the AI help drawer says how many are still too long.\n\n## One Spelling setting\n\n- **Spelling**, in Settings → Editing, now sets how AI help writes: American, British or Canadian spelling, and that country's words, such as sidewalk or pavement.\n- Speech to text spells this way too. Its own Spelling menu is gone. If you'd chosen British there, it carries over.\n- Your notes can still ask for something else."
