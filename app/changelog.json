@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.125.0",
+    "date": "2026-11-15",
+    "notes": "## Notes for every project\n\n- **Notes for every project**, in Settings → AI help, are for rules that apply to all your work, such as \"Don't describe the credits\" or your house style.\n- AI help reads them with every draft, message, scene summary and grammar check, along with the project's own notes.\n- Where the two disagree, the project's notes win.\n- The **Notes** box in the AI help drawer links to them.\n\n## Also\n\n- The AI guide says what finding the dialogue with OpenAI costs.\n- The install guide says how to try the next version before it's released."
+  },
+  {
     "version": "0.124.0",
     "date": "2026-11-15",
     "notes": "## Subtitles for deaf viewers in the dialogue lane\n\n- The dialogue lane keeps only the words. Sound notes such as [whispering] and speaker names such as JOHN: are left out.\n- Song lyrics between ♪ don't count as speech, so the gaps over songs open up for description.\n- A sound or song before or after the words no longer counts as speech, so the gap beside it is wider.\n\n## Also\n\n- The AI guide says an OpenAI key saved in AI help can find the dialogue while Claude stays connected."
