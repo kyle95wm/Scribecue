@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.126.0",
+    "date": "2026-11-15",
+    "notes": "## Next episode\n\n- Working on a series? Click **File**, **New…**, then **Next episode** when you finish one.\n- The new project keeps your notes and spelling words.\n- The story so far goes at the top of the notes, under **Previously**. AI help writes it from the last one and this episode's scene summaries.\n- Without AI help, it's the scene summaries, shortened.\n- Blocks, scene summaries, bookmarks and comments stay with the old episode.\n\n## Also\n\n- **New…** now asks before clearing a project that only has notes."
+  },
+  {
     "version": "0.125.0",
     "date": "2026-11-15",
     "notes": "## Notes for every project\n\n- **Notes for every project**, in Settings → AI help, are for rules that apply to all your work, such as \"Don't describe the credits\" or your house style.\n- AI help reads them with every draft, message, scene summary and grammar check, along with the project's own notes.\n- Where the two disagree, the project's notes win.\n- The **Notes** box in the AI help drawer links to them.\n\n## Also\n\n- The AI guide says what finding the dialogue with OpenAI costs.\n- The install guide says how to try the next version before it's released."
