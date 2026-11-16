@@ -23,7 +23,53 @@ export const CHANNEL = 'scribecue-google';
 export const syncedSettings = () => [...settingNames().filter((n) => !LOCAL_ONLY.has(n)), KEYS];
 export const syncedSecrets = () => secretNames();
 const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
-const get = (storage, name) => { try { return storage.getItem(PREFIX + name); } catch { return null; } };
+
+// Shared projects: the keys this browser keeps for each one it shares or has joined
+// (`scribecue.share.<project>`, see sharing.js), synced whenever Drive is connected, so they
+// open in any browser. Each is synced as it's kept, less when it was last opened here.
+export const SHARE = 'share.';
+export const isShare = (n) => /^share\.[\w-]{1,64}$/.test(n);
+const HERE_ONLY = ['opened'];
+// The same record always gives the same text, whatever order its fields were kept in.
+const sorted = (v) => (Array.isArray(v) ? v.map(sorted) : isObject(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sorted(v[k])])) : v);
+export function shareText(text) {
+  if (text === null) return null;
+  try {
+    const r = JSON.parse(text);
+    if (!isObject(r)) return text;
+    for (const k of HERE_ONLY) delete r[k];
+    return JSON.stringify(sorted(r));
+  } catch { return text; }
+}
+// The shared projects kept in this browser, as names to sync.
+export function shareNames(storage) {
+  const out = [];
+  try {
+    for (let i = 0; i < storage.length; i++) {
+      const n = storage.key(i)?.slice(PREFIX.length);
+      if (storage.key(i).startsWith(PREFIX) && isShare(n)) out.push(n);
+    }
+  } catch { /* blocked */ }
+  return out;
+}
+const get = (storage, name) => {
+  try {
+    const v = storage.getItem(PREFIX + name);
+    return isShare(name) ? shareText(v) : v;
+  } catch { return null; }
+};
+// Writes one value. A shared project keeps when it was last opened here.
+function put(storage, name, v) {
+  if (v === null) return storage.removeItem(PREFIX + name);
+  if (isShare(name)) {
+    try {
+      const was = JSON.parse(storage.getItem(PREFIX + name) || 'null'), r = JSON.parse(v);
+      if (isObject(was) && isObject(r)) for (const k of HERE_ONLY) if (k in was) r[k] = was[k];
+      v = JSON.stringify(r);
+    } catch { /* keep it as it came */ }
+  }
+  storage.setItem(PREFIX + name, v);
+}
 
 // What this browser has now, for these names: { name: text or null }.
 export function localValues(storage, names) {
@@ -45,8 +91,8 @@ export function readRemote(json) {
   const known = new Set([...syncedSettings(), ...syncedSecrets()]);
   const settings = {};
   for (const [n, e] of Object.entries(json.settings)) {
-    if (!known.has(n) || !isObject(e) || !Number.isFinite(e.at) || !(e.v === null || typeof e.v === 'string')) continue;
-    settings[n] = { v: e.v, at: e.at };
+    if ((!known.has(n) && !isShare(n)) || !isObject(e) || !Number.isFinite(e.at) || !(e.v === null || typeof e.v === 'string')) continue;
+    settings[n] = { v: isShare(n) ? shareText(e.v) : e.v, at: e.at };
   }
   return { settings, newer: Number(json.version) > FORMAT };
 }
@@ -70,24 +116,32 @@ export function noteChanges(local, state, now) {
 // result, or null when Drive has no copy yet. now: the time, in ms.
 // On the first sync in a browser, Drive's settings win: signing in sets this browser up
 // the same way. Settings Drive doesn't have are added to it.
+// combine(name, here, there): for a shared project kept both here and in Drive, changed on
+// both sides, the record to keep (see driveshares.js). Without it, the later change wins.
 // Returns { apply: { name: text or null } for this browser, upload: whether Drive needs the
 // new copy, file: that copy, seen: the new `seen` }.
-export function merge({ local, state, remote, now }) {
+export function merge({ local, state, remote, now, combine = null }) {
   const r = remote?.settings || {};
   const out = {}, apply = {};
   let upload = !remote;
   const one = (n) => {
     const l = n in local ? local[n] : null, s = state.seen[n], e = r[n];
     let take; // 'local' or 'remote'
+    const localChanged = l !== (s ? s.v : null);
+    const remoteChanged = !!e && (!s || e.at !== s.at);
+    // A shared project changed on both sides, or met here for the first time: both are kept.
+    if (combine && isShare(n) && e && e.v !== null && l !== null && e.v !== l && (state.first || !s || (localChanged && remoteChanged))) {
+      const v = combine(n, l, e.v);
+      if (v === e.v) take = 'remote';
+      else if (v === l) take = 'local';
+      else { out[n] = { v, at: now }; apply[n] = v; upload = true; return; }
+    // A shared project removed elsewhere, but never synced from this browser: it stays here.
+    } else if (isShare(n) && (state.first || !s) && e?.v === null && l !== null) take = 'local';
     // Drive's copy wins the first time, and for a setting this browser hasn't synced before.
-    if (state.first || (!s && e)) take = e ? 'remote' : 'local';
-    else {
-      const localChanged = l !== (s ? s.v : null);
-      const remoteChanged = !!e && (!s || e.at !== s.at);
-      if (localChanged && remoteChanged) take = e.v === l ? 'remote' : (state.changed[n] || now) > e.at ? 'local' : 'remote';
-      else if (localChanged) take = 'local';
-      else take = e ? 'remote' : 'local';
-    }
+    else if (state.first || (!s && e)) take = e ? 'remote' : 'local';
+    else if (localChanged && remoteChanged) take = e.v === l ? 'remote' : (state.changed[n] || now) > e.at ? 'local' : 'remote';
+    else if (localChanged) take = 'local';
+    else take = e ? 'remote' : 'local';
     if (take === 'remote') {
       out[n] = { v: e.v, at: e.at };
       if (e.v !== l) apply[n] = e.v;
@@ -99,6 +153,7 @@ export function merge({ local, state, remote, now }) {
     }
   };
   syncedSettings().forEach(one);
+  new Set([...Object.keys(local), ...Object.keys(r), ...Object.keys(state.seen)].filter(isShare)).forEach(one);
   const keysOn = out[KEYS]?.v === '1';
   if (keysOn) syncedSecrets().forEach(one);
   else if (syncedSecrets().some((n) => n in r)) upload = true; // turned off: take them out of Drive
@@ -129,7 +184,7 @@ export function applyPending(storage, state) {
     const now = get(storage, n), was = state.seen[n] ? state.seen[n].v : null;
     if (now !== was) continue;
     try {
-      if (v === null) storage.removeItem(PREFIX + n); else storage.setItem(PREFIX + n, v);
+      put(storage, n, v);
       state.seen[n] = { ...state.seen[n], v };
       done.push(n);
     } catch { /* storage full or blocked: try next time */ }
@@ -139,7 +194,5 @@ export function applyPending(storage, state) {
 }
 
 export function writeValues(storage, values) {
-  for (const [n, v] of Object.entries(values)) {
-    if (v === null) storage.removeItem(PREFIX + n); else storage.setItem(PREFIX + n, v);
-  }
+  for (const [n, v] of Object.entries(values)) put(storage, n, v);
 }

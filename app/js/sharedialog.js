@@ -19,7 +19,8 @@ export const STATUS_TEXT = {
 // turnOff(id), stop(), leave(), googleKey() (null with no shared copy), shareGoogleKey(key)
 // → resolves to '' or what's wrong, myExpiry() (when a joined person's link stops working),
 // maxDays, webLinks() (links open the web version, as this address is only for this computer),
-// recovery() (the recovery link, or null), makeRecovery(password), turnOffRecovery(),
+// recovery() (the recovery link, or null), driveOn() (Google Drive keeps it too),
+// makeRecovery(password), turnOffRecovery(),
 // recoveryMin.
 // When a link stops working, as people read it.
 export function expiryText(at, now = Date.now()) {
@@ -116,7 +117,9 @@ export function shareDialog(deps) {
     const what = document.createElement('p'); what.className = 'dim small';
     what.textContent = url
       ? 'Opens this project as its owner, here or on another computer. Keep the link and its password somewhere safe, apart from each other. Anyone with both can change the links and read the project.'
-      : 'Without one, nobody can change this project’s links if this browser’s data is lost. A recovery link and its password let you take the project back, here or on another computer.';
+      : deps.driveOn?.()
+        ? 'Google Drive keeps this project, so any browser on your Google account can change its links. A recovery link and its password also let you take it back without Google.'
+        : 'Without one, nobody can change this project’s links if this browser’s data is lost. A recovery link and its password let you take the project back, here or on another computer.';
     // Made in Docker, it opens the web version. Swapping the address opens it here instead.
     if (url && deps.webLinks?.()) what.textContent += ` It opens the web version. To open it in this copy instead, change the start of the link, before the #, to ${location.href.split('#')[0]}`;
     const line = document.createElement('p'); line.className = 'updstatus sharerowline';

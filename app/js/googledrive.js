@@ -8,7 +8,7 @@
 import { GOOGLE_CLIENT_ID, SIGNIN } from './config.js';
 import {
   SYNC_FILE, STATE, AUTH, KEYS, CHANNEL, syncedSettings, syncedSecrets, localValues, readState, readRemote,
-  noteChanges, merge, nextState, writeValues,
+  noteChanges, merge, nextState, writeValues, shareNames, isShare, SHARE,
 } from './drivesync.js';
 import { FOLDER, MARK, copyName, driveRef, changedElsewhere } from './driveprojects.js';
 
@@ -30,7 +30,7 @@ let auth = readAuth(); // { sealed, email }
 let access = null; // { token, until }
 let status = { kind: auth ? 'idle' : 'off', text: '' };
 let running = null, again = false, settleTimer = 0, waiting = null;
-let hooks = { toast: () => {}, beforeReload: () => {}, projectCopied: () => {} };
+let hooks = { toast: () => {}, beforeReload: () => {}, projectCopied: () => {}, openProject: () => '', sharesChanged: () => {} };
 
 function readAuth() {
   try { const a = JSON.parse(localStorage.getItem(AUTH)); return a && typeof a.sealed === 'string' ? a : null; } catch { return null; }
@@ -274,7 +274,7 @@ export function driveHandle(ref) {
 
 // ---- syncing
 
-const allNames = () => [...syncedSettings(), ...syncedSecrets()];
+const allNames = () => [...syncedSettings(), ...syncedSecrets(), ...shareNames(localStorage)];
 
 // One sync: read Drive's copy, bring the two together, write back what changed.
 export function syncNow() {
@@ -302,14 +302,23 @@ async function cycle() {
     const now = Date.now();
     const local = localValues(localStorage, allNames());
     if (!state.first) state.changed = noteChanges(local, state, now).changed;
-    const result = merge({ local, state, remote, now });
-    const changes = Object.keys(result.apply).length > 0;
+    // Shared projects changed both here and elsewhere are combined (driveshares.js), which
+    // needs the sharing code: loaded only when there are shared projects.
+    const shares = Object.keys(local).some(isShare) || Object.keys(remote?.settings || {}).some(isShare);
+    const combine = shares ? (await import('./driveshares.js')).combineShares : null;
+    const result = merge({ local, state, remote, now, combine });
+    // Shared projects are used straight away, but for the one open now, which waits like a setting.
+    const open = SHARE + (hooks.openProject() || ''), ready = {}, held = {};
+    for (const [n, v] of Object.entries(result.apply)) (isShare(n) && n !== open ? ready : held)[n] = v;
+    const changes = Object.keys(held).length > 0;
     const reloadNow = changes && opening && !touched && now - loaded < START;
     if (result.upload && !remote?.newer) {
       if (id) await writeFile(id, result.file); else id = await createFile(result.file);
     }
-    if (reloadNow) writeValues(localStorage, result.apply);
-    saveState(nextState({ state, result, local, hold: changes && !reloadNow, fileId: id, now }));
+    if (reloadNow) writeValues(localStorage, held);
+    writeValues(localStorage, ready);
+    saveState(nextState({ state, result: { ...result, apply: held }, local, hold: changes && !reloadNow, fileId: id, now }));
+    if (Object.keys(ready).length) hooks.sharesChanged(Object.keys(ready).filter((n) => ready[n] !== null && local[n] == null).length);
     if (reloadNow) {
       hooks.beforeReload();
       sessionStorage.setItem(RELOADED, '1');
@@ -317,7 +326,7 @@ async function cycle() {
       return;
     }
     show('synced', remote?.newer ? 'Some settings come from a newer version of Scribecue, and wait until this one is updated.' : '');
-    if (changes) hooks.toast('New settings from Google Drive. They’re used when Scribecue opens again');
+    if (Object.keys(held).some((n) => !isShare(n))) hooks.toast('New settings from Google Drive. They’re used when Scribecue opens again');
   } catch (e) {
     if (!auth) return show('off', `${e.message}. Connect it again to keep syncing.`);
     show(e.code === 'offline' ? 'offline' : 'error', e.code === 'offline'

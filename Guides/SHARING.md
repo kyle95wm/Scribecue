@@ -74,7 +74,8 @@ or password.
 - **A project no longer shared with you** says so, and is removed from this browser. This
   happens when your link is turned off, replaced or expires, or the owner stops sharing.
 - **Projects you've left** aren't listed.
-- **Each browser has its own list.** On another computer, open the link once.
+- **Each browser has its own list.** On another computer, open the link once, or connect
+  Google Drive in both: see [Syncing settings](INSTALL.md#syncing-settings).
 - **"Untitled shared project"** shows until you and its owner have each opened it again.
 
 Opening the link again works too.
@@ -130,6 +131,9 @@ delete it in Google Cloud when you're done. Click the button again to take it ou
 
 Only the browser you shared from can change the links. If its data is lost, nobody can. A
 recovery link lets you take the project back, here or on another computer.
+
+With Google Drive connected, your shared projects are kept there too. Any browser connected
+to the same Google account can change the links. A recovery link still works without Google.
 
 To make one:
 
