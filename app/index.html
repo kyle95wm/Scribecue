@@ -198,6 +198,7 @@
           <span class="ctrlsep"></span>
           <button data-ctl="playBlock" aria-label="Play the selected block (⇧Space)" data-tip="Play just the selected block (⇧Space)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 2h1.6v12H1.5zM12.9 2h1.6v12h-1.6zM5.5 4.5v7L11 8z"/></svg></button>
           <button data-ctl="loop" aria-label="Loop this block (L)" data-tip="Loop the block under the playhead (L). Click again to stop, or it stops when you finish editing"><svg class="stroke" viewBox="0 0 16 16" aria-hidden="true" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 9V7.5A2.5 2.5 0 0 1 5 5h8"/><path d="M11 3l2 2-2 2"/><path d="M13.5 7v1.5A2.5 2.5 0 0 1 11 11H3"/><path d="M5 13l-2-2 2-2"/></svg></button>
+          <button data-ctl="videoText" aria-pressed="true" aria-label="Text over the video on / off (⇧C)" data-tip="Show or hide the block's text over the video (⇧C)"><svg class="stroke" viewBox="0 0 16 16" aria-hidden="true" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M4.5 8.5h7M5.5 11h5"/></svg></button>
         </span>
         <span class="grow"></span>
         <label class="trackpick" id="trackPick" hidden
@@ -1889,6 +1890,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="loopBlock"><kbd>L</kbd></dt><dd>Loop this block and play. ↵ to type, Esc when done ends the loop</dd>
             <dt data-keys="loopToggle followToggle"><kbd>O</kbd> <kbd>F</kbd></dt><dd>Loop (stays on) · follow playhead</dd>
             <dt data-keys="speedReset"><kbd>\</kbd></dt><dd>Reset speed to 1×</dd>
+            <dt data-keys="videoTextToggle"><kbd>⇧</kbd><kbd>C</kbd></dt><dd>Text over the video on / off</dd>
             <dt data-keys="zoomIn zoomOut zoomFit"><kbd>⌥</kbd><kbd>=</kbd> <kbd>⌥</kbd><kbd>-</kbd> <kbd>⌥</kbd><kbd>0</kbd></dt><dd>Zoom timeline in / out / fit</dd>
           </dl>
         </section>

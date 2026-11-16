@@ -107,6 +107,7 @@ export const GROUPS = [
   ]],
   ['View', [
     ['help', 'Keyboard shortcuts', ['Shift+KeyO']],
+    ['videoTextToggle', 'Text over the video on / off', ['Shift+KeyC']],
     ['settings', 'Settings', ['Alt+Shift+KeyS']],
     ['exportDialog', 'Export…', ['Alt+Shift+KeyE']],
     ['recents', 'Recents: files opened or saved lately', ['Alt+Shift+KeyR']],

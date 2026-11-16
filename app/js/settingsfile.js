@@ -19,6 +19,7 @@ const SETTINGS = [
   ['lead', 'text', 'Editing'],
   ['returnToStart', 'text', 'Editing'],
   ['remaining', 'text', 'Display'],
+  ['videoText', 'text', 'Display'],
   ['swapped', 'text', 'Display'],
   ['listWidth', 'text', 'Display'],
   ['appearance', 'json', 'Appearance'],

@@ -188,6 +188,8 @@ const S = {
   returnToStart: (() => { try { return localStorage.getItem('scribecue.returnToStart') === '1'; } catch { return false; } })(),
   // The total length shows the time remaining instead.
   remaining: (() => { try { return localStorage.getItem('scribecue.remaining') === '1'; } catch { return false; } })(),
+  // The block's text shows over the video. On unless turned off in this browser.
+  videoText: (() => { try { return localStorage.getItem('scribecue.videoText') !== '0'; } catch { return true; } })(),
   extendedAll: false, // every block with a reading pauses the video
   ttsOff: false, // text to speech turned off for this project only, when its script was opened
   resumeAfterEdit: false, // hold-to-mark paused playback; closing the editor resumes it
@@ -3089,6 +3091,21 @@ function updateInd() {
   ctrls.classList.toggle('playing', p);
   ctrls.querySelector('[data-ctl="playBlock"]').classList.toggle('on', p && S.playUntil != null);
   ctrls.querySelector('[data-ctl="loop"]').classList.toggle('on', S.loop);
+  showVideoText();
+}
+
+// The text over the video, on or off in this browser, from the button after Loop.
+function showVideoText() {
+  overlay.hidden = !S.videoText;
+  const b = ctrls.querySelector('[data-ctl="videoText"]');
+  b.classList.toggle('on', S.videoText);
+  b.setAttribute('aria-pressed', String(S.videoText));
+}
+function toggleVideoText() {
+  S.videoText = !S.videoText;
+  try { localStorage.setItem('scribecue.videoText', S.videoText ? '1' : '0'); } catch { /* ignore */ }
+  showVideoText();
+  toast(`Text over the video ${S.videoText ? 'on' : 'off'}`);
 }
 
 // Player controls under the video: each button does what its key does.
@@ -3103,6 +3120,7 @@ const CTL = {
   nextBlock: () => playheadBlock(1),
   playBlock: () => playCue(),
   loop: () => loopBlock(),
+  videoText: () => toggleVideoText(),
 };
 // Don't take focus, so Space and the other keys keep working on the timeline.
 ctrls.addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
@@ -7967,6 +7985,7 @@ const RUN = {
   loopBlock: () => loopBlock(),
   loopToggle: () => toggleFlag('loop'),
   followToggle: () => toggleFlag('follow'),
+  videoTextToggle: () => toggleVideoText(),
   speedReset: () => setRate(1),
   frameBack: () => seekBy(-frame()),
   frameFwd: () => seekBy(frame()),

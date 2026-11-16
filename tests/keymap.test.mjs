@@ -17,6 +17,11 @@ test('the defaults are the Frazier layout, with no key doing two things in one m
   assert.equal(m.get('KeyH'), 'hold');
 });
 
+test('Shift+C turns the text over the video on and off, in every mode', () => {
+  assert.equal(lookup().get('Shift+KeyC'), 'videoTextToggle');
+  assert.equal(lookup({}, 'record').get('Shift+KeyC'), 'videoTextToggle');
+});
+
 test('a key press becomes a combo, and Ctrl/Cmd combinations are left alone', () => {
   assert.equal(comboOf({ code: 'ArrowLeft', altKey: true, shiftKey: true }), 'Alt+Shift+ArrowLeft');
   assert.equal(comboOf({ code: 'KeyN' }), 'KeyN');

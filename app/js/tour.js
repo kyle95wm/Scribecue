@@ -79,7 +79,7 @@ export const STEPS = [
   {
     target: '.transport',
     title: 'Playing and stepping',
-    text: () => 'The scrubber covers the whole video, with your blocks marked along it. The buttons step by frame, by three seconds or by block, play just the selected block, or loop it. Each one has a key, too.',
+    text: () => 'The scrubber covers the whole video, with your blocks marked along it. The buttons step by frame, by three seconds or by block, play just the selected block, or loop it. The last one hides the text over the video, or shows it again. Each one has a key, too.',
   },
   {
     target: '#ind',

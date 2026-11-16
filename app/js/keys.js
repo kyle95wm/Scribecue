@@ -31,7 +31,7 @@ const kbds = (combo) => keyLabels(combo, hooks.mac).map((k) => `<kbd>${k.replace
 // The player buttons' tooltips name their key in brackets at the end.
 const CONTROLS = {
   prevBlock: 'blockBack', back3: 'back3', backFrame: 'frameBack', play: 'play', fwdFrame: 'frameFwd',
-  fwd3: 'fwd3', nextBlock: 'blockNext', playBlock: 'playBlock', loop: 'loopBlock',
+  fwd3: 'fwd3', nextBlock: 'blockNext', playBlock: 'playBlock', loop: 'loopBlock', videoText: 'videoTextToggle',
 };
 function showKeys() {
   const all = bindings(changes);
