@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.127.0",
+    "date": "2026-11-15",
+    "notes": "## AI drafts that fit\n\n- AI drafts now aim to fit their gaps, with a little time to spare.\n- A draft too long to read in its block goes back to the AI once, to shorten.\n- **Draft this block** shows both drafts, so you can use either.\n- After **Draft the script**, the note in the AI help drawer says how many are still too long.\n\n## One Spelling setting\n\n- **Spelling**, in Settings → Editing, now sets how AI help writes: American, British or Canadian spelling, and that country's words, such as sidewalk or pavement.\n- Speech to text spells this way too. Its own Spelling menu is gone. If you'd chosen British there, it carries over.\n- Your notes can still ask for something else."
+  },
+  {
     "version": "0.126.0",
     "date": "2026-11-15",
     "notes": "## Next episode\n\n- Working on a series? Click **File**, **New…**, then **Next episode** when you finish one.\n- The new project keeps your notes and spelling words.\n- The story so far goes at the top of the notes, under **Previously**. AI help writes it from the last one and this episode's scene summaries.\n- Without AI help, it's the scene summaries, shortened.\n- Blocks, scene summaries, bookmarks and comments stay with the old episode.\n\n## Also\n\n- **New…** now asks before clearing a project that only has notes."
