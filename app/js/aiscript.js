@@ -219,3 +219,49 @@ export function summaryPrompt(scene, lines, story, frameTimes, clockOf) {
     'In 2 to 4 plain sentences: who is there, using the names the notes or dialogue give; where they are; what happens; and what has changed since before. Only this part: don’t retell the story so far. Only what the stills and dialogue show. Reply with only the summary.',
   ].filter(Boolean).join('\n\n');
 }
+
+// ---- the next episode of a series
+
+// The story so far goes at the top of the next episode's notes, under this heading, as one
+// paragraph. The heading says which episode it runs up to, so the next one can replace it.
+const RECAP_HEAD = /^Previously, up to [^\n]*:[ \t]*\n/;
+export const RECAP_CHARS = 2000;
+
+// { recap, notes }: the story so far, if the notes start with one, and the rest.
+export function splitRecap(notes = '') {
+  const m = notes.match(RECAP_HEAD);
+  if (!m) return { recap: '', notes };
+  const rest = notes.slice(m[0].length), end = rest.search(/\n[ \t]*\n/);
+  return end < 0 ? { recap: rest.trim(), notes: '' } : { recap: rest.slice(0, end).trim(), notes: rest.slice(end).replace(/^\s+/, '') };
+}
+
+// The notes with the story so far at the top, in place of any before. One paragraph, so a
+// blank line ends it.
+export function withRecap(notes, recap, upTo) {
+  const { notes: rest } = splitRecap(notes);
+  const r = recap.replace(/\s+/g, ' ').trim();
+  if (!r) return rest;
+  return `Previously, up to ${upTo.replace(/\s+/g, ' ').trim() || 'the last episode'}:\n${r}${rest.trim() ? `\n\n${rest}` : '\n'}`;
+}
+
+// The story so far without AI: the recap before, then this episode's scenes, shortened as
+// in drafts, and the most recent part kept when it's long.
+export function plainRecap(previous, scenes) {
+  const list = cleanScenes(scenes);
+  const s = [previous.trim(), storySoFar(list, list.length, RECAP_CHARS)].filter(Boolean).join(' ').replace(/\s+/g, ' ');
+  return s.length <= RECAP_CHARS ? s : s.slice(s.length - RECAP_CHARS).replace(/^\S*\s/, '… ');
+}
+
+export const RECAP_SYSTEM = `You help a writer prepare audio description for a series, for blind and partially sighted viewers. You write the story so far, so whoever describes the next episode knows who people are and what has happened.
+
+Be factual and brief. Use the names the writer's notes and the summaries give. Keep what the next episode may need: who's who and how they're related, where things stand, and what's unresolved. Leave out what's finished with.`;
+
+// The request for the story so far: the recap before, and this episode's scene summaries.
+export function recapPrompt(previous, scenes, episode) {
+  const told = cleanScenes(scenes).filter((s) => s.text.trim()).map((s) => `- ${s.text.trim().replace(/\s+/g, ' ')}`);
+  return [
+    previous.trim() ? `The story before this episode:\n${previous.trim()}` : 'This is the first episode.',
+    `What happens in ${episode.trim() || 'this episode'}, scene by scene:\n${told.join('\n')}`,
+    'Write the story so far, up to the end of this episode, as one paragraph of at most 200 words. Reply with the paragraph only.',
+  ].join('\n\n');
+}

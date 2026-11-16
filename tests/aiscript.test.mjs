@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   gapsToDraft, splitGap, cutSamples, frameDiff, findCuts, dialogueAround, withBlock, estimate, estimateText, heardSpeech,
   sceneStretches, cleanScenes, scenesFor, sceneIndex, storySoFar, sceneContext, summaryPrompt, SCENE_MIN, SCENE_MAX, STORY_CHARS,
-  DRAFT_MIN, SPLIT_OVER, PIECE_MIN, PIECE_MAX, PIECE_PAUSE,
+  DRAFT_MIN, SPLIT_OVER, PIECE_MIN, PIECE_MAX, PIECE_PAUSE, splitRecap, withRecap, plainRecap, recapPrompt, RECAP_CHARS,
 } from '../app/js/aiscript.js';
 import { draftPrompt, fitBudget, chatContext, clock } from '../app/js/ai.js';
 import { GAP_MARGIN } from '../app/js/dialogue.js';
@@ -173,4 +173,37 @@ test('a summary is asked for with its subtitles and the story so far', () => {
   assert.match(p, /"Where is he\?"/);
   assert.doesNotMatch(p, /Before\.|After\./);
   assert.match(summaryPrompt(told[0], [], '', [], clock), /This is the start of the programme\.[\s\S]*There are no subtitles here\./);
+});
+
+test('the next episode’s notes start with the story so far, replacing the one before', () => {
+  assert.deepEqual(splitRecap('Mara: red coat.'), { recap: '', notes: 'Mara: red coat.' });
+  const first = withRecap('Mara: red coat.\n\nBritish spelling.', 'Mara finds\nher keys.', 'Ward S01E01');
+  assert.equal(first, 'Previously, up to Ward S01E01:\nMara finds her keys.\n\nMara: red coat.\n\nBritish spelling.');
+  assert.deepEqual(splitRecap(first), { recap: 'Mara finds her keys.', notes: 'Mara: red coat.\n\nBritish spelling.' });
+  // the next episode replaces it, and the rest of the notes stay as they were
+  const second = withRecap(first, 'Mara finds her keys, then loses her job.', 'Ward S01E02');
+  assert.equal(second, 'Previously, up to Ward S01E02:\nMara finds her keys, then loses her job.\n\nMara: red coat.\n\nBritish spelling.');
+  // notes with only a recap, and a recap with no notes
+  assert.deepEqual(splitRecap('Previously, up to E1:\nShe left.'), { recap: 'She left.', notes: '' });
+  assert.equal(withRecap('', 'She left.', 'E1'), 'Previously, up to E1:\nShe left.\n');
+  assert.equal(withRecap('Mara.', '  ', 'E1'), 'Mara.');
+  // a heading the writer typed elsewhere isn't a recap
+  assert.equal(splitRecap('Mara.\nPreviously, up to E1:\nx').recap, '');
+});
+
+test('without AI, the story so far is the summaries, shortened, newest kept', () => {
+  const scenes = [{ start: 0, end: 60, text: 'Mara arrives.' }, { start: 60, end: 120, text: '' }, { start: 120, end: 180, text: 'Theo hides.' }];
+  assert.equal(plainRecap('', scenes), 'Mara arrives. Theo hides.');
+  assert.equal(plainRecap('Before.', scenes), 'Before. Mara arrives. Theo hides.');
+  const long = plainRecap('x '.repeat(3000), scenes);
+  assert.ok(long.length <= RECAP_CHARS + 2);
+  assert.ok(long.startsWith('… ') && long.endsWith('Theo hides.'));
+});
+
+test('the request for the story so far has the one before and every summary', () => {
+  const scenes = [{ start: 60, end: 120, text: 'Theo  hides.' }, { start: 0, end: 60, text: 'Mara arrives.' }, { start: 120, end: 180, text: ' ' }];
+  const p = recapPrompt('She lost her job.', scenes, 'Ward S01E02');
+  assert.match(p, /before this episode:\nShe lost her job\./);
+  assert.match(p, /What happens in Ward S01E02, scene by scene:\n- Mara arrives\.\n- Theo hides\.\n\n/);
+  assert.match(recapPrompt('', scenes, ''), /^This is the first episode\.[\s\S]*in this episode/);
 });

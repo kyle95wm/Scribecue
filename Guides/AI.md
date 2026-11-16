@@ -12,6 +12,7 @@ starting point. You're still the describer.
 - [What it does](#what-it-does)
 - [Drafting the whole script](#drafting-the-whole-script)
   - [Scene summaries](#scene-summaries)
+  - [The next episode of a series](#the-next-episode-of-a-series)
 - [Choosing where it runs](#choosing-where-it-runs)
 - [Connecting a provider](#connecting-a-provider)
   - [Claude, OpenAI or Gemini](#claude-openai-or-gemini)
@@ -101,6 +102,26 @@ summary for their scene, and the story so far.
 
 A two-hour film can have 400–600 gaps. With an online model that's a few dollars, and
 with Ollama it can take hours; the dialog estimates both. Try a 10-minute stretch first.
+
+### The next episode of a series
+
+AI help only sees the project that's open. To carry what it knows into the next episode:
+
+1. Summarise the scenes of the episode you've finished.
+2. Click **File**, **New…**, then **Next episode**. It saves this episode first if it has
+   changes.
+3. Open the next episode's video.
+
+The new project keeps:
+
+- your notes and spelling words;
+- the story so far, at the top of the notes, under **Previously**.
+
+AI help writes the story so far from the one before and this episode's scene summaries, in
+one request. Without AI help connected, it's the summaries, shortened. Check it and fix it
+like any other notes.
+
+The blocks, scene summaries, bookmarks and comments stay with the old episode.
 
 ## Choosing where it runs
 
@@ -304,6 +325,7 @@ And always check a draft against the picture: AI is confident even when it's wro
   before it. Drafts and chat then send their scene's summary too.
 - **Find dialogue with OpenAI** sends the programme's audio to OpenAI.
 - **Check grammar with AI** sends the whole script and your notes, in parts.
+- **Next episode** sends the story so far, the scene summaries and your notes.
 - With Ollama, everything stays on your computer.
 - Keys stay in your browser, and only go to their own provider. Your TMDB key, if you look
   up a cast, only goes to TMDB, with the IMDb link or title you looked up.
