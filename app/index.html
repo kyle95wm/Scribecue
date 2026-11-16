@@ -273,7 +273,7 @@
       <div id="cues"></div>
       <div id="dragtip" hidden></div>
     </div>
-    <div class="dialtrack" id="dialTrack" hidden data-tip="Dialogue from the subtitles or speech to text, with the length of each gap. Click to move the playhead. Click a line to select it, then drag its ends to trim it or press Delete to take it out. Double-click a gap to make a block. D and Shift+D jump between free gaps"><canvas id="dialWave"></canvas></div>
+    <div class="dialtrack" id="dialTrack" hidden data-tip="Dialogue from the subtitles or speech to text, with the length of each gap. Click to move the playhead. Click a line to select it: drag its ends to trim it, press Delete to take it out, or double-click it to correct its words. Double-click a gap to make a block. D and Shift+D jump between free gaps"><canvas id="dialWave"></canvas><input id="dialEdit" hidden aria-label="The dialogue line’s words" data-tip="Enter keeps the words, Esc leaves them as they were" maxlength="1000" spellcheck="true" autocomplete="off"></div>
     <div class="taketrack record-only" id="takeTrack"><canvas id="takeWave"></canvas></div>
     <div class="overview" id="overview"><div id="ovWin"></div></div>
     <div class="playhead" id="playhead"></div>
@@ -1886,7 +1886,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="moveBack moveFwd"><kbd>,</kbd> <kbd>.</kbd></dt><dd>Move block −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
             <dt data-keys="split merge"><kbd>X</kbd> / <kbd>M</kbd></dt><dd>Split at playhead / merge with next</dd>
             <dt data-keys="deleteNow"><kbd>Del</kbd></dt><dd>Delete block now (undoable)</dd>
-            <dt>Click a dialogue line</dt><dd>Select it: the timing keys, <kbd>G</kbd> and <kbd>Del</kbd> work on it instead of a block. Esc lets go</dd>
+            <dt>Click a dialogue line</dt><dd>Select it: the timing keys, <kbd>G</kbd> and <kbd>Del</kbd> work on it instead of a block, and <kbd>↵</kbd> corrects its words. Esc lets go</dd>
             <dt data-keys="selectAtPlayhead"><kbd>C</kbd></dt><dd>Select block under playhead</dd>
             <dt data-keys="trackNext trackPrev"><kbd>T</kbd> / <kbd>⇧</kbd><kbd>T</kbd></dt><dd>Next / previous audio track</dd>
             <dt><kbd>/</kbd></dt><dd>Search the block list (↑ ↓ step through matches, ↵ back to timeline, Esc clears)</dd>

@@ -88,7 +88,7 @@ takes them to another browser with your other settings.
 | `,` `.` | Move the block −/+ 100 ms (with `Shift`: 10 ms) |
 | `X` / `M` | Split at the playhead / merge with the next block |
 | `Del` | Delete the block straight away (undo with `Ctrl/Cmd+Z`). The × at the end of each row in the list does the same for that block |
-| Click a dialogue line | Select it, so `A` `S` `Q` `W` `E` `R` `,` `.` `G` and `Del` [work on it](GETTING-STARTED.md#fixing-the-lane) instead of a block. `Esc` lets go |
+| Click a dialogue line | Select it, so `A` `S` `Q` `W` `E` `R` `,` `.` `G` and `Del` [work on it](GETTING-STARTED.md#fixing-the-lane) instead of a block, and `Enter` corrects its words. `Esc` lets go |
 | `↑` `↓` or `K` `J` | Previous / next block |
 | `PgUp` `PgDn` | Jump 10 blocks |
 | `G` / `Shift+G` | Playhead to the block's start / end |
