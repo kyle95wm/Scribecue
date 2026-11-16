@@ -14,10 +14,10 @@ import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.
 import { HOSTED, BRANCH } from './config.js';
 import { CHOICES, DEFAULTS, shownAppearance, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
 import { initFloat, loadKind, saveKind, canOwnWindow } from './floatvideo.js';
-import { initAi, toggleAi, aiNotesChanged, openAiSettings, openDraftScript, openaiKey, generalNotes } from './aidrawer.js';
+import { initAi, toggleAi, aiNotesChanged, openAiSettings, openDraftScript, openaiKey, generalNotes, aiConnected, writeRecap } from './aidrawer.js';
 import { LABEL as HEARD, PART_LOCAL, PART_ONLINE, PART_WEB, partsOf, linesFrom, keepIn, openaiCost, span, timeLeft, openaiRequest, openaiHeard } from './heardlane.js';
 import { failure } from './ai.js';
-import { cleanScenes } from './aiscript.js';
+import { cleanScenes, splitRecap, withRecap, plainRecap } from './aiscript.js';
 import { initCheck, openCheck, checkFirst } from './proofdialog.js';
 import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
 import { collaborationJob, retainHistory, makesFiles } from './collaboration.js';
@@ -5696,7 +5696,7 @@ async function openAny() {
 const newDlg = $('newDlg');
 function startAgain() {
   const blocks = S.cues.length, media = S.videoFile?.name;
-  if (!blocks && !media && !S.comments.length && !S.bookmarks.length && !S.dirty && !S.reviewId) return newProject(false);
+  if (!blocks && !media && !S.comments.length && !S.bookmarks.length && !S.notes.trim() && !S.dirty && !S.reviewId) return newProject(false);
   const n = blocks === 1 ? '1 block' : `${blocks} blocks`;
   $('newWhat').textContent = S.comments.length && !blocks && !media ? `This project has ${S.comments.length} timeline comments.` : blocks ? `This project has ${n}${media ? `, with ${media} open` : ''}.` : media ? `${media} is open, with no blocks yet.` : 'This project has no blocks yet.';
   // Clearing a shared project's blocks clears them for everyone: only its owner may.
@@ -5704,6 +5704,11 @@ function startAgain() {
   const unsaved = S.dirty && !myShare; // a shared project keeps its changes
   $('newUnsaved').hidden = !unsaved;
   $('newSave').hidden = !unsaved;
+  // The next episode of a series: a new project that keeps what carries over.
+  newDlg.querySelector('[data-choice="episode"]').hidden = qc() || !!S.reviewId || S.mode === 'record';
+  const told = cleanScenes(S.scenes).some((s) => s.text.trim());
+  $('newEpisodeNote').textContent = `A new project for the next episode of a series. Keeps your notes and spelling words${
+    told ? `, and adds the story so far to the notes${aiConnected() ? ', written by AI help from the scene summaries' : ', from the scene summaries'}` : ''}.${unsaved ? ' Saves this episode first.' : ''}`;
   $('newProjectLabel').textContent = unsaved ? 'Start without saving' : 'New project';
   $('newProjectNote').textContent = myShare ? `Leaves this shared project and closes the video. The project stays in this browser: open it again from Shared projects.${relay?.unsent() ? ' Your last changes haven’t reached it yet. They’re kept here, and sent when you open it again.' : ''}`
     : qc() ? 'Closes this review and the video, then opens a blank project in Write mode.' : 'Clears the blocks and notes, and closes the video, for different work.';
@@ -5714,7 +5719,11 @@ function startAgain() {
 for (const b of newDlg.querySelectorAll('.wzchoice')) {
   b.addEventListener('click', () => {
     newDlg.close();
-    if (b.dataset.choice === 'blocks') clearBlocks(); else newProject(false);
+    if (b.dataset.choice === 'blocks') clearBlocks();
+    else if (b.dataset.choice === 'episode') {
+      if (S.dirty && !myShare) startNewProject({ saveFirst: true, save: () => saveProject(), isDirty: () => S.dirty, start: nextEpisode });
+      else nextEpisode();
+    } else newProject(false);
   });
 }
 $('newSave').addEventListener('click', async () => {
@@ -5732,6 +5741,40 @@ $('newSave').addEventListener('click', async () => {
 $('newCancel').addEventListener('click', () => newDlg.close());
 newDlg.addEventListener('click', (e) => { if (e.target === newDlg) newDlg.close(); });
 document.addEventListener('keydown', (e) => { if (newDlg.open) e.stopPropagation(); }, true);
+
+// Next episode: a new project with this one's notes and spelling words. The story so far
+// goes at the top of the notes: the one before, with this episode's scene summaries added,
+// by AI help when it's connected. Stop leaves everything as it was.
+async function nextEpisode() {
+  const episode = baseName(), id = S.projectId, words = S.words, scenes = S.scenes;
+  const { recap: previous, notes } = splitRecap(S.notes);
+  let recap = previous, said = '';
+  if (cleanScenes(scenes).some((s) => s.text.trim())) {
+    let out = { text: null };
+    if (aiConnected()) {
+      out = await asJob(async () => {
+        aiRun = new AbortController();
+        jobBar.removeAttribute('value');
+        jobText.textContent = 'Story so far: AI help is writing it';
+        jobBox.hidden = false;
+        try { return { text: await writeRecap(previous, scenes, episode, aiRun.signal) }; }
+        catch (e) { return e.name === 'AbortError' ? { stopped: true } : { text: null, error: e.message }; }
+        finally { aiRun = null; jobBar.value = 0; }
+      });
+      if (!out) return; // another job is running, and asJob said so
+      if (out.stopped) return toast('Stopped. Nothing changed');
+    }
+    if (S.projectId !== id) return toast('Another project was opened, so the next episode wasn’t started');
+    recap = out.text || plainRecap(previous, scenes);
+    if (aiConnected() && !out.text) said = ` AI help couldn’t write the story so far${out.error ? ` (${out.error})` : ''}, so it’s the scene summaries, shortened.`;
+  }
+  newProject(false);
+  S.notes = withRecap(notes, recap, episode);
+  S.words = words;
+  aiNotesChanged();
+  changed();
+  toast(`Next episode: notes${recap ? ' with the story so far' : ''} and spelling words kept. Open its video with ${IS_MAC ? '⌘⇧O' : 'Ctrl+Shift+O'}.${said}`);
+}
 
 // Removes every block, keeping the video, the project file and the notes.
 function clearBlocks() {

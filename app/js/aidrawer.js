@@ -11,7 +11,7 @@ import { openSettings as showSettings } from './settings.js';
 import { parseTime } from './formats.js';
 import {
   gapsToDraft, splitGap, cutSamples, findCuts, dialogueAround, withBlock, estimate, estimateText, heardSpeech, SPLIT_OVER, DRAFT_MIN,
-  scenesFor, sceneContext, storySoFar, summaryPrompt, SCENE_STILLS,
+  scenesFor, sceneContext, storySoFar, summaryPrompt, SCENE_STILLS, RECAP_SYSTEM, recapPrompt, splitRecap,
 } from './aiscript.js';
 
 const $ = (id) => document.getElementById(id);
@@ -289,6 +289,17 @@ async function requestDraft(text, frames, signal, system = instructions()) {
     if ([400, 413, 422].includes(r.status)) return { failed: msg };
     throw new Error(msg);
   }
+}
+
+// The story so far, for the next episode of a series, from the recap before and this
+// episode's scene summaries. null when AI help isn't connected or the provider says no;
+// throws when it can't be reached.
+export const aiConnected = () => ready();
+export async function writeRecap(previous, scenes, episode, signal) {
+  if (!ready()) return null;
+  const system = withNotes(RECAP_SYSTEM, { general: generalNotes(), notes: splitRecap(hooks.notes()).notes });
+  const r = await requestDraft(recapPrompt(previous, scenes, episode), [], signal, system);
+  return r.text?.trim() || null;
 }
 
 // The stretches a run would draft, between from and to, before looking for cuts.
