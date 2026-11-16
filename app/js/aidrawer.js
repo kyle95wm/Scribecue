@@ -41,6 +41,10 @@ const save = () => { const { provider, models, lists, base, frames, remember, li
 export const generalNotes = () => (typeof ai.notes === 'string' ? ai.notes : '');
 const instructions = (base = SYSTEM) => withNotes(base, { english: englishFor(hooks.language()), general: generalNotes(), notes: hooks.notes() });
 
+// Other services' keys, kept with these: OpenSubtitles' key and sign-in.
+export const storedKey = (name) => keys()[name] || '';
+export const storeKey = (name, value) => setKey(name, value);
+
 // The OpenAI key, if there is one: a dialogue lane can be found with it too.
 export const openaiKey = () => keys().openai || '';
 

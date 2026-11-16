@@ -333,7 +333,8 @@ And always check a draft against the picture: AI is confident even when it's wro
 - **Next episode** sends the story so far, the scene summaries and your notes.
 - With Ollama, everything stays on your computer.
 - Keys stay in your browser, and only go to their own provider. Your TMDB key, if you look
-  up a cast, only goes to TMDB, with the IMDb link or title you looked up.
+  up a cast, only goes to TMDB, with the IMDb link or title you looked up. Your OpenSubtitles
+  key only goes to OpenSubtitles, when you search it for subtitles.
 - A settings backup has your keys only if you turn on **Include API keys** when exporting.
 
 ## Costs

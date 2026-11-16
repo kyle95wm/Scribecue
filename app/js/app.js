@@ -52,6 +52,7 @@ import { comboOf, lookup, REC_LOCKED, bindings, comboText } from './keymap.js';
 import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList } from './extended.js';
 import { initKeys, keyChanges, openKeys, shortcutEntries } from './keys.js';
 import { VERSION } from './update.js';
+import { initOpenSubs, openOpenSubs } from './osdialog.js';
 import { FIT_MIN, MAX_SPEED, RUN_OVER, runsPast, writeWav, pcmToWav, readingStarting, missingVoiceAdvice, hasGoogleKey, hasPollyKey, isPersonalGoogleKey, checkGoogleKey, setProjectGoogleKey, usingProjectGoogleKey, useProjectVoice, VOICE_LOCKED } from './tts.js';
 import { trackFormat, mixFormat, encodeMp3 } from './mp3.js';
 import { ffmpegCommands, holdFilter, extendedCommand, burnCommand, BURN_HEIGHTS, burnHeights, burnHeight, ffRate, plainName } from './ffcmd.js';
@@ -6460,6 +6461,7 @@ function renderDialPick() {
   const heard = d?.choice === 'heard' ? d : S.heardKept;
   if (heard) add('heard', heardLabel(heard));
   add('load', 'Load a subtitle file…');
+  add('opensubs', 'Search OpenSubtitles…');
   if (!S.subTracks.some((t) => t.text)) add('find', 'Find dialogue with speech to text…');
   sel.value = sel.dataset.reading || d?.choice || 'off';
   dialTrack.hidden = !d && !S.dialStatus;
@@ -6544,6 +6546,15 @@ function readSubTrack(file, i) {
   paceWave();
 }
 
+// Subtitles for this video from a file or OpenSubtitles, in place of what the lane showed.
+function useSubtitleLines(file, label, lines) {
+  if (S.videoFile !== file) return 0;
+  dialGen++;
+  dialWorker?.terminate();
+  dialWorker = null;
+  return useDialogue(file, { choice: 'file', label, lines });
+}
+
 // A subtitle file for this video, for one with no track that can be read.
 async function loadDialogueFile() {
   const file = S.videoFile;
@@ -6565,10 +6576,7 @@ async function loadDialogueFile() {
   try { text = await sub.text(); } catch (e) { return toast(`Couldn’t read ${sub.name}${readProblem(e)}`); }
   const lines = parseSubs(text);
   if (!lines.length) return toast(`No subtitles found in ${sub.name}`);
-  dialGen++;
-  dialWorker?.terminate();
-  dialWorker = null;
-  const n = useDialogue(file, { choice: 'file', label: sub.name, lines });
+  const n = useSubtitleLines(file, sub.name, lines);
   toast(`Dialogue lane: ${n.toLocaleString('en')} subtitles from ${sub.name}. D and Shift+D jump between free gaps`);
 }
 
@@ -6579,6 +6587,7 @@ $('dialSel').addEventListener('change', (e) => {
   if (v === 'off') offDialogue(file);
   else if (v === 'load') { renderDialPick(); loadDialogueFile(); }
   else if (v === 'find') { renderDialPick(); openFindDialogue(); }
+  else if (v === 'opensubs') { renderDialPick(); openOpenSubs(); }
   else if (v === 'heard' && S.heardKept) {
     dialGen++;
     dialWorker?.terminate();
@@ -7431,6 +7440,7 @@ initAi({
     return true;
   },
 });
+initOpenSubs({ video: () => S.videoFile, use: useSubtitleLines, toast });
 for (const bar of [document.querySelector('nav'), $('rail')]) bar.addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -7737,6 +7747,7 @@ const RUN = {
   aiHelp: () => { if (!qc()) toggleAi(); },
   aiScript: () => { if (!qc()) openDraftScript(); },
   findDialogue: () => { if (S.mode !== 'record') openFindDialogue(); },
+  openSubtitles: () => { if (S.mode !== 'record') openOpenSubs(); },
   aiNext: () => jumpAiDraft(1),
   aiBack: () => jumpAiDraft(-1),
   aiAccept: () => acceptAiDraft(),
@@ -7973,6 +7984,7 @@ addSection('voices', 'Online voices', { open: () => { openTts(); openSettings('v
 share($('ttsDlg'), 'voices', [$('ttsOnlineVoices')]);
 addSection('ai', 'AI help', { open: openAiSettings, content: $('aiSetup') });
 place($('setAiNotes'), 'ai');
+place($('setOpenSubs'), 'ai');
 place($('setTmdb'), 'ai');
 addSection('keys', 'Keyboard shortcuts', { open: () => openKeys(), search: shortcutEntries });
 adopt($('keysDlg'), 'keys', { skip: ['#keysDone'] });

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Scribecue</title>
   <!-- The same policy nginx sends, here too for the web version, which has no nginx. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://texttospeech.googleapis.com https://polly.us-east-1.amazonaws.com https://polly.us-east-2.amazonaws.com https://polly.us-west-2.amazonaws.com https://polly.ca-central-1.amazonaws.com https://polly.eu-west-1.amazonaws.com https://polly.eu-west-2.amazonaws.com https://polly.eu-central-1.amazonaws.com https://polly.eu-north-1.amazonaws.com https://polly.ap-northeast-1.amazonaws.com https://polly.ap-southeast-2.amazonaws.com https://openrouter.ai https://api.themoviedb.org http://localhost:11434 http://127.0.0.1:11434 wss://share.kyleadvoice.ca ws://localhost:8787 ws://127.0.0.1:8787; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://texttospeech.googleapis.com https://polly.us-east-1.amazonaws.com https://polly.us-east-2.amazonaws.com https://polly.us-west-2.amazonaws.com https://polly.ca-central-1.amazonaws.com https://polly.eu-west-1.amazonaws.com https://polly.eu-west-2.amazonaws.com https://polly.eu-central-1.amazonaws.com https://polly.eu-north-1.amazonaws.com https://polly.ap-northeast-1.amazonaws.com https://polly.ap-southeast-2.amazonaws.com https://openrouter.ai https://api.themoviedb.org https://*.opensubtitles.com https://*.opensubtitles.org http://localhost:11434 http://127.0.0.1:11434 wss://share.kyleadvoice.ca ws://localhost:8787 ws://127.0.0.1:8787; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#11141a">
@@ -240,7 +240,7 @@
           data-tip="Audio track to hear and draw in the waveform. T / ⇧T switch tracks">Audio
           <select id="trackSel"></select></label>
         <label class="trackpick" id="dialPick" hidden
-          data-tip="Subtitles to show as dialogue on the timeline, so you can see the gaps. No subtitles? Find the dialogue with speech to text. It stays in this browser and isn’t part of the script">Dialogue
+          data-tip="Subtitles to show as dialogue on the timeline, so you can see the gaps. No subtitles? Find them on OpenSubtitles, or find the dialogue with speech to text. It stays in this browser and isn’t part of the script">Dialogue
           <select id="dialSel"></select></label>
         <label class="mixbox tip-end" id="mixBox" hidden>Video
           <input type="range" id="mix" min="-100" max="100" step="5" value="0"
@@ -889,10 +889,34 @@ docker compose up -d --build</code></pre>
     <p class="dim small">Check the lane against the sound. Speech to text can miss speech under music, and sometimes hears words that aren’t there.</p>
     <div class="updbtns"><button id="heardGo" class="hl">Find dialogue</button><button id="heardAgain" hidden>Start again</button><button id="heardCancel">Cancel</button></div>
   </dialog>
+  <dialog id="osDlg" class="updbox" aria-labelledby="osTitle">
+    <h2 id="osTitle">Subtitles from OpenSubtitles</h2>
+    <p>Find subtitles for this video on OpenSubtitles. The one you pick becomes the dialogue lane, as a loaded subtitle file does.</p>
+    <p id="osKeyRow" class="updstatus" hidden><label for="osKey" class="small">Your OpenSubtitles key</label>
+      <input id="osKey" type="password" autocomplete="off" spellcheck="false">
+      <a id="osKeyGet" class="small" target="_blank" rel="noopener noreferrer">Get a free key</a></p>
+    <p class="updstatus"><label for="osQuery" class="small">Title</label>
+      <input id="osQuery" type="text" spellcheck="false" autocomplete="off" placeholder="Film or series"></p>
+    <p class="updstatus"><label for="osSeason" class="small">Season</label>
+      <input id="osSeason" class="osnum" type="text" inputmode="numeric" autocomplete="off">
+      <label for="osEpisode" class="small">Episode</label>
+      <input id="osEpisode" class="osnum" type="text" inputmode="numeric" autocomplete="off">
+      <label for="osYear" class="small">Year</label>
+      <input id="osYear" class="osnum" type="text" inputmode="numeric" autocomplete="off"></p>
+    <p class="updstatus"><label for="osLang" class="small">Language</label> <select id="osLang"></select>
+      <button id="osGo" class="hl">Search</button></p>
+    <p id="osStatus" class="small" role="status"></p>
+    <ul id="osList" class="offlinelist takeslist oslist"></ul>
+    <p class="dim small">Only the search goes to
+      <a href="https://www.opensubtitles.com/" target="_blank" rel="noopener noreferrer">OpenSubtitles</a>: what you type here, and
+      a short code worked out from this video. The video stays on your computer.
+      Results marked “Fits this file” were timed for this very file. Check others against the sound: another release can drift.</p>
+    <div class="updbtns"><button id="osCancel">Close</button></div>
+  </dialog>
   <dialog id="setsExportDlg" class="updbox" aria-labelledby="setsExportTitle">
     <h2 id="setsExportTitle">Export settings</h2>
     <p>Saves your settings to a file. API keys are left out unless you include them.</p>
-    <p class="updstatus"><button id="setsSecrets" aria-pressed="false" data-tip="Put your Google, Amazon Polly, AI and TMDB keys in the file too">Include API keys</button></p>
+    <p class="updstatus"><button id="setsSecrets" aria-pressed="false" data-tip="Put your Google, Amazon Polly, AI, TMDB and OpenSubtitles keys in the file too">Include API keys</button></p>
     <p id="setsSecretsWarn" class="warnbox" hidden>The file will hold your API keys. Anyone with it can use them, and you
       pay for what they use. Keep it private, and delete it once it's imported.</p>
     <div class="updbtns"><button id="setsSave" class="hl">Export</button><button id="setsExportCancel">Cancel</button></div>
@@ -1622,6 +1646,23 @@ docker compose up -d --build</code></pre>
         placeholder="Don't describe opening or closing credits, logos or title cards.&#10;Do read a caption or sign that matters to the story."></textarea>
       <p class="dim small">Kept on this computer. Where they disagree with a project's notes, the project's notes win.</p>
     </div>
+    <div id="setOpenSubs" hidden>
+      <h3>Subtitles from OpenSubtitles</h3>
+      <p class="small">The Dialogue picker can find subtitles on OpenSubtitles for a video with none, with your own free key.
+        Without an account, it allows a few downloads a day. Sign in for more.</p>
+      <p class="updstatus"><label for="setOsKey" class="small">OpenSubtitles key</label>
+        <input id="setOsKey" type="password" autocomplete="off" spellcheck="false">
+        <a id="setOsGet" class="small" target="_blank" rel="noopener noreferrer">Get a free key</a>
+        <button id="setOsForget">Forget</button></p>
+      <p id="setOsSignedOut" class="updstatus"><label for="setOsUser" class="small">Username</label>
+        <input id="setOsUser" type="text" autocomplete="username" spellcheck="false">
+        <label for="setOsPass" class="small">Password</label>
+        <input id="setOsPass" type="password" autocomplete="current-password">
+        <button id="setOsSignIn">Sign in</button></p>
+      <p id="setOsSignedIn" class="updstatus" hidden><span id="setOsWho" class="small"></span> <button id="setOsSignOut">Sign out</button></p>
+      <p id="setOsStatus" class="dim small" role="status"></p>
+      <p class="dim small">Your password goes only to OpenSubtitles, to sign in, and isn’t kept.</p>
+    </div>
     <div id="setTmdb" hidden>
       <h3>Looking up the cast</h3>
       <p class="small">Project notes can look up a programme's characters and actors on TMDB, with your own free key.</p>
@@ -1736,6 +1777,7 @@ docker compose up -d --build</code></pre>
             <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>This block's reading slower / faster</dd>
             <dt data-keys="soundsLike"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd></dt><dd>Sounds like: how words in this block are said</dd>
             <dt data-keys="findDialogue"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>L</kbd></dt><dd>Find the dialogue with speech to text</dd>
+            <dt data-keys="openSubtitles"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>O</kbd></dt><dd>Subtitles from OpenSubtitles</dd>
             <dt data-keys="aiHelp"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>A</kbd></dt><dd>AI help: chat and draft descriptions</dd>
             <dt data-keys="aiScript"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>I</kbd></dt><dd>Draft the script with AI</dd>
             <dt data-keys="aiBack aiNext"><kbd>⇧</kbd><kbd>I</kbd> <kbd>I</kbd></dt><dd>Previous / next AI draft to check</dd>
