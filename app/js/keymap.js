@@ -48,7 +48,7 @@ export const GROUPS = [
     ['selectAtPlayhead', 'Select the block under the playhead', ['KeyC']],
     ['split', 'Split at the playhead', ['KeyX']],
     ['merge', 'Merge with the next block', ['KeyM']],
-    ['deleteNow', 'Delete the block (undoable)', ['Delete', 'Backspace']],
+    ['deleteNow', 'Delete the block, or the selected dialogue line (undoable)', ['Delete', 'Backspace']],
     ['deleteAsk', 'Delete the block, after asking', ['Alt+Shift+KeyD']],
     ['findReplace', 'Find and replace text in every block', ['Alt+Shift+KeyF']],
     ['checkSpelling', 'Check spelling and grammar', ['Alt+Shift+KeyK']],

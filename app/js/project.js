@@ -3,6 +3,7 @@ import { cleanBookmarks } from './bookmarks.js';
 import { cleanEdited } from './edits.js';
 import { GRACES } from './recording.js';
 import { cleanScenes } from './aiscript.js';
+import { cleanLaneEdits } from './dialogue.js';
 
 // Scribecue project files (.scribecue): a whole piece of work in one JSON file, so you
 // can keep several projects and pick up where you left off. SRT and VTT exports are for
@@ -53,7 +54,7 @@ export const cleanSay = (say) => (Array.isArray(say) ? say : [])
 
 // state: { blocks, media, settings, view, app, notes }. Returns the object to save as JSON.
 // notes: what the writer tells AI help about the programme (characters, setting, style).
-export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', scenes = [], words = [], comments = [], bookmarks = [], recording = null, projectId = null, reviewHistory = null, reviewAudio = null }) {
+export function toProject({ blocks, media = null, settings = {}, view = {}, app = '', notes = '', scenes = [], words = [], comments = [], bookmarks = [], recording = null, projectId = null, reviewHistory = null, reviewAudio = null, dialogueEdits = {} }) {
   return {
     scribecue: PROJECT_FORMAT,
     ...(validIdentity(projectId) ? { projectId } : {}),
@@ -66,6 +67,8 @@ export function toProject({ blocks, media = null, settings = {}, view = {}, app 
     ...(cleanWords(words).length ? { words: cleanWords(words) } : {}),
     ...(cleanComments(comments, true).length ? { comments: cleanComments(comments, true) } : {}),
     ...(cleanBookmarks(bookmarks).length ? { bookmarks: cleanBookmarks(bookmarks) } : {}),
+    // Lines taken out of the dialogue lane or moved, for each of its sources.
+    ...(Object.keys(cleanLaneEdits(dialogueEdits)).length ? { dialogueEdits: cleanLaneEdits(dialogueEdits) } : {}),
     media: media && media.name ? { name: media.name, size: media.size ?? null, duration: num(media.duration) ? media.duration : null } : null,
     ...(cleanRecording(recording) ? { recording: cleanRecording(recording) } : {}),
     settings,
@@ -148,6 +151,7 @@ export function fromProject(json) {
     recording: cleanRecording(json.recording),
     comments: cleanComments(json.comments, true),
     bookmarks: cleanBookmarks(json.bookmarks),
+    dialogueEdits: cleanLaneEdits(json.dialogueEdits),
     notes: typeof json.notes === 'string' ? json.notes : '',
     scenes: cleanScenes(json.scenes),
     words: cleanWords(json.words),

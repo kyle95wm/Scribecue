@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildDialogue, cleanLine, isSoundOnly, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, bestTrack, drawDialogue, MIN_GAP, MIN_ROOM, GAP_MARGIN } from '../app/js/dialogue.js';
+import { buildDialogue, cleanLine, isSoundOnly, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, bestTrack, drawDialogue, MIN_GAP, MIN_ROOM, GAP_MARGIN,
+  lineKey, editLines, cleanLaneEdits, retimeLine, lineAt, spansOf, MIN_LINE } from '../app/js/dialogue.js';
 
 test('takes the styling out of a subtitle', () => {
   assert.equal(cleanLine('{\\an8}<i>Hello</i>\\Nthere'), 'Hello there');
@@ -143,4 +144,69 @@ test('counts the speech under a block', () => {
   assert.equal(speechIn(spans, 0, 20), 7);
   assert.equal(speechIn(spans, 9, 10), 1);
   assert.equal(speechIn([], 0, 5), 0);
+});
+
+// ---------------------------------------------------------------- the writer's edits
+
+const three = buildDialogue([
+  { start: 1, end: 3, text: 'Hello.' },
+  { start: 4, end: 6, text: 'Raindrops on roses' },
+  { start: 7, end: 9, text: 'Goodbye.' },
+]).lines;
+
+test('a removed line leaves the lane, and its gap opens up', () => {
+  const lines = editLines(three, { [lineKey(three[1])]: { cut: true } });
+  assert.deepEqual(lines.map((l) => l.text), ['Hello.', 'Goodbye.']);
+  assert.deepEqual(gapsOf(spansOf(lines), 10).map((g) => [g.start, g.end]), [[0, 1], [3, 7], [9, 10]]);
+});
+
+test('a trimmed line keeps its words and its key, and is marked as edited', () => {
+  const k = lineKey(three[0]);
+  const lines = editLines(three, { [k]: { start: 1.4, end: 2.5 } });
+  assert.deepEqual(lines[0], { start: 1.4, end: 2.5, text: 'Hello.', k, edited: true });
+  assert.equal(lines[1].edited, undefined);
+  // Moved past the next line, it's sorted into place.
+  assert.deepEqual(editLines(three, { [k]: { start: 9.5, end: 10 } }).map((l) => l.text), ['Raindrops on roses', 'Goodbye.', 'Hello.']);
+});
+
+test('edits for lines that aren’t there do nothing', () => {
+  assert.deepEqual(editLines(three, { '99000|Nobody': { cut: true } }).map((l) => l.text), ['Hello.', 'Raindrops on roses', 'Goodbye.']);
+  assert.equal(editLines(three).length, 3);
+});
+
+test('a line’s times stay in the programme and at least MIN_LINE long', () => {
+  const l = { start: 4, end: 6 };
+  assert.deepEqual(retimeLine(l, 'start', 5.5), { start: 5.5, end: 6 });
+  assert.deepEqual(retimeLine(l, 'start', 7), { start: 6 - MIN_LINE, end: 6 });
+  assert.deepEqual(retimeLine(l, 'start', -2), { start: 0, end: 6 });
+  assert.deepEqual(retimeLine(l, 'end', 3), { start: 4, end: 4 + MIN_LINE });
+  assert.deepEqual(retimeLine(l, 'end', 12, 10), { start: 4, end: 10 });
+  assert.deepEqual(retimeLine(l, 'move', 9, 10), { start: 8, end: 10 });
+  assert.deepEqual(retimeLine(l, 'move', -1, 10), { start: 0, end: 2 });
+});
+
+test('finds the line under a time', () => {
+  const lines = [{ start: 1, end: 3 }, { start: 2, end: 5 }, { start: 6, end: 7 }];
+  assert.equal(lineAt(lines, 2.5), lines[1]);
+  assert.equal(lineAt(lines, 4), lines[1]);
+  assert.equal(lineAt(lines, 1.5), lines[0]);
+  assert.equal(lineAt(lines, 5.5), null);
+  assert.equal(lineAt(lines, 0.5), null);
+  assert.equal(lineAt([], 1), null);
+});
+
+test('drops malformed dialogue edits from a project', () => {
+  assert.deepEqual(cleanLaneEdits(null), {});
+  assert.deepEqual(cleanLaneEdits([1]), {});
+  assert.deepEqual(cleanLaneEdits({
+    'file|a.srt': {
+      '1000|Hi': { cut: true },
+      '2000|Bye': { start: 2.2, end: 3 },
+      '3000|Short': { start: 3, end: 3.01 },
+      '4000|Odd': { start: 'x', end: 5 },
+      'no key': { cut: true },
+    },
+    heard: {},
+    'track|0||': 'nope',
+  }), { 'file|a.srt': { '1000|Hi': { cut: true }, '2000|Bye': { start: 2.2, end: 3 } } });
 });

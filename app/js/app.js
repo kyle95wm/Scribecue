@@ -65,7 +65,7 @@ import { buildDawMarkers, DAW_KINDS } from './dawmarkers.js';
 import { videoName, missing, silentSound, copiesSound, ownTrack, advice, noBrowserOpens, copyKind, TESTS } from './codecs.js';
 import { createLog, watchErrors, pictureWatch, report as diagReport, exposeReport } from './diagnostics.js';
 import { waveKey, loadWave, saveWave, loadSound, saveSound } from './wavestore.js';
-import { buildDialogue, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, MIN_CLASH, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue } from './dialogue.js';
+import { buildDialogue, spansOf, gapsOf, gapFrom, freeGaps, placeInGap, speechIn, MIN_CLASH, bestTrack, drawDialogue, dialogueKey, loadDialogue, saveDialogue, cleanLaneEdits, editLines, retimeLine, lineAt, MIN_LINE } from './dialogue.js';
 import { stt, initStt, openStt, transcribe, transcribeTimed, checkStt, toWav, spelled, warmStt, RATE as STT_RATE } from './stt.js';
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { startTips } from './tooltip.js';
@@ -207,7 +207,10 @@ const S = {
   waveStatus: '',
   subTracks: [],    // the video's subtitle tracks, from the worker
   heardKept: null,  // a dialogue lane speech to text made for this video, kept to pick again
-  dialogue: null,   // the dialogue lane: { lines, spans, choice, label }
+  dialogue: null,   // the dialogue lane: { base, lines, spans, choice, label, source }
+  laneEdits: {},    // the writer's edits to the lane, by source (see dialogue.js); saved in the project
+  laneSel: null,    // the selected dialogue line's key, while one is selected instead of a block
+  laneGen: 0,       // counts changes to the lane's lines, so it's drawn again
   dialStatus: '',   // and how reading it is going
   tracks: [], // audio tracks in the media file, as listed by the worker
   track: 0,
@@ -566,7 +569,7 @@ function followPlayhead(t) {
 const undoStack = [], redoStack = [];
 let lastUndoTag = null, lastUndoTime = 0;
 // Checkpoints are immutable: undo shares them rather than copying whole scripts.
-const snapshot = () => ({ data: JSON.stringify({ cues: S.cues, sel: S.sel, comments: S.comments, bookmarks: S.bookmarks, projectId: S.projectId, extendedAll: S.extendedAll, ttsOff: S.ttsOff }), reviewHistory: S.reviewHistory, reviewAudio: S.reviewAudio, authorReadings: S.reviewId ? null : S.review });
+const snapshot = () => ({ data: JSON.stringify({ cues: S.cues, sel: S.sel, comments: S.comments, bookmarks: S.bookmarks, laneEdits: S.laneEdits, projectId: S.projectId, extendedAll: S.extendedAll, ttsOff: S.ttsOff }), reviewHistory: S.reviewHistory, reviewAudio: S.reviewAudio, authorReadings: S.reviewId ? null : S.review });
 
 // `tag` coalesces repeated identical actions (e.g. holding a nudge key) into one undo step.
 function pushUndo(snap = snapshot(), tag = null) {
@@ -593,6 +596,8 @@ function restore(snap) {
   S.cues = o.cues;
   S.comments = o.comments || [];
   S.bookmarks = o.bookmarks || [];
+  S.laneEdits = o.laneEdits || {};
+  applyLaneEdits();
   S.extendedAll = o.extendedAll === true;
   setTtsOff(o.ttsOff === true);
   nextId = S.cues.reduce((m, c) => Math.max(m, c.id), 0) + 1;
@@ -615,6 +620,8 @@ function restoreLocal(snap) {
   S.reviewHistory = snap.reviewHistory;
   if (!S.reviewId) { S.reviewAudio = snap.reviewAudio || null; S.review = snap.authorReadings || null; S.qcSource = S.review ? 'package' : 'video'; syncQcPermission(); }
   S.extendedAll = o.extendedAll === true;
+  S.laneEdits = o.laneEdits || {};
+  applyLaneEdits();
   const was = new Map(o.cues.map((b) => [b.uid, b]));
   for (const c of S.cues) {
     const b = was.get(c.uid);
@@ -1000,7 +1007,7 @@ async function openShared(record, id, keep = false) {
   undoStack.length = 0; redoStack.length = 0;
   S.projectId = id;
   sharedLib.setShare(S.projectId, record);
-  S.reviewHistory = null; S.cues = []; S.comments = []; S.bookmarks = []; S.handle = null; handleStore.set(null);
+  S.reviewHistory = null; S.cues = []; S.comments = []; S.bookmarks = []; S.laneEdits = {}; applyLaneEdits(); S.handle = null; handleStore.set(null);
   clearReview(); // a QC package open here isn't the shared project's
   changed();
   select(null);
@@ -1427,6 +1434,7 @@ function save() {
       words: S.words,
       comments: S.comments,
       bookmarks: S.bookmarks,
+      laneEdits: S.laneEdits,
       extendedAll: S.extendedAll,
       ttsOff: S.ttsOff,
       reviewId: S.reviewId, qcSettings: S.qcSettings, recording: S.recording,
@@ -1443,6 +1451,7 @@ function loadSaved() {
       S.cues = (o.cues || []).map(revive);
       S.comments = cleanComments(o.comments, true);
       S.bookmarks = cleanBookmarks(o.bookmarks);
+      S.laneEdits = cleanLaneEdits(o.laneEdits);
       S.reviewId = typeof o.reviewId === 'string' ? o.reviewId : '';
       S.reviewAudio = S.reviewId ? null : cleanReviewAudio(o.reviewAudio);
       S.qcSettings = o.qcSettings && typeof o.qcSettings === 'object' ? o.qcSettings : null;
@@ -1467,6 +1476,7 @@ function loadSaved() {
 // Not for a row just clicked, which stays where it is under the pointer.
 function select(id, { seek: doSeek = true, reveal = true, toTop = true } = {}) {
   queueMicrotask(notePresence);
+  if (id != null) S.laneSel = null;
   if (S.sel !== id) {
     rowMap.get(S.sel)?.classList.remove('sel');
     rowMap.get(S.sel)?.setAttribute('aria-selected', 'false');
@@ -5303,6 +5313,7 @@ function projectData() {
     words: S.words,
     comments: S.comments,
     bookmarks: S.bookmarks,
+    dialogueEdits: S.laneEdits,
     recording: S.recording,
     media: m,
     settings: { mode: S.mode, offset: S.offset, ...reviewSettings(),
@@ -5541,6 +5552,8 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
   S.projectMedia = p.media;
   S.comments = p.comments;
   S.bookmarks = p.bookmarks;
+  S.laneEdits = p.dialogueEdits || {};
+  applyLaneEdits();
   S.notes = p.notes;
   S.scenes = p.scenes || [];
   S.words = p.words;
@@ -5915,6 +5928,8 @@ async function enterRecording(r, name, raw = null) {
   clearReview();
   S.comments = [];
   S.bookmarks = [];
+  S.laneEdits = {};
+  applyLaneEdits();
   S.notes = '';
   S.scenes = [];
   S.words = [];
@@ -6145,6 +6160,8 @@ function newProject(ask = true) {
   S.qcPreviewVoice = '';
   S.comments = [];
   S.bookmarks = [];
+  S.laneEdits = {};
+  applyLaneEdits();
   if (!$('commentsDrawer').hidden) toggleComments(false);
   S.notes = '';
   S.scenes = [];
@@ -6753,7 +6770,7 @@ let dialWorker = null, dialGen = 0;
 // wait, so that kind of read rests until the video stops. See paceWave.
 let dialScans = false, dialWaiting = false;
 let dialDrawn = '', dialGaps = [], dialGapsFor = '';
-const dialColors = () => ({ bar: C.line, text: C.text, dim: C.dim, panel: C.panel });
+const dialColors = () => ({ bar: C.line, text: C.text, dim: C.dim, panel: C.panel, accent: C.accent });
 
 function resetDialogue() {
   dialGen++;
@@ -6762,6 +6779,7 @@ function resetDialogue() {
   S.subTracks = [];
   S.heardKept = null;
   S.dialogue = null;
+  S.laneSel = null;
   S.dialStatus = '';
   delete $('dialSel').dataset.reading;
   renderDialPick();
@@ -6789,6 +6807,8 @@ function renderDialPick() {
   if (d?.choice === 'file') add('file', d.label);
   const heard = d?.choice === 'heard' ? d : S.heardKept;
   if (heard) add('heard', heardLabel(heard));
+  const edits = d && Object.keys(S.laneEdits[d.source] || {}).length;
+  if (edits) add('original', `Put back the original lines (${edits.toLocaleString('en')} changed)`);
   add('load', 'Load a subtitle file…');
   add('opensubs', 'Search OpenSubtitles…');
   if (!S.subTracks.some((t) => t.text)) add('find', 'Find dialogue with speech to text…');
@@ -6798,20 +6818,57 @@ function renderDialPick() {
   tlDirty = true;
 }
 
+// Where a lane's lines came from, to keep the writer's edits to them apart: a track of
+// the video, a subtitle file by name, or speech to text.
+function dialSource(choice, label) {
+  if (choice === 'heard') return 'heard';
+  if (choice === 'file') return `file|${label}`;
+  const i = +choice.slice(1), t = S.subTracks[i];
+  return `track|${i}|${t?.lang || ''}|${t?.name || ''}`;
+}
+
+// The lines as they came, kept in the browser; the edits are made on top, from the project.
 function useDialogue(file, entry, { keep = true } = {}) {
   const heardTo = entry.choice === 'heard' ? { heardTo: entry.heardTo ?? 0 } : {};
-  S.dialogue = { ...buildDialogue(entry.lines), choice: entry.choice, label: entry.label, ...heardTo };
-  if (entry.choice === 'heard') S.heardKept = { choice: 'heard', label: HEARD, lines: S.dialogue.lines, ...heardTo };
+  const { lines } = buildDialogue(entry.lines);
+  if (S.dialogue?.choice !== entry.choice || S.dialogue?.label !== entry.label) S.laneSel = null;
+  S.dialogue = { base: lines, lines, spans: [], choice: entry.choice, label: entry.label, source: dialSource(entry.choice, entry.label), ...heardTo };
+  if (entry.choice === 'heard') S.heardKept = { choice: 'heard', label: HEARD, lines, ...heardTo };
   S.dialStatus = '';
   delete $('dialSel').dataset.reading;
-  dialGapsFor = '';
+  applyLaneEdits();
   renderDialPick();
-  showClashes();
   if (keep) {
-    saveDialogue(dialogueKey(file), { choice: entry.choice, label: entry.label, lines: S.dialogue.lines, ...heardTo });
+    saveDialogue(dialogueKey(file), { choice: entry.choice, label: entry.label, lines, ...heardTo });
     if (entry.choice === 'heard') saveDialogue(`${dialogueKey(file)}|heard`, S.heardKept);
   }
   return S.dialogue.lines.length;
+}
+
+// The lane's lines again, after its edits change. live: while dragging, which leaves the
+// warnings on blocks until the drag ends.
+function applyLaneEdits({ live = false } = {}) {
+  S.laneGen++;
+  const d = S.dialogue;
+  if (!d) { S.laneSel = null; return; }
+  d.lines = editLines(d.base, S.laneEdits[d.source]);
+  d.spans = spansOf(d.lines);
+  if (S.laneSel && !d.lines.some((l) => l.k === S.laneSel)) S.laneSel = null;
+  dialGapsFor = '';
+  tlDirty = true;
+  if (!live) showClashes();
+}
+
+// After an edit to the lane: it's part of the project, so it needs saving.
+function laneChanged() {
+  applyLaneEdits();
+  S.lastChange = Date.now();
+  S.changeGen = (S.changeGen || 0) + 1;
+  if (!S.dirty) { S.dirty = true; showDocName(); }
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(save, 400);
+  scheduleAutosave();
+  renderDialPick();
 }
 
 function offDialogue(file) {
@@ -6819,6 +6876,7 @@ function offDialogue(file) {
   dialWorker?.terminate();
   dialWorker = null;
   S.dialogue = null;
+  S.laneSel = null;
   S.dialStatus = '';
   delete $('dialSel').dataset.reading;
   renderDialPick();
@@ -6845,6 +6903,7 @@ function readSubTrack(file, i) {
   const gen = ++dialGen, t = S.subTracks[i], sel = $('dialSel');
   dialScans = t.scan;
   S.dialogue = null;
+  S.laneSel = null;
   S.dialStatus = 'Reading subtitles 0%';
   sel.dataset.reading = `t${i}`;
   renderDialPick();
@@ -6917,6 +6976,7 @@ $('dialSel').addEventListener('change', (e) => {
   else if (v === 'load') { renderDialPick(); loadDialogueFile(); }
   else if (v === 'find') { renderDialPick(); openFindDialogue(); }
   else if (v === 'opensubs') { renderDialPick(); openOpenSubs(); }
+  else if (v === 'original') { renderDialPick(); putBackLines(); }
   else if (v === 'heard' && S.heardKept) {
     dialGen++;
     dialWorker?.terminate();
@@ -6936,11 +6996,11 @@ const currentGaps = () => {
 
 function drawDialogueLane() {
   if (dialTrack.hidden) return;
-  const [w, h] = box(dialWave), drawn = `${S.view}|${S.pps}|${w}|${h}|${S.dialStatus}|${dialWaiting}|${duration()}`;
+  const [w, h] = box(dialWave), drawn = `${S.view}|${S.pps}|${w}|${h}|${S.dialStatus}|${dialWaiting}|${duration()}|${S.laneGen}|${S.laneSel}`;
   if (drawn === dialDrawn) return;
   dialDrawn = drawn;
   const [g, W, H] = fitCanvas(dialWave);
-  drawDialogue(g, W, H, S.view, S.pps, S.dialogue, currentGaps(), dialColors());
+  drawDialogue(g, W, H, S.view, S.pps, S.dialogue, currentGaps(), dialColors(), laneLine());
   if (S.dialStatus) {
     g.fillStyle = C.dim;
     g.font = '11px ui-monospace, Menlo, monospace';
@@ -6949,11 +7009,124 @@ function drawDialogueLane() {
   }
 }
 
+// ---------------------------------------------------------------- editing the lane
+//
+// A line clicked on the lane is selected in place of a block: the timing keys and Delete
+// work on it, and its ends can be dragged. Edits are kept in the project (see dialogue.js).
+
+const laneEditable = () => !!S.dialogue && S.mode !== 'record' && !qcLocked();
+const laneLine = () => (S.laneSel && S.dialogue?.lines.find((l) => l.k === S.laneSel)) || null;
+
+function selectLine(l) {
+  if (l && S.sel != null) {
+    if (edOpen) closeEditor(true);
+    select(null, { seek: false, reveal: false });
+  }
+  S.laneSel = l?.k || null;
+  tlDirty = true;
+}
+
+// One edit to the selected line. tag: as for pushUndo, so a held key is one step.
+function editLine(l, change, tag = null) {
+  pushUndo(undefined, tag);
+  (S.laneEdits[S.dialogue.source] ||= {})[l.k] = change;
+  laneChanged();
+}
+
+function lineEdge(which) {
+  const l = laneLine(), t = now();
+  if (which === 'start' && t > l.end - MIN_LINE) return toast('The playhead is after this dialogue line’s end');
+  if (which === 'end' && t < l.start + MIN_LINE) return toast('The playhead is before this dialogue line’s start');
+  editLine(l, retimeLine(l, which, t, duration()));
+}
+
+function nudgeLine(which, d) {
+  const l = laneLine();
+  editLine(l, retimeLine(l, which, (which === 'end' ? l.end : l.start) + d, duration()), `lane-${which}-${l.k}`);
+  const m = laneLine();
+  if (m) revealRange(m.start, m.end);
+}
+
+// Takes the selected line out, and selects the next, so a run of lyrics goes quickly.
+function cutLine() {
+  const l = laneLine(), lines = S.dialogue.lines, next = lines[lines.indexOf(l) + 1] || null;
+  editLine(l, { cut: true });
+  S.laneSel = next?.k || null;
+  tlDirty = true;
+  toast('Dialogue line removed. Ctrl/Cmd+Z brings it back');
+}
+
+function putBackLines() {
+  const d = S.dialogue, n = Object.keys(S.laneEdits[d?.source] || {}).length;
+  if (!n) return;
+  pushUndo();
+  delete S.laneEdits[d.source];
+  laneChanged();
+  toast(`${n.toLocaleString('en')} dialogue line${n === 1 ? '' : 's'} put back as ${n === 1 ? 'it was' : 'they were'}. Ctrl/Cmd+Z undoes it`);
+}
+
+// With a dialogue line selected, the keys for a block's timing work on the line.
+const orLine = (block, line) => () => (laneEditable() && laneLine() ? line() : block());
+
+// The end of a line within reach of the pointer, to drag: the selected line's at any zoom,
+// any line's once lines are drawn apart. { l, which } or null.
+const GRIP = 6;
+function lineEdgeAt(x) {
+  if (!laneEditable()) return null;
+  const t = xToT(x), reach = GRIP / S.pps, d = S.dialogue;
+  const near = [laneLine(), ...(S.pps >= 12 ? [lineAt(d.lines, t), lineAt(d.lines, t - reach), lineAt(d.lines, t + reach)] : [])];
+  let best = null;
+  for (const l of near) {
+    if (!l) continue;
+    for (const which of ['start', 'end']) {
+      const off = Math.abs(t - l[which]);
+      if (off <= reach && (!best || off < best.off)) best = { l, which, off };
+    }
+  }
+  return best;
+}
+
+let laneDrag = null;
 dialTrack.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
   S.playUntil = null;
-  seek(xToT(e.clientX));
+  const hit = lineEdgeAt(e.clientX);
+  if (hit) {
+    selectLine(hit.l);
+    laneDrag = { l: hit.l, which: hit.which, x0: e.clientX, from: hit.l[hit.which], snap: snapshot(), moved: false };
+    dialTrack.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    return;
+  }
+  const t = xToT(e.clientX);
+  if (laneEditable()) selectLine(lineAt(S.dialogue.lines, t));
+  seek(t);
 });
+dialTrack.addEventListener('pointermove', (e) => {
+  if (!laneDrag) { dialTrack.classList.toggle('grip', !!lineEdgeAt(e.clientX)); return; }
+  const dx = e.clientX - laneDrag.x0;
+  if (!laneDrag.moved && Math.abs(dx) < 3) return;
+  if (!laneDrag.moved) { laneDrag.moved = true; document.body.classList.add('dragging', 'resize'); }
+  const { l, which } = laneDrag, times = retimeLine(l, which, laneDrag.from + dx / S.pps, duration());
+  (S.laneEdits[S.dialogue.source] ||= {})[l.k] = times;
+  applyLaneEdits({ live: true });
+  dragtip.hidden = false;
+  dragtip.textContent = `${tc(times.start)} → ${tc(times.end)}  ·  ${(times.end - times.start).toFixed(2)} s`;
+  dragtip.style.left = clamp(e.clientX - lane.getBoundingClientRect().left + 12, 0, lane.clientWidth - dragtip.offsetWidth - 4) + 'px';
+});
+function endLaneDrag() {
+  const d = laneDrag;
+  if (!d) return;
+  laneDrag = null;
+  dragtip.hidden = true;
+  document.body.classList.remove('dragging', 'resize');
+  if (!d.moved) { seek(d.from); return; }
+  pushUndo(d.snap);
+  laneChanged();
+}
+dialTrack.addEventListener('pointerup', endLaneDrag);
+dialTrack.addEventListener('pointercancel', endLaneDrag);
+dialTrack.addEventListener('pointerleave', () => { if (!laneDrag) dialTrack.classList.remove('grip'); });
 dialTrack.addEventListener('dblclick', (e) => {
   if (S.mode !== 'record') gapBlock(xToT(e.clientX), true);
 });
@@ -7995,6 +8168,7 @@ document.addEventListener('keydown', (e) => {
     closeMenus();
     // An open block closes, even when its text box isn't focused.
     if (edOpen) { closeEditor(true); return; }
+    if (S.laneSel) { S.laneSel = null; tlDirty = true; return; }
     S.playUntil = null;
     leadRead = null;
     document.activeElement?.blur();
@@ -8070,8 +8244,8 @@ const RUN = {
   overNext: () => jumpClash(1),
   videoStart: () => { S.playUntil = null; seek(0); },
   videoEnd: () => { S.playUntil = null; seek(duration()); },
-  toStart: () => gotoSel(false),
-  toEnd: () => gotoSel(true),
+  toStart: orLine(() => gotoSel(false), () => { S.playUntil = null; seek(laneLine().start); }),
+  toEnd: orLine(() => gotoSel(true), () => { S.playUntil = null; seek(laneLine().end); }),
   jumpTime: () => openPalette('time'),
   quickNav: () => openPalette('nav'),
   createEdit: () => createOrEdit(),
@@ -8084,22 +8258,22 @@ const RUN = {
   selectAtPlayhead: () => selectAtPlayhead(),
   split: () => split(),
   merge: () => merge(),
-  deleteNow: () => del(),
-  deleteAsk: () => confirmDelete(),
-  setStart: () => setEdge('start'),
-  setEnd: () => setEdge('end'),
-  startBack: () => nudge('start', -0.1),
-  startFwd: () => nudge('start', 0.1),
-  endBack: () => nudge('end', -0.1),
-  endFwd: () => nudge('end', 0.1),
-  moveBack: () => nudge('move', -0.1),
-  moveFwd: () => nudge('move', 0.1),
-  startBack10: () => nudge('start', -0.01),
-  startFwd10: () => nudge('start', 0.01),
-  endBack10: () => nudge('end', -0.01),
-  endFwd10: () => nudge('end', 0.01),
-  moveBack10: () => nudge('move', -0.01),
-  moveFwd10: () => nudge('move', 0.01),
+  deleteNow: orLine(() => del(), cutLine),
+  deleteAsk: orLine(() => confirmDelete(), cutLine),
+  setStart: orLine(() => setEdge('start'), () => lineEdge('start')),
+  setEnd: orLine(() => setEdge('end'), () => lineEdge('end')),
+  startBack: orLine(() => nudge('start', -0.1), () => nudgeLine('start', -0.1)),
+  startFwd: orLine(() => nudge('start', 0.1), () => nudgeLine('start', 0.1)),
+  endBack: orLine(() => nudge('end', -0.1), () => nudgeLine('end', -0.1)),
+  endFwd: orLine(() => nudge('end', 0.1), () => nudgeLine('end', 0.1)),
+  moveBack: orLine(() => nudge('move', -0.1), () => nudgeLine('move', -0.1)),
+  moveFwd: orLine(() => nudge('move', 0.1), () => nudgeLine('move', 0.1)),
+  startBack10: orLine(() => nudge('start', -0.01), () => nudgeLine('start', -0.01)),
+  startFwd10: orLine(() => nudge('start', 0.01), () => nudgeLine('start', 0.01)),
+  endBack10: orLine(() => nudge('end', -0.01), () => nudgeLine('end', -0.01)),
+  endFwd10: orLine(() => nudge('end', 0.01), () => nudgeLine('end', 0.01)),
+  moveBack10: orLine(() => nudge('move', -0.01), () => nudgeLine('move', -0.01)),
+  moveFwd10: orLine(() => nudge('move', 0.01), () => nudgeLine('move', 0.01)),
   // The key that starts a hold ends it when it's let go, whichever key that is.
   hold: (e) => { if (!e.repeat) { holdKey = e.code; holdStart(); } },
   offset: () => cycleOffset(),
