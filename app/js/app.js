@@ -31,6 +31,7 @@ import { readZip } from './zip.js';
 import { initRecord } from './record.js';
 import { takesInfo, takeGroups, deleteTakesOf, unpackSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser } from './takestore.js';
 import { isSessionPackage, fromSession, SESSION_FILE } from './session.js';
+import { KINDS, kindOf, kindLabel, addRecent, filterRecents, whenText } from './recents.js';
 import { picker, refused, videoOut } from './pickers.js';
 import { canMux } from './muxplan.js';
 import { browserName, noticeItems, needsNotice, noticeTitle, isMobile, readProblem } from './browser.js';
@@ -4981,6 +4982,115 @@ async function openVideoPicker() {
   }
 }
 
+// ---- Recents
+//
+// Project files opened or saved lately, newest first, with the browser's link to each, so a
+// click opens one again (Chrome and Edge only; elsewhere the File menu has no Recents).
+// Taking one off the list leaves the file alone.
+const RECENTS_OK = typeof window.showOpenFilePicker === 'function' && 'FileSystemFileHandle' in window;
+$('recentsItem').hidden = !RECENTS_OK;
+let recentsQueue = Promise.resolve();
+const recentsList = async () => (await handleStore.get('recents')) || [];
+const changeRecents = (fn) => (recentsQueue = recentsQueue.then(async () => {
+  await handleStore.set(await fn(await recentsList()), 'recents');
+}).catch(() => {}));
+function noteRecent(h, name = h?.name) {
+  if (!RECENTS_OK || h?.kind !== 'file' || !name) return;
+  changeRecents(async (list) => {
+    const dup = new Set(await Promise.all(list.map(async (e) => ((await e.handle?.isSameEntry?.(h).catch(() => false)) ? e : null))));
+    return addRecent(list, { handle: h, name, kind: kindOf(name), at: Date.now() }, (e) => dup.has(e));
+  });
+}
+
+const recentsDlg = $('recentsDlg'), recentsFind = $('recentsFind');
+let recents = [], recentsKind = 'all';
+async function openRecents() {
+  if (!RECENTS_OK) return toast('Recents needs Chrome or Edge. Open… opens any file');
+  closeMenus();
+  await recentsQueue;
+  recents = await recentsList();
+  recentsFind.value = '';
+  recentsKind = 'all';
+  renderRecents();
+  recentsDlg.showModal();
+  recentsFind.focus();
+}
+function renderRecents() {
+  // A button for each kind in the list, after All, once there's more than one kind.
+  const kinds = KINDS.filter(([k]) => recents.some((e) => e.kind === k));
+  if (!kinds.some(([k]) => k === recentsKind)) recentsKind = 'all';
+  const group = $('recentsKinds');
+  group.hidden = kinds.length < 2;
+  group.replaceChildren(...[['all', 'All', 'All'], ...kinds].map(([k, , many]) => {
+    const b = document.createElement('button');
+    b.textContent = many;
+    b.setAttribute('aria-pressed', String(k === recentsKind));
+    b.addEventListener('click', () => { recentsKind = k; renderRecents(); });
+    return b;
+  }));
+  const shown = filterRecents(recents, { text: recentsFind.value, kind: recentsKind });
+  $('recentsList').replaceChildren(...shown.map((e) => {
+    const row = document.createElement('div');
+    row.className = 'recentrow';
+    const b = document.createElement('button');
+    b.className = 'wzcard wzchoice sharedrow';
+    const body = document.createElement('span');
+    const name = document.createElement('strong');
+    name.textContent = e.name;
+    const facts = document.createElement('span');
+    facts.className = 'dim small sharedfacts';
+    facts.textContent = `${kindLabel(e.kind)} · ${whenText(e.at)}`;
+    body.append(name, facts);
+    b.append(body);
+    b.setAttribute('aria-label', `${e.name}. ${facts.textContent}`);
+    b.addEventListener('click', () => openRecent(e));
+    const del = document.createElement('button');
+    del.className = 'recentdel';
+    del.textContent = '×';
+    del.setAttribute('aria-label', `Remove ${e.name} from Recents`);
+    del.dataset.tip = 'Remove from Recents. The file stays where it is';
+    del.addEventListener('click', () => removeRecents([e]));
+    row.append(b, del);
+    return row;
+  }));
+  const empty = $('recentsEmpty');
+  empty.hidden = shown.length > 0;
+  empty.textContent = recents.length ? 'Nothing here matches.' : 'Nothing yet. Projects, QC packages, recording files and session packages you open or save show here.';
+  $('recentsClear').hidden = !recents.length;
+}
+async function removeRecents(gone) {
+  const focusFind = gone.length > 1 || !recentsDlg.contains(document.activeElement) || document.activeElement.classList.contains('recentdel');
+  recents = recents.filter((e) => !gone.includes(e));
+  renderRecents();
+  if (focusFind) recentsFind.focus();
+  await changeRecents((list) => list.filter((e) => !gone.some((g) => g.at === e.at && g.name === e.name)));
+}
+async function openRecent(e) {
+  const h = e.handle;
+  try {
+    let p = await h.queryPermission({ mode: 'read' }).catch(() => 'prompt');
+    if (p !== 'granted') p = await h.requestPermission({ mode: 'read' }).catch(() => 'denied');
+    if (p !== 'granted') return toast(`Scribecue can’t open ${e.name} without your permission`);
+    const file = await h.getFile();
+    recentsDlg.close();
+    openProject(file, h);
+  } catch (err) {
+    toast(`Couldn’t open ${e.name}${err.name === 'NotFoundError' ? ': it has been moved or deleted. × takes it off Recents' : `: ${err.message}`}`);
+  }
+}
+recentsFind.addEventListener('input', renderRecents);
+$('recentsClear').addEventListener('click', () => {
+  if (confirm('Clear every file from Recents? The files themselves stay where they are.')) removeRecents([...recents]);
+});
+$('recentsClose').addEventListener('click', () => recentsDlg.close());
+recentsDlg.addEventListener('click', (e) => { if (e.target === recentsDlg) recentsDlg.close(); });
+// The app's own keys stay off while it's open. Enter in the search opens the first file shown.
+document.addEventListener('keydown', (e) => {
+  if (!recentsDlg.open) return;
+  e.stopPropagation();
+  if (e.key === 'Enter' && e.target === recentsFind) { e.preventDefault(); $('recentsList').querySelector('.sharedrow')?.click(); }
+}, true);
+
 const isDoc = (name) => isReview(name) || name.toLowerCase().endsWith(PROJECT_EXT) || isRecordingFile(name) || isSessionPackage(name);
 
 function readingSettings() {
@@ -5066,6 +5176,7 @@ async function saveProject(as = false) {
     await writeFile(h, text);
     S.handle = h;
     handleStore.set(h);
+    noteRecent(h);
     Object.assign(AUTO, { permission: 'granted', error: '' });
     projectSaved(h.name);
     toast(`Saved ${h.name}`);
@@ -5162,12 +5273,14 @@ function okToReplace(what) {
 }
 
 async function openProject(file, handle = null, confirmed = false, expectedGeneration = null, attachedAudio = null) {
+  if (isRecordingFile(file.name) || isSessionPackage(file.name)) noteRecent(handle, file.name);
   if (isRecordingFile(file.name)) return openRecording(file);
   if (isSessionPackage(file.name)) return openSessionPackage(file);
   let p, review = null;
   if (isReview(file.name)) toast('Opening QC package…');
   try { if (isReview(file.name)) { review = await openReview(file); p = review.parsed; } else p = fromProject(JSON.parse(await file.text())); }
   catch (e) { return toast(`Couldn’t open ${file.name}: ${e instanceof SyntaxError ? 'the file is damaged' : e.message}`); }
+  noteRecent(handle, file.name);
   // A saved copy of a shared project kept here: its script may be older than the shared
   // one, and would replace everyone's changes. The shared project opens as it is now, or
   // the file opens on its own, as a project that isn't shared.
@@ -7193,7 +7306,8 @@ window.addEventListener('drop', (e) => {
   const files = [...e.dataTransfer.files];
   openFiles(files);
   Promise.all(links).then((hs) => hs.forEach((h, i) => {
-    if (files[i] && !SCRIPT.test(files[i].name) && !isDoc(files[i].name)) rememberVideo(h, files[i]);
+    if (files[i] && isDoc(files[i].name)) noteRecent(h, files[i].name);
+    else if (files[i] && !SCRIPT.test(files[i].name)) rememberVideo(h, files[i]);
   })).catch(() => {});
 });
 
@@ -7237,6 +7351,7 @@ const actions = {
   exportPickups: () => recorder.exportWav(true),
   exportSession: () => recorder.exportSession(),
   exportDialog: () => openExport(),
+  recents: () => openRecents(),
   fileMenu: () => toggleMenu($('fileMenu')),
   saveProjectAs: () => saveProject(true),
   help: () => toggleHelp(),
@@ -7793,6 +7908,7 @@ const RUN = {
   help: () => toggleHelp(),
   settings: () => showGeneral(),
   exportDialog: () => openExport(),
+  recents: () => openRecents(),
   zoomIn: () => zoom(1.5),
   zoomOut: () => zoom(1 / 1.5),
   zoomFit: () => fitAll(),

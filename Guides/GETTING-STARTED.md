@@ -220,8 +220,12 @@ programme. `Ctrl/Cmd+O` opens it again.
   has moved, open it again with `Ctrl/Cmd+Shift+O`.
 - **File, New** either clears the blocks and keeps the video, or starts a whole new
   project. `Ctrl/Cmd+Z` brings the blocks back.
+- **File, Recents** (`Alt+Shift+R`) lists the last 20 projects, QC packages, recording
+  files and session packages you opened or saved. Search by name, or show one kind.
+- **Take a file off Recents** with its **×**, or click **Clear all**. The files themselves
+  stay where they are.
 
-Saving to the file, autosave and reopening the video need Chrome or Edge. Other browsers
+Saving to the file, autosave, Recents and reopening the video need Chrome or Edge. Other browsers
 download a copy each time you save, and you open the video yourself.
 
 ## Comments

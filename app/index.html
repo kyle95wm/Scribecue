@@ -53,6 +53,7 @@
         <div class="navmenu filemenu" id="fileMenu" role="menu" aria-labelledby="fileBtn" hidden>
           <button role="menuitem" data-act="newProject"><span><strong>New…</strong><span class="dim">clear the blocks and keep the video, or start a new project</span></span></button>
           <button role="menuitem" data-act="openSubs"><span><strong>Open…</strong><span class="dim">a project, a script (SRT or VTT), or video or audio</span></span><kbd><span class="mod"></span>O</kbd></button>
+          <button role="menuitem" data-act="recents" id="recentsItem"><span><strong>Recents…</strong><span class="dim">projects, packages and recording files opened or saved lately</span></span><span data-keys="recents"><kbd>⌥⇧R</kbd></span></button>
           <button role="menuitem" data-act="sharedProjects" id="sharedBtn" class="not-record" hidden><span><strong>Shared projects…</strong><span class="dim">open one kept in this browser again, without its link</span></span></button>
           <button role="menuitem" data-act="saveProject"><span><strong>Save</strong><span class="dim">blocks, settings and where you were</span></span><kbd><span class="mod"></span>S</kbd></button>
           <button role="menuitem" data-act="saveProjectAs"><span><strong>Save as…</strong><span class="dim">the project as a new file</span></span><kbd><span class="mod"></span>⇧S</kbd></button>
@@ -865,6 +866,15 @@ docker compose up -d --build</code></pre>
     <div id="sharedList" class="sharedlist"></div>
     <p id="sharedEmpty" class="dim small" hidden>No shared projects in this browser. Open a link someone sent you, or share a project of yours.</p>
     <div class="updbtns"><button id="sharedClose">Close</button></div>
+  </dialog>
+  <dialog id="recentsDlg" class="updbox recentsdlg" aria-labelledby="recentsTitle">
+    <h2 id="recentsTitle">Recents</h2>
+    <p class="dim small">Files you’ve opened or saved in this browser lately. Choose one to open it again. Removing one only takes it off this list: the file stays where it is.</p>
+    <input id="recentsFind" type="search" placeholder="Search by name" spellcheck="false" autocomplete="off" aria-label="Search recents">
+    <div id="recentsKinds" class="recentkinds" role="group" aria-label="Show"></div>
+    <div id="recentsList" class="sharedlist recentslist"></div>
+    <p id="recentsEmpty" class="dim small" hidden></p>
+    <div class="updbtns"><button id="recentsClear">Clear all</button><button id="recentsClose">Close</button></div>
   </dialog>
   <dialog id="noticeDlg" class="updbox" aria-labelledby="noticeTitle" aria-describedby="noticeText">
     <h2 id="noticeTitle"></h2>
@@ -1768,6 +1778,7 @@ docker compose up -d --build</code></pre>
           <dl>
             <dt><kbd><span class="mod"></span>O</kbd> <kbd><span class="mod"></span>⇧O</kbd></dt><dd>Open a project or SRT/VTT · open video/audio</dd>
             <dt class="save-key"><kbd><span class="mod"></span>S</kbd> <kbd><span class="mod"></span>⇧S</kbd></dt><dd class="save-key">Save project · save project as</dd>
+            <dt data-keys="recents"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>R</kbd></dt><dd>Recents: files opened or saved lately</dd>
             <dt class="export-key" data-keys="exportDialog"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>E</kbd></dt><dd class="export-key">Export…</dd>
             <dt class="export-key"><kbd><span class="mod"></span>E</kbd> <kbd><span class="mod"></span>⇧E</kbd></dt><dd class="export-key">Export SRT · export VTT</dd>
           </dl>
