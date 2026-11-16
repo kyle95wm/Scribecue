@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.132.0",
+    "date": "2026-11-16",
+    "notes": "## Fix the dialogue lane\n\n- Click a line on the dialogue lane to select it. Press `Del` to take it out, such as song lyrics that weren't marked.\n- Drag a line's ends to trim it to where the words start and stop. `A`, `S`, `Q`, `W`, `E` and `R` work on it too.\n- Double-click a line, or press `Enter`, to correct its words.\n- The gaps, `D` and the over-dialogue warnings follow your changes.\n- Changes are saved in the project. **Dialogue → Put back the original lines** undoes them.\n\n## Saving new projects\n\n- With Google Drive connected, a new project's first save asks for a name, and whether to save it on this computer or in Google Drive.\n- Tick **Always save new projects there** to skip the question. Change it in Settings → Google Drive → **Save new projects**."
+  },
+  {
     "version": "0.131.0",
     "date": "2026-11-16",
     "notes": "## Text over the video\n\n- A new button after Loop, under the video, hides the block's text over the picture. Click it again to bring the text back.\n- `Shift+C` does the same, in every mode.\n- Scribecue remembers your choice in this browser.\n- Exports with burnt-in text aren't affected."
