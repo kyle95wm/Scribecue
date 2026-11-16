@@ -212,8 +212,8 @@ export function sceneContext(scenes, t) {
 export function summaryPrompt(scene, lines, story, frameTimes, clockOf) {
   const said = lines.filter((l) => l.end > scene.start && l.start < scene.end).map((l) => `  ${clockOf(l.start)} "${l.text}"`);
   return [
-    `Summarise this part of the programme, from ${clockOf(scene.start)} to ${clockOf(scene.end)}, for the writer drafting its audio description.`,
-    story ? `The story so far, for context only: ${story}` : 'This is the start of the programme.',
+    `Sum up this part of the video, from ${clockOf(scene.start)} to ${clockOf(scene.end)}, for the writer drafting its audio description.`,
+    story ? `The story so far, for context only: ${story}` : 'This is the start of the video.',
     said.length ? `What's said, from the subtitles:\n${said.join('\n')}` : 'There are no subtitles here.',
     frameTimes.length ? `The stills are from ${frameTimes.map(clockOf).join(', ')}.` : '',
     'In 2 to 4 plain sentences: who is there, using the names the notes or dialogue give; where they are; what happens; and what has changed since before. Only this part: don’t retell the story so far. Only what the stills and dialogue show. Reply with only the summary.',

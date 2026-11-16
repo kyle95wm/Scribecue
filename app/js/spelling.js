@@ -38,8 +38,17 @@ export function britishSpelling(text) {
     .replace(WORD, (w) => cased(w, WORDS[w.toLowerCase()]));
 }
 
-// Which spelling suits someone, from their browser's language: British and Canadian
-// spelling for English outside the US and its neighbours that follow it.
-export function defaultSpelling(lang = 'en-US') {
-  return /^en-(GB|IE|AU|NZ|ZA|CA|IN|SG|HK|MT)\b/i.test(lang) ? 'uk' : 'us';
-}
+// One setting chooses the English: Settings, Editing, Spelling ('en-us', 'en-gb' or
+// 'en-ca'). The spelling check uses it as its dictionary, speech to text for its spelling,
+// and AI help for how it writes.
+
+// Speech to text changes Whisper's American spelling for British and Canadian.
+export const britishFor = (language) => language === 'en-gb' || language === 'en-ca';
+
+// What AI help is told, so it doesn't drift into another English.
+const ENGLISH = {
+  'en-us': 'Use American English: American spelling and words, such as color, gray, sidewalk and apartment.',
+  'en-gb': 'Use British English: British spelling and words, such as colour, grey, pavement and flat.',
+  'en-ca': 'Use Canadian English: Canadian spelling, such as colour, grey, centre and realize, and North American words, such as sidewalk and apartment.',
+};
+export const englishFor = (language) => ENGLISH[language] || ENGLISH['en-us'];

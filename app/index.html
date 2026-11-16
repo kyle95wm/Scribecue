@@ -1010,7 +1010,7 @@ docker compose up -d --build</code></pre>
       <label for="aiNotes" class="small"><strong>Project notes</strong>: what the AI can't see in the frames.
         It reads them with every draft and message, and they're saved with the project.</label>
       <textarea id="aiNotes" rows="6" spellcheck="true"
-        placeholder="Mara: woman in her 40s, short grey hair, red coat. Her son Theo, about 10.&#10;Set in a hospital in Leeds, winter.&#10;Name characters once they've been introduced. British spelling."></textarea>
+        placeholder="Mara: woman in her 40s, short grey hair, red coat. Her son Theo, about 10.&#10;Set in a hospital in Leeds, winter.&#10;Name characters once they've been introduced."></textarea>
       <p class="dim small">Useful: who's who and how to tell them apart, places, the period, and your
         team's style. These go to your AI provider with the frames.
         <button id="aiNotesGeneral" class="link">Notes for every project</button> are in Settings.</p>
@@ -1467,13 +1467,7 @@ docker compose up -d --build</code></pre>
     <label class="updopt"><input type="checkbox" id="sttOn"> Fill in blocks as I mark them</label>
     <p class="dim small">When you let go of <kbd>H</kbd>, the block's text appears after a moment.
       If you start typing first, Whisper leaves the block to you.</p>
-    <div class="ttsgrid">
-      <label for="sttSpelling">Spelling</label>
-      <select id="sttSpelling">
-        <option value="us">American (color, gray, center)</option>
-        <option value="uk">British and Canadian (colour, grey, centre)</option>
-      </select>
-    </div>
+    <p class="dim small">Whisper spells as chosen under <button id="sttSpellingLink" class="link">Spelling</button>, in Editing.</p>
     <h3>Transcribe empty blocks</h3>
     <p class="small">Fill in every block that has no text yet, such as blocks drawn on the timeline or
       marked with this off. <kbd><span class="mod"></span>Z</kbd> undoes it.</p>
@@ -1575,6 +1569,8 @@ docker compose up -d --build</code></pre>
         <select id="setCheckLang"><option value="en-us">American</option><option value="en-gb">British</option><option value="en-ca">Canadian</option></select></p>
       <p class="dim small">When on, exporting a script or its audio first lists anything that looks wrong. You can still export.
         Turn it off for scripts that aren't in English.</p>
+      <p class="dim small">Speech to text and AI help spell this way too. AI help also uses that country's words,
+        such as sidewalk or pavement.</p>
       <div class="setrec record-only">
       <h3>Recording</h3>
       <p class="updstatus"><button id="setReturn" aria-pressed="false">Return to start</button></p>
@@ -1623,7 +1619,7 @@ docker compose up -d --build</code></pre>
       <label for="setAiNotesText" class="small">What AI help should always know, such as your team's style and what
         to leave out. They go with each project's own notes to every draft, message and grammar check.</label>
       <textarea id="setAiNotesText" rows="5" spellcheck="true"
-        placeholder="Don't describe opening or closing credits, logos or title cards.&#10;Do read a caption or sign that matters to the story.&#10;British spelling."></textarea>
+        placeholder="Don't describe opening or closing credits, logos or title cards.&#10;Do read a caption or sign that matters to the story."></textarea>
       <p class="dim small">Kept on this computer. Where they disagree with a project's notes, the project's notes win.</p>
     </div>
     <div id="setTmdb" hidden>

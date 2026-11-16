@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { britishSpelling as uk, defaultSpelling } from '../app/js/spelling.js';
+import { britishSpelling as uk, britishFor, englishFor } from '../app/js/spelling.js';
 
 test('swaps American spellings for British and Canadian ones', () => {
   assert.equal(uk('Margaret squints at the gray sky over the harbor.'), 'Margaret squints at the grey sky over the harbour.');
@@ -24,11 +24,12 @@ test('leaves words whose British spelling is the same, or depends on the meaning
   ]) assert.equal(uk(s), s);
 });
 
-test('picks the spelling from the browser’s language', () => {
-  assert.equal(defaultSpelling('en-US'), 'us');
-  assert.equal(defaultSpelling('en-GB'), 'uk');
-  assert.equal(defaultSpelling('en-CA'), 'uk');
-  assert.equal(defaultSpelling('en-AU'), 'uk');
-  assert.equal(defaultSpelling('fr-CA'), 'us');
-  assert.equal(defaultSpelling('en'), 'us');
+test('one Spelling setting chooses speech to text’s spelling and AI help’s English', () => {
+  assert.equal(britishFor('en-us'), false);
+  assert.equal(britishFor('en-gb'), true);
+  assert.equal(britishFor('en-ca'), true);
+  assert.match(englishFor('en-us'), /American English.*color.*sidewalk/);
+  assert.match(englishFor('en-gb'), /British English.*colour.*pavement/);
+  assert.match(englishFor('en-ca'), /Canadian English.*colour.*realize.*sidewalk/);
+  assert.equal(englishFor('fr'), englishFor('en-us'));
 });

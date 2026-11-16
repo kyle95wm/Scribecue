@@ -18,7 +18,7 @@ import { initAi, toggleAi, aiNotesChanged, openAiSettings, openDraftScript, open
 import { LABEL as HEARD, PART_LOCAL, PART_ONLINE, PART_WEB, partsOf, linesFrom, keepIn, openaiCost, span, timeLeft, openaiRequest, openaiHeard } from './heardlane.js';
 import { failure } from './ai.js';
 import { cleanScenes, splitRecap, withRecap, plainRecap } from './aiscript.js';
-import { initCheck, openCheck, checkFirst } from './proofdialog.js';
+import { initCheck, openCheck, checkFirst, spellingLanguage } from './proofdialog.js';
 import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelcomed } from './welcome.js';
 import { collaborationJob, retainHistory, makesFiles } from './collaboration.js';
 import { initReviewCompare, openReviewCompare, finishReview } from './qcreviewdrawer.js';
@@ -4814,6 +4814,7 @@ async function transcribeSelected() {
 }
 
 initStt({
+  language: spellingLanguage,
   toast: (m) => toast(m),
   cues: () => S.cues,
   changed: () => updateInd(),
@@ -7365,6 +7366,7 @@ tl.addEventListener('contextmenu', (e) => {
 
 // AI help: the drawer asks the editor for the script and puts drafts into blocks.
 initAi({
+  language: spellingLanguage,
   cues: () => S.cues,
   dialogueLines: () => S.dialogue?.lines || [],
   // The stretches no dialogue or block covers, or null without a dialogue lane.
