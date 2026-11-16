@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.129.0",
+    "date": "2026-11-16",
+    "notes": "## Google Drive\n\n- Connect Google Drive in Settings → **Google Drive** to keep your settings the same in every browser you use, on any computer.\n- Settings sync by themselves. Changes from another browser are used when Scribecue opens again, or straight away with **Reload now**.\n- API keys only sync if you turn on **Sync API keys**.\n- **File → Save to Google Drive** (`Alt+Shift+U`) keeps a project in a Scribecue folder in your Drive. Saving and autosave go there, in any browser.\n- **File → Open from Google Drive…** (`Alt+Shift+G`) opens it on any computer. Bring the video yourself.\n- If the project changed on another computer, Scribecue saves yours beside it as \"Name (2)\", rather than over it.\n\n## The File menu\n\n- **Export…** (`Alt+Shift+E`) is now in the File menu. It opens a window with every export, grouped by who it's for.\n- **Recents…** (`Alt+Shift+R`) lists the projects and packages you opened or saved lately, in Chrome and Edge.\n\n## AI help\n\n- Drafts, chat, scene summaries and the AI check follow common audio description practice: what to describe first, no guessing who people are, names only once the story gives them, and room for dialogue.\n- **Check grammar with AI** is now **Check with AI**, as it flags breaks of style too."
+  },
+  {
     "version": "0.128.0",
     "date": "2026-11-15",
     "notes": "## Subtitles from OpenSubtitles\n\n- No subtitles in your video? Pick **Search OpenSubtitles…** in **Dialogue**, under the video, or press `Alt+Shift+O`.\n- The title, season and episode are filled in from the file name. Click **Search**, then **Use**.\n- Subtitles marked **Fits this file** were timed for your exact file. Check others against the sound.\n- It needs your own free OpenSubtitles key. Add it in the window, or in Settings → **AI help**.\n- You get a few downloads a day. Sign in to your OpenSubtitles account in Settings for more. Your password isn't kept."
