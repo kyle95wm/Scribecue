@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Scribecue</title>
   <!-- The same policy nginx sends, here too for the web version, which has no nginx. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://texttospeech.googleapis.com https://polly.us-east-1.amazonaws.com https://polly.us-east-2.amazonaws.com https://polly.us-west-2.amazonaws.com https://polly.ca-central-1.amazonaws.com https://polly.eu-west-1.amazonaws.com https://polly.eu-west-2.amazonaws.com https://polly.eu-central-1.amazonaws.com https://polly.eu-north-1.amazonaws.com https://polly.ap-northeast-1.amazonaws.com https://polly.ap-southeast-2.amazonaws.com https://openrouter.ai https://api.themoviedb.org https://*.opensubtitles.com https://*.opensubtitles.org http://localhost:11434 http://127.0.0.1:11434 wss://share.kyleadvoice.ca ws://localhost:8787 ws://127.0.0.1:8787; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: https://api.github.com https://www.googleapis.com https://share.kyleadvoice.ca https://api.anthropic.com https://api.openai.com https://generativelanguage.googleapis.com https://texttospeech.googleapis.com https://polly.us-east-1.amazonaws.com https://polly.us-east-2.amazonaws.com https://polly.us-west-2.amazonaws.com https://polly.ca-central-1.amazonaws.com https://polly.eu-west-1.amazonaws.com https://polly.eu-west-2.amazonaws.com https://polly.eu-central-1.amazonaws.com https://polly.eu-north-1.amazonaws.com https://polly.ap-northeast-1.amazonaws.com https://polly.ap-southeast-2.amazonaws.com https://openrouter.ai https://api.themoviedb.org https://*.opensubtitles.com https://*.opensubtitles.org http://localhost:11434 http://127.0.0.1:11434 wss://share.kyleadvoice.ca ws://localhost:8787 ws://127.0.0.1:8787; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#11141a">
@@ -1600,6 +1600,31 @@ docker compose up -d --build</code></pre>
       <p class="dim small">Setup asks what you're working on and sets up its tools. The tour shows you round the screen.
         <span class="hosted-only">Running Scribecue on your computer with Docker adds Kokoro voices, and keeps everything there.</span></p>
       <h3 class="docker-only">Updates</h3>
+    </div>
+    <div id="setDrive" hidden>
+      <h3>Sync settings</h3>
+      <p class="small">Connect Google Drive to keep your settings the same in every browser you use Scribecue in,
+        on this computer and others. They're kept in a hidden Scribecue folder in your Drive.</p>
+      <p class="dim small">Your mode and how wide the list is stay with each browser. Projects, videos and recordings
+        stay on this computer.</p>
+      <p id="gdNotSetUp" class="small" hidden>This copy of Scribecue isn't set up to connect Google Drive.
+        Use the web version, or see Running your own copy in the install guide.</p>
+      <div id="gdOff" hidden>
+        <p class="updstatus"><button id="gdConnect" class="hl">Connect Google Drive…</button></p>
+        <p class="dim small">The first time you connect a browser, it takes the settings already in Drive.
+          Settings Drive doesn't have yet are added from this browser.</p>
+      </div>
+      <div id="gdOn" hidden>
+        <p class="small">Connected as <span id="gdWho"></span>.</p>
+        <p class="updstatus"><button id="gdSync">Sync now</button> <button id="gdDisconnect">Disconnect</button></p>
+        <h3>API keys</h3>
+        <p class="updstatus"><button id="gdKeys" aria-pressed="false">Sync API keys</button></p>
+        <p class="dim small">Syncs your Google, Amazon Polly, AI, TMDB and OpenSubtitles keys too, to every browser you
+          connect. Turning it off, in any browser, takes them out of Drive. Each browser keeps the keys it has.</p>
+      </div>
+      <p id="gdStatus" class="dim small" role="status"></p>
+      <p id="gdPending" class="updstatus" hidden><span class="small">New settings from Google Drive are used when Scribecue
+        opens again.</span> <button id="gdReload">Reload now</button></p>
     </div>
     <div id="setEditing" hidden>
       <h3>Hearing a block again</h3>

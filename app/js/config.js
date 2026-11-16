@@ -16,3 +16,8 @@ export const REPO = 'kyle95wm/Scribecue';
 export const WEB_APP = 'https://scribecue.kyleadvoice.ca/';
 // The sharing relay (relay/). A developer setting can point elsewhere for one browser.
 export const RELAY = 'wss://share.kyleadvoice.ca';
+// Google Drive sync (googledrive.js): the OAuth client id of the Google Cloud project, and
+// the sign-in helper, which is part of the relay (relay/src/google.js). With no client id,
+// Settings → Google Drive says this copy isn't set up for it.
+export const GOOGLE_CLIENT_ID = '865224025169-53b7sm98kh70psscrd1natp61j8vo70p.apps.googleusercontent.com';
+export const SIGNIN = RELAY.replace(/^wss:/, 'https:');

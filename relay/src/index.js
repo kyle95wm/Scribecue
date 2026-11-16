@@ -4,6 +4,7 @@
 // with nobody typing costs nothing.
 import { DurableObject } from 'cloudflare:workers';
 import { Room, validRoom, takeSlot, NEW_ROOMS } from './room.js';
+import { google } from './google.js';
 
 const local = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 // Browsers send the page's origin: only Scribecue's own pages may connect. Other programs
@@ -28,6 +29,14 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/') return text('Scribecue relay\n', 200);
+    // Signing in to Google Drive (google.js): only from Scribecue's own pages.
+    const g = url.pathname.match(/^\/google\/(token|refresh|revoke)$/);
+    if (g) {
+      const origin = request.headers.get('Origin');
+      if (!origin || !allowed(origin, env)) return text('Not allowed from this site\n', 403);
+      if (!(await under(env.CONNECTS, 'google:' + address(request)))) return text('Too many requests. Try again in a minute\n', 429);
+      return google(request, env, origin, g[1]);
+    }
     const m = url.pathname.match(/^\/rooms\/([^/]+)$/);
     if (!m || !validRoom(m[1])) return text('Not found\n', 404);
     if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return text('Connect with a WebSocket\n', 426);

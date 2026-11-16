@@ -36,6 +36,30 @@ For a fork, use your own Cloudflare account and domain. Set `routes` and `ORIGIN
 
 Durable Objects with SQLite storage are on Cloudflare's free plan.
 
+## Google Drive sync
+
+The relay also signs browsers in to Google Drive, for syncing settings (`src/google.js`). It
+swaps Google's sign-in code for a pass, and renews it. The long-lived token goes back to the
+browser sealed with a key only the relay has. It keeps nothing.
+
+To set it up for a fork:
+
+1. In Google Cloud, enable the **Google Drive API**.
+2. Under **Google Auth Platform**, fill in **Branding**, and add the scopes `openid`,
+   `userinfo.email` and `drive.appdata` under **Data Access**.
+3. Make a **Web application** client. Add each address Scribecue runs at as a JavaScript
+   origin, and the same address with `/google.html` as a redirect URI.
+4. Put the client id in `GOOGLE_CLIENT_ID`, both in `wrangler.toml` and in
+   `app/js/config.js`.
+5. Store the secrets, from this folder:
+
+   ```sh
+   npx wrangler secret put GOOGLE_CLIENT_SECRET
+   openssl rand -base64 32 | npx wrangler secret put GOOGLE_SEAL_KEY
+   ```
+
+Changing `GOOGLE_SEAL_KEY` disconnects every browser. People connect again.
+
 ## Limits
 
 | What | Limit |

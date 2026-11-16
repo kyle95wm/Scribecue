@@ -31,3 +31,6 @@ simple = { limit = 120, period = 60 }
 [vars]
 # Pages that may connect, besides localhost.
 ORIGINS = "https://scribecue.kyleadvoice.ca"
+# Google Drive sync (src/google.js): the OAuth client id, the same as GOOGLE_CLIENT_ID in
+# app/js/config.js. The secret and the seal key are Worker secrets: see README.md.
+GOOGLE_CLIENT_ID = "865224025169-53b7sm98kh70psscrd1natp61j8vo70p.apps.googleusercontent.com"
