@@ -8560,7 +8560,7 @@ initDrive({
     if (h !== S.handle) return;
     noteRecent(h);
     toast(why === 'gone'
-      ? `${was} is no longer in Google Drive, so this was saved there as ${h.name}`
+      ? `${was} is no longer in Google Drive, so this was saved there as ${h.name}. To delete a project in Drive, choose File → New… first`
       : `${was} was changed on another computer, so this was saved beside it as ${h.name}`);
   },
   // Shared projects come through Drive too. The one open now waits until Scribecue opens again.
