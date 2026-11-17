@@ -1491,6 +1491,8 @@ export function fillVoiceSelect(sel, selected = currentVoice()?.voiceURI, { lang
 }
 export const chosenVoice = () => currentVoice()?.voiceURI || '';
 export const chosenVoiceName = () => voiceTitle(currentVoice()) || 'none';
+// The chosen voice, with its language, if it's here.
+export const chosenVoiceInfo = () => currentVoice();
 export const voiceName = (uri) => voiceTitle(voices.find((v) => v.voiceURI === uri)) || 'the voice before';
 
 // Sounds like a real audio description, so voices can be judged on what they'll read.
