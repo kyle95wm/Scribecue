@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.135.3",
+    "date": "2026-11-17",
+    "notes": "## File menu\n\n- **File → Close** (`Alt+Shift+W`) closes the project and the video, for different work. With unsaved changes, it asks whether to save first.\n- **File → New…** clears the blocks and the video, or starts the next episode. Clearing asks to save first too.\n- In QC, leave a review with **File → Close**.\n\n## Fixes\n\n- A shared project opened from **File → Shared projects** shows its name in the header, not \"Untitled\"."
+  },
+  {
     "version": "0.135.2",
     "date": "2026-11-17",
     "notes": "## Script as Excel\n\n- **File → Export… → Script as Excel** saves the script as a spreadsheet, one row per block.\n- Each row has the block's number, timecodes in and out, text and notes.\n- The headers carry the voice's language, such as **Script (en)**."
