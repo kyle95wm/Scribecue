@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.134.4",
+    "date": "2026-11-17",
+    "notes": "## Typing goes to the right block\n\n- Picking a block on the timeline while you type now shows that block’s words in the text box.\n- Before, clicking back to a block could show another block’s words, and typing saved them over it. It looked like an accidental copy and paste.\n- The buttons under the video that go to the previous or next block are fixed too."
+  },
+  {
     "version": "0.134.3",
     "date": "2026-11-17",
     "notes": "## Tidying up copies in Google Drive\n\n- Updating from 0.134.1 or older may save one more copy of a Drive project, such as \"Name (2)\". It's the last one.\n- To tidy up, choose **File → New…** first. Then delete the copies you don't want in Drive, rename the one you keep, and open it with **File → Open from Google Drive**.\n- Deleting the project you have open makes Scribecue save it to Drive again, so your work isn't lost. The message now says how to avoid that."
