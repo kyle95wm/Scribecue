@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.134.0",
+    "date": "2026-11-16",
+    "notes": "## Speeds each voice can read\n\n- A block's speed menu now greys out speeds its voice can't read at. Its tooltip says why.\n- Piper voices go up to +50%. Past that they hardly get faster.\n- Kokoro voices go up to twice their normal speed.\n- The base speed counts too: with Piper at a base speed of 120%, the fastest is +25%.\n- `[` and `]`, **Fit speeds to timings** and AI drafts stop there as well.\n- A block already set faster keeps its speed."
+  },
+  {
     "version": "0.133.0",
     "date": "2026-11-16",
     "notes": "## Pace for AI drafts\n\n- When a gap is tight, an AI draft may now be read a little faster, rather than lose something the viewer needs.\n- The block is sped up only as much as it needs. Its button shows the speed, such as **Use for block #4 at +12%**.\n- Choose the fastest pace in Settings → AI help → **Fastest pace**: normal, fast (+15%, the default) or very fast (+30%).\n- This works with text to speech on."
