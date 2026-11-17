@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.134.2",
+    "date": "2026-11-17",
+    "notes": "## Fewer copies in Google Drive\n\n- A project in Google Drive no longer saves a new copy, such as \"Name (2)\", each time you reload or reopen Scribecue.\n- Rename a project in Drive whenever you like. Scribecue keeps saving to it, under its new name.\n- To tidy up copies you already have: delete the older ones in Drive, and rename the newest. The newest has all your work.\n- A copy is still made when the project really changed on another computer."
+  },
+  {
     "version": "0.134.1",
     "date": "2026-11-17",
     "notes": "## Slowest speed for Kokoro\n\n- Kokoro voices read no slower than half their normal speed.\n- With a base speed under about 70%, a block's speed menu greys out the slow speeds Kokoro can't read. Its tooltip says why.\n- `[` and **Fit speeds to timings** stop there too.\n- Piper voices have no slowest speed."
