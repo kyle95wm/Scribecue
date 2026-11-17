@@ -68,6 +68,7 @@ takes them to another browser with your other settings.
 | `Alt+Shift+E` | Export: every file you can make. Not with a QC package open in QC |
 | `Ctrl/Cmd+E` / `Ctrl/Cmd+Shift+E` | Export SRT / WebVTT. Not with a QC package open in QC. Only the owner, in a shared project |
 | `Ctrl/Cmd+O` / `Ctrl/Cmd+Shift+O` | Open a project or script / open a video or audio file |
+| `Alt+Shift+W` | Close the project and the video, for different work |
 
 </details>
 

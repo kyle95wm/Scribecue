@@ -69,8 +69,8 @@ try {
   console.log('B joined:', await b.report());
 
   // B starts a new project: Night shift stays in B's browser.
-  await b.click('[data-act="newProject"]');
-  await b.click('#newDlg [data-choice="project"]');
+  await b.click('[data-act="closeProject"]');
+  await b.click('#closeGo');
   await b.wait(`${rows}===0 && !window.scribecueRelay`, 'B on a new project');
   assert.match(await b.js(`document.getElementById('subName').textContent`), /^Untitled/, 'a new project is untitled');
   assert.equal(await b.js(`document.getElementById('sharedBtn').hidden`), false, 'B has a shared project kept');
@@ -94,8 +94,8 @@ try {
   assert.match(await b.js(`document.getElementById('subName').textContent`), /^Night shift/, 'the header names the reopened project');
 
   // B leaves for a new project again, and A turns B's link off meanwhile.
-  await b.click('[data-act="newProject"]');
-  await b.click('#newDlg [data-choice="project"]');
+  await b.click('[data-act="closeProject"]');
+  await b.click('#closeGo');
   await b.wait(`${rows}===0 && !window.scribecueRelay`, 'B on a new project again');
   const linkId = await a.js(`(()=>{const k=Object.keys(localStorage).find(k=>k.startsWith('scribecue.share.'));return JSON.parse(localStorage.getItem(k)).links.find(l=>!l.off).id})()`);
   await a.js(`window.scribecueSharing.turnOff(${JSON.stringify(linkId)}).then(()=>true)`);

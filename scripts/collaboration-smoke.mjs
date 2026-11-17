@@ -112,7 +112,7 @@ try {
   assert.ok(measured.failed, 'comparison refuses a project with no id');
   assert.equal(measured.typing, 'Typing during comparison');
   if (mediaPath) assert.ok(measured.playback.elapsed / measured.playback.wallSeconds > 0.9, 'video keeps pace with real time');
-  await js(`document.getElementById('video').pause();document.activeElement?.blur();document.querySelector('[data-act=newProject]').click();document.querySelector('#newDlg [data-choice=project]').click();true`);
+  await js(`document.getElementById('video').pause();document.activeElement?.blur();document.querySelector('[data-act=closeProject]').click();if(document.getElementById('closeDlg').open)document.getElementById('closeGo').click();true`);
   await wait(`document.querySelectorAll('#list .row').length===0`);
   await key('Enter', 'Enter');
   const fresh = await save();

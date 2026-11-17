@@ -62,9 +62,9 @@ accept a review into your authoring project, you can edit it in QC too. The head
 Older QC packages without a saved permission open as comments-only. New packages need
 an updated Scribecue on both computers so the creator’s choice is respected.
 
-To leave a review and start different work, click **File**, **New…**, then **New project**.
-If you have unsaved changes, choose **Save and start new project** or **Start without saving**.
-The new project opens in Write mode. Reopen your saved package to return to the review.
+To leave a review and start different work, click **File**, then **Close** (`Alt+Shift+W`).
+If you have unsaved changes, choose **Save and close** or **Close without saving**.
+A blank project opens in Write mode. Reopen your saved package to return to the review.
 
 A recording file (`.scribecuerec`) opens in Record mode. Click **Leave**, then open the
 project or QC package. [Recording narration](RECORDING.md) covers recording files.

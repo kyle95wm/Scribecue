@@ -191,7 +191,7 @@ the start of the link, before the `#`, to your Docker address, such as `http://l
 | Replace a link | **Turn off**, then **Make link** | Only people with the new link and password can open it |
 | Stop sharing | **Stop sharing**, in Share | Every link stops working, and the sharing service's copy is deleted, with any video you sent. The project closes for everyone else. Your copy stays |
 | Leave someone's project | **Leave**, in Share | The project and its video are removed from this browser. To keep them as your own, click **Keep a copy here** first |
-| Work on something else | **File, New…**, or open another project | The shared project stays in this browser. Open it again from **File, Shared projects…**. Changes not sent yet go then |
+| Work on something else | **File, Close**, or open another project | The shared project stays in this browser. Open it again from **File, Shared projects…**. Changes not sent yet go then |
 
 **Your saved project file** is a copy of the shared project as it was when you saved. If
 you open it in a browser that has the shared project, Scribecue asks first. It can open the

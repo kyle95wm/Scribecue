@@ -49,7 +49,7 @@ for its part of Scribecue: see [More help](#more-help).
 | Moving to another browser or computer, or between the web version and Docker | Save your projects and export your settings. See [Moving your work](INSTALL.md#moving-your-work). |
 | Google Drive won't connect | Allow pop-ups for Scribecue. Use the web version, or Docker at `localhost:8484` or `9484`: Google refuses other addresses. |
 | A project in Google Drive was saved as "Name (2)" | It changed on another computer since you opened it. Updating from 0.134.1 or older also makes one copy. Both are in Drive: open each, and keep the one you want. See the next row to tidy up. |
-| A copy you deleted in Google Drive comes back | Scribecue saved your work there again, so it isn't lost. To tidy up, start with **File → New…**. Then delete the copies you don't want in Drive, and rename the one you keep. Open it with **File → Open from Google Drive**. |
+| A copy you deleted in Google Drive comes back | Scribecue saved your work there again, so it isn't lost. To tidy up, start with **File → Close**. Then delete the copies you don't want in Drive, and rename the one you keep. Open it with **File → Open from Google Drive**. |
 | Settings from another browser haven't arrived | They're used when Scribecue opens again. In **Settings → Google Drive**, click **Reload now**. |
 | Worried the browser may clear your work | In **Settings → Offline and storage**, click **Keep it safe**. Saving a project keeps it safe either way. |
 | Wrong blocks after **File, New** | Press `Ctrl/Cmd+Z` to bring them back. |

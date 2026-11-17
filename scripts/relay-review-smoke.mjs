@@ -83,12 +83,12 @@ try {
   assert.match(await b.js(`document.getElementById('qcPackageInfo').textContent`), /read here with the project’s voices/);
   await b.shot('shared-qc');
   await b.click('#qcPlaybackClose');
-  // New: no Clear the blocks, and it says the shared project stays here.
-  await b.js(`document.querySelector('[data-act=newProject]').click();true`);
-  await b.wait(`document.getElementById('newDlg').open`, 'New dialog');
-  assert.equal(await b.js(`document.querySelector('#newDlg [data-choice=blocks]').hidden`), true, 'a reviewer can’t clear the blocks');
-  assert.match(await b.js(`document.getElementById('newProjectNote').textContent`), /stays in this browser/);
-  await b.click('#newCancel');
+  // QC has no New. Close says the shared project stays here.
+  assert.equal(await b.js(`getComputedStyle(document.querySelector('[data-act=newProject]')).display`), 'none', 'no New in QC');
+  await b.js(`document.querySelector('[data-act=closeProject]').click();true`);
+  await b.wait(`document.getElementById('closeDlg').open`, 'Close dialog');
+  assert.match(await b.js(`document.getElementById('closeWhat').textContent`), /stays in this browser/);
+  await b.click('#closeCancel');
   // Only the owner saves and exports: B has no Save or Export, nor their keys, which only explain.
   const saveShown = `getComputedStyle(document.querySelector('[data-act=saveProject]')).display!=='none'`;
   assert.equal(await a.js(saveShown), true, 'the owner has Save');
@@ -163,10 +163,10 @@ try {
   await b.wait(`window.scribecueRelay && scribecueRelay.status!=='online'`, 'B offline');
   await editText(b, 5, ' offline three');
   assert.ok(await b.js(`scribecueRelay.unsent()>0`), 'the change is waiting to be sent');
-  await b.js(`document.querySelector('[data-act=newProject]').click();true`);
-  await b.wait(`document.getElementById('newDlg').open`, 'New dialog');
-  assert.match(await b.js(`document.getElementById('newProjectNote').textContent`), /haven’t reached it yet/, 'New says the change isn’t sent');
-  await b.js(`document.querySelector('#newDlg [data-choice=project]').click();true`);
+  await b.js(`document.querySelector('[data-act=closeProject]').click();true`);
+  await b.wait(`document.getElementById('closeDlg').open`, 'Close dialog');
+  assert.match(await b.js(`document.getElementById('closeWhat').textContent`), /haven’t reached it yet/, 'Close says the change isn’t sent');
+  await b.js(`document.getElementById('closeGo').click();true`);
   await b.wait(`document.querySelectorAll('#list .row').length===0`, 'B started a new project');
   await b.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
   await b.send('Network.setBlockedURLs', { urls: [] });
@@ -184,10 +184,10 @@ try {
   assert.equal(await a.js(`document.getElementById('joinDlg').open`), false, 'no password asked');
   assert.match(await a.js(`document.getElementById('toast').textContent`), /You stay its owner/);
   assert.equal(await a.js(saveShown), true, 'A still has Save');
-  // After New, any of the owner's links opens it again as theirs, with no password.
-  await a.js(`document.querySelector('[data-act=newProject]').click();true`);
-  await a.wait(`document.getElementById('newDlg').open`, 'A’s New dialog');
-  await a.js(`document.querySelector('#newDlg [data-choice=project]').click();true`);
+  // After Close, any of the owner's links opens it again as theirs, with no password.
+  await a.js(`document.querySelector('[data-act=closeProject]').click();true`);
+  await a.wait(`document.getElementById('closeDlg').open`, 'A’s Close dialog');
+  await a.js(`document.getElementById('closeGo').click();true`);
   await a.wait(`document.querySelectorAll('#list .row').length===0`, 'A started a new project');
   await a.js(`window.confirm=()=>true;location.href=${JSON.stringify(review)};true`);
   await a.wait(`document.querySelectorAll('#list .row').length===1500 && ${online} && scribecueRelay.role==='owner'`, 'A reopened its project as the owner');
@@ -200,9 +200,9 @@ try {
   // with B's changes, or the file opens on its own, not shared, if A says so.
   const oldFile = await a.js(`(()=>{const o=JSON.parse(localStorage.getItem('scribecue.v1'));return JSON.stringify({scribecue:1,projectId:o.projectId,app:'x',media:null,settings:{},view:{},blocks:o.cues.map(c=>({...c,text:c.text.replace(' offline three','')}))})})()`); // as saved before B's change
   const openFile = (answer) => a.js(`window.confirm=(m)=>/saved copy of a shared project/.test(m)?${answer}:true;(()=>{const dt=new DataTransfer();dt.items.add(new File([${JSON.stringify(oldFile)}],'film.scribecue'));const i=document.getElementById('fileSubs');i.files=dt.files;i.dispatchEvent(new Event('change'));})();true`);
-  await a.js(`document.querySelector('[data-act=newProject]').click();true`);
-  await a.wait(`document.getElementById('newDlg').open`, 'A’s New dialog');
-  await a.js(`document.querySelector('#newDlg [data-choice=project]').click();true`);
+  await a.js(`document.querySelector('[data-act=closeProject]').click();true`);
+  await a.wait(`document.getElementById('closeDlg').open`, 'A’s Close dialog');
+  await a.js(`document.getElementById('closeGo').click();true`);
   await a.wait(`document.querySelectorAll('#list .row').length===0`, 'A started a new project');
   await openFile(true);
   await a.wait(`/as it is now/.test(document.getElementById('toast').textContent) && document.querySelectorAll('#list .row').length===1500 && ${online} && scribecueRelay.role==='owner'`, 'the old file opened the shared project as it is now');
