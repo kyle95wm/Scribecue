@@ -191,3 +191,15 @@ test('a project keeps the dialogue lane’s edits, and leaves them out when ther
   assert.equal('dialogueEdits' in toProject(state), false);
   assert.deepEqual(fromProject(toProject(state)).dialogueEdits, {});
 });
+
+test('a project never saved goes by its shared name, then its video', async () => {
+  const { projectTitle, shownName, UNTITLED } = await import('../app/js/project.js');
+  assert.equal(projectTitle('Pilot.scribecue', 'Shared', 'film.mp4'), 'Pilot');
+  assert.equal(projectTitle(UNTITLED, 'Episode 3', 'film.mp4'), 'Episode 3');
+  assert.equal(projectTitle(UNTITLED, 'Ep. 3'), 'Ep. 3');
+  assert.equal(projectTitle(UNTITLED, '', 'film.mp4'), 'film');
+  assert.equal(projectTitle(UNTITLED), '');
+  assert.equal(shownName(UNTITLED, 'Episode 3'), 'Episode 3');
+  assert.equal(shownName(UNTITLED), 'Untitled');
+  assert.equal(shownName('Pilot.scribecue', 'Episode 3'), 'Pilot.scribecue');
+});
