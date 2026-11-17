@@ -101,7 +101,7 @@ With text to speech on, a draft can be read a little faster when the gap is tigh
 
 - The AI aims for what fits at the block's speed.
 - It may write more only if cutting would lose something the viewer needs.
-- Scribecue then speeds the block up just enough to fit, up to the **Fastest pace**.
+- Scribecue then speeds the block up just enough to fit, up to the **Fastest pace**, or the voice's [top speed](WRITING.md#speed) if that's lower.
 - A draft too long even at that pace is sent back once to shorten.
 - Drafting never slows a block down.
 
