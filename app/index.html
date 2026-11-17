@@ -226,7 +226,7 @@
           <button id="recMic" data-tip="Mic check: read a few lines and see where your peaks land, to set your gain">Mic check</button>
           <canvas id="recMeter" width="220" height="16" role="img" aria-label="Microphone level. Aim for the green zone"></canvas>
           <div class="recslot" id="recSlot" data-tip="How much of the block's slot is left"><div id="recSlotFill"></div></div>
-          <span id="recStatus" role="status"></span>
+          <span id="recStatus"></span>
           <span id="recCount" class="dim"></span>
           <button id="recSession" hidden></button>
         </div>
@@ -1857,6 +1857,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="recPickup"><kbd>P</kbd></dt><dd>Go to the next pickup</dd>
             <dt data-keys="recAlt"><kbd>A</kbd></dt><dd>Alt: switch between the block and your own wording for it</dd>
             <dt data-keys="recZoom"><kbd>Z</kbd></dt><dd>Zoom to the block's take, or back</dd>
+            <dt data-keys="recCues"><kbd>B</kbd></dt><dd>Sound cues on or off: pips count you in to each take, and mark the end of its time</dd>
             <dt data-keys="play"><kbd>Space</kbd></dt><dd>Stop recording</dd>
             <dt data-keys="recDiscard" data-fixed="Escape"><kbd>Esc</kbd></dt><dd>Stop recording, and discard the take</dd>
             <dt><kbd>V</kbd></dt><dd>Hear the block read by text to speech, as a guide</dd>

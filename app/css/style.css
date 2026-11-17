@@ -108,6 +108,7 @@ kbd + kbd { margin-left: 2px; }
 .mode-record .record-only { display: flex; }
 .mode-record .record-only[hidden] { display: none; }
 .mode-record .hint.record-only, .mode-record .setrec.record-only { display: block; }
+.mode-record dl.record-only { display: grid; } /* the shortcuts overlay's key lists */
 .mode-record .transcribe-only, .mode-record .write-only, .mode-record #modeSw { display: none; }
 .mode-record .not-record { display: none; }
 /* Record mode: the script is locked, so nothing offers to change or save it. */

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, unusedTakes, recLead, REC_LEAD, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, nextRecording, START_OVER, typedStartOver, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, GRACES, readGrace, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver, videoDb, videoDbText, VIDEO_DB_MIN, leadInParts, partEnds, stepEnd, EDGE_FADE } from '../app/js/recording.js';
+import { narrationTimeline, prevEnd, scriptPrint, RECORDING_EXT, isRecordingFile, punchIn, PUNCH_FADE, pieces, placed, fullEdit, clampEdit, splitAt, cutPart, silenceEnds, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, peakTrail, clipAt, pickupsFor, relink, pickedUp, originalTake, unusedTakes, recLead, REC_LEAD, checkPickups, checkAlts, isAlt, markerLabel, takesKey, newProjectId, nextRecording, START_OVER, typedStartOver, EDIT_MIN, takeAt, nextTake, toRecordingFile, fromRecordingFile, asRecordingFile, narrationNote, compareScript, sameVideo, slots, GRACE, GRACES, readGrace, peakDb, judgePeak, checkExport, exportReport, recordingId, placeTake, looksBluetooth, runsOver, videoDb, videoDbText, VIDEO_DB_MIN, leadInParts, partEnds, stepEnd, EDGE_FADE, cueTimes, dueCues, CUE_COUNT } from '../app/js/recording.js';
 import { buildBwf, wav24, to24, from24, readNote, fadeEnds24 } from '../app/js/bwf.js';
 
 const blocks = [
@@ -785,4 +785,29 @@ test('a lead-in can be any length from 1 to 5 seconds, and anything else gets 3'
   assert.equal(recLead(''), REC_LEAD);
   assert.equal(recLead(null), REC_LEAD);
   assert.equal(recLead('abc'), REC_LEAD);
+});
+
+test('sound cues count in to the block, and mark a second before its end and the end', () => {
+  const at = (cs) => cs.map((c) => [c.kind, +c.t.toFixed(2)]);
+  assert.deepEqual(at(cueTimes({ start: 10, end: 14 }, { from: 6.8 })),
+    [['count', 7], ['count', 8], ['count', 9], ['warn', 13], ['end', 14]]);
+  // A short lead-in leaves room for fewer pips.
+  assert.deepEqual(at(cueTimes({ start: 10, end: 14 }, { from: 8.8 })), [['count', 9], ['warn', 13], ['end', 14]]);
+  // A short slot has no warning: it would come while reading starts.
+  assert.deepEqual(at(cueTimes({ start: 10, end: 12 }, { from: 0 })).map(([k]) => k), ['count', 'count', 'count', 'end']);
+  // An extended block has no end.
+  assert.deepEqual(at(cueTimes({ start: 10, end: Infinity, hold: true }, { from: 0 })).map(([k]) => k), ['count', 'count', 'count']);
+  // A punch-in counts in to where it picks up.
+  assert.deepEqual(at(cueTimes({ start: 10, end: 16 }, { at: 12.5, from: 9.3 })).slice(0, CUE_COUNT).map(([, t]) => t), [9.5, 10.5, 11.5]);
+});
+
+test('sound cues play once, a moment ahead, and are dropped when the video is already past them', () => {
+  const cues = cueTimes({ start: 10, end: 14 }, { from: 0 });
+  assert.deepEqual(dueCues(cues, 6), []);
+  assert.deepEqual(dueCues(cues, 6.8).map((c) => [c.kind, +c.in.toFixed(2)]), [['count', 0.2]]);
+  assert.deepEqual(dueCues(cues, 6.9), [], 'not twice');
+  // A jump past two pips plays neither late.
+  assert.deepEqual(dueCues(cues, 9.5), []);
+  assert.deepEqual(dueCues(cues, 12.8).map((c) => c.kind), ['warn']);
+  assert.deepEqual(dueCues(cues, 13.8).map((c) => c.kind), ['end']);
 });
