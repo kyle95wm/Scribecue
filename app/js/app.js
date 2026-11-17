@@ -3072,6 +3072,7 @@ const IND_TIPS = {
   offset: 'Reaction offset: blocks marked, and reads timed, with H move back by this much, since you let go a moment late. ⇧H changes it; click for its settings',
   tts: 'Text to speech for this project: blocks are read aloud (V), and each ends where its reading does. Click to turn it off for this project, so ends can be dragged by hand. Its settings are under ⌥⇧V',
   takes: 'Takes: hear the take chosen for each block as the video plays. Click to turn it off or on',
+  cues: 'Sound cues: pips count you in to each take, then a tone a second before the block’s time is up, and a low one when it is. Only you hear them, in your headphones (B)',
   qc: 'QC review: choose original readings, programme sound or an approximate TTS preview, or compare a returned review',
   stt: 'Speech to text is on: Whisper types what the narrator says in each block you mark. Click for its settings, or to transcribe empty blocks (⌥⇧H)',
 };
@@ -3088,7 +3089,7 @@ function updateInd() {
     ...(S.lead && S.mode !== 'record' ? [['lead', `LEAD ${S.lead} s`, true]] : []),
     ...(returning() ? [['returnToStart', 'RETURN', true]] : []),
     ...(S.mode === 'transcribe' && stt.on && stt.ready ? [['stt', 'STT', true]] : []),
-    ...(S.mode === 'record' ? [['takes', 'TAKES', !!recorder?.hearing]] : []),
+    ...(S.mode === 'record' ? [['takes', 'TAKES', !!recorder?.hearing], ['cues', 'CUES', !!recorder?.cues]] : []),
     // On in this browser: a toggle for this project, like FOLLOW. Settings turn it on or off
     // for the browser.
     ...(writing() && tts.on ? [['tts', S.ttsOff ? 'TTS OFF' : tts.base !== 1 ? `TTS ${Math.round(tts.base * 100)}%` : 'TTS', !S.ttsOff]] : []),
@@ -3103,7 +3104,7 @@ function updateInd() {
     const tip = key === 'follow' && S.mode === 'record' ? 'Follow: keep the playhead in view as it plays (F). The selected block stays selected' : IND_TIPS[key];
     s.dataset.tip = pcKeys(tip);
     s.setAttribute('aria-label', speakable(tip, IS_MAC));
-    if (['follow', 'loop', 'takes', 'tts'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
+    if (['follow', 'loop', 'takes', 'cues', 'tts'].includes(key)) s.setAttribute('aria-pressed', String(!!on));
     else if (key !== 'speed') s.classList.add('setlabel');
     s.className = (on ? 'on ' : '') + (key === 'speed' || key === 'follow' ? '' : 'tip-end');
     ind.append(s);
@@ -3282,8 +3283,16 @@ ind.addEventListener('click', (e) => {
     updateInd();
     toast(recorder.hearing ? 'Takes on: the chosen takes play with the video' : 'Takes off');
   }
+  else if (k === 'cues') toggleCues();
   else if (k) toggleFlag(k);
 });
+
+// Sound cues in Record mode: pips to count in to each take and mark the end of its time.
+function toggleCues() {
+  recorder.setCues(!recorder.cues);
+  updateInd();
+  toast(recorder.cues ? 'Sound cues on: pips count you in, then a tone a second before the block’s time is up, and a low one when it is' : 'Sound cues off');
+}
 
 function toggleFlag(k) {
   S[k] = !S[k];
@@ -5924,6 +5933,7 @@ function showAlts(note, same) {
 
 recorder = initRecord({
   video, toast, notice,
+  announce: (text) => announce(text, IS_MAC),
   blocks: () => S.cues,
   selIdx, hasVideo: () => S.hasVideo,
   select: (i) => { if (S.cues[i] && S.cues[i].id !== S.sel) select(S.cues[i].id, { seek: false }); },
@@ -8327,6 +8337,7 @@ const REC_RUN = {
   recPickup: () => recorder.nextPickup(),
   recAlt: () => recorder.toggleAlt(),
   recZoom: () => zoomToTake(),
+  recCues: () => toggleCues(),
 };
 
 // What each keymap action does.

@@ -3,7 +3,7 @@
 // that); this file does the recording. The guide is Guides/RECORDING.md.
 
 import { drawLevel, sizeMeter, showLoudest } from './levelmeter.js';
-import { slots, prevEnd, narrationTimeline, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, unusedTakes, recLead, REC_LEAD, markerLabel, leadInParts, partEnds, stepEnd, videoDb, videoDbText, VIDEO_DB_MIN, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE, EDGE_FADE } from './recording.js';
+import { slots, prevEnd, narrationTimeline, peakTrail, peakDb, judgePeak, dbText, runsOver, checkExport, exportReport, recordingId, placeTake, looksBluetooth, narrationNote, takeAt, nextTake, punchIn, PUNCH_MIN, pieces, placed, clampEdit, splitAt, cutPart, trimSilence, fitSlot, startAtBlock, trimAndStart, snap, flatten, wavePeaks, clipAt, relink, takesKey, pickedUp, originalTake, checkPickups, checkAlts, isAlt, unusedTakes, recLead, REC_LEAD, markerLabel, leadInParts, partEnds, stepEnd, videoDb, videoDbText, VIDEO_DB_MIN, fromRecordingFile, asRecordingFile, DRIFT, PREROLL, RATE, EDGE_FADE, cueTimes, dueCues } from './recording.js';
 import { storeZip } from './zip.js';
 import { blockToHold, stillHeard, pauseList } from './extended.js';
 import { fmtTime } from './formats.js';
@@ -18,7 +18,7 @@ const LEVEL_WORDS = { good: 'in the pocket', note: 'fine', quiet: 'very quiet', 
 const get = (k) => { try { return localStorage.getItem('scribecue.rec.' + k); } catch { return null; } };
 const put = (k, v) => { try { if (v == null) localStorage.removeItem('scribecue.rec.' + k); else localStorage.setItem('scribecue.rec.' + k, v); } catch { /* storage blocked */ } };
 
-// h: { video, toast, notice(title, text), blocks(), selIdx(), select(i), seek(t), baseName(), volume(on, db), app }
+// h: { video, toast, announce(text), notice(title, text), blocks(), selIdx(), select(i), seek(t), baseName(), volume(on, db), app }
 export function initRecord(h) {
   const { video } = h;
   const el = { go: $('recGo'), status: $('recStatus'), meter: $('recMeter'), fill: $('recSlotFill'), slot: $('recSlot'),
@@ -36,6 +36,7 @@ export function initRecord(h) {
   let leadSecs = recLead(get('lead') ?? REC_LEAD);
   let syncMs = get('sync') != null ? +get('sync') : null; // null: use the browser's figure
   let wasPlaying = false;
+  let cues = get('cues') === '1'; // sound cues while recording: off unless turned on
   let where = 'browser';     // where takes are kept: 'folder' or 'browser' (a session)
   let keep = 'none';         // the session: ready | choose (no folder yet) | paused (the browser asks again) | moving
   let paused = null;         // the folder the browser asks about again, while paused
@@ -81,6 +82,32 @@ export function initRecord(h) {
 
   // ---- panel
   function status(msg) { el.status.textContent = msg; }
+  // The status, read out too. Only for moments a screen reader should speak: never while a
+  // take is being read, as it would talk over the narrator, and could be recorded.
+  function say(msg) { status(msg); h.announce(msg); }
+
+  // ---- sound cues: pips count in to each take, then a tone a second before the slot ends
+  // and a low one at its end. Heard on the output only, not recorded (with headphones).
+  const CUE_SOUND = { count: [1000, 0.06, 1], warn: [660, 0.09, 1], end: [440, 0.12, 2] };
+  function pip(kind, inSecs) {
+    const ctx = outCtx(), [hz, len, n] = CUE_SOUND[kind];
+    for (let k = 0; k < n; k++) {
+      const at = ctx.currentTime + inSecs + k * len * 1.6;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = hz;
+      g.gain.setValueAtTime(0, at);
+      g.gain.linearRampToValueAtTime(0.25, at + 0.005);
+      g.gain.setValueAtTime(0.25, at + len - 0.01);
+      g.gain.linearRampToValueAtTime(0, at + len);
+      o.connect(g).connect(ctx.destination);
+      o.start(at); o.stop(at + len + 0.01);
+    }
+  }
+  function setCues(on) {
+    cues = on;
+    put('cues', on ? '1' : null);
+    if (on) { outCtx(); pip('count', 0.05); } // a sample, so you know what to listen for
+  }
   function render() {
     h.redraw();
     if (editing && !takeOf(editing.id)?.chosen) editing = null; // another take was picked
@@ -794,6 +821,7 @@ export function initRecord(h) {
       p = { base, at, ps: pieces(base) };
       outCtx(); // now, on the key press: Safari won't play sound otherwise
     }
+    if (cues) outCtx(); // now, on the key press: Safari won't play sound otherwise
     const from = video.currentTime; // where Esc puts the playhead back
     stopPlay();
     state = 'arming'; status('Getting the microphone…'); render();
@@ -816,6 +844,8 @@ export function initRecord(h) {
     cap.trail = peakTrail(RATE / PR);
     cap.t0 = Math.max(0, (p ? p.at : s.start) - PREROLL);
     h.seek(Math.max(0, cap.t0 - leadSecs));
+    cap.cues = cues ? cueTimes(s, { at: p ? p.at : s.start, from: Math.max(0, cap.t0 - leadSecs) }) : null;
+    h.announce(`${p ? 'Picking up' : 'Recording'} block ${i + 1}${alt != null ? ', the alt' : ''}`);
     wasPlaying = true;
     video.play().catch(() => {});
     state = 'lead'; render();
@@ -834,6 +864,7 @@ export function initRecord(h) {
       if (p) {
         p.player.follow(p.ps, video.currentTime, p.at);
       }
+      if (cap.cues && !video.paused) for (const c of dueCues(cap.cues, video.currentTime)) pip(c.kind, c.in / (video.playbackRate || 1));
       if (state === 'lead') status(p ? `Picks up in ${Math.max(0, p.at - video.currentTime).toFixed(1)} s` : `Starts in ${Math.ceil(Math.max(0, cap.slot.start - video.currentTime))} s: set your level`);
       if (state === 'rec' && cap.slot.hold) {
         // The video stops at the block, and the take runs as long as the reading does.
@@ -862,6 +893,7 @@ export function initRecord(h) {
   async function finish(discard = false) {
     if (state !== 'lead' && state !== 'rec') return;
     const c = cap, wasRec = state === 'rec';
+    const over = wasRec && !c.slot.hold ? video.currentTime - c.slot.end : 0;
     state = 'saving'; status('Saving the take…'); render();
     video.pause();
     if (discard) h.seek(c.from);
@@ -878,7 +910,7 @@ export function initRecord(h) {
     });
     disarm();
     level = 0; frame(); el.fill.style.width = '0'; el.slot.classList.remove('over');
-    if (samples.length < RATE * 0.3) { state = 'idle'; status(wasRec ? 'Too short to keep: nothing saved' : c.punch ? 'Stopped before the join: nothing saved' : 'Stopped before the block: nothing saved'); render(); return; }
+    if (samples.length < RATE * 0.3) { state = 'idle'; say(wasRec ? 'Too short to keep: nothing saved' : c.punch ? 'Stopped before the join: nothing saved' : 'Stopped before the block: nothing saved'); render(); return; }
     // The sound reaches the narrator late and reaches Scribecue late: take both off.
     const delay = delayOf(c);
     const { start, skip } = placeTake({ t0: c.t0, delay, prevEnd: c.prevEnd });
@@ -892,7 +924,7 @@ export function initRecord(h) {
       peak: peakDb(kept), made: Date.now(), wav: wav24(to24(kept), RATE), ...(c.punch && { punch: c.punch.at }),
       line: { start: b.start, end: b.end, text: b.text }, ver: version(), ...(c.alt != null && { alt: c.alt }) };
     const what = c.alt != null ? 'the alt take' : 'the take';
-    if (discard && !currentSession()) { state = 'idle'; status(`Discarded ${what}`); render(); return; }
+    if (discard && !currentSession()) { state = 'idle'; say(`Discarded ${what}`); render(); return; }
     try {
       await saveTake(take, !discard);
       if (discard) await deleteTake(rec.id, take.id);
@@ -908,7 +940,10 @@ export function initRecord(h) {
       return h.toast(`Discarded ${what}. Undo: ⌘Z`, undoDelete);
     }
     const j = judgePeak(take.peak);
-    status(`Saved ${c.alt != null ? 'alt take' : 'take'} ${blockTakes(c.block, c.alt != null).length}: ${dbText(take.peak)}, ${LEVEL_WORDS[j]}`);
+    const saved = `Saved ${c.alt != null ? 'alt take' : 'take'} ${blockTakes(c.block, c.alt != null).length}: ${dbText(take.peak)}, ${LEVEL_WORDS[j]}` +
+      (over > 0.05 ? `, ${over.toFixed(1)} s over the slot` : '');
+    // Too loud has a message of its own, which is read out instead.
+    if (j === 'loud') status(saved); else say(saved);
     if (j === 'loud') h.toast('That take is too loud. Lower your gain and record it again: the export won’t go ahead with it');
   }
 
@@ -1594,6 +1629,8 @@ export function initRecord(h) {
     refresh: () => reload(),
     get hearing() { return hear; },
     setHearing,
+    get cues() { return cues; },
+    setCues,
     stopPlayback: stopPlay,
     // raw: the recording file as opened, kept in its session.
     async open(file, rawFile = null) {

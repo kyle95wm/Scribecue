@@ -644,6 +644,35 @@ export function recLead(v) {
 
 export const PREROLL = 0.2;
 
+// Sound cues for a take, as video times, so the narrator needn't watch the screen: a pip on
+// each of the last CUE_COUNT seconds before reading starts (at), as far as the video plays
+// first (from); a warning CUE_WARN before the slot ends, when there's time to read before
+// it; and the end of the slot. An extended block's slot has no end: only the count-in.
+export const CUE_COUNT = 3, CUE_WARN = 1;
+export function cueTimes(slot, { at = slot.start, from = -Infinity } = {}) {
+  const out = [];
+  for (let k = CUE_COUNT; k >= 1; k--) if (at - k >= from - 0.01) out.push({ t: at - k, kind: 'count' });
+  if (!slot.hold && Number.isFinite(slot.end) && slot.end > at) {
+    if (slot.end - CUE_WARN - at >= 1.5) out.push({ t: slot.end - CUE_WARN, kind: 'warn' });
+    out.push({ t: slot.end, kind: 'end' });
+  }
+  return out;
+}
+
+// The cues to play now, as the video reaches now: those within ahead seconds, each with how
+// long until it's heard. Cues already passed by more than late are dropped, not played late.
+// Marks each cue it hands back, or drops, as done.
+export const CUE_AHEAD = 0.3;
+export function dueCues(cues, now, { ahead = CUE_AHEAD, late = 0.05 } = {}) {
+  const out = [];
+  for (const c of cues) {
+    if (c.done || c.t - now > ahead) continue;
+    c.done = true;
+    if (now - c.t <= late) out.push({ kind: c.kind, in: Math.max(0, c.t - now) });
+  }
+  return out;
+}
+
 // The video's sound in Record mode, in dB: as it is (0) down to −30, so the narrator can
 // follow the scene. Read from storage: anything else gives the quietest.
 export const VIDEO_DB_MIN = -30;

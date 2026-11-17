@@ -30,6 +30,7 @@ export function loop(mode, key = keyFor) {
     `3. Go on to the next block with ${key('blockNext')}.`,
     'Only the end went wrong? Punch in: E puts the playhead at the end of the take, ← steps back to where to pick up, and Shift+Enter or Shift+R records from there.',
     'Every take is kept, and the newest goes in the export.',
+    `Rather not watch the screen? ${key('recCues')} turns on sound cues: pips count you in to each take, and tones mark the end of its time.`,
   ].join('\n');
   return mode === 'write'
     ? [

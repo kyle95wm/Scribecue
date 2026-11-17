@@ -13,6 +13,7 @@ raw, for the mixer to work with.
 - [Recording](#recording)
   - [Before you start](#before-you-start)
   - [Recording a block](#recording-a-block)
+  - [Sound cues](#sound-cues)
   - [Extended blocks](#extended-blocks)
   - [Levels](#levels)
   - [Takes](#takes)
@@ -116,6 +117,7 @@ The writer's notes for a block, such as how to say a name, show above its text.
 | P | Go to the next [pickup](#pickups) |
 | A | Switch to the block's [alt](#alts), or back |
 | Z | [Zoom to the block's take](#editing-a-take), or back |
+| B | [Sound cues](#sound-cues) on or off |
 | Space | Play or pause, or stop recording |
 | Alt+Shift+Left / Right | Previous or next block |
 
@@ -125,6 +127,25 @@ To change these keys, see [Changing shortcuts](SHORTCUTS.md#changing-shortcuts).
 A block's **slot** runs from its start to the end of its grace. The writer picks the grace in the
 recording file, from none to 2 seconds. It's half a second unless they change it. A slot never runs into the
 next block. A take that runs past it isn't cut off. It's marked in red until you [trim or move it](#editing-a-take).
+
+### Sound cues
+
+Sound cues let you record without watching the screen. Press **B**, or click **CUES** under the
+video, to turn them on. They stay on in this browser.
+
+| You hear | Means |
+|---|---|
+| Three high pips | Counting in: start reading on the beat after the third |
+| One middle tone | One second left in the slot |
+| Two low tones | The slot has ended |
+
+- Wear headphones, so the microphone doesn't pick the cues up.
+- A short lead-in has room for fewer pips.
+- A short slot has no one-second tone.
+- Extended blocks get the count-in only.
+
+With a screen reader, Scribecue says when recording starts and what was saved, such as how
+far over the slot you went. It stays quiet while you read.
 
 ### Extended blocks
 

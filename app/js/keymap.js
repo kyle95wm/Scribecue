@@ -104,6 +104,7 @@ export const GROUPS = [
     ['recPickup', 'Go to the next pickup', ['KeyP']],
     ['recAlt', 'Alt: switch between the block and your own wording for it', ['KeyA']],
     ['recZoom', 'Zoom to the block’s take, or back', ['KeyZ']],
+    ['recCues', 'Sound cues on / off: pips count you in to each take, and mark the end of its time', ['KeyB']],
   ]],
   ['View', [
     ['help', 'Keyboard shortcuts', ['Shift+KeyO']],
