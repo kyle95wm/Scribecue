@@ -52,7 +52,7 @@
       <span class="navwrap file-wrap">
         <button data-act="fileMenu" id="fileBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="fileMenu">File <span class="caret" aria-hidden="true">▾</span></button>
         <div class="navmenu filemenu" id="fileMenu" role="menu" aria-labelledby="fileBtn" hidden>
-          <button role="menuitem" data-act="newProject"><span><strong>New…</strong><span class="dim">clear the blocks and keep the video, or start a new project</span></span></button>
+          <button role="menuitem" data-act="newProject" class="not-qc not-record"><span><strong>New…</strong><span class="dim">clear the blocks and the video, or start the next episode</span></span></button>
           <button role="menuitem" data-act="openSubs"><span><strong>Open…</strong><span class="dim">a project, a script (SRT or VTT), or video or audio</span></span><kbd><span class="mod"></span>O</kbd></button>
           <button role="menuitem" data-act="recents" id="recentsItem"><span><strong>Recents…</strong><span class="dim">projects, packages and recording files opened or saved lately</span></span><span data-keys="recents"><kbd>⌥⇧R</kbd></span></button>
           <button role="menuitem" data-act="openDrive" id="openDriveItem" hidden><span><strong>Open from Google Drive…</strong><span class="dim">a project you saved to Drive, on any computer</span></span><span data-keys="openDrive"><kbd>⌥⇧G</kbd></span></button>
@@ -61,6 +61,7 @@
           <button role="menuitem" data-act="saveProjectAs"><span><strong>Save as…</strong><span class="dim">the project as a new file</span></span><kbd><span class="mod"></span>⇧S</kbd></button>
           <button role="menuitem" data-act="saveDrive" id="saveDriveItem" class="not-record" hidden><span><strong>Save to Google Drive</strong><span class="dim">keep the project in your Drive, to open on any computer</span></span><span data-keys="saveDrive"><kbd>⌥⇧U</kbd></span></button>
           <button role="menuitem" data-act="exportDialog" class="export-item"><span><strong>Export…</strong><span class="dim">a file to hand on: a package, audio, the script or a video</span></span><span data-keys="exportDialog"><kbd>⌥⇧E</kbd></span></button>
+          <button role="menuitem" data-act="closeProject"><span><strong>Close</strong><span class="dim">the project and the video, for different work</span></span><span data-keys="closeProject"><kbd>⌥⇧W</kbd></span></button>
         </div>
       </span>
       <span id="qcPermission" class="autotag qc-only" aria-live="polite">Comments only</span>
@@ -573,16 +574,20 @@ docker compose up -d --build</code></pre>
   <dialog id="newDlg" class="updbox wizard" aria-labelledby="newTitle">
     <h2 id="newTitle">Start again</h2>
     <p id="newWhat"></p>
-    <button class="wzcard wzchoice" data-choice="blocks"><span><strong>Clear the blocks</strong>
-      <span class="dim" id="newBlocksNote">Removes every block and keeps everything else: the video, the project file and
-        your notes. Ready to write from scratch, or to open a script.</span></span></button>
+    <button class="wzcard wzchoice" data-choice="blocks"><span><strong>Clear the blocks and the video</strong>
+      <span class="dim" id="newBlocksNote">Removes every block and closes the video. Keeps the project file and your
+        notes. Ready to open another video or script.</span></span></button>
     <button class="wzcard wzchoice" data-choice="episode"><span><strong>Next episode</strong>
       <span class="dim" id="newEpisodeNote"></span></span></button>
-    <button class="wzcard wzchoice" data-choice="project"><span><strong id="newProjectLabel">New project</strong>
-      <span class="dim" id="newProjectNote">Clears the blocks and notes, and closes the video, for different work.</span></span></button>
-    <p id="newUnsaved" class="dim" hidden>Your changes aren’t saved. Save before starting a new project, or choose Start without saving.</p>
     <p id="newUndo" class="dim small"><kbd><span class="mod"></span>Z</kbd> brings the blocks back.</p>
-    <div class="updbtns"><button id="newSave" class="hl" hidden>Save and start new project</button><button id="newCancel">Cancel</button></div>
+    <p class="dim small">To start different work, use <strong>File → Close</strong>.</p>
+    <div class="updbtns"><button id="newCancel">Cancel</button></div>
+  </dialog>
+
+  <dialog id="closeDlg" class="updbox" aria-labelledby="closeTitle">
+    <h2 id="closeTitle">Close the project?</h2>
+    <p id="closeWhat"></p>
+    <div class="updbtns"><button id="closeSave" class="hl">Save and close</button><button id="closeGo">Close without saving</button><button id="closeCancel">Cancel</button></div>
   </dialog>
 
   <dialog id="changeDlg" class="updbox wizard" aria-labelledby="chgTitle">
@@ -1850,6 +1855,7 @@ docker compose up -d --build</code></pre>
             <dt class="save-key" data-keys="saveDrive"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>U</kbd></dt><dd class="save-key">Save the project to Google Drive</dd>
             <dt class="export-key" data-keys="exportDialog"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>E</kbd></dt><dd class="export-key">Export…</dd>
             <dt class="export-key"><kbd><span class="mod"></span>E</kbd> <kbd><span class="mod"></span>⇧E</kbd></dt><dd class="export-key">Export SRT · export VTT</dd>
+            <dt data-keys="closeProject"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>W</kbd></dt><dd>Close the project</dd>
           </dl>
           <h3 class="record-only">Record mode</h3>
           <dl class="record-only">

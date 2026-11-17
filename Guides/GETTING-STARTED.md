@@ -218,8 +218,10 @@ programme. `Ctrl/Cmd+O` opens it again.
   project and its video.
 - **The video reopens with the project.** If you're asked, click **Reopen**. If the video
   has moved, open it again with `Ctrl/Cmd+Shift+O`.
-- **File, New** either clears the blocks and keeps the video, or starts a whole new
-  project. `Ctrl/Cmd+Z` brings the blocks back.
+- **File, New** clears the blocks and closes the video, or starts the next episode.
+  With unsaved changes, it asks whether to save first. `Ctrl/Cmd+Z` brings the blocks back.
+- **File, Close** (`Alt+Shift+W`) closes the project and the video, for different work.
+  With unsaved changes, it asks whether to save first.
 - **File, Recents** (`Alt+Shift+R`) lists the last 20 projects, QC packages, recording
   files and session packages you opened or saved. Search by name, or show one kind.
 - **Take a file off Recents** with its **×**, or click **Clear all**. The files themselves
@@ -234,7 +236,7 @@ programme. `Ctrl/Cmd+O` opens it again.
   Scribecue saved yours beside it rather than over it. Both are in Drive.
 - **Rename a project in Drive** whenever you like. Scribecue keeps saving to it, under its
   new name.
-- **Deleting the project you have open?** Choose **File → New…** first. Otherwise Scribecue
+- **Deleting the project you have open?** Choose **File → Close** first. Otherwise Scribecue
   saves it to Drive again, so your work isn't lost.
 
 Saving to a file on this computer, autosave, Recents and reopening the video need Chrome or

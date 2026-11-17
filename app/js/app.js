@@ -6300,56 +6300,82 @@ async function openAny() {
   }
 }
 
-// New: closes the video and clears the blocks, after asking.
-// New: a choice between clearing only the blocks and starting a whole new project.
+// New: clear the blocks and keep the video, or start the next episode. Close starts
+// different work.
 const newDlg = $('newDlg');
 function startAgain() {
   const blocks = S.cues.length, media = S.videoFile?.name;
-  if (!blocks && !media && !S.comments.length && !S.bookmarks.length && !S.notes.trim() && !S.dirty && !S.reviewId) return newProject(false);
   const n = blocks === 1 ? '1 block' : `${blocks} blocks`;
-  $('newWhat').textContent = S.comments.length && !blocks && !media ? `This project has ${S.comments.length} timeline comments.` : blocks ? `This project has ${n}${media ? `, with ${media} open` : ''}.` : media ? `${media} is open, with no blocks yet.` : 'This project has no blocks yet.';
   // Clearing a shared project's blocks clears them for everyone: only its owner may.
-  newDlg.querySelector('[data-choice="blocks"]').hidden = !blocks || qc() || (!!myShare && myShare.link !== 'owner');
+  const canClear = !!(blocks || media) && !qc() && !(!!myShare && myShare.link !== 'owner');
+  const canEpisode = !qc() && !S.reviewId && S.mode !== 'record';
+  if (!canClear && !canEpisode) { toast('Nothing to start again here. File → Close starts different work'); return; }
+  $('newWhat').textContent = blocks ? `This project has ${n}${media ? `, with ${media} open` : ''}.` : media ? `${media} is open, with no blocks yet.` : 'This project has no blocks yet.';
+  newDlg.querySelector('[data-choice="blocks"]').hidden = !canClear;
+  newDlg.querySelector('[data-choice="episode"]').hidden = !canEpisode;
   const unsaved = S.dirty && !myShare; // a shared project keeps its changes
-  $('newUnsaved').hidden = !unsaved;
-  $('newSave').hidden = !unsaved;
-  // The next episode of a series: a new project that keeps what carries over.
-  newDlg.querySelector('[data-choice="episode"]').hidden = qc() || !!S.reviewId || S.mode === 'record';
   const told = cleanScenes(S.scenes).some((s) => s.text.trim());
   $('newEpisodeNote').textContent = `A new project for the next episode of a series. Keeps your notes and spelling words${
     told ? `, and adds the story so far to the notes${aiConnected() ? ', written by AI help from the scene summaries' : ', from the scene summaries'}` : ''}.${unsaved ? ' Saves this episode first.' : ''}`;
-  $('newProjectLabel').textContent = unsaved ? 'Start without saving' : 'New project';
-  $('newProjectNote').textContent = myShare ? `Leaves this shared project and closes the video. The project stays in this browser: open it again from Shared projects.${relay?.unsent() ? ' Your last changes haven’t reached it yet. They’re kept here, and sent when you open it again.' : ''}`
-    : qc() ? 'Closes this review and the video, then opens a blank project in Write mode.' : 'Clears the blocks and notes, and closes the video, for different work.';
-  $('newUndo').hidden = !!S.reviewId;
+  $('newUndo').hidden = !blocks || !canClear;
   newDlg.showModal();
-  newDlg.querySelector(`[data-choice="${blocks && !qc() ? 'blocks' : 'project'}"]`).focus();
+  newDlg.querySelector(`[data-choice="${canClear ? 'blocks' : 'episode'}"]`).focus();
 }
 for (const b of newDlg.querySelectorAll('.wzchoice')) {
   b.addEventListener('click', () => {
     newDlg.close();
-    if (b.dataset.choice === 'blocks') clearBlocks();
-    else if (b.dataset.choice === 'episode') {
-      if (S.dirty && !myShare) startNewProject({ saveFirst: true, save: () => saveProject(), isDirty: () => S.dirty, start: nextEpisode });
-      else nextEpisode();
-    } else newProject(false);
+    if (b.dataset.choice === 'blocks') askToSave('clear');
+    else if (S.dirty && !myShare) startNewProject({ saveFirst: true, save: () => saveProject(), isDirty: () => S.dirty, start: nextEpisode });
+    else nextEpisode();
   });
 }
-$('newSave').addEventListener('click', async () => {
-  const b = $('newSave');
-  if (b.disabled) return;
-  b.disabled = true;
-  for (const choice of newDlg.querySelectorAll('.wzchoice')) choice.disabled = true;
-  try {
-    await startNewProject({ saveFirst: true, save: () => saveProject(), isDirty: () => S.dirty, start: () => { if (newDlg.open) { newDlg.close(); newProject(false); } } });
-  } finally {
-    b.disabled = false;
-    for (const choice of newDlg.querySelectorAll('.wzchoice')) choice.disabled = false;
-  }
-});
 $('newCancel').addEventListener('click', () => newDlg.close());
 newDlg.addEventListener('click', (e) => { if (e.target === newDlg) newDlg.close(); });
-document.addEventListener('keydown', (e) => { if (newDlg.open) e.stopPropagation(); }, true);
+document.addEventListener('keydown', (e) => { if (newDlg.open || closeDlg.open) e.stopPropagation(); }, true);
+
+// Close: the project and the video, for different work. Clearing the blocks and the
+// video asks the same way. Each asks first only when something would be lost or left:
+// changes not saved, or, for Close, a shared project.
+const closeDlg = $('closeDlg');
+const ASK = {
+  close: { title: 'Close the project?', save: 'Save and close', go: 'Close without saving', plain: 'Close' },
+  clear: { title: 'Clear the blocks and the video?', save: 'Save and clear', go: 'Clear without saving', plain: 'Clear' },
+};
+let asking = 'close';
+const closeProject = () => askToSave('close');
+function askToSave(what) {
+  const empty = !S.cues.length && !S.videoFile && !S.comments.length && !S.bookmarks.length && !S.notes.trim() && !S.reviewId;
+  const unsaved = S.dirty && !myShare && !empty, leaving = what === 'close' && !!myShare;
+  if (!unsaved && !leaving) return doAsked(what);
+  asking = what;
+  const words = ASK[what];
+  $('closeTitle').textContent = words.title;
+  $('closeWhat').textContent = leaving
+    ? `You’ll leave this shared project. It stays in this browser: open it again from Shared projects.${relay?.unsent() ? ' Your last changes haven’t reached it yet. They’re kept here, and sent when you open it again.' : ''}`
+    : `Your changes to ${S.subName === 'untitled.srt' ? 'this project' : S.subName} aren’t saved in a project file.`;
+  $('closeSave').hidden = !unsaved;
+  $('closeSave').textContent = words.save;
+  $('closeGo').textContent = unsaved ? words.go : words.plain;
+  closeDlg.showModal();
+  (unsaved ? $('closeSave') : $('closeGo')).focus();
+}
+function doAsked(what) {
+  if (what === 'clear') return clearBlocks();
+  const blocks = S.cues.length, review = qc();
+  newProject(false);
+  toast(review ? 'Closed the review' : blocks ? `Closed the project. ${IS_MAC ? '⌘Z' : 'Ctrl+Z'} brings the blocks back` : 'Closed the project');
+}
+$('closeGo').addEventListener('click', () => { closeDlg.close(); doAsked(asking); });
+$('closeSave').addEventListener('click', async () => {
+  const b = $('closeSave');
+  if (b.disabled) return;
+  b.disabled = $('closeGo').disabled = true;
+  try {
+    await startNewProject({ saveFirst: true, save: () => saveProject(), isDirty: () => S.dirty, start: () => { if (closeDlg.open) { closeDlg.close(); doAsked(asking); } } });
+  } finally { b.disabled = $('closeGo').disabled = false; }
+});
+$('closeCancel').addEventListener('click', () => closeDlg.close());
+closeDlg.addEventListener('click', (e) => { if (e.target === closeDlg) closeDlg.close(); });
 
 // Next episode: a new project with this one's notes and spelling words. The story so far
 // goes at the top of the notes: the one before, with this episode's scene summaries added,
@@ -6385,16 +6411,18 @@ async function nextEpisode() {
   toast(`Next episode: notes${recap ? ' with the story so far' : ''} and spelling words kept. Open its video with ${IS_MAC ? '⌘⇧O' : 'Ctrl+Shift+O'}.${said}`);
 }
 
-// Removes every block, keeping the video, the project file and the notes.
+// Removes every block and closes the video, keeping the project file and the notes.
 function clearBlocks() {
-  const n = S.cues.length;
-  if (!n) return;
+  const n = S.cues.length, media = !!S.videoFile;
+  if (!n && !media) return;
   stopJob();
+  closeVideo();
+  if (!n) return toast('Closed the video');
   pushUndo();
   S.cues = [];
   changed();
   select(null);
-  toast(`Cleared ${n === 1 ? 'the 1 block' : `all ${n} blocks`} — ${IS_MAC ? '⌘' : 'Ctrl+'}Z brings them back`);
+  toast(`Cleared ${n === 1 ? 'the 1 block' : `all ${n} blocks`} and closed the video — ${IS_MAC ? '⌘' : 'Ctrl+'}Z brings the blocks back`);
 }
 
 // ask: false when the choice was already made in the Start again dialog.
@@ -8062,6 +8090,7 @@ const actions = {
   help: () => toggleHelp(),
   settings: () => showGeneral(),
   newProject: () => startAgain(),
+  closeProject: () => closeProject(),
   comments: () => toggleComments(),
   bookmarks: () => toggleBookmarks(),
   share: () => shareUi?.open(),
@@ -8633,6 +8662,7 @@ const RUN = {
   recents: () => openRecents(),
   openDrive: () => openFromDrive(),
   saveDrive: () => saveToDrive(),
+  closeProject: () => closeProject(),
   zoomIn: () => zoom(1.5),
   zoomOut: () => zoom(1 / 1.5),
   zoomFit: () => fitAll(),

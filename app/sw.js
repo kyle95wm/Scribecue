@@ -38,7 +38,7 @@ const GUIDES = [
   'guides/docs/screenshots/comments.png', 'guides/docs/screenshots/bookmarks.png', 'guides/docs/screenshots/bookmarks-new.png',
   'guides/docs/screenshots/qc-playback.png',
   'guides/docs/screenshots/qc-editing.png',
-  'guides/docs/screenshots/qc-new-project.png',
+  'guides/docs/screenshots/qc-close.png',
   'guides/docs/screenshots/qc-package.png',
   'guides/docs/screenshots/recording.png',
   'guides/docs/screenshots/recording-menu.png',

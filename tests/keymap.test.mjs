@@ -117,3 +117,15 @@ test('keys are shown for each platform', () => {
   assert.equal(comboText('BracketLeft'), '[');
   assert.equal(comboText('Escape'), 'Esc');
 });
+
+test('every action with a key has something to run', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../app/js/app.js', import.meta.url), 'utf8');
+  const table = (name) => {
+    const start = src.indexOf(`const ${name} = {`);
+    return src.slice(start, src.indexOf('\n};', start));
+  };
+  const run = table('RUN') + table('REC_RUN');
+  const missing = ACTIONS.filter(({ id }) => !new RegExp(`\\n\\s*${id}:`).test(run)).map((a) => a.id);
+  assert.deepEqual(missing, []);
+});

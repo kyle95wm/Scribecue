@@ -169,20 +169,18 @@ await js(`document.querySelector('#list .row').click();true`);
   await js(`(async()=>{const q=await import('./js/qc.js');const {writeWav}=await import('./js/audio.js');const p={scribecue:1,blocks:[{start:1,end:2,text:'Keep this review'}],settings:{mode:'qc'}};const file=await q.buildReview(p,async()=>({blob:new Blob([writeWav(new Int16Array(16000),16000)]),secs:1,voice:'portable:voice'}),{allowEdits:${allowEdits}});const d=new DataTransfer();d.items.add(new File([file],'new-project-test.scribecueqc'));document.dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}));return true;})()`);
   await wait(`document.getElementById('subName').textContent.includes('new-project-test')`);
   await click('qcPlaybackClose');
-  assert.notEqual(await js(`getComputedStyle(document.querySelector('[data-act=newProject]')).display`),'none');
-  await js(`document.querySelector('[data-act=newProject]').click();true`);
-  assert.equal(await js(`document.querySelector('#newDlg [data-choice=blocks]').hidden`),true);
-  await click('newCancel');assert.equal(await js(`document.body.classList.contains('mode-qc')`),true);
+  assert.equal(await js(`getComputedStyle(document.querySelector('[data-act=newProject]')).display`),'none');
+  assert.notEqual(await js(`getComputedStyle(document.querySelector('[data-act=closeProject]')).display`),'none');
   await js(`document.querySelector('#list .row').click();document.getElementById('edComment').click();document.getElementById('commentText').value='Unsaved review note';document.getElementById('commentPost').click();true`);
-  await js(`document.querySelector('[data-act=newProject]').click();window.showSaveFilePicker=async()=>{throw new DOMException('Cancelled','AbortError')};true`);
-  assert.equal(await js(`document.getElementById('newUnsaved').hidden`),false);
+  await js(`document.querySelector('[data-act=closeProject]').click();window.showSaveFilePicker=async()=>{throw new DOMException('Cancelled','AbortError')};true`);
+  assert.equal(await js(`document.getElementById('closeSave').hidden`),false);
   if (!allowEdits) { const shot=await send('Page.captureScreenshot',{format:'png'});(await import('node:fs')).writeFileSync('/tmp/scribecue-qc-new-project.png',Buffer.from(shot.result.data,'base64')); }
-  await click('newSave');await sleep(300);
-  assert.equal(await js(`document.getElementById('newDlg').open && document.body.classList.contains('mode-qc')`),true);
+  await click('closeSave');await sleep(300);
+  assert.equal(await js(`document.getElementById('closeDlg').open && document.body.classList.contains('mode-qc')`),true);
   await js(`window.showSaveFilePicker=async()=>({name:'returned-review.scribecueqc',queryPermission:async()=>'granted',createWritable:async()=>({write:async b=>{window.__newSaved=b},close:async()=>{}})});true`);
-  if (allowEdits) await js(`document.querySelector('#newDlg [data-choice=project]').click();true`);
+  if (allowEdits) await click('closeGo');
   else {
-   await click('newSave');await wait(`document.body.classList.contains('mode-write')`);
+   await click('closeSave');await wait(`document.body.classList.contains('mode-write')`);
    assert.equal(await js(`(async()=>{const q=await import('./js/qc.js');const r=await q.openReview(__newSaved);return r.parsed.blocks[0].comments[0].text;})()`),'Unsaved review note');
   }
   assert.equal(await js(`document.querySelectorAll('#list .row').length`),0);

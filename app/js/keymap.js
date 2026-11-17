@@ -114,6 +114,7 @@ export const GROUPS = [
     ['recents', 'Recents: files opened or saved lately', ['Alt+Shift+KeyR']],
     ['openDrive', 'Open a project from Google Drive', ['Alt+Shift+KeyG']],
     ['saveDrive', 'Save the project to Google Drive', ['Alt+Shift+KeyU']],
+    ['closeProject', 'Close the project', ['Alt+Shift+KeyW']],
     ['zoomIn', 'Zoom the timeline in', ['Alt+Equal', 'Alt+NumpadAdd']],
     ['zoomOut', 'Zoom the timeline out', ['Alt+Minus', 'Alt+NumpadSubtract']],
     ['zoomFit', 'Zoom the timeline to fit', ['Alt+Digit0', 'Alt+Numpad0']],
