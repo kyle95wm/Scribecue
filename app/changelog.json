@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.135.2",
+    "date": "2026-11-17",
+    "notes": "## Script as Excel\n\n- **File → Export… → Script as Excel** saves the script as a spreadsheet, one row per block.\n- Each row has the block's number, timecodes in and out, text and notes.\n- The headers carry the voice's language, such as **Script (en)**."
+  },
+  {
     "version": "0.135.1",
     "date": "2026-11-17",
     "notes": "## Fixes\n\n- In a shared project you joined, **File → Save to Google Drive** no longer shows. Only the owner saves the project, as with Save."
