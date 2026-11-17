@@ -663,3 +663,13 @@ test('voices that stop getting faster have a top speed, base speed included', as
   assert.equal(topSpeedAt(null, 1.5), MAX_SPEED);
   assert.equal(topSpeedAt('google', 1), MAX_SPEED);
 });
+
+test('Kokoro reads no slower than half its normal speed, base speed included', async () => {
+  const { lowSpeedAt, MIN_SPEED } = await import('../app/js/tts.js');
+  assert.equal(lowSpeedAt('kokoro', 1), MIN_SPEED);
+  assert.equal(lowSpeedAt('kokoro', 0.6), 0.84);
+  assert.equal(lowSpeedAt('kokoro', 0.5), 1);
+  // Piper and others keep getting slower.
+  assert.equal(lowSpeedAt('piper', 0.5), MIN_SPEED);
+  assert.equal(lowSpeedAt(null, 0.5), MIN_SPEED);
+});

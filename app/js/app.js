@@ -70,7 +70,7 @@ import { stt, initStt, openStt, transcribe, transcribeTimed, checkStt, toWav, sp
 import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { startTips } from './tooltip.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, readWav, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
-  isBlockSpeed, topSpeed, topSpeedWhy, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
+  isBlockSpeed, topSpeed, lowSpeed, speedLimitWhy, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
   reviewVoices, usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showCloudCost, cloudOf, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIP_BYS, isDip, FADES, isDipBy, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain,
   savedReadings, clearSavedReadings, checkFfmpeg } from './tts.js';
 
@@ -2005,11 +2005,12 @@ function updateEditor() {
   if (ttsOn()) fillEdVol(c);
   const custom = c.speed && !isSpeed(c.speed);
   // Speeds the block's voice can't read at are greyed out, with why in the tooltip.
-  const top = topSpeed(c.voice);
-  for (const o of edSpeed.options) if (o !== edSpeedCustom) o.disabled = +o.value > top + 1e-9;
-  edSpeedWrap.dataset.tip = SPEED_TIP + (top < MAX_SPEED ? `. ${topSpeedWhy(c.voice)}` : '');
+  const top = topSpeed(c.voice), low = lowSpeed(c.voice);
+  let off = false;
+  for (const o of edSpeed.options) if (o !== edSpeedCustom) off = (o.disabled = +o.value > top + 1e-9 || +o.value < low - 1e-9) || off;
+  edSpeedWrap.dataset.tip = SPEED_TIP + (off ? `. ${speedLimitWhy(c.voice)}` : '');
   edSpeedCustom.hidden = !custom;
-  edSpeedCustom.textContent = custom ? speedName(c.speed) + (c.speed > top + 1e-9 ? ', faster than this voice reads' : c.fit ? ', fits the block' : '') : 'custom';
+  edSpeedCustom.textContent = custom ? speedName(c.speed) + (c.speed > top + 1e-9 ? ', faster than this voice reads' : c.speed < low - 1e-9 ? ', slower than this voice reads' : c.fit ? ', fits the block' : '') : 'custom';
   if (document.activeElement !== edSpeed) edSpeed.value = custom ? 'custom' : String(c.speed || 1);
   if (rec) { if (document.activeElement !== edText) edText.value = alt ? recorder.altText(i) : c.text; }
   else if (!edit || edit.id !== c.id) edText.value = c.text;
@@ -3412,20 +3413,22 @@ function resized(c, edge) {
 // How far over its block a reading can run and still count as fitting: half a 1% step,
 // on long blocks.
 const fitNear = (secs) => Math.max(0.03, secs * 0.005);
-// The readings fitting can choose from, at FIT_MIN or faster, and the next speed to try.
+// The slowest speed fitting picks: FIT_MIN, or slower than that if the block's voice won't.
+const fitLow = (c) => Math.max(FIT_MIN, lowSpeed(c.voice));
+// The readings fitting can choose from, at fitLow or faster, and the next speed to try.
 // Only speeds the block's voice reads at, so a fitted speed is never faster than that.
 const fitReadings = (c) => {
   const top = topSpeed(c.voice);
-  return readingsOf(said(c), false, c.voice).filter((p) => p.speed >= FIT_MIN - 0.005 && p.speed <= top + 0.005);
+  return readingsOf(said(c), false, c.voice).filter((p) => p.speed >= fitLow(c) - 0.005 && p.speed <= top + 0.005);
 };
-// A speed estimated to fill target, between FIT_MIN and the fastest the block's voice reads.
-const estimateFit = (c, target) => Math.min(topSpeed(c.voice), Math.max(FIT_MIN, speedToFit(speechLength(said(c), 1, c.voice).secs, 1, target)));
+// A speed estimated to fill target, between fitLow and the fastest the block's voice reads.
+const estimateFit = (c, target) => Math.min(topSpeed(c.voice), Math.max(fitLow(c), speedToFit(speechLength(said(c), 1, c.voice).secs, 1, target)));
 function nextFit(c, target, near) {
   const pts = fitReadings(c);
   const guess = speedFromReadings(pts, target, c.speed ?? 1, fixedShare(c.voice));
-  const top = topSpeed(c.voice);
-  const s = nextFitSpeed(pts, target, guess == null ? null : Math.min(top, Math.max(FIT_MIN, guess)), near);
-  return s == null ? null : Math.min(top, Math.max(FIT_MIN, s));
+  const top = topSpeed(c.voice), low = fitLow(c);
+  const s = nextFitSpeed(pts, target, guess == null ? null : Math.min(top, Math.max(low, guess)), near);
+  return s == null ? null : Math.min(top, Math.max(low, s));
 }
 // Blocks marked fit read at whatever speed fills them. Uses the reading at the block's
 // current speed when that's been measured, so the speed closes in on an exact fit.
@@ -3644,7 +3647,7 @@ async function fitBlock(c) {
     const secs = await measure(said(c), at, { bulk: true, voice: c.voice });
     if (secs == null || Math.abs(secs - target) <= near) break;
     // As slow as it goes and still short, or as fast as it goes and still long.
-    if ((at <= FIT_MIN && secs < target) || (at >= topSpeed(c.voice) - 1e-9 && secs > target)) break;
+    if ((at <= fitLow(c) + 1e-9 && secs < target) || (at >= topSpeed(c.voice) - 1e-9 && secs > target)) break;
   }
   // The best of the speeds read, rather than the last one tried.
   const best = measuring ? bestFit(fitReadings(c), target, near) : null;
@@ -4318,10 +4321,11 @@ function stepBlockSpeed(d) {
   if (!readingControls()) return toast('Turn on text to speech first (⌥⇧V)');
   const c = needSel(); if (!c) return;
   // From a custom speed, step to the next set speed in that direction.
-  // Faster than the block's voice reads, it stops: those speeds are greyed out in the menu.
-  const top = topSpeed(c.voice), list = SPEEDS.map(([s]) => s).filter((s) => s <= top + 1e-9), cur = c.speed ?? 1;
+  // Faster or slower than the block's voice reads, it stops: those speeds are greyed out in the menu.
+  const top = topSpeed(c.voice), low = lowSpeed(c.voice), cur = c.speed ?? 1;
+  const list = SPEEDS.map(([s]) => s).filter((s) => s <= top + 1e-9 && s >= low - 1e-9);
   const next = d > 0 ? list.find((s) => s > cur + 1e-9) : [...list].reverse().find((s) => s < cur - 1e-9);
-  if (next == null) return toast(d < 0 ? 'Already at the slowest speed' : top < MAX_SPEED ? `Already at the fastest speed this voice reads (${speedLabel(top)})` : 'Already at the fastest speed');
+  if (next == null) return toast(d < 0 ? (low > SPEEDS[0][0] ? `Already at the slowest speed this voice reads (${speedLabel(low)})` : 'Already at the slowest speed') : top < MAX_SPEED ? `Already at the fastest speed this voice reads (${speedLabel(top)})` : 'Already at the fastest speed');
   setBlockSpeed(c, next);
 }
 for (const [v, label] of SPEEDS) edSpeed.add(new Option(label, String(v)));
