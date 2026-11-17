@@ -648,3 +648,18 @@ test('filtering by language keeps every English voice, and the one chosen', () =
   assert.deepEqual(inLanguage(voices, 'fr', 'Zed').map((x) => x.name), ['Zed', 'Amélie']);
   assert.equal(inLanguage(voices, '').length, voices.length);
 });
+
+test('voices that stop getting faster have a top speed, base speed included', async () => {
+  const { topSpeedAt, MAX_SPEED } = await import('../app/js/tts.js');
+  // Kokoro reads at most twice its normal speed.
+  assert.equal(topSpeedAt('kokoro', 1), 2);
+  assert.equal(topSpeedAt('kokoro', 1.2), 1.66);
+  assert.equal(topSpeedAt('kokoro', 0.8), MAX_SPEED);
+  // Piper hardly gets faster past +50%.
+  assert.equal(topSpeedAt('piper', 1), 1.5);
+  assert.equal(topSpeedAt('piper', 1.3), 1.15);
+  assert.equal(topSpeedAt('piper', 0.5), MAX_SPEED);
+  // Other voices go as fast as any block can.
+  assert.equal(topSpeedAt(null, 1.5), MAX_SPEED);
+  assert.equal(topSpeedAt('google', 1), MAX_SPEED);
+});

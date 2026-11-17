@@ -165,8 +165,8 @@ export a description track, as with Piper.
 
 Kokoro takes longer to read than Piper: a line takes a second or two on a recent computer,
 against a fraction of a second. Scribecue reads blocks ahead in the background, so you
-mostly won't notice, but fitting every block's speed takes longer. It reads between half
-and twice its normal speed, so a block's reading stops getting faster beyond that.
+mostly won't notice, but fitting every block's speed takes longer. It reads at most twice
+its normal speed, so faster speeds are greyed out in the block's speed menu.
 
 For a smaller, quicker model that sounds a little rougher, add this line to `.env`, then
 build again:

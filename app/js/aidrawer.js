@@ -4,7 +4,7 @@ import {
   PROVIDERS, buildRequest, recentFrames, withNotes, SYSTEM, readReply, failure, listModels, fitBudget, shortenPrompt, draftPrompt, draftSpeed, toPace, PACES, chatContext, clock, SCENE_SYSTEM,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from './ai.js';
-import { tts, chosenVoice, DEFAULT_CPS, atBase, estimate as readTime, speedLabel } from './tts.js';
+import { tts, chosenVoice, DEFAULT_CPS, atBase, estimate as readTime, speedLabel, topSpeed } from './tts.js';
 import { HOSTED } from './config.js';
 import { lookup as lookUpCast, KEY_PAGE as TMDB_KEY_PAGE } from './tmdb.js';
 import { openSettings as showSettings } from './settings.js';
@@ -240,7 +240,8 @@ function addDraftButtons(out, draft, text) {
 // draft needs, from draftSpeed. Drafting never slows a block down.
 function room(b, speed = 1) {
   const secs = b.end - b.start, cps = tts.cps[chosenVoice()] || DEFAULT_CPS, at = atBase(speed, tts.base);
-  const max = hooks.speaks() ? Math.max(speed, toPace(ai.pace)) : speed;
+  // Never faster than the block's voice reads.
+  const max = hooks.speaks() ? Math.max(speed, Math.min(toPace(ai.pace), topSpeed(b.voice))) : speed;
   return {
     secs, budget: fitBudget(secs, cps, at),
     fast: max > speed ? fitBudget(secs, cps, atBase(max, tts.base)) : null,

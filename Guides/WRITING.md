@@ -53,6 +53,16 @@ Blocks opened from a file, or marked with `H`, keep their timing until you edit 
   (+30%), and experimental +50% and +100%. Use `[` `]` or the speed menu in the open block.
   A block that isn't at normal speed shows it in the list and on the timeline, such as
   `+15%`.
+- **Top speed per voice:** speeds a block's voice can't read at are greyed out.
+
+  | Voice | Fastest |
+  |---|---|
+  | Piper | +50% |
+  | Kokoro | +100% |
+  | Others | +100% |
+
+  The base speed counts too: with Piper at a base speed of 120%, the fastest is +25%.
+  Fit speeds to timings and `[` `]` stop there as well.
 - **Base speed:** a slider in the text to speech settings, from 50% to 150%, for the whole
   project. It's added on top of each block's own speed. Double-click it to go back to
   100%.
