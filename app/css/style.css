@@ -1650,7 +1650,7 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 /* Hidden in a shared project: QC's playback choices, and the voice pickers locked to the owner's. */
 .airow[hidden], .ttsvoice[hidden], .ttsgrid select[hidden] { display: none; }
 /* A project shared with you: its owner saves and exports it. */
-.no-files [data-act="saveProject"], .no-files [data-act="saveProjectAs"], .no-files .save-key, .no-files .export-item, .no-files .export-key, .no-files .export-panel { display: none; }
+.no-files [data-act="saveProject"], .no-files [data-act="saveProjectAs"], .no-files [data-act="saveDrive"], .no-files .save-key, .no-files .export-item, .no-files .export-key, .no-files .export-panel { display: none; }
 /* A reviewer with a QC package open saves it and sends it back: nothing to export. */
 .mode-qc.qc-package .export-item { display: none; }
 

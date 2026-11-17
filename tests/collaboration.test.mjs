@@ -151,3 +151,15 @@ test('only the owner of a shared project saves or exports it', () => {
   assert.equal(makesFiles({ link: 'owner', role: 'owner' }), true);
   for (const role of ['edit', 'review', 'comment']) assert.equal(makesFiles({ link: 'abc123', role }), false, role);
 });
+
+test('people who joined a shared project see no File menu items that save it', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const css = await readFile(new URL('../app/css/style.css', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../app/index.html', import.meta.url), 'utf8');
+  const hidden = css.split('\n').find((l) => l.startsWith('.no-files ')) || '';
+  for (const act of ['saveProject', 'saveProjectAs', 'saveDrive']) {
+    assert.ok(html.includes(`data-act="${act}"`), `${act} is in the File menu`);
+    assert.ok(hidden.includes(`.no-files [data-act="${act}"]`), `${act} is hidden for people who joined`);
+  }
+  assert.match(html, /<dt class="save-key" data-keys="saveDrive">/, 'and its key in the shortcuts');
+});
