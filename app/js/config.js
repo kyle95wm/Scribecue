@@ -21,3 +21,7 @@ export const RELAY = 'wss://share.kyleadvoice.ca';
 // Settings → Google Drive says this copy isn't set up for it.
 export const GOOGLE_CLIENT_ID = '865224025169-53b7sm98kh70psscrd1natp61j8vo70p.apps.googleusercontent.com';
 export const SIGNIN = RELAY.replace(/^wss:/, 'https:');
+// A browser API key of the same Google Cloud project, limited to the Drive API and to
+// Scribecue's own addresses. People a project is shared with download its video with it,
+// without signing in to Google. With none, Share can't include the video.
+export const GOOGLE_API_KEY = 'AIzaSyC7Nu4GbNr3pYai2jqqYtRAhsst_BKKiPg';

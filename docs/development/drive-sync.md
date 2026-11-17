@@ -92,3 +92,34 @@ same Google account, and keeps projects in Drive to open on any computer.
 - Google only allows the redirect URIs set on the client: the web version, and
   `localhost:8484`, `9484` and `8492`.
 - While the Google project is in Testing, Google drops connections after 7 days.
+
+## Shared videos
+
+A shared project's owner can send its video (`sharedvideo.js`, `sharedvideo-worker.js`).
+Kyle's picks, 2026-11-16: encrypted in the owner's Drive, for every kind of link, not for
+narrators' recording files.
+
+- **Sealed in pieces** with AES-256-GCM, a new key per video. A sealed piece is exactly 4 MiB,
+  so upload requests (4 pieces) are whole multiples of 256 KiB, as Drive asks, and download
+  ranges fall on piece edges. Nonce: the piece's number. Extra data: whether it's the last.
+- **The worker seals and uploads.** The page only runs Drive's resumable upload and hands
+  the worker a pass for each request. Sending from the page copied each 16 MiB body on the
+  main thread: 1.8 s long tasks at 6×. From the worker: none.
+- **Anyone with the link can read** the Drive file (`type: anyone`). The id and key are in
+  the shared project's `access` map, as `video`, encrypted like the rest. A Workspace
+  account that forbids link sharing gets a message, and the upload is deleted.
+- **Room in Drive** is checked first, with `about.storageQuota` (should be allowed under `drive.file`; not checked against real
+  Drive, and a refusal only means not knowing):
+  limit minus usage against the sealed size. No limit, or no answer: it tries. A
+  `storageQuotaExceeded` refusal partway, from Drive or the worker's upload, fails with the
+  code `full` and the same message. The storage is the whole Google account's.
+- **Downloading** needs no Google account: `alt=media` with `GOOGLE_API_KEY` from
+  `config.js`, a browser key limited to the Drive API and Scribecue's addresses. Empty, and
+  Share has no Video section.
+- **Kept in OPFS** under `shared-videos/<drive id>/<name>`, with a `.done` file once whole.
+  The worker writes with a sync access handle, one piece at a time, and carries on from the
+  last whole piece. `scribecue.sharedVideos` maps Drive ids to projects; copies for projects
+  no longer here, or replaced by the owner, are removed unless open.
+- **Not checked against real Drive:** downloading an "anyone" file with only an API key, the
+  `Location` header being readable on the resumable upload, and download limits on big files.
+  `scripts/shared-video-smoke.mjs` checks the rest with Drive stood in for.

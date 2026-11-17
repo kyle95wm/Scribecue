@@ -125,7 +125,7 @@ export const STEPS = [
   },
   {
     title: 'Your work stays yours',
-    text: () => `Your video and audio are opened straight from your computer and never uploaded. Your work is kept in this browser and in the project files you save. ${HOSTED ? 'Only the app itself is downloaded, from Scribecue’s site. ' : ''}Scribecue only contacts anything else when you turn it on: online voices, AI help, sharing${HOSTED ? '' : ' or update checks'}. A shared project is encrypted on your computer first, so the sharing service can’t read it.`,
+    text: () => `Your video and audio are opened straight from your computer, and only uploaded if you send a shared project’s video, encrypted first. Your work is kept in this browser and in the project files you save. ${HOSTED ? 'Only the app itself is downloaded, from Scribecue’s site. ' : ''}Scribecue only contacts anything else when you turn it on: online voices, AI help, sharing${HOSTED ? '' : ' or update checks'}. A shared project is encrypted on your computer first, so the sharing service can’t read it.`,
   },
   {
     target: 'nav [data-act="help"]',

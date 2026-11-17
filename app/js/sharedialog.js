@@ -2,6 +2,8 @@
 // password; for someone who joined, what they can do and a way to leave. Also the small
 // tag in the header that says whether the project is connected.
 
+import { isShared, sizeText } from './sharedvideo.js';
+
 export const ROLE_TEXT = {
   edit: { name: 'Can edit', what: 'Changes blocks and comments, in Write.' },
   review: { name: 'Can review', what: 'Works in QC. Block changes wait in Pending review for you to accept.' },
@@ -20,7 +22,8 @@ export const STATUS_TEXT = {
 // → resolves to '' or what's wrong, myExpiry() (when a joined person's link stops working),
 // maxDays, webLinks() (links open the web version, as this address is only for this computer),
 // recovery() (the recovery link, or null), driveOn() (Google Drive keeps it too),
-// makeRecovery(password), turnOffRecovery(),
+// makeRecovery(password), turnOffRecovery(), video() (see videoText), sendVideo(),
+// takeOutVideo(), connectDrive(),
 // recoveryMin.
 // When a link stops working, as people read it.
 export function expiryText(at, now = Date.now()) {
@@ -34,6 +37,22 @@ export function readDays(text, max) {
   if (!t) return null;
   const n = Number(t);
   return Number.isInteger(n) && n >= 1 && n <= max ? n : NaN;
+}
+// What the Share window says about the video, for the owner: `info`, and which buttons show.
+// `v`: { available, drive, sending, open: { name, size } | null, shared: info | null }.
+export function videoText(v) {
+  if (!v?.available) return null;
+  if (v.sending) return { info: `Sending ${v.open?.name || 'the video'}. Its progress shows at the top of the window.`, toggle: true };
+  if (v.shared) {
+    const other = v.open && !isShared(v.shared, v.open);
+    return {
+      info: `Others download ${v.shared.name} (${sizeText(v.shared.size)}) once, into their browser. It’s kept in your Google Drive, encrypted, so only people with a link can watch it.${other ? ` You have ${v.open.name} open.` : ''}`,
+      toggle: true, swap: other && v.drive,
+    };
+  }
+  if (!v.drive) return { info: 'To send the video with the project, connect Google Drive. The video is kept there, encrypted.', connect: true };
+  if (!v.open) return { info: 'Open the video to send it with the project. Others then don’t need their own copy.', toggle: true };
+  return { info: `Send ${v.open.name} (${sizeText(v.open.size)}) with the project. It’s encrypted on this computer, then kept in your Google Drive. Others download it once.`, toggle: true };
 }
 export function shareDialog(deps) {
   const { $ } = deps;
@@ -167,7 +186,7 @@ export function shareDialog(deps) {
   function render() {
     const r = deps.record(), owner = !r || r.link === 'owner', mine = r && !owner ? deps.myExpiry?.() : null;
     $('shareIntro').textContent = !r
-      ? 'Make a link for each kind of access. Each link has its own password: send it separately. The video isn’t shared: each person opens their own copy.'
+      ? `Make a link for each kind of access. Each link has its own password: send it separately. ${deps.video?.().available ? 'Once it’s shared, you can send the video too.' : 'The video isn’t shared: each person opens their own copy.'}`
       : owner
         ? `People with a link and its password can open this project. Send each password separately.${deps.webLinks?.() ? ' The links open the web version of Scribecue, since this address only works on this computer.' : ''}`
         : `You ${ROLE_TEXT[r.role]?.name.toLowerCase() || 'can open'} this project, shared with you by its owner.${mine ? ` Your link ${expiryText(mine).replace(/^Expires/, 'expires')}.` : ''}`;
@@ -197,6 +216,21 @@ export function shareDialog(deps) {
           : 'Others need their own Google key to hear Google voices, unless you share a separate one.';
       for (const id of ['shareGoogleOn', 'shareGoogleKey', 'shareGoogleSave']) $(id).disabled = busy;
     }
+    // The owner can send the video with the project.
+    const v = owner && r && deps.video ? deps.video() : null, vt = v ? videoText(v) : null;
+    $('shareVideo').hidden = !vt;
+    if (vt) {
+      $('shareVideoInfo').textContent = vt.info;
+      const on = $('shareVideoOn');
+      on.hidden = !vt.toggle;
+      on.setAttribute('aria-pressed', String(!!v.shared));
+      on.textContent = v.sending ? 'Sending the video…' : v.shared ? 'Video sent' : 'Send the video';
+      if (v.shared) on.dataset.tip = 'Take the video out. It’s deleted from your Google Drive'; else delete on.dataset.tip;
+      on.disabled = busy || v.sending || (!v.shared && !v.open);
+      $('shareVideoSwap').hidden = !vt.swap;
+      $('shareVideoSwap').disabled = busy || v.sending;
+      $('shareVideoDrive').hidden = !vt.connect;
+    }
     $('shareStop').hidden = !r || !owner;
     $('shareLeave').hidden = !r || owner;
   }
@@ -221,9 +255,19 @@ export function shareDialog(deps) {
   };
   $('shareGoogleSave').addEventListener('click', shareKey);
   $('shareGoogleKey').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); shareKey(); } });
+  $('shareVideoOn').addEventListener('click', () => {
+    const v = deps.video();
+    if (v.shared) {
+      if (!confirm(`Take ${v.shared.name} out of the project? It’s deleted from your Google Drive. Others keep any copy they’ve downloaded until they leave the project.`)) return;
+      deps.takeOutVideo();
+    } else deps.sendVideo();
+  });
+  $('shareVideoSwap').addEventListener('click', () => deps.sendVideo());
+  $('shareVideoDrive').addEventListener('click', () => deps.connectDrive().then(render));
   $('shareClose').addEventListener('click', () => dlg.close());
   $('shareStop').addEventListener('click', () => {
-    if (!confirm('Stop sharing this project? Every link stops working, the project closes for everyone else, and the copy on the sharing service is deleted. Your copy stays here.')) return;
+    const video = deps.video?.().shared ? ' The video you sent is deleted from your Google Drive.' : '';
+    if (!confirm(`Stop sharing this project? Every link stops working, the project closes for everyone else, and the copy on the sharing service is deleted.${video} Your copy stays here.`)) return;
     run(() => deps.stop());
   });
   // Leaving: without a copy unless asked for, so the project doesn't stay on a computer by

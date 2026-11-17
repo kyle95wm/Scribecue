@@ -60,6 +60,17 @@ To set it up for a fork:
 
 Changing `GOOGLE_SEAL_KEY` disconnects every browser. People connect again.
 
+For videos sent with shared projects, people download from the owner's Drive without
+signing in. That needs an API key:
+
+1. In the same Google Cloud project, under **APIs & Services → Credentials**, create an
+   **API key**.
+2. Under **API restrictions**, allow only the **Google Drive API**.
+3. Under **Application restrictions**, choose **Websites**, and add each address Scribecue
+   runs at, such as `https://scribecue.example.com/*` and `http://localhost:8484/*`.
+4. Put it in `GOOGLE_API_KEY` in `app/js/config.js`. It's seen by anyone using the app; the
+   restrictions are what protect it.
+
 ## Limits
 
 | What | Limit |

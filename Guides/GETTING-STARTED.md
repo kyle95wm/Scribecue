@@ -364,7 +364,8 @@ Your project is your master copy, so keep it. The other files are made for one p
 | A mixer | [Narration WAV](MIXING.md#the-narration-wav), or a Narration zip with alts | **Export**, in Record mode |
 | Someone using another tool | SRT or WebVTT | **Export** |
 
-- **Send the video too.** Reviewers and narrators need their own copy. No Scribecue file contains it.
+- **Send the video too.** Reviewers and narrators need their own copy. No Scribecue file contains
+  it, but a [shared project](SHARING.md#the-video) can carry it.
 - **Narrating your own script?** Export a recording file, then open it. Record mode opens from that file.
 
 ## See the dialogue on the timeline
