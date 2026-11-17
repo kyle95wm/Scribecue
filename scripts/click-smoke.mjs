@@ -88,6 +88,28 @@ await esc();
 near(await t(), 11, 'Replay off: a block opened at the playhead stays put');
 await key('L', 'KeyL', 76, 8);
 
+// Picking blocks on the timeline while typing: the text box follows, and typing goes to the
+// block it shows. It used to stay tied to the first block, and a click back showed the
+// other block's words, which typing then saved over it.
+const laneClick = async (i) => {
+  const [x, y] = await js(`(()=>{const r=document.querySelectorAll('#lane .cue')[${i}].getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]})()`);
+  for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
+  await sleep(400);
+};
+const box = () => js(`[document.querySelector('#edIdx').textContent, document.querySelector('#edText').value]`);
+await goTo(4.5);
+await enter();
+assert.deepEqual(await box(), ['#1', blocks[0].text]);
+await laneClick(1);
+assert.deepEqual(await box(), ['#2', 'She looks up. Then away.'], 'the timeline click shows the second block');
+await laneClick(0);
+assert.deepEqual(await box(), ['#1', blocks[0].text], 'clicking back shows the first block’s words');
+await js(`document.querySelector('#edText').focus();true`);
+await send('Input.insertText', { text: ' Slowly.' }); await sleep(300);
+assert.match(await js(`document.querySelectorAll('#list .row')[0].textContent`), /door\. Slowly\./);
+assert.match(await js(`document.querySelectorAll('#list .row')[1].textContent`), /She looks up\. Then away\./, 'the second block keeps its words');
+await esc();
+
 // Record mode goes straight to the block.
 await load(`const R=await import('./js/recording.js');dt.items.add(new File([JSON.stringify(JSON.parse(JSON.stringify(R.toRecordingFile({blocks:${JSON.stringify(blocks)},fps:25}))))],'door.scribecuerec'));`);
 await wait(`document.body.classList.contains('mode-record')`); await wait(`document.querySelector('video').readyState>=2`); await sleep(800);

@@ -1477,6 +1477,10 @@ function loadSaved() {
 // Not for a row just clicked, which stays where it is under the pointer.
 function select(id, { seek: doSeek = true, reveal = true, toTop = true } = {}) {
   queueMicrotask(notePresence);
+  // A block picked while another is being typed in (on the timeline, or with the buttons
+  // under the video, which keep the focus) ends that edit first. Otherwise the text box
+  // stays tied to the first block: it keeps the wrong words, and typing goes to the wrong block.
+  if (edit && edit.id !== id && document.activeElement === edText) edText.blur();
   if (id != null) S.laneSel = null;
   if (S.sel !== id) {
     rowMap.get(S.sel)?.classList.remove('sel');
