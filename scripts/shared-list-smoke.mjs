@@ -65,12 +65,14 @@ try {
   await b.click('#joinOpen');
   await b.wait(`${online} && ${rows}===1500`, 'B joined');
   await b.wait(`JSON.parse(localStorage.getItem('scribecue.share.'+${JSON.stringify(await a.js(`Object.keys(localStorage).find(k=>k.startsWith('scribecue.share.')).slice(16)`))})||'{}').title==='Night shift'`, 'B notes the name');
+  await b.wait(`/^Night shift/.test(document.getElementById('subName').textContent)`, 'B sees the name in the header');
   console.log('B joined:', await b.report());
 
   // B starts a new project: Night shift stays in B's browser.
   await b.click('[data-act="newProject"]');
   await b.click('#newDlg [data-choice="project"]');
   await b.wait(`${rows}===0 && !window.scribecueRelay`, 'B on a new project');
+  assert.match(await b.js(`document.getElementById('subName').textContent`), /^Untitled/, 'a new project is untitled');
   assert.equal(await b.js(`document.getElementById('sharedBtn').hidden`), false, 'B has a shared project kept');
 
   // B opens it again from the list: no link, no password.
@@ -89,6 +91,7 @@ try {
   await b.wait(`!document.getElementById('sharedDlg').open && ${online} && ${rows}===1500`, 'B reopened');
   console.log(`B reopened Night shift in ${Math.round(performance.now() - t0)} ms, ${await b.report()}`);
   assert.match(await b.js(`document.getElementById('toast').textContent`), /Opened Night shift/);
+  assert.match(await b.js(`document.getElementById('subName').textContent`), /^Night shift/, 'the header names the reopened project');
 
   // B leaves for a new project again, and A turns B's link off meanwhile.
   await b.click('[data-act="newProject"]');

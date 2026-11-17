@@ -13,6 +13,17 @@ import { cleanLaneEdits } from './dialogue.js';
 export const PROJECT_EXT = '.scribecue';
 export const PROJECT_FORMAT = 1;
 
+// The name of a project not yet saved or opened from a file.
+export const UNTITLED = 'untitled.srt';
+// The project's name without its file's extension, for titles and file names. One never
+// saved takes a shared project's name, then the video's; '' when it has neither.
+export function projectTitle(subName, sharedTitle = '', videoName = '') {
+  if (subName && subName !== UNTITLED) return subName.replace(/\.[^.]+$/, '');
+  return sharedTitle || (videoName || '').replace(/\.[^.]+$/, '');
+}
+// The name in the header: the file's, a shared project's, or Untitled.
+export const shownName = (subName, sharedTitle = '') => (subName && subName !== UNTITLED ? subName : sharedTitle || 'Untitled');
+
 // Persistent identities are separate from the editor's temporary numeric ids.
 export const validIdentity = (id) => typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id);
 export const newIdentity = () => crypto.randomUUID();

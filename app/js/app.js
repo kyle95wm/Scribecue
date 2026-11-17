@@ -24,7 +24,7 @@ import { initWelcome, openWelcome, openModeSetup, modeSetUp, welcomed, markWelco
 import { collaborationJob, retainHistory, makesFiles } from './collaboration.js';
 import { initReviewCompare, openReviewCompare, finishReview } from './qcreviewdrawer.js';
 import { initPending, startPending, addPending, endPending, pendingGhost, livePending } from './qcpending.js';
-import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanNotes, cleanWords, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio } from './project.js';
+import { toProject, fromProject, sameMedia, PROJECT_EXT, cleanPickup, cleanNotes, cleanWords, cleanRecording, newIdentity, validIdentity, cleanReviewHistory, cleanReviewAudio, projectTitle as titleOf, shownName, UNTITLED } from './project.js';
 import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, readGrace, GRACE, sameVideo, compareScript, nextRecording, typedStartOver, pickupsFor, takesKey } from './recording.js';
 import { readNote, narrationSound } from './bwf.js';
 import { inPause } from './narrationscan.js';
@@ -741,7 +741,9 @@ function noteProjectVoice(uri) {
   updateEditor();
 }
 // The project's name, as the owner has it: others list the shared project by it.
-const projectTitle = () => (S.subName !== 'untitled.srt' ? S.subName : S.videoFile?.name || '').replace(/\.[^.]+$/, '');
+// A shared project never saved as a file goes by its shared name, so reopening it keeps it.
+const sharedTitle = () => (myShare && sharedLib?.getShare(S.projectId)?.title) || '';
+const projectTitle = () => titleOf(S.subName, sharedTitle(), S.videoFile?.name);
 function shareName() {
   if (!shared || sharedProjectId !== S.projectId || myShare?.link !== 'owner') return;
   const name = projectTitle();
@@ -757,6 +759,7 @@ async function startShared() {
   const record = sharedLib.getShare(id);
   myShare = record; sharedQcSource(); syncQcPermission(); showAutosave();
   if (record) sharedLib.noteShare(id, { opened: Date.now() });
+  showDocName();
   showSharedBtn();
   if (!record && !sharedEvery) { endLive(); return; } // a project of its own: no shared copy
   try { await loadCopy(); } catch { copyLib = null; if (sharedToken === token) toast('Couldn’t load sharing. Reload Scribecue to try again'); return; }
@@ -776,7 +779,7 @@ async function startShared() {
   shared.onGoogleKey((key) => { if (shared === copy) noteGoogleKey(key); });
   noteGoogleKey(shared.googleKey(), true);
   shared.onVoice((uri) => { if (shared === copy) noteProjectVoice(uri); });
-  const noteName = (name) => { if (shared === copy && name && myShare?.link !== 'owner') sharedLib.noteShare(id, { title: name }); };
+  const noteName = (name) => { if (shared === copy && name && myShare?.link !== 'owner') { sharedLib.noteShare(id, { title: name }); showDocName(); } };
   shared.onName(noteName);
   noteName(shared.name());
   noteProjectVoice(shared.voice());
@@ -1013,6 +1016,7 @@ async function openShared(record, id, keep = false) {
   else await handleStore.set(null, 'shared:' + id);
   undoStack.length = 0; redoStack.length = 0;
   S.projectId = id;
+  S.subName = UNTITLED; // the header shows the shared project's name, not the last project's
   sharedLib.setShare(S.projectId, record);
   S.reviewHistory = null; S.cues = []; S.comments = []; S.bookmarks = []; S.laneEdits = {}; applyLaneEdits(); S.handle = null; handleStore.set(null);
   clearReview(); // a QC package open here isn't the shared project's
@@ -4986,13 +4990,12 @@ helpEl.addEventListener('click', (e) => { if (e.target === helpEl) toggleHelp(fa
 // ---------------------------------------------------------------- files
 
 function baseName() {
-  const n = S.subName !== 'untitled.srt' ? S.subName : S.videoFile?.name || 'script';
-  return n.replace(/\.[^.]+$/, '');
+  return projectTitle() || 'script';
 }
 
 // The project or script name in the header, with a dot while there are unsaved changes.
 function showDocName() {
-  const name = S.subName === 'untitled.srt' ? 'Untitled' : S.subName;
+  const name = shownName(S.subName, sharedTitle());
   const el = $('subName');
   el.textContent = name + (S.dirty ? ' •' : '');
   el.title = S.dirty ? 'Unsaved changes: save the project with ' + (IS_MAC ? '⌘S' : 'Ctrl+S') : 'Project or script file';
