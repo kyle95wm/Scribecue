@@ -47,7 +47,8 @@ export class SharedProject {
     this.docs = { script: new Y.Doc(), comments: new Y.Doc(), review: new Y.Doc() };
     this.blocks = this.docs.script.getMap('blocks');
     // Shared with the project: `googleKey`, a separate Google key the owner lets others read
-    // Google voices with, and `voice`, the voice the project reads with. In the script, so
+    // Google voices with, `voice`, the voice the project reads with, and `video`, where to
+    // download the video from and its key. In the script, so
     // only those who can edit change it; the app lets only the owner.
     this.access = this.docs.script.getMap('access');
     // The writers' bookmarks, by id. In the script, so only those who can edit change them.
@@ -159,6 +160,11 @@ export class SharedProject {
   voice() { return this.#access('voice'); }
   setVoice(uri) { this.#setAccess('voice', uri); }
   onVoice(fn) { return this.#onAccess('voice', fn); }
+  // The project's video, sealed in the owner's Google Drive, as JSON (sharedvideo.js), or ''.
+  // Only the owner sets it.
+  video() { return this.#access('video'); }
+  setVideo(text) { this.#setAccess('video', text); }
+  onVideo(fn) { return this.#onAccess('video', fn); }
   // The project's name, as the owner has it, or ''. Others list the project by it.
   name() { return this.#access('name'); }
   setName(name) { this.#setAccess('name', String(name || '').slice(0, 200)); }

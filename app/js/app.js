@@ -47,7 +47,8 @@ import { initReminder } from './reminder.js';
 import { announce, speakable, speakKeys, playLabel, blockLabel, keepsFocusAfterDialog, toastMs } from './a11y.js';
 import { initOffline, openOffline, keepStorage } from './offline.js';
 import { initSettingsFile } from './settingsfile.js';
-import { initDrive, refreshDrive, connected as driveOn, canConnect as canDrive, canProjects, connect as connectDrive, listProjects, createProject, driveHandle, firstSave, setSaveNew } from './googledrive.js';
+import { initDrive, refreshDrive, connected as driveOn, canConnect as canDrive, canProjects, connect as connectDrive, listProjects, createProject, driveHandle, firstSave, setSaveNew, uploadVideo, deleteVideo, canShareVideo, videoUrl } from './googledrive.js';
+import * as sv from './sharedvideo.js';
 import { projectName } from './driveprojects.js';
 import { isDriveRef, filterProjects } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
@@ -749,6 +750,7 @@ async function startShared() {
   const id = S.projectId, token = sharedToken = {};
   shared = null; sharedUndo = null; sharedStarting = id; unlinkTabs(); unlinkTabs = () => {}; stopRelay();
   noteGoogleKey('', true);
+  showSharedOffer(null);
   window.scribecueShared = null;
   // A project shared on the relay keeps its copy in this browser between visits.
   const record = sharedLib.getShare(id);
@@ -777,6 +779,8 @@ async function startShared() {
   shared.onName(noteName);
   noteName(shared.name());
   noteProjectVoice(shared.voice());
+  shared.onVideo(() => { if (shared === copy) noteSharedVideo(true); });
+  noteSharedVideo();
   window.scribecueShared = shared; // for the developer tests
   // Another tab had it open: take its copy as it is. Joined but not kept here yet: take the
   // relay's. Otherwise start the copy from this script, or bring it up to date. The owner
@@ -848,6 +852,7 @@ async function startRelay(record, copy, fresh, seq, seen) {
       if (status === 'ended') {
         sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
         myShare = null; sharedQcSource(); syncQcPermission(); showAutosave(); endLive();
+        tidyKeptVideos();
         if (owner) {
           // The owner's own project, stopped from another of their browsers: it stays here,
           // as a plain project.
@@ -1076,9 +1081,11 @@ const sharingTools = {
   },
   // The owner ends sharing: the relay deletes its copy. This one stays, as a plain project.
   async stop() {
+    const video = sharedVideo();
     if (!relay?.deleteRoom()) throw new Error('offline');
     const id = S.projectId;
     stopRelay();
+    if (video) deleteVideo(video.id).catch(() => toast('Couldn’t delete the shared video from your Google Drive. Delete it from the Scribecue folder there'));
     sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
     await startShared();
     toast('Stopped sharing. Your copy stays here');
@@ -1107,6 +1114,7 @@ const sharingTools = {
     if (!keep && relay?.unsent() && !confirm('Your last changes haven’t reached the shared project yet, and will be lost. Leave anyway? To keep them, wait until you’re online.')) return;
     stopRelay();
     sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id);
+    if (!keep) { if (openKeptId) closeVideo(); tidyKeptVideos(); }
     if (keep) {
       S.projectId = newIdentity();
       changed();
@@ -1150,6 +1158,7 @@ if (sharedOn) {
     .then(([b, d, ui]) => {
       sharedLib = { ...b, parseLink: d.parseLink };
       window.scribecueSharing = sharingTools;
+      tidyKeptVideos();
       shareUi = ui.shareDialog({
         $, toast,
         record: () => sharedLib.getShare(S.projectId),
@@ -1158,6 +1167,7 @@ if (sharedOn) {
         name: () => savedName(), setName: (v) => saveName(v),
         make: sharingTools.make, turnOff: sharingTools.turnOff, stop: sharingTools.stop, leave: sharingTools.leave,
         googleKey: () => (shared ? shared.googleKey() : null), shareGoogleKey: sharingTools.shareGoogleKey,
+        video: videoState, sendVideo: sendSharedVideo, takeOutVideo: takeOutSharedVideo, connectDrive,
         // When this person's own link stops working, if it does.
         recovery: () => { const r = sharedLib.getShare(S.projectId); return r ? sharedLib.recoveryUrl(r, sharedLib.linkBase(location.href)) : null; },
         webLinks: () => sharedLib.linksGoToWeb(location.href),
@@ -1175,7 +1185,8 @@ if (sharedOn) {
           if (ok) {
             history.replaceState(null, '', location.pathname + location.search);
             toast(ok === 'owner' ? 'You’re the owner of this shared project again. Open your copy of the video to watch along'
-              : again ? `Opened with the new link. ${LINK_NOW[ok] || ''}` : 'Opened the shared project. Open your copy of the video to watch along');
+              : again ? `Opened with the new link. ${LINK_NOW[ok] || ''}`
+                : sharedVideo() ? 'Opened the shared project. Download its video from the video area' : 'Opened the shared project. Open your copy of the video to watch along');
           }
           return ok;
         },
@@ -1185,7 +1196,7 @@ if (sharedOn) {
         list: () => sharedLib.sharedProjects(),
         current: () => (myShare ? S.projectId : null),
         check: (record) => sharedLib.shareState(record),
-        forget: (id) => { sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id); showSharedBtn(); },
+        forget: (id) => { sharedLib.dropShare(id); handleStore.set(null, 'shared:' + id); showSharedBtn(); tidyKeptVideos(); },
         changed: showSharedBtn,
         open: async (it) => {
           const record = sharedLib.getShare(it.project);
@@ -3505,6 +3516,7 @@ function progress(ui, frac, text) {
 async function stopJob() {
   if (!jobActive) return;
   measuring = false;
+  videoRun?.abort();
   aiRun?.abort();
   heardRun?.abort();
   stopSpeech();
@@ -3512,6 +3524,7 @@ async function stopJob() {
 }
 $('jobStop').addEventListener('click', () => {
   measuring = false;
+  videoRun?.abort();
   aiRun?.abort();
   heardRun?.abort();
   stopSpeech();
@@ -5050,11 +5063,14 @@ async function reopenVideo(media, { ask = false } = {}) {
 // The button in the empty video area that reopens the project's video with one click.
 function offerReopen(media) {
   const b = $('reopenVideo');
+  if (!media && b.dataset.shared && !S.videoFile) return; // offering the shared video instead
+  delete b.dataset.shared;
   b.hidden = !media || !!S.videoFile;
   if (media) { b.textContent = `Reopen ${media.name}`; b.dataset.media = JSON.stringify(media); }
 }
 $('reopenVideo').addEventListener('click', (e) => {
   e.currentTarget.blur();
+  if (e.currentTarget.dataset.shared) { getSharedVideo(sharedVideo()); return; }
   reopenVideo(JSON.parse(e.currentTarget.dataset.media || 'null'), { ask: true });
 });
 // The video-only open (Ctrl/Cmd+Shift+O), through the browser's own picker where there is
@@ -5070,6 +5086,188 @@ async function openVideoPicker() {
     if (refused(e)) fileVideo.click();
     else if (e.name !== 'AbortError') toast(`Couldn’t open the file: ${e.message}`);
   }
+}
+
+// ---- a shared project's video (sharedvideo.js)
+//
+// The owner can send the video with a shared project: it's encrypted here and kept in their
+// Google Drive. The people it's shared with download it once, with a click, into this
+// browser's own storage, and it opens from there after that.
+let videoRun = null; // { abort } while the video is being sent or downloaded
+let sendingVideo = false;
+let openKeptId = null; // the Drive id of the shared video open now, if it's a copy kept here
+const sharedVideo = () => (shared ? sv.readVideoInfo(shared.video()) : null);
+const VIDEOS = 'scribecue.sharedVideos'; // Drive id → project id, for each copy kept here
+function keptVideos() { try { return JSON.parse(localStorage.getItem(VIDEOS)) || {}; } catch { return {}; } }
+function noteKept(driveId, project) {
+  const k = keptVideos();
+  if (project) k[driveId] = project; else delete k[driveId];
+  try { localStorage.setItem(VIDEOS, JSON.stringify(k)); } catch { /* blocked */ }
+}
+async function videoFolder() {
+  try { return await (await navigator.storage.getDirectory()).getDirectoryHandle(sv.DIR, { create: true }); } catch { return null; }
+}
+// The copy kept here, once all of it is in.
+async function keptVideo(info) {
+  try {
+    const dir = await (await videoFolder()).getDirectoryHandle(info.id);
+    await dir.getFileHandle(sv.DONE);
+    const h = await dir.getFileHandle(info.name);
+    return (await h.getFile()).size === info.size ? h : null;
+  } catch { return null; }
+}
+async function dropKeptVideo(driveId) {
+  noteKept(driveId, null);
+  await (await videoFolder())?.removeEntry(driveId, { recursive: true }).catch(() => {});
+}
+// Copies kept for projects no longer shared with this browser go, and those the owner has
+// replaced or taken out, unless one is open.
+async function tidyKeptVideos() {
+  const now = sharedVideo();
+  for (const [driveId, project] of Object.entries(keptVideos())) {
+    if (driveId === openKeptId) continue;
+    const gone = !sharedLib?.getShare(project);
+    const replaced = project === S.projectId && !!shared && now?.id !== driveId;
+    if (gone || replaced) await dropKeptVideo(driveId);
+  }
+}
+async function openKept(info, h) {
+  const f = await h.getFile();
+  loadVideoFile(new File([f], info.name, { type: info.type || f.type }));
+  openKeptId = info.id;
+  rememberVideo(h, f);
+}
+// The button in the empty video area, for those a video was sent to.
+function showSharedOffer(info) {
+  const b = $('reopenVideo');
+  if (!info) { if (b.dataset.shared) { delete b.dataset.shared; b.hidden = true; } return; }
+  b.dataset.shared = '1';
+  b.textContent = `Download the video, ${info.name} (${sv.sizeText(info.size)})`;
+  b.dataset.tip = 'The owner sent the video with the project. It downloads once, into this browser';
+  b.hidden = !!S.videoFile;
+}
+// Offers or opens the video the owner sent, for the people it's shared with. `changed`:
+// the owner has just sent a different one.
+async function noteSharedVideo(changed = false) {
+  const copy = shared, info = sharedVideo();
+  if (!copy || !myShare || myShare.link === 'owner') { showSharedOffer(null); return; }
+  if (changed) tidyKeptVideos();
+  if (!info) { showSharedOffer(null); return; }
+  if (S.videoFile && sv.isShared(info, S.videoFile)) return;
+  const h = await keptVideo(info);
+  if (shared !== copy || S.videoFile && sv.isShared(info, S.videoFile)) return;
+  if (!S.videoFile) {
+    if (h) { await openKept(info, h); return; }
+    showSharedOffer(info);
+    return;
+  }
+  if (changed) toast(`The owner sent a new video, ${info.name}. Click to ${h ? 'open' : 'download'} it`, () => (h ? openKept(info, h) : getSharedVideo(info)));
+}
+const FETCH_FAILED = {
+  gone: 'The video is no longer in the owner’s Google Drive. Ask them to send it again',
+  unsupported: 'This browser can’t keep the video. Update it, or use Chrome, Edge, Firefox or Safari',
+  refused: 'Google Drive didn’t let the video download. Try again later. If it keeps happening, ask the owner to send it again',
+  damaged: 'The video that downloaded doesn’t match the project. Ask the owner to send it again',
+};
+async function getSharedVideo(info) {
+  if (!info) return;
+  if (!navigator.storage?.getDirectory) {
+    toast('This browser can’t keep the video. Update it, or use Chrome, Edge, Firefox or Safari');
+    return;
+  }
+  if (!sv.roomFor(info.size, 0, await navigator.storage.estimate?.().catch(() => null))) {
+    toast(`There isn’t room for the video in this browser. It needs ${sv.sizeText(info.size)}. Free up some disk space, then try again`);
+    return;
+  }
+  navigator.storage.persist?.().catch(() => {});
+  const copy = shared;
+  noteKept(info.id, S.projectId);
+  const ok = await asJob(() => new Promise((resolve) => {
+    const w = new Worker(new URL('./sharedvideo-worker.js', import.meta.url), { type: 'module' });
+    const total = sv.sizeText(info.size);
+    const show = (done) => { jobBar.value = done / info.size; jobText.textContent = `Downloading the video: ${Math.floor((100 * done) / info.size)}% of ${total}`; jobBox.hidden = false; };
+    const end = (v, msg) => { w.terminate(); videoRun = null; if (msg) toast(msg); resolve(v); };
+    videoRun = { abort: () => w.postMessage({ op: 'stop' }) };
+    show(0);
+    w.onmessage = ({ data: m }) => {
+      if (m.op === 'progress') show(m.done);
+      else if (m.op === 'fetched') end(true);
+      else if (m.op === 'stopped') end(false, 'Download stopped. It carries on from there next time');
+      else {
+        if (m.code === 'damaged') dropKeptVideo(info.id);
+        end(false, FETCH_FAILED[m.code] || 'Couldn’t download the video: the connection dropped. Click Download to carry on');
+      }
+    };
+    w.onerror = () => end(false, 'Couldn’t download the video. Try again');
+    w.postMessage({ op: 'fetch', url: videoUrl(info.id), key: info.key, info });
+  }));
+  if (!ok || shared !== copy) return;
+  const h = await keptVideo(info);
+  if (!h) return toast('Couldn’t download the video. Try again');
+  if (!S.videoFile || !sv.isShared(info, S.videoFile)) await openKept(info, h);
+  toast(`Downloaded ${info.name}. It stays in this browser for next time`);
+}
+
+// For the Share window: what can be done with the video now.
+function videoState() {
+  const owner = !!shared && myShare?.link === 'owner';
+  return {
+    owner, available: canShareVideo(), drive: driveOn() && canProjects(), sending: sendingVideo,
+    open: S.videoFile ? { name: S.videoFile.name, size: S.videoFile.size } : null,
+    shared: sharedVideo(),
+  };
+}
+// The owner sends the video open now, in place of any sent before.
+async function sendSharedVideo() {
+  const copy = shared, file = S.videoFile, old = sharedVideo();
+  if (!copy || myShare?.link !== 'owner') return;
+  if (!file) { toast(`Open the video first, with ${IS_MAC ? '⌘⇧O' : 'Ctrl+Shift+O'}`); return; }
+  if (!driveOn() || !canProjects()) { toast('Connect Google Drive first. The video is kept there'); return; }
+  if (old && sv.isShared(old, file)) { toast('Others already get this video'); return; }
+  const key = sv.newKey(), size = file.size, sealedSize = sv.sealedSize(size), count = sv.uploadCount(size);
+  const w = new Worker(new URL('./sharedvideo-worker.js', import.meta.url), { type: 'module' });
+  const waiting = new Map();
+  w.onmessage = ({ data: m }) => { waiting.get(m.n)?.(m); waiting.delete(m.n); };
+  const send = (n, to) => new Promise((ok) => { waiting.set(n, ok); w.postMessage({ op: 'put', file, key, n, ...to }); });
+  const ctl = new AbortController();
+  let driveId = '';
+  sendingVideo = true; shareUi?.update();
+  await asJob(async () => {
+    videoRun = { abort: () => { ctl.abort(); w.terminate(); for (const ok of waiting.values()) ok({ status: 0 }); waiting.clear(); } };
+    const total = sv.sizeText(size);
+    const show = (sent) => { jobBar.value = sent / sealedSize; jobText.textContent = `Sending the video: ${Math.floor((100 * sent) / sealedSize)}% of ${total}`; jobBox.hidden = false; };
+    show(0);
+    try {
+      driveId = await uploadVideo({ name: sv.cleanName(file.name) + sv.EXT, sealedSize, count, send, sizes: (n) => sv.uploadPieces(n, size), progress: show, signal: ctl.signal });
+    } catch (e) {
+      toast(e.name === 'AbortError' ? 'Stopped sending the video'
+        : e.code === 'unreadable' ? `Couldn’t read ${file.name}. Open it again, then try again`
+          : `Couldn’t send the video: ${e.message}`);
+    } finally { videoRun = null; w.terminate(); for (const ok of waiting.values()) ok({ status: 0 }); }
+  });
+  sendingVideo = false;
+  if (driveId && shared !== copy) { deleteVideo(driveId).catch(() => {}); driveId = ''; }
+  if (driveId) {
+    copy.setVideo(JSON.stringify(sv.videoInfo({ id: driveId, key, name: file.name, size, type: file.type, duration: S.videoFile === file && S.hasVideo ? duration() : null })));
+    if (old) deleteVideo(old.id).catch(() => {});
+    toast(`Sent ${file.name}. Others can download it when they open the project`);
+  }
+  shareUi?.update();
+}
+async function takeOutSharedVideo() {
+  const info = sharedVideo();
+  if (!info || myShare?.link !== 'owner') return;
+  shared.setVideo('');
+  shareUi?.update();
+  try { await deleteVideo(info.id); toast('Video taken out, and deleted from your Google Drive. Others open their own copy again'); }
+  catch { toast('Video taken out. Delete it from the Scribecue folder in your Google Drive too'); }
+}
+// The owner opened another video than the one sent: others still get the old one.
+function ownerVideoChanged(file) {
+  shareUi?.update();
+  const info = sharedVideo();
+  if (!info || myShare?.link !== 'owner' || sv.isShared(info, file)) return;
+  toast(`Others still get ${info.name}. Click to send them this video instead`, () => shareUi?.open());
 }
 
 // ---- projects in Google Drive (googledrive.js)
@@ -6540,6 +6738,7 @@ document.addEventListener('keydown', (e) => { if (voiceDlg.open) e.stopPropagati
 
 let videoURL = null;
 function loadVideoFile(file) {
+  openKeptId = null;
   if (videoURL) URL.revokeObjectURL(videoURL);
   videoURL = URL.createObjectURL(file);
   S.videoFile = file;
@@ -6556,6 +6755,7 @@ function loadVideoFile(file) {
   shareName();
   toast(`Loading ${file.name}…`);
   loadTracks(file);
+  ownerVideoChanged(file);
 }
 
 // ---------------------------------------------------------------- audio tracks
@@ -6623,6 +6823,7 @@ function closeVideo() {
   resetWaveform();
   floater.dock();
   S.videoFile = null;
+  openKeptId = null;
   S.hasVideo = false;
   S.vt = 0;
   video.removeAttribute('src');

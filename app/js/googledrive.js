@@ -5,7 +5,7 @@
 // google.html here with a code, which the relay swaps for a pass (see relay/src/google.js).
 // The relay seals the long-lived part, so this browser keeps it without being able to use it
 // anywhere but through the relay. Passes last an hour and are renewed as needed.
-import { GOOGLE_CLIENT_ID, SIGNIN } from './config.js';
+import { GOOGLE_CLIENT_ID, GOOGLE_API_KEY, SIGNIN } from './config.js';
 import {
   SYNC_FILE, STATE, AUTH, KEYS, CHANNEL, syncedSettings, syncedSecrets, localValues, readState, readRemote,
   noteChanges, merge, nextState, writeValues, shareNames, isShare, SHARE,
@@ -159,7 +159,12 @@ async function token() {
 async function drive(url, opts = {}, retry = true) {
   const t = await token();
   let r;
-  try { r = await fetch(url, { ...opts, headers: { ...opts.headers, authorization: `Bearer ${t}` } }); } catch { throw new SyncError('offline', 'Google Drive couldn’t be reached'); }
+  const { also, ...rest } = opts; // `also`: statuses that aren't failures here, such as 308
+  try { r = await fetch(url, { ...rest, headers: { ...rest.headers, authorization: `Bearer ${t}` } }); } catch (e) {
+    if (e.name === 'AbortError') throw e;
+    throw new SyncError('offline', 'Google Drive couldn’t be reached');
+  }
+  if (also?.includes(r.status)) return r;
   if (r.status === 401 && retry) { access = null; return drive(url, opts, false); }
   if (r.status === 404) throw new SyncError('gone', 'not found');
   if (r.status === 403 && /insufficient|scope/i.test(await r.clone().text().catch(() => ''))) {
@@ -289,6 +294,64 @@ export function driveHandle(ref) {
   };
   return h;
 }
+
+// ---- a shared project's video (sharedvideo.js)
+//
+// Sealed on this computer, then uploaded in pieces to the Scribecue folder, with an upload
+// Drive can carry on with if a piece fails. Anyone with the file's id may read it: it's
+// useless without the key, which only the shared project holds.
+
+// `sealedSize`: the file's size. `count`: how many upload requests. `send(n, to)` sends
+// request n's bytes to `to` = { session, token } from elsewhere (a worker, so the page never
+// copies them), and resolves to { status, id, error }. `progress(sent)`. Resolves to the new
+// file's id.
+export async function uploadVideo({ name, sealedSize, count, send, progress = () => {}, signal, sizes }) {
+  const meta = { name, parents: [await folderId()], mimeType: 'application/octet-stream', appProperties: { [MARK.key]: 'video' } };
+  const r = await drive(`${UPLOAD}?uploadType=resumable&fields=id`, {
+    method: 'POST', signal, body: JSON.stringify(meta),
+    headers: { 'content-type': 'application/json; charset=UTF-8', 'x-upload-content-type': 'application/octet-stream', 'x-upload-content-length': String(sealedSize) },
+  });
+  const session = r.headers.get('location');
+  if (!session) throw new SyncError('drive', 'Google Drive didn’t start the upload');
+  let id = '';
+  for (let n = 0; n < count; n++) {
+    const end = sizes(n).end - 1;
+    for (let tries = 0, again401 = true; ; tries++) {
+      if (signal?.aborted) throw new DOMException('Stopped', 'AbortError');
+      const got = await send(n, { session, token: await token() });
+      if (signal?.aborted) throw new DOMException('Stopped', 'AbortError');
+      if (got.status === 308) break;
+      if (got.status === 200 || got.status === 201) { id = got.id || ''; break; }
+      if (got.status === 401 && again401) { again401 = false; access = null; tries--; continue; }
+      if (got.error === 'unreadable') throw new SyncError('unreadable', 'the video couldn’t be read');
+      if (got.status === 404 || tries >= 4 || (got.status && got.status < 500 && got.status !== 429)) throw new SyncError('drive', `Google Drive said ${got.status || 'nothing'}`);
+      await new Promise((ok) => setTimeout(ok, 1500 * (tries + 1)));
+      // Where Drive got to: if it has this piece already, go on.
+      const now = await drive(session, { method: 'PUT', signal, also: [308], headers: { 'content-range': `bytes */${sealedSize}` } }).catch(() => null);
+      if (now && now.status !== 308) { id = (await now.json()).id || ''; break; }
+      if (Number(now?.headers.get('range')?.match(/-(\d+)$/)?.[1] ?? -1) >= end) break;
+    }
+    progress(end + 1);
+  }
+  if (!id) throw new SyncError('drive', 'Google Drive didn’t finish the upload');
+  try {
+    await drive(`${API}/${encodeURIComponent(id)}/permissions?fields=id`, { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ role: 'reader', type: 'anyone' }) });
+  } catch (e) {
+    await deleteVideo(id).catch(() => {});
+    if (e.code === 'drive') throw new SyncError('anyone', 'your Google account doesn’t allow sharing files with anyone who has the link');
+    throw e;
+  }
+  return id;
+}
+
+// Deletes a shared video from Drive. One that's gone already is fine.
+export async function deleteVideo(id) {
+  try { await drive(`${API}/${encodeURIComponent(id)}`, { method: 'DELETE' }); } catch (e) { if (e.code !== 'gone') throw e; }
+}
+
+// Where anyone may download a shared video from, without signing in to Google.
+export const canShareVideo = () => !!GOOGLE_API_KEY;
+export const videoUrl = (id) => `${API}/${encodeURIComponent(id)}?alt=media&key=${encodeURIComponent(GOOGLE_API_KEY)}`;
 
 // ---- syncing
 

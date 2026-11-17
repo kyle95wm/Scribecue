@@ -864,6 +864,11 @@ docker compose up -d --build</code></pre>
       <p class="updstatus sharerowline"><button id="shareGoogleOn" aria-pressed="false">Let others use a separate Google key</button></p>
       <p id="shareGoogleRow" class="updstatus sharerowline" hidden><label for="shareGoogleKey">Separate key</label> <input id="shareGoogleKey" type="password" autocomplete="off" spellcheck="false"> <button id="shareGoogleSave">Share key</button></p>
     </section>
+    <section id="shareVideo" class="sharerow" hidden>
+      <h3>Video</h3>
+      <p id="shareVideoInfo" class="dim small"></p>
+      <p class="updstatus sharerowline"><button id="shareVideoOn" aria-pressed="false">Send the video</button><button id="shareVideoSwap" hidden>Send this video instead</button><button id="shareVideoDrive" hidden>Connect Google Drive</button></p>
+    </section>
     <p id="sharePrivacy" class="dim small">The project is encrypted on this computer before it’s sent, so the sharing service can’t read it. People with a link and its password can. Everyone in the project sees each other’s names and which block each has open.</p>
     <p id="shareStatus" class="dim small" role="status"></p>
     <div class="updbtns"><button id="shareStop" hidden>Stop sharing</button><button id="shareLeave" hidden>Leave</button><button id="shareClose">Close</button></div>
@@ -1000,7 +1005,7 @@ docker compose up -d --build</code></pre>
     <p class="updstatus"><label for="joinPassword" id="joinPasswordLabel">Password</label> <input id="joinPassword" type="password" autocomplete="off" spellcheck="false"></p>
     <p id="joinNameRow" class="updstatus"><label for="joinName">Your name</label> <input id="joinName" autocomplete="name" spellcheck="false" maxlength="60"></p>
     <p class="dim small">Others in the project see your name, the blocks you change and which block you have open. The project is encrypted, so the sharing service can’t read it.</p>
-    <p id="joinVideo" class="dim small">The video isn’t shared: open your own copy once the project is open.</p>
+    <p id="joinVideo" class="dim small">If the owner sent the video, download it once the project is open. Otherwise, open your own copy.</p>
     <p id="joinStatus" class="dim small" role="status"></p>
     <div class="updbtns"><button id="joinOpen" class="hl">Open</button><button id="joinCancel">Cancel</button></div>
   </dialog>

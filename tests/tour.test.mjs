@@ -59,7 +59,7 @@ test('the tour covers sharing, comments, exports and what sharing sends', () => 
   assert.match(privacy, /encrypted on your computer/);
   // Scripts can be shared now; video and audio never leave the computer.
   assert.doesNotMatch(privacy, /scripts are opened/);
-  assert.match(privacy, /video and audio are opened straight from your computer and never uploaded/);
+  assert.match(privacy, /video and audio are opened straight from your computer, and only uploaded if you send a shared project’s video, encrypted first/);
 });
 
 test('steps only show what is there to see', () => {

@@ -12,6 +12,7 @@ commenters each get their own link, and everyone sees changes within a second.
 - [Working together](#working-together)
 - [What's shared](#whats-shared)
 - [Voices](#voices)
+- [The video](#the-video)
 - [Recovery link](#recovery-link)
 - [Stopping and leaving](#stopping-and-leaving)
 - [Privacy](#privacy)
@@ -55,7 +56,8 @@ comments reach everyone at once.
 1. Open the link.
 2. Type the password you were sent, and your name.
 3. Click **Open**.
-4. Open your own copy of the video. The video isn't shared.
+4. If the owner sent the video, click **Download the video** in the video area. Otherwise,
+   open your own copy.
 
 **Sent a different kind of link?** Open it and type its password. It replaces your old
 link, and what you can do changes to match. You don't need to leave first.
@@ -98,7 +100,7 @@ Opening the link again works too.
 
 | Shared | Stays on each computer |
 |---|---|
-| Blocks: text, times, speeds, levels and notes | The video |
+| Blocks: text, times, speeds, levels and notes | The video, unless the owner [sends it](#the-video) |
 | Comments | Readings, which each computer makes |
 | Suggested changes, in Pending review | Pickups and narration recordings |
 | The project's voice | Your other settings |
@@ -126,6 +128,29 @@ delete it in Google Cloud when you're done. Click the button again to take it ou
 
 **Amazon Polly voices:** each person needs their own AWS key. See
 [Amazon Polly voices](POLLY-VOICES.md).
+
+## The video
+
+The owner can send the video with the project, so others don't need their own copy.
+
+1. Connect Google Drive, in **Settings → Google Drive**.
+2. Open the video.
+3. In **Share**, under **Video**, click **Send the video**.
+
+Its progress shows at the top of the window.
+
+- **It's encrypted on your computer first.** It's kept in the Scribecue folder of your
+  Google Drive. Only people with a link can watch it.
+- **Others download it once,** with **Download the video** in the video area. It stays in
+  their browser and opens with the project from then on.
+- **A download that stops** carries on from where it got to.
+- **Changed the video?** Open the new one, then click **Send this video instead**. Others
+  are told.
+- **To take it out,** click **Video sent**. It's deleted from your Drive.
+- **Stopping sharing** deletes it from your Drive too.
+- **It uses your Drive space,** about as much as the video. A smaller copy, such as 720p,
+  saves space and downloading time.
+- **Narrators** still need their own copy. Recording files don't carry the video.
 
 ## Recovery link
 
@@ -164,8 +189,8 @@ the start of the link, before the `#`, to your Docker address, such as `http://l
 | Stop one link | **Turn off**, in Share | It stops working. The project closes for people using it, and nothing of it stays on their computer |
 | Let a link expire | Set **Expires after** when making it | It stops working then, as if turned off. Its row in Share says when |
 | Replace a link | **Turn off**, then **Make link** | Only people with the new link and password can open it |
-| Stop sharing | **Stop sharing**, in Share | Every link stops working, and the sharing service's copy is deleted. The project closes for everyone else. Your copy stays |
-| Leave someone's project | **Leave**, in Share | The project is removed from this browser. To keep it as your own, click **Keep a copy here** first |
+| Stop sharing | **Stop sharing**, in Share | Every link stops working, and the sharing service's copy is deleted, with any video you sent. The project closes for everyone else. Your copy stays |
+| Leave someone's project | **Leave**, in Share | The project and its video are removed from this browser. To keep them as your own, click **Keep a copy here** first |
 | Work on something else | **File, New…**, or open another project | The shared project stays in this browser. Open it again from **File, Shared projects…**. Changes not sent yet go then |
 
 **Your saved project file** is a copy of the shared project as it was when you saved. If
@@ -185,6 +210,8 @@ always opens on its own. A file never replaces others' changes.
   kind of link each person has. It never sees text, names or titles.
 - **A project nobody opens for 180 days** is deleted from the sharing service. Your
   copies stay.
+- **A video you send** is encrypted before it leaves your computer. Google keeps it, but
+  can't watch it. Someone whose link is turned off may still have a copy they downloaded.
 
 ## How it works
 
@@ -253,6 +280,9 @@ relay don't match, the header says **Update needed**, and nothing is lost.
 | "This link has expired" | Ask for a new link |
 | "No longer shared with you" in **Shared projects** | Ask the owner for a new link |
 | "This link is incomplete" | Copy all of the link and try again |
+| "The video is no longer in the owner's Google Drive" | Ask the owner to send it again |
+| "There isn't room for the video in this browser" | Free up disk space, then click **Download the video** again |
+| No **Video** in **Share** | This copy of Scribecue isn't set up to send videos. Each person opens their own copy |
 | "…full on the sharing service" or "…too big for the sharing service" | Your changes stay on this computer but don't reach the others. Start a new shared project from a saved copy |
 
 See also [Troubleshooting](TROUBLESHOOTING.md).

@@ -686,6 +686,7 @@ To publish a fork under your own name and addresses:
    | `WEB_APP` | Your web version's address. |
    | `RELAY` | Your sharing relay's address. |
    | `GOOGLE_CLIENT_ID` | Your Google Cloud project's client, for Google Drive sync. Leave it empty to turn sync off. |
+   | `GOOGLE_API_KEY` | A browser key of the same project, for downloading videos sent with shared projects. Leave it empty to turn that off. |
 
 2. Run `scripts/check.sh`. Its tests list every other file that must match, such as the
    security policy, the relay's settings and the guides.
