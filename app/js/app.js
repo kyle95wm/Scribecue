@@ -8544,10 +8544,11 @@ initSettingsFile({ toast: (m) => toast(m), version: VERSION, beforeReload: () =>
 initDrive({
   toast: (m) => toast(m),
   beforeReload: () => { clearTimeout(saveTimer); save(); },
+  // Every save to Drive keeps the revision it wrote, so a reload doesn't mistake it for a change elsewhere.
+  projectSaved: (h) => { if (h === S.handle) handleStore.set(h); },
   // Saving found the project changed on another computer, or gone: it went into a copy.
   projectCopied: (h, was, why) => {
     if (h !== S.handle) return;
-    handleStore.set(h);
     noteRecent(h);
     toast(why === 'gone'
       ? `${was} is no longer in Google Drive, so this was saved there as ${h.name}`

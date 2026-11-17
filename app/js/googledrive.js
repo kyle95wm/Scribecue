@@ -10,7 +10,7 @@ import {
   SYNC_FILE, STATE, AUTH, KEYS, CHANNEL, syncedSettings, syncedSecrets, localValues, readState, readRemote,
   noteChanges, merge, nextState, writeValues, shareNames, isShare, SHARE,
 } from './drivesync.js';
-import { FOLDER, MARK, copyName, driveRef, changedElsewhere, SAVE_NEW, SAVE_NEW_CHOICES, firstSaveGoes } from './driveprojects.js';
+import { FOLDER, MARK, copyName, driveRef, changedElsewhere, oneAtATime, SAVE_NEW, SAVE_NEW_CHOICES, firstSaveGoes } from './driveprojects.js';
 
 // drive.appdata: the hidden folder settings sync in. drive.file: only files Scribecue made,
 // for projects.
@@ -30,7 +30,7 @@ let auth = readAuth(); // { sealed, email }
 let access = null; // { token, until }
 let status = { kind: auth ? 'idle' : 'off', text: '' };
 let running = null, again = false, settleTimer = 0, waiting = null;
-let hooks = { toast: () => {}, beforeReload: () => {}, projectCopied: () => {}, openProject: () => '', sharesChanged: () => {} };
+let hooks = { toast: () => {}, beforeReload: () => {}, projectSaved: () => {}, projectCopied: () => {}, openProject: () => '', sharesChanged: () => {} };
 
 function readAuth() {
   try { const a = JSON.parse(localStorage.getItem(AUTH)); return a && typeof a.sealed === 'string' ? a : null; } catch { return null; }
@@ -250,6 +250,9 @@ async function writeProject(h, blob) {
   return '';
 }
 
+// One save to Drive at a time, so autosave and Save never overlap.
+const writes = oneAtATime();
+
 // A project in Drive, behaving enough like a FileSystemFileHandle for saving, autosave and
 // Recents. Kept in storage as driveRef(handle).
 export function driveHandle(ref) {
@@ -272,7 +275,10 @@ export function driveHandle(ref) {
         write: async (x) => { parts.push(x); },
         close: async () => {
           const was = h.name;
-          const why = await writeProject(h, new Blob(parts, { type: 'application/json' }));
+          const why = await writes(() => writeProject(h, new Blob(parts, { type: 'application/json' })));
+          // Kept with the revision just written, so the next save after a reload isn't
+          // taken for a change made elsewhere.
+          hooks.projectSaved(h);
           if (why) hooks.projectCopied(h, was, why);
         },
       };

@@ -73,6 +73,9 @@ same Google account, and keeps projects in Drive to open on any computer.
 - **Conflicts:** each write first reads the file's `headRevisionId`. If it isn't the one this
   browser last read or wrote, or the file is gone, the project goes into a new file, "Name
   (2)", and the handle moves to it. Nothing is overwritten. Kyle's pick (2026-11-16).
+- Every save, autosave too, keeps the revision it wrote in IndexedDB with the handle, and saves
+  run one at a time (`oneAtATime`). Otherwise a reload, or Save meeting an autosave, looks like
+  a change elsewhere and makes a copy each time.
 - QC packages, recording files and session packages stay as files: they can carry audio.
 
 ## Limits
