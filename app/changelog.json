@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.134.5",
+    "date": "2026-11-17",
+    "notes": "## Screen readers\n\n- Keys are read as words, such as \"Shift\", not as symbols.\n- The play button says Play or Pause, and Loop says whether it's on.\n- The open block's fields are read straight after the block list.\n- The shortcuts overlay takes the focus when it opens, and Tab stays inside it.\n- The clock reads out the time, and the timeline's zoom buttons say what they do.\n- The modes are one Tab stop: the arrow keys move between them. The video position slider can take the focus."
+  },
+  {
     "version": "0.134.4",
     "date": "2026-11-17",
     "notes": "## Typing goes to the right block\n\n- Picking a block on the timeline while you type now shows that block’s words in the text box.\n- Before, clicking back to a block could show another block’s words, and typing saved them over it. It looked like an accidental copy and paste.\n- The buttons under the video that go to the previous or next block are fixed too."
