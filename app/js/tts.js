@@ -45,6 +45,14 @@ export function topSpeedAt(kind, base = 1) {
   if (!r) return MAX_SPEED;
   return Math.min(MAX_SPEED, Math.max(MIN_SPEED, Math.floor((r / base) * 100 + 1e-6) / 100));
 }
+// The slowest: Kokoro reads no slower than half its normal speed. Piper keeps getting slower.
+export const LOW_RATE = { kokoro: 0.5 };
+// The slowest block speed a kind of voice reads at, with this base speed.
+export function lowSpeedAt(kind, base = 1) {
+  const r = LOW_RATE[kind];
+  if (!r) return MIN_SPEED;
+  return Math.min(MAX_SPEED, Math.max(MIN_SPEED, Math.ceil((r / base) * 100 - 1e-6) / 100));
+}
 export const isBlockSpeed = (v) => typeof v === 'number' && v >= MIN_SPEED && v <= MAX_SPEED;
 // Short form for markers: "+15%", "−30%", "normal".
 export const speedLabel = (s) => (s === 1 ? 'normal' : `${s > 1 ? '+' : '−'}${Math.round(Math.abs(s - 1) * 100)}%`);
@@ -635,12 +643,13 @@ function currentVoice() {
 function voiceOf(uri) {
   return (uri && voices.find((v) => v.voiceURI === uri)) || currentVoice();
 }
-// The fastest speed a block's voice (uri) reads at, with the project's base speed, and why.
+// The fastest and slowest speeds a block's voice (uri) reads at, with the project's base speed, and why.
 const kindOf = (v) => (v?.kokoro ? 'kokoro' : v?.piper ? 'piper' : null);
 export const topSpeed = (uri) => topSpeedAt(kindOf(voiceOf(uri)), tts.base);
-export function topSpeedWhy(uri) {
+export const lowSpeed = (uri) => lowSpeedAt(kindOf(voiceOf(uri)), tts.base);
+export function speedLimitWhy(uri) {
   const kind = kindOf(voiceOf(uri));
-  return kind === 'kokoro' ? 'Kokoro voices read at most twice their normal speed, base speed included'
+  return kind === 'kokoro' ? 'Kokoro voices read between half and twice their normal speed, base speed included'
     : kind === 'piper' ? 'Piper voices hardly read faster than +50%, base speed included' : '';
 }
 // A voice that makes its readings as audio, with exact lengths: Piper, Kokoro, Google or Polly.
