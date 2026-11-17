@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PROVIDERS, SYSTEM, SCENE_SYSTEM, systemWith, withNotes, usefulOpenAI, usefulGemini, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, shortenPrompt, nearbyScript, draftPrompt,
+  PROVIDERS, SYSTEM, SCENE_SYSTEM, systemWith, withNotes, usefulOpenAI, usefulGemini, buildRequest, recentFrames, readReply, failure, listModels, fitBudget, shortenPrompt, nearbyScript, draftPrompt, draftSpeed, toPace, PACES, DEFAULT_PACE,
   pkcePair, openRouterAuthUrl, openRouterKey,
 } from '../app/js/ai.js';
 
@@ -225,4 +225,44 @@ test('every draft and chat gets the audio description style rules', () => {
   // Scene summaries keep the naming rules, so drafts don't name people too early.
   assert.match(SCENE_SYSTEM, /first time/);
   assert.match(SCENE_SYSTEM, /gender identity/);
+});
+
+test('a draft may offer a faster budget, for when it needs the room', () => {
+  const cues = [{ start: 0, end: 2, text: 'A' }, { start: 4, end: 7, text: '' }];
+  const plain = draftPrompt(cues, 1, fitBudget(3));
+  assert.doesNotMatch(plain, /a little faster/);
+  const p = draftPrompt(cues, 1, fitBudget(3), [], null, null, fitBudget(3, 15, 1.15));
+  assert.match(p, /At most 6 words \(40 characters\)/);
+  assert.match(p, /up to 7 words \(46 characters\), and it will be read a little faster/);
+  assert.match(p, /Don't use the extra room otherwise/);
+  // No more room at the faster pace, nothing to offer.
+  assert.doesNotMatch(draftPrompt(cues, 1, fitBudget(3), [], null, null, fitBudget(3)), /faster/);
+});
+
+test('a draft is sped up only as much as it needs, and never past the fastest pace', () => {
+  // Fits at the block's speed: left as it is.
+  assert.deepEqual(draftSpeed(2.9, 3), { speed: 1, fits: true });
+  assert.deepEqual(draftSpeed(3.1, 3), { speed: 1, fits: true }); // within the run-over
+  assert.deepEqual(draftSpeed(0, 3), { speed: 1, fits: true });
+  // Needs a little more: fills 90% of the block, in 1% steps.
+  assert.deepEqual(draftSpeed(3.2, 3, 1, 1.15), { speed: 1.15, fits: true });
+  assert.deepEqual(draftSpeed(3.2, 3, 1, 1.3), { speed: 1.19, fits: true });
+  // Fits at the fastest pace but not with the margin: read at the fastest.
+  assert.deepEqual(draftSpeed(3.4, 3, 1, 1.15), { speed: 1.15, fits: true });
+  // Too long even at the fastest pace.
+  assert.deepEqual(draftSpeed(4, 3, 1, 1.15), { speed: 1.15, fits: false });
+  // Normal pace only: never sped up.
+  assert.deepEqual(draftSpeed(3.4, 3, 1, 1), { speed: 1, fits: false });
+  // Never slows a block already set faster than the fastest pace.
+  assert.deepEqual(draftSpeed(3.4, 3, 1.3, 1.15), { speed: 1.3, fits: true });
+  assert.deepEqual(draftSpeed(4.5, 3, 1.3, 1.15), { speed: 1.3, fits: false });
+});
+
+test('the fastest pace is one of the set choices, fast unless chosen', () => {
+  assert.equal(DEFAULT_PACE, 1.15);
+  assert.deepEqual(PACES.map(([v]) => v), [1, 1.15, 1.3]);
+  assert.equal(toPace(1), 1);
+  assert.equal(toPace(1.3), 1.3);
+  assert.equal(toPace(undefined), 1.15);
+  assert.equal(toPace(2), 1.15);
 });

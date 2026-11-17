@@ -82,6 +82,23 @@ export function fitBudget(secs, cps = 15, speed = 1, aim = FIT_AIM) {
   return { chars, words: Math.max(1, Math.floor(chars / 6)) };
 }
 
+// The fastest pace a draft may be read at, as a block speed: normal (1), fast or very fast.
+export const PACES = [[1, 'normal (never faster)'], [1.15, 'fast (+15%)'], [1.3, 'very fast (+30%)']];
+export const DEFAULT_PACE = 1.15;
+export const toPace = (v) => (PACES.some(([p]) => p === v) ? v : DEFAULT_PACE);
+
+// The speed a draft needs to be read in its block. said1: how long it takes at speed 1 (with
+// the base speed); from: the block's speed now; max: the fastest it may go. A draft that fits
+// at from keeps it. One that doesn't is sped up to fill FIT_AIM of the block, in 1% steps,
+// but never past max. fits is false when it runs past even at max.
+export function draftSpeed(said1, secs, from = 1, max = DEFAULT_PACE, runOver = 0.1) {
+  const top = Math.max(from, max);
+  if (!(said1 > 0) || said1 / from <= secs + runOver) return { speed: from, fits: true };
+  if (said1 / top > secs + runOver) return { speed: top, fits: false };
+  const aim = Math.ceil((said1 / (secs * FIT_AIM)) * 100 - 1e-6) / 100;
+  return { speed: Math.min(top, Math.max(from, aim)), fits: true };
+}
+
 // What to ask when a draft runs past its block: said is how long it takes to read, in seconds.
 export function shortenPrompt(text, said, secs, budget) {
   return [
@@ -135,7 +152,8 @@ function sceneText(scene) {
 
 // What to ask for when drafting block i. budget from fitBudget. dialogue: the subtitles
 // either side, when there's a dialogue lane. scene: from the scene summaries, if any.
-export function draftPrompt(cues, i, budget, frameTimes = [], dialogue = null, scene = null) {
+// fast: what fits at the fastest pace drafts may use, when that's more than budget.
+export function draftPrompt(cues, i, budget, frameTimes = [], dialogue = null, scene = null, fast = null) {
   const c = cues[i], secs = c.end - c.start;
   return [
     sceneText(scene),
@@ -145,6 +163,9 @@ export function draftPrompt(cues, i, budget, frameTimes = [], dialogue = null, s
     dialogueText(dialogue || {}),
     `Write the description for block #${i + 1}, from ${clock(c.start)} to ${clock(c.end)} (${secs.toFixed(1)} s). ` +
       `At most ${budget.words} words (${budget.chars} characters) fit when it's read aloud. Fewer is fine if that says it well.`,
+    fast && fast.words > budget.words
+      ? `If keeping to that would leave out something the viewer needs to follow the story, you may use up to ${fast.words} words (${fast.chars} characters), and it will be read a little faster. Don't use the extra room otherwise.`
+      : '',
     c.text.trim() ? `It currently says: "${c.text.trim()}". Improve it, or write a better one.` : '',
     frameTimes.length ? `The frames are from ${frameTimes.map(clock).join(', ')}.` : 'There are no frames, so work from the script and say if you need to see the scene.',
     'Reply with only the description, without quotes or notes.',

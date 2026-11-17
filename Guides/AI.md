@@ -11,6 +11,7 @@ starting point. You're still the describer.
 
 - [What it does](#what-it-does)
 - [Drafting the whole script](#drafting-the-whole-script)
+  - [Pace](#pace)
   - [Scene summaries](#scene-summaries)
   - [The next episode of a series](#the-next-episode-of-a-series)
 - [Choosing where it runs](#choosing-where-it-runs)
@@ -34,9 +35,10 @@ out beside the video.
 ![The AI help drawer beside the video, with a draft for a block](../docs/screenshots/ai-help.png)
 
 - **Draft this block:** select a block and click it. Scribecue sends stills from the block,
-  the script and subtitles around it, and how many words fit. A draft too long to read
-  in the block is sent back once to shorten. **Use for block #n** puts the draft in the
-  block, and **Try again** asks for another.
+  the script and subtitles around it, and how many words fit. **Use for block #n** puts the
+  draft in the block, and **Try again** asks for another.
+- **Pace:** a draft that needs a little more room may be read faster, as
+  [below](#pace). Its button then shows the speed, such as **Use for block #4 at +12%**.
 - **Chat:** ask about the scene, such as "what's on the sign behind her?". Tick **Send the
   frame at the playhead** so it sees the frame you're on.
 - **Notes:** tell the AI what the frames can't show, such as who's who. Every draft and
@@ -72,8 +74,8 @@ How it fills the gaps:
 - Only gaps with no block, of 2 seconds or more. Your blocks stay as they are.
 - A gap over 10 seconds gets a block for each shot, about 4–10 seconds each.
 - Drafts are written in order, so each sees the ones before it.
-- A draft too long to read in its gap is sent back once to shorten. The note in the drawer
-  says how many are still too long.
+- Drafts may be read a little faster to fit, as [below](#pace). The note in the drawer
+  says how many were, and how many are still too long.
 - **Stop** keeps the drafts already made. `Ctrl/Cmd+Z` takes back the whole run, if
   you haven't changed anything since.
 
@@ -92,6 +94,26 @@ talk. With **Listen for speech** on, speech to text listens to each gap first. W
 hears words, the block says **speech under it?**, and the block shows what it heard. `U`
 goes to these, as it does to blocks over dialogue. Without it, play each draft through
 before accepting it. With a lane from speech to text, there's no need: it listened already.
+
+### Pace
+
+With text to speech on, a draft can be read a little faster when the gap is tight.
+
+- The AI aims for what fits at the block's speed.
+- It may write more only if cutting would lose something the viewer needs.
+- Scribecue then speeds the block up just enough to fit, up to the **Fastest pace**.
+- A draft too long even at that pace is sent back once to shorten.
+- Drafting never slows a block down.
+
+Set **Fastest pace** in Settings, under **AI help**:
+
+| Choice | What it does |
+|---|---|
+| **normal (never faster)** | Drafts fit at the block's speed, or are shortened. |
+| **fast (+15%)** | The default. Quicker, still easy to follow. |
+| **very fast (+30%)** | For tight films. Hard going over long passages. |
+
+The speed is the block's own, as if you'd set it. Change it in the editor, or with `[` and `]`.
 
 ### Scene summaries
 
