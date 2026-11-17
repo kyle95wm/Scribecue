@@ -16,6 +16,33 @@ export function speakable(text, mac = true) {
   return s.replace(/ {2,}/g, ' ').replace(/ ([,.;:)])/g, '$1').trim();
 }
 
+const SYMBOL = /[⌘⇧⌥↵⇥⌫←→↑↓]/;
+
+// Key symbols in <kbd>s, as in the shortcuts overlay and the footer, are shown as they are
+// and read as words. Labels with symbols are rewritten to words. Safe to run more than once.
+export function speakKeys(root, mac = true) {
+  for (const k of root.querySelectorAll('kbd')) {
+    if (k.querySelector('.sr-only, kbd') || !SYMBOL.test(k.textContent)) continue;
+    const shown = document.createElement('span');
+    shown.setAttribute('aria-hidden', 'true');
+    shown.append(...k.childNodes);
+    const said = document.createElement('span');
+    said.className = 'sr-only';
+    said.textContent = ' ' + speakable(shown.textContent.replace(/\+/g, ' '), mac) + ' ';
+    k.append(shown, said);
+  }
+  for (const el of root.querySelectorAll('[aria-label]')) {
+    const v = el.getAttribute('aria-label');
+    if (SYMBOL.test(v)) el.setAttribute('aria-label', speakable(v, mac));
+  }
+}
+
+// The play button's name says what it will do, keeping the key at the end.
+export function playLabel(current, playing) {
+  const key = /\s*\([^()]*\)$/.exec(current)?.[0] || '';
+  return (playing ? 'Pause' : 'Play') + key;
+}
+
 // What a screen reader says for a block in the list.
 export function blockLabel({ n, start, secs, text, tooLong = false, overDialogue = false, ready = false, extended = false }) {
   const words = String(text || '').replace(/<[^>]*>|\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim();

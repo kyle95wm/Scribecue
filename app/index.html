@@ -149,6 +149,8 @@
           </div>
         </div>
       </div>
+      <!-- Screen readers find the open block here, after the list: a list of blocks can't hold its fields. -->
+      <div id="editorOwner" aria-owns="editor"></div>
       <div id="pendingPane" class="pendingpane" role="tabpanel" aria-label="Pending review">
         <div id="pendingList" class="list" tabindex="0" role="listbox" aria-label="Block changes in the returned review"></div>
         <div class="pfoot">
@@ -176,14 +178,14 @@
           <span class="num" id="soundPct">0%</span>
           <progress id="soundBar" class="jobbar" max="1" value="0" aria-label="Getting the sound ready"></progress></div>
       </div>
-      <div class="scrub" id="scrub" role="slider" aria-label="Video position" aria-valuemin="0" aria-valuenow="0">
+      <div class="scrub" id="scrub" role="slider" tabindex="0" aria-label="Video position" aria-valuemin="0" aria-valuenow="0">
         <canvas id="scrubMarks"></canvas>
         <div class="scrubfill" id="scrubFill"></div>
         <div class="scrubknob" id="scrubKnob"></div>
         <div class="scrubtime" id="scrubTime" hidden></div>
       </div>
       <div class="transport">
-        <button class="clock copy" id="clock" aria-label="Copy the current timecode" data-tip="Click to copy this timecode">00:00:00:00</button>
+        <button class="clock copy" id="clock" aria-description="The playhead. Click to copy this timecode" data-tip="Click to copy this timecode">00:00:00:00</button>
         <span class="dim">/</span>
         <button class="clock dim durbtn" id="durEl" data-tip="Total length. Click to show the time remaining instead">00:00:00:00</button>
         <span class="dim vwait" id="vidWait" role="status" hidden>Loading…</span>
@@ -265,19 +267,20 @@
     </div>
   </main>
 
-  <section class="timeline" id="tl" aria-hidden="true">
-    <canvas id="ruler"></canvas>
-    <div id="bmHot" class="bm-hot" hidden data-tip=""></div>
-    <div class="lane" id="lane">
+  <section class="timeline" id="tl" aria-label="Timeline">
+    <!-- Drawn for the eye. Screen readers get the blocks from the list, and the zoom buttons. -->
+    <canvas aria-hidden="true" id="ruler"></canvas>
+    <div aria-hidden="true" id="bmHot" class="bm-hot" hidden data-tip=""></div>
+    <div aria-hidden="true" class="lane" id="lane">
       <canvas id="wave"></canvas>
       <div id="cues"></div>
       <div id="dragtip" hidden></div>
     </div>
-    <div class="dialtrack" id="dialTrack" hidden data-tip="Dialogue from the subtitles or speech to text, with the length of each gap. Click to move the playhead. Click a line to select it: drag its ends to trim it, press Delete to take it out, or double-click it to correct its words. Double-click a gap to make a block. D and Shift+D jump between free gaps"><canvas id="dialWave"></canvas><input id="dialEdit" hidden aria-label="The dialogue line’s words" data-tip="Enter keeps the words, Esc leaves them as they were" maxlength="1000" spellcheck="true" autocomplete="off"></div>
-    <div class="taketrack record-only" id="takeTrack"><canvas id="takeWave"></canvas></div>
-    <div class="overview" id="overview"><div id="ovWin"></div></div>
-    <div class="playhead" id="playhead"></div>
-    <div class="tlzoom" id="tlZoom">
+    <div aria-hidden="true" class="dialtrack" id="dialTrack" hidden data-tip="Dialogue from the subtitles or speech to text, with the length of each gap. Click to move the playhead. Click a line to select it: drag its ends to trim it, press Delete to take it out, or double-click it to correct its words. Double-click a gap to make a block. D and Shift+D jump between free gaps"><canvas id="dialWave"></canvas><input id="dialEdit" hidden aria-label="The dialogue line’s words" data-tip="Enter keeps the words, Esc leaves them as they were" maxlength="1000" spellcheck="true" autocomplete="off"></div>
+    <div aria-hidden="true" class="taketrack record-only" id="takeTrack"><canvas id="takeWave"></canvas></div>
+    <div aria-hidden="true" class="overview" id="overview"><div id="ovWin"></div></div>
+    <div aria-hidden="true" class="playhead" id="playhead"></div>
+    <div class="tlzoom" id="tlZoom" role="group" aria-label="Timeline zoom">
       <button data-zoom="out" aria-label="Zoom out" data-tip="Zoom out (Alt+−)">−</button>
       <span id="tlZoomSpan" data-tip="How much of the programme the timeline shows. Ctrl/Cmd and the scroll wheel zoom where you point"></span>
       <button data-zoom="in" aria-label="Zoom in" data-tip="Zoom in (Alt+=)">+</button>
@@ -1768,7 +1771,7 @@ docker compose up -d --build</code></pre>
   </div>
 
   <div id="help" class="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
-    <div class="helpbox">
+    <div class="helpbox" tabindex="-1">
       <h2 id="helpTitle">Keyboard shortcuts <span class="dim">— Frazier layout. Esc, ? or ⇧O to close</span>
         <button id="helpTour" class="helptour">Take the tour</button>
         <button id="helpLoop" class="helptour">Show the loop</button>

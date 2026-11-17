@@ -971,6 +971,7 @@ body.mode-record { grid-template-rows: 44px minmax(0, 1fr) 290px 28px; }
   border-radius: 10px;
   padding: 20px 24px;
 }
+.helpbox:focus { outline: none; }
 .helpbox h2 { margin: 0 0 12px; font-size: 18px; }
 .helpbox h2 .dim { font-weight: 400; font-size: 14px; }
 .helpbox h3 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
