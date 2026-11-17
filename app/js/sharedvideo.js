@@ -97,4 +97,16 @@ export function roomFor(size, written, estimate) {
   return estimate.quota - estimate.usage >= size - Math.min(written, size) + SPARE;
 }
 
+// Whether the owner's Google Drive has room for a sealed video. `space`: { limit, usage }, or
+// null when Drive didn't say. No limit, or not known: try, and Drive says if it's full.
+export function driveRoom(need, space) {
+  if (!space || !Number.isFinite(space.limit) || !Number.isFinite(space.usage)) return { ok: true, free: null };
+  const free = Math.max(0, space.limit - space.usage);
+  return { ok: need <= free, free };
+}
+export function fullText(need, free = null) {
+  const left = free == null ? '' : free < 1e6 ? ', and it’s full' : `, and ${sizeText(free)} is free`;
+  return `There isn’t room in your Google Drive. The video needs ${sizeText(need)}${left}. Free up space in Drive, or send a smaller copy, such as 720p`;
+}
+
 export const sizeText = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`);

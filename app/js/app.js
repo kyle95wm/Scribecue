@@ -47,7 +47,7 @@ import { initReminder } from './reminder.js';
 import { announce, speakable, speakKeys, playLabel, blockLabel, keepsFocusAfterDialog, toastMs } from './a11y.js';
 import { initOffline, openOffline, keepStorage } from './offline.js';
 import { initSettingsFile } from './settingsfile.js';
-import { initDrive, refreshDrive, connected as driveOn, canConnect as canDrive, canProjects, connect as connectDrive, listProjects, createProject, driveHandle, firstSave, setSaveNew, uploadVideo, deleteVideo, canShareVideo, videoUrl } from './googledrive.js';
+import { initDrive, refreshDrive, connected as driveOn, canConnect as canDrive, canProjects, connect as connectDrive, listProjects, createProject, driveHandle, firstSave, setSaveNew, uploadVideo, deleteVideo, canShareVideo, videoUrl, driveSpace } from './googledrive.js';
 import * as sv from './sharedvideo.js';
 import { projectName } from './driveprojects.js';
 import { isDriveRef, filterProjects } from './driveprojects.js';
@@ -5225,6 +5225,9 @@ async function sendSharedVideo() {
   if (!driveOn() || !canProjects()) { toast('Connect Google Drive first. The video is kept there'); return; }
   if (old && sv.isShared(old, file)) { toast('Others already get this video'); return; }
   const key = sv.newKey(), size = file.size, sealedSize = sv.sealedSize(size), count = sv.uploadCount(size);
+  // Room in the owner's Drive, before uploading anything. Not known: try, and Drive says.
+  const room = sv.driveRoom(sealedSize, await driveSpace().catch(() => null));
+  if (!room.ok) { toast(sv.fullText(sealedSize, room.free)); return; }
   const w = new Worker(new URL('./sharedvideo-worker.js', import.meta.url), { type: 'module' });
   const waiting = new Map();
   w.onmessage = ({ data: m }) => { waiting.get(m.n)?.(m); waiting.delete(m.n); };
@@ -5242,6 +5245,7 @@ async function sendSharedVideo() {
     } catch (e) {
       toast(e.name === 'AbortError' ? 'Stopped sending the video'
         : e.code === 'unreadable' ? `Couldn’t read ${file.name}. Open it again, then try again`
+          : e.code === 'full' ? sv.fullText(sealedSize, null)
           : `Couldn’t send the video: ${e.message}`);
     } finally { videoRun = null; w.terminate(); for (const ok of waiting.values()) ok({ status: 0 }); }
   });

@@ -17,6 +17,9 @@ import { FOLDER, MARK, copyName, driveRef, changedElsewhere, oneAtATime, SAVE_NE
 const SCOPES = 'openid email https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file';
 const API = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
+const ABOUT = 'https://www.googleapis.com/drive/v3/about';
+// What Drive says when the account has no room left.
+const FULL = /storageQuotaExceeded|storage quota has been exceeded/i;
 const LOOK = 15000; // how often to look for settings changed here, while visible
 const SETTLE = 2000; // wait this long after a change before syncing it
 const FRESH = 30000; // coming back to the window syncs if it's been longer than this
@@ -167,7 +170,9 @@ async function drive(url, opts = {}, retry = true) {
   if (also?.includes(r.status)) return r;
   if (r.status === 401 && retry) { access = null; return drive(url, opts, false); }
   if (r.status === 404) throw new SyncError('gone', 'not found');
-  if (r.status === 403 && /insufficient|scope/i.test(await r.clone().text().catch(() => ''))) {
+  const refusal = r.status === 403 ? await r.clone().text().catch(() => '') : '';
+  if (FULL.test(refusal)) throw new SyncError('full', 'your Google Drive is full');
+  if (r.status === 403 && /insufficient|scope/i.test(refusal)) {
     if (auth) { auth.projects = false; localStorage.setItem(AUTH, JSON.stringify(auth)); }
     throw new SyncError('scope', 'Scribecue isn’t allowed to keep projects in your Drive. Connect Google Drive again');
   }
@@ -304,7 +309,7 @@ export function driveHandle(ref) {
 // `sealedSize`: the file's size. `count`: how many upload requests. `send(n, to)` sends
 // request n's bytes to `to` = { session, token } from elsewhere (a worker, so the page never
 // copies them), and resolves to { status, id, error }. `progress(sent)`. Resolves to the new
-// file's id.
+// file's id. A full Drive fails with the code 'full'.
 export async function uploadVideo({ name, sealedSize, count, send, progress = () => {}, signal, sizes }) {
   const meta = { name, parents: [await folderId()], mimeType: 'application/octet-stream', appProperties: { [MARK.key]: 'video' } };
   const r = await drive(`${UPLOAD}?uploadType=resumable&fields=id`, {
@@ -324,6 +329,7 @@ export async function uploadVideo({ name, sealedSize, count, send, progress = ()
       if (got.status === 200 || got.status === 201) { id = got.id || ''; break; }
       if (got.status === 401 && again401) { again401 = false; access = null; tries--; continue; }
       if (got.error === 'unreadable') throw new SyncError('unreadable', 'the video couldn’t be read');
+      if (FULL.test(got.reason || '')) throw new SyncError('full', 'your Google Drive is full');
       if (got.status === 404 || tries >= 4 || (got.status && got.status < 500 && got.status !== 429)) throw new SyncError('drive', `Google Drive said ${got.status || 'nothing'}`);
       await new Promise((ok) => setTimeout(ok, 1500 * (tries + 1)));
       // Where Drive got to: if it has this piece already, go on.
@@ -342,6 +348,18 @@ export async function uploadVideo({ name, sealedSize, count, send, progress = ()
     throw e;
   }
   return id;
+}
+
+// How much room is left in this Google account's storage: { limit, usage } in bytes, with
+// limit null for an account without one, or null if Drive won't say. Shared by Drive, Gmail
+// and Photos.
+export async function driveSpace() {
+  // A refusal here only means not knowing: it mustn't count as projects not being allowed.
+  const r = await drive(`${ABOUT}?fields=storageQuota`, { also: [400, 403] });
+  if (!r.ok) return null;
+  const q = (await r.json()).storageQuota || {};
+  const n = (v) => (v == null || v === '' ? null : Number(v));
+  return { limit: n(q.limit), usage: n(q.usage) ?? 0 };
 }
 
 // Deletes a shared video from Drive. One that's gone already is fine.

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SEALED, PLAIN, TAG, PER_UPLOAD, pieceCount, sealedSize, piece, uploadCount, uploadPieces, nonce, seal, open,
-  newKey, importKey, videoInfo, readVideoInfo, cleanName, isShared, sameVideo, resumeFrom, roomFor, SPARE, sizeText,
+  newKey, importKey, videoInfo, readVideoInfo, cleanName, isShared, sameVideo, resumeFrom, roomFor, SPARE, sizeText, driveRoom, fullText,
 } from '../app/js/sharedvideo.js';
 import { videoText } from '../app/js/sharedialog.js';
 import { SharedProject } from '../app/js/shared.js';
@@ -146,4 +146,18 @@ test('the Share window says what can be done with the video', () => {
   assert.equal(other.swap, true);
   assert.match(other.info, /You have Pilot v2\.mp4 open/);
   assert.match(videoText({ available: true, drive: true, sending: true, open: { name: 'Pilot.mp4', size: 1 } }).info, /^Sending Pilot\.mp4/);
+});
+
+test('a video is only sent when the owner’s Drive has room for it', () => {
+  assert.deepEqual(driveRoom(2e9, { limit: 15e9, usage: 12e9 }), { ok: true, free: 3e9 });
+  assert.deepEqual(driveRoom(2e9, { limit: 15e9, usage: 14e9 }), { ok: false, free: 1e9 });
+  assert.deepEqual(driveRoom(2e9, { limit: 15e9, usage: 16e9 }), { ok: false, free: 0 }, 'over the limit already');
+  assert.equal(driveRoom(2e9, { limit: null, usage: 99e9 }).ok, true, 'no limit');
+  assert.equal(driveRoom(2e9, null).ok, true, 'Drive didn’t say: try, and Drive refuses if it must');
+});
+
+test('a full Drive says how much is needed and what to do', () => {
+  assert.equal(fullText(2.4e9, 1.1e9), 'There isn’t room in your Google Drive. The video needs 2.4 GB, and 1.1 GB is free. Free up space in Drive, or send a smaller copy, such as 720p');
+  assert.match(fullText(2.4e9, 0), /needs 2\.4 GB, and it’s full\./);
+  assert.match(fullText(2.4e9), /needs 2\.4 GB\. Free up space/);
 });

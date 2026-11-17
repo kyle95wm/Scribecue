@@ -1,7 +1,7 @@
 // The heavy part of sharing a video (sharedvideo.js), off the page:
 //
 // - { op: 'put', file, key, n, session, token }: seals upload request n's pieces of `file`
-//   and sends them to Drive's upload session. Answers { op: 'put', n, status, id, error }.
+//   and sends them to Drive's upload session. Answers { op: 'put', n, status, id, error, reason }.
 //   Sending from here means the page never copies the bytes.
 // - { op: 'fetch', url, key, info }: downloads the sealed video into the browser's own
 //   storage, opening each piece as it comes, carrying on from what's already there. Answers
@@ -26,7 +26,9 @@ self.onmessage = async ({ data: m }) => {
     try {
       const r = await fetch(m.session, { method: 'PUT', body: bytes, headers: { authorization: `Bearer ${m.token}`, 'content-range': `bytes ${at}-${at + bytes.length - 1}/${total}` } });
       const id = r.status === 200 || r.status === 201 ? (await r.json().catch(() => ({}))).id || '' : '';
-      postMessage({ op: 'put', n: m.n, status: r.status, id });
+      // Why Drive refused, such as storageQuotaExceeded when the account is full.
+      const reason = r.ok || r.status === 308 ? '' : (await r.text().catch(() => '')).slice(0, 2000);
+      postMessage({ op: 'put', n: m.n, status: r.status, id, reason });
     } catch { postMessage({ op: 'put', n: m.n, status: 0, error: 'offline' }); }
     return;
   }

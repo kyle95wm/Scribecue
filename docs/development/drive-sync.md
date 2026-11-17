@@ -108,6 +108,11 @@ narrators' recording files.
 - **Anyone with the link can read** the Drive file (`type: anyone`). The id and key are in
   the shared project's `access` map, as `video`, encrypted like the rest. A Workspace
   account that forbids link sharing gets a message, and the upload is deleted.
+- **Room in Drive** is checked first, with `about.storageQuota` (should be allowed under `drive.file`; not checked against real
+  Drive, and a refusal only means not knowing):
+  limit minus usage against the sealed size. No limit, or no answer: it tries. A
+  `storageQuotaExceeded` refusal partway, from Drive or the worker's upload, fails with the
+  code `full` and the same message. The storage is the whole Google account's.
 - **Downloading** needs no Google account: `alt=media` with `GOOGLE_API_KEY` from
   `config.js`, a browser key limited to the Drive API and Scribecue's addresses. Empty, and
   Share has no Video section.

@@ -25,6 +25,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ---- Scribecue, and Google as far as it's used, on one address
 
 const files = new Map(), uploads = new Map(), ranges = [];
+// The owner's storage, and after how many upload requests Drive says it's full (null: never).
+let quota = { limit: null, usage: 0 }, fullAfter = null;
 let n = 0;
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.wasm': 'application/wasm', '.woff2': 'font/woff2', '.onnx': 'application/octet-stream' };
 const server = createServer(async (req, res) => {
@@ -39,6 +41,7 @@ const server = createServer(async (req, res) => {
   const p = url.pathname;
   if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
   if (p.startsWith('/google/')) return json({ access: 'acc', expires: 3599 });
+  if (p === '/drive/v3/about') return json({ storageQuota: { ...(quota.limit == null ? {} : { limit: String(quota.limit) }), usage: String(quota.usage) } });
   if (p === '/drive/v3/files' && req.method === 'GET') {
     const q = url.searchParams.get('q') || '';
     let list = [...files.values()];
@@ -62,6 +65,9 @@ const server = createServer(async (req, res) => {
     const u = uploads.get(url.searchParams.get('upload_id'));
     if (!u) return json({ error: 'gone' }, 404);
     const range = req.headers['content-range'] || '', bytes = await body();
+    if (fullAfter != null && u.parts.length >= fullAfter) {
+      return json({ error: { code: 403, message: 'The user\'s Drive storage quota has been exceeded.', errors: [{ reason: 'storageQuotaExceeded' }] } }, 403);
+    }
     const m = range.match(/^bytes (\d+)-(\d+)\/(\d+)$/);
     if (m) {
       assert.equal(+m[1], u.got, 'each piece follows the last');
@@ -170,6 +176,22 @@ try {
   assert.match(await a.js(`document.getElementById('shareVideoInfo').textContent`), /^Send .+ with the project/);
   await a.shot('owner-before');
 
+  // A Drive without room: refused before anything is uploaded.
+  quota = { limit: 15e9, usage: 15e9 - 5e6 };
+  await a.click('#shareVideoOn');
+  await a.wait(`/^There isn’t room in your Google Drive\\. The video needs 20 MB, and 5 MB is free\\./.test(document.getElementById('toast').textContent)`, 'told there isn’t room');
+  assert.equal(uploads.size, 0, 'nothing uploaded');
+  // Room by Drive's count, but it fills up partway.
+  quota = { limit: null, usage: 0 }; fullAfter = 1;
+  await a.js(`document.getElementById('toast').textContent='';true`);
+  await a.click('#shareVideoOn');
+  await a.wait(`/^There isn’t room in your Google Drive\\. The video needs 20 MB\\. Free up space/.test(document.getElementById('toast').textContent)`, 'told Drive filled up');
+  assert.equal(videos().length, 0, 'no video file');
+  assert.equal(await a.js(`window.scribecueShared.video()`), '', 'nothing sent');
+  assert.equal(await a.js(`document.getElementById('shareVideoOn').disabled`), false, 'can try again');
+  fullAfter = null;
+  await a.js(`document.getElementById('toast').textContent='';true`);
+
   // A sends it.
   await sleep(4000); // the video's waveform and sound settle first
   await a.js(`__long.length=0;window.__loaf=[];new PerformanceObserver(l=>__loaf.push(...l.getEntries().filter(e=>e.duration>200).map(e=>({d:Math.round(e.duration),s:e.scripts.map(s=>s.sourceFunctionName+'@'+s.sourceURL.split('/').pop()+':'+s.sourceCharPosition+' '+Math.round(s.duration)).join(' | ')})))).observe({type:'long-animation-frame'});true`);
@@ -247,7 +269,8 @@ try {
     await a.wait(`!document.getElementById('shareVideoSwap').hidden`, 'Send this video instead');
     await a.shot('owner-other');
     await a.click('#shareVideoSwap');
-    await a.wait(`/^Sent /.test(document.getElementById('toast').textContent)`, 'A sent the other video');
+    await a.wait(`JSON.parse(window.scribecueShared.video()||'{}').name==='pilot-v2.mp4'`, 'A sent the other video');
+    for (let i = 0; i < 40 && videos().length > 1; i++) await sleep(250);
     assert.equal(videos().length, 1, 'the old video went from Drive');
     assert.notEqual(videos()[0].id, sent.id);
     await b.wait(`/The owner sent a new video/.test(document.getElementById('toast').textContent)`, 'B is told');

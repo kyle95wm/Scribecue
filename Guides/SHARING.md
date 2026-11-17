@@ -148,8 +148,8 @@ Its progress shows at the top of the window.
   are told.
 - **To take it out,** click **Video sent**. It's deleted from your Drive.
 - **Stopping sharing** deletes it from your Drive too.
-- **It uses your Drive space,** about as much as the video. A smaller copy, such as 720p,
-  saves space and downloading time.
+- **It uses your Drive space,** about as much as the video. Scribecue checks there's room
+  before sending. A smaller copy, such as 720p, saves space and downloading time.
 - **Narrators** still need their own copy. Recording files don't carry the video.
 
 ## Recovery link
@@ -281,6 +281,7 @@ relay don't match, the header says **Update needed**, and nothing is lost.
 | "No longer shared with you" in **Shared projects** | Ask the owner for a new link |
 | "This link is incomplete" | Copy all of the link and try again |
 | "The video is no longer in the owner's Google Drive" | Ask the owner to send it again |
+| "There isn't room in your Google Drive" | Free up space in Drive, or send a smaller copy of the video, then click **Send the video** again |
 | "There isn't room for the video in this browser" | Free up disk space, then click **Download the video** again |
 | No **Video** in **Share** | This copy of Scribecue isn't set up to send videos. Each person opens their own copy |
 | "…full on the sharing service" or "…too big for the sharing service" | Your changes stay on this computer but don't reach the others. Start a new shared project from a saved copy |
