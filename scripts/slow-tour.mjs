@@ -438,6 +438,7 @@ try {
     await open('Export window', () => click('[data-act=exportDialog]'), () => press('Escape', 'Escape'));
     await step('Save the project', async () => { await js(`(() => { window.showSaveFilePicker = undefined; })()`); await press('s', 'KeyS', { mods: MODS.ctrl }); await sleep(800); });
     await step('Export SRT', async () => { await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportSrt]').click();document.getElementById('exportGo').click(); 1`); await sleep(500); });
+    await step('Export Excel', async () => { await js(`document.querySelector('[data-act=exportDialog]').click();document.querySelector('#exportDlg input[value=exportXlsx]').click();document.getElementById('exportGo').click(); 1`); await sleep(500); });
   }
 
   if (section('tts')) {

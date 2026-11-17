@@ -35,7 +35,7 @@ test('every Export choice sits in a named group, and each one is an action', () 
     assert.ok(id && g.includes(`<h3 id="${id}">`), `group ${id} has no heading`);
   }
   const picks = [...dlg.matchAll(/name="expPick" value="(\w+)"/g)].map((m) => m[1]);
-  assert.equal(picks.length, 14);
+  assert.equal(picks.length, 15);
   for (const act of picks) assert.match(app, new RegExp(`\\n  ${act}: `), `${act} has no action`);
 });
 

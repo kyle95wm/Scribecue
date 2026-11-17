@@ -29,6 +29,7 @@ import { RECORDING_EXT, isRecordingFile, toRecordingFile, fromRecordingFile, rea
 import { readNote, narrationSound } from './bwf.js';
 import { inPause } from './narrationscan.js';
 import { readZip } from './zip.js';
+import { toXlsx, scriptLanguage } from './xlsx.js';
 import { initRecord } from './record.js';
 import { takesInfo, takeGroups, deleteTakesOf, unpackSession, rememberSession, browserFolder, canUseFolders, canKeepInBrowser } from './takestore.js';
 import { isSessionPackage, fromSession, SESSION_FILE } from './session.js';
@@ -72,7 +73,7 @@ import { soundsLike, hasWord, mergeSay } from './tts.js';
 import { startTips } from './tooltip.js';
 import { tts, initTts, openTts, speak, stop as stopSpeech, duration as speechLength, spoken, readWav, SPEEDS, isSpeed, toBase, baseFromSpeed, speedLabel,
   isBlockSpeed, topSpeed, lowSpeed, speedLimitWhy, speedName, speedToFit, speedFromReadings, nextFitSpeed, bestFit, readingsOf, fixedShare, LANES,
-  reviewVoices, usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, voiceName, voiceLabel, fillVoiceSelect, showCloudCost, cloudOf, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIP_BYS, isDip, FADES, isDipBy, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain,
+  reviewVoices, usingAudioVoice, measure, prefetch, readAhead, renderTrack, makeReadings, chosenVoice, chosenVoiceName, chosenVoiceInfo, voiceName, voiceLabel, fillVoiceSelect, showCloudCost, cloudOf, setTtsOption, onlyNotes, mixLevels, setMix, stepDip, dipLevel, LOUDNESS, DIP_BYS, isDip, FADES, isDipBy, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain,
   savedReadings, clearSavedReadings, checkFfmpeg } from './tts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -6456,19 +6457,21 @@ function exportSubs(fmt) {
 // to the extended video, rather than the programme.
 const readLength = (c) => (spoken(c.text) ? speechLength(said(c), c.speed, c.voice) : { secs: 0, exact: true });
 const scriptCues = (pauses = withPauses()) => (hasExtended() ? timedScript(S.cues, S.extendedAll, (c) => readLength(c).secs, pauses) : S.cues);
-function writeSubs(fmt) {
+async function writeSubs(fmt) {
   const ext = hasExtended(), length = readLength;
   const cues = scriptCues();
-  const text = fmt === 'vtt' ? toVTT(cues) : toSRT(cues);
+  const blob = fmt === 'xlsx'
+    ? await toXlsx(cues, { fps: S.fps, lang: scriptLanguage(chosenVoiceInfo(), chosenVoice()) })
+    : new Blob([fmt === 'vtt' ? toVTT(cues) : toSRT(cues)], { type: 'text/plain;charset=utf-8' });
   const name = `${baseName()}.${fmt}`;
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+  a.href = URL.createObjectURL(blob);
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   const speeds = fmt === 'srt' && S.cues.some((c) => c.speed);
   const about = ext && S.cues.some((c) => isExt(c) && !length(c).exact);
-  toast(`Exported ${name} (${S.cues.length} cues)` + (withPauses() ? ', timed to the extended video' : '') + (speeds ? '. SRT can’t store block speeds: export VTT to keep them' : '') +
+  toast(`Exported ${name} (${S.cues.length} blocks)` + (withPauses() ? ', timed to the extended video' : '') + (speeds ? '. SRT can’t store block speeds: export VTT to keep them' : '') +
     (about ? '. Some reading lengths are estimates' : ''));
 }
 
@@ -8014,6 +8017,7 @@ const actions = {
   openVideo: () => openVideoPicker(),
   exportSrt: () => exportSubs('srt'),
   exportVtt: () => exportSubs('vtt'),
+  exportXlsx: () => exportSubs('xlsx'),
   exportTrack: () => {
     if (!writing()) return modeOnly('The description track', 'write');
     openTts();

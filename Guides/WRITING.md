@@ -127,7 +127,7 @@ settings below are under **Extended blocks in exports**, in the text to speech s
 |---------|---------|
 | Description track | Readings move later by the pauses before them. |
 | Full mix | The programme's sound stops during each pause. It can't go in the original video. |
-| SRT and WebVTT | Times match the extended video, and blocks show their full reading length. |
+| SRT, WebVTT and Excel | Times match the extended video, and blocks show their full reading length. |
 
 To keep the video's timing instead, turn off **Keep the pauses**. Each reading then plays
 over the programme, and scripts keep the original times.

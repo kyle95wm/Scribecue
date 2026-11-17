@@ -52,7 +52,7 @@ test('the tour covers sharing, comments, exports and what sharing sends', () => 
   assert.match(out.text('write'), /Export \(.+\) opens a window/);
   assert.match(out.text('write'), /QC package for a reviewer, a recording file for a narrator/);
   assert.doesNotMatch(out.text('transcribe'), /QC package|narrator/);
-  assert.match(out.text('transcribe'), /SRT or WebVTT/);
+  assert.match(out.text('transcribe'), /SRT, WebVTT or Excel/);
   for (const mode of ['write', 'transcribe']) assert.match(out.text(mode), /DAW markers and a video with subtitles|DAW markers or a video with subtitles/);
   const privacy = STEPS.find((s) => s.title === 'Your work stays yours').text('write');
   assert.match(privacy, /sharing/);

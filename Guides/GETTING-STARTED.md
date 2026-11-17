@@ -299,6 +299,8 @@ When the script is finished, or to share it with someone who doesn't use Scribec
 - **Script as SRT** (`Ctrl/Cmd+E`).
 - **Script as WebVTT** (`Ctrl/Cmd+Shift+E`). This also keeps each block's speed, voice and
   sounds-like words.
+- **Script as Excel:** a spreadsheet with a row for each block: its number, timecodes in
+  and out, text and notes. The headers carry the voice's language, such as **Script (en)**.
 - **Description track:** all the readings as one WAV or MP3 file, in Write mode with a
   [Piper](VOICES.md#piper-voices), [Kokoro](VOICES.md#kokoro-voices), [Google](VOICES.md#google-cloud-voices)
   or [Amazon Polly](VOICES.md#amazon-polly-voices) voice.
@@ -362,7 +364,7 @@ Your project is your master copy, so keep it. The other files are made for one p
 | A narrator | [Recording file](RECORDING.md#making-the-recording-file) (`.scribecuerec`) | **Export → Recording file** |
 | Your other computer, partway through recording | [Session package](RECORDING.md#moving-to-another-computer) (`.scribesession`) | **Export → Session package** |
 | A mixer | [Narration WAV](MIXING.md#the-narration-wav), or a Narration zip with alts | **Export**, in Record mode |
-| Someone using another tool | SRT or WebVTT | **Export** |
+| Someone using another tool | SRT, WebVTT or Excel | **Export** |
 
 - **Send the video too.** Reviewers and narrators need their own copy. No Scribecue file contains
   it, but a [shared project](SHARING.md#the-video) can carry it.
