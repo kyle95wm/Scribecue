@@ -235,19 +235,23 @@ export async function createProject(name, blob) {
 
 // Writes a project back. If it changed in Drive since this browser read or wrote it, or is
 // gone, it's saved beside it as a copy instead, and the handle moves to the copy: nothing is
-// overwritten. Returns why it made a copy, or ''.
+// overwritten. Returns why it made a copy, or '', and the name it had in Drive.
 async function writeProject(h, blob) {
   let now = null;
   try { now = await (await drive(`${API}/${encodeURIComponent(h.id)}?fields=${FIELDS}`)).json(); } catch (e) { if (e.code !== 'gone') throw e; }
   const why = !now || now.trashed ? 'gone' : changedElsewhere(h.revision, now.headRevisionId) ? 'changed' : '';
+  // Renamed in Drive: saving follows the new name. A rename isn't a change to the project.
+  if (now?.name && !now.trashed) h.name = now.name;
+  const was = h.name;
   if (why) {
     const copy = await createProject(h.name, blob);
     Object.assign(h, { id: copy.id, name: copy.name, revision: copy.revision });
-    return why;
+    return [why, was];
   }
   const r = await drive(`${UPLOAD}/${encodeURIComponent(h.id)}?uploadType=media&fields=${FIELDS}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: blob });
-  h.revision = (await r.json()).headRevisionId;
-  return '';
+  const f = await r.json();
+  Object.assign(h, { revision: f.headRevisionId, name: f.name || h.name });
+  return ['', was];
 }
 
 // One save to Drive at a time, so autosave and Save never overlap.
@@ -274,8 +278,7 @@ export function driveHandle(ref) {
       return {
         write: async (x) => { parts.push(x); },
         close: async () => {
-          const was = h.name;
-          const why = await writes(() => writeProject(h, new Blob(parts, { type: 'application/json' })));
+          const [why, was] = await writes(() => writeProject(h, new Blob(parts, { type: 'application/json' })));
           // Kept with the revision just written, so the next save after a reload isn't
           // taken for a change made elsewhere.
           hooks.projectSaved(h);

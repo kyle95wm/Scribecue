@@ -76,6 +76,9 @@ same Google account, and keeps projects in Drive to open on any computer.
 - Every save, autosave too, keeps the revision it wrote in IndexedDB with the handle, and saves
   run one at a time (`oneAtATime`). Otherwise a reload, or Save meeting an autosave, looks like
   a change elsewhere and makes a copy each time.
+- A save takes the file's name from Drive, so a rename there shows in the header, Recents
+  and the copy names. A rename doesn't change `headRevisionId` (true of the fake; not
+  checked against real Drive).
 - QC packages, recording files and session packages stay as files: they can carry audio.
 
 ## Limits

@@ -145,6 +145,32 @@ try {
   await sleep(2500);
   assert.equal(projects().length, 1, 'no copy when Save and autosave meet');
 
+  // Renamed in Drive: the next save goes to the same file, and the new name shows, after a
+  // reload too. A rename doesn't change the file's revision in Drive.
+  first.name = 'Pilot final.scribecue';
+  await open(4);
+  await type(' After renaming.');
+  await key('Escape', 'Escape');
+  await waitFor(() => first.body.includes('After renaming.'), 'the edit after renaming reached the same file');
+  await wait(`document.getElementById('subName').textContent.startsWith('Pilot final.scribecue')`);
+  await send('Page.reload'); await sleep(3500);
+  await js(`window.__errors=[];addEventListener('error',e=>__errors.push(e.message));addEventListener('unhandledrejection',e=>__errors.push(String(e.reason)));
+    window.__long=[];new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'});true`);
+  assert.ok((await js(`document.getElementById('subName').textContent`)).startsWith('Pilot final.scribecue'), 'the new name after reloading');
+  await open(5);
+  await type(' Renamed and reloaded.');
+  await key('Escape', 'Escape');
+  await waitFor(() => first.body.includes('Renamed and reloaded.'), 'saving after renaming and reloading');
+  assert.equal(projects().length, 1, 'no copy after renaming');
+  // And back, as after tidying up copies: "Pilot (5)" renamed to "Pilot".
+  first.name = 'Pilot.scribecue';
+  await open(6);
+  await type(' Named back.');
+  await key('Escape', 'Escape');
+  await waitFor(() => first.body.includes('Named back.'), 'saving after naming it back');
+  await wait(`document.getElementById('subName').textContent.startsWith('Pilot.scribecue')`);
+  assert.equal(projects().length, 1, 'no copy after naming it back');
+
   // Another computer saves it; the next save here goes into a copy beside it.
   first.revision = 'elsewhere'; first.body = first.body.replace('Edited here.', 'Edited there.');
   await open(2);

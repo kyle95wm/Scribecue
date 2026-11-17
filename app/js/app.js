@@ -8545,7 +8545,16 @@ initDrive({
   toast: (m) => toast(m),
   beforeReload: () => { clearTimeout(saveTimer); save(); },
   // Every save to Drive keeps the revision it wrote, so a reload doesn't mistake it for a change elsewhere.
-  projectSaved: (h) => { if (h === S.handle) handleStore.set(h); },
+  // A name changed in Drive shows here too.
+  projectSaved: (h) => {
+    if (h !== S.handle) return;
+    handleStore.set(h);
+    if (h.name === S.subName) return;
+    S.subName = h.name;
+    showDocName();
+    save();
+    noteRecent(h);
+  },
   // Saving found the project changed on another computer, or gone: it went into a copy.
   projectCopied: (h, was, why) => {
     if (h !== S.handle) return;
