@@ -232,8 +232,10 @@ programme. `Ctrl/Cmd+O` opens it again.
   Settings, under **Google Drive**, with **Save new projects**.
 - **Saved as "Name (2)"?** The project changed on another computer since you opened it, so
   Scribecue saved yours beside it rather than over it. Both are in Drive.
-- **Rename or tidy up in Drive** whenever you like. Scribecue keeps saving to the file you
-  have open, under its new name.
+- **Rename a project in Drive** whenever you like. Scribecue keeps saving to it, under its
+  new name.
+- **Deleting the project you have open?** Choose **File → New…** first. Otherwise Scribecue
+  saves it to Drive again, so your work isn't lost.
 
 Saving to a file on this computer, autosave, Recents and reopening the video need Chrome or
 Edge. Other browsers download a copy each time you save, and you open the video yourself. In
