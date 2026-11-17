@@ -495,9 +495,10 @@ finishes. After that, switching to it is instant until you close the video.
   overlay (`?`), show them again.
 - **What's new:** after an update, a window lists what changed. In the web version, click
   the version number in the bottom right to see it again.
-- **Screen readers:** messages are read out as they appear, and the block list can be read
-  block by block. With NVDA or JAWS, single-letter keys such as `H` may need focus mode.
-  This is still being worked on.
+- **Screen readers:** messages are read out as they appear, and the block list reads block
+  by block. The open block's fields come straight after the list. Keys are read as words,
+  such as "Shift", not as symbols. With NVDA or JAWS, single-letter keys such as `H` may
+  need focus mode.
 
 ## What your computer needs
 

@@ -44,7 +44,7 @@ import { initFfHelp, installSentence } from './ffhelp.js';
 import { initWhatsNew, openWhatsNew } from './whatsnew.js';
 import { initSettings, addSection, adopt, share, place, openSettings, closeSettings } from './settings.js';
 import { initReminder } from './reminder.js';
-import { announce, speakable, blockLabel, keepsFocusAfterDialog, toastMs } from './a11y.js';
+import { announce, speakable, speakKeys, playLabel, blockLabel, keepsFocusAfterDialog, toastMs } from './a11y.js';
 import { initOffline, openOffline, keepStorage } from './offline.js';
 import { initSettingsFile } from './settingsfile.js';
 import { initDrive, refreshDrive, connected as driveOn, canConnect as canDrive, canProjects, connect as connectDrive, listProjects, createProject, driveHandle, firstSave, setSaveNew } from './googledrive.js';
@@ -3110,8 +3110,13 @@ function updateInd() {
   }
   const p = isPlaying();
   ctrls.classList.toggle('playing', p);
-  ctrls.querySelector('[data-ctl="playBlock"]').classList.toggle('on', p && S.playUntil != null);
-  ctrls.querySelector('[data-ctl="loop"]').classList.toggle('on', S.loop);
+  const playBtn = ctrls.querySelector('[data-ctl="play"]');
+  playBtn.setAttribute('aria-label', speakable(playLabel(playBtn.getAttribute('aria-label'), p), IS_MAC));
+  for (const [ctl, on] of [['playBlock', p && S.playUntil != null], ['loop', S.loop]]) {
+    const b = ctrls.querySelector(`[data-ctl="${ctl}"]`);
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
   showVideoText();
 }
 
@@ -4635,6 +4640,7 @@ function setMode(m, quiet = false) {
     const on = b.dataset.mode === m;
     b.classList.toggle('on', on);
     b.setAttribute('aria-checked', on);
+    b.tabIndex = on ? 0 : -1; // one stop for the modes; the arrow keys move between them
   }
   holdEnd();
   if (m === 'write') fitAllAuto();
@@ -4655,6 +4661,15 @@ function setMode(m, quiet = false) {
   }
 }
 // Each mode is a complete workspace; clicking the selected mode keeps it selected.
+// The arrow keys move between the modes, as in any group of choices. Space or Enter picks one.
+document.getElementById('modeSw').addEventListener('keydown', (e) => {
+  const step = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+  if (!step || e.altKey || e.shiftKey || e.metaKey || e.ctrlKey) return;
+  e.preventDefault(); e.stopPropagation();
+  const all = [...e.currentTarget.querySelectorAll('button')].filter((b) => b.checkVisibility() && !b.disabled);
+  const i = all.indexOf(document.activeElement);
+  all[(i + step + all.length) % all.length]?.focus();
+});
 document.getElementById('modeSw').addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   b.blur();
@@ -4931,7 +4946,18 @@ document.addEventListener('keydown', (e) => { if (noticeDlg.open) e.stopPropagat
 
 function toggleHelp(show = helpEl.hidden) {
   helpEl.hidden = !show;
+  // Screen readers start at its title. Esc puts the keys back on the timeline.
+  if (show) helpEl.querySelector('.helpbox').focus();
 }
+// Tab stays in the overlay while it's open.
+helpEl.addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab') return;
+  const all = [...helpEl.querySelectorAll('button, a[href], input, select, textarea')].filter((el) => el.checkVisibility() && !el.disabled);
+  if (!all.length) return;
+  const first = all[0], last = all.at(-1), at = document.activeElement;
+  if (e.shiftKey && (at === first || !all.includes(at))) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (at === last || !all.includes(at))) { e.preventDefault(); first.focus(); }
+});
 helpEl.addEventListener('click', (e) => { if (e.target === helpEl) toggleHelp(false); });
 
 // ---------------------------------------------------------------- files
@@ -8446,6 +8472,7 @@ if (!IS_MAC) {
   document.querySelectorAll('[aria-label]').forEach((el) => el.setAttribute('aria-label', pcKeys(el.getAttribute('aria-label'))));
   edText.placeholder = pcKeys(edText.placeholder);
 }
+speakKeys(document, IS_MAC);
 const restored = loadSaved();
 aiNotesChanged();
 if (S.reviewId) { const wanted = S.reviewId; storedReview().then(async (saved) => { if (saved?.id !== wanted || S.reviewId !== wanted) return; try { const review = await openReview(saved.file); if (S.reviewId !== wanted) return; S.review = review; S.qcSource = 'package'; syncQcPermission(); fitQcAll(); configureQcAudio(); updateEditor(); if (S.dirty) scheduleAutosave(); updateInd(); refreshQc(); } catch { toast('Reopen the QC package to restore its original readings'); } }); }

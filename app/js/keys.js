@@ -5,6 +5,7 @@ import {
   GROUPS, RESERVED, comboOf, bindings, lookup, owners, assign, unassign, resetAction, exportKeys, importKeys,
   keyLabels, comboText, KEYS_FILE,
 } from './keymap.js';
+import { speakKeys } from './a11y.js';
 
 const KEY = 'scribecue.keys';
 const $ = (id) => document.getElementById(id);
@@ -56,6 +57,7 @@ function showKeys() {
       b.setAttribute(attr, v.replace(/\s*\([^()]*\)$/, '') + (k ? ` (${k})` : ''));
     }
   }
+  speakKeys(document, hooks.mac);
 }
 
 // ---- the panel

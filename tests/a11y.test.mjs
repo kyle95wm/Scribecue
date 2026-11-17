@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { speakable, blockLabel, keepsFocusAfterDialog, toastMs } from '../app/js/a11y.js';
+import { speakable, blockLabel, keepsFocusAfterDialog, toastMs, playLabel } from '../app/js/a11y.js';
 
 test('key symbols are read as words', () => {
   assert.equal(speakable('Undo with ⌘Z'), 'Undo with Command Z');
@@ -104,4 +104,28 @@ test('a message that needs reading is a dialog with OK', () => {
   for (const why of ['endedNotice(detail, false)', 'endedNotice(detail, true)', 'refusedNotice(detail)', "notice('Autosave stopped'", "notice('Project not saved'"]) assert.ok(app.includes(why), why);
   const rec = readFileSync(new URL('../app/js/record.js', import.meta.url), 'utf8');
   assert.ok(rec.includes("h.notice('Take not kept'"));
+});
+
+test('the play button says what it will do, and keeps its key', () => {
+  assert.equal(playLabel('Play / pause (Space)', false), 'Play (Space)');
+  assert.equal(playLabel('Play (Space)', true), 'Pause (Space)');
+  assert.equal(playLabel('Pause', false), 'Play');
+});
+
+test('screen readers reach what they can use, and nothing silent', () => {
+  const html = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
+  const tl = html.slice(html.indexOf('<section class="timeline" id="tl"'), html.indexOf('</section>', html.indexOf('<section class="timeline" id="tl"')));
+  // The timeline isn't hidden as a whole, or its zoom buttons would be Tab stops that say nothing.
+  assert.doesNotMatch(tl.slice(0, tl.indexOf('>')), /aria-hidden/);
+  for (const id of ['ruler', 'bmHot', 'lane', 'dialTrack', 'takeTrack', 'overview', 'playhead']) {
+    assert.match(tl, new RegExp(`<\\w+ aria-hidden="true"[^>]*id="${id}"`), `${id} is drawn for the eye only`);
+  }
+  assert.match(tl, /id="tlZoom" role="group" aria-label="Timeline zoom"/);
+  // The open block's fields sit inside the list on screen, but a list of blocks can't hold them.
+  assert.match(html, /<div id="editorOwner" aria-owns="editor"><\/div>/);
+  assert.ok(html.indexOf('id="editorOwner"') > html.indexOf('id="editor"'), 'the owner comes after the list');
+  // The clock's name is the time; what a click does is its description.
+  assert.doesNotMatch(/<button[^>]*id="clock"[^>]*>/.exec(html)[0], /aria-label/);
+  assert.match(html, /id="scrub" role="slider" tabindex="0"/);
+  assert.match(html, /<div class="helpbox" tabindex="-1">/);
 });
