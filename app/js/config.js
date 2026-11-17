@@ -24,4 +24,4 @@ export const SIGNIN = RELAY.replace(/^wss:/, 'https:');
 // A browser API key of the same Google Cloud project, limited to the Drive API and to
 // Scribecue's own addresses. People a project is shared with download its video with it,
 // without signing in to Google. With none, Share can't include the video.
-export const GOOGLE_API_KEY = '';
+export const GOOGLE_API_KEY = 'AIzaSyC7Nu4GbNr3pYai2jqqYtRAhsst_BKKiPg';
