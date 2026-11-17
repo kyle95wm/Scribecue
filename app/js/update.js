@@ -3,7 +3,7 @@
 // it asks GitHub's API for the latest release at most once a day; the request
 // carries no cookies, no referrer and nothing about the user's work.
 
-export const VERSION = '0.134.5';
+export const VERSION = '0.134.6';
 import { HOSTED, REPO, BRANCH } from './config.js';
 import { openWhatsNew } from './whatsnew.js';
 import { openSettings } from './settings.js';

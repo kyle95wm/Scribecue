@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.134.6",
+    "date": "2026-11-17",
+    "notes": "## Recording without watching the screen\n\n- **Sound cues** in Record mode: three pips count you in to each take, a tone means one second left, and two low tones mean the time is up. Press **B**, or click **CUES** under the video. Wear headphones.\n- Screen readers now say when recording starts and what was saved, such as how far over the slot you went. They stay quiet while you read.\n\n## Fixes\n\n- The Record mode keys in the shortcuts list are readable again."
+  },
+  {
     "version": "0.134.5",
     "date": "2026-11-17",
     "notes": "## Screen readers\n\n- Keys are read as words, such as \"Shift\", not as symbols.\n- The play button says Play or Pause, and Loop says whether it's on.\n- The open block's fields are read straight after the block list.\n- The shortcuts overlay takes the focus when it opens, and Tab stays inside it.\n- The clock reads out the time, and the timeline's zoom buttons say what they do.\n- The modes are one Tab stop: the arrow keys move between them. The video position slider can take the focus."
