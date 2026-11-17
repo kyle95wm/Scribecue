@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.134.3",
+    "date": "2026-11-17",
+    "notes": "## Tidying up copies in Google Drive\n\n- Updating from 0.134.1 or older may save one more copy of a Drive project, such as \"Name (2)\". It's the last one.\n- To tidy up, choose **File → New…** first. Then delete the copies you don't want in Drive, rename the one you keep, and open it with **File → Open from Google Drive**.\n- Deleting the project you have open makes Scribecue save it to Drive again, so your work isn't lost. The message now says how to avoid that."
+  },
+  {
     "version": "0.134.2",
     "date": "2026-11-17",
     "notes": "## Fewer copies in Google Drive\n\n- A project in Google Drive no longer saves a new copy, such as \"Name (2)\", each time you reload or reopen Scribecue.\n- Rename a project in Drive whenever you like. Scribecue keeps saving to it, under its new name.\n- To tidy up copies you already have: delete the older ones in Drive, and rename the newest. The newest has all your work.\n- A copy is still made when the project really changed on another computer."
