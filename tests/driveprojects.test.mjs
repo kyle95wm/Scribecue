@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { copyName, filterProjects, isDriveRef, driveRef, changedElsewhere, firstSaveGoes, projectName } from '../app/js/driveprojects.js';
+import { copyName, filterProjects, isDriveRef, driveRef, changedElsewhere, oneAtATime, firstSaveGoes, projectName } from '../app/js/driveprojects.js';
 
 test('a copy gets the first free number, whatever the case', () => {
   assert.equal(copyName('Pilot.scribecue', []), 'Pilot.scribecue');
@@ -48,4 +48,20 @@ test('a typed project name is made safe for a file', () => {
   assert.equal(projectName('', 'script'), 'script');
   assert.equal(projectName('  ..  ', 'script'), 'script');
   assert.equal(projectName('a'.repeat(300), 'script').length, 120);
+});
+
+test('saves to Drive run one at a time, and a failed one doesn’t stop the next', async () => {
+  const run = oneAtATime();
+  const log = [];
+  const job = (name, ms, fail) => () => new Promise((ok, no) => {
+    log.push(`start ${name}`);
+    setTimeout(() => { log.push(`end ${name}`); fail ? no(new Error(name)) : ok(name); }, ms);
+  });
+  const a = run(job('autosave', 20));
+  const b = run(job('save', 1, true));
+  const c = run(job('again', 1));
+  assert.equal(await a, 'autosave');
+  await assert.rejects(b, /save/);
+  assert.equal(await c, 'again');
+  assert.deepEqual(log, ['start autosave', 'end autosave', 'start save', 'end save', 'start again', 'end again']);
 });

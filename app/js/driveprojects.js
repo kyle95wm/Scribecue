@@ -30,6 +30,18 @@ export function filterProjects(files, text = '') {
 export const isDriveRef = (v) => !!v && v.kind === 'drive' && typeof v.id === 'string' && typeof v.name === 'string';
 export const driveRef = (h) => ({ kind: 'drive', id: h.id, name: h.name, revision: h.revision || '' });
 
+// Runs jobs one after another, each starting when the one before has finished, failed or not.
+// Saves to Drive go through one, so a save never reads the file while another is writing it,
+// which would look like a change made elsewhere.
+export function oneAtATime() {
+  let last = Promise.resolve();
+  return (job) => {
+    const run = last.then(job, job);
+    last = run.catch(() => {});
+    return run;
+  };
+}
+
 // Whether the copy in Drive changed since this browser last read or wrote it.
 export const changedElsewhere = (known, now) => !!known && !!now && known !== now;
 
