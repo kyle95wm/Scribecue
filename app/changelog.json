@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.135.1",
+    "date": "2026-11-17",
+    "notes": "## Fixes\n\n- In a shared project you joined, **File → Save to Google Drive** no longer shows. Only the owner saves the project, as with Save."
+  },
+  {
     "version": "0.135.0",
     "date": "2026-11-17",
     "notes": "## Send the video with a shared project\n\n- **Share → Video → Send the video** sends the open video with a shared project. Connect Google Drive first, in Settings.\n- It's encrypted on your computer, then kept in your Google Drive. Only people with a link can watch it.\n- People you share with click **Download the video** in the video area. It downloads once, into their browser, and opens with the project after that.\n- Opened a different video? Click **Send this video instead**. Stopping sharing deletes the video from your Drive.\n- If your Drive hasn't got room, Scribecue says so before sending anything."
