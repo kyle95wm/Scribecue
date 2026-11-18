@@ -116,6 +116,7 @@ takes them to another browser with your other settings.
 | `Alt+Shift+L` | [Find the dialogue with speech to text](GETTING-STARTED.md#no-subtitles), for a video with no subtitles |
 | `Alt+Shift+A` | Open or close [AI help](AI.md) |
 | `Alt+Shift+I` | [Draft the script with AI](AI.md#drafting-the-whole-script) |
+| `Alt+Shift+Q` | [Review the script with AI](AI.md#reviewing-the-script) |
 | `I` / `Shift+I` | Next / previous AI draft to check |
 | `Y` | Accept the AI draft |
 | `Alt+Shift+S` | Settings |

@@ -14,6 +14,7 @@ import {
   gapsToDraft, splitGap, cutSamples, findCuts, dialogueAround, withBlock, estimate, estimateText, heardSpeech, SPLIT_OVER, DRAFT_MIN,
   scenesFor, sceneContext, storySoFar, summaryPrompt, SCENE_STILLS, RECAP_SYSTEM, recapPrompt, splitRecap,
 } from './aiscript.js';
+import { REVIEW_SYSTEM, REVIEW_AUTHOR, reviewBlocks, reviewBatches, reviewEstimate, reviewEstimateText, reviewPrompt, readReview, reviewText } from './aireview.js';
 
 const $ = (id) => document.getElementById(id);
 const KEY = 'scribecue.ai', KEYS = 'scribecue.ai.keys', PKCE = 'scribecue.ai.pkce';
@@ -57,6 +58,7 @@ let hooks = {
   jobBusy: () => false, runJob: async () => null, laneHeard: () => false, insertDraft: () => null, undoKey: () => 'Ctrl+Z', nextKey: () => '',
   canListen: () => false, setUpListening: () => {}, listen: async () => '',
   scenes: () => [], setScenes: () => {}, dialogueGaps: () => [], seek: () => {}, language: () => 'en-us',
+  runReview: async () => null, addReviewComments: () => 0, openComments: () => {},
 };
 let chat = []; // the conversation, as ai.js messages
 let running = null; // AbortController of the request under way
@@ -557,6 +559,100 @@ export function openDraftScript() {
   $('aiScriptRange').focus();
 }
 
+// ---- reviewing the script
+
+// Reads the blocks between from and to against their stills and subtitles, in batches,
+// and puts what the AI flags on each block as a comment. Runs as a job under the header.
+async function reviewScript(from, to) {
+  const project = hooks.identity();
+  const out = await hooks.runReview(async (signal, progress) => {
+    const batches = reviewBatches(reviewBlocks(hooks.cues(), from, to).todo, ai.frames);
+    const total = batches.reduce((n, x) => n + x.length, 0), system = instructions(REVIEW_SYSTEM);
+    let done = 0, added = 0, flagged = new Set(), unread = 0, declined = 0, stopped = '';
+    const lost = () => hooks.identity() !== project || !hooks.writing();
+    try {
+      for (const batch of batches) {
+        if (signal.aborted || lost()) break;
+        progress(done / total, `${done} of ${total} blocks`);
+        let frames = [];
+        try { frames = await grabFrames(batch.flatMap((e) => e.stills), 512); } catch { /* reviewed from the script alone */ }
+        // Stills that couldn't be had aren't promised in the request.
+        const sent = frames.length ? batch : batch.map((e) => ({ ...e, stills: [] }));
+        const r = await requestDraft(reviewPrompt(sent, hooks.cues(), hooks.dialogueLines(), sceneContext(hooks.scenes(), batch[0].b.start)), frames, signal, system);
+        if (signal.aborted || lost()) break;
+        if (r.declined || r.failed) declined++;
+        else {
+          let found = [];
+          try { found = readReview(r.text, batch); } catch { unread++; }
+          // A block deleted meanwhile is skipped by addReviewComments.
+          const n = hooks.addReviewComments(found.map((f) => ({ block: f.block, text: reviewText(f) })), REVIEW_AUTHOR);
+          added += n;
+          if (n) for (const f of found) flagged.add(f.block);
+        }
+        done += batch.length;
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') stopped = e.message;
+    }
+    return { done, total, added, flagged: flagged.size, unread, declined, stopped, aborted: signal.aborted, lost: lost() };
+  });
+  if (!out) return;
+  const what = out.added
+    ? `AI review: ${out.added} comment${out.added === 1 ? '' : 's'} on ${out.flagged} block${out.flagged === 1 ? '' : 's'}, of ${out.done} read`
+    : out.done ? `AI review: nothing to flag in ${out.done} block${out.done === 1 ? '' : 's'}` : 'AI review: no blocks read';
+  const why = out.stopped ? `. Stopped: ${out.stopped}` : out.lost ? '. Stopped when the project or mode changed' : out.aborted ? '. Stopped' : '';
+  const missed = out.unread + out.declined;
+  const gaps = missed ? ` ${missed} request${missed === 1 ? '' : 's'} came back with nothing usable, so some blocks weren’t reviewed.` : '';
+  hooks.toast(`${what}${why}${out.added && out.undoable ? `. ${hooks.undoKey()} takes them all back` : ''}`);
+  const d = note(`${what}${why}.${gaps}${out.added ? ' Each comment starts “AI review”. Check it against the picture, fix the block if it’s right, then resolve it.' : ''}`);
+  if (out.added) {
+    const acts = document.createElement('div');
+    acts.className = 'acts';
+    const open = Object.assign(document.createElement('button'), { className: 'hl', textContent: 'Open comments' });
+    open.addEventListener('click', () => hooks.openComments());
+    acts.append(open);
+    d.append(acts);
+  }
+}
+
+// The dialog: what to review, and what it'll cost, before anything is sent.
+const reviewDlg = () => $('aiReviewDlg');
+function reviewRange() {
+  const how = $('aiReviewRange').value, dur = hooks.duration() || Infinity;
+  if (how === 'playhead') return { from: hooks.playhead(), to: Infinity };
+  if (how === 'between') {
+    const from = parseTime($('aiReviewFrom').value), to = parseTime($('aiReviewTo').value);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return null;
+    return { from, to: Math.min(to, dur) };
+  }
+  return { from: 0, to: Infinity };
+}
+function renderReviewDlg() {
+  $('aiReviewTimes').hidden = $('aiReviewRange').value !== 'between';
+  const r = reviewRange(), P = PROVIDERS[ai.provider], local = !!P?.local;
+  const { todo, skipped } = r ? reviewBlocks(hooks.cues(), r.from, r.to) : { todo: [], skipped: 0 };
+  const batches = reviewBatches(todo, ai.frames);
+  $('aiReviewGo').disabled = !todo.length;
+  $('aiReviewSkipped').textContent = skipped
+    ? `${skipped} block${skipped === 1 ? ' has' : 's have'} an open AI review comment, so ${skipped === 1 ? 'it’s' : 'they’re'} left out. Resolve ${skipped === 1 ? 'it' : 'them'} to review ${skipped === 1 ? 'it' : 'them'} again.` : '';
+  if (!r) { $('aiReviewCount').textContent = 'Type a start and an end, such as 1:30 and 12:00.'; return; }
+  if (!todo.length) { $('aiReviewCount').textContent = skipped ? 'Nothing else to review here.' : 'No blocks with words here.'; return; }
+  $('aiReviewCount').textContent = `About ${reviewEstimateText(reviewEstimate(batches, ai.models[ai.provider], local), P.name, local)}`;
+  $('aiReviewPrivacy').textContent = local ? 'Everything stays on this computer.'
+    : `${ai.frames ? 'A still or two from each block, ' : ''}the script, the subtitles around it, and your notes go to ${P.name}.`;
+}
+export function openReviewScript() {
+  if (!hooks.writing()) return hooks.toast('Reviewing the script with AI is part of Write mode');
+  if (!ready()) { toggleAi(true); openAiSettings(); return; }
+  if (hooks.jobBusy()) return hooks.toast('Another job is running. Wait for it to finish, or press Stop at the top');
+  if (unreachable()) return hooks.toast(`You’re offline, so ${PROVIDERS[ai.provider].name} can’t be reached`);
+  if (!hooks.cues().some((c) => c.text.trim())) return hooks.toast('There’s nothing to review yet: write some blocks first');
+  $('aiReviewModel').textContent = `${PROVIDERS[ai.provider].name} · ${ai.models[ai.provider]} · ${ai.frames ? 'stills from each block' : 'no stills (Frames per draft is none)'}`;
+  renderReviewDlg();
+  reviewDlg().showModal();
+  $('aiReviewRange').focus();
+}
+
 // ---- settings
 
 function renderSetup() {
@@ -803,6 +899,16 @@ export function initAi(h) {
   $('aiNew').addEventListener('click', () => { if (running) running.abort(); chat = []; $('aiLog').textContent = ''; note('New conversation.'); });
   $('aiDraft').addEventListener('click', () => draftBlock());
   $('aiScript').addEventListener('click', openDraftScript);
+  $('aiReview').addEventListener('click', openReviewScript);
+  for (const id of ['aiReviewRange', 'aiReviewFrom', 'aiReviewTo']) $(id).addEventListener('input', renderReviewDlg);
+  $('aiReviewCancel').addEventListener('click', () => reviewDlg().close());
+  $('aiReviewGo').addEventListener('click', () => {
+    const r = reviewRange();
+    if (!r) return;
+    reviewDlg().close();
+    reviewScript(r.from, r.to);
+  });
+  reviewDlg().addEventListener('keydown', (e) => { if (e.key !== 'Escape') e.stopPropagation(); });
   $('aiScenesGo').addEventListener('click', () => summariseScenes());
   for (const id of ['aiScriptRange', 'aiScriptFrom', 'aiScriptTo']) $(id).addEventListener('input', renderScriptDlg);
   $('aiScriptCancel').addEventListener('click', () => dlg().close());
