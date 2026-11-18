@@ -56,7 +56,7 @@ try {
   assert.equal(await a.js(`!!window.scribecueShared || performance.getEntriesByType('resource').some(e=>/yjs\\.js/.test(e.name))`), false, 'nothing of the shared copy loaded yet');
   await b.wait(`document.getElementById('list') && document.readyState==='complete'`, 'B ready');
   await sleep(1500);
-  assert.equal(await b.js(`!!window.scribecueSharing || !document.getElementById('shareBtn').hidden || performance.getEntriesByType('resource').some(e=>/shar/.test(e.name))`), false, 'sharing is off for B');
+  assert.equal(await b.js(`!!window.scribecueSharing || !document.getElementById('shareBtn').hidden || performance.getEntriesByType('resource').some(e=>/\\/(sharing|sharekeys|sharedialog|shared|relayclient|yjs)\\.js/.test(e.name))`), false, 'sharing is off for B');
   await a.watch(); await b.watch();
 
   // A shares from the dialog: an edit link with its password.

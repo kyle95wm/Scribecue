@@ -263,3 +263,15 @@ test('imported scripts are tidied too', () => {
   const adc = JSON.stringify({ cue_points: [{ start: 0, end: 1000, text: '<p>A&nbsp;door\u00AD opens\u200B.</p>' }] });
   assert.equal(parseAdc(adc).cues[0].text, 'A door opens.');
 });
+
+test('VTT text keeps &, < and > as character references, and SRT text as it is', () => {
+  const vtt = 'WEBVTT\n\n1\n00:00:01.000 --> 00:00:02.000\nTom &amp; Jerry &lt;3&nbsp;you &gt; me&lrm;\n';
+  assert.equal(parseSubs(vtt)[0].text, 'Tom & Jerry <3 you > me');
+  // SRT has no references: what's there is the text.
+  assert.equal(parseSubs('1\n00:00:01,000 --> 00:00:02,000\nR&amp;D\n')[0].text, 'R&amp;D');
+  const cues = [{ start: 1, end: 2, text: 'Tom & Jerry, x < 5, <i>now</i> <b>and</b> <u>then</u>' }];
+  const out = toVTT(cues);
+  assert.match(out, /Tom &amp; Jerry, x &lt; 5, <i>now<\/i> <b>and<\/b> <u>then<\/u>/);
+  assert.equal(parseSubs(out)[0].text, cues[0].text);
+  assert.equal(parseSubs(toSRT(cues))[0].text, cues[0].text);
+});

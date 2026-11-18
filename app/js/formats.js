@@ -94,8 +94,17 @@ export const tidyText = (text) => String(text)
   .replace(/[\t\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, ' ')
   .replace(/ {2,}/g, ' ');
 
+// WebVTT writes &, < and > as character references, and some files use others for spaces
+// and text direction. SRT has none, so its text is left as it is.
+const VTT_REFS = { amp: '&', lt: '<', gt: '>', nbsp: ' ', lrm: '', rlm: '' };
+const fromVtt = (s) => s.replace(/&(amp|lt|gt|nbsp|lrm|rlm);/g, (m, e) => VTT_REFS[e]);
+// Block text for a VTT file: & and < as references, so players don't take them for tags,
+// except the italic, bold and underline tags blocks may have.
+const toVtt = (s) => s.replace(/&/g, '&amp;').replace(/<(?!\/?[ibu]>)/gi, '&lt;');
+
 export function parseSubs(text) {
   text = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+  const vtt = /^WEBVTT(?:[ \t]|\n|$)/.test(text);
   const cues = [];
   let notes = {}; // from notes since the last block, for the next one
   for (const block of text.split(/\n[ \t]*\n/)) {
@@ -106,7 +115,8 @@ export function parseSubs(text) {
     const start = parseTime(a);
     const end = parseTime(b.trim().split(/\s+/)[0] || '');
     if (Number.isNaN(start) || Number.isNaN(end)) { notes = {}; continue; } // its notes go with it
-    const cue = { start, end: Math.max(end, start), text: tidyText(lines.slice(i + 1).join('\n')).trim() };
+    const said = lines.slice(i + 1).join('\n');
+    const cue = { start, end: Math.max(end, start), text: tidyText(vtt ? fromVtt(said) : said).trim() };
     if (notes.speed) cue.speed = notes.speed;
     if (notes.voice) cue.voice = notes.voice;
     if (notes.dip != null) cue.dip = notes.dip;
@@ -131,7 +141,7 @@ export function toVTT(cues) {
   const say = (c) => (c.say?.length ? `${SAY_NOTE}\n${c.say.map(([w, s]) => `${w} = ${s}`).join('\n')}\n\n` : '');
   return 'WEBVTT\n\n' + cues.map((c, i) => (c.speed ? `${SPEED_NOTE} ${c.speed}\n\n` : '') + (c.voice ? `${VOICE_NOTE} ${c.voice}\n\n` : '') + (c.dip != null ? `${DIP_NOTE} ${c.dip}\n\n` : '') +
     (c.dipBy ? `${DIP_BY_NOTE} ${c.dipBy > 0 ? '+' : ''}${c.dipBy}\n\n` : '') + (c.vol ? `${VOL_NOTE} ${c.vol}\n\n` : '') + (c.extended ? `${EXTENDED_NOTE}\n\n` : '') + say(c) +
-    `${i + 1}\n${fmtTime(c.start, '.')} --> ${fmtTime(c.end, '.')}\n${clean(c.text)}`).join('\n\n') + '\n';
+    `${i + 1}\n${fmtTime(c.start, '.')} --> ${fmtTime(c.end, '.')}\n${toVtt(clean(c.text))}`).join('\n\n') + '\n';
 }
 
 // Frazier's .adc scripts: JSON, with each block in cue_points as { start, end } in

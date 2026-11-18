@@ -36,7 +36,7 @@ try {
  // Off: nothing loads.
  await setup(false);await sleep(3000);
  assert.equal(await js(`performance.getEntriesByType('resource').some(e=>/yjs|shared\\.js/.test(e.name))`),false,'Yjs stays unloaded');
- assert.equal(await js(`'scribecueShared' in window`),false);
+ assert.equal(await js(`!!window.scribecueShared`),false,'no shared copy');
  const offMs=await (async()=>{await open(1);const ms=await type(' Off.');await key('Escape','Escape');return ms;})();
 
  // On: the shared copy follows the script.

@@ -49,8 +49,9 @@ const open = async (lead, tts = {}) => {
   await js(`(async()=>{const v=await fetch('/lead-test.mp4').then(r=>r.blob());const dt=new DataTransfer();dt.items.add(new File([v],'lead-test.mp4',{type:'video/mp4'}));window.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));return 1})()`);
   await wait(`document.querySelector('video').readyState>=2`); await sleep(800);
 };
-// The list's second block, by clicking it.
-const pick = async (text) => { await js(`[...document.querySelectorAll('[role=option]')].find(r=>r.textContent.includes(${JSON.stringify(text)})).click();document.activeElement?.blur();true`); await sleep(300); };
+// A block in the list, by clicking it open and closing it with Esc, which takes the playhead
+// to it (clicking alone leaves the playhead where it was).
+const pick = async (text) => { await js(`[...document.querySelectorAll('[role=option]')].find(r=>r.textContent.includes(${JSON.stringify(text)})).click();true`); await sleep(300); await esc(); await sleep(200); };
 // Where playback starts, from the first moment the video is playing.
 const startSpot = () => js(`new Promise(r=>{const v=document.querySelector('video');v.addEventListener('playing',()=>r(v.currentTime),{once:true})})`);
 
