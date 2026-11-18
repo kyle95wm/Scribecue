@@ -165,8 +165,8 @@ with notes show `notes` in the list.
 | Set the end to where the reading finishes (Write) | `Shift+V` |
 
 On the timeline, drag a block to move it, drag an edge to change its start or end, or drag
-across empty space to draw a new block. To move several at once, [tick them](#changing-several-blocks-at-once)
-and drag one.
+across empty space to draw a new block. To move several at once, `Shift`+drag across them to
+[tick them](#changing-several-blocks-at-once), then drag one.
 
 ## Getting around
 
@@ -484,7 +484,8 @@ finishes. After that, switching to it is instant until you close the video.
 `Ctrl/Cmd`+click or `Shift`+click a block, in the list or on the timeline, starts ticking
 without **Select**.
 
-Ticked blocks show a tick on the timeline too. Drag any of them to move them all.
+On the timeline, `Shift`+drag across empty space to tick every block it crosses. Ticked
+blocks show a tick there. Drag any of them to move them all.
 
 However you move them, they keep their gaps and stop short of blocks that aren't ticked.
 

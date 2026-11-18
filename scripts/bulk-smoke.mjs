@@ -1,6 +1,7 @@
 // Ticking blocks in headless, muted Chrome at 6× CPU slowdown, with a long script: Select,
 // Shift+click, All, Move…, Replace… in the ticked blocks, Extended, Delete… and undo. Then on
-// the timeline: Ctrl+click and Shift+click to tick, and dragging the ticked blocks together.
+// the timeline: Ctrl+click and Shift+click to tick, Shift+drag to lasso, and dragging the
+// ticked blocks together.
 // Says how long each took and how many long tasks there were.
 // Usage: node scripts/bulk-smoke.mjs <devtools port> <site url> [blocks]
 import assert from 'node:assert/strict';
@@ -93,6 +94,24 @@ await js(`document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'z',code:
 await sleep(600);
 assert.ok(await js(`${row(2)}.textContent.includes('00:00:08:00') && ${row(5)}.textContent.includes('00:00:20:00')`), 'undo puts the dragged blocks back');
 await tlDrag(3, -40, 'Drag 4 ticked earlier', `!${row(2)}.textContent.includes('00:00:08:00') && ${row(1)}.textContent.includes('00:00:04:00')`);
+// Shift+drag across the empty lane, from the gap after block 1 to the gap after block 4.
+const gap = (a) => js(`(()=>{const l=document.querySelector('.cue[data-id="${a}"]').getBoundingClientRect(),r=document.querySelector('.cue[data-id="${a + 1}"]').getBoundingClientRect();return [(l.right+r.left)/2,l.top+l.height/2]})()`);
+await js(`${$('bulkNone')}.click();true`);
+{
+  const [[x0, y], [x1]] = [await gap(1), await gap(4)];
+  await js('__long.length=0;true');
+  await mouse('mousePressed', x0, y, 8);
+  for (let k = 1; k <= 10; k++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + ((x1 - x0) * k) / 10, y, modifiers: 8, button: 'left', buttons: 1 });
+  assert.equal(await js(`${$('lasso')}.hidden`), false, 'the lasso shows while dragging');
+  await mouse('mouseReleased', x1, y, 8);
+  await sleep(600);
+  const long = await js('__long.slice()');
+  results.push({ step: 'Lasso 3 blocks', ms: 0, longTasks: long.length, longest: long.length ? Math.max(...long) : 0 });
+  assert.equal(await js(`${$('bulkCount')}.textContent`), '3 ticked', 'Shift+drag across the lane ticks the blocks it touches');
+  assert.equal(await js(ticks), 3);
+  assert.equal(await js(`${$('lasso')}.hidden`), true, 'the lasso goes when you let go');
+  assert.equal(await js(`document.querySelectorAll('#list .row').length`), N, 'a lasso draws no block');
+}
 await js(`${$('bulkNone')}.click();${click(row(499))};${click(row(0), ',shiftKey:true')};true`); // ending on block 1, so the timeline shows it
 await sleep(800);
 assert.equal(await js(`${$('bulkCount')}.textContent`), '500 ticked');

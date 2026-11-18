@@ -813,8 +813,9 @@ body.mode-record { grid-template-rows: 44px minmax(0, 1fr) 290px 28px; }
   color: var(--cue);
 }
 .cue.sel .ci { color: var(--accent); }
-/* Ticked in the list: the row's tick mark, before the number. Dragging one moves them all. */
-.cue.ticked { border-color: var(--accent); }
+/* Ticked in the list: filled like the selected block, with the row's tick mark before the
+   number. Dragging one moves them all. */
+.cue.ticked { background: var(--accent-bg); border-color: var(--accent); }
 .cue.ticked .ci { color: var(--accent); }
 .cue.ticked .ci::before {
   content: "✓";
@@ -871,6 +872,17 @@ body.mode-record { grid-template-rows: 44px minmax(0, 1fr) 290px 28px; }
 .dragging, .dragging * { cursor: grabbing !important; }
 .dragging.resize, .dragging.resize * { cursor: ew-resize !important; }
 
+/* Shift+drag across the empty lane: the stretch whose blocks get ticked. */
+#lasso {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  z-index: 4;
+  background: var(--accent-bg);
+  border: 1px dashed var(--accent);
+  border-radius: 4px;
+  pointer-events: none;
+}
 #dragtip {
   position: absolute;
   top: 2px;

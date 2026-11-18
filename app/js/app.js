@@ -3252,6 +3252,9 @@ lane.addEventListener('pointerdown', (e) => {
       });
     }
     drag = { mode, id, x0: e.clientX, s0: c.start, e0: c.end, ...bounds(i), from, snap: snapshot(), moved: false };
+  } else if (e.shiftKey && canTick()) {
+    // Shift+drag across the empty lane ticks every block it touches, adding to the ticks.
+    drag = { mode: 'lasso', x0: e.clientX, t0: xToT(e.clientX), base: new Set(ticked), moved: false, id: null };
   } else {
     const t = xToT(e.clientX);
     S.playUntil = null;
@@ -3268,10 +3271,11 @@ lane.addEventListener('pointermove', (e) => {
   if (!drag.moved && Math.abs(dx) < 4) return;
   if (!drag.moved) {
     drag.moved = true;
-    document.body.classList.add('dragging');
-    if (drag.mode !== 'move' && drag.mode !== 'group') document.body.classList.add('resize');
+    if (drag.mode !== 'lasso') document.body.classList.add('dragging'); // a lasso keeps the lane's crosshair
+    if (drag.mode !== 'move' && drag.mode !== 'group' && drag.mode !== 'lasso') document.body.classList.add('resize');
   }
 
+  if (drag.mode === 'lasso') return lasso(e);
   if (drag.mode === 'blank') {
     const ni = S.cues.findIndex((c) => c.start > drag.t0);
     const prev = ni < 0 ? S.cues[S.cues.length - 1] : S.cues[ni - 1];
@@ -3315,6 +3319,25 @@ lane.addEventListener('pointermove', (e) => {
   showDragTip(e, `${tc(c.start)} → ${tc(c.end)}  ·  ${(c.end - c.start).toFixed(2)} s`);
 });
 
+// Ticks the blocks between where the lasso began and the pointer, and those ticked before it.
+// A search leaves out blocks that don't match, as All does. Only rows whose tick changes are
+// repainted.
+const lassoEl = $('lasso');
+function lasso(e) {
+  if (!ticking) startTicking();
+  const t = xToT(e.clientX), a = Math.min(drag.t0, t), b = Math.max(drag.t0, t);
+  const want = new Set(drag.base);
+  S.cues.forEach((c, i) => { if (c.end > a && c.start < b && matches(c, i)) want.add(c.id); });
+  for (const id of [...ticked]) if (!want.has(id)) { ticked.delete(id); const r = rowMap.get(id); if (r) paintTick(r, id); }
+  for (const id of want) if (!ticked.has(id)) { ticked.add(id); const r = rowMap.get(id); if (r) paintTick(r, id); }
+  showBulkBar();
+  tlDirty = true;
+  lassoEl.hidden = false;
+  lassoEl.style.left = `${(a - S.view) * S.pps}px`;
+  lassoEl.style.width = `${(b - a) * S.pps}px`;
+  showDragTip(e, `${ticked.size} ticked`);
+}
+
 function showDragTip(e, text) {
   dragtip.hidden = false;
   dragtip.textContent = text;
@@ -3338,7 +3361,9 @@ function endDrag() {
   const d = drag;
   drag = null;
   dragtip.hidden = true;
+  lassoEl.hidden = true;
   document.body.classList.remove('dragging', 'resize');
+  if (d.mode === 'lasso' && !d.moved) { S.playUntil = null; seek(d.t0, false); } // a Shift+click seeks, as a click does
   if (d.moved && d.id != null && d.mode !== 'none') {
     pushUndo(d.snap);
     changed();
