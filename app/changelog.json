@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.138.0",
+    "date": "2026-11-18",
+    "notes": "## Review the script with AI\n\n- **Review the script…** in AI help (`Alt+Shift+Q`) has the AI read your script as a QC reviewer would, before you hand it on.\n- It checks each block against stills from it, the subtitles and your notes: the picture, the story, dialogue, consistency and style.\n- What it flags becomes a comment on the block, from AI help. It changes no words.\n- The window shows the cost first. `Ctrl/Cmd+Z` takes the whole review back.\n\n## AI guide\n\n- The Ollama model table now covers Macs with 24 GB of memory."
+  },
+  {
     "version": "0.137.1",
     "date": "2026-11-18",
     "notes": "## AI help\n\n- The tour, Settings and the AI guide now suggest starting with an online provider: its drafts are better and much faster.\n- Ollama is for programmes you mustn't share, or for working offline. Everything stays on your computer.\n- Settings suggests `gemma4:12b` for Ollama, as the AI guide does."
