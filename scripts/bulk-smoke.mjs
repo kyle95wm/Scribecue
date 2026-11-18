@@ -111,6 +111,10 @@ await js(`${$('bulkNone')}.click();true`);
   assert.equal(await js(ticks), 3);
   assert.equal(await js(`${$('lasso')}.hidden`), true, 'the lasso goes when you let go');
   assert.equal(await js(`document.querySelectorAll('#list .row').length`), N, 'a lasso draws no block');
+  const [gx, gy] = await gap(1);
+  await mouse('mousePressed', gx, gy); await mouse('mouseReleased', gx, gy);
+  assert.equal(await js(`${$('bulkCount')}.textContent`), 'None ticked', 'a click on the empty lane unticks them');
+  assert.equal(await js(ticks), 0);
 }
 await js(`${$('bulkNone')}.click();${click(row(499))};${click(row(0), ',shiftKey:true')};true`); // ending on block 1, so the timeline shows it
 await sleep(800);

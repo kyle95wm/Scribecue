@@ -485,7 +485,7 @@ finishes. After that, switching to it is instant until you close the video.
 without **Select**.
 
 On the timeline, `Shift`+drag across empty space to tick every block it crosses. Ticked
-blocks show a tick there. Drag any of them to move them all.
+blocks show a tick there. Drag any of them to move them all. Click empty space to untick them.
 
 However you move them, they keep their gaps and stop short of blocks that aren't ticked.
 

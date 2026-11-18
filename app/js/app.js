@@ -3364,6 +3364,8 @@ function endDrag() {
   lassoEl.hidden = true;
   document.body.classList.remove('dragging', 'resize');
   if (d.mode === 'lasso' && !d.moved) { S.playUntil = null; seek(d.t0, false); } // a Shift+click seeks, as a click does
+  // A click on the empty lane unticks every block. Select stays on, to tick again.
+  if (d.mode === 'blank' && !d.moved && ticked.size) { ticked.clear(); tickAnchor = null; paintTicks(); }
   if (d.moved && d.id != null && d.mode !== 'none') {
     pushUndo(d.snap);
     changed();
