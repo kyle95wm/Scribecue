@@ -88,7 +88,10 @@ takes them to another browser with your other settings.
 | `E` `R` | End −/+ 100 ms (with `Shift`: 10 ms) |
 | `,` `.` | Move the block −/+ 100 ms (with `Shift`: 10 ms) |
 | `X` / `M` | Split at the playhead / merge with the next block |
-| `Del` | Delete the block straight away (undo with `Ctrl/Cmd+Z`). The × at the end of each row in the list does the same for that block |
+| `Del` | Delete the block straight away (undo with `Ctrl/Cmd+Z`). The × at the end of each row in the list does the same for that block. With blocks ticked, deletes them after asking |
+| `Alt+Shift+X` | [Tick blocks](GETTING-STARTED.md#changing-several-blocks-at-once) to change several at once, or stop |
+| `Shift+X` | Tick or untick the selected block |
+| `Ctrl/Cmd+A` | While ticking, tick every block the list shows |
 | Click a dialogue line | Select it, so `A` `S` `Q` `W` `E` `R` `,` `.` `G` and `Del` [work on it](GETTING-STARTED.md#fixing-the-lane) instead of a block, and `Enter` corrects its words. `Esc` lets go |
 | `↑` `↓` or `K` `J` | Previous / next block |
 | `PgUp` `PgDn` | Jump 10 blocks |
@@ -99,7 +102,7 @@ takes them to another browser with your other settings.
 | `Alt+Shift+T` | [Transcribe](TRANSCRIBING.md#speech-to-text-with-whisper) the selected block, replacing its text |
 | `Alt+Shift+H` | Speech to text settings |
 | `/` | Search the block list |
-| `Alt+Shift+F` | [Find and replace](GETTING-STARTED.md#other-handy-features) in every block |
+| `Alt+Shift+F` | [Find and replace](GETTING-STARTED.md#changing-several-blocks-at-once) in every block |
 | `Alt+Shift+K` | [Check spelling and grammar](GETTING-STARTED.md#checking-spelling-and-grammar) |
 | `O` | Loop on / off |
 | `F` | Follow the playhead on / off |

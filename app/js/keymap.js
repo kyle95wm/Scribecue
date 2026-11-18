@@ -50,6 +50,8 @@ export const GROUPS = [
     ['merge', 'Merge with the next block', ['KeyM']],
     ['deleteNow', 'Delete the block, or the selected dialogue line (undoable)', ['Delete', 'Backspace']],
     ['deleteAsk', 'Delete the block, after asking', ['Alt+Shift+KeyD']],
+    ['tickMode', 'Tick blocks to change several at once, or stop', ['Alt+Shift+KeyX']],
+    ['tickBlock', 'Tick or untick the selected block', ['Shift+KeyX']],
     ['findReplace', 'Find and replace text in every block', ['Alt+Shift+KeyF']],
     ['checkSpelling', 'Check spelling and grammar', ['Alt+Shift+KeyK']],
   ]],
@@ -127,7 +129,7 @@ const DEFAULTS = Object.fromEntries(ACTIONS.map((a) => [a.id, a.keys]));
 // Actions that only work in Record mode.
 export const RECORD = new Set(GROUPS.find(([g]) => g === 'Record mode')[1].map(([id]) => id));
 // Actions that change the script, or help with writing it: off in Record mode.
-export const REC_LOCKED = new Set(['createEdit', 'newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'findReplace', 'setStart', 'setEnd',
+export const REC_LOCKED = new Set(['createEdit', 'newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'tickMode', 'tickBlock', 'findReplace', 'setStart', 'setEnd',
   'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10',
   'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'findDialogue', 'openSubtitles', 'aiHelp', 'aiScript', 'aiNext', 'aiBack', 'aiAccept', 'comments', 'bookmarkAdd', 'bookmarks', 'offset']);
 // In Record mode, X and Delete still split a take and delete part of one, so their actions

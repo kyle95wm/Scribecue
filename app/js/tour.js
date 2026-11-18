@@ -75,7 +75,7 @@ export const STEPS = [
   {
     target: '#list',
     title: 'All your blocks',
-    text: (mode) => mode === 'qc' ? 'Select a block to inspect its text and timings. The package creator decides whether corrections are allowed. Comment opens the drawer ready to post a note on that block. Use search to find text or a block number.' : `Every block in order. The selected one opens right here to edit, as in Frazier: its start and end, buttons to move it a frame back, to the playhead or a frame forward, and its text. ${mode === 'write' ? 'With text to speech on, it also shows the speed, the voice and how long the reading takes, in red if it doesn’t fit. ' : 'Type in it once a block is marked; Enter or Esc carries on with the video. '}Press / to search, and Ctrl/Cmd+Z undoes almost anything.`,
+    text: (mode) => mode === 'qc' ? 'Select a block to inspect its text and timings. The package creator decides whether corrections are allowed. Comment opens the drawer ready to post a note on that block. Use search to find text or a block number.' : `Every block in order. The selected one opens right here to edit, as in Frazier: its start and end, buttons to move it a frame back, to the playhead or a frame forward, and its text. ${mode === 'write' ? 'With text to speech on, it also shows the speed, the voice and how long the reading takes, in red if it doesn’t fit. ' : 'Type in it once a block is marked; Enter or Esc carries on with the video. '}Press / to search. Select, beside it, ticks several blocks to delete, move or change at once. Ctrl/Cmd+Z undoes almost anything.`,
   },
   {
     target: '.transport',

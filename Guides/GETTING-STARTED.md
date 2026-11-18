@@ -472,6 +472,25 @@ an **Audio** picker appears under the video. The file's default track plays firs
 The first time you use a track, the video goes silent until **Getting the sound ready**
 finishes. After that, switching to it is instant until you close the video.
 
+## Changing several blocks at once
+
+1. Click **Select**, next to the search box. Each block gets a tick box.
+2. Click blocks to tick them. `Shift`+click ticks every block in between.
+3. Pick what to do in the bar under the search.
+
+`Ctrl/Cmd`+click or `Shift`+click a block starts ticking without **Select**.
+
+| Button | What it does |
+|---|---|
+| **All** / **None** | Tick every block the list shows, or none. Search first to tick only matching blocks. |
+| **Replace…** | Find and replace text in the ticked blocks. |
+| **Move…** | Move them earlier or later. They stop short of blocks that aren't ticked. |
+| **Voice…** | Give them a text to speech voice. |
+| **Extended** | Make them pause the video while they're read, or stop. |
+| **Delete…** | Delete them, after asking. `Del` does the same. |
+
+`Ctrl/Cmd+Z` undoes any of these. **Done** or `Esc` stops ticking.
+
 ## Other handy features
 
 - **Timecode:** times show as `hh:mm:ss:ff`, in frames at the video's own frame rate.
@@ -483,8 +502,8 @@ finishes. After that, switching to it is instant until you close the video.
   waits while you jump, so the video comes first.
 - **Copy a timecode:** click the clock under the video.
 - **Time remaining:** click the total length, next to the clock.
-- **Find and replace:** `Alt+Shift+F`, or **Replace…** next to the search box, changes text
-  in every block at once, such as a character's name.
+- **Find and replace:** `Alt+Shift+F` changes text in every block at once, such as a
+  character's name. To change only some blocks, see below.
 - **Quick navigation:** `Shift+F`.
 - **Video on the left:** in **Settings**, **Appearance**, set **Video side** to **Left**.
 - **Side panels:** Comments, Bookmarks and AI help open from the icons at the right edge.

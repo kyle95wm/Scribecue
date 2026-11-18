@@ -92,7 +92,25 @@
         <input id="listSearch" type="search" placeholder="Search text, or #12 for a block number"
           spellcheck="false" autocomplete="off" aria-label="Search text blocks">
         <span id="listCount" class="dim"></span>
-        <button id="replaceBtn" class="tip-end" data-tip="Find and replace text in every block (⌥⇧F)">Replace…</button>
+        <button id="selectBtn" class="tip-end" aria-pressed="false" data-tip="Tick blocks to change several at once (⌥⇧X). Ctrl/Cmd+click or Shift+click a block ticks it too">Select</button>
+      </div>
+      <!-- Shows while blocks are being ticked: what's ticked, and what to do to them. -->
+      <div id="bulkBar" class="bulkbar" role="toolbar" aria-label="Ticked blocks" hidden>
+        <div class="bulkrow">
+          <span id="bulkCount" class="bulkcount" aria-live="polite">None ticked</span>
+          <button id="bulkAll" data-tip="Tick every block the list shows (Ctrl/Cmd+A)">All</button>
+          <button id="bulkNone" data-tip="Untick every block">None</button>
+          <span class="grow"></span>
+          <button id="bulkDone" class="tip-end" data-tip="Stop ticking blocks (Esc)">Done</button>
+        </div>
+        <div class="bulkrow">
+          <button id="bulkReplace" data-tip="Find and replace text in the ticked blocks. ⌥⇧F does it in every block">Replace…</button>
+          <button id="bulkMove" data-tip="Move the ticked blocks earlier or later">Move…</button>
+          <button id="bulkVoice" data-tip="Give the ticked blocks a text to speech voice">Voice…</button>
+          <button id="bulkExt" aria-pressed="false" data-tip="The ticked blocks pause the video while they're read, or stop pausing it">Extended</button>
+          <span class="grow"></span>
+          <button id="bulkDel" class="tip-end" data-tip="Delete the ticked blocks, after asking (Del)">Delete…</button>
+        </div>
       </div>
       <div class="list" id="list" tabindex="0" aria-label="Text blocks">
         <!-- The selected block opens here, in its place in the list. -->
@@ -1140,6 +1158,30 @@ docker compose up -d --build</code></pre>
     </div>
   </aside>
 
+  <dialog id="bulkDelDlg" class="updbox" aria-labelledby="bulkDelTitle">
+    <h2 id="bulkDelTitle">Delete the ticked blocks?</h2>
+    <p id="bulkDelWhat"></p>
+    <p class="dim small"><kbd><span class="mod"></span>Z</kbd> brings them back.</p>
+    <div class="updbtns"><button id="bulkDelGo" class="danger">Delete</button><button id="bulkDelCancel">Cancel</button></div>
+  </dialog>
+
+  <dialog id="bulkMoveDlg" class="updbox" aria-labelledby="bulkMoveTitle">
+    <h2 id="bulkMoveTitle">Move the ticked blocks</h2>
+    <div class="ttsgrid">
+      <label for="bulkMoveBy">By</label><input id="bulkMoveBy" class="time" type="text" spellcheck="false" autocomplete="off" value="1.000">
+    </div>
+    <p class="dim small">Seconds, such as 1.5, or a timecode. Blocks stop short of ones that aren't ticked.</p>
+    <div class="updbtns"><button id="bulkEarlier">Earlier</button><button id="bulkLater">Later</button><span class="grow"></span><button id="bulkMoveCancel">Cancel</button></div>
+  </dialog>
+
+  <dialog id="bulkVoiceDlg" class="updbox" aria-labelledby="bulkVoiceTitle">
+    <h2 id="bulkVoiceTitle">Voice for the ticked blocks</h2>
+    <div class="ttsgrid">
+      <label for="bulkVoicePick">Voice</label><select id="bulkVoicePick"></select>
+    </div>
+    <div class="updbtns"><button id="bulkVoiceGo" class="hl">Use this voice</button><button id="bulkVoiceCancel">Cancel</button></div>
+  </dialog>
+
   <dialog id="findDlg" class="updbox finddlg" aria-labelledby="findTitle">
     <h2 id="findTitle">Find and replace</h2>
     <div class="ttsgrid">
@@ -1903,12 +1945,14 @@ docker compose up -d --build</code></pre>
             <dt data-keys="endBack endFwd"><kbd>E</kbd> <kbd>R</kbd></dt><dd>End −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
             <dt data-keys="moveBack moveFwd"><kbd>,</kbd> <kbd>.</kbd></dt><dd>Move block −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
             <dt data-keys="split merge"><kbd>X</kbd> / <kbd>M</kbd></dt><dd>Split at playhead / merge with next</dd>
-            <dt data-keys="deleteNow"><kbd>Del</kbd></dt><dd>Delete block now (undoable)</dd>
+            <dt data-keys="deleteNow"><kbd>Del</kbd></dt><dd>Delete block now (undoable), or the ticked blocks, after asking</dd>
+            <dt data-keys="tickMode"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>X</kbd></dt><dd>Tick blocks to change several at once, or stop (Esc)</dd>
+            <dt data-keys="tickBlock"><kbd>⇧</kbd><kbd>X</kbd></dt><dd>Tick or untick the selected block. <kbd><span class="mod"></span>A</kbd> ticks every block the list shows</dd>
             <dt>Click a dialogue line</dt><dd>Select it: the timing keys, <kbd>G</kbd> and <kbd>Del</kbd> work on it instead of a block, and <kbd>↵</kbd> corrects its words. Esc lets go</dd>
             <dt data-keys="selectAtPlayhead"><kbd>C</kbd></dt><dd>Select block under playhead</dd>
             <dt data-keys="trackNext trackPrev"><kbd>T</kbd> / <kbd>⇧</kbd><kbd>T</kbd></dt><dd>Next / previous audio track</dd>
             <dt><kbd>/</kbd></dt><dd>Search the block list (↑ ↓ step through matches, ↵ back to timeline, Esc clears)</dd>
-            <dt data-keys="findReplace"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Find and replace text in every block</dd>
+            <dt data-keys="findReplace"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>F</kbd></dt><dd>Find and replace text in every block (Replace… under Select does the ticked ones)</dd>
             <dt data-keys="checkSpelling"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>K</kbd></dt><dd>Check spelling and grammar</dd>
             <dt data-keys="toStart toEnd"><kbd>G</kbd> / <kbd>⇧</kbd><kbd>G</kbd></dt><dd>Playhead to block start / end</dd>
             <dt data-keys="hold" class="transcribe-only">Hold <kbd>H</kbd></dt><dd class="transcribe-only">Mark a block while the narrator speaks. Release to pause and type; ↵ or Esc plays on</dd>
