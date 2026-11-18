@@ -54,6 +54,7 @@ import { projectName } from './driveprojects.js';
 import { isDriveRef, filterProjects } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
+import { rangeIds, moveLimit, parseAmount, blockList } from './bulk.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup, REC_LOCKED, bindings, comboText } from './keymap.js';
 import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList } from './extended.js';
@@ -123,6 +124,10 @@ const qcLocked = () => qc() && !qcEditable();
 const readingControls = () => ttsOn() || (qc() && qcEditable());
 // QC blocks whose new reading is being made on its own, and what that has set (see autoRewrite).
 const autoMaking = new Set(), autoAgain = new Set(), autoTimers = new Map();
+// Blocks ticked in the list, to change several at once, while ticking is on (the Select button).
+// Not saved with the project. tickAnchor is where a Shift+click's range starts.
+const ticked = new Set();
+let ticking = false, tickAnchor = null;
 // The speech each block had when last seen in QC, and the blocks whose speech changed there.
 const fitFor = new WeakMap(), edited = new WeakSet();
 // Text to speech is on in this browser and not turned off for this project.
@@ -2477,7 +2482,7 @@ function newRow(c) {
   r.dataset.id = c.id;
   r.id = `blk-${c.id}`;
   r.setAttribute('role', 'option');
-  r.innerHTML = '<div class="rh"><span class="n"></span><span class="t"></span><span class="d"></span>' +
+  r.innerHTML = '<div class="rh"><span class="rowtick" aria-hidden="true"></span><span class="n"></span><span class="t"></span><span class="d"></span>' +
     // Only for the mouse: from the keyboard, Delete does it, so screen readers skip it.
     '<span class="rowdel" aria-hidden="true" data-tip="Delete this block (Del). Ctrl/Cmd+Z brings it back">×</span></div>' +
     '<div class="tx"></div>';
@@ -2491,6 +2496,7 @@ function renderList() {
   for (const el of [...list.children]) if (el !== editor && !el.classList.contains('row')) el.remove();
   const wanted = new Set(S.cues.map((c) => c.id));
   for (const [id, r] of rowMap) if (!wanted.has(id)) { r.remove(); rowMap.delete(id); }
+  for (const id of ticked) if (!wanted.has(id)) ticked.delete(id);
   list.removeAttribute('aria-activedescendant');
   // A list for screen readers only when there are blocks in it.
   if (S.cues.length) list.setAttribute('role', 'listbox'); else list.removeAttribute('role');
@@ -2517,6 +2523,7 @@ function renderList() {
     r.classList.toggle('sel', c.id === S.sel);
     r.setAttribute('aria-selected', String(c.id === S.sel));
     r.classList.toggle('active', c.id === S.activeId);
+    paintTick(r, c.id);
     if (r === at) { at = at.nextElementSibling; next(); }
     else list.insertBefore(r, at);
   });
@@ -2524,6 +2531,7 @@ function renderList() {
   placeEditor();
   if (here.length) showHere(); // new rows show who's in them too
   showFilter();
+  showBulkBar();
   tlDirty = true;
 }
 
@@ -2558,6 +2566,8 @@ list.addEventListener('click', (e) => {
   if (qcLocked()) { select(+r.dataset.id, { toTop: false }); openEditor(); return; }
   if (S.mode === 'record') { select(+r.dataset.id, { toTop: false }); return; } // the script is locked
   if (e.target.closest('.rowdel')) { e.target.blur(); del(S.cues[idx(+r.dataset.id)]); return; }
+  // While ticking, a click ticks the block. Ctrl/Cmd+click and Shift+click start ticking.
+  if (canTick() && (ticking || e.shiftKey || e.metaKey || e.ctrlKey)) { clickTick(+r.dataset.id, e.shiftKey); return; }
   // One click opens the block, ready to type, as in Frazier. The playhead stays where it
   // is while typing, and goes to the block when it's closed.
   const id = +r.dataset.id;
@@ -2570,14 +2580,20 @@ list.addEventListener('click', (e) => {
 
 const findDlg = $('findDlg');
 const findRe = () => matcher($('frFind').value, { matchCase: $('frCase').checked, wholeWords: $('frWhole').checked });
+// Find and replace works in every block, or only in the ticked ones (the selection bar's Replace…).
+let findScope = null;
+const findCues = () => (findScope ? S.cues.filter((c) => findScope.has(c.id)) : S.cues);
 function showFindCount() {
-  const { matches, blocks } = countMatches(S.cues, findRe());
+  const { matches, blocks } = countMatches(findCues(), findRe());
   $('frCount').textContent = !$('frFind').value ? 'Type what to find.'
     : matches ? `Found ${matches} time${matches === 1 ? '' : 's'} in ${blocks} block${blocks === 1 ? '' : 's'}.` : 'Not found.';
   $('frAll').disabled = $('frNext').disabled = !matches;
 }
-function openFind() {
+function openFind(scope = null) {
   if (edit) closeEditor();
+  findScope = scope?.size ? new Set(scope) : null;
+  const n = findScope?.size;
+  $('findTitle').textContent = n ? `Find and replace in ${n} ticked block${n === 1 ? '' : 's'}` : 'Find and replace';
   // What's selected in the text box, or searched for in the list, is what to find.
   const picked = document.activeElement === edText ? edText.value.slice(edText.selectionStart, edText.selectionEnd).trim() : '';
   if (picked && !picked.includes('\n')) $('frFind').value = picked;
@@ -2586,28 +2602,193 @@ function openFind() {
   showFindCount();
   $('frFind').select();
 }
-$('replaceBtn').addEventListener('click', (e) => { e.currentTarget.blur(); openFind(); });
 for (const id of ['frFind', 'frCase', 'frWhole']) $(id).addEventListener('input', showFindCount);
 $('frFind').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('frNext').click(); } });
 $('frWith').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('frAll').click(); } });
 $('frNext').addEventListener('click', () => {
-  const i = nextMatch(S.cues, findRe(), selIdx());
-  if (i < 0) return showFindCount();
+  const among = findCues(), k = nextMatch(among, findRe(), among.findIndex((c) => c.id === S.sel));
+  if (k < 0) return showFindCount();
+  const i = idx(among[k].id);
   select(S.cues[i].id);
   $('frCount').textContent = `Block #${i + 1}: ${plain(S.cues[i].text).slice(0, 80)}`;
 });
 $('frAll').addEventListener('click', () => {
   if (qc()) return;
-  const re = findRe(), { matches, blocks } = countMatches(S.cues, re);
+  const re = findRe(), { matches, blocks } = countMatches(findCues(), re);
   if (!matches) return showFindCount();
   pushUndo();
-  for (const c of S.cues) c.text = replaceIn(c.text, re, $('frWith').value);
+  for (const c of findCues()) c.text = replaceIn(c.text, re, $('frWith').value);
   changed();
   showFindCount();
   $('frCount').textContent = `Replaced ${matches} in ${blocks} block${blocks === 1 ? '' : 's'}. ${IS_MAC ? '⌘Z' : 'Ctrl+Z'} undoes it.`;
   toast(`Replaced ${matches} in ${blocks} block${blocks === 1 ? '' : 's'}. ⌘Z undoes it`);
 });
 $('frClose').addEventListener('click', () => findDlg.close());
+
+// ---------------------------------------------------------------- ticking several blocks
+
+// Select, beside the list's search, turns on a tick box on each row and the bar under the
+// search with what to do to the ticked blocks. Not in QC or Record, where the script is fixed.
+// renderList calls showBulkBar, and can run before this part of the file has, so it looks
+// the button and bar up itself.
+const canTick = () => !qc() && S.mode !== 'record';
+function paintTick(r, id) {
+  const on = ticked.has(id);
+  r.classList.toggle('ticked', on);
+  if (ticking) r.setAttribute('aria-checked', String(on)); else r.removeAttribute('aria-checked');
+}
+function paintTicks() {
+  list.classList.toggle('ticking', ticking);
+  for (const [id, r] of rowMap) paintTick(r, id);
+  showBulkBar();
+}
+function showBulkBar() {
+  $('selectBtn').setAttribute('aria-pressed', String(ticking));
+  $('bulkBar').hidden = !ticking;
+  if (!ticking) return;
+  const n = ticked.size;
+  $('bulkCount').textContent = n ? `${n} ticked` : 'None ticked';
+  for (const id of ['bulkNone', 'bulkReplace', 'bulkMove', 'bulkVoice', 'bulkExt', 'bulkDel']) $(id).disabled = !n;
+  $('bulkVoice').hidden = $('bulkExt').hidden = !ttsOn();
+  if (S.extendedAll) $('bulkExt').disabled = true;
+  $('bulkExt').setAttribute('aria-pressed', String(!!n && tickedCues().every(isExt)));
+}
+const tickedCues = () => S.cues.filter((c) => ticked.has(c.id));
+// Ticking from a Ctrl/Cmd or Shift+click takes the selected block along.
+function startTicking(withSel = false) {
+  if (!canTick()) return;
+  if (edOpen) closeEditor(true);
+  if (!ticking) {
+    ticking = true;
+    if (withSel && S.sel != null) { ticked.add(S.sel); tickAnchor = S.sel; }
+  }
+  paintTicks();
+}
+function stopTicking() {
+  ticking = false;
+  ticked.clear();
+  tickAnchor = null;
+  paintTicks();
+}
+function tickOne(id, on = !ticked.has(id)) {
+  if (on) ticked.add(id); else ticked.delete(id);
+  tickAnchor = id;
+  const r = rowMap.get(id);
+  if (r) paintTick(r, id);
+  showBulkBar();
+}
+function clickTick(id, range) {
+  const from = tickAnchor ?? S.sel;
+  startTicking(true);
+  if (range && from != null) {
+    for (const k of rangeIds(S.cues, from, id)) ticked.add(k);
+    paintTicks();
+  } else tickOne(id);
+  select(id, { seek: false, toTop: false });
+}
+// All ticks the blocks the list shows, so a search picks which.
+function tickAll() {
+  S.cues.forEach((c, i) => { if (!query || matches(c, i)) ticked.add(c.id); });
+  paintTicks();
+}
+$('selectBtn').addEventListener('click', (e) => { e.currentTarget.blur(); ticking ? stopTicking() : startTicking(); });
+$('bulkAll').addEventListener('click', tickAll);
+$('bulkNone').addEventListener('click', () => { ticked.clear(); tickAnchor = null; paintTicks(); });
+$('bulkDone').addEventListener('click', stopTicking);
+$('bulkReplace').addEventListener('click', () => openFind(ticked));
+
+const plural = (n) => `${n} block${n === 1 ? '' : 's'}`;
+const undoHint = () => `${IS_MAC ? '⌘' : 'Ctrl+'}Z to undo`;
+
+// Delete, after asking.
+const bulkDelDlg = $('bulkDelDlg');
+function askBulkDelete() {
+  if (!canTick() || !ticked.size) return;
+  $('bulkDelTitle').textContent = `Delete ${plural(ticked.size)}?`;
+  $('bulkDelWhat').textContent = `${blockList(S.cues, ticked)}.`;
+  bulkDelDlg.showModal();
+  $('bulkDelCancel').focus();
+}
+$('bulkDel').addEventListener('click', askBulkDelete);
+$('bulkDelCancel').addEventListener('click', () => bulkDelDlg.close());
+$('bulkDelGo').addEventListener('click', () => {
+  bulkDelDlg.close();
+  const n = ticked.size, first = S.cues.findIndex((c) => ticked.has(c.id)), lostSel = ticked.has(S.sel);
+  if (!n) return;
+  pushUndo();
+  let k = 0;
+  for (const c of S.cues) if (!ticked.has(c.id)) S.cues[k++] = c;
+  S.cues.length = k;
+  stopTicking();
+  changed();
+  if (lostSel) { const c = S.cues[Math.min(first, S.cues.length - 1)]; select(c ? c.id : null, { seek: false }); }
+  toast(`Deleted ${plural(n)} — ${undoHint()}`);
+});
+
+// Move earlier or later, keeping the gaps between them. They stop short of blocks that
+// aren't ticked, as one block does.
+const bulkMoveDlg = $('bulkMoveDlg');
+$('bulkMove').addEventListener('click', () => {
+  $('bulkMoveTitle').textContent = `Move ${plural(ticked.size)}`;
+  bulkMoveDlg.showModal();
+  $('bulkMoveBy').select();
+});
+$('bulkMoveCancel').addEventListener('click', () => bulkMoveDlg.close());
+function bulkMove(dir) {
+  const by = parseAmount($('bulkMoveBy').value, S.fps);
+  if (!(by > 0)) { toast('Type how far, such as 1.5 seconds or 00:00:01:12'); $('bulkMoveBy').select(); return; }
+  bulkMoveDlg.close();
+  const d = moveLimit(S.cues, ticked, dir * by, duration());
+  if (Math.abs(d) < 0.0005) return toast(`The ticked blocks can’t move ${dir < 0 ? 'earlier' : 'later'} without running into other blocks`);
+  pushUndo();
+  for (const c of tickedCues()) { c.start += d; c.end += d; }
+  changed();
+  const short = Math.abs(d) < by - 0.0005 ? ', as far as they go' : '';
+  toast(`Moved ${plural(ticked.size)} ${Math.abs(d).toFixed(3)} s ${dir < 0 ? 'earlier' : 'later'}${short} — ${undoHint()}`);
+}
+$('bulkEarlier').addEventListener('click', () => bulkMove(-1));
+$('bulkLater').addEventListener('click', () => bulkMove(1));
+$('bulkMoveBy').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); bulkMove(1); } });
+
+// A voice for all of them, or the voice in Settings.
+const bulkVoiceDlg = $('bulkVoiceDlg'), bulkVoicePick = $('bulkVoicePick');
+$('bulkVoice').addEventListener('click', () => {
+  if (voiceLocked()) return toast(VOICE_LOCKED);
+  const voices = new Set(tickedCues().map((c) => c.voice || ''));
+  const now = voices.size === 1 ? [...voices][0] : '';
+  fillVoiceSelect(bulkVoicePick, now);
+  bulkVoicePick.prepend(new Option(`Default (${chosenVoiceName()})`, ''));
+  bulkVoicePick.value = now;
+  $('bulkVoiceTitle').textContent = `Voice for ${plural(ticked.size)}`;
+  bulkVoiceDlg.showModal();
+  bulkVoicePick.focus();
+});
+$('bulkVoiceCancel').addEventListener('click', () => bulkVoiceDlg.close());
+$('bulkVoiceGo').addEventListener('click', () => {
+  bulkVoiceDlg.close();
+  if (voiceLocked()) return toast(VOICE_LOCKED);
+  const uri = bulkVoicePick.value, cues = tickedCues();
+  pushUndo();
+  for (const c of cues) { if (uri) c.voice = uri; else delete c.voice; fitAuto(c); }
+  changed();
+  tlDirty = true;
+  toast(`${plural(cues.length)} read with ${uri ? blockVoiceName(uri) : 'the voice in Settings'} — ${undoHint()}`);
+});
+
+// Extended on for all of them, or off when they all are already.
+$('bulkExt').addEventListener('click', () => {
+  if (S.extendedAll) return;
+  const cues = tickedCues(), on = !cues.every(isExt);
+  pushUndo();
+  for (const c of cues) {
+    if (on === !!c.extended) continue;
+    if (on) { holdLength(c); c.extended = true; } else delete c.extended;
+    settleExtended(c);
+  }
+  changed();
+  tlDirty = true;
+  toast(`${plural(cues.length)} ${on ? 'pause the video while they’re read' : 'read over the video again'} — ${undoHint()}`);
+});
 document.addEventListener('keydown', (e) => { if (findDlg.open) e.stopPropagation(); }, true);
 
 // ---------------------------------------------------------------- timeline drawing
@@ -4643,6 +4824,7 @@ function setMode(m, quiet = false) {
   stopSpeech();
   S.playUntil = null;
   if (m === 'qc') measuring = false;
+  if (ticking && (m === 'qc' || m === 'record')) stopTicking();
   if (m === 'qc' && S.mode !== 'qc') S.qcSettings = readingSettings();
   if (!commentsAllowed(m) && !$('commentsDrawer').hidden) toggleComments(false);
   if (!bookmarksAllowed(m) && bookmarksOpen()) toggleBookmarks(false);
@@ -8526,6 +8708,7 @@ document.addEventListener('keydown', (e) => {
   if (S.mode === 'record' && mod && (letter === 'z' || letter === 'y')) { e.preventDefault(); return; }
   if (mod && letter === 'z') { e.preventDefault(); e.shiftKey ? doRedo() : doUndo(); return; }
   if (mod && letter === 'y') { e.preventDefault(); doRedo(); return; }
+  if (ticking && mod && letter === 'a' && !e.shiftKey && !e.altKey) { e.preventDefault(); tickAll(); return; }
   if (mod) return; // leave other browser shortcuts (zoom, find, reload…) alone
   if (isHelpKey(e)) { e.preventDefault(); toggleHelp(); return; }
   if (e.key === '/' && !e.altKey) { e.preventDefault(); showList(); listSearch.focus(); listSearch.select(); return; }
@@ -8544,6 +8727,7 @@ document.addEventListener('keydown', (e) => {
     // An open block closes, even when its text box isn't focused.
     if (edOpen) { closeEditor(true); return; }
     if (S.laneSel) { S.laneSel = null; tlDirty = true; return; }
+    if (ticking) { stopTicking(); return; }
     S.playUntil = null;
     leadRead = null;
     document.activeElement?.blur();
@@ -8634,8 +8818,10 @@ const RUN = {
   selectAtPlayhead: () => selectAtPlayhead(),
   split: () => split(),
   merge: () => merge(),
-  deleteNow: orLine(() => del(), cutLine),
-  deleteAsk: orLine(() => confirmDelete(), cutLine),
+  deleteNow: orLine(() => (ticked.size ? askBulkDelete() : del()), cutLine),
+  deleteAsk: orLine(() => (ticked.size ? askBulkDelete() : confirmDelete()), cutLine),
+  tickMode: () => (ticking ? stopTicking() : startTicking()),
+  tickBlock: () => { const c = needSel(); if (c && canTick()) { startTicking(); tickOne(c.id); } },
   setStart: orLine(() => setEdge('start'), () => lineEdge('start')),
   setEnd: orLine(() => setEdge('end'), () => lineEdge('end')),
   startBack: orLine(() => nudge('start', -0.1), () => nudgeLine('start', -0.1)),

@@ -112,7 +112,7 @@ kbd + kbd { margin-left: 2px; }
 .mode-record .transcribe-only, .mode-record .write-only, .mode-record #modeSw { display: none; }
 .mode-record .not-record, .mode-qc .not-qc { display: none; }
 /* Record mode: the script is locked, so nothing offers to change or save it. */
-.mode-record .rowdel, .mode-record .edmove, .mode-record #edAuto, .mode-record #edTts, .mode-record #replaceBtn, .mode-record #aiBtn,
+.mode-record .rowdel, .mode-record .edmove, .mode-record #edAuto, .mode-record #edTts, .mode-record #selectBtn, .mode-record #bulkBar, .mode-record #aiBtn,
 .mode-record nav [data-act=newProject], .mode-record nav [data-act=saveProject], .mode-record nav [data-act=saveProjectAs],
 .mode-record .script-export, .mode-record .check-export, .mode-record .hint:not(.record-only) { display: none; }
 /* Where the mode switch was, and shaped like it: the mode, and the way out. */
@@ -711,6 +711,32 @@ textarea:disabled { opacity: 0.5; }
 #list .row.sel:has(+ .editor:not([hidden])) {
   position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%);
 }
+
+/* Ticking blocks to change several at once: a box on each row, and a bar under the search. */
+.rowtick {
+  display: none;
+  flex-shrink: 0;
+  width: 14px; height: 14px;
+  margin-right: -4px;
+  border: 1px solid var(--faint);
+  border-radius: 3px;
+  font: 11px/12px var(--sans);
+  text-align: center;
+  color: var(--bg);
+}
+.list.ticking .rowtick { display: inline-block; }
+.list.ticking .rowdel { display: none; }
+.list.ticking .row .tx { margin-left: 52px; }
+.row.ticked .rowtick { background: var(--accent); border-color: var(--accent); }
+.row.ticked .rowtick::before { content: "✓"; }
+.row.ticked:not(.sel) { background: var(--panel2); }
+.bulkbar { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--panel2); }
+.bulkbar[hidden] { display: none; }
+.bulkrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.bulkcount { font: 12px var(--mono); color: var(--accent); min-width: 7em; }
+#selectBtn[aria-pressed="true"], #bulkExt[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+#bulkDel:not(:disabled):hover { color: var(--bad); border-color: var(--bad); }
+.bulkbar button:disabled { opacity: 0.4; cursor: default; }
 
 /* ---------- timeline ---------- */
 .timeline {
@@ -1630,7 +1656,7 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 .mode-transcribe #commentsBtn, .mode-transcribe #commentsDrawer,
 .mode-transcribe #edComment, .mode-transcribe #qcCommentRow, .mode-record #edComment, .mode-record #qcCommentRow { display: none; }
 .mode-qc .transcribe-only, .mode-qc .write-only, .mode-transcribe .qc-export, .mode-record .qc-export,
-.mode-qc:not(.qc-editing) .rowdel, .mode-qc:not(.qc-editing) .edmove, .mode-qc #edAuto, .mode-qc #replaceBtn, .mode-qc #aiBtn,
+.mode-qc:not(.qc-editing) .rowdel, .mode-qc:not(.qc-editing) .edmove, .mode-qc #edAuto, .mode-qc #selectBtn, .mode-qc #bulkBar, .mode-qc #aiBtn,
 .mode-qc .hint:not(.qc-only), .mode-qc #help .cols,
 .mode-qc #helpTour, .mode-qc #helpLoop { display: none; }
 #qcPermission { white-space: nowrap; flex-shrink: 0; }
