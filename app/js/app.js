@@ -657,6 +657,7 @@ function doUndo() {
   }
   lastUndoTag = null;
   if (edit) edit.pushed = false;
+  notesPushed = false;
   toast('Undo');
 }
 function doRedo() {
@@ -675,6 +676,7 @@ function doRedo() {
   }
   lastUndoTag = null;
   if (edit) edit.pushed = false;
+  notesPushed = false;
   toast('Redo');
 }
 
@@ -1502,6 +1504,8 @@ function select(id, { seek: doSeek = true, reveal = true, toTop = true } = {}) {
   // under the video, which keep the focus) ends that edit first. Otherwise the text box
   // stays tied to the first block: it keeps the wrong words, and typing goes to the wrong block.
   if (edit && edit.id !== id && document.activeElement === edText) edText.blur();
+  // The same for the note boxes, which would keep the first block's notes.
+  if (S.sel !== id && (document.activeElement === edNotes || document.activeElement === $('edPickupNote'))) document.activeElement.blur();
   if (id != null) S.laneSel = null;
   if (S.sel !== id) {
     rowMap.get(S.sel)?.classList.remove('sel');
@@ -1685,19 +1689,24 @@ $('ttsExtendedAll').addEventListener('click', () => {
   updateInd();
   showExtended();
 });
-$('edPickupNote').addEventListener('focus', () => pushUndo(snapshot(), 'pickupNote'));
+// Each visit to a note box is one undo step, taken at the first change, so a visit that
+// changes nothing leaves no empty step behind.
+let notesPushed = false;
+$('edPickupNote').addEventListener('focus', () => { notesPushed = false; });
 $('edPickupNote').addEventListener('input', (e) => {
   const c = selCue();
   if (!c?.pickup) return;
+  if (!notesPushed) { pushUndo(); notesPushed = true; }
   c.pickup.note = e.target.value;
   changed(c.id);
 });
 $('edPickupNote').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); e.target.blur(); } });
 // Notes: for the narrator only. Text to speech never reads them, and they leave the timing alone.
-edNotes.addEventListener('focus', () => { if (!edNotes.readOnly) pushUndo(snapshot(), 'notes'); });
+edNotes.addEventListener('focus', () => { notesPushed = false; });
 edNotes.addEventListener('input', () => {
   const c = selCue();
   if (!c || edNotes.readOnly) return;
+  if (!notesPushed) { pushUndo(); notesPushed = true; }
   if (edNotes.value.trim()) c.notes = edNotes.value; else delete c.notes;
   changed(c.id);
 });
@@ -2758,6 +2767,8 @@ $('bulkVoice').addEventListener('click', () => {
   const now = voices.size === 1 ? [...voices][0] : '';
   fillVoiceSelect(bulkVoicePick, now);
   bulkVoicePick.prepend(new Option(`Default (${chosenVoiceName()})`, ''));
+  // A voice that isn't here stays chosen and says so, as in the block editor.
+  if (now && ![...bulkVoicePick.options].some((o) => o.value === now)) bulkVoicePick.add(new Option(`${voiceLabel(now)}: not available here`, now), 1);
   bulkVoicePick.value = now;
   $('bulkVoiceTitle').textContent = `Voice for ${plural(ticked.size)}`;
   bulkVoiceDlg.showModal();
@@ -3474,7 +3485,7 @@ ind.addEventListener('click', (e) => {
   else if (k === 'tts') toggleProjectTts();
   else if (k === 'qc') openQcPlayback();
   else if (k === 'extended') { if (qc()) openQcPlayback(); else openTts(); }
-  else if (k === 'replay' || k === 'lead' || k === 'returnToStart') showGeneral();
+  else if (k === 'replay' || k === 'lead' || k === 'returnToStart') showEditing();
   else if (k === 'takes') {
     recorder.setHearing(!recorder.hearing);
     updateInd();
@@ -9310,6 +9321,8 @@ function browserVersion() {
 }
 async function diagnosticsInfo() {
   const f = S.videoFile, now = performance.now(), minutes = 5;
+  // The video's own length: duration() also covers blocks that run past its end.
+  const length = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
   const recent = longTasks.filter(([at]) => now - at < minutes * 60e3);
   let storage = null, decode = null;
   try { const e = await navigator.storage?.estimate(); if (e) storage = { used: e.usage, quota: e.quota }; } catch { /* not available */ }
@@ -9317,7 +9330,7 @@ async function diagnosticsInfo() {
     try {
       decode = await navigator.mediaCapabilities.decodingInfo({ type: 'file', video: {
         contentType: TESTS[S.videoCodec], width: video.videoWidth || 1920, height: video.videoHeight || 1080,
-        bitrate: Math.round((f.size * 8) / (duration() || 1)), framerate: S.fps || 24,
+        bitrate: Math.round((f.size * 8) / (length || 1)), framerate: S.fps || 24,
       } });
     } catch { /* the browser couldn't say */ }
   }
@@ -9330,7 +9343,7 @@ async function diagnosticsInfo() {
       memory: navigator.deviceMemory, screen: `${screen.width}×${screen.height}`, dpr: devicePixelRatio || 1 },
     storage,
     video: f && S.hasVideo ? {
-      name: f.name, bytes: f.size, duration: duration(), width: video.videoWidth, height: video.videoHeight,
+      name: f.name, bytes: f.size, duration: length, width: video.videoWidth, height: video.videoHeight,
       codec: S.videoCodec, fps: S.fps, decode, audio: S.tracks.map((t) => t.codec).filter(Boolean), separate: !!alt,
       frames: q ? { total: q.totalVideoFrames, dropped: q.droppedVideoFrames } : null,
     } : null,

@@ -304,7 +304,7 @@ try {
   await a.wait(`!window.scribecueRelay && !Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.'))`, 'A stopped sharing');
   await a.js(`document.getElementById('shareClose').click();true`);
   await b.wait(`!window.scribecueRelay && document.querySelectorAll('#list .row').length===0`, 'the project closes for B');
-  assert.match(await b.js(`document.getElementById('toast').textContent`), /owner stopped sharing/);
+  assert.match(await b.js(`document.getElementById('noticeText').textContent`), /owner stopped sharing/);
   assert.equal(await b.js(`Object.keys(localStorage).some(k=>k.startsWith('scribecue.share.')) || (JSON.parse(localStorage.getItem('scribecue.v1')||'{}').cues||[]).length>0`), false, 'nothing of it stays');
   assert.equal(await b.js(`document.querySelector('#modeSw [data-mode=write]').disabled`), false, 'B is no longer limited');
   assert.equal(await a.js(`document.querySelectorAll('#list .row').length`), 1500, 'A keeps its copy');

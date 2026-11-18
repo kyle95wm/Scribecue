@@ -110,6 +110,25 @@ assert.match(await js(`document.querySelectorAll('#list .row')[0].textContent`),
 assert.match(await js(`document.querySelectorAll('#list .row')[1].textContent`), /She looks up\. Then away\./, 'the second block keeps its words');
 await esc();
 
+// The same from the Notes box: it shows the block picked on the timeline, and its notes
+// stay with their own block.
+const notes = () => js(`document.getElementById('edNotes').value`);
+const saved = () => js(`JSON.parse(localStorage.getItem('scribecue.v1')).cues.map((c)=>c.notes||'')`);
+await goTo(4.5);
+await enter();
+await js(`document.getElementById('edNotes').focus();true`);
+await send('Input.insertText', { text: 'Say it softly.' }); await sleep(300);
+await laneClick(1);
+assert.equal(await notes(), '', 'the timeline click shows the second block’s notes');
+await js(`document.getElementById('edNotes').focus();true`);
+await send('Input.insertText', { text: 'Pause first.' }); await sleep(1500);
+assert.deepEqual(await saved(), ['Say it softly.', 'Pause first.'], 'each block keeps its own notes');
+// One undo takes back the second block's notes, even after visiting the box without typing.
+await js(`document.getElementById('edText').focus();document.getElementById('edNotes').focus();document.activeElement.blur();true`);
+await js(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'z',code:'KeyZ',ctrlKey:true,metaKey:true,bubbles:true}));true`); await sleep(1500);
+assert.deepEqual(await saved(), ['Say it softly.', ''], 'one undo takes the notes back');
+await esc();
+
 // Record mode goes straight to the block.
 await load(`const R=await import('./js/recording.js');dt.items.add(new File([JSON.stringify(JSON.parse(JSON.stringify(R.toRecordingFile({blocks:${JSON.stringify(blocks)},fps:25}))))],'door.scribecuerec'));`);
 await wait(`document.body.classList.contains('mode-record')`); await wait(`document.querySelector('video').readyState>=2`); await sleep(800);
