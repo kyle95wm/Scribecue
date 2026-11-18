@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SEALED, PLAIN, TAG, PER_UPLOAD, pieceCount, sealedSize, piece, uploadCount, uploadPieces, nonce, seal, open,
-  newKey, importKey, videoInfo, readVideoInfo, cleanName, isShared, sameVideo, resumeFrom, roomFor, SPARE, sizeText, driveRoom, fullText,
+  newKey, importKey, videoInfo, readVideoInfo, cleanName, isShared, sameVideo, resumeFrom, roomFor, SPARE, sizeText, driveRoom, fullText, videoStep,
 } from '../app/js/sharedvideo.js';
 import { videoText } from '../app/js/sharedialog.js';
 import { SharedProject } from '../app/js/shared.js';
@@ -160,4 +160,16 @@ test('a full Drive says how much is needed and what to do', () => {
   assert.equal(fullText(2.4e9, 1.1e9), 'There isn’t room in your Google Drive. The video needs 2.4 GB, and 1.1 GB is free. Free up space in Drive, or send a smaller copy, such as 720p');
   assert.match(fullText(2.4e9, 0), /needs 2\.4 GB, and it’s full\./);
   assert.match(fullText(2.4e9), /needs 2\.4 GB\. Free up space/);
+});
+
+test('the video sent is found for the owner too, not only for those it’s shared with', () => {
+  const info = readVideoInfo(videoInfo({ id: 'abcdefghijk', key: 'A'.repeat(43), name: 'Pilot.mp4', size: 10 }));
+  const same = { name: 'Pilot.mp4', size: 10 }, other = { name: 'Other.mp4', size: 20 };
+  assert.equal(videoStep({ info: null, owner: true }), 'clear');
+  assert.equal(videoStep({ info, owner: true }), 'find', 'the owner opens the project with no video');
+  assert.equal(videoStep({ info, owner: false }), 'find');
+  assert.equal(videoStep({ info, owner: true, open: same }), 'have');
+  assert.equal(videoStep({ info, owner: false, open: other, changed: true }), 'tell');
+  assert.equal(videoStep({ info, owner: true, open: other, changed: true }), 'leave', 'the owner sent it, so isn’t told');
+  assert.equal(videoStep({ info, owner: false, open: other }), 'leave');
 });

@@ -143,6 +143,8 @@ Its progress shows at the top of the window.
   Google Drive. Only people with a link can watch it.
 - **Others download it once,** with **Download the video** in the video area. It stays in
   their browser and opens with the project from then on.
+- **On another computer,** or if your browser can't reopen your own file, you get
+  **Download the video** too.
 - **A download that stops** carries on from where it got to.
 - **Changed the video?** Open the new one, then click **Send this video instead**. Others
   are told.

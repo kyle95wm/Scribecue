@@ -1189,7 +1189,7 @@ if (sharedOn) {
           const ok = await sharingTools.join(location.href, password);
           if (ok) {
             history.replaceState(null, '', location.pathname + location.search);
-            toast(ok === 'owner' ? 'You’re the owner of this shared project again. Open your copy of the video to watch along'
+            toast(ok === 'owner' ? `You’re the owner of this shared project again. ${sharedVideo() ? 'Its video is in the video area' : 'Open your copy of the video to watch along'}`
               : again ? `Opened with the new link. ${LINK_NOW[ok] || ''}`
                 : sharedVideo() ? 'Opened the shared project. Download its video from the video area' : 'Opened the shared project. Open your copy of the video to watch along');
           }
@@ -5045,7 +5045,14 @@ function rememberVideo(h, file) {
 }
 // Opens the remembered video for this media, if there is one and the browser allows it.
 // ask: whether this follows a click, so the browser may be asked. Returns whether it did.
-async function reopenVideo(media, { ask = false } = {}) {
+// One at a time: after a reload, the autosave and a shared project may both reopen it.
+let reopenRun = Promise.resolve();
+function reopenVideo(media, opts) {
+  const run = reopenRun.then(() => reopenOnce(media, opts));
+  reopenRun = run.catch(() => {});
+  return run;
+}
+async function reopenOnce(media, { ask = false } = {}) {
   if (!media?.name || S.videoFile) return false;
   const h = await handleStore.get(mediaKey(media));
   if (!h) return false;
@@ -5141,31 +5148,42 @@ async function openKept(info, h) {
   openKeptId = info.id;
   rememberVideo(h, f);
 }
-// The button in the empty video area, for those a video was sent to.
-function showSharedOffer(info) {
+// The button in the empty video area that downloads the video the owner sent.
+function showSharedOffer(info, owner = false) {
   const b = $('reopenVideo');
   if (!info) { if (b.dataset.shared) { delete b.dataset.shared; b.hidden = true; } return; }
   b.dataset.shared = '1';
   b.textContent = `Download the video, ${info.name} (${sv.sizeText(info.size)})`;
-  b.dataset.tip = 'The owner sent the video with the project. It downloads once, into this browser';
+  b.dataset.tip = owner ? 'The video you sent with the project, from your Google Drive. It downloads once, into this browser'
+    : 'The owner sent the video with the project. It downloads once, into this browser';
   b.hidden = !!S.videoFile;
 }
-// Offers or opens the video the owner sent, for the people it's shared with. `changed`:
-// the owner has just sent a different one.
+// Offers or opens the video sent with the shared project. The owner gets their own file
+// back if this browser remembers it, and the download otherwise, like everyone else.
+// `changed`: a different video has just been sent.
 async function noteSharedVideo(changed = false) {
-  const copy = shared, info = sharedVideo();
-  if (!copy || !myShare || myShare.link === 'owner') { showSharedOffer(null); return; }
+  const copy = shared, info = sharedVideo(), owner = myShare?.link === 'owner';
+  if (!copy || !myShare) { showSharedOffer(null); return; }
   if (changed) tidyKeptVideos();
-  if (!info) { showSharedOffer(null); return; }
-  if (S.videoFile && sv.isShared(info, S.videoFile)) return;
-  const h = await keptVideo(info);
-  if (shared !== copy || S.videoFile && sv.isShared(info, S.videoFile)) return;
-  if (!S.videoFile) {
+  const step = sv.videoStep({ info, owner, open: S.videoFile, changed });
+  if (step === 'clear') { showSharedOffer(null); return; }
+  if (step === 'have' || step === 'leave') return;
+  if (step === 'find') {
+    if (owner) {
+      const media = { name: info.name, size: info.size };
+      if (await reopenVideo(media)) return;
+      if (shared !== copy || S.videoFile) return;
+      if (await handleStore.get(mediaKey(media))) return; // the browser asks first: offered to reopen it
+    }
+    const h = await keptVideo(info);
+    if (shared !== copy || S.videoFile) return;
     if (h) { await openKept(info, h); return; }
-    showSharedOffer(info);
+    showSharedOffer(info, owner);
     return;
   }
-  if (changed) toast(`The owner sent a new video, ${info.name}. Click to ${h ? 'open' : 'download'} it`, () => (h ? openKept(info, h) : getSharedVideo(info)));
+  const h = await keptVideo(info);
+  if (shared !== copy || S.videoFile && sv.isShared(info, S.videoFile)) return;
+  toast(`The owner sent a new video, ${info.name}. Click to ${h ? 'open' : 'download'} it`, () => (h ? openKept(info, h) : getSharedVideo(info)));
 }
 const FETCH_FAILED = {
   gone: 'The video is no longer in the owner’s Google Drive. Ask them to send it again',

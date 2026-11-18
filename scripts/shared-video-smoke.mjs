@@ -5,7 +5,7 @@
 //
 // A opens a video, shares the project and sends the video. B opens the link, downloads the
 // video, stops halfway and carries on, plays it, and after a reload it opens from the copy
-// kept in the browser, with no download. A opens another video and sends it instead: the old
+// kept in the browser, with no download. A reloads and is offered the video it sent. A opens another video and sends it instead: the old
 // one goes from Drive and B is offered the new one. A stops sharing: the video goes from Drive.
 //
 // Uses the relay at RELAY, by default one running locally (`npm run dev` in relay/).
@@ -260,6 +260,23 @@ try {
   await b.watch();
   await b.wait(`document.body.classList.contains('has-video')`, 'B’s video reopened');
   assert.deepEqual(ranges, [], 'no download after reloading');
+
+  // A reloads. A's video was opened without a handle, so this browser can't reopen it: the
+  // video A sent is offered instead, as it is to others, and downloads from Drive.
+  await a.wait(online, 'A online');
+  await a.send('Page.reload'); await sleep(1500);
+  await a.watch();
+  await a.wait(`!document.getElementById('reopenVideo').hidden && !!document.getElementById('reopenVideo').dataset.shared`, 'A is offered the video it sent');
+  assert.match(await a.js(`document.getElementById('reopenVideo').dataset.tip`), /^The video you sent/);
+  await a.shot('owner-offered');
+  ranges.length = 0;
+  await a.click('#reopenVideo');
+  await a.wait(`document.body.classList.contains('has-video')`, 'A downloaded the video it sent');
+  assert.ok(ranges.length > 0, 'from Drive');
+  console.log(`A got the video it sent back after a reload; A: ${await a.report()}`);
+  await a.watch();
+  await a.click('#shareBtn'); // closed by the reload
+  await a.wait(`document.getElementById('shareDlg').open`, 'Share window again');
 
   // A sends another video instead: the old one goes from Drive, and B is offered the new one.
   if (otherPath) {
