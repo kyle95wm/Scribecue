@@ -113,6 +113,7 @@ export const GROUPS = [
     ['videoTextToggle', 'Text over the video on / off', ['Shift+KeyC']],
     ['settings', 'Settings', ['Alt+Shift+KeyS']],
     ['exportDialog', 'Export…', ['Alt+Shift+KeyE']],
+    ['addScript', 'Add a script: episodes or other scripts, each where it starts', ['Alt+Shift+KeyM']],
     ['recents', 'Recents: files opened or saved lately', ['Alt+Shift+KeyR']],
     ['openDrive', 'Open a project from Google Drive', ['Alt+Shift+KeyG']],
     ['saveDrive', 'Save the project to Google Drive', ['Alt+Shift+KeyU']],
@@ -129,7 +130,7 @@ const DEFAULTS = Object.fromEntries(ACTIONS.map((a) => [a.id, a.keys]));
 // Actions that only work in Record mode.
 export const RECORD = new Set(GROUPS.find(([g]) => g === 'Record mode')[1].map(([id]) => id));
 // Actions that change the script, or help with writing it: off in Record mode.
-export const REC_LOCKED = new Set(['createEdit', 'newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'tickMode', 'tickBlock', 'findReplace', 'setStart', 'setEnd',
+export const REC_LOCKED = new Set(['createEdit', 'newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'tickMode', 'tickBlock', 'addScript', 'findReplace', 'setStart', 'setEnd',
   'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10',
   'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'findDialogue', 'openSubtitles', 'aiHelp', 'aiScript', 'aiNext', 'aiBack', 'aiAccept', 'comments', 'bookmarkAdd', 'bookmarks', 'offset']);
 // In Record mode, X and Delete still split a take and delete part of one, so their actions

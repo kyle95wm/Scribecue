@@ -8,8 +8,8 @@ cd "$(dirname "$0")/.."
 root=$(pwd)
 chrome=${CHROME:-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"}
 work=$(mktemp -d)
-site_port=8487
-cdp_port=9333
+site_port=${SITE_PORT:-8487}
+cdp_port=${CDP_PORT:-9333}
 cleanup() {
   for pid in ${chrome_pid:-} ${site_pid:-}; do
     kill "$pid" 2>/dev/null || true
