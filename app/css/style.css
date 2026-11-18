@@ -813,6 +813,23 @@ body.mode-record { grid-template-rows: 44px minmax(0, 1fr) 290px 28px; }
   color: var(--cue);
 }
 .cue.sel .ci { color: var(--accent); }
+/* Ticked in the list: filled like the selected block, with the row's tick mark before the
+   number. Dragging one moves them all. */
+.cue.ticked { background: var(--accent-bg); border-color: var(--accent); }
+.cue.ticked .ci { color: var(--accent); }
+.cue.ticked .ci::before {
+  content: "✓";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  border-radius: 3px;
+  background: var(--accent);
+  font: 11px/12px var(--sans);
+  text-align: center;
+  vertical-align: -1px;
+  color: var(--bg);
+}
 .cue .ct {
   position: absolute;
   top: 20px;
@@ -855,6 +872,17 @@ body.mode-record { grid-template-rows: 44px minmax(0, 1fr) 290px 28px; }
 .dragging, .dragging * { cursor: grabbing !important; }
 .dragging.resize, .dragging.resize * { cursor: ew-resize !important; }
 
+/* Shift+drag across the empty lane: the stretch whose blocks get ticked. */
+#lasso {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  z-index: 4;
+  background: var(--accent-bg);
+  border: 1px dashed var(--accent);
+  border-radius: 4px;
+  pointer-events: none;
+}
 #dragtip {
   position: absolute;
   top: 2px;
@@ -1616,7 +1644,7 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 
 /* Comments reuse the AI drawer and its message controls. */
 #commentsDrawer input { min-width: 0; font: 13px var(--sans); color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
-#commentsDrawer button[aria-pressed="true"], #setsSecrets[aria-pressed="true"], #commentsBtn[aria-pressed="true"], #qcExportAllowEdits[aria-pressed="true"], #qcExportGoogle[aria-pressed="true"], #shareGoogleOn[aria-pressed="true"], #shareVideoOn[aria-pressed="true"], #leaveKeep[aria-pressed="true"], #firstSaveAlways[aria-pressed="true"], #takesAll[aria-pressed="true"], #takesList button[aria-pressed="true"], #cleanAll[aria-pressed="true"], #aiScriptListen[aria-pressed="true"], #cleanList button[aria-pressed="true"], #recFileFresh[aria-pressed="true"], #qcExportPolly[aria-pressed="true"], #qcPrevious[aria-pressed="true"], #setReturn[aria-pressed="true"], #setLook button[aria-pressed="true"], #wzLook button[aria-pressed="true"], #setCheckWarn[aria-pressed="true"], #diagNames[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+#commentsDrawer button[aria-pressed="true"], #setsSecrets[aria-pressed="true"], #commentsBtn[aria-pressed="true"], #qcExportAllowEdits[aria-pressed="true"], #qcExportGoogle[aria-pressed="true"], #shareGoogleOn[aria-pressed="true"], #shareVideoOn[aria-pressed="true"], #leaveKeep[aria-pressed="true"], #firstSaveAlways[aria-pressed="true"], #takesAll[aria-pressed="true"], #takesList button[aria-pressed="true"], #cleanAll[aria-pressed="true"], #aiScriptListen[aria-pressed="true"], #cleanList button[aria-pressed="true"], #recFileFresh[aria-pressed="true"], #qcExportPolly[aria-pressed="true"], #qcPrevious[aria-pressed="true"], #setReturn[aria-pressed="true"], [data-lane-drag][aria-pressed="true"], #setLook button[aria-pressed="true"], #wzLook button[aria-pressed="true"], #setCheckWarn[aria-pressed="true"], #diagNames[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 #commentAt, .comment-location { font: 12px var(--mono); }
 .comment-body { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .comment-meta { font: 12px var(--sans); color: var(--dim); }

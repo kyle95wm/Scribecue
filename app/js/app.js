@@ -54,7 +54,7 @@ import { projectName } from './driveprojects.js';
 import { isDriveRef, filterProjects } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
-import { rangeIds, moveLimit, parseAmount, blockList } from './bulk.js';
+import { rangeIds, moveLimit, dragTicked, parseAmount, blockList } from './bulk.js';
 import { ADDABLE, readScript, span as scriptSpan, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote } from './addscript.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup, REC_LOCKED, bindings, comboText } from './keymap.js';
@@ -196,6 +196,9 @@ const S = {
   // Return to start: stopping puts the playhead back where that playback began. Record mode
   // only (see returning). Off unless turned on.
   returnToStart: (() => { try { return localStorage.getItem('scribecue.returnToStart') === '1'; } catch { return false; } })(),
+  // Dragging across the empty timeline: 'draw' draws a block and Shift+drag ticks blocks;
+  // 'tick' swaps them. Settings → Editing.
+  laneDrag: (() => { try { return localStorage.getItem('scribecue.laneDrag') === 'tick' ? 'tick' : 'draw'; } catch { return 'draw'; } })(),
   // The total length shows the time remaining instead.
   remaining: (() => { try { return localStorage.getItem('scribecue.remaining') === '1'; } catch { return false; } })(),
   // The block's text shows over the video. On unless turned off in this browser.
@@ -2660,6 +2663,7 @@ function paintTicks() {
   list.classList.toggle('ticking', ticking);
   for (const [id, r] of rowMap) paintTick(r, id);
   showBulkBar();
+  tlDirty = true; // the timeline shows the ticks too
 }
 function showBulkBar() {
   $('selectBtn').setAttribute('aria-pressed', String(ticking));
@@ -2695,6 +2699,7 @@ function tickOne(id, on = !ticked.has(id)) {
   const r = rowMap.get(id);
   if (r) paintTick(r, id);
   showBulkBar();
+  tlDirty = true;
 }
 function clickTick(id, range) {
   const from = tickAnchor ?? S.sel;
@@ -3108,6 +3113,7 @@ function drawCues(W) {
     el.classList.toggle('locked', following(c));
     el.classList.toggle('extended', ext);
     el.classList.toggle('sel', c.id === S.sel);
+    el.classList.toggle('ticked', ticking && ticked.has(c.id));
     el.classList.toggle('active', c.id === S.activeId);
     el.classList.toggle('faded', !matches(c, i));
     el.classList.toggle('changing', !!ghost?.theirs && c.uid === ghost.uid);
@@ -3230,15 +3236,34 @@ lane.addEventListener('pointerdown', (e) => {
   if (el) {
     const id = +el.dataset.id, i = idx(id), c = S.cues[i];
     if (!c) return;
+    // Ctrl/Cmd+click or Shift+click ticks it, as in the list.
+    if (canTick() && (e.shiftKey || e.metaKey || e.ctrlKey)) { clickTick(id, e.shiftKey); e.preventDefault(); return; }
     if (S.sel !== id) select(id, { seek: false, reveal: false });
     if (S.mode === 'record') return; // the script is locked
-    const mode = following(c) ? 'move' : e.target.closest('.hl') ? 'start' : e.target.closest('.hr') ? 'end' : 'move';
-    drag = { mode, id, x0: e.clientX, s0: c.start, e0: c.end, ...bounds(i), snap: snapshot(), moved: false };
+    let mode = following(c) ? 'move' : e.target.closest('.hl') ? 'start' : e.target.closest('.hr') ? 'end' : 'move';
+    // Grabbing a ticked block by its middle moves all the ticked ones.
+    let from = null;
+    if (mode === 'move' && ticking && ticked.has(id) && ticked.size > 1) {
+      mode = 'group';
+      // Only the rows in view are filled while dragging; dropping them refills the list.
+      const box = list.getBoundingClientRect();
+      from = [];
+      S.cues.forEach((t, k) => {
+        if (!ticked.has(t.id)) return;
+        const r = t.id === id ? null : rowMap.get(t.id), rr = r?.getBoundingClientRect();
+        from.push({ c: t, k, s: t.start, e: t.end, r: rr && rr.bottom > box.top && rr.top < box.bottom ? r : null });
+      });
+    }
+    drag = { mode, id, x0: e.clientX, s0: c.start, e0: c.end, ...bounds(i), from, snap: snapshot(), moved: false };
+  } else if (e.shiftKey === (S.laneDrag === 'draw') && canTick()) {
+    // A lasso: dragging across the empty lane ticks every block it touches, adding to the ticks.
+    // Shift+drag, or a plain drag if Settings → Editing says so.
+    drag = { mode: 'lasso', x0: e.clientX, t0: xToT(e.clientX), base: new Set(ticked), shift: e.shiftKey, moved: false, id: null };
   } else {
     const t = xToT(e.clientX);
     S.playUntil = null;
     seek(t, false);
-    drag = { mode: 'blank', x0: e.clientX, t0: t, snap: snapshot(), moved: false, id: null };
+    drag = { mode: 'blank', x0: e.clientX, t0: t, snap: snapshot(), shift: e.shiftKey, moved: false, id: null };
   }
   lane.setPointerCapture(e.pointerId);
   e.preventDefault();
@@ -3250,10 +3275,11 @@ lane.addEventListener('pointermove', (e) => {
   if (!drag.moved && Math.abs(dx) < 4) return;
   if (!drag.moved) {
     drag.moved = true;
-    document.body.classList.add('dragging');
-    if (drag.mode !== 'move') document.body.classList.add('resize');
+    if (drag.mode !== 'lasso') document.body.classList.add('dragging'); // a lasso keeps the lane's crosshair
+    if (drag.mode !== 'move' && drag.mode !== 'group' && drag.mode !== 'lasso') document.body.classList.add('resize');
   }
 
+  if (drag.mode === 'lasso') return lasso(e);
   if (drag.mode === 'blank') {
     const ni = S.cues.findIndex((c) => c.start > drag.t0);
     const prev = ni < 0 ? S.cues[S.cues.length - 1] : S.cues[ni - 1];
@@ -3270,6 +3296,12 @@ lane.addEventListener('pointermove', (e) => {
   const c = S.cues[idx(drag.id)];
   if (!c) return;
   const dt = dx / S.pps, { lo, hi } = drag;
+
+  if (drag.mode === 'group') {
+    const d = dragGroup(drag.from, dt);
+    showDragTip(e, `${plural(drag.from.length)}  ·  ${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(3)} s`);
+    return;
+  }
 
   if (drag.mode === 'move') {
     const len = drag.e0 - drag.s0;
@@ -3288,18 +3320,56 @@ lane.addEventListener('pointermove', (e) => {
     if (c.end - c.start < MIN_DUR) c.end = Math.min(hi, c.start + MIN_DUR);
   }
   changed(c.id);
+  showDragTip(e, `${tc(c.start)} → ${tc(c.end)}  ·  ${(c.end - c.start).toFixed(2)} s`);
+});
+
+// Ticks the blocks between where the lasso began and the pointer, and those ticked before it.
+// A search leaves out blocks that don't match, as All does. Only rows whose tick changes are
+// repainted.
+const lassoEl = $('lasso');
+function lasso(e) {
+  if (!ticking) startTicking();
+  const t = xToT(e.clientX), a = Math.min(drag.t0, t), b = Math.max(drag.t0, t);
+  const want = new Set(drag.base);
+  S.cues.forEach((c, i) => { if (c.end > a && c.start < b && matches(c, i)) want.add(c.id); });
+  for (const id of [...ticked]) if (!want.has(id)) { ticked.delete(id); const r = rowMap.get(id); if (r) paintTick(r, id); }
+  for (const id of want) if (!ticked.has(id)) { ticked.add(id); const r = rowMap.get(id); if (r) paintTick(r, id); }
+  showBulkBar();
+  tlDirty = true;
+  lassoEl.hidden = false;
+  lassoEl.style.left = `${(a - S.view) * S.pps}px`;
+  lassoEl.style.width = `${(b - a) * S.pps}px`;
+  showDragTip(e, `${ticked.size} ticked`);
+}
+
+function showDragTip(e, text) {
   dragtip.hidden = false;
-  dragtip.textContent = `${tc(c.start)} → ${tc(c.end)}  ·  ${(c.end - c.start).toFixed(2)} s`;
+  dragtip.textContent = text;
   const lx = e.clientX - lane.getBoundingClientRect().left;
   dragtip.style.left = clamp(lx + 12, 0, lane.clientWidth - dragtip.offsetWidth - 4) + 'px';
-});
+}
+
+// Moves the ticked blocks dt seconds from where they started, or as far as they go before
+// running into one that isn't ticked, as Move… does. Their order doesn't change, so only
+// the rows in view need filling. from: { c: the block, k: its place, s and e: where it was,
+// r: its row if it's in view }. Returns how far they moved.
+function dragGroup(from, dt) {
+  const d = dragTicked(S.cues, ticked, from, dt, duration());
+  changed(drag.id);
+  for (const { c, k, r } of from) if (r) fillRow(r, c, k);
+  return d;
+}
 
 function endDrag() {
   if (!drag) return;
   const d = drag;
   drag = null;
   dragtip.hidden = true;
+  lassoEl.hidden = true;
   document.body.classList.remove('dragging', 'resize');
+  if (d.mode === 'lasso' && !d.moved) { S.playUntil = null; seek(d.t0, false); } // a click seeks, whatever a drag does
+  // A click on the empty lane, without Shift, unticks every block. Select stays on, to tick again.
+  if ((d.mode === 'blank' || d.mode === 'lasso') && !d.moved && !d.shift && ticked.size) { ticked.clear(); tickAnchor = null; paintTicks(); }
   if (d.moved && d.id != null && d.mode !== 'none') {
     pushUndo(d.snap);
     changed();
@@ -9256,6 +9326,7 @@ const showEditing = () => {
   $('setReplay').checked = S.replay;
   $('setLead').value = S.lead;
   $('setReturn').setAttribute('aria-pressed', String(S.returnToStart));
+  showLaneDrag();
   openSettings('editing');
 };
 const showMarking = () => {
@@ -9321,6 +9392,21 @@ whenClear(dockerTip);
 $('setReplay').addEventListener('change', (e) => setReplay(e.target.checked, true));
 $('setLead').addEventListener('change', (e) => setLead(e.target.value));
 $('setReturn').addEventListener('click', () => setReturnToStart(!S.returnToStart));
+// Settings → Editing: what dragging across the empty timeline does. The shortcuts list follows.
+function showLaneDrag() {
+  for (const b of document.querySelectorAll('[data-lane-drag]')) b.setAttribute('aria-pressed', String(b.dataset.laneDrag === S.laneDrag));
+  const tick = S.laneDrag === 'tick';
+  $('keysLaneDrag').textContent = tick ? 'Tick every block it crosses · drag a ticked block to move them all' : 'Draw a new block';
+  $('keysLaneShift').textContent = tick ? 'Draw a new block' : 'Tick every block it crosses · drag a ticked block to move them all';
+}
+for (const b of document.querySelectorAll('[data-lane-drag]')) {
+  b.addEventListener('click', () => {
+    S.laneDrag = b.dataset.laneDrag;
+    try { localStorage.setItem('scribecue.laneDrag', S.laneDrag); } catch { /* ignore */ }
+    showLaneDrag();
+  });
+}
+showLaneDrag();
 $('setOffset').addEventListener('change', (e) => setOffset(+e.target.value));
 
 // Runs fn once no dialog, notice or tour is showing, checking for up to a minute.

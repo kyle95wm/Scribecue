@@ -18,6 +18,7 @@ const SETTINGS = [
   ['replay', 'text', 'Editing'],
   ['lead', 'text', 'Editing'],
   ['returnToStart', 'text', 'Editing'],
+  ['laneDrag', 'text', 'Editing'],
   ['remaining', 'text', 'Display'],
   ['videoText', 'text', 'Display'],
   ['swapped', 'text', 'Display'],
