@@ -123,8 +123,8 @@ export function estimateText(e, providerName = 'the provider', local = false) {
   const money = e.cents ? `about ${dollars(e.cents[0])}–${dollars(e.cents[1])}` : `${providerName}’s usual price for each draft`;
   return `${n}: ${money}, and ${duration(e.secs[0])}–${duration(e.secs[1])}.`;
 }
-const dollars = (c) => (c < 100 ? `${Math.max(1, Math.round(c))}¢` : `$${(c / 100).toFixed(c < 1000 ? 2 : 0)}`);
-function duration(s) {
+export const dollars = (c) => (c < 100 ? `${Math.max(1, Math.round(c))}¢` : `$${(c / 100).toFixed(c < 1000 ? 2 : 0)}`);
+export function duration(s) {
   if (s < 90) return `${Math.max(1, Math.round(s))} s`;
   if (s < 5400) return `${Math.round(s / 60)} min`;
   return `${(s / 3600).toFixed(1)} h`;

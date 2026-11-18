@@ -14,6 +14,7 @@ starting point. You're still the describer.
   - [Pace](#pace)
   - [Scene summaries](#scene-summaries)
   - [The next episode of a series](#the-next-episode-of-a-series)
+- [Reviewing the script](#reviewing-the-script)
 - [Choosing where it runs](#choosing-where-it-runs)
 - [Connecting a provider](#connecting-a-provider)
   - [Claude, OpenAI or Gemini](#claude-openai-or-gemini)
@@ -153,6 +154,37 @@ one request. Without AI help connected, it's the summaries, shortened. Check it 
 like any other notes.
 
 The blocks, scene summaries, bookmarks and comments stay with the old episode.
+
+## Reviewing the script
+
+**Review the script…** in the AI help drawer, or `Alt+Shift+Q`, has the AI read your script
+as a QC reviewer would. Use it before you hand the script on.
+
+- It reads each block with a still or two from it, the blocks around it, the subtitles and
+  your notes.
+- It comments on blocks that need another look. It changes no words.
+- Choose the whole script, from the playhead, or between two times. The window shows the
+  cost first.
+
+It looks for:
+
+| Kind | For example |
+|---|---|
+| Picture | The block doesn't match the stills, or leaves out something that matters. |
+| Story | A name before the story gives it, or giving away what's coming. |
+| Dialogue | Read over speech that matters, or repeating it. |
+| Consistency | Calling someone or something by a different name. |
+| Style | Opinion, "we see", the past tense, or an unclear pronoun. |
+
+Each comment is from **AI help** and starts "AI review". Go through them in
+[Comments](QC.md#how-comments-behave): fix the block if the AI is right, then resolve the
+comment. `Ctrl/Cmd+Z` takes the whole review back.
+
+- A block with an open AI review comment is left out of the next review. Resolve it to
+  have it reviewed again.
+- Spelling and length aren't part of it. **Check with AI**, in the spelling and grammar
+  check, and the warnings in the list cover those.
+- AI misses things, and sometimes flags what's fine. It doesn't replace a person's review.
 
 ## Choosing where it runs
 
@@ -359,6 +391,8 @@ And always check a draft against the picture: AI is confident even when it's wro
   before it. Drafts and chat then send their scene's summary too.
 - **Find dialogue with OpenAI** sends the programme's audio to OpenAI.
 - **Check with AI** sends the whole script and your notes, in parts.
+- **Review the script** sends each block with a still or two from it, the blocks around it,
+  its subtitles, its scene's summary and your notes.
 - **Next episode** sends the story so far, the scene summaries and your notes.
 - With Ollama, everything stays on your computer.
 - Keys stay in your browser, and only go to their own provider. Your TMDB key, if you look
@@ -379,6 +413,7 @@ provider's dashboard shows the real figures.
 - **Scene summaries** add about 50 requests for a two-hour film.
 - **Chats** cost more as they grow, though only the latest messages resend their frames.
 - **Check with AI** sends the whole script, so a long script costs more than a draft.
+- **Review the script** sends up to 8 blocks a request, so a film is a few dozen requests.
 - **Find dialogue with OpenAI** costs about 36 cents an hour of programme. Its window shows
   the price before you start.
 - **Ollama** costs nothing to use.

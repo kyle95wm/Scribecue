@@ -958,6 +958,24 @@ docker compose up -d --build</code></pre>
     <p class="dim small">Each draft is tagged until you edit or accept it. Check every one against the picture: AI misses things, and sometimes describes what isn't there.</p>
     <div class="updbtns"><button id="aiScriptGo" class="hl">Draft</button><button id="aiScriptCancel">Cancel</button></div>
   </dialog>
+  <dialog id="aiReviewDlg" class="updbox" aria-labelledby="aiReviewTitle">
+    <h2 id="aiReviewTitle">Review the script with AI</h2>
+    <p>The AI reads each block against stills from it, the blocks around it and the subtitles, as a QC reviewer would. It comments on blocks that need another look. It changes no words.</p>
+    <p id="aiReviewModel" class="dim small"></p>
+    <p class="updstatus"><label for="aiReviewRange">Review</label>
+      <select id="aiReviewRange">
+        <option value="all">the whole script</option>
+        <option value="playhead">from the playhead to the end</option>
+        <option value="between">between two times</option>
+      </select></p>
+    <p id="aiReviewTimes" class="updstatus" hidden><label for="aiReviewFrom">From</label> <input id="aiReviewFrom" class="time" spellcheck="false" autocomplete="off" placeholder="0:00">
+      <label for="aiReviewTo">to</label> <input id="aiReviewTo" class="time" spellcheck="false" autocomplete="off" placeholder="10:00"></p>
+    <p id="aiReviewCount" role="status"></p>
+    <p id="aiReviewSkipped" class="dim small"></p>
+    <p id="aiReviewPrivacy" class="dim small"></p>
+    <p class="dim small">Treat its comments as a second pair of eyes, not a verdict: AI misses things, and sometimes flags what’s fine. Resolve each one in Comments.</p>
+    <div class="updbtns"><button id="aiReviewGo" class="hl">Review</button><button id="aiReviewCancel">Cancel</button></div>
+  </dialog>
   <dialog id="heardDlg" class="updbox" aria-labelledby="heardTitle">
     <h2 id="heardTitle">Find the dialogue</h2>
     <p>This video has no subtitles. Speech to text can listen to it and make a dialogue lane from what’s said, so you can see the gaps. AI drafts use it too.</p>
@@ -1151,6 +1169,7 @@ docker compose up -d --build</code></pre>
       </div>
       <div class="airow">
         <button id="aiScript" data-tip="Draft a block for every free gap in the dialogue, through the video or part of it (⌥⇧I)">Draft the script…</button>
+        <button id="aiReview" data-tip="Have the AI read the script against the picture and subtitles, and comment on blocks a reviewer would send back (⌥⇧Q)">Review the script…</button>
       </div>
       <textarea id="aiInput" rows="3" placeholder="Ask about this scene… (↵ sends, ⇧↵ new line)"></textarea>
       <div class="airow">
@@ -1947,6 +1966,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="openSubtitles"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>O</kbd></dt><dd>Subtitles from OpenSubtitles</dd>
             <dt data-keys="aiHelp"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>A</kbd></dt><dd>AI help: chat and draft descriptions</dd>
             <dt data-keys="aiScript"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>I</kbd></dt><dd>Draft the script with AI</dd>
+            <dt data-keys="aiReview"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>Q</kbd></dt><dd>Review the script with AI</dd>
             <dt data-keys="aiBack aiNext"><kbd>⇧</kbd><kbd>I</kbd> <kbd>I</kbd></dt><dd>Previous / next AI draft to check</dd>
             <dt data-keys="aiAccept"><kbd>Y</kbd></dt><dd>Accept the AI draft</dd>
             <dt data-keys="comments" class="write-only"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>C</kbd></dt><dd class="write-only">Comments at the playhead</dd>

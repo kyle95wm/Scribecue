@@ -4,7 +4,7 @@ import { createQcPlayer } from './qcplayer.js';
 import { REVIEW_EXT, isReview, openReview, resaveReview, liveBlock, reviewAllowsEdits, reviewReading, playbackReading, rewriteSpec, readingVoiceChanged, appendRewrite, previousReading, storedReview, voiceReport, reviewAudioKey } from './qc.js';
 import { reviewedRewrite, speechKey, rereads, canReread, bundledFor, keyName } from './qcspeech.js';
 import { offerLiveVoices, initQc, refreshQc, openQcPlayback, openQcExport } from './qcdrawer.js';
-import { cleanComments, commentsAllowed } from './comments.js';
+import { cleanComments, commentsAllowed, newCommentId } from './comments.js';
 import { cleanEdited, stampEdits, seedEdits, editorCount, editedLine, blockSig } from './edits.js';
 import { savedName, saveName, editorId, validEditorId } from './profile.js';
 import { initComments, toggleComments, refreshComments, openBlockComments, showName } from './commentsdrawer.js';
@@ -15,7 +15,7 @@ import { initUpdates, openUpdates, updateChoice, renderUpdates } from './update.
 import { HOSTED, BRANCH } from './config.js';
 import { CHOICES, DEFAULTS, shownAppearance, loadAppearance, saveAppearance, applyAppearance, fillChoices, markChoices } from './appearance.js';
 import { initFloat, loadKind, saveKind, canOwnWindow } from './floatvideo.js';
-import { initAi, toggleAi, aiNotesChanged, openAiSettings, openDraftScript, openaiKey, generalNotes, aiConnected, writeRecap } from './aidrawer.js';
+import { initAi, toggleAi, aiNotesChanged, openAiSettings, openDraftScript, openReviewScript, openaiKey, generalNotes, aiConnected, writeRecap } from './aidrawer.js';
 import { LABEL as HEARD, PART_LOCAL, PART_ONLINE, PART_WEB, partsOf, linesFrom, keepIn, openaiCost, span, timeLeft, openaiRequest, openaiHeard } from './heardlane.js';
 import { failure } from './ai.js';
 import { cleanScenes, splitRecap, withRecap, plainRecap } from './aiscript.js';
@@ -8643,8 +8643,41 @@ tl.addEventListener('contextmenu', (e) => {
   e.preventDefault(); toggleComments(true, clamp(xToT(e.clientX), 0, duration()));
 });
 
+// The AI reviewing the script, as a job under the header. fn(signal, progress) adds its
+// comments; they all come back with one undo, as long as nothing else was done meanwhile.
+const commentCount = () => S.cues.reduce((n, c) => n + (c.comments?.length || 0), 0);
+function runAiReview(fn) {
+  return asJob(async () => {
+    aiRun = new AbortController();
+    pushUndo();
+    const before = undoStack.at(-1), had = commentCount();
+    const progress = (frac, text) => { jobBar.value = frac; jobText.textContent = `AI review: ${text}`; jobBox.hidden = false; };
+    try {
+      const out = await fn(aiRun.signal, progress);
+      return out && { ...out, undoable: undoStack.at(-1) === before && commentCount() > had };
+    } finally {
+      aiRun = null;
+      if (undoStack.at(-1) === before && commentCount() === had) undoStack.pop();
+    }
+  });
+}
+
 // AI help: the drawer asks the editor for the script and puts drafts into blocks.
 initAi({
+  runReview: runAiReview,
+  // The AI review's comments, each on its block: [{ block (id), text }].
+  addReviewComments(list, author) {
+    let n = 0;
+    for (const { block, text } of list) {
+      const c = S.cues[idx(block)];
+      if (!c) continue;
+      (c.comments ||= []).push({ id: newCommentId(), text, author, created: new Date().toISOString(), resolved: false });
+      n++;
+    }
+    if (n) changed();
+    return n;
+  },
+  openComments: () => toggleComments(true),
   language: spellingLanguage,
   cues: () => S.cues,
   dialogueLines: () => S.dialogue?.lines || [],
@@ -9076,6 +9109,7 @@ const RUN = {
   bookmarks: () => toggleBookmarks(),
   aiHelp: () => { if (!qc()) toggleAi(); },
   aiScript: () => { if (!qc()) openDraftScript(); },
+  aiReview: () => { if (!qc()) openReviewScript(); },
   findDialogue: () => { if (S.mode !== 'record') openFindDialogue(); },
   openSubtitles: () => { if (S.mode !== 'record') openOpenSubs(); },
   aiNext: () => jumpAiDraft(1),

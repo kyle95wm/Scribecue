@@ -92,6 +92,7 @@ export const GROUPS = [
     ['openSubtitles', 'Search OpenSubtitles for this video’s subtitles', ['Alt+Shift+KeyO']],
     ['aiHelp', 'AI help', ['Alt+Shift+KeyA']],
     ['aiScript', 'Draft the script with AI', ['Alt+Shift+KeyI']],
+    ['aiReview', 'Review the script with AI', ['Alt+Shift+KeyQ']],
     ['aiNext', 'Next AI draft to check', ['KeyI']],
     ['aiBack', 'Previous AI draft to check', ['Shift+KeyI']],
     ['aiAccept', 'Accept the AI draft', ['KeyY']],
@@ -132,7 +133,7 @@ export const RECORD = new Set(GROUPS.find(([g]) => g === 'Record mode')[1].map((
 // Actions that change the script, or help with writing it: off in Record mode.
 export const REC_LOCKED = new Set(['createEdit', 'newBlock', 'gapBlock', 'split', 'merge', 'deleteNow', 'deleteAsk', 'tickMode', 'tickBlock', 'addScript', 'findReplace', 'setStart', 'setEnd',
   'startBack', 'startFwd', 'endBack', 'endFwd', 'moveBack', 'moveFwd', 'startBack10', 'startFwd10', 'endBack10', 'endFwd10',
-  'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'findDialogue', 'openSubtitles', 'aiHelp', 'aiScript', 'aiNext', 'aiBack', 'aiAccept', 'comments', 'bookmarkAdd', 'bookmarks', 'offset']);
+  'moveBack10', 'moveFwd10', 'hold', 'transcribeBlock', 'sttPanel', 'fitToReading', 'ttsPanel', 'soundsLike', 'findDialogue', 'openSubtitles', 'aiHelp', 'aiScript', 'aiReview', 'aiNext', 'aiBack', 'aiAccept', 'comments', 'bookmarkAdd', 'bookmarks', 'offset']);
 // In Record mode, X and Delete still split a take and delete part of one, so their actions
 // can't share a key with a Record mode action.
 const IN_RECORD_TOO = new Set(['split', 'deleteNow']);

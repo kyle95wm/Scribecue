@@ -81,6 +81,7 @@ See [Exporting](Guides/GETTING-STARTED.md#exporting) and [Mixing](Guides/MIXING.
 | **Ollama app on your computer** | ✓ Once `OLLAMA_ORIGINS` allows the web version | ✓ Nothing extra |
 | **Ollama in a container** | No | `ollama` container |
 | Draft the whole script | ✓ | ✓ |
+| Review the script, as comments | ✓ | ✓ |
 | Look up the cast with TMDB | ✓ | ✓ |
 
 See [AI help](Guides/AI.md).
