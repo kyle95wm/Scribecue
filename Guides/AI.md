@@ -283,7 +283,7 @@ download size free. Try two models on the same few blocks, and keep the one you 
 | Memory | Suggested models | Download |
 | --- | --- | --- |
 | **8 GB** | `gemma3:4b`, `qwen3-vl:4b` | about 3.5 GB |
-| **16 GB** | `gemma4:12b`, `qwen3-vl:8b` | 6–8 GB |
+| **16–24 GB** | `gemma4:12b`, `qwen3-vl:8b` | 6–8 GB |
 | **32 GB** | `gemma4:26b`, `gemma4:31b`, `qwen3-vl:30b` | 16–20 GB |
 | **48–64 GB** | `gemma4:31b`, `qwen3-vl:32b`, `qwen3.8:27b` | 18–21 GB, with room to spare for more frames |
 | **A workstation with 192 GB or more** | `qwen3-vl:235b` | about 143 GB |
