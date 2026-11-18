@@ -107,7 +107,7 @@ export const STEPS = [
   {
     target: '#aiBtn',
     title: 'AI help, if you want it',
-    text: () => 'Connect your own AI provider in Settings, or Ollama on your own computer, to ask about a scene or draft a block from its frames. Draft the script fills every free gap with a draft, tagged until you check it. It’s off until you connect one.',
+    text: () => 'Connect an AI provider in Settings to ask about a scene or draft a block from its frames. Draft the script fills every free gap with a draft, tagged until you check it. For programmes you mustn’t share, Ollama runs on your own computer instead. It’s off until you connect one.',
   },
   {
     target: 'nav [data-act="settings"]',

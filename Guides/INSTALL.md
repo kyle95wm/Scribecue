@@ -245,7 +245,8 @@ deleted as soon as the file is saved, or five minutes after Scribecue is closed 
 
 ## Ollama in Docker
 
-[AI help](AI.md) can use Ollama, which runs AI models on your own computer.
+[AI help](AI.md) can use Ollama, which runs AI models on your own computer. It's for
+programmes you mustn't send to an online provider, or for working offline.
 Usually you'd install the [Ollama app](https://ollama.com), but it can also run in a
 container next to Scribecue, with nothing installed outside Docker. Add `ollama` to the
 profiles in `.env`, for example:
