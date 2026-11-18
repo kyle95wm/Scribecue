@@ -2449,7 +2449,8 @@ listSearch.addEventListener('keydown', (e) => {
 function fillRow(r, c, i) {
   // Filtered out: it's filled in when it next shows.
   if (!matches(c, i)) { r.hidden = true; r.dataset.was = ''; return; }
-  const [n, t, d] = r.children[0].children, tx = r.children[1];
+  const rh = r.children[0], tx = r.children[1];
+  const n = rh.querySelector('.n'), t = rh.querySelector('.t'), d = rh.querySelector('.d');
   const times = `${tc(c.start)} – ${tc(c.end)}`;
   let dur = `${(c.end - c.start).toFixed(2)} s` + (ttsOn() && c.speed ? ` · TTS ${isSpeed(c.speed) ? '' : 'custom '}${speedLabel(c.speed)}` : '')
     + (ttsOn() && c.voice ? ` · ${blockVoiceName(c.voice)}` : '');

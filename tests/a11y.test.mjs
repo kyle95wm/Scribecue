@@ -129,3 +129,12 @@ test('screen readers reach what they can use, and nothing silent', () => {
   assert.match(html, /id="scrub" role="slider" tabindex="0"/);
   assert.match(html, /<div class="helpbox" tabindex="-1">/);
 });
+
+test('each row in the block list fills its number, times and length by name, not by place', () => {
+  // The tick box at the start of a row once shifted every field one place along: the
+  // number went missing, and the times and text no longer lined up.
+  const app = readFileSync(new URL('../app/js/app.js', import.meta.url), 'utf8');
+  const fill = app.slice(app.indexOf('function fillRow('), app.indexOf('n.textContent = i + 1'));
+  assert.doesNotMatch(fill, /\[n, t, d\] = r\.children\[0\]\.children/);
+  for (const k of ['n', 't', 'd']) assert.match(fill, new RegExp(`${k} = rh\\.querySelector\\('\\.${k}'\\)`));
+});
