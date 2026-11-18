@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rangeIds, moveLimit, parseAmount, blockList } from '../app/js/bulk.js';
+import { rangeIds, moveLimit, dragTicked, parseAmount, blockList } from '../app/js/bulk.js';
 
 const cues = [
   { id: 1, start: 0, end: 2 },
@@ -61,4 +61,19 @@ test('the ticked blocks are listed by number', () => {
   assert.equal(blockList(cues, new Set([1, 2, 3, 4])), '#1, #2, #3 and #4');
   const many = Array.from({ length: 12 }, (_, i) => ({ id: i, start: i, end: i + 0.5 }));
   assert.equal(blockList(many, new Set(many.map((c) => c.id))), '#1, #2, #3 and 9 more');
+});
+
+test('dragging ticked blocks follows the pointer from where the drag began', () => {
+  const blocks = cues.map((c) => ({ ...c }));
+  const ticked = new Set([2, 3]);
+  const from = blocks.filter((c) => ticked.has(c.id)).map((c) => ({ c, s: c.start, e: c.end }));
+  assert.equal(dragTicked(blocks, ticked, from, 0.5, 20), 0.5);
+  assert.deepEqual(blocks.map((c) => c.start), [0, 3.5, 6.5, 10]);
+  // Past block 4, they stop short of it; back again, they follow the pointer, not where they stopped.
+  assert.equal(dragTicked(blocks, ticked, from, 9, 20), 2);
+  assert.deepEqual(blocks.map((c) => [c.start, c.end]), [[0, 2], [5, 7], [8, 10], [10, 12]]);
+  assert.equal(dragTicked(blocks, ticked, from, -0.25, 20), -0.25);
+  assert.deepEqual(blocks.map((c) => c.start), [0, 2.75, 5.75, 10]);
+  assert.equal(dragTicked(blocks, ticked, from, 0, 20), 0);
+  assert.deepEqual(blocks, cues);
 });

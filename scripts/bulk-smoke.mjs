@@ -1,6 +1,7 @@
 // Ticking blocks in headless, muted Chrome at 6× CPU slowdown, with a long script: Select,
-// Shift+click, All, Move…, Replace… in the ticked blocks, Extended, Delete… and undo. Says
-// how long each took and how many long tasks there were.
+// Shift+click, All, Move…, Replace… in the ticked blocks, Extended, Delete… and undo. Then on
+// the timeline: Ctrl+click and Shift+click to tick, and dragging the ticked blocks together.
+// Says how long each took and how many long tasks there were.
 // Usage: node scripts/bulk-smoke.mjs <devtools port> <site url> [blocks]
 import assert from 'node:assert/strict';
 const [,, port, site, blocks = '1500'] = process.argv;
@@ -53,6 +54,51 @@ await step('Replace in 500', `${$('bulkReplace')}.click();${$('frFind')}.value='
 await step('Extended on 500', `${$('bulkExt')}.click()`, `${$('bulkExt')}.getAttribute('aria-pressed')==='true'`);
 await step('Delete 500', `${$('bulkDel')}.click();${$('bulkDelGo')}.click()`, `document.querySelectorAll('#list .row').length===${N - 500}`);
 await step('Undo', `document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'z',code:'KeyZ',metaKey:true,ctrlKey:true,bubbles:true}))`, `document.querySelectorAll('#list .row').length===${N}`);
+
+// On the timeline, with real mouse events. Blocks are 2.5 s long with 1.5 s between them, so a
+// group dragged later stops 1.5 s on, short of the next block that isn't ticked.
+const mouse = (type, x, y, modifiers = 0) => send('Input.dispatchMouseEvent', { type, x, y, modifiers, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1 });
+const at = (bid) => js(`(()=>{const r=document.querySelector('.cue[data-id="${bid}"]').getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]})()`);
+async function tlClick(bid, modifiers = 0) {
+  const [x, y] = await at(bid);
+  await mouse('mousePressed', x, y, modifiers); await mouse('mouseReleased', x, y, modifiers);
+}
+async function tlDrag(bid, dx, label, check) {
+  const [x, y] = await at(bid);
+  await js('__long.length=0;window.__frames=0;window.__count=true;(function f(){if(!window.__count)return;__frames++;requestAnimationFrame(f)})();true');
+  const t0 = Date.now();
+  await mouse('mousePressed', x, y);
+  for (let k = 1; k <= 20; k++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x + (dx * k) / 20, y, button: 'left', buttons: 1 });
+  await mouse('mouseReleased', x + dx, y);
+  await js('new Promise(r=>requestAnimationFrame(()=>setTimeout(r)))');
+  const ms = Date.now() - t0;
+  await sleep(600);
+  const [long, frames] = await js('window.__count=false;[__long.slice(),__frames]');
+  assert.ok(await js(check), `${label}: ${check}`);
+  results.push({ step: label, ms, longTasks: long.length, longest: long.length ? Math.max(...long) : 0, fps: Math.round((frames * 1000) / (ms + 600)) });
+}
+const ticks = `document.querySelectorAll('.cue.ticked').length`;
+// Zoomed out so the first blocks show, with block 3 selected.
+await js(`${$('bulkDone')}.click();for(let k=0;k<3;k++)document.querySelector('#tlZoom [data-zoom=out]').click();${click(row(2))};true`);
+await sleep(800);
+await js(`document.querySelector('#tlZoom [data-zoom=out]').click();true`);
+await sleep(800);
+await tlClick(4, 2);
+assert.equal(await js(`${$('bulkCount')}.textContent`), '2 ticked', 'Ctrl+click on the timeline ticks, with the selected block');
+await tlClick(6, 8);
+assert.equal(await js(`${$('bulkCount')}.textContent`), '4 ticked', 'Shift+click on the timeline ticks the blocks in between');
+assert.equal(await js(ticks), 4, 'the timeline shows the ticks');
+await tlDrag(4, 300, 'Drag 4 ticked later', `${row(2)}.textContent.includes('00:00:09:12') && ${row(5)}.textContent.includes('00:00:21:12') && ${row(6)}.textContent.includes('00:00:24:00')`);
+await js(`document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'z',code:'KeyZ',metaKey:true,ctrlKey:true,bubbles:true}));true`);
+await sleep(600);
+assert.ok(await js(`${row(2)}.textContent.includes('00:00:08:00') && ${row(5)}.textContent.includes('00:00:20:00')`), 'undo puts the dragged blocks back');
+await tlDrag(3, -40, 'Drag 4 ticked earlier', `!${row(2)}.textContent.includes('00:00:08:00') && ${row(1)}.textContent.includes('00:00:04:00')`);
+await js(`${$('bulkNone')}.click();${click(row(499))};${click(row(0), ',shiftKey:true')};true`); // ending on block 1, so the timeline shows it
+await sleep(800);
+assert.equal(await js(`${$('bulkCount')}.textContent`), '500 ticked');
+// Earlier steps made blocks 101 to 600 short, so the group goes until block 500 meets block 501.
+const tcs = (k) => `${row(k)}.textContent.match(/\\d\\d:\\d\\d:\\d\\d:\\d\\d/g)`;
+await tlDrag(2, 300, 'Drag 500 ticked later', `${tcs(499)}[1]===${tcs(500)}[0] && ${tcs(0)}[0]!=='00:00:00:00'`);
 
 console.table(results);
 const errors = await js('__errors');

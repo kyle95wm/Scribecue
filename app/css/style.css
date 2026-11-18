@@ -813,6 +813,22 @@ body.mode-record { grid-template-rows: 44px minmax(0, 1fr) 290px 28px; }
   color: var(--cue);
 }
 .cue.sel .ci { color: var(--accent); }
+/* Ticked in the list: the row's tick mark, before the number. Dragging one moves them all. */
+.cue.ticked { border-color: var(--accent); }
+.cue.ticked .ci { color: var(--accent); }
+.cue.ticked .ci::before {
+  content: "✓";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  border-radius: 3px;
+  background: var(--accent);
+  font: 11px/12px var(--sans);
+  text-align: center;
+  vertical-align: -1px;
+  color: var(--bg);
+}
 .cue .ct {
   position: absolute;
   top: 20px;

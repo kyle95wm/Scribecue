@@ -54,7 +54,7 @@ import { projectName } from './driveprojects.js';
 import { isDriveRef, filterProjects } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
-import { rangeIds, moveLimit, parseAmount, blockList } from './bulk.js';
+import { rangeIds, moveLimit, dragTicked, parseAmount, blockList } from './bulk.js';
 import { ADDABLE, readScript, span as scriptSpan, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote } from './addscript.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup, REC_LOCKED, bindings, comboText } from './keymap.js';
@@ -2660,6 +2660,7 @@ function paintTicks() {
   list.classList.toggle('ticking', ticking);
   for (const [id, r] of rowMap) paintTick(r, id);
   showBulkBar();
+  tlDirty = true; // the timeline shows the ticks too
 }
 function showBulkBar() {
   $('selectBtn').setAttribute('aria-pressed', String(ticking));
@@ -2695,6 +2696,7 @@ function tickOne(id, on = !ticked.has(id)) {
   const r = rowMap.get(id);
   if (r) paintTick(r, id);
   showBulkBar();
+  tlDirty = true;
 }
 function clickTick(id, range) {
   const from = tickAnchor ?? S.sel;
@@ -3108,6 +3110,7 @@ function drawCues(W) {
     el.classList.toggle('locked', following(c));
     el.classList.toggle('extended', ext);
     el.classList.toggle('sel', c.id === S.sel);
+    el.classList.toggle('ticked', ticking && ticked.has(c.id));
     el.classList.toggle('active', c.id === S.activeId);
     el.classList.toggle('faded', !matches(c, i));
     el.classList.toggle('changing', !!ghost?.theirs && c.uid === ghost.uid);
@@ -3230,10 +3233,25 @@ lane.addEventListener('pointerdown', (e) => {
   if (el) {
     const id = +el.dataset.id, i = idx(id), c = S.cues[i];
     if (!c) return;
+    // Ctrl/Cmd+click or Shift+click ticks it, as in the list.
+    if (canTick() && (e.shiftKey || e.metaKey || e.ctrlKey)) { clickTick(id, e.shiftKey); e.preventDefault(); return; }
     if (S.sel !== id) select(id, { seek: false, reveal: false });
     if (S.mode === 'record') return; // the script is locked
-    const mode = following(c) ? 'move' : e.target.closest('.hl') ? 'start' : e.target.closest('.hr') ? 'end' : 'move';
-    drag = { mode, id, x0: e.clientX, s0: c.start, e0: c.end, ...bounds(i), snap: snapshot(), moved: false };
+    let mode = following(c) ? 'move' : e.target.closest('.hl') ? 'start' : e.target.closest('.hr') ? 'end' : 'move';
+    // Grabbing a ticked block by its middle moves all the ticked ones.
+    let from = null;
+    if (mode === 'move' && ticking && ticked.has(id) && ticked.size > 1) {
+      mode = 'group';
+      // Only the rows in view are filled while dragging; dropping them refills the list.
+      const box = list.getBoundingClientRect();
+      from = [];
+      S.cues.forEach((t, k) => {
+        if (!ticked.has(t.id)) return;
+        const r = t.id === id ? null : rowMap.get(t.id), rr = r?.getBoundingClientRect();
+        from.push({ c: t, k, s: t.start, e: t.end, r: rr && rr.bottom > box.top && rr.top < box.bottom ? r : null });
+      });
+    }
+    drag = { mode, id, x0: e.clientX, s0: c.start, e0: c.end, ...bounds(i), from, snap: snapshot(), moved: false };
   } else {
     const t = xToT(e.clientX);
     S.playUntil = null;
@@ -3251,7 +3269,7 @@ lane.addEventListener('pointermove', (e) => {
   if (!drag.moved) {
     drag.moved = true;
     document.body.classList.add('dragging');
-    if (drag.mode !== 'move') document.body.classList.add('resize');
+    if (drag.mode !== 'move' && drag.mode !== 'group') document.body.classList.add('resize');
   }
 
   if (drag.mode === 'blank') {
@@ -3271,6 +3289,12 @@ lane.addEventListener('pointermove', (e) => {
   if (!c) return;
   const dt = dx / S.pps, { lo, hi } = drag;
 
+  if (drag.mode === 'group') {
+    const d = dragGroup(drag.from, dt);
+    showDragTip(e, `${plural(drag.from.length)}  ·  ${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(3)} s`);
+    return;
+  }
+
   if (drag.mode === 'move') {
     const len = drag.e0 - drag.s0;
     const ns = clamp(drag.s0 + dt, lo, hi - len);
@@ -3288,11 +3312,26 @@ lane.addEventListener('pointermove', (e) => {
     if (c.end - c.start < MIN_DUR) c.end = Math.min(hi, c.start + MIN_DUR);
   }
   changed(c.id);
+  showDragTip(e, `${tc(c.start)} → ${tc(c.end)}  ·  ${(c.end - c.start).toFixed(2)} s`);
+});
+
+function showDragTip(e, text) {
   dragtip.hidden = false;
-  dragtip.textContent = `${tc(c.start)} → ${tc(c.end)}  ·  ${(c.end - c.start).toFixed(2)} s`;
+  dragtip.textContent = text;
   const lx = e.clientX - lane.getBoundingClientRect().left;
   dragtip.style.left = clamp(lx + 12, 0, lane.clientWidth - dragtip.offsetWidth - 4) + 'px';
-});
+}
+
+// Moves the ticked blocks dt seconds from where they started, or as far as they go before
+// running into one that isn't ticked, as Move… does. Their order doesn't change, so only
+// the rows in view need filling. from: { c: the block, k: its place, s and e: where it was,
+// r: its row if it's in view }. Returns how far they moved.
+function dragGroup(from, dt) {
+  const d = dragTicked(S.cues, ticked, from, dt, duration());
+  changed(drag.id);
+  for (const { c, k, r } of from) if (r) fillRow(r, c, k);
+  return d;
+}
 
 function endDrag() {
   if (!drag) return;

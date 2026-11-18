@@ -32,6 +32,17 @@ export function moveLimit(cues, ticked, d, end = 0) {
   return Math.min(Math.max(d, lo), hi);
 }
 
+// Dragging ticked blocks on the timeline: puts each back where the drag began, then moves
+// them all dt seconds, or as far as moveLimit lets them. Working from where they began means
+// dragging back after they've stopped short follows the pointer again. from: { c: the block,
+// s and e: where it was }. Returns how far they moved.
+export function dragTicked(cues, ticked, from, dt, end = 0) {
+  for (const { c, s, e } of from) { c.start = s; c.end = e; }
+  const d = moveLimit(cues, ticked, dt, end);
+  for (const { c } of from) { c.start += d; c.end += d; }
+  return d;
+}
+
 // How far to move, as typed: seconds ("1.5"), minutes and seconds ("1:02") or a timecode.
 // No sign: Earlier and Later say which way. Returns seconds, or NaN.
 export function parseAmount(str, fps = 25) {

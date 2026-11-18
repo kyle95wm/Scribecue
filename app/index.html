@@ -93,7 +93,7 @@
         <input id="listSearch" type="search" placeholder="Search text, or #12 for a block number"
           spellcheck="false" autocomplete="off" aria-label="Search text blocks">
         <span id="listCount" class="dim"></span>
-        <button id="selectBtn" class="tip-end" aria-pressed="false" data-tip="Tick blocks to change several at once (⌥⇧X). Ctrl/Cmd+click or Shift+click a block ticks it too">Select</button>
+        <button id="selectBtn" class="tip-end" aria-pressed="false" data-tip="Tick blocks to change several at once (⌥⇧X). Ctrl/Cmd+click or Shift+click a block, here or on the timeline, ticks it too">Select</button>
       </div>
       <!-- Shows while blocks are being ticked: what's ticked, and what to do to them. -->
       <div id="bulkBar" class="bulkbar" role="toolbar" aria-label="Ticked blocks" hidden>
@@ -1171,7 +1171,7 @@ docker compose up -d --build</code></pre>
     <div class="ttsgrid">
       <label for="bulkMoveBy">By</label><input id="bulkMoveBy" class="time" type="text" spellcheck="false" autocomplete="off" value="1.000">
     </div>
-    <p class="dim small">Seconds, such as 1.5, or a timecode. Blocks stop short of ones that aren't ticked.</p>
+    <p class="dim small">Seconds, such as 1.5, or a timecode. Blocks stop short of ones that aren't ticked. You can also drag them on the timeline.</p>
     <div class="updbtns"><button id="bulkEarlier">Earlier</button><button id="bulkLater">Later</button><span class="grow"></span><button id="bulkMoveCancel">Cancel</button></div>
   </dialog>
 

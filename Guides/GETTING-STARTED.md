@@ -165,7 +165,8 @@ with notes show `notes` in the list.
 | Set the end to where the reading finishes (Write) | `Shift+V` |
 
 On the timeline, drag a block to move it, drag an edge to change its start or end, or drag
-across empty space to draw a new block.
+across empty space to draw a new block. To move several at once, [tick them](#changing-several-blocks-at-once)
+and drag one.
 
 ## Getting around
 
@@ -478,15 +479,20 @@ finishes. After that, switching to it is instant until you close the video.
 
 1. Click **Select**, next to the search box. Each block gets a tick box.
 2. Click blocks to tick them. `Shift`+click ticks every block in between.
-3. Pick what to do in the bar under the search.
+3. Pick what to do in the bar under the search, or drag them on the timeline.
 
-`Ctrl/Cmd`+click or `Shift`+click a block starts ticking without **Select**.
+`Ctrl/Cmd`+click or `Shift`+click a block, in the list or on the timeline, starts ticking
+without **Select**.
+
+Ticked blocks show a tick on the timeline too. Drag any of them to move them all.
+
+However you move them, they keep their gaps and stop short of blocks that aren't ticked.
 
 | Button | What it does |
 |---|---|
 | **All** / **None** | Tick every block the list shows, or none. Search first to tick only matching blocks. |
 | **Replace…** | Find and replace text in the ticked blocks. |
-| **Move…** | Move them earlier or later. They stop short of blocks that aren't ticked. |
+| **Move…** | Move them earlier or later by an amount you type. |
 | **Voice…** | Give them a text to speech voice. |
 | **Extended** | Make them pause the video while they're read, or stop. |
 | **Delete…** | Delete them, after asking. `Del` does the same. |
