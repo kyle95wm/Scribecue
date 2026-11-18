@@ -156,12 +156,15 @@ The blocks, scene summaries, bookmarks and comments stay with the old episode.
 
 ## Choosing where it runs
 
+Start with an online provider: its drafts are better and much faster. Use Ollama when frames
+mustn't leave your computer, or when you work offline.
+
 | | Online (Claude, OpenAI, Gemini, OpenRouter) | Ollama, on your computer |
 | --- | --- | --- |
 | **Quality** | The best available. The top models describe scenes far more accurately than anything a laptop can run. | Good with a big model on a powerful computer; rougher with the small ones. |
 | **Privacy** | Frames and nearby blocks go to the provider, under its terms. | Nothing leaves your computer. |
 | **Cost** | A cent or two per draft with the best models; less with smaller ones. | Free, once you have the computer. |
-| **Speed** | A few seconds. | From a couple of seconds to a minute, depending on the computer and model. |
+| **Speed** | A few seconds a draft; minutes for a whole script. | From a couple of seconds to a minute a draft; hours for a whole script. Slow without Apple silicon or a strong graphics card. |
 | **Set-up** | Paste a key, or sign in. | Install Ollama and download a model. |
 
 **For programmes under a confidentiality agreement, or not yet broadcast, use Ollama** unless
