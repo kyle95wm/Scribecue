@@ -27,7 +27,7 @@ you work. It's in sections down the left:
 | Section | What's in it |
 |---|---|
 | **General** | Your name, setup and the tour, updates |
-| **Editing** | Replay, Lead-in, spelling and grammar, and Return to start in Record mode |
+| **Editing** | Replay, Lead-in, what dragging across the empty timeline does, spelling and grammar, and Return to start in Record mode |
 | **Transcribing** | Marking with `H`, speech to text |
 | **Appearance** | Highlight colour, text over the video, text size, floating video |
 | **Text to speech** | Voices, reading aloud, timings, audio exports |
@@ -486,6 +486,9 @@ without **Select**.
 
 On the timeline, `Shift`+drag across empty space to tick every block it crosses. Ticked
 blocks show a tick there. Drag any of them to move them all. Click empty space to untick them.
+
+To tick with a plain drag instead, choose **Ticks blocks** under **Dragging across the empty
+timeline** in **Settings → Editing**. `Shift`+drag then draws a block.
 
 However you move them, they keep their gaps and stop short of blocks that aren't ticked.
 

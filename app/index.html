@@ -1739,6 +1739,9 @@ docker compose up -d --build</code></pre>
       <p class="dim small not-record">Start this long before a block when you hear it again, so you hear what leads
         into it. It works with Replay, playing a block (<kbd>⇧</kbd><kbd>Space</kbd>), looping it (<kbd>L</kbd>)
         and reading it (<kbd>V</kbd>). At 0, these start at the block.</p>
+      <h3 class="not-record" id="laneDragTitle">Dragging across the empty timeline</h3>
+      <p class="updstatus lookrow not-record" role="group" aria-labelledby="laneDragTitle"><button type="button" data-lane-drag="draw" aria-pressed="true">Draws a block</button><button type="button" data-lane-drag="tick" aria-pressed="false">Ticks blocks</button></p>
+      <p class="dim small not-record">Hold <kbd>⇧</kbd> to do the other. Ticked blocks move together when you drag one of them.</p>
       <h3>Spelling and grammar</h3>
       <p class="updstatus"><button id="setCheckWarn" aria-pressed="true">Check before exporting</button>
         <label for="setCheckLang" class="small">Spelling</label>
@@ -1878,8 +1881,9 @@ docker compose up -d --build</code></pre>
           <h3>Mouse</h3>
           <dl>
             <dt>Drag block</dt><dd>Move · drag an edge to resize, except with text to speech on</dd>
-            <dt>Drag empty lane</dt><dd>Draw a new block</dd>
-            <dt><kbd>⇧</kbd>+drag empty lane</dt><dd>Tick every block it crosses · drag a ticked block to move them all · click empty lane to untick</dd>
+            <dt>Drag empty lane</dt><dd id="keysLaneDrag">Draw a new block</dd>
+            <dt><kbd>⇧</kbd>+drag empty lane</dt><dd id="keysLaneShift">Tick every block it crosses · drag a ticked block to move them all</dd>
+            <dt>Click empty lane</dt><dd>Move the playhead there, and untick every block</dd>
             <dt><kbd><span class="mod"></span></kbd>+click / <kbd>⇧</kbd>+click block</dt><dd>Tick it, or every block in between</dd>
             <dt>× in the list</dt><dd>Delete that block (undoable)</dd>
             <dt>Buttons under video</dt><dd>Block, 3 s and frame steps, play, play block, loop block, text over the video on / off</dd>

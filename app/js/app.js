@@ -196,6 +196,9 @@ const S = {
   // Return to start: stopping puts the playhead back where that playback began. Record mode
   // only (see returning). Off unless turned on.
   returnToStart: (() => { try { return localStorage.getItem('scribecue.returnToStart') === '1'; } catch { return false; } })(),
+  // Dragging across the empty timeline: 'draw' draws a block and Shift+drag ticks blocks;
+  // 'tick' swaps them. Settings → Editing.
+  laneDrag: (() => { try { return localStorage.getItem('scribecue.laneDrag') === 'tick' ? 'tick' : 'draw'; } catch { return 'draw'; } })(),
   // The total length shows the time remaining instead.
   remaining: (() => { try { return localStorage.getItem('scribecue.remaining') === '1'; } catch { return false; } })(),
   // The block's text shows over the video. On unless turned off in this browser.
@@ -3252,14 +3255,15 @@ lane.addEventListener('pointerdown', (e) => {
       });
     }
     drag = { mode, id, x0: e.clientX, s0: c.start, e0: c.end, ...bounds(i), from, snap: snapshot(), moved: false };
-  } else if (e.shiftKey && canTick()) {
-    // Shift+drag across the empty lane ticks every block it touches, adding to the ticks.
-    drag = { mode: 'lasso', x0: e.clientX, t0: xToT(e.clientX), base: new Set(ticked), moved: false, id: null };
+  } else if (e.shiftKey === (S.laneDrag === 'draw') && canTick()) {
+    // A lasso: dragging across the empty lane ticks every block it touches, adding to the ticks.
+    // Shift+drag, or a plain drag if Settings → Editing says so.
+    drag = { mode: 'lasso', x0: e.clientX, t0: xToT(e.clientX), base: new Set(ticked), shift: e.shiftKey, moved: false, id: null };
   } else {
     const t = xToT(e.clientX);
     S.playUntil = null;
     seek(t, false);
-    drag = { mode: 'blank', x0: e.clientX, t0: t, snap: snapshot(), moved: false, id: null };
+    drag = { mode: 'blank', x0: e.clientX, t0: t, snap: snapshot(), shift: e.shiftKey, moved: false, id: null };
   }
   lane.setPointerCapture(e.pointerId);
   e.preventDefault();
@@ -3363,9 +3367,9 @@ function endDrag() {
   dragtip.hidden = true;
   lassoEl.hidden = true;
   document.body.classList.remove('dragging', 'resize');
-  if (d.mode === 'lasso' && !d.moved) { S.playUntil = null; seek(d.t0, false); } // a Shift+click seeks, as a click does
-  // A click on the empty lane unticks every block. Select stays on, to tick again.
-  if (d.mode === 'blank' && !d.moved && ticked.size) { ticked.clear(); tickAnchor = null; paintTicks(); }
+  if (d.mode === 'lasso' && !d.moved) { S.playUntil = null; seek(d.t0, false); } // a click seeks, whatever a drag does
+  // A click on the empty lane, without Shift, unticks every block. Select stays on, to tick again.
+  if ((d.mode === 'blank' || d.mode === 'lasso') && !d.moved && !d.shift && ticked.size) { ticked.clear(); tickAnchor = null; paintTicks(); }
   if (d.moved && d.id != null && d.mode !== 'none') {
     pushUndo(d.snap);
     changed();
@@ -9322,6 +9326,7 @@ const showEditing = () => {
   $('setReplay').checked = S.replay;
   $('setLead').value = S.lead;
   $('setReturn').setAttribute('aria-pressed', String(S.returnToStart));
+  showLaneDrag();
   openSettings('editing');
 };
 const showMarking = () => {
@@ -9387,6 +9392,21 @@ whenClear(dockerTip);
 $('setReplay').addEventListener('change', (e) => setReplay(e.target.checked, true));
 $('setLead').addEventListener('change', (e) => setLead(e.target.value));
 $('setReturn').addEventListener('click', () => setReturnToStart(!S.returnToStart));
+// Settings → Editing: what dragging across the empty timeline does. The shortcuts list follows.
+function showLaneDrag() {
+  for (const b of document.querySelectorAll('[data-lane-drag]')) b.setAttribute('aria-pressed', String(b.dataset.laneDrag === S.laneDrag));
+  const tick = S.laneDrag === 'tick';
+  $('keysLaneDrag').textContent = tick ? 'Tick every block it crosses · drag a ticked block to move them all' : 'Draw a new block';
+  $('keysLaneShift').textContent = tick ? 'Draw a new block' : 'Tick every block it crosses · drag a ticked block to move them all';
+}
+for (const b of document.querySelectorAll('[data-lane-drag]')) {
+  b.addEventListener('click', () => {
+    S.laneDrag = b.dataset.laneDrag;
+    try { localStorage.setItem('scribecue.laneDrag', S.laneDrag); } catch { /* ignore */ }
+    showLaneDrag();
+  });
+}
+showLaneDrag();
 $('setOffset').addEventListener('change', (e) => setOffset(+e.target.value));
 
 // Runs fn once no dialog, notice or tour is showing, checking for up to a minute.

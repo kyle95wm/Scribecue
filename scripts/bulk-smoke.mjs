@@ -115,6 +115,25 @@ await js(`${$('bulkNone')}.click();true`);
   await mouse('mousePressed', gx, gy); await mouse('mouseReleased', gx, gy);
   assert.equal(await js(`${$('bulkCount')}.textContent`), 'None ticked', 'a click on the empty lane unticks them');
   assert.equal(await js(ticks), 0);
+  // Settings → Editing swapped: a plain drag ticks, and Shift+drag draws a block.
+  await js(`document.querySelector('[data-lane-drag=tick]').click();true`);
+  assert.equal(await js(`localStorage.getItem('scribecue.laneDrag')`), 'tick');
+  assert.match(await js(`${$('keysLaneDrag')}.textContent`), /^Tick/, 'the shortcuts list follows the setting');
+  const sweep = async (mods, to) => {
+    const [g, yy] = await gap(1), x = to === 1 ? g - 10 : g, x2 = to === 1 ? g + 10 : (await gap(to))[0];
+    await mouse('mousePressed', x, yy, mods);
+    for (let k = 1; k <= 6; k++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x + ((x2 - x) * k) / 6, y: yy, modifiers: mods, button: 'left', buttons: 1 });
+    await mouse('mouseReleased', x2, yy, mods);
+    await sleep(400);
+  };
+  await sweep(0, 4);
+  assert.equal(await js(`${$('bulkCount')}.textContent`), '3 ticked', 'with the setting swapped, a plain drag ticks');
+  await js(`${$('bulkNone')}.click();true`);
+  await sweep(8, 1); // across the middle of the gap after block 1, where there's room for a block
+  assert.equal(await js(`document.querySelectorAll('#list .row').length`), N + 1, 'with the setting swapped, Shift+drag draws a block');
+  await js(`document.activeElement?.blur();document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'z',code:'KeyZ',metaKey:true,ctrlKey:true,bubbles:true}));document.querySelector('[data-lane-drag=draw]').click();true`);
+  await sleep(600);
+  assert.equal(await js(`document.querySelectorAll('#list .row').length`), N, 'undo takes the drawn block back');
 }
 await js(`${$('bulkNone')}.click();${click(row(499))};${click(row(0), ',shiftKey:true')};true`); // ending on block 1, so the timeline shows it
 await sleep(800);
