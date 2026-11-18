@@ -110,3 +110,19 @@ export function fullText(need, free = null) {
 }
 
 export const sizeText = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`);
+
+// What to do about the shared video when the project opens, or when the video sent changes.
+// `owner`: this is the owner's copy. `open`: the video open now, or null. `changed`: a
+// different video has just been sent.
+// - 'clear': no video sent; take back any offer.
+// - 'have': the shared video is open already.
+// - 'find': no video open; open the copy kept here (for the owner, their own file first),
+//   or offer the download.
+// - 'tell': another video is open and a new one was sent; say so.
+// - 'leave': another video is open; leave it. The owner hears about it on opening one.
+export function videoStep({ info, owner = false, open = null, changed = false }) {
+  if (!info) return 'clear';
+  if (open && isShared(info, open)) return 'have';
+  if (!open) return 'find';
+  return changed && !owner ? 'tell' : 'leave';
+}
