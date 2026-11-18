@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.137.1",
+    "date": "2026-11-18",
+    "notes": "## AI help\n\n- The tour, Settings and the AI guide now suggest starting with an online provider: its drafts are better and much faster.\n- Ollama is for programmes you mustn't share, or for working offline. Everything stays on your computer.\n- Settings suggests `gemma4:12b` for Ollama, as the AI guide does."
+  },
+  {
     "version": "0.137.0",
     "date": "2026-11-18",
     "notes": "## Add a script\n\n- **File → Add a script…** (`Alt+Shift+M`) adds SRT, WebVTT or Scribecue scripts to this project, such as each episode's script for a video that joins them.\n- Give each script the time it starts: type one, use the playhead, or put it after the last block.\n- Its bookmarks, comments, scenes and words come along. A bookmark marks where each script starts.\n- The added blocks stay ticked, so you can delete or move parts the video leaves out.\n\n## Tick and move blocks on the timeline\n\n- Ticked blocks show on the timeline, filled like the selected block, with a tick.\n- `Ctrl/Cmd`+click or `Shift`+click a block on the timeline to tick it, as in the list.\n- `Shift`+drag across empty space ticks every block it crosses. Click empty space to untick them.\n- Drag a ticked block to move them all. They keep their gaps and stop short of other blocks.\n- **Settings → Editing** can swap them: a plain drag ticks, and `Shift`+drag draws a block."
