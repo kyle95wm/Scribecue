@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.136.0",
+    "date": "2026-11-17",
+    "notes": "## Change several blocks at once\n\n- Click **Select**, next to the list's search, to tick blocks. `Ctrl/Cmd`+click or `Shift`+click a block starts ticking too.\n- Delete, move, change the voice or make extended all the ticked blocks at once. Delete asks first.\n- **Replace…** now finds and replaces in the ticked blocks. `Alt+Shift+F` still does every block.\n- `Alt+Shift+X` starts or stops ticking. `Ctrl/Cmd+Z` undoes any of these.\n\n## Fixes\n\n- Typing in a block's notes, then picking another block on the timeline, no longer puts the first block's notes on the new one.\n- Undo no longer seems to do nothing after clicking into a block's notes without typing.\n- Clicking **REPLAY**, **LEAD** or **RETURN** under the video opens their settings, in Settings → Editing.\n- WebVTT files from other programs read `&amp;` as `&`, so text to speech no longer says \"amp\". Exported WebVTT files write `&` and `<` the way players expect.\n- **Voice…** for ticked blocks keeps a voice that isn't available here, rather than showing Default."
+  },
+  {
     "version": "0.135.4",
     "date": "2026-11-17",
     "notes": "## Fixes\n\n- The owner of a shared project now gets the video they sent when opening it without one open. Scribecue reopens your own file if it can, or offers **Download the video**, as others get."
