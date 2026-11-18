@@ -1161,6 +1161,10 @@ body.blocked > :not(.blocker) { display: none !important; }
 .takeslist { max-height: 40vh; overflow-y: auto; }
 .takeslist li { align-items: center; }
 .takeslist .what strong { overflow-wrap: anywhere; }
+/* Add scripts: each script's start, under its name. */
+.addlist li { flex-wrap: wrap; }
+.addlist .addat { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex-basis: 100%; }
+.addlist .addnote { flex-basis: 100%; margin: 0; color: var(--warn); }
 .oslist li { align-items: center; }
 .oslist .what span { display: block; }
 .osfit { font-family: var(--mono); color: var(--ok); white-space: nowrap; }

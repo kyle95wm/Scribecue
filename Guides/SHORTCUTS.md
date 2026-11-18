@@ -63,6 +63,7 @@ takes them to another browser with your other settings.
 | `Ctrl/Cmd+B` `Ctrl/Cmd+I` `Ctrl/Cmd+U` | Bold / italic / underline |
 | `Ctrl/Cmd+Z` `Ctrl/Cmd+Shift+Z` | Undo / redo |
 | `Ctrl/Cmd+S` / `Ctrl/Cmd+Shift+S` | Save the project / save it as a new file. Only the owner, in a shared project |
+| `Alt+Shift+M` | [Add a script](GETTING-STARTED.md#adding-scripts-to-a-project): episodes or other scripts, each where it starts. Not in QC or Record mode |
 | `Alt+Shift+R` | Recents: files you opened or saved lately |
 | `Alt+Shift+G` / `Alt+Shift+U` | Open a project from Google Drive / save the project to Google Drive. Saving is only for the owner, in a shared project |
 | `Alt+Shift+E` | Export: every file you can make. Not with a QC package open in QC |

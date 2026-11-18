@@ -54,6 +54,7 @@
         <div class="navmenu filemenu" id="fileMenu" role="menu" aria-labelledby="fileBtn" hidden>
           <button role="menuitem" data-act="newProject" class="not-qc not-record"><span><strong>New…</strong><span class="dim">clear the blocks and the video, or start the next episode</span></span></button>
           <button role="menuitem" data-act="openSubs"><span><strong>Open…</strong><span class="dim">a project, a script (SRT or VTT), or video or audio</span></span><kbd><span class="mod"></span>O</kbd></button>
+          <button role="menuitem" data-act="addScript" class="not-qc not-record"><span><strong>Add a script…</strong><span class="dim">episodes or other scripts, each where it starts in this video</span></span><span data-keys="addScript"><kbd>⌥⇧M</kbd></span></button>
           <button role="menuitem" data-act="recents" id="recentsItem"><span><strong>Recents…</strong><span class="dim">projects, packages and recording files opened or saved lately</span></span><span data-keys="recents"><kbd>⌥⇧R</kbd></span></button>
           <button role="menuitem" data-act="openDrive" id="openDriveItem" hidden><span><strong>Open from Google Drive…</strong><span class="dim">a project you saved to Drive, on any computer</span></span><span data-keys="openDrive"><kbd>⌥⇧G</kbd></span></button>
           <button role="menuitem" data-act="sharedProjects" id="sharedBtn" class="not-record" hidden><span><strong>Shared projects…</strong><span class="dim">open one kept in this browser again, without its link</span></span></button>
@@ -1174,6 +1175,16 @@ docker compose up -d --build</code></pre>
     <div class="updbtns"><button id="bulkEarlier">Earlier</button><button id="bulkLater">Later</button><span class="grow"></span><button id="bulkMoveCancel">Cancel</button></div>
   </dialog>
 
+  <dialog id="addDlg" class="updbox" aria-labelledby="addTitle">
+    <h2 id="addTitle">Add scripts</h2>
+    <p>Each script’s blocks are added where it starts in this video. Type a time, or click a button.</p>
+    <ul id="addList" class="offlinelist takeslist addlist"></ul>
+    <p id="addLeft" class="dim small" hidden></p>
+    <p class="dim small">The added blocks stay ticked, so you can delete or move parts the video leaves out, such as titles and credits. Undo takes it all back.</p>
+    <div class="updbtns"><button id="addMore">Choose more…</button><span class="grow"></span><button id="addGo" class="hl">Add</button><button id="addCancel">Cancel</button></div>
+  </dialog>
+  <input type="file" id="fileAdd" accept=".srt,.vtt,.txt,.adc,.scribecue" multiple hidden>
+
   <dialog id="bulkVoiceDlg" class="updbox" aria-labelledby="bulkVoiceTitle">
     <h2 id="bulkVoiceTitle">Voice for the ticked blocks</h2>
     <div class="ttsgrid">
@@ -1892,6 +1903,7 @@ docker compose up -d --build</code></pre>
           <dl>
             <dt><kbd><span class="mod"></span>O</kbd> <kbd><span class="mod"></span>⇧O</kbd></dt><dd>Open a project or SRT/VTT · open video/audio</dd>
             <dt class="save-key"><kbd><span class="mod"></span>S</kbd> <kbd><span class="mod"></span>⇧S</kbd></dt><dd class="save-key">Save project · save project as</dd>
+            <dt data-keys="addScript"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>M</kbd></dt><dd>Add a script: episodes or other scripts, each where it starts</dd>
             <dt data-keys="recents"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>R</kbd></dt><dd>Recents: files opened or saved lately</dd>
             <dt data-keys="openDrive"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>G</kbd></dt><dd>Open a project from Google Drive</dd>
             <dt class="save-key" data-keys="saveDrive"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>U</kbd></dt><dd class="save-key">Save the project to Google Drive</dd>

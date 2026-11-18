@@ -220,6 +220,8 @@ programme. `Ctrl/Cmd+O` opens it again.
   has moved, open it again with `Ctrl/Cmd+Shift+O`.
 - **File, New** clears the blocks and closes the video, or starts the next episode.
   With unsaved changes, it asks whether to save first. `Ctrl/Cmd+Z` brings the blocks back.
+- **File, Add a script…** (`Alt+Shift+M`) adds episodes or other scripts to this project.
+  See [Adding scripts to a project](#adding-scripts-to-a-project).
 - **File, Close** (`Alt+Shift+W`) closes the project and the video, for different work.
   With unsaved changes, it asks whether to save first.
 - **File, Recents** (`Alt+Shift+R`) lists the last 20 projects, QC packages, recording
@@ -490,6 +492,32 @@ finishes. After that, switching to it is instant until you close the video.
 | **Delete…** | Delete them, after asking. `Del` does the same. |
 
 `Ctrl/Cmd+Z` undoes any of these. **Done** or `Esc` stops ticking.
+
+## Adding scripts to a project
+
+Use this when scripts were written for one version of a programme, and you're describing
+another. For example, episodes written one at a time, for a version that joins them into one.
+
+1. Open the video, and the project if there is one.
+2. Click **File**, then **Add a script…** (`Alt+Shift+M`). Choose one or more files.
+3. Give each a start: where its time 0 falls in this video.
+4. Click **Add**.
+
+| To start it | Do this |
+|---|---|
+| At a time | Type it, such as `00:42:10:00`. |
+| Where the video is | Click **Playhead**. |
+| Straight after the blocks before it | Click **After the last block**. This is where it starts at first. |
+
+- **What comes in:** SRT, WebVTT, `.adc` and Scribecue projects. A project also brings its
+  bookmarks, comments, scenes and spelling words.
+- **What stays behind:** a project's recordings, takes and QC history, which belong to its own
+  video. Its voice and base speed too: the added blocks use this project's.
+- **A bookmark marks where each script starts,** named after its file.
+- **The added blocks stay ticked.** Delete or move titles, recaps and credits the video leaves
+  out, as in [Changing several blocks at once](#changing-several-blocks-at-once).
+- **Blocks that land on others** are added anyway. A message says how many.
+- `Ctrl/Cmd+Z` takes it all back.
 
 ## Other handy features
 

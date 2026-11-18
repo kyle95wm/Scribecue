@@ -55,6 +55,7 @@ import { isDriveRef, filterProjects } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { rangeIds, moveLimit, parseAmount, blockList } from './bulk.js';
+import { ADDABLE, readScript, span as scriptSpan, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote } from './addscript.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup, REC_LOCKED, bindings, comboText } from './keymap.js';
 import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList } from './extended.js';
@@ -591,6 +592,13 @@ function pushUndo(snap = snapshot(), tag = null) {
   if (undoStack.length > 300) undoStack.shift();
   redoStack.length = 0;
 }
+// Adding a script also changes scenes and names and terms, which other steps leave alone:
+// that step, and the step that takes it back, carry them too.
+const withExtras = (back, snap) => (snap.scenes ? { ...back, scenes: S.scenes, words: S.words } : back);
+function restoreExtras(snap) {
+  if (snap.scenes) S.scenes = snap.scenes;
+  if (snap.words) S.words = snap.words;
+}
 function restore(snap) {
   const o = JSON.parse(snap.data);
   if (qcLocked()) {
@@ -598,6 +606,7 @@ function restore(snap) {
     for (const c of S.cues) c.comments = o.cues.find((b) => b.id === c.id)?.comments || [];
     changed(); return;
   }
+  restoreExtras(snap);
   S.projectId = validIdentity(o.projectId) ? o.projectId : newIdentity();
   S.reviewHistory = snap.reviewHistory;
   if (!S.reviewId) { S.reviewAudio = snap.reviewAudio || null; S.review = snap.authorReadings || null; S.qcSource = S.review ? 'package' : 'video'; syncQcPermission(); }
@@ -625,6 +634,7 @@ const sharedStep = (snap) => sharedUndo && snap.shared === sharedUndo;
 function restoreLocal(snap) {
   if (qcLocked()) return;
   const o = JSON.parse(snap.data), keep = new Set(['id', 'uid', 'text', 'comments', ...sharedLib.SHARED_FIELDS]);
+  restoreExtras(snap);
   S.reviewHistory = snap.reviewHistory;
   if (!S.reviewId) { S.reviewAudio = snap.reviewAudio || null; S.review = snap.authorReadings || null; S.qcSource = S.review ? 'package' : 'video'; syncQcPermission(); }
   S.extendedAll = o.extendedAll === true;
@@ -648,11 +658,11 @@ function doUndo() {
   if (sharedStep(snap)) {
     undoStack.pop();
     const back = sharedUndo.undoTo(snap.mark);
-    redoStack.push({ ...snapshot(), shared: sharedUndo, redo: back });
+    redoStack.push(withExtras({ ...snapshot(), shared: sharedUndo, redo: back }, snap));
     restoreLocal(snap);
   } else {
     if (!qcUndoAllowed(snap)) return;
-    redoStack.push(snapshot());
+    redoStack.push(withExtras(snapshot(), snap));
     restore(undoStack.pop());
   }
   lastUndoTag = null;
@@ -667,11 +677,11 @@ function doRedo() {
     redoStack.pop();
     const mark = sharedUndo.depth();
     sharedUndo.redo(snap.redo);
-    undoStack.push({ ...snapshot(), shared: sharedUndo, mark });
+    undoStack.push(withExtras({ ...snapshot(), shared: sharedUndo, mark }, snap));
     restoreLocal(snap);
   } else {
     if (!qcUndoAllowed(snap)) return;
-    undoStack.push(snapshot());
+    undoStack.push(withExtras(snapshot(), snap));
     restore(redoStack.pop());
   }
   lastUndoTag = null;
@@ -2758,6 +2768,135 @@ function bulkMove(dir) {
 $('bulkEarlier').addEventListener('click', () => bulkMove(-1));
 $('bulkLater').addEventListener('click', () => bulkMove(1));
 $('bulkMoveBy').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); bulkMove(1); } });
+
+// ---------------------------------------------------------------- adding scripts
+
+// File → Add a script…: scripts or Scribecue projects added to this one, each where it
+// starts in this video, such as episodes in a version that joins them. The added blocks
+// stay ticked, to delete or move what the video leaves out. See addscript.js.
+const addDlg = $('addDlg'), fileAdd = $('fileAdd');
+let adding = []; // { script, at: the start as typed }
+function addScript() {
+  if (!canTick()) return toast(qc() ? 'Scripts can’t be added in QC. Switch to Write first' : 'Scripts can’t be added in Record mode. Switch to Write first');
+  if (!addDlg.open) adding = [];
+  fileAdd.click();
+}
+const addStart = (a) => parseTC(a.at, S.fps);
+// After the last block: of this project, or of a script above it in the list.
+function afterLast(i = adding.length) {
+  let end = S.cues.reduce((m, c) => Math.max(m, c.end), 0);
+  for (const a of adding.slice(0, i)) { const t = addStart(a); if (t >= 0) end = Math.max(end, endsAt(a.script, t)); }
+  return Math.ceil(end * S.fps - 1e-6) / S.fps; // on a frame, so the time shown isn't before it
+}
+fileAdd.addEventListener('change', async () => {
+  const files = [...fileAdd.files];
+  fileAdd.value = '';
+  const bad = [];
+  for (const f of files) {
+    if (!ADDABLE.test(f.name)) { bad.push(`${f.name} isn’t a script or a project`); continue; }
+    let text;
+    try { text = await f.text(); } catch (e) { bad.push(`couldn’t read ${f.name}${readProblem(e)}`); continue; }
+    try { adding.push({ script: readScript(f.name, text), at: fmtTC(afterLast(), S.fps) }); } catch (e) { bad.push(`couldn’t add ${f.name}: ${e.message}`); }
+  }
+  if (bad.length) toast(bad.join('. ').replace(/^./, (c) => c.toUpperCase()));
+  if (!adding.length) return;
+  fillAdd();
+  if (!addDlg.open) addDlg.showModal();
+  const inputs = $('addList').querySelectorAll('input');
+  inputs[inputs.length - 1]?.select();
+});
+function addInfo(script) {
+  const { first, last } = scriptSpan(script), kind = /\.scribecue$/i.test(script.name) ? 'Project' : 'Script';
+  return `${kind}, ${plural(script.blocks.length)}, ${fmtTC(first, S.fps)} to ${fmtTC(last, S.fps)}`;
+}
+function fillAdd() {
+  $('addTitle').textContent = adding.length === 1 ? 'Add a script' : `Add ${adding.length} scripts`;
+  $('addList').replaceChildren(...adding.map((a, i) => {
+    const li = document.createElement('li'), what = document.createElement('span');
+    what.className = 'what';
+    const name = document.createElement('strong'), info = document.createElement('span');
+    name.textContent = a.script.name;
+    info.className = 'dim small';
+    info.textContent = addInfo(a.script);
+    what.append(name, info);
+    const row = document.createElement('span'), label = document.createElement('label'), input = document.createElement('input');
+    row.className = 'addat';
+    label.textContent = 'Starts at';
+    label.htmlFor = input.id = `addAt${i}`;
+    input.className = 'time';
+    Object.assign(input, { type: 'text', spellcheck: false, autocomplete: 'off', value: a.at });
+    input.addEventListener('input', () => { a.at = input.value; checkAdd(); });
+    const set = (t) => { a.at = input.value = fmtTC(t, S.fps); checkAdd(); };
+    const button = (text, tip, fn) => {
+      const b = document.createElement('button');
+      b.textContent = text;
+      if (tip) b.dataset.tip = tip;
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const drop = button('Leave out', '', () => {
+      adding.splice(i, 1);
+      if (adding.length) fillAdd(); else addDlg.close();
+    });
+    drop.setAttribute('aria-label', `Leave out ${a.script.name}`);
+    row.append(label, input,
+      button('Playhead', 'Start it where the playhead is', () => set(now())),
+      button('After the last block', i ? 'Start it where the script above ends, or this project’s last block' : 'Start it where this project’s last block ends', () => set(afterLast(i))),
+      drop);
+    const note = document.createElement('p');
+    note.className = 'addnote small';
+    note.setAttribute('aria-live', 'polite');
+    li.append(what, row, note);
+    return li;
+  }));
+  const left = leftOutNote(adding.map((a) => a.script));
+  $('addLeft').textContent = left;
+  $('addLeft').hidden = !left;
+  checkAdd();
+}
+// A start that isn't a time, or a script that runs past the end of the video, says so.
+function checkAdd() {
+  const notes = $('addList').querySelectorAll('.addnote'), end = S.hasVideo && Number.isFinite(video.duration) ? video.duration : 0;
+  adding.forEach((a, i) => {
+    const t = addStart(a), stop = t >= 0 && endsAt(a.script, t);
+    notes[i].textContent = !(t >= 0) ? 'Type a time, such as 00:42:10:00 or 2530.5'
+      : end && stop > end + 0.5 ? `Its last block ends at ${fmtTC(stop, S.fps)}, after the end of the video` : '';
+    notes[i].hidden = !notes[i].textContent;
+  });
+  $('addGo').disabled = !adding.length || adding.some((a) => !(addStart(a) >= 0));
+}
+function addGo() {
+  if (!adding.length || adding.some((a) => !(addStart(a) >= 0)) || !canTick()) return;
+  addDlg.close();
+  const moved = adding.map((a) => shiftScript(a.script, addStart(a)));
+  const overlaps = countOverlaps([S.cues, ...moved.map((m) => m.blocks)]);
+  pushUndo({ ...snapshot(), scenes: S.scenes, words: S.words });
+  const added = moved.flatMap((m) => m.blocks.map(revive));
+  S.cues.push(...added);
+  S.bookmarks = cleanBookmarks([...S.bookmarks, ...moved.flatMap((m) => m.bookmarks)]);
+  S.comments = [...S.comments, ...moved.flatMap((m) => m.comments)];
+  S.scenes = mergeScenes(S.scenes, moved.map((m) => m.scenes));
+  S.words = mergeWords(S.words, adding.map((a) => a.script.words));
+  changed();
+  startTicking();
+  ticked.clear();
+  for (const c of added) ticked.add(c.id);
+  tickAnchor = null;
+  paintTicks();
+  select(added[0].id);
+  const from = adding.length === 1 ? adding[0].script.name : `${adding.length} scripts`;
+  adding = [];
+  toast(`Added ${plural(added.length)} from ${from}. They’re ticked${overlaps ? `. ${overlaps === 1 ? '1 lands' : `${overlaps} land`} on other blocks` : ''} — ${undoHint()}`);
+}
+$('addGo').addEventListener('click', addGo);
+$('addMore').addEventListener('click', () => fileAdd.click());
+$('addCancel').addEventListener('click', () => addDlg.close());
+// Keys typed in the window stay in it. Enter in a start adds them all.
+document.addEventListener('keydown', (e) => {
+  if (!addDlg.open) return;
+  e.stopPropagation();
+  if (e.key === 'Enter' && e.target.matches?.('#addList input')) { e.preventDefault(); addGo(); }
+}, true);
 
 // A voice for all of them, or the voice in Settings.
 const bulkVoiceDlg = $('bulkVoiceDlg'), bulkVoicePick = $('bulkVoicePick');
@@ -8255,6 +8394,7 @@ window.addEventListener('drop', (e) => {
 for (const b of document.querySelectorAll('#videoSide button')) b.addEventListener('click', () => swapSides(b.dataset.value === 'left'));
 const actions = {
   openSubs: () => openAny(),
+  addScript: () => addScript(),
   saveProject: () => saveProject(),
   openVideo: () => openVideoPicker(),
   exportSrt: () => exportSubs('srt'),
@@ -8875,6 +9015,7 @@ const RUN = {
   settings: () => showGeneral(),
   exportDialog: () => openExport(),
   recents: () => openRecents(),
+  addScript: () => addScript(),
   openDrive: () => openFromDrive(),
   saveDrive: () => saveToDrive(),
   closeProject: () => closeProject(),
