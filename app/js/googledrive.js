@@ -264,6 +264,12 @@ async function writeProject(h, blob) {
   return ['', was];
 }
 
+// Drive's copy of a project as it is now: its name and revision, without the project
+// itself. Null when it's gone.
+export async function projectInfo(h) {
+  try { return await (await drive(`${API}/${encodeURIComponent(h.id)}?fields=${FIELDS}`)).json(); } catch (e) { if (e.code === 'gone') return null; throw e; }
+}
+
 // One save to Drive at a time, so autosave and Save never overlap.
 const writes = oneAtATime();
 

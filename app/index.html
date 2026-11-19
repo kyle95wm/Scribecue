@@ -923,6 +923,15 @@ docker compose up -d --build</code></pre>
     <p id="driveEmpty" class="dim small" role="status" hidden></p>
     <div class="updbtns"><button id="driveClose">Close</button></div>
   </dialog>
+  <dialog id="newerDlg" class="updbox" aria-labelledby="newerTitle">
+    <h2 id="newerTitle">Changed on another computer</h2>
+    <p>Google Drive has a newer version. This window has changes that aren’t in it.</p>
+    <ul class="dim small">
+      <li><strong>Open the newer version:</strong> your changes here are saved beside it as a copy.</li>
+      <li><strong>Keep mine:</strong> you carry on with yours, saved beside it as a copy.</li>
+    </ul>
+    <div class="updbtns"><button id="newerOpen" class="hl">Open the newer version</button><button id="newerKeep">Keep mine</button></div>
+  </dialog>
   <dialog id="firstSaveDlg" class="updbox" aria-labelledby="firstSaveTitle">
     <h2 id="firstSaveTitle">Save the project</h2>
     <p id="firstSaveNameRow" class="updstatus"><label for="firstSaveName">Name</label> <input id="firstSaveName" autocomplete="off" spellcheck="false" maxlength="120"></p>

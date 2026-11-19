@@ -1,7 +1,9 @@
 // Projects in Google Drive, in headless, muted Chrome at a CPU slowdown, with Google, Drive
 // and the relay's sign-in helper stood in for. Saves a 1500-block project to Drive, autosaves
 // an edit, saves a copy when another computer changed it, keeps saving to Drive after a
-// reload, opens a project from the list, and adds 3 blocks of one with Add a script. A new project's first save asks for a name and
+// reload, opens a project from the list, and adds 3 blocks of one with Add a script. A newer
+// version made elsewhere opens on reload and on coming back, or asks when there are changes
+// here, with both answers. A new project's first save asks for a name and
 // where it goes, and can remember that.
 // Usage: node scripts/drive-projects-smoke.mjs <devtools port> <site url> [screenshot.png] [slowdown]
 import assert from 'node:assert/strict';
@@ -239,6 +241,71 @@ try {
   await wait(`document.getElementById('driveDlg').open`);
   assert.equal(await js(`document.getElementById('driveTitle').textContent`), 'Open from Google Drive');
   await js(`document.getElementById('driveClose').click(),true`);
+
+  // A newer version from another computer. With nothing unsaved here, reopening opens it.
+  await wait(`document.getElementById('autosaveBtn').textContent==='saved to Drive'`);
+  const pilot = projects().find((f) => f.name === 'Pilot.scribecue');
+  const count = projects().length;
+  const elsewhere = (from, to) => { pilot.body = pilot.body.replace(from, to); pilot.revision = `elsewhere-${Date.now()}`; };
+  const hasRow = (text) => `[...document.querySelectorAll('#list .row')].some(r=>r.textContent.includes('${text}'))`;
+  elsewhere('Block number 20 describes', 'Block number 20, changed on the laptop, describes');
+  await send('Page.reload'); await sleep(1000);
+  await js(`window.__errors=[];addEventListener('error',e=>__errors.push(e.message));addEventListener('unhandledrejection',e=>__errors.push(String(e.reason)));window.__long=[];new PerformanceObserver(l=>__long.push(...l.getEntries().map(e=>e.duration))).observe({type:'longtask'});true`);
+  await wait(hasRow('changed on the laptop'));
+  await wait(`/Opened the newer version of Pilot\.scribecue from Google Drive/.test(document.getElementById('toast').textContent)`);
+  assert.equal(projects().length, count, 'no copy on reopening');
+  await shoot('newer-reopen');
+
+  // Coming back to the window, after half a minute, opens a newer one too.
+  await sleep(31000);
+  elsewhere('Block number 21 describes', 'Block number 21, changed while away, describes');
+  t0 = Date.now();
+  await js(`window.dispatchEvent(new Event('focus')),true`);
+  await wait(hasRow('changed while away'));
+  console.log(`coming back opened the newer 1500-block version in ${Date.now() - t0} ms`);
+  assert.equal(projects().length, count, 'no copy on coming back');
+
+  // With changes here too, it asks. Open the newer version: these changes go into a copy.
+  await sleep(31000);
+  elsewhere('Block number 22 describes', 'Block number 22, theirs, describes');
+  await open(30);
+  await type(' Mine.');
+  await key('Escape', 'Escape');
+  await js(`window.dispatchEvent(new Event('focus')),true`);
+  await wait(`document.getElementById('newerDlg').open`);
+  assert.equal(await js(`document.getElementById('newerTitle').textContent`), 'Pilot.scribecue changed on another computer');
+  assert.equal(await js(`document.getElementById('autosaveBtn').textContent`), 'not saved yet');
+  await shoot('newer-ask');
+  // Saving waits while it asks, so no copy is made behind it.
+  await sleep(4000);
+  assert.equal(projects().length, count, 'nothing saved while asking');
+  await key('Escape', 'Escape');
+  assert.equal(await js(`document.getElementById('newerDlg').open`), true, 'Esc doesn’t close it');
+  await js(`document.getElementById('newerOpen').click(),true`);
+  await wait(hasRow('Block number 22, theirs'));
+  await waitFor(() => projects().length === count + 1, 'this window’s changes went into a copy');
+  const mine = projects().at(-1);
+  assert.ok(mine.body.includes(' Mine.') && !mine.body.includes('theirs'), 'the copy has this window’s changes');
+  assert.ok(!pilot.body.includes(' Mine.'), 'the newer version is untouched');
+  assert.match(await toast(), new RegExp(`Your changes from this window are in ${mine.name.replace(/[()]/g, '\\$&')}`));
+  assert.equal(await js(`document.getElementById('subName').textContent.startsWith('Pilot.scribecue')`), true, 'still on the original');
+
+  // Keep mine: these changes are saved beside it, as before.
+  await sleep(31000);
+  elsewhere('Block number 23 describes', 'Block number 23, theirs again, describes');
+  await open(31);
+  await type(' Mine again.');
+  await key('Escape', 'Escape');
+  await js(`window.dispatchEvent(new Event('focus')),true`);
+  await wait(`document.getElementById('newerDlg').open`);
+  await js(`document.getElementById('newerKeep').click(),true`);
+  await waitFor(() => projects().length === count + 2, 'kept as a copy');
+  assert.ok(projects().at(-1).body.includes(' Mine again.'));
+  assert.ok(!pilot.body.includes(' Mine again.'));
+  await wait(`/was changed on another computer, so this was saved beside it/.test(document.getElementById('toast').textContent)`);
+  assert.deepEqual(await js(`window.__errors||[]`), []);
+  const newerLong = await js(`window.__long`);
+  console.log(`long tasks while looking at Drive: ${newerLong.length}, longest ${Math.round(Math.max(0, ...newerLong))} ms`);
 
   // A new project's first Save asks where. Always remembers it, and Settings shows it.
   const fresh = (name) => js(`localStorage.setItem('scribecue.v1',JSON.stringify({dirty:true,subName:'${name}',cues:[{uid:'c0000000-0000-4000-8000-000000000000',start:1,end:3,text:'A new block.'}]}));true`);

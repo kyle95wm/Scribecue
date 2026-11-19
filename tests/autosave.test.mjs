@@ -10,7 +10,9 @@ test('the status next to the project name says what autosave is doing', () => {
   assert.equal(autosaveState({ ...base, saving: true }), 'saving');
   assert.equal(autosaveState({ ...base, permission: 'prompt' }), 'paused');
   assert.equal(autosaveState({ ...base, error: 'the file has been moved' }), 'error');
-  for (const s of ['saved', 'saving', 'paused', 'error']) assert.ok(AUTOSAVE_LABEL[s] && AUTOSAVE_TIP[s], s);
+  assert.equal(autosaveState({ ...base, dirty: true, waiting: true }), 'waiting');
+  assert.equal(autosaveState({ ...base, waiting: true }), 'saved');
+  for (const s of ['saved', 'saving', 'paused', 'error', 'waiting']) assert.ok(AUTOSAVE_LABEL[s] && AUTOSAVE_TIP[s], s);
 });
 
 test('there’s no status without a project file, or where browsers can’t write files', () => {
