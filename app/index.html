@@ -917,7 +917,7 @@ docker compose up -d --build</code></pre>
   </dialog>
   <dialog id="driveDlg" class="updbox recentsdlg" aria-labelledby="driveTitle">
     <h2 id="driveTitle">Open from Google Drive</h2>
-    <p class="dim small">Projects you saved to the Scribecue folder in your Google Drive, from any computer. Choose one to open it. Its video stays on each computer: open it here if it doesn’t reopen.</p>
+    <p id="driveIntro" class="dim small">Projects you saved to the Scribecue folder in your Google Drive, from any computer. Choose one to open it. Its video stays on each computer: open it here if it doesn’t reopen.</p>
     <input id="driveFind" type="search" placeholder="Search by name" spellcheck="false" autocomplete="off" aria-label="Search projects in Google Drive">
     <div id="driveList" class="sharedlist recentslist"></div>
     <p id="driveEmpty" class="dim small" role="status" hidden></p>
@@ -1200,10 +1200,11 @@ docker compose up -d --build</code></pre>
   <dialog id="addDlg" class="updbox" aria-labelledby="addTitle">
     <h2 id="addTitle">Add scripts</h2>
     <p>Each script’s blocks are added where it starts in this video. Type a time, or click a button. <strong>Choose blocks…</strong> adds only some, such as the credits.</p>
+    <p id="addNone" class="dim small" hidden>Choose a script or project to add.</p>
     <ul id="addList" class="offlinelist takeslist addlist"></ul>
     <p id="addLeft" class="dim small" hidden></p>
     <p class="dim small">The added blocks stay ticked, so you can delete or move parts the video leaves out. Undo takes it all back.</p>
-    <div class="updbtns"><button id="addMore">Choose more…</button><span class="grow"></span><button id="addGo" class="hl">Add</button><button id="addCancel">Cancel</button></div>
+    <div class="updbtns"><button id="addMore">From this computer…</button><button id="addDrive" hidden>From Google Drive…</button><span class="grow"></span><button id="addGo" class="hl">Add</button><button id="addCancel">Cancel</button></div>
   </dialog>
   <input type="file" id="fileAdd" accept=".srt,.vtt,.txt,.adc,.scribecue" multiple hidden>
 

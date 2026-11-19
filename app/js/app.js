@@ -55,7 +55,7 @@ import { isDriveRef, filterProjects } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { rangeIds, moveLimit, dragTicked, parseAmount, blockList } from './bulk.js';
-import { ADDABLE, readScript, pickBlocks, span as scriptSpan, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote } from './addscript.js';
+import { ADDABLE, readScript, pickBlocks, asProjectName, span as scriptSpan, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote } from './addscript.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup, REC_LOCKED, bindings, comboText } from './keymap.js';
 import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList } from './extended.js';
@@ -2787,7 +2787,35 @@ const cut = (a) => a.cut || (a.cut = pickBlocks(a.script, a.keep));
 function addScript() {
   if (!canTick()) return toast(qc() ? 'Scripts can’t be added in QC. Switch to Write first' : 'Scripts can’t be added in Record mode. Switch to Write first');
   if (!addDlg.open) adding = [];
+  // With Google Drive connected, the window comes first, to add from there or this computer.
+  if (canDrive() && driveOn()) {
+    fillAdd();
+    if (!addDlg.open) addDlg.showModal();
+    $('addMore').focus();
+    return;
+  }
   fileAdd.click();
+}
+// From Google Drive…: the Drive list, where choosing a project adds it to the window.
+async function addFromDrive() {
+  if (!canDrive()) return toast('This copy of Scribecue isn’t set up to connect Google Drive');
+  await openFromDrive(true);
+}
+async function addDriveProject(f) {
+  try {
+    $('driveEmpty').hidden = false;
+    $('driveEmpty').textContent = `Reading ${f.name}…`;
+    const file = await driveHandle({ id: f.id, name: f.name, revision: f.headRevisionId }).getFile();
+    const script = readScript(asProjectName(f.name), await file.text());
+    driveDlg.close();
+    adding.push({ script, at: fmtTC(afterLast(), S.fps) });
+    fillAdd();
+    if (!addDlg.open) addDlg.showModal();
+    const inputs = $('addList').querySelectorAll('input');
+    inputs[inputs.length - 1]?.select();
+  } catch (e) {
+    $('driveEmpty').textContent = `Couldn’t add ${f.name}: ${e.code === 'gone' ? 'it’s no longer in Google Drive' : e.message}.`;
+  }
 }
 const addStart = (a) => parseTC(a.at, S.fps);
 // After the last block: of this project, or of a script above it in the list.
@@ -2888,7 +2916,9 @@ function pickList(a) {
 }
 let pickSeq = 0;
 function fillAdd() {
-  $('addTitle').textContent = adding.length === 1 ? 'Add a script' : `Add ${adding.length} scripts`;
+  $('addTitle').textContent = adding.length > 1 ? `Add ${adding.length} scripts` : 'Add a script';
+  $('addNone').hidden = adding.length > 0;
+  $('addDrive').hidden = !canDrive() || !driveOn();
   $('addList').replaceChildren(...adding.map((a, i) => {
     const li = document.createElement('li'), what = document.createElement('span');
     what.className = 'what';
@@ -2915,7 +2945,7 @@ function fillAdd() {
     };
     const drop = button('Leave out', '', () => {
       adding.splice(i, 1);
-      if (adding.length) fillAdd(); else addDlg.close();
+      if (adding.length || !$('addDrive').hidden) fillAdd(); else addDlg.close();
     });
     drop.setAttribute('aria-label', `Leave out ${a.script.name}`);
     const choose = button('Choose blocks…', 'Add only some of its blocks, such as the credits', () => {
@@ -2983,6 +3013,7 @@ function addGo() {
 }
 $('addGo').addEventListener('click', addGo);
 $('addMore').addEventListener('click', () => fileAdd.click());
+$('addDrive').addEventListener('click', addFromDrive);
 $('addCancel').addEventListener('click', () => addDlg.close());
 // Keys typed in the window stay in it. Enter in a start adds them all.
 document.addEventListener('keydown', (e) => {
@@ -5890,11 +5921,18 @@ firstSaveName.addEventListener('keydown', (e) => {
 firstSaveDlg.addEventListener('keydown', (e) => e.stopPropagation());
 
 const driveDlg = $('driveDlg'), driveFind = $('driveFind');
-let driveFiles = [];
-async function openFromDrive() {
+let driveFiles = [], driveAdding = false;
+// The Drive list opens a project, or, from the Add window, adds one to it.
+const DRIVE_TEXT = {
+  open: ['Open from Google Drive', $('driveIntro').textContent],
+  add: ['Add from Google Drive', 'Projects you saved to the Scribecue folder in your Google Drive. Choose one to add its blocks to this project.'],
+};
+async function openFromDrive(add = false) {
   closeMenus();
   if (!canDrive()) return toast('This copy of Scribecue isn’t set up to connect Google Drive');
   if (!(await driveForProjects())) return;
+  driveAdding = add;
+  [$('driveTitle').textContent, $('driveIntro').textContent] = DRIVE_TEXT[add ? 'add' : 'open'];
   driveFiles = [];
   driveFind.value = '';
   $('driveList').replaceChildren();
@@ -5923,7 +5961,7 @@ function renderDrive() {
     body.append(name, facts);
     b.append(body);
     b.setAttribute('aria-label', `${f.name}. ${facts.textContent}`);
-    b.addEventListener('click', () => openDriveProject(f));
+    b.addEventListener('click', () => (driveAdding ? addDriveProject(f) : openDriveProject(f)));
     return b;
   }));
   const empty = $('driveEmpty');

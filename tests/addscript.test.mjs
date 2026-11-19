@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ADDABLE, readScript, pickBlocks, span, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote, scriptLabel } from '../app/js/addscript.js';
+import { ADDABLE, readScript, pickBlocks, asProjectName, span, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote, scriptLabel } from '../app/js/addscript.js';
 import { toProject } from '../app/js/project.js';
 
 const SRT = '1\n00:00:05,000 --> 00:00:07,000\nA door opens.\n\n2\n00:00:10,000 --> 00:00:12,500\nShe waves.\n';
@@ -125,4 +125,11 @@ test('chosen blocks keep their spacing; none chosen adds nothing', () => {
   const p = pickBlocks(s, new Set([0, 2]));
   assert.deepEqual(p.blocks.map((b) => [b.start, b.end]), [[0, 2], [15, 16]]);
   assert.deepEqual(pickBlocks(s, new Set()).blocks, []);
+});
+
+test('a project from Google Drive is read as a project, with or without its extension', () => {
+  assert.equal(asProjectName('Ep 2.scribecue'), 'Ep 2.scribecue');
+  assert.equal(asProjectName('Ep 2'), 'Ep 2.scribecue');
+  assert.equal(asProjectName(' '), 'Project.scribecue');
+  assert.equal(readScript(asProjectName('Ep 2'), project()).blocks.length, 2);
 });

@@ -512,6 +512,8 @@ Use this to bring blocks from other scripts into this one. For example:
 
 1. Open the video, and the project if there is one.
 2. Click **File**, then **Add a script…** (`Alt+Shift+M`). Choose one or more files.
+   With Google Drive connected, the window opens first: click **From this computer…** or
+   **From Google Drive…**.
 3. To add only some blocks, click **Choose blocks…** and untick the rest.
 4. Give each a start: where its time 0 falls in this video. With blocks chosen, it's where
    the first one lands.
@@ -529,8 +531,10 @@ Use this to bring blocks from other scripts into this one. For example:
   blocks keep their spacing, and only the bookmarks, comments and scenes between them come along.
 - **Credits that start at a different time each episode:** play to where they start, then
   click **Playhead**.
-- **Opening and end credits from one file:** add it twice with **Choose more…**. Choose the
-  opening in one, the end in the other, and give each its own start.
+- **From Google Drive:** you can add projects you saved there. Scripts such as SRT can't be
+  added from Drive: download them first.
+- **Opening and end credits from one file:** add it twice. Choose the opening in one, the
+  end in the other, and give each its own start.
 - **What stays behind:** a project's recordings, takes and QC history, which belong to its own
   video. Its voice and base speed too: the added blocks use this project's.
 - **A bookmark marks where each script starts,** named after its file.

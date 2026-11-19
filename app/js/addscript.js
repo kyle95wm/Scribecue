@@ -10,6 +10,9 @@ import { cleanScenes } from './aiscript.js';
 // What can be added: scripts, and Scribecue projects.
 export const ADDABLE = /\.(srt|vtt|txt|adc|scribecue)$/i;
 
+// A project from Google Drive, read as a project even if its name there lost the extension.
+export const asProjectName = (name) => (String(name).toLowerCase().endsWith(PROJECT_EXT) ? String(name) : `${String(name).trim() || 'Project'}${PROJECT_EXT}`);
+
 // A file's name without its extension, for the bookmark where it starts.
 export const scriptLabel = (name) => String(name).replace(/\.[^.]+$/, '').trim() || String(name);
 
