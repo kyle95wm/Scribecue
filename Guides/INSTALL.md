@@ -25,14 +25,26 @@ included, or to run Piper, Kokoro, Whisper or Ollama in containers next to it.
 
 ## What you need
 
-Three free things. Install any you don't have yet:
+Three free things:
 
 - **[Docker Desktop](https://www.docker.com/products/docker-desktop/)**, which runs
-  Scribecue. On Linux, Docker Engine with the Compose plugin works too. Start it once
-  after installing, and leave it running.
-- **[Git](https://git-scm.com/downloads)**, to download Scribecue and its updates. It's
-  already on most Macs and Linux computers.
+  Scribecue.
+- **[Git](https://git-scm.com/downloads)**, to download Scribecue and its updates.
 - **A recent Chrome or Edge**, to use Scribecue in.
+
+Install any you don't have yet:
+
+| System | How |
+|---|---|
+| Windows | In PowerShell, run `winget install --id Docker.DockerDesktop -e`, then `winget install --id Git.Git -e`. Open a new PowerShell window afterwards. |
+| Mac | Download Docker Desktop. Git is usually there already: if not, typing `git` in Terminal offers to install it. |
+| Linux | Docker Desktop, or Docker Engine with the Compose plugin. Git from your package manager. |
+
+Then start Docker Desktop, and leave it running. You can skip signing in.
+
+- **On Windows,** it may ask to install WSL first. Let it, and restart if asked.
+- **In a virtual machine,** Docker Desktop needs nested virtualization. See
+  [If something goes wrong](#if-something-goes-wrong).
 
 Docker Desktop needs a computer with at least 4 GB of memory. With everything below added,
 8 GB is enough. Each part adds this much:
@@ -533,6 +545,13 @@ delete it. To move them, go back to 0.100.1 for a moment:
 
 - **"Cannot connect to the Docker daemon"** or a similar error: Docker Desktop isn't
   running. Start it, wait until it says it's running, and try again.
+- **"'docker' is not recognized"** or **"'git' is not recognized"** on Windows: open a new
+  PowerShell window. One opened before installing doesn't see them. If that doesn't help,
+  sign out of Windows and back in.
+- **"Nested virtualization is not available":** Windows is running in a virtual machine
+  that doesn't pass virtualization through, so Docker Desktop can't start. Turn on nested
+  virtualization in the virtual machine's settings, if it has one. Otherwise, use the
+  [web version](https://scribecue.kyleadvoice.ca/), or run Scribecue [on another computer](#on-another-computer).
 - **"port is already allocated":** something else is using port 8484. Add a line such as
   `SCRIBECUE_PORT=9000` to the `.env` file (create it if it isn't there), run
   `docker compose up -d --build` again, and open <http://localhost:9000> instead.
