@@ -1193,6 +1193,26 @@ body.blocked > :not(.blocker) { display: none !important; }
 .addlist li { flex-wrap: wrap; }
 .addlist .addat { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex-basis: 100%; }
 .addlist .addnote { flex-basis: 100%; margin: 0; color: var(--warn); }
+/* Choose blocks…: a script's blocks to tick, with the list's tick box. */
+.addlist .addpick { flex-basis: 100%; display: flex; flex-direction: column; gap: 6px; }
+.addlist .addpick[hidden] { display: none; }
+/* With blocks to choose, the window's list grows instead, so only one list scrolls. */
+.addlist:has(.addpick:not([hidden])) { max-height: none; overflow: visible; }
+.addpickbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.picklist { max-height: 34vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 4px; }
+.pickrow {
+  display: flex; gap: 8px; align-items: center; width: 100%;
+  padding: 4px 8px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0;
+  background: transparent; color: var(--dim); text-align: left; font: inherit;
+}
+.pickrow:last-child { border-bottom: 0; }
+.pickrow .rowtick { display: inline-block; margin-right: 0; }
+.pickrow .n { font: 12px var(--mono); min-width: 3ch; text-align: right; }
+.pickrow .t { font: 12px var(--mono); }
+.pickrow .tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pickrow[aria-pressed="true"] { color: var(--text); }
+.pickrow[aria-pressed="true"] .rowtick { background: var(--accent); border-color: var(--accent); }
+.pickrow[aria-pressed="true"] .rowtick::before { content: "✓"; }
 .oslist li { align-items: center; }
 .oslist .what span { display: block; }
 .osfit { font-family: var(--mono); color: var(--ok); white-space: nowrap; }

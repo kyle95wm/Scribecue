@@ -55,7 +55,7 @@ import { isDriveRef, filterProjects } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { rangeIds, moveLimit, dragTicked, parseAmount, blockList } from './bulk.js';
-import { ADDABLE, readScript, span as scriptSpan, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote } from './addscript.js';
+import { ADDABLE, readScript, pickBlocks, span as scriptSpan, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote } from './addscript.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup, REC_LOCKED, bindings, comboText } from './keymap.js';
 import { isExtended, blockToHold, stillHeard, extendedSecs, addedTime, extendedTimeline, timedScript, pauseList } from './extended.js';
@@ -2781,7 +2781,9 @@ $('bulkMoveBy').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.
 // starts in this video, such as episodes in a version that joins them. The added blocks
 // stay ticked, to delete or move what the video leaves out. See addscript.js.
 const addDlg = $('addDlg'), fileAdd = $('fileAdd');
-let adding = []; // { script, at: the start as typed }
+let adding = []; // { script, at: the start as typed, keep: indexes of the chosen blocks, or null for all }
+// The part of a script that's added: the chosen blocks, with the first at 0. See pickBlocks.
+const cut = (a) => a.cut || (a.cut = pickBlocks(a.script, a.keep));
 function addScript() {
   if (!canTick()) return toast(qc() ? 'Scripts can’t be added in QC. Switch to Write first' : 'Scripts can’t be added in Record mode. Switch to Write first');
   if (!addDlg.open) adding = [];
@@ -2791,7 +2793,7 @@ const addStart = (a) => parseTC(a.at, S.fps);
 // After the last block: of this project, or of a script above it in the list.
 function afterLast(i = adding.length) {
   let end = S.cues.reduce((m, c) => Math.max(m, c.end), 0);
-  for (const a of adding.slice(0, i)) { const t = addStart(a); if (t >= 0) end = Math.max(end, endsAt(a.script, t)); }
+  for (const a of adding.slice(0, i)) { const t = addStart(a); if (t >= 0 && cut(a).blocks.length) end = Math.max(end, endsAt(cut(a), t)); }
   return Math.ceil(end * S.fps - 1e-6) / S.fps; // on a frame, so the time shown isn't before it
 }
 fileAdd.addEventListener('change', async () => {
@@ -2811,10 +2813,80 @@ fileAdd.addEventListener('change', async () => {
   const inputs = $('addList').querySelectorAll('input');
   inputs[inputs.length - 1]?.select();
 });
-function addInfo(script) {
-  const { first, last } = scriptSpan(script), kind = /\.scribecue$/i.test(script.name) ? 'Project' : 'Script';
-  return `${kind}, ${plural(script.blocks.length)}, ${fmtTC(first, S.fps)} to ${fmtTC(last, S.fps)}`;
+// What a script holds, or what's chosen of it, in the script's own times.
+function addInfo(a) {
+  const { script } = a, kind = /\.scribecue$/i.test(script.name) ? 'Project' : 'Script';
+  const kept = a.keep ? script.blocks.filter((_, i) => a.keep.has(i)) : script.blocks;
+  if (!kept.length) return `${kind}, no blocks chosen of ${script.blocks.length}`;
+  const { first, last } = scriptSpan({ blocks: kept });
+  const count = kept.length === script.blocks.length ? plural(kept.length) : `${kept.length} of ${plural(script.blocks.length)}`;
+  return `${kind}, ${count}, ${fmtTC(first, S.fps)} to ${fmtTC(last, S.fps)}`;
 }
+// Choose blocks…: a script's blocks, each ticked to be added, as in the list. Built when
+// first opened, and kept, so a long script's list is only made once.
+function pickList(a) {
+  const box = document.createElement('div'), bar = document.createElement('div'), list = document.createElement('div');
+  box.className = 'addpick';
+  box.id = `addPick${++pickSeq}`;
+  bar.className = 'addpickbar';
+  list.className = 'picklist';
+  list.setAttribute('role', 'group');
+  list.setAttribute('aria-label', `Blocks of ${a.script.name}`);
+  let anchor = 0;
+  const rows = a.script.blocks.map((b, i) => {
+    const r = document.createElement('button');
+    r.type = 'button';
+    r.className = 'pickrow';
+    r.tabIndex = i ? -1 : 0;
+    r.innerHTML = '<span class="rowtick" aria-hidden="true"></span><span class="n"></span><span class="t"></span><span class="tx"></span>';
+    r.querySelector('.n').textContent = i + 1;
+    r.querySelector('.t').textContent = fmtTC(b.start, S.fps);
+    r.querySelector('.tx').textContent = String(b.text || '').replace(/\s+/g, ' ').trim();
+    return r;
+  });
+  const on = (i) => !a.keep || a.keep.has(i);
+  const paint = (i) => rows[i].setAttribute('aria-pressed', on(i));
+  const changedPick = () => {
+    if (a.keep && a.keep.size === a.script.blocks.length) a.keep = null;
+    a.cut = null;
+    a.info.textContent = addInfo(a);
+    checkAdd();
+  };
+  const set = (from, to, value) => {
+    if (!a.keep) a.keep = new Set(a.script.blocks.keys());
+    for (let i = Math.min(from, to); i <= Math.max(from, to); i++) { if (value) a.keep.add(i); else a.keep.delete(i); }
+  };
+  rows.forEach((r, i) => {
+    paint(i);
+    r.addEventListener('click', (e) => {
+      // Shift+click ticks or unticks a run, from the last one clicked, as in the list.
+      const from = e.shiftKey ? anchor : i, value = e.shiftKey ? on(anchor) : !on(i);
+      set(from, i, value);
+      for (let k = Math.min(from, i); k <= Math.max(from, i); k++) paint(k);
+      if (!e.shiftKey) anchor = i;
+      changedPick();
+    });
+  });
+  // Up and Down move through the blocks; Space ticks one.
+  list.addEventListener('keydown', (e) => {
+    const i = rows.indexOf(e.target), to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: rows.length - 1 }[e.key];
+    if (i < 0 || to == null || !rows[to]) return;
+    e.preventDefault();
+    e.target.tabIndex = -1;
+    rows[to].tabIndex = 0;
+    rows[to].focus();
+  });
+  const button = (text, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.addEventListener('click', fn); return b; };
+  const all = (value) => { set(0, rows.length - 1, value); rows.forEach((_, i) => paint(i)); changedPick(); };
+  const tip = document.createElement('span');
+  tip.className = 'dim small';
+  tip.textContent = 'Shift+click ticks a run. The first ticked block starts at the time above.';
+  bar.append(button('All', () => all(true)), button('None', () => all(false)), tip);
+  list.append(...rows);
+  box.append(bar, list);
+  return box;
+}
+let pickSeq = 0;
 function fillAdd() {
   $('addTitle').textContent = adding.length === 1 ? 'Add a script' : `Add ${adding.length} scripts`;
   $('addList').replaceChildren(...adding.map((a, i) => {
@@ -2823,7 +2895,8 @@ function fillAdd() {
     const name = document.createElement('strong'), info = document.createElement('span');
     name.textContent = a.script.name;
     info.className = 'dim small';
-    info.textContent = addInfo(a.script);
+    info.textContent = addInfo(a);
+    a.info = info;
     what.append(name, info);
     const row = document.createElement('span'), label = document.createElement('label'), input = document.createElement('input');
     row.className = 'addat';
@@ -2845,14 +2918,26 @@ function fillAdd() {
       if (adding.length) fillAdd(); else addDlg.close();
     });
     drop.setAttribute('aria-label', `Leave out ${a.script.name}`);
+    const choose = button('Choose blocks…', 'Add only some of its blocks, such as the credits', () => {
+      a.open = !a.open;
+      if (a.open && !a.pick) a.pick = pickList(a);
+      if (a.pick) a.pick.hidden = !a.open;
+      if (a.open && a.pick && !a.pick.isConnected) li.insertBefore(a.pick, note);
+      choose.setAttribute('aria-expanded', !!a.open);
+    });
+    choose.setAttribute('aria-expanded', !!a.open);
+    choose.setAttribute('aria-label', `Choose blocks of ${a.script.name}`);
     row.append(label, input,
       button('Playhead', 'Start it where the playhead is', () => set(now())),
       button('After the last block', i ? 'Start it where the script above ends, or this project’s last block' : 'Start it where this project’s last block ends', () => set(afterLast(i))),
-      drop);
+      choose, drop);
     const note = document.createElement('p');
     note.className = 'addnote small';
     note.setAttribute('aria-live', 'polite');
-    li.append(what, row, note);
+    li.append(what, row);
+    if (a.open && a.pick) { a.pick.hidden = false; li.append(a.pick); }
+    li.append(note);
+    if (a.pick) choose.setAttribute('aria-controls', a.pick.id);
     return li;
   }));
   const left = leftOutNote(adding.map((a) => a.script));
@@ -2864,17 +2949,19 @@ function fillAdd() {
 function checkAdd() {
   const notes = $('addList').querySelectorAll('.addnote'), end = S.hasVideo && Number.isFinite(video.duration) ? video.duration : 0;
   adding.forEach((a, i) => {
-    const t = addStart(a), stop = t >= 0 && endsAt(a.script, t);
-    notes[i].textContent = !(t >= 0) ? 'Type a time, such as 00:42:10:00 or 2530.5'
+    const t = addStart(a), none = !cut(a).blocks.length, stop = t >= 0 && !none && endsAt(cut(a), t);
+    notes[i].textContent = none ? 'No blocks are ticked. Tick some, or click Leave out'
+      : !(t >= 0) ? 'Type a time, such as 00:42:10:00 or 2530.5'
       : end && stop > end + 0.5 ? `Its last block ends at ${fmtTC(stop, S.fps)}, after the end of the video` : '';
     notes[i].hidden = !notes[i].textContent;
   });
-  $('addGo').disabled = !adding.length || adding.some((a) => !(addStart(a) >= 0));
+  $('addGo').disabled = !addReady();
 }
+const addReady = () => adding.length && adding.every((a) => addStart(a) >= 0 && cut(a).blocks.length);
 function addGo() {
-  if (!adding.length || adding.some((a) => !(addStart(a) >= 0)) || !canTick()) return;
+  if (!addReady() || !canTick()) return;
   addDlg.close();
-  const moved = adding.map((a) => shiftScript(a.script, addStart(a)));
+  const moved = adding.map((a) => shiftScript(cut(a), addStart(a)));
   const overlaps = countOverlaps([S.cues, ...moved.map((m) => m.blocks)]);
   pushUndo({ ...snapshot(), scenes: S.scenes, words: S.words });
   const added = moved.flatMap((m) => m.blocks.map(revive));

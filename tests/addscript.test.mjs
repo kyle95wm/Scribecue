@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ADDABLE, readScript, span, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote, scriptLabel } from '../app/js/addscript.js';
+import { ADDABLE, readScript, pickBlocks, span, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote, scriptLabel } from '../app/js/addscript.js';
 import { toProject } from '../app/js/project.js';
 
 const SRT = '1\n00:00:05,000 --> 00:00:07,000\nA door opens.\n\n2\n00:00:10,000 --> 00:00:12,500\nShe waves.\n';
@@ -98,4 +98,31 @@ test('overlaps count added blocks landing on others, not blocks only touching', 
   assert.equal(countOverlaps([[], [{ start: 0, end: 10 }], [{ start: 9, end: 11 }]]), 2);
   // Blocks of one script overlapping each other were like that before.
   assert.equal(countOverlaps([[], [{ start: 0, end: 10 }, { start: 5, end: 8 }]]), 0);
+});
+
+test('choosing some blocks moves the first chosen one to 0, with what lies between', () => {
+  const s = readScript('Ep 2.scribecue', project());
+  assert.equal(pickBlocks(s, null), s);
+  assert.equal(pickBlocks(s, new Set([0, 1])), s);
+  const p = pickBlocks(s, new Set([1]));
+  assert.deepEqual(p.blocks.map((b) => [b.start, b.end, b.text]), [[0, 2, 'Day.']]);
+  // The comment at 5 is inside 4–6; the bookmark at 2 isn't.
+  assert.deepEqual(p.comments.map((c) => c.time), [1]);
+  assert.deepEqual(p.bookmarks, []);
+  // Scenes are cut to the chosen stretch.
+  assert.deepEqual(p.scenes.map((x) => [x.start, x.end]), [[0, 2]]);
+  assert.deepEqual(span(p), { first: 0, last: 2 });
+  assert.equal(endsAt(p, 100), 102);
+  // "Starts at" is where the first chosen block lands.
+  const m = shiftScript(p, 100, ids);
+  assert.deepEqual(m.blocks.map((b) => b.start), [100]);
+  assert.deepEqual(m.bookmarks.map((b) => [b.time, b.title]), [[100, 'Ep 2']]);
+  assert.equal(s.blocks.length, 2, 'the script itself is left as it was');
+});
+
+test('chosen blocks keep their spacing; none chosen adds nothing', () => {
+  const s = readScript('ep1.srt', SRT + '\n3\n00:00:20,000 --> 00:00:21,000\nCredits.\n');
+  const p = pickBlocks(s, new Set([0, 2]));
+  assert.deepEqual(p.blocks.map((b) => [b.start, b.end]), [[0, 2], [15, 16]]);
+  assert.deepEqual(pickBlocks(s, new Set()).blocks, []);
 });

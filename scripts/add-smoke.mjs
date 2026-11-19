@@ -1,7 +1,7 @@
 // File → Add a script… in headless, muted Chrome at 6× CPU slowdown: a project with a long
 // script, then an SRT episode and a Scribecue project episode added after it. Checks the
-// starts offered, a start that isn't a time, the added blocks ticked, their bookmarks,
-// comments and words, and that undo takes it all back. Says how long each took and how many
+// starts offered, a start that isn't a time, choosing the last 5 blocks of one, the added
+// blocks ticked, their bookmarks, comments and words, and that undo takes it all back. Says how long each took and how many
 // long tasks there were.
 // Usage: node scripts/add-smoke.mjs <devtools port> <site url> [blocks]
 import assert from 'node:assert/strict';
@@ -91,22 +91,35 @@ await step('A start that isn’t a time', run(`const i=document.querySelector('#
 await step('Start at 01:10:00:00', run(`const i=document.querySelector('#addList input');i.value='01:10:00:00';i.dispatchEvent(new Event('input'))`), `!${$('addGo')}.disabled`);
 await step('Second after the first', run(`document.querySelectorAll('#addList li')[1].querySelectorAll('button')[1].click()`),
   `document.querySelectorAll('#addList input')[1].value==='${fmt(4200 + 2 + (EP - 1) * 4 + 10)}'`);
-await step(`Add ${EP * 2} blocks`, run(`${$('addGo')}.click()`),
-  `!${$('addDlg')}.open && document.querySelectorAll('#list .row').length===${N + EP * 2} && ${$('bulkCount')}.textContent==='${EP * 2} ticked'`);
+// Only the project's last 5 blocks, such as its end credits.
+const second = `document.querySelectorAll('#addList li')[1]`, ADD = EP + 5;
+await step(`Choose blocks of ${EP}`, run(`[...${second}.querySelectorAll('button')].find(b=>b.textContent==='Choose blocks…').click()`),
+  `${second}.querySelectorAll('.pickrow[aria-pressed="true"]').length===${EP}`);
+await step('None', run(`[...${second}.querySelectorAll('.addpickbar button')].find(b=>b.textContent==='None').click()`),
+  `${$('addGo')}.disabled && ${second}.querySelector('.addnote').textContent.includes('No blocks are ticked')`);
+await step('Tick the last 5 with Shift+click', run(`const r=${second}.querySelectorAll('.pickrow');r[${EP - 5}].click();r[${EP - 1}].dispatchEvent(new MouseEvent('click',{bubbles:true,shiftKey:true}))`),
+  `!${$('addGo')}.disabled && ${second}.querySelector('.what .dim').textContent.includes('5 of ${EP} blocks')`);
+await step('Second after the first, again', run(`${second}.querySelectorAll('button')[1].click()`),
+  `document.querySelectorAll('#addList input')[1].value==='${fmt(4200 + 2 + (EP - 1) * 4 + 10)}'`);
+await step(`Add ${ADD} blocks`, run(`${$('addGo')}.click()`),
+  `!${$('addDlg')}.open && document.querySelectorAll('#list .row').length===${N + ADD} && ${$('bulkCount')}.textContent==='${ADD} ticked'`);
 assert.ok((await js(savedWords)).includes('Zorblax'), 'the project’s words come too');
-assert.equal(await js(savedMarks), 3, 'a bookmark where each starts, and the project’s own');
+assert.equal(await js(savedMarks), 2, 'a bookmark where each starts; the project’s own is before the chosen blocks');
+const ep3 = await js(`JSON.parse(localStorage.getItem('scribecue.v1')).cues.filter(c=>c.text.startsWith('Episode 3')).map(c=>[c.start,c.text])`);
+assert.deepEqual(ep3[0], [4200 + 2 + (EP - 1) * 4 + 10, `Episode 3, block ${EP - 4}.`], 'the first chosen block lands at the start');
+assert.equal(ep3.length, 5);
 const said = await js(`document.getElementById('toast').textContent`);
 console.log('Toast:', said);
-assert.match(said, /Added 1000 blocks from 2 scripts/);
+assert.match(said, new RegExp(`Added ${ADD} blocks from 2 scripts`));
 await step('Delete the ticked', run(`${$('bulkDel')}.click();${$('bulkDelGo')}.click()`), `document.querySelectorAll('#list .row').length===${N}`);
 const undo = `document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'z',code:'KeyZ',metaKey:true,ctrlKey:true,bubbles:true}))`;
-await step('Undo the delete', run(undo), `document.querySelectorAll('#list .row').length===${N + EP * 2}`);
+await step('Undo the delete', run(undo), `document.querySelectorAll('#list .row').length===${N + ADD}`);
 await step('Undo the add', run(undo), `document.querySelectorAll('#list .row').length===${N}`);
 await sleep(600);
 assert.ok(!(await js(savedWords)).includes('Zorblax'), 'undo takes the words back');
 assert.equal(await js(savedMarks), 0, 'undo takes the bookmarks back');
 const redo = `document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'z',code:'KeyZ',metaKey:true,ctrlKey:true,shiftKey:true,bubbles:true}))`;
-await step('Redo the add', run(redo), `document.querySelectorAll('#list .row').length===${N + EP * 2}`);
+await step('Redo the add', run(redo), `document.querySelectorAll('#list .row').length===${N + ADD}`);
 await sleep(600);
 assert.ok((await js(savedWords)).includes('Zorblax'), 'redo brings the words back');
 
