@@ -16,10 +16,11 @@ export const MAX_WAIT = 30e3; // but no longer than this while changes keep comi
 
 // What the status next to the project name shows, or '' for nothing. Autosave is always
 // on. can: the browser can write to files. file: the project has one. permission: 'granted', 'prompt' or 'denied'. error: why the last write failed.
-export function autosaveState({ can, file, permission, saving, dirty, error }) {
+export function autosaveState({ can, file, permission, saving, dirty, error, waiting = false }) {
   if (!can || !file) return '';
   if (error) return 'error';
   if (permission !== 'granted') return 'paused';
+  if (waiting && dirty && !saving) return 'waiting';
   if (saving || dirty) return 'saving';
   return 'saved';
 }
@@ -29,6 +30,7 @@ export const AUTOSAVE_LABEL = {
   paused: 'autosave paused',
   saving: 'saving…',
   saved: 'autosaved',
+  waiting: 'not saved yet',
 };
 
 export const AUTOSAVE_TIP = {
@@ -36,6 +38,7 @@ export const AUTOSAVE_TIP = {
   paused: 'Autosave is paused until you let Scribecue save to the project file again, which the browser asks after a reload. Click to resume',
   saving: 'Saving changes to the project file',
   saved: 'Changes are saved to the project file as you work',
+  waiting: 'Google Drive has a newer version. Saving waits until you choose which to keep',
 };
 
 // When the next autosave should run, in ms from now: DELAY after the last change, but

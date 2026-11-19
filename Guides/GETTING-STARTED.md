@@ -235,8 +235,11 @@ programme. `Ctrl/Cmd+O` opens it again.
 - **A new project, with Drive connected:** the first `Ctrl/Cmd+S` asks for a name and where
   to save it. Press **Always save new projects there** to stop being asked. Change it in
   Settings, under **Google Drive**, with **Save new projects**.
-- **Saved as "Name (2)"?** The project changed on another computer since you opened it, so
-  Scribecue saved yours beside it rather than over it. Both are in Drive.
+- **Changed on another computer?** Scribecue checks when it opens with the project, and when
+  you come back to it. It opens the newer version and says so.
+- **With changes here too,** it asks. **Open the newer version** or **Keep mine**. Either
+  way, this window's changes are saved beside it as "Name (2)", so nothing is lost.
+- **Open a Drive project in one place at a time.** In the one you leave, use **File, Close**.
 - **Rename a project in Drive** whenever you like. Scribecue keeps saving to it, under its
   new name.
 - **Deleting the project you have open?** Choose **File → Close** first. Otherwise Scribecue

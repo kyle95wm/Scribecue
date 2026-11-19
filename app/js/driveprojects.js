@@ -45,6 +45,15 @@ export function oneAtATime() {
 // Whether the copy in Drive changed since this browser last read or wrote it.
 export const changedElsewhere = (known, now) => !!known && !!now && known !== now;
 
+// What to do about the open project, from Drive's copy of it (`meta`, or null when it's
+// gone): 'same', 'gone' (saving puts it back, as before), 'open' (newer there, nothing unsaved
+// here: open it) or 'ask' (newer there, and changes here that it doesn't have).
+export function newerInDrive(known, meta, dirty) {
+  if (!meta || meta.trashed) return 'gone';
+  if (!changedElsewhere(known, meta.headRevisionId)) return 'same';
+  return dirty ? 'ask' : 'open';
+}
+
 // Where a new project's first save goes, as the setting "Save new projects" says: 'ask',
 // 'local' or 'drive'. Drive only counts when it's connected for projects; otherwise saving
 // works as it always did. A setting synced from a browser with Drive falls back the same way.

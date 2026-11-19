@@ -48,10 +48,10 @@ import { initReminder } from './reminder.js';
 import { announce, speakable, speakKeys, playLabel, blockLabel, keepsFocusAfterDialog, toastMs } from './a11y.js';
 import { initOffline, openOffline, keepStorage } from './offline.js';
 import { initSettingsFile } from './settingsfile.js';
-import { initDrive, refreshDrive, connected as driveOn, canConnect as canDrive, canProjects, connect as connectDrive, listProjects, createProject, driveHandle, firstSave, setSaveNew, uploadVideo, deleteVideo, canShareVideo, videoUrl, driveSpace } from './googledrive.js';
+import { initDrive, refreshDrive, connected as driveOn, canConnect as canDrive, canProjects, connect as connectDrive, listProjects, createProject, projectInfo, driveHandle, firstSave, setSaveNew, uploadVideo, deleteVideo, canShareVideo, videoUrl, driveSpace } from './googledrive.js';
 import * as sv from './sharedvideo.js';
 import { projectName } from './driveprojects.js';
-import { isDriveRef, filterProjects } from './driveprojects.js';
+import { isDriveRef, filterProjects, newerInDrive } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { rangeIds, moveLimit, dragTicked, parseAmount, blockList } from './bulk.js';
@@ -6220,7 +6220,7 @@ async function writeFile(h, text) {
 
 // ---- autosave (see autosave.js)
 
-const AUTO = { can: canAutosave(window), permission: 'prompt', saving: false, error: '', timer: 0, first: 0 };
+const AUTO = { can: canAutosave(window), permission: 'prompt', saving: false, error: '', timer: 0, first: 0, held: false };
 // A project in Google Drive autosaves in any browser.
 const inDrive = () => S.handle?.kind === 'drive';
 const canAuto = () => AUTO.can || inDrive();
@@ -6231,7 +6231,7 @@ addEventListener('online', () => { if (inDrive() && AUTO.error) { AUTO.error = '
 function showAutosave() {
   const st = autosaveState({
     can: canAuto() && canMakeFiles(), file: !!S.handle, permission: AUTO.permission,
-    saving: AUTO.saving, dirty: S.dirty, error: AUTO.error,
+    saving: AUTO.saving, dirty: S.dirty, error: AUTO.error, waiting: AUTO.held && $('newerDlg').open,
   });
   const b = $('autosaveBtn');
   b.hidden = !st;
@@ -6265,6 +6265,7 @@ async function autosave() {
   if (AUTO.saving) return; // the save running now looks again when it's done
   AUTO.first = 0;
   if (!canAuto() || !h || !S.dirty || (S.reviewId && !S.review)) return showAutosave();
+  if (AUTO.held) return; // looking at Drive's copy first; it saves after
   const gen = S.changeGen;
   AUTO.saving = true;
   showAutosave();
@@ -6285,6 +6286,76 @@ async function autosave() {
     if (S.dirty) scheduleAutosave(); else showAutosave();
   }
 }
+
+// A project in Google Drive may have been changed on another computer, or in another
+// window, since this one last read or wrote it. Scribecue looks as it opens with the project
+// and when you come back to it: with nothing unsaved here, the newer version opens; with
+// changes here, it asks. Saving waits while it looks, so it can't save over it as a copy first.
+const LOOK_AGAIN = 30000;
+let lookedAt = 0;
+const newerDlg = $('newerDlg');
+async function lookForNewer(now = false) {
+  const h = S.handle;
+  if (h?.kind !== 'drive' || !driveOn() || !navigator.onLine || AUTO.held || AUTO.saving) return;
+  if (shared || S.reviewId || S.mode === 'record' || !canMakeFiles()) return;
+  if (!now && (Date.now() - lookedAt < LOOK_AGAIN || document.querySelector('dialog[open]'))) return;
+  lookedAt = Date.now();
+  AUTO.held = true;
+  let asking = false;
+  try {
+    const meta = await projectInfo(h);
+    if (h !== S.handle) return;
+    const what = newerInDrive(h.revision, meta, S.dirty);
+    if (what === 'open') await openNewer(h, `Opened the newer version of ${meta.name} from Google Drive`);
+    else if (what === 'ask') { asking = true; askNewer(h, meta); }
+  } catch { /* offline or signed out: it looks again next time */ } finally {
+    if (!asking) releaseSaving();
+  }
+}
+function releaseSaving() {
+  AUTO.held = false;
+  if (S.dirty) scheduleAutosave(); else showAutosave();
+}
+async function openNewer(h, said) {
+  const file = await h.getFile();
+  await openProject(file, h, true);
+  toast(said);
+}
+function askNewer(h, meta) {
+  $('newerTitle').textContent = `${meta.name} changed on another computer`;
+  newerDlg.showModal();
+  showAutosave();
+  $('newerOpen').focus();
+  const choose = async (open) => {
+    newerChoose = null;
+    if (newerDlg.open) newerDlg.close();
+    try {
+      if (open && h === S.handle) {
+        // This window's changes go into a copy beside it first, so nothing is lost.
+        const copy = await createProject(h.name, new Blob([projectFileData()], { type: 'application/json' }));
+        noteRecent(copy);
+        await openNewer(h, `Opened the newer version of ${meta.name}. Your changes from this window are in ${copy.name}, beside it in Google Drive`);
+      }
+    } catch (e) {
+      toast(`Couldn’t open the newer version of ${meta.name}: ${e.message}. Your changes here are kept`);
+    } finally {
+      releaseSaving();
+      // Keep mine: saving now finds it changed, and saves beside it, as before.
+      if (!open && S.dirty) autosave();
+    }
+  };
+  newerChoose = choose;
+}
+let newerChoose = null;
+$('newerOpen').addEventListener('click', () => newerChoose?.(true));
+$('newerKeep').addEventListener('click', () => newerChoose?.(false));
+// Esc doesn't close it: one of the two has to be chosen. If the browser closes it anyway,
+// that's Keep mine, which loses nothing.
+newerDlg.addEventListener('cancel', (e) => e.preventDefault());
+newerDlg.addEventListener('close', () => newerChoose?.(false));
+newerDlg.addEventListener('keydown', (e) => e.stopPropagation());
+document.addEventListener('visibilitychange', () => { if (!document.hidden) lookForNewer(); });
+addEventListener('focus', () => lookForNewer());
 
 // The status next to the project name: clicking it resumes a paused or failed autosave.
 // Autosave is always on, so there's nothing to do otherwise.
@@ -9323,7 +9394,13 @@ changed();
 S.dirty = restored ? S.savedDirty : false;
 showDocName();
 // Keep saving in place to the project that was open before the reload.
-handleStore.get().then((h) => { if (h && h.name === S.subName) { S.handle = h; checkWrite(); } });
+// One in Google Drive is looked at first, in case it changed elsewhere since.
+handleStore.get().then(async (h) => {
+  if (!h || h.name !== S.subName) return;
+  S.handle = h;
+  if (h.kind === 'drive') await lookForNewer(true);
+  checkWrite();
+});
 updateInd();
 setMode(S.reviewId ? 'qc' : S.mode, true);
 showDur();

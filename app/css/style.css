@@ -177,8 +177,8 @@ kbd + kbd { margin-left: 2px; }
 .files .sep { color: var(--faint); margin: 0 6px; }
 /* Right after the file names, where people look for it; nav keeps to the right. */
 .autosave { flex-shrink: 0; margin-left: -6px; padding: 1px 8px; font: 11px var(--mono); color: var(--dim); background: none; }
-.autosave[data-state="paused"], .autosave[data-state="error"] { color: var(--warn); border-color: var(--warn); }
-.autosave[data-state="saved"], .autosave[data-state="saving"] { cursor: default; } /* only a status */
+.autosave[data-state="paused"], .autosave[data-state="error"], .autosave[data-state="waiting"] { color: var(--warn); border-color: var(--warn); }
+.autosave[data-state="saved"], .autosave[data-state="saving"], .autosave[data-state="waiting"] { cursor: default; } /* only a status */
 nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 /* Shortcuts: a square button with a question mark. */
 .helpbtn { width: 28px; justify-content: center; padding: 4px 0; font: 600 13px var(--mono); }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { copyName, filterProjects, isDriveRef, driveRef, changedElsewhere, oneAtATime, firstSaveGoes, projectName } from '../app/js/driveprojects.js';
+import { copyName, filterProjects, isDriveRef, driveRef, changedElsewhere, oneAtATime, firstSaveGoes, projectName, newerInDrive } from '../app/js/driveprojects.js';
 
 test('a copy gets the first free number, whatever the case', () => {
   assert.equal(copyName('Pilot.scribecue', []), 'Pilot.scribecue');
@@ -64,4 +64,16 @@ test('saves to Drive run one at a time, and a failed one doesn’t stop the next
   await assert.rejects(b, /save/);
   assert.equal(await c, 'again');
   assert.deepEqual(log, ['start autosave', 'end autosave', 'start save', 'end save', 'start again', 'end again']);
+});
+
+test('a newer version in Drive opens, or asks when there are changes here', () => {
+  const meta = (rev, trashed = false) => ({ id: 'f1', name: 'Ep 4.scribecue', headRevisionId: rev, trashed });
+  assert.equal(newerInDrive('r1', meta('r1'), false), 'same');
+  assert.equal(newerInDrive('r1', meta('r1'), true), 'same');
+  assert.equal(newerInDrive('r1', meta('r2'), false), 'open');
+  assert.equal(newerInDrive('r1', meta('r2'), true), 'ask');
+  assert.equal(newerInDrive('r1', null, true), 'gone');
+  assert.equal(newerInDrive('r1', meta('r2', true), false), 'gone');
+  // A revision never known (an old handle) isn't taken for a change.
+  assert.equal(newerInDrive('', meta('r2'), true), 'same');
 });
