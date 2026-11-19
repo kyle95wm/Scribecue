@@ -505,13 +505,19 @@ However you move them, they keep their gaps and stop short of blocks that aren't
 
 ## Adding scripts to a project
 
-Use this when scripts were written for one version of a programme, and you're describing
-another. For example, episodes written one at a time, for a version that joins them into one.
+Use this to bring blocks from other scripts into this one. For example:
+
+- Episodes written one at a time, for a version that joins them into one.
+- Opening or end credits that are described the same way every episode.
 
 1. Open the video, and the project if there is one.
 2. Click **File**, then **Add a script…** (`Alt+Shift+M`). Choose one or more files.
-3. Give each a start: where its time 0 falls in this video.
-4. Click **Add**.
+   With Google Drive connected, the window opens first: click **From this computer…** or
+   **From Google Drive…**.
+3. To add only some blocks, click **Choose blocks…** and untick the rest.
+4. Give each a start: where its time 0 falls in this video. With blocks chosen, it's where
+   the first one lands.
+5. Click **Add**.
 
 | To start it | Do this |
 |---|---|
@@ -521,11 +527,19 @@ another. For example, episodes written one at a time, for a version that joins t
 
 - **What comes in:** SRT, WebVTT, `.adc` and Scribecue projects. A project also brings its
   bookmarks, comments, scenes and spelling words.
+- **Choosing blocks:** click one to tick or untick it. Shift+click does a run. The chosen
+  blocks keep their spacing, and only the bookmarks, comments and scenes between them come along.
+- **Credits that start at a different time each episode:** play to where they start, then
+  click **Playhead**.
+- **From Google Drive:** you can add projects you saved there. Scripts such as SRT can't be
+  added from Drive: download them first.
+- **Opening and end credits from one file:** add it twice. Choose the opening in one, the
+  end in the other, and give each its own start.
 - **What stays behind:** a project's recordings, takes and QC history, which belong to its own
   video. Its voice and base speed too: the added blocks use this project's.
 - **A bookmark marks where each script starts,** named after its file.
-- **The added blocks stay ticked.** Delete or move titles, recaps and credits the video leaves
-  out, as in [Changing several blocks at once](#changing-several-blocks-at-once).
+- **The added blocks stay ticked.** Delete or move what the video leaves out, as in
+  [Changing several blocks at once](#changing-several-blocks-at-once).
 - **Blocks that land on others** are added anyway. A message says how many.
 - `Ctrl/Cmd+Z` takes it all back.
 

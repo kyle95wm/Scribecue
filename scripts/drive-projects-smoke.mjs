@@ -1,7 +1,7 @@
 // Projects in Google Drive, in headless, muted Chrome at a CPU slowdown, with Google, Drive
 // and the relay's sign-in helper stood in for. Saves a 1500-block project to Drive, autosaves
 // an edit, saves a copy when another computer changed it, keeps saving to Drive after a
-// reload, and opens a project from the list. A new project's first save asks for a name and
+// reload, opens a project from the list, and adds 3 blocks of one with Add a script. A new project's first save asks for a name and
 // where it goes, and can remember that.
 // Usage: node scripts/drive-projects-smoke.mjs <devtools port> <site url> [screenshot.png] [slowdown]
 import assert from 'node:assert/strict';
@@ -209,6 +209,36 @@ try {
   assert.match(await js(`document.title`), /^Pilot\.scribecue/);
   const long = await js(`window.__long`);
   console.log(`long tasks after reloading: ${long.length}, longest ${Math.round(Math.max(0, ...long))} ms`);
+
+  // With Drive connected, Add a script opens its window first, to add from Drive. Only the
+  // last 3 blocks of a 1500-block project are chosen.
+  const rows = await js(`document.querySelectorAll('#list .row').length`);
+  await js(`document.querySelector('[data-act="addScript"]').click(),true`);
+  await wait(`document.getElementById('addDlg').open`);
+  assert.equal(await js(`!document.getElementById('addDrive').hidden && !document.getElementById('addNone').hidden && document.getElementById('addGo').disabled`), true, 'an empty window, with Drive offered');
+  await js(`document.getElementById('addDrive').click(),true`);
+  await wait(`document.getElementById('driveDlg').open && document.querySelectorAll('#driveList .sharedrow').length===2`);
+  assert.equal(await js(`document.getElementById('driveTitle').textContent`), 'Add from Google Drive');
+  await shoot('add-list');
+  await js(`[...document.querySelectorAll('#driveList .sharedrow')].find(r=>r.querySelector('strong').textContent==='Pilot.scribecue').click(),true`);
+  await wait(`!document.getElementById('driveDlg').open && document.querySelectorAll('#addList li').length===1`);
+  assert.match(await js(`document.querySelector('#addList .what .dim').textContent`), /^Project, 1500 blocks/);
+  await js(`window.__long=[];[...document.querySelectorAll('#addList button')].find(b=>b.textContent==='Choose blocks…').click();true`);
+  await wait(`document.querySelectorAll('.pickrow').length===1500`);
+  await sleep(500);
+  const pickLong = await js(`window.__long`);
+  console.log(`Choose blocks with 1500: ${pickLong.length} long tasks, longest ${Math.round(Math.max(0, ...pickLong))} ms`);
+  await js(`[...document.querySelectorAll('.addpickbar button')].find(b=>b.textContent==='None').click();const r=document.querySelectorAll('.pickrow');r[1497].click();r[1499].dispatchEvent(new MouseEvent('click',{bubbles:true,shiftKey:true}));true`);
+  assert.match(await js(`document.querySelector('#addList .what .dim').textContent`), /^Project, 3 of 1500 blocks/);
+  await shoot('add-window');
+  await js(`document.getElementById('addGo').click(),true`);
+  await wait(`!document.getElementById('addDlg').open && document.querySelectorAll('#list .row').length===${rows + 3}`);
+  assert.match(await toast(), /^Added 3 blocks from Pilot\.scribecue/);
+  // Opening from Drive afterwards is as it was.
+  await js(`document.querySelector('[data-act="openDrive"]').click(),true`);
+  await wait(`document.getElementById('driveDlg').open`);
+  assert.equal(await js(`document.getElementById('driveTitle').textContent`), 'Open from Google Drive');
+  await js(`document.getElementById('driveClose').click(),true`);
 
   // A new project's first Save asks where. Always remembers it, and Settings shows it.
   const fresh = (name) => js(`localStorage.setItem('scribecue.v1',JSON.stringify({dirty:true,subName:'${name}',cues:[{uid:'c0000000-0000-4000-8000-000000000000',start:1,end:3,text:'A new block.'}]}));true`);

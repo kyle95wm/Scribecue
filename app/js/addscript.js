@@ -10,6 +10,9 @@ import { cleanScenes } from './aiscript.js';
 // What can be added: scripts, and Scribecue projects.
 export const ADDABLE = /\.(srt|vtt|txt|adc|scribecue)$/i;
 
+// A project from Google Drive, read as a project even if its name there lost the extension.
+export const asProjectName = (name) => (String(name).toLowerCase().endsWith(PROJECT_EXT) ? String(name) : `${String(name).trim() || 'Project'}${PROJECT_EXT}`);
+
 // A file's name without its extension, for the bookmark where it starts.
 export const scriptLabel = (name) => String(name).replace(/\.[^.]+$/, '').trim() || String(name);
 
@@ -40,6 +43,27 @@ export function readScript(name, text) {
   }
   if (!out.blocks.length) throw new Error('it has no blocks');
   return out;
+}
+
+// Only some of a script's blocks, such as the credits: `keep` holds the indexes of the
+// blocks to add. Times are moved so the first kept block is at 0, so "Starts at" is where
+// it lands. Bookmarks, comments at times and scenes come along only from the first kept
+// block's start to the last one's end. With every block kept, or no `keep`, the script is
+// as it was, and its own time 0 stays where it starts.
+export function pickBlocks(script, keep) {
+  if (!keep || script.blocks.every((_, i) => keep.has(i))) return script;
+  const blocks = script.blocks.filter((_, i) => keep.has(i));
+  if (!blocks.length) return { ...script, blocks: [], bookmarks: [], comments: [], scenes: [] };
+  const lo = Math.min(...blocks.map((b) => b.start)), hi = blocks.reduce((m, b) => Math.max(m, b.end), lo);
+  const at = (t) => t - lo, inside = (t) => t >= lo && t <= hi;
+  return {
+    ...script,
+    blocks: blocks.map((b) => ({ ...b, start: at(b.start), end: at(b.end) })),
+    bookmarks: script.bookmarks.filter((m) => inside(m.time)).map((m) => ({ ...m, time: at(m.time) })),
+    comments: script.comments.filter((c) => inside(c.time)).map((c) => ({ ...c, time: at(c.time) })),
+    scenes: script.scenes.filter((s) => s.end > lo && s.start < hi)
+      .map((s) => ({ ...s, start: at(Math.max(s.start, lo)), end: at(Math.min(s.end, hi)) })),
+  };
 }
 
 // From the first block's start to the last block's end, in the script's own time.
