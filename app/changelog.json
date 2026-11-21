@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.139.6",
+    "date": "2026-11-21",
+    "notes": "## Merging blocks\n\n- Merging a block with the next (`M`) now joins their text as sentences on one line, not on a new line.\n- A full stop and a space are added where the first block doesn't end a sentence."
+  },
+  {
     "version": "0.139.5",
     "date": "2026-11-21",
     "notes": "## Subtitles video\n\n- A subtitles video now has stereo sound, whatever the video had. It sounds as Scribecue plays it, in any player."
