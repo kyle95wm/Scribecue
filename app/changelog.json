@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.139.5",
+    "date": "2026-11-21",
+    "notes": "## Subtitles video\n\n- A subtitles video now has stereo sound, whatever the video had. It sounds as Scribecue plays it, in any player."
+  },
+  {
     "version": "0.139.4",
     "date": "2026-11-21",
     "notes": "## Subtitles video\n\n- A subtitles video made from a video with 5.1 AC-3 or E-AC-3 sound now plays in QuickTime and Quick Look. It used to have no sound there.\n- In VLC and other players, the dialogue now comes from the centre, not one side."
