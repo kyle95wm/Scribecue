@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { runInThisContext } from 'node:vm';
+import { runInThisContext, constants } from 'node:vm';
 import { stepDip, dipLevel, isDip, typedDip, typedDipBy, blockDipOf, dipFor, isVol, typedVol, volGain, DIPS, MAX_DIP, FADES, LOUDNESS } from '../app/js/tts.js';
 import { MIX_FORMATS } from '../app/js/mp3.js';
 
@@ -10,7 +10,13 @@ const app = (f) => new URL(`../app/${f}`, import.meta.url);
 let sink = () => {};
 globalThis.self = globalThis;
 globalThis.postMessage = (m) => sink(m);
-globalThis.importScripts = (...fs) => { for (const f of fs) runInThisContext(readFileSync(new URL(f, app('js/')), 'utf8'), { filename: f }); };
+// The AC-3 decoder is loaded with import(), which a script run this way has to be let do.
+globalThis.importScripts = (...fs) => {
+  for (const f of fs) {
+    const url = new URL(f, app('js/'));
+    runInThisContext(readFileSync(url, 'utf8'), { filename: url.href, importModuleDynamically: constants.USE_MAIN_CONTEXT_DEFAULT_LOADER });
+  }
+};
 await import('../app/js/mix-worker.js');
 
 // A WAV programme: fn(channel, seconds) gives each sample.
@@ -108,6 +114,43 @@ test('5.1 is folded to stereo, without the LFE', async () => {
   const { l, r } = await decode(await mix(programme(1, 6, (c, t) => sides[c] * Math.sin(2 * Math.PI * 440 * t)), {}));
   near(peak(l, 0.1, 0.9), 0.2 + 0.1 * Math.SQRT1_2, 0.003, 'left: L and centre');
   near(peak(r, 0.1, 0.9), 0.1 * Math.SQRT1_2, 0.003, 'right: centre only');
+});
+
+// tones-5.0.eac3: E-AC-3 5.0, eight frames with a tone at 0.25 for each speaker (left 300 Hz,
+// right 500, centre 700, left surround 1100, right surround 1300). Without an LFE the
+// surrounds come straight after the centre, not where a WAV has them.
+function eac3Programme() {
+  const bytes = readFileSync(new URL('./tones-5.0.eac3', import.meta.url));
+  const size = (n) => [0x10 | (n >> 24), (n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const el = (id, body) => [...id, ...size(body.length), ...body];
+  const str = (s) => [...s].map((c) => c.charCodeAt(0));
+  const f64 = (x) => { const dv = new DataView(new ArrayBuffer(8)); dv.setFloat64(0, x); return [...new Uint8Array(dv.buffer)]; };
+  const track = el([0xae], [...el([0xd7], [1]), ...el([0x83], [2]), ...el([0x86], str('A_EAC3')), ...el([0xe1], [...el([0xb5], f64(48000)), ...el([0x9f], [5])])]);
+  const blocks = [];
+  for (let k = 0; k < 8; k++) blocks.push(...el([0xa3], [0x81, (k * 32) >> 8, (k * 32) & 255, 0x80, ...bytes.subarray(k * 768, (k + 1) * 768)]));
+  const segment = el([0x18, 0x53, 0x80, 0x67], [...el([0x16, 0x54, 0xae, 0x6b], track), ...el([0x1f, 0x43, 0xb6, 0x75], [...el([0xe7], [0]), ...blocks])]);
+  return new File([new Uint8Array([...el([0x1a, 0x45, 0xdf, 0xa3], el([0x42, 0x82], str('webm'))), ...segment])], 'programme.mkv');
+}
+// How loud a tone of hz is, by the Goertzel algorithm, in dB against 0.25.
+function toneDb(s, hz, rate = 48000) {
+  const w = 2 * Math.cos(2 * Math.PI * hz / rate);
+  let s1 = 0, s2 = 0;
+  for (const v of s) { const x = v + w * s1 - s2; s2 = s1; s1 = x; }
+  return 20 * Math.log10(Math.sqrt(Math.max(0, s1 * s1 + s2 * s2 - w * s1 * s2)) * 2 / s.length / 0.25);
+}
+
+test('E-AC-3 5.0 is folded to stereo by what each channel is', async () => {
+  const m = await mix(eac3Programme(), { ceiling: 0 });
+  assert.equal(m.type, 'mix', m.message);
+  const { l, r } = await decode(m);
+  const a = l.subarray(3072, 9216), b = r.subarray(3072, 9216);
+  for (const [hz, wl, wr, what] of [[300, 0, null, 'left'], [500, null, 0, 'right'], [700, -3, -3, 'centre'], [1100, -3, null, 'left surround'], [1300, null, -3, 'right surround']]) {
+    for (const [side, s, w] of [['left', a, wl], ['right', b, wr]]) {
+      const v = toneDb(s, hz);
+      if (w === null) assert.ok(v < -30, `the ${what} shouldn't be on the ${side}: ${v.toFixed(1)} dB`);
+      else near(v, w, 0.5, `the ${what} on the ${side}, in dB`);
+    }
+  }
 });
 
 test('as an MP3', async () => {

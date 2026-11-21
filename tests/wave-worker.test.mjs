@@ -309,17 +309,18 @@ test('says closed captions in an MP4 can’t be read', async () => {
   assert.equal(t.text, false);
 });
 
-// A Matroska file with one E-AC-3 track: tone.eac3, seven 32 ms frames of a 1 kHz tone.
-function eac3File() {
-  const bytes = readFileSync(new URL('./tone.eac3', import.meta.url));
+// A Matroska file with one E-AC-3 or AC-3 track, from frames of the same size. By default
+// tone.eac3: seven 32 ms frames of a 1 kHz tone.
+function eac3File(name = 'tone.eac3', frames = 7, frameBytes = 384, codec = 'A_EAC3') {
+  const bytes = readFileSync(new URL(`./${name}`, import.meta.url));
   const size = (n) => [0x10 | (n >> 24), (n >> 16) & 255, (n >> 8) & 255, n & 255];
   const el = (id, body) => [...id, ...size(body.length), ...body];
   const str = (s) => [...s].map((c) => c.charCodeAt(0));
   const f64 = (x) => { const dv = new DataView(new ArrayBuffer(8)); dv.setFloat64(0, x); return [...new Uint8Array(dv.buffer)]; };
-  const track = el([0xae], [...el([0xd7], [1]), ...el([0x83], [2]), ...el([0x86], str('A_EAC3')),
+  const track = el([0xae], [...el([0xd7], [1]), ...el([0x83], [2]), ...el([0x86], str(codec)),
     ...el([0xe1], [...el([0xb5], f64(48000)), ...el([0x9f], [2])])]);
   const blocks = [];
-  for (let k = 0; k < 7; k++) blocks.push(...el([0xa3], [0x81, 0, k * 32, 0x80, ...bytes.subarray(k * 384, (k + 1) * 384)]));
+  for (let k = 0; k < frames; k++) blocks.push(...el([0xa3], [0x81, (k * 32) >> 8, (k * 32) & 255, 0x80, ...bytes.subarray(k * frameBytes, (k + 1) * frameBytes)]));
   const cluster = el([0x1f, 0x43, 0xb6, 0x75], [...el([0xe7], [0]), ...blocks]);
   const segment = el([0x18, 0x53, 0x80, 0x67], [...el([0x16, 0x54, 0xae, 0x6b], track), ...cluster]);
   return new File([new Uint8Array([...el([0x1a, 0x45, 0xdf, 0xa3], el([0x42, 0x82], str('webm'))), ...segment])], 'test.mkv');
@@ -382,3 +383,54 @@ test('makes a stereo Opus M4A of E-AC-3, starting where the sound does', async (
     delete globalThis.AudioEncoder;
   }
 });
+
+// How loud a tone of hz is in samples, by the Goertzel algorithm (1 for a full-scale sine).
+function toneLevel(s, hz, rate = 48000) {
+  const w = 2 * Math.cos(2 * Math.PI * hz / rate);
+  let s1 = 0, s2 = 0;
+  for (const v of s) { const x = v + w * s1 - s2; s2 = s1; s1 = x; }
+  return Math.sqrt(Math.max(0, s1 * s1 + s2 * s2 - w * s1 * s2)) * 2 / s.length;
+}
+
+// tones-5.0.eac3 (E-AC-3, 5.0) and tones-quad.ac3 (AC-3, quad): eight frames, with a tone
+// at 0.25 for each speaker: left 300 Hz, right 500, centre 700, left surround 1100, right
+// surround 1300. Neither has an LFE, so the surrounds aren't where a WAV would have them.
+for (const [name, codec, speakers] of [['tones-5.0.eac3', 'A_EAC3', 'L R C Ls Rs'], ['tones-quad.ac3', 'A_AC3', 'L R Ls Rs']]) {
+  test(`folds ${codec === 'A_AC3' ? 'AC-3' : 'E-AC-3'} ${speakers} to stereo by what each channel is`, async () => {
+    const left = [], right = [];
+    const opusHead = new Uint8Array([79, 112, 117, 115, 72, 101, 97, 100, 1, 2, 0x38, 1, 0x80, 0xbb, 0, 0, 0, 0, 0]);
+    globalThis.AudioData = class { constructor(o) { Object.assign(this, o); } close() {} };
+    globalThis.AudioEncoder = class extends EventTarget {
+      static isConfigSupported = async () => ({ supported: true });
+      state = 'configured'; encodeQueueSize = 0;
+      constructor({ output }) { super(); this.output = output; }
+      configure() {}
+      encode(a) {
+        const n = a.numberOfFrames;
+        left.push(...a.data.subarray(0, n));
+        right.push(...a.data.subarray(n, 2 * n));
+        this.output({ byteLength: 4, timestamp: a.timestamp, copyTo: (d) => d.set([0xfc, 1, 2, 3]) }, { decoderConfig: { description: opusHead } });
+      }
+      flush() { return Promise.resolve(); }
+      close() { this.state = 'closed'; }
+    };
+    try {
+      const { end } = await run({ cmd: 'build', file: eac3File(name, 8, 768, codec), rate: 200, mux: true });
+      assert.equal(end.type, 'done');
+      // The middle of it, past the encoder's start.
+      const l = left.slice(3072, 3072 + 6144), r = right.slice(3072, 3072 + 6144);
+      const db = (v) => 20 * Math.log10(v / 0.25);
+      const want = { 300: [0, null], 500: [null, 0], 700: speakers.includes('C') ? [-3, -3] : [null, null], 1100: [-3, null], 1300: [null, -3] };
+      for (const [hz, [wl, wr]] of Object.entries(want)) {
+        for (const [side, s, w] of [['left', l, wl], ['right', r, wr]]) {
+          const v = toneLevel(s, +hz);
+          if (w === null) assert.ok(v < 0.01, `${hz} Hz shouldn't be on the ${side}: ${v.toFixed(3)}`);
+          else assert.ok(Math.abs(db(v) - w) < 0.5, `${hz} Hz on the ${side}: ${db(v).toFixed(1)} dB, expected ${w}`);
+        }
+      }
+    } finally {
+      delete globalThis.AudioData;
+      delete globalThis.AudioEncoder;
+    }
+  });
+}

@@ -6,6 +6,10 @@
 
 const DB = 'scribecue-waves', STORE = 'waves';
 const SOUND_DB = 'scribecue-sounds';
+// Goes up when the sound is made differently, so copies made before are made again.
+// 2: surround layouts without an LFE, such as 5.0, folded to stereo by speaker.
+const SOUND_MADE = 2;
+const soundKey = (key) => `${key}|${SOUND_MADE}`;
 export const KEEP = 20, KEEP_SOUNDS = 3;
 
 export const waveKey = (file, track, rate) => `${file.name}|${file.size}|${file.lastModified}|${track}|${rate}`;
@@ -69,7 +73,7 @@ export async function saveWave(key, peaks, len, max) {
 export async function loadSound(key) {
   try {
     const db = await open(SOUND_DB);
-    const e = await done(db.transaction(STORE).objectStore(STORE).get(key));
+    const e = await done(db.transaction(STORE).objectStore(STORE).get(soundKey(key)));
     if (!e) return null;
     e.used = Date.now();
     db.transaction(STORE, 'readwrite').objectStore(STORE).put(e);
@@ -81,7 +85,7 @@ export async function saveSound(key, blob, start) {
   try {
     const db = await open(SOUND_DB);
     const st = db.transaction(STORE, 'readwrite').objectStore(STORE);
-    st.put({ key, used: Date.now(), blob, start });
+    st.put({ key: soundKey(key), used: Date.now(), blob, start });
     await trim(st, KEEP_SOUNDS);
   } catch { /* storage full or blocked: it's made again next time */ }
 }
