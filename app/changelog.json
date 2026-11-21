@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.139.1",
+    "date": "2026-11-20",
+    "notes": "## Starting a new project\n\n- **File → New… → New project** now starts an untitled project. It used to clear the blocks but stay in the same project file, so autosave could save the empty project over your work.\n- Your notes and spelling words carry over. The project you had open isn't changed.\n- With unsaved changes, it asks whether to save first. `Ctrl/Cmd+Z` still brings the blocks back.\n\n## Install guide\n\n- Steps for installing Docker and Git on Windows."
+  },
+  {
     "version": "0.139.0",
     "date": "2026-11-18",
     "notes": "## Add only some blocks\n\n- In **File → Add a script…**, click **Choose blocks…** to add only some of a script's blocks, such as the opening or end credits.\n- The first chosen block starts at the time you give. Play to where the credits start and click **Playhead**.\n- With Google Drive connected, the window opens first. Add from **this computer** or from **Google Drive**.\n\n## Projects in Google Drive\n\n- If a project changed on another computer, Scribecue opens the newer version when it opens, or when you come back to it.\n- If this window has changes too, it asks which to keep. Either way, your changes are saved beside it as a copy."
