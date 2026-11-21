@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.139.2",
+    "date": "2026-11-20",
+    "notes": "## Starting a new project\n\n- **File → New… → New project** now starts an empty project, as **File → Close** does. Notes and spelling words no longer carry over.\n- **Next episode** still keeps your notes and spelling words."
+  },
+  {
     "version": "0.139.1",
     "date": "2026-11-20",
     "notes": "## Starting a new project\n\n- **File → New… → New project** now starts an untitled project. It used to clear the blocks but stay in the same project file, so autosave could save the empty project over your work.\n- Your notes and spelling words carry over. The project you had open isn't changed.\n- With unsaved changes, it asks whether to save first. `Ctrl/Cmd+Z` still brings the blocks back.\n\n## Install guide\n\n- Steps for installing Docker and Git on Windows."
