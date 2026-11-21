@@ -194,6 +194,12 @@ def good_pauses(pauses):
         for p in pauses))
 
 
+# The layouts AAC has a standard place for. Any other, such as the 5.1(side) that most
+# AC-3 and E-AC-3 decode to, is written with a speaker map that QuickTime won't play and
+# other players read wrongly. ffmpeg moves each speaker to the nearest of these instead.
+AAC_LAYOUTS = "aformat=channel_layouts=mono|stereo|3.0|4.0|5.0|5.1|7.1"
+
+
 def command(job):
     """The ffmpeg arguments for a job, and the duration to measure progress against."""
     folder, codec = job["dir"], job["codec"]
@@ -212,7 +218,7 @@ def command(job):
         return [
             "-i", video, "-vf", burn_filter(job["burn"], frame_rate(video), os.path.join(folder, "subs.srt")),
             "-map", "0:v:0", "-map", f"0:a:{job.get('track') or 0}?",
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-c:a", "aac", "-b:a", "192k",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-af", AAC_LAYOUTS, "-c:a", "aac", "-b:a", "192k",
             "-movflags", "+faststart", "-map_metadata", "0", os.path.join(folder, "out.mp4"),
         ], probe(video)[1]
     mix = os.path.join(folder, "mix.wav")
