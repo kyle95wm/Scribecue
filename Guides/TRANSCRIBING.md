@@ -183,7 +183,8 @@ It's good with clear narration, but check every line. Watch for:
 ### Splitting, merging and deleting
 
 - **`X`** splits the block at the playhead, for two lines you marked as one.
-- **`M`** merges the selected block with the next, for one line you marked as two.
+- **`M`** merges the selected block with the next, for one line you marked as two. The
+  next block's words follow on as another sentence.
 - **`Delete`**, or the **×** at the end of its row in the list, deletes a block, and
   `Ctrl/Cmd+Z` brings it back. `Alt+Shift+D` asks first.
 

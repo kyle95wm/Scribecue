@@ -55,6 +55,7 @@ import { isDriveRef, filterProjects, newerInDrive } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { rangeIds, moveLimit, dragTicked, parseAmount, blockList } from './bulk.js';
+import { joinSentences } from './mergetext.js';
 import { ADDABLE, readScript, pickBlocks, asProjectName, span as scriptSpan, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote } from './addscript.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
 import { comboOf, lookup, REC_LOCKED, bindings, comboText } from './keymap.js';
@@ -1946,7 +1947,7 @@ function merge() {
   if (!n) return toast('No next cue to merge with');
   pushUndo();
   c.end = Math.max(c.end, n.end);
-  c.text = [c.text, n.text].filter(Boolean).join('\n');
+  c.text = joinSentences(c.text, n.text);
   const words = new Set((c.say || []).map(([w]) => w.toLocaleLowerCase()));
   const more = (n.say || []).filter(([w]) => !words.has(w.toLocaleLowerCase()));
   if (n.comments?.length) c.comments = [...(c.comments || []), ...n.comments];
