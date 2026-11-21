@@ -219,8 +219,8 @@ programme. `Ctrl/Cmd+O` opens it again.
   project and its video.
 - **The video reopens with the project.** If you're asked, click **Reopen**. If the video
   has moved, open it again with `Ctrl/Cmd+Shift+O`.
-- **File, New** clears the blocks and closes the video, or starts the next episode.
-  With unsaved changes, it asks whether to save first. `Ctrl/Cmd+Z` brings the blocks back.
+- **File, New** starts a new, untitled project, or the next episode. Both keep your notes
+  and spelling words. The project you had open isn't changed.
 - **File, Add a script…** (`Alt+Shift+M`) adds episodes or other scripts to this project.
   See [Adding scripts to a project](#adding-scripts-to-a-project).
 - **File, Close** (`Alt+Shift+W`) closes the project and the video, for different work.

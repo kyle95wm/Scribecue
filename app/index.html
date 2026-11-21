@@ -52,7 +52,7 @@
       <span class="navwrap file-wrap">
         <button data-act="fileMenu" id="fileBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="fileMenu">File <span class="caret" aria-hidden="true">▾</span></button>
         <div class="navmenu filemenu" id="fileMenu" role="menu" aria-labelledby="fileBtn" hidden>
-          <button role="menuitem" data-act="newProject" class="not-qc not-record"><span><strong>New…</strong><span class="dim">clear the blocks and the video, or start the next episode</span></span></button>
+          <button role="menuitem" data-act="newProject" class="not-qc not-record"><span><strong>New…</strong><span class="dim">a new project, or the next episode</span></span></button>
           <button role="menuitem" data-act="openSubs"><span><strong>Open…</strong><span class="dim">a project, a script (SRT or VTT), or video or audio</span></span><kbd><span class="mod"></span>O</kbd></button>
           <button role="menuitem" data-act="addScript" class="not-qc not-record"><span><strong>Add a script…</strong><span class="dim">episodes or other scripts, each where it starts in this video</span></span><span data-keys="addScript"><kbd>⌥⇧M</kbd></span></button>
           <button role="menuitem" data-act="recents" id="recentsItem"><span><strong>Recents…</strong><span class="dim">projects, packages and recording files opened or saved lately</span></span><span data-keys="recents"><kbd>⌥⇧R</kbd></span></button>
@@ -592,15 +592,13 @@ docker compose up -d --build</code></pre>
     <div class="updbtns"><button id="exportGo" class="hl">Export</button><button id="exportCancel">Cancel</button></div>
   </dialog>
   <dialog id="newDlg" class="updbox wizard" aria-labelledby="newTitle">
-    <h2 id="newTitle">Start again</h2>
+    <h2 id="newTitle">New</h2>
     <p id="newWhat"></p>
-    <button class="wzcard wzchoice" data-choice="blocks"><span><strong>Clear the blocks and the video</strong>
-      <span class="dim" id="newBlocksNote">Removes every block and closes the video. Keeps the project file and your
-        notes. Ready to open another video or script.</span></span></button>
+    <button class="wzcard wzchoice" data-choice="blocks"><span><strong>New project</strong>
+      <span class="dim" id="newBlocksNote"></span></span></button>
     <button class="wzcard wzchoice" data-choice="episode"><span><strong>Next episode</strong>
       <span class="dim" id="newEpisodeNote"></span></span></button>
-    <p id="newUndo" class="dim small"><kbd><span class="mod"></span>Z</kbd> brings the blocks back.</p>
-    <p class="dim small">To start different work, use <strong>File → Close</strong>.</p>
+    <p class="dim small">To start with nothing kept, use <strong>File → Close</strong>.</p>
     <div class="updbtns"><button id="newCancel">Cancel</button></div>
   </dialog>
 
