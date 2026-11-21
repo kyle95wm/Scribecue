@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.139.4",
+    "date": "2026-11-21",
+    "notes": "## Subtitles video\n\n- A subtitles video made from a video with 5.1 AC-3 or E-AC-3 sound now plays in QuickTime and Quick Look. It used to have no sound there.\n- In VLC and other players, the dialogue now comes from the centre, not one side."
+  },
+  {
     "version": "0.139.3",
     "date": "2026-11-21",
     "notes": "## Surround sound\n\n- AC-3 and E-AC-3 tracks in 5.0, quad, 4.0, 4.1 and 2.1 now become stereo correctly, in playback and in the full mix. Surrounds were sometimes lost or on the wrong side.\n- 5.1 and 7.1 tracks sound as before."
