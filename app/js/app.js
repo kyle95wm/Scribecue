@@ -6924,14 +6924,14 @@ function startAgain() {
   const blocks = S.cues.length, media = S.videoFile?.name;
   const n = blocks === 1 ? '1 block' : `${blocks} blocks`;
   const file = S.handle ? S.subName : '';
-  const canFresh = !qc() && !!(blocks || media || S.handle || myShare);
+  const canFresh = !qc() && !!(blocks || media || S.handle || myShare || S.notes.trim() || S.words.length || S.comments.length || S.bookmarks.length);
   const canEpisode = !qc() && !S.reviewId && S.mode !== 'record';
   if (!canFresh && !canEpisode) { toast('Nothing to start again here. File → Close starts different work'); return; }
   $('newWhat').textContent = blocks ? `This project has ${n}${media ? `, with ${media} open` : ''}.` : media ? `${media} is open, with no blocks yet.` : 'This project has no blocks yet.';
   newDlg.querySelector('[data-choice="blocks"]').hidden = !canFresh;
   newDlg.querySelector('[data-choice="episode"]').hidden = !canEpisode;
   const unsaved = S.dirty && !myShare; // a shared project keeps its changes
-  $('newBlocksNote').textContent = `An untitled project, with no blocks${media ? ' and no video' : ''}. Keeps your notes and spelling words.${
+  $('newBlocksNote').textContent = `An empty, untitled project: no blocks, video, notes or spelling words.${
     myShare ? ' You’ll leave this shared project; it isn’t changed.' : file ? ` ${file} isn’t changed.` : ''}${unsaved ? ' Asks to save this one first.' : ''}`;
   const told = cleanScenes(S.scenes).some((s) => s.text.trim());
   $('newEpisodeNote').textContent = `A new project for the next episode of a series. Keeps your notes and spelling words${
@@ -7029,16 +7029,12 @@ async function nextEpisode() {
   toast(`Next episode: notes${recap ? ' with the story so far' : ''} and spelling words kept. Open its video with ${IS_MAC ? '⌘⇧O' : 'Ctrl+Shift+O'}.${said}`);
 }
 
-// New project: an untitled project, keeping the notes and spelling words. The old project
-// file is let go, so nothing is saved over it.
+// New project: a clean, untitled project, as after Close. The old project file is let
+// go, so nothing is saved over it.
 function freshProject() {
-  const notes = S.notes, words = S.words, blocks = S.cues.length;
+  const blocks = S.cues.length;
   newProject(false);
-  S.notes = notes;
-  S.words = words;
-  aiNotesChanged();
-  changed();
-  toast(`New project: notes and spelling words kept.${blocks ? ` ${IS_MAC ? '⌘Z' : 'Ctrl+Z'} brings the blocks back` : ''}`);
+  if (blocks) toast(`New project. ${IS_MAC ? '⌘Z' : 'Ctrl+Z'} brings the blocks back`);
 }
 
 // ask: false when the choice was already made in the New dialog.
