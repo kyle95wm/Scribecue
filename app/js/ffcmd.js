@@ -80,12 +80,10 @@ export function burnFilter(opts, rate, srt) {
   parts.push('format=yuv420p');
   return parts.join(',');
 }
-// The layouts AAC has a standard place for, as AAC_LAYOUTS in ffmpeg/server.py. Others,
-// such as 5.1(side) from AC-3 and E-AC-3, would play silent or in the wrong speakers.
-export const AAC_LAYOUTS = 'aformat=channel_layouts=mono|stereo|3.0|4.0|5.0|5.1|7.1';
+// The sound in stereo, as the server makes it (see ffmpeg/server.py).
 export function burnCommand({ video, srt, out, opts, rate, track = 0 }) {
   return `ffmpeg -i ${quote(video)} -vf "${burnFilter(opts, rate, srt)}" -map 0:v:0 -map "0:a:${track}?" ` +
-    `-c:v libx264 -preset veryfast -crf 20 -af "${AAC_LAYOUTS}" -c:a aac -b:a 192k -movflags +faststart ${quote(out)}`;
+    `-c:v libx264 -preset veryfast -crf 20 -ac 2 -c:a aac -b:a 192k -movflags +faststart ${quote(out)}`;
 }
 // A frame rate as ffmpeg writes it: 29.97 as 30000/1001.
 export function ffRate(fps) {

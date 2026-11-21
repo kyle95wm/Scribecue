@@ -46,7 +46,7 @@ test('the extended video command uses the filter file and suits the container', 
   assert.match(extendedCommand({ video: 'a.webm', mix: 'm.wav', filter: 'p.txt', out: 'o.webm' }), /libvpx-vp9.*libopus/);
 });
 
-import { burnFilter, burnCommand, burnHeights, burnHeight, ffRate, plainName, AAC_LAYOUTS } from '../app/js/ffcmd.js';
+import { burnFilter, burnCommand, burnHeights, burnHeight, ffRate, plainName } from '../app/js/ffcmd.js';
 
 test('burn in: smaller first, then the timecode, then the script, as the server does', () => {
   const vf = burnFilter({ subs: true, timecode: true, size: 'l', bg: 'none', pos: 'top', height: 720 }, '25/1', 'Film.srt');
@@ -76,12 +76,7 @@ test('burn in: the command quotes the names and the optional track, for zsh too'
   assert.match(cmd, /^ffmpeg -i "My \\"film\\".mp4" -vf "/);
   assert.match(cmd, /-map "0:a:1\?"/);
   assert.match(cmd, /"My film - subtitles.mp4"$/);
-  assert.ok(cmd.includes(` -af "${AAC_LAYOUTS}" -c:a aac `), 'the sound in a layout AAC has a standard place for');
-});
-
-test('burn in: the command and the server put the sound in the same layouts', () => {
-  const server = readFileSync(new URL('../ffmpeg/server.py', import.meta.url), 'utf8');
-  assert.ok(server.includes(`AAC_LAYOUTS = "${AAC_LAYOUTS}"`));
+  assert.ok(cmd.includes(' -ac 2 -c:a aac '), 'the sound in stereo, as the server makes it');
 });
 
 test('frame rates and names for a command', () => {
