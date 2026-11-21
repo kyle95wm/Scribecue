@@ -152,12 +152,11 @@ class Burning(unittest.TestCase):
         self.assertEqual(args[-1], "/work/j/out.mp4")
         self.assertEqual(secs, 60.0)
 
-    def test_the_sound_is_put_in_a_layout_aac_has_a_standard_place_for(self):
-        # 5.1(side), as AC-3 and E-AC-3 decode, would otherwise play silent in QuickTime
-        # and with the dialogue on one side in VLC.
+    def test_the_sound_is_in_stereo(self):
+        # 5.1 from AC-3 and E-AC-3 would otherwise play silent in QuickTime and with the
+        # dialogue on one side in VLC.
         args, _ = self.burn({"subs": True})
-        self.assertEqual(after(args, "-af"), ["aformat=channel_layouts=mono|stereo|3.0|4.0|5.0|5.1|7.1"])
-        self.assertLess(args.index("-af"), args.index("-c:a"))
+        self.assertEqual(after(args, "-ac"), ["2"])
 
     def test_smaller_first_then_the_timecode_then_the_script(self):
         vf = after(self.burn({"subs": True, "timecode": True, "height": 720})[0], "-vf")[0]
