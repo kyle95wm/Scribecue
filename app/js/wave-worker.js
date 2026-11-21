@@ -439,6 +439,28 @@ async function loadAc3() {
 
 const FLOAT_PLANES = 8; // FFmpeg's AV_SAMPLE_FMT_FLTP
 
+// The speakers of each acmod (audio coding mode), in the order FFmpeg's decoder gives
+// them. S is a single surround, behind.
+const AC3_SPEAKERS = [['L', 'R'], ['C'], ['L', 'R'], ['L', 'R', 'C'], ['L', 'R', 'S'], ['L', 'R', 'C', 'S'], ['L', 'R', 'Ls', 'Rs'], ['L', 'R', 'C', 'Ls', 'Rs']];
+// Which speaker each channel of an AC-3 or E-AC-3 frame is for, from its header (ETSI TS
+// 102 366), or null if it can't be read. Layouts such as 5.0 and quad don't follow the
+// L R C LFE order a WAV does, so the downmix needs this to put each in its place.
+function ac3Speakers(d) {
+  if (d.length < 8 || d[0] !== 0x0b || d[1] !== 0x77) return null;
+  let acmod, lfe;
+  if (d[5] >> 3 > 10) { // E-AC-3: fscod, numblkscod, acmod, lfeon
+    acmod = (d[4] >> 1) & 7;
+    lfe = d[4] & 1;
+  } else { // AC-3: acmod, then mix levels for some modes, then lfeon
+    acmod = d[6] >> 5;
+    const at = 3 + ((acmod & 1) && acmod !== 1 ? 2 : 0) + (acmod & 4 ? 2 : 0) + (acmod === 2 ? 2 : 0);
+    lfe = (((d[6] << 8) | d[7]) >> (15 - at)) & 1;
+  }
+  const s = AC3_SPEAKERS[acmod].slice();
+  if (lfe) s.splice(s.indexOf('C') + 1 || 2, 0, 'LFE');
+  return s;
+}
+
 async function ac3Sink(peaks, kind, copy) {
   const a = await loadAc3(), ctx = a.open(kind === 'ac3' ? 0 : 1);
   if (!ctx) throw new Unsupported(`${KIND_LABEL[kind]} audio`);
@@ -452,8 +474,9 @@ async function ac3Sink(peaks, kind, copy) {
       if (a.format(ctx) !== FLOAT_PLANES) throw new Unsupported(`${KIND_LABEL[kind]} audio`);
       const frames = a.frames(ctx), rate = a.rate(ctx), planes = [];
       for (let c = 0, n = a.channels(ctx); c < n; c++) planes.push(new Float32Array(a.m.HEAPU8.buffer, a.plane(ctx, c), frames));
-      peaks.add(t, planes, frames, rate);
-      await copy?.push(t + (peaks.shift || 0), planes, frames, rate);
+      const speakers = ac3Speakers(data);
+      peaks.add(t, planes, frames, rate, speakers);
+      await copy?.push(t + (peaks.shift || 0), planes, frames, rate, speakers);
     },
     async finish() {
       decoders.delete(dec);
@@ -1300,20 +1323,20 @@ class OpusCopy {
   }
 
   // Sound from time t. Any gap, as from a damaged frame, becomes silence, to stay in sync.
-  async push(t, planes, frames, rate) {
+  async push(t, planes, frames, rate, speakers) {
     if (!this.enc && !this.failed) await this.open(rate);
     if (this.failed) return;
     this.at ??= t;
     for (let gap = t - this.at; gap > 0.1; gap -= frames / rate) this.encode(null, frames, rate);
-    this.encode(planes, frames, rate);
+    this.encode(planes, frames, rate, speakers);
     while (this.enc.encodeQueueSize > COPY_QUEUE && !this.failed) {
       await new Promise((r) => { this.enc.addEventListener('dequeue', r, { once: true }); setTimeout(r, 500); });
     }
   }
 
-  encode(planes, frames, rate) {
+  encode(planes, frames, rate, speakers) {
     const data = new Float32Array(frames * 2);
-    if (planes) toStereo(planes, frames, data.subarray(0, frames), data.subarray(frames));
+    if (planes) toStereo(planes, frames, data.subarray(0, frames), data.subarray(frames), speakers);
     const a = new AudioData({ format: 'f32-planar', sampleRate: rate, numberOfFrames: frames, numberOfChannels: 2, timestamp: Math.round(this.at * 1e6), data });
     this.enc.encode(a);
     a.close();
@@ -1331,17 +1354,34 @@ class OpusCopy {
   }
 }
 
-// Down to stereo as the full mix does: left, right, centre, LFE (left out), then the
-// surrounds in pairs, the centre and surrounds at −3 dB.
-function toStereo(planes, frames, left, right) {
-  const ch = planes.length, [p0, p1 = p0, p2] = planes, c = Math.SQRT1_2;
-  for (let k = 0; k < frames; k++) {
-    let l = p0[k], r = p1[k];
-    if (p2) { const m = c * p2[k]; l += m; r += m; }
-    for (let j = 4; j < ch; j++) { if (j % 2) r += c * planes[j][k]; else l += c * planes[j][k]; }
-    left[k] = l;
-    right[k] = r;
+// How much of each speaker goes to the left and the right in stereo: the centre and the
+// surrounds at −3 dB, and no LFE.
+const MINUS_3DB = Math.SQRT1_2;
+const TO_STEREO = { L: [1, 0], R: [0, 1], C: [MINUS_3DB, MINUS_3DB], LFE: [0, 0], S: [MINUS_3DB, MINUS_3DB], Ls: [MINUS_3DB, 0], Rs: [0, MINUS_3DB] };
+
+// Each channel's gains to the left and the right, as [l0, r0, l1, r1, ...]. speakers: which
+// speaker each channel is for, if known. If not, they're taken in WAV's order: left, right,
+// centre, LFE, then surrounds in pairs. Sound in one channel goes to both sides as it is.
+function stereoGains(n, speakers) {
+  if (n === 1) return [1, 1];
+  const g = [];
+  for (let j = 0; j < n; j++) {
+    const s = speakers?.length === n ? speakers[j] : j < 4 ? ['L', 'R', 'C', 'LFE'][j] : j % 2 ? 'Rs' : 'Ls';
+    g.push(...(TO_STEREO[s] || [0, 0]));
   }
+  return g;
+}
+
+// Down to stereo, as the full mix and playback do. speakers: as in stereoGains.
+function toStereo(planes, frames, left, right, speakers) {
+  const g = stereoGains(planes.length, speakers);
+  left.fill(0, 0, frames);
+  right.fill(0, 0, frames);
+  planes.forEach((p, j) => {
+    const gl = g[2 * j], gr = g[2 * j + 1];
+    if (gl) for (let k = 0; k < frames; k++) left[k] += gl * p[k];
+    if (gr) for (let k = 0; k < frames; k++) right[k] += gr * p[k];
+  });
 }
 
 class Mp4Mux {

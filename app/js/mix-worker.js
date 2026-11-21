@@ -252,7 +252,8 @@ class Mixer {
     this.edge = Math.max(1, Math.round(HOLD_FADE * rate));
   }
 
-  add(t, planes, frames, rate) {
+  // speakers: which speaker each channel is for, if the decoder knows (see stereoGains).
+  add(t, planes, frames, rate, speakers) {
     t += this.shift;
     if (this.cursor !== null && (t < this.cursor || t - this.cursor < 0.25)) t = this.cursor; // as in Peaks
     this.cursor = t + frames / rate;
@@ -260,26 +261,18 @@ class Mixer {
     const at = Math.round(t * this.rate);
     if (at > this.pn) this.frames(null, 0, at - this.pn); // a gap in the programme: silence
     const from = this.pn ? 0 : Math.max(0, -at); // before the start, after an edit list's shift
-    this.frames(planes, from, frames);
+    this.frames(planes, from, frames, speakers);
   }
 
   // Writes the programme's frames from..to of planes (or silence) mixed with the readings,
-  // stopping at each pause.
-  frames(planes, from, to) {
-    const ch = planes?.length || 0, c = Math.SQRT1_2;
-    const [p0, p1, p2] = planes || [];
+  // stopping at each pause. More than one channel is folded to stereo as in toStereo.
+  frames(planes, from, to, speakers) {
+    const ch = planes?.length || 0, g = ch ? stereoGains(ch, speakers) : [];
     const hs = this.holds;
     for (let k = from; k < to; k++) {
       if (this.pause < hs.length && hs[this.pause].at <= this.pn) this.hold();
       let l = 0, r = 0;
-      if (ch === 1) l = r = p0[k];
-      else if (ch) {
-        l = p0[k]; r = p1[k];
-        // More than stereo, in WAV order (L R C LFE and surrounds): centre to both
-        // sides, surrounds to their side, and no LFE.
-        if (ch > 2) { l += c * p2[k]; r += c * p2[k]; }
-        for (let j = 4; j < ch; j++) { if (j % 2) r += c * planes[j][k]; else l += c * planes[j][k]; }
-      }
+      for (let j = 0; j < ch; j++) { const v = planes[j][k]; l += g[2 * j] * v; r += g[2 * j + 1] * v; }
       if (hs.length) {
         const p = this.pn, near = Math.min(p - this.held, this.pause < hs.length ? hs[this.pause].at - p : Infinity);
         if (near < this.edge) { const v = near / this.edge; l *= v; r *= v; }
