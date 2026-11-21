@@ -52,7 +52,7 @@ for its part of Scribecue: see [More help](#more-help).
 | A copy you deleted in Google Drive comes back | Scribecue saved your work there again, so it isn't lost. To tidy up, start with **File → Close**. Then delete the copies you don't want in Drive, and rename the one you keep. Open it with **File → Open from Google Drive**. |
 | Settings from another browser haven't arrived | They're used when Scribecue opens again. In **Settings → Google Drive**, click **Reload now**. |
 | Worried the browser may clear your work | In **Settings → Offline and storage**, click **Keep it safe**. Saving a project keeps it safe either way. |
-| Wrong blocks after **File, New** | Press `Ctrl/Cmd+Z` to bring them back. |
+| Started a new project by mistake | Press `Ctrl/Cmd+Z` to bring the blocks back, or open the project again from **File, Recents**. |
 
 ## Voices
 
