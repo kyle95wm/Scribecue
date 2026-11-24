@@ -294,6 +294,38 @@ them to a project later, click **Import from Frazier…** in the list. Markers a
 are skipped. Each one's kind is guessed from its name, such as **Left off here**. Everything
 else is a **Note**.
 
+## No-go zones
+
+No-go zones are stretches where description can't go, such as a broadcaster's ad breaks.
+Blocks stop at their edges, as they do at other blocks. They work in Write and Transcribe.
+
+**From a segment list:** click **File → Import no-go zones…**, or press `Alt+Shift+N`. Paste
+the list the broadcaster sent, such as:
+
+```text
+Seg 1
+IN: 00:00:00:00
+(Description can come in after 00:00:02:00)
+OUT: 00:12:30:10
+(Description must conclude by 00:12:29:15)
+```
+
+Each segment is where description can go: after "come in after" and before "conclude by".
+Everything outside the segments becomes a zone. Repeated segments are skipped. The window
+shows the zones it found before you import them. Importing replaces any zones already there.
+
+**On the timeline:**
+
+| To | Do this |
+| --- | --- |
+| Draw a zone | `Alt`+drag across the empty lane |
+| Change one | Drag its edge, along the strip below the blocks |
+| Rename or delete one | Right-click it |
+
+Blocks already in a zone keep their times. They're outlined in red, to move or shorten.
+
+Zones save with the project. Exports, QC packages and shared projects leave them out.
+
 ## Exporting
 
 When the script is finished, or to share it with someone who doesn't use Scribecue:

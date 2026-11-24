@@ -2,6 +2,7 @@
 // far ticked blocks can move. The page's side is in app.js.
 
 import { parseTC } from './formats.js';
+import { zoneLimits } from './nogo.js';
 
 // The ids of the blocks from one to the other, either way round, both included.
 export function rangeIds(cues, fromId, toId) {
@@ -14,8 +15,9 @@ export function rangeIds(cues, fromId, toId) {
 
 // How far the ticked blocks can move by d seconds without newly running into a block that
 // isn't ticked, or going before 0 or past the end. Blocks next to each other move as one,
-// so the gaps between ticked blocks stay as they were. Returns d, or less of it.
-export function moveLimit(cues, ticked, d, end = 0) {
+// so the gaps between ticked blocks stay as they were. No-go zones stop them too.
+// Returns d, or less of it.
+export function moveLimit(cues, ticked, d, end = 0, zones = []) {
   let lo = -Infinity, hi = Infinity;
   for (let i = 0; i < cues.length; i++) {
     if (!ticked.has(cues[i].id)) continue;
@@ -24,8 +26,9 @@ export function moveLimit(cues, ticked, d, end = 0) {
     const p = cues[i - 1], n = cues[j + 1];
     const from = p ? Math.min(p.end, start) : 0;
     const to = n ? Math.max(n.start, last) : Math.max(end, last);
-    lo = Math.max(lo, from - start);
-    hi = Math.min(hi, to - last);
+    const z = zoneLimits(zones, start, last);
+    lo = Math.max(lo, Math.max(from, z.lo) - start);
+    hi = Math.min(hi, Math.min(to, z.hi) - last);
     i = j;
   }
   if (lo === -Infinity) return 0;
@@ -34,8 +37,8 @@ export function moveLimit(cues, ticked, d, end = 0) {
 
 // Moves the ticked blocks d seconds, or as far as moveLimit lets them, as Move… and the
 // nudge keys do. Returns how far they moved.
-export function moveTicked(cues, ticked, d, end = 0) {
-  d = moveLimit(cues, ticked, d, end);
+export function moveTicked(cues, ticked, d, end = 0, zones = []) {
+  d = moveLimit(cues, ticked, d, end, zones);
   if (d) for (const c of cues) if (ticked.has(c.id)) { c.start += d; c.end += d; }
   return d;
 }
@@ -44,9 +47,9 @@ export function moveTicked(cues, ticked, d, end = 0) {
 // them all dt seconds, or as far as moveLimit lets them. Working from where they began means
 // dragging back after they've stopped short follows the pointer again. from: { c: the block,
 // s and e: where it was }. Returns how far they moved.
-export function dragTicked(cues, ticked, from, dt, end = 0) {
+export function dragTicked(cues, ticked, from, dt, end = 0, zones = []) {
   for (const { c, s, e } of from) { c.start = s; c.end = e; }
-  const d = moveLimit(cues, ticked, dt, end);
+  const d = moveLimit(cues, ticked, dt, end, zones);
   for (const { c } of from) { c.start += d; c.end += d; }
   return d;
 }

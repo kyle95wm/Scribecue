@@ -756,7 +756,38 @@ textarea:disabled { opacity: 0.5; }
 #ruler { display: block; width: 100%; height: 26px; cursor: text; flex: none; }
 .lane { position: relative; flex: 1; overflow: hidden; cursor: crosshair; border-top: 1px solid var(--line); }
 #wave { position: absolute; inset: 0; width: 100%; height: 100%; }
-#cues { position: absolute; inset: 0; }
+/* Lets the pointer through to the no-go zones under it; the blocks themselves catch it. */
+#cues { position: absolute; inset: 0; pointer-events: none; }
+#cues .cue { pointer-events: auto; }
+#cues .cue.marking, #cues .cue.ghost { pointer-events: none; }
+/* No-go zones: where blocks can't go, such as ad breaks. Hatched in --bad, under the blocks,
+   with the name along the bottom, clear of them. Their edges can be dragged. */
+#zones { position: absolute; inset: 0; pointer-events: none; }
+#zones .zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: auto;
+  cursor: not-allowed;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--bad) 20%, transparent) 0 5px, color-mix(in srgb, var(--bad) 6%, transparent) 5px 10px);
+  box-shadow: inset 1px 0 0 var(--bad), inset -1px 0 0 var(--bad);
+}
+#zones .zone .zn {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 0;
+  font: 600 10px/12px var(--mono);
+  color: var(--bad);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+#zones .zl, #zones .zr { position: absolute; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+#zones .zl { left: -3px; }
+#zones .zr { right: -3px; }
+#zones .zl:hover, #zones .zr:hover { background: color-mix(in srgb, var(--bad) 40%, transparent); }
 /* The dialogue from the subtitles, under the blocks. Read-only: a click moves the playhead. */
 .dialtrack { position: relative; height: 30px; flex: none; border-top: 1px solid var(--line); cursor: text; }
 .dialtrack[hidden] { display: none; }
@@ -1542,6 +1573,7 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 #aiBtn[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 .aidrawer [hidden] { display: none !important; }
 #aiNotes, #setAiNotesText { width: 100%; margin: 6px 0 2px; font: 13px/1.45 var(--sans); }
+#zonesText { width: 100%; box-sizing: border-box; margin: 6px 0 2px; font: 12px/1.45 var(--mono); }
 #aiNotesBtn.on { color: var(--accent); border-color: var(--accent); }
 #verBtn.on { color: var(--accent); border-color: var(--accent); }
 #newDlg [hidden], #closeDlg [hidden], #sttDlg [hidden] { display: none; }
@@ -1768,4 +1800,7 @@ button.danger:disabled { color: var(--dim); border-color: var(--line); font-weig
 .cue.ghost .ci { color: var(--accent); }
 .cue.changing { opacity: 0.35; }
 .cue.removing { border-style: dashed; border-color: var(--bad); }
+/* A block in a no-go zone, such as one written before the zones were imported. */
+.cue.nogo:not(.sel):not(.ticked) { border-color: var(--bad); }
+.cue.nogo:not(.sel):not(.ticked) .ci { color: var(--bad); }
 #reviewCompareDlg button:disabled { color: var(--dim); border-color: var(--line); cursor: default; }

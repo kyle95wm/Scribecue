@@ -70,7 +70,7 @@ export const STEPS = [
   {
     target: '#tl',
     title: 'The timeline',
-    text: (mode) => mode === 'qc' ? 'Each box is a block. Click one to inspect it. Click the ruler to seek, or right-click it to comment at a time. If the package allows edits, move or resize blocks; reading lengths never change timings automatically.' : `Each box is a block: one description. Drag a block to move it, or drag across the empty lane to draw one. Shift+drag across blocks ticks them, and dragging a ticked one moves them all; Settings → Editing can swap the two drags. ${mode === 'write' ? 'Enter makes a block at the playhead, ready to type. With text to speech on, a block ends where its reading does: change its speed to make it longer or shorter.' : 'Drag its edges to resize it. Holding H marks a block from when you press to when you let go.'}`,
+    text: (mode) => mode === 'qc' ? 'Each box is a block. Click one to inspect it. Click the ruler to seek, or right-click it to comment at a time. If the package allows edits, move or resize blocks; reading lengths never change timings automatically.' : `Each box is a block: one description. Drag a block to move it, or drag across the empty lane to draw one. Shift+drag across blocks ticks them, and dragging a ticked one moves them all; Settings → Editing can swap the two drags. Alt+drag draws a no-go zone, where blocks can’t go, such as an ad break. ${mode === 'write' ? 'Enter makes a block at the playhead, ready to type. With text to speech on, a block ends where its reading does: change its speed to make it longer or shorter.' : 'Drag its edges to resize it. Holding H marks a block from when you press to when you let go.'}`,
   },
   {
     target: '#list',
@@ -119,7 +119,7 @@ export const STEPS = [
   {
     target: '#fileBtn',
     title: 'Projects and exports',
-    text: (mode) => `File has ${mode === 'qc' ? '' : 'New, '}Open, ${mode === 'qc' || mode === 'record' ? '' : 'Add a script, '}Recents, Save, Export and Close. Save keeps everything as a Scribecue project, so you can pick up where you left off, and Save to Google Drive lets you open it on any computer. Export (${keyFor('exportDialog')}) opens a window of every file you can make. ${mode === 'write'
+    text: (mode) => `File has ${mode === 'qc' ? '' : 'New, '}Open, ${mode === 'qc' || mode === 'record' ? '' : 'Add a script, Import no-go zones, '}Recents, Save, Export and Close. Save keeps everything as a Scribecue project, so you can pick up where you left off, and Save to Google Drive lets you open it on any computer. Export (${keyFor('exportDialog')}) opens a window of every file you can make. ${mode === 'write'
       ? 'It’s grouped by who it’s for: a QC package for a reviewer, a recording file for a narrator, finished audio, and files for other tools: the script as SRT, WebVTT or Excel, DAW markers and a video with subtitles.'
       : 'It has the script as SRT, WebVTT or Excel, DAW markers or a video with subtitles, to hand off.'} It can check spelling and grammar first.`,
   },
