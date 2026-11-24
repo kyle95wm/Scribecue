@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rangeIds, moveLimit, dragTicked, parseAmount, blockList } from '../app/js/bulk.js';
+import { rangeIds, moveLimit, moveTicked, dragTicked, parseAmount, blockList } from '../app/js/bulk.js';
 
 const cues = [
   { id: 1, start: 0, end: 2 },
@@ -37,6 +37,17 @@ test('ticked blocks stay inside the video', () => {
   assert.equal(moveLimit(cues, new Set([1]), -3, 20), 0);
   assert.equal(moveLimit(cues, new Set([4]), 30, 20), 8);
   assert.equal(moveLimit(cues, new Set(), 3, 20), 0);
+});
+
+test('nudging moves every ticked block, and only them, as far as they go', () => {
+  const c = cues.map((x) => ({ ...x }));
+  assert.equal(moveTicked(c, new Set([2, 3]), 0.1, 20), 0.1);
+  assert.deepEqual(c.map((x) => [x.start, x.end]), [[0, 2], [3.1, 5.1], [6.1, 8.1], [10, 12]]);
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} ≈ ${b}`);
+  near(moveTicked(c, new Set([2, 3]), 5, 20), 1.9); // block 4 starts at 10
+  near(c[2].end, 10);
+  near(moveTicked(c, new Set([2, 3]), 0.1, 20), 0); // stuck
+  near(c[1].start, 5);
 });
 
 test('blocks that already overlap a neighbour do not make it worse', () => {

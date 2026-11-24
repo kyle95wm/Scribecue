@@ -54,7 +54,7 @@ import { projectName } from './driveprojects.js';
 import { isDriveRef, filterProjects, newerInDrive } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
-import { rangeIds, moveLimit, dragTicked, parseAmount, blockList } from './bulk.js';
+import { rangeIds, moveLimit, moveTicked, dragTicked, parseAmount, blockList } from './bulk.js';
 import { joinSentences } from './mergetext.js';
 import { ADDABLE, readScript, pickBlocks, asProjectName, span as scriptSpan, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote } from './addscript.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
@@ -1592,6 +1592,7 @@ function needSel() {
 
 function nudge(what, d) {
   if (qcLocked()) return toast('The script and timings are fixed in QC mode');
+  if (what === 'move' && nudgesTicked()) return nudgeTicked(d);
   const c = needSel(); if (!c) return;
   if (what === 'end' && endLocked(c)) return;
   const { lo, hi } = bounds(selIdx());
@@ -1603,6 +1604,22 @@ function nudge(what, d) {
     c.start += d; c.end += d;
   }
   changed(c.id);
+  revealRange(c.start, c.end);
+}
+
+// With several blocks ticked, the move keys move them all, as dragging one does. The start
+// and end keys still trim only the selected block. A selected block that isn't ticked moves
+// on its own.
+const nudgesTicked = () => ticking && ticked.size > 1 && (S.sel == null || ticked.has(S.sel));
+function nudgeTicked(d) {
+  if (Math.abs(moveLimit(S.cues, ticked, d, duration())) < 0.0005) return;
+  pushUndo(undefined, 'nudge-ticked');
+  moveTicked(S.cues, ticked, d, duration());
+  // Their order doesn't change, so refilling their rows is enough, as when dragging them.
+  // Rebuilding the whole list on every press makes a held key lag on a long script.
+  const c = selCue() || tickedCues()[0];
+  changed(c.id);
+  S.cues.forEach((t, k) => { const r = ticked.has(t.id) && t.id !== c.id && rowMap.get(t.id); if (r) fillRow(r, t, k); });
   revealRange(c.start, c.end);
 }
 
@@ -2764,10 +2781,9 @@ function bulkMove(dir) {
   const by = parseAmount($('bulkMoveBy').value, S.fps);
   if (!(by > 0)) { toast('Type how far, such as 1.5 seconds or 00:00:01:12'); $('bulkMoveBy').select(); return; }
   bulkMoveDlg.close();
-  const d = moveLimit(S.cues, ticked, dir * by, duration());
-  if (Math.abs(d) < 0.0005) return toast(`The ticked blocks can’t move ${dir < 0 ? 'earlier' : 'later'} without running into other blocks`);
+  if (Math.abs(moveLimit(S.cues, ticked, dir * by, duration())) < 0.0005) return toast(`The ticked blocks can’t move ${dir < 0 ? 'earlier' : 'later'} without running into other blocks`);
   pushUndo();
-  for (const c of tickedCues()) { c.start += d; c.end += d; }
+  const d = moveTicked(S.cues, ticked, dir * by, duration());
   changed();
   const short = Math.abs(d) < by - 0.0005 ? ', as far as they go' : '';
   toast(`Moved ${plural(ticked.size)} ${Math.abs(d).toFixed(3)} s ${dir < 0 ? 'earlier' : 'later'}${short} — ${undoHint()}`);

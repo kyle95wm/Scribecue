@@ -493,6 +493,8 @@ blocks show a tick there. Drag any of them to move them all. Click empty space t
 To tick with a plain drag instead, choose **Ticks blocks** under **Dragging across the empty
 timeline** in **Settings → Editing**. `Shift`+drag then draws a block.
 
+The move keys, `,` and `.`, also move all the ticked blocks.
+
 However you move them, they keep their gaps and stop short of blocks that aren't ticked.
 
 | Button | What it does |
