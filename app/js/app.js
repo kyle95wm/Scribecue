@@ -1612,15 +1612,23 @@ function nudge(what, d) {
 // on its own.
 const nudgesTicked = () => ticking && ticked.size > 1 && (S.sel == null || ticked.has(S.sel));
 function nudgeTicked(d) {
-  if (Math.abs(moveLimit(S.cues, ticked, d, duration())) < 0.0005) return;
+  if (Math.abs(moveLimit(S.cues, ticked, d, duration())) < 0.0005) return null;
   pushUndo(undefined, 'nudge-ticked');
   moveTicked(S.cues, ticked, d, duration());
   // Their order doesn't change, so refilling their rows is enough, as when dragging them.
   // Rebuilding the whole list on every press makes a held key lag on a long script.
-  const c = selCue() || tickedCues()[0];
+  const c = (ticked.has(S.sel) && selCue()) || tickedCues()[0];
   changed(c.id);
   S.cues.forEach((t, k) => { const r = ticked.has(t.id) && t.id !== c.id && rowMap.get(t.id); if (r) fillRow(r, t, k); });
   revealRange(c.start, c.end);
+  return c;
+}
+// The ticked blocks' frame buttons and keys (Alt+Shift+← →): they all move a frame, and the
+// playhead goes to the new start of the selected one, or the first, as in the block editor.
+function frameTicked(d) {
+  if (qcLocked() || !ticking || !ticked.size) return;
+  const c = nudgeTicked(d);
+  if (c) seek(c.start);
 }
 
 function setEdge(which) {
@@ -2690,7 +2698,7 @@ function showBulkBar() {
   if (!ticking) return;
   const n = ticked.size;
   $('bulkCount').textContent = n ? `${n} ticked` : 'None ticked';
-  for (const id of ['bulkNone', 'bulkReplace', 'bulkMove', 'bulkVoice', 'bulkExt', 'bulkDel']) $(id).disabled = !n;
+  for (const id of ['bulkNone', 'bulkReplace', 'bulkMove', 'bulkBack', 'bulkFwd', 'bulkVoice', 'bulkExt', 'bulkDel']) $(id).disabled = !n;
   $('bulkVoice').hidden = $('bulkExt').hidden = !ttsOn();
   if (S.extendedAll) $('bulkExt').disabled = true;
   $('bulkExt').setAttribute('aria-pressed', String(!!n && tickedCues().every(isExt)));
@@ -2736,6 +2744,8 @@ function tickAll() {
 }
 $('selectBtn').addEventListener('click', (e) => { e.currentTarget.blur(); ticking ? stopTicking() : startTicking(); });
 $('bulkAll').addEventListener('click', tickAll);
+$('bulkBack').addEventListener('click', (e) => { e.currentTarget.blur(); frameTicked(-frame()); });
+$('bulkFwd').addEventListener('click', (e) => { e.currentTarget.blur(); frameTicked(frame()); });
 $('bulkNone').addEventListener('click', () => { ticked.clear(); tickAnchor = null; paintTicks(); });
 $('bulkDone').addEventListener('click', stopTicking);
 $('bulkReplace').addEventListener('click', () => openFind(ticked));
@@ -9202,6 +9212,8 @@ document.addEventListener('keydown', (e) => {
   if (id) {
     e.preventDefault();
     if (REC_RUN[id]) { REC_RUN[id](e); return; }
+    // While blocks are ticked, Alt+Shift+← → move them a frame, as they move an open block.
+    if (ticking && ticked.size && (id === 'blockBack' || id === 'blockNext')) { frameTicked(id === 'blockBack' ? -frame() : frame()); return; }
     if (S.mode === 'record' && id === 'split' && recorder.splitTake()) return; // splits the take being edited
     if (S.mode === 'record' && id === 'deleteNow' && recorder.cutPart()) return; // deletes a part of it
     // Play / pause stops a recording, and keeps the take. Held down, it doesn't start playing.

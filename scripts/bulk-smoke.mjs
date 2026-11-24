@@ -60,6 +60,9 @@ await step('Nudge 500 earlier ×10', `for(let k=0;k<10;k++)${key('Comma', ',', '
 // Later, they stop short of block 601, as Move… does.
 await step('Nudge 500 later ×30', `for(let k=0;k<30;k++)${key('Period', '.', ',repeat:true')}`, `${tcs(599)}[1]===${tcs(600)}[0]`);
 await step('Undo nudges', key('KeyZ', 'z', ',metaKey:true,ctrlKey:true'), `${row(100)}.textContent.includes('00:06:41:00')`);
+// The frame buttons beside Move… and Alt+Shift+← → move the ticked blocks a frame.
+await step('Frame button 500 later', `${$('bulkFwd')}.click()`, `${row(100)}.textContent.includes('00:06:41:01') && ${row(599)}.textContent.includes('00:39:57:01') && ${row(99)}.textContent.includes('00:06:36:00')`);
+await step('Alt+Shift+← 500 earlier', key('ArrowLeft', 'ArrowLeft', ',altKey:true,shiftKey:true'), `${row(100)}.textContent.includes('00:06:41:00') && ${row(99)}.textContent.includes('00:06:36:00')`);
 await step('Replace in 500', `${$('bulkReplace')}.click();${$('frFind')}.value='door';${$('frFind')}.dispatchEvent(new Event('input'));${$('frWith')}.value='gate';${$('frAll')}.click();${$('frClose')}.click()`, `document.querySelectorAll('#list .row .tx')[100].textContent.includes('gate') && document.querySelectorAll('#list .row .tx')[99].textContent.includes('door')`);
 await step('Extended on 500', `${$('bulkExt')}.click()`, `${$('bulkExt')}.getAttribute('aria-pressed')==='true'`);
 await step('Delete 500', `${$('bulkDel')}.click();${$('bulkDelGo')}.click()`, `document.querySelectorAll('#list .row').length===${N - 500}`);
