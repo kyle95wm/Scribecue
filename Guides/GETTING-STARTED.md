@@ -297,7 +297,14 @@ else is a **Note**.
 ## No-go zones
 
 No-go zones are stretches where description can't go, such as a broadcaster's ad breaks.
-Blocks stop at their edges, as they do at other blocks. They work in Write and Transcribe.
+They work in Write and Transcribe.
+
+Blocks stop at a zone's edge. To move one past it:
+
+- Drag it on. Once its middle passes the zone's middle, it jumps to the far side.
+- With the move keys, `,` and `.`, hold the key to stop at the edge, then press it again.
+
+It only jumps if there's room on the far side. Ticked blocks jump together.
 
 **From a segment list:** click **File → Import no-go zones…**, or press `Alt+Shift+N`. Paste
 the list the broadcaster sent, such as:

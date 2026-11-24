@@ -54,7 +54,7 @@ import { projectName } from './driveprojects.js';
 import { isDriveRef, filterProjects, newerInDrive } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
-import { rangeIds, moveLimit, moveTicked, dragTicked, parseAmount, blockList } from './bulk.js';
+import { rangeIds, moveLimit, moveTicked, dragTicked, crossLimit, jumpZone, parseAmount, blockList } from './bulk.js';
 import { zonesAllowed, cleanZones, zoneAt, inZone, zoneLimits, parseSegments, zonesFromSegments, blocksInZones, newZoneId, MIN_ZONE, LABEL_MAX } from './nogo.js';
 import { joinSentences } from './mergetext.js';
 import { ADDABLE, readScript, pickBlocks, asProjectName, span as scriptSpan, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote } from './addscript.js';
@@ -1616,15 +1616,28 @@ function nudge(what, d) {
   const c = needSel(); if (!c) return;
   if (what === 'end' && endLocked(c)) return;
   const { lo, hi } = bounds(selIdx());
-  pushUndo(undefined, 'nudge-' + what + c.id);
+  const step = what === 'move' ? keyStep(new Set([c.id]), d) : null;
+  if (step && Math.abs(step.d) < 0.0005) return;
+  pushUndo(undefined, step?.jump ? 'jump' : 'nudge-' + what + c.id);
   if (what === 'start') { c.start = clamp(c.start + d, lo, c.end - MIN_DUR); resized(c, 'start'); }
   else if (what === 'end') { c.end = clamp(c.end + d, c.start + MIN_DUR, hi); resized(c, 'end'); }
   else {
-    d = clamp(d, lo - c.start, hi - c.end);
-    c.start += d; c.end += d;
+    c.start += step.d; c.end += step.d;
   }
   changed(c.id);
   revealRange(c.start, c.end);
+}
+
+// How far the move keys take the blocks in set: as far as d goes, up to a no-go zone. Pressed
+// again against the zone, rather than held, they jump past it, if there's room. { d, jump }
+let keyHeld = false;
+addEventListener('keydown', (e) => { keyHeld = e.repeat; }, true);
+addEventListener('keyup', () => { keyHeld = false; }, true);
+function keyStep(set, d) {
+  const zs = activeZones(), x = moveLimit(S.cues, set, d, duration(), zs);
+  if (Math.abs(x) >= 0.0005 || keyHeld || !zs.length) return { d: x, jump: false };
+  const j = jumpZone(S.cues, set, Math.sign(d), duration(), zs);
+  return { d: j, jump: Math.abs(j) >= 0.0005 };
 }
 
 // With several blocks ticked, the move keys move them all, as dragging one does. The start
@@ -1632,9 +1645,10 @@ function nudge(what, d) {
 // on its own.
 const nudgesTicked = () => ticking && ticked.size > 1 && (S.sel == null || ticked.has(S.sel));
 function nudgeTicked(d) {
-  if (Math.abs(moveLimit(S.cues, ticked, d, duration(), activeZones())) < 0.0005) return null;
-  pushUndo(undefined, 'nudge-ticked');
-  moveTicked(S.cues, ticked, d, duration(), activeZones());
+  const step = keyStep(ticked, d);
+  if (Math.abs(step.d) < 0.0005) return null;
+  pushUndo(undefined, step.jump ? 'jump' : 'nudge-ticked');
+  moveTicked(S.cues, ticked, step.d, duration());
   // Their order doesn't change, so refilling their rows is enough, as when dragging them.
   // Rebuilding the whole list on every press makes a held key lag on a long script.
   const c = (ticked.has(S.sel) && selCue()) || tickedCues()[0];
@@ -3634,9 +3648,10 @@ lane.addEventListener('pointermove', (e) => {
   }
 
   if (drag.mode === 'move') {
-    const len = drag.e0 - drag.s0;
-    const ns = clamp(drag.s0 + dt, lo, hi - len);
-    c.start = ns; c.end = ns + len;
+    // From where it started: up to a no-go zone, or past it once its middle passes the zone's.
+    c.start = drag.s0; c.end = drag.e0;
+    const d = crossLimit(S.cues, drag.one || (drag.one = new Set([c.id])), dt, duration(), activeZones());
+    c.start = drag.s0 + d; c.end = drag.e0 + d;
   } else if (drag.mode === 'start') {
     c.start = clamp(drag.s0 + dt, lo, c.end - MIN_DUR);
     resized(c, 'start');

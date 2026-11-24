@@ -130,6 +130,37 @@ await js(watch);
 assert.deepEqual(await js(`JSON.parse(localStorage.getItem('scribecue.v1')).zones.map((z)=>z.label)`), ['Opening', 'Between Seg 1 and Seg 2', '', 'After Seg 2'], 'zones are kept after a reload');
 assert.equal(await js(`document.querySelector('#zones .zone .zn').textContent`), 'Opening');
 
+// Crossing a zone: block 1 at 10–12 s, a zone from 13 to 20 s, block 2 at 30 s.
+await js(`localStorage.setItem('scribecue.v1',JSON.stringify({cues:[{id:1,start:10,end:12,text:'Mara opens the door.'},{id:2,start:30,end:32,text:'She steps out.'}],zones:[{start:13,end:20,label:'Break'}],dirty:false}));true`);
+await send('Page.reload', { ignoreCache: true }); await sleep(8000);
+await js(watch);
+assert.equal(await js(`document.querySelectorAll('#list .row').length+':'+${zones}`), '2:1', 'the crossing project loaded');
+{
+  const [l, r, y] = await rect(1), pps = (r - l) / 2, x = (l + r) / 2;
+  const dragBy = async (secs) => {
+    await js('__long.length=0;true');
+    await mouse('mousePressed', x, y);
+    for (let k = 1; k <= 10; k++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x + (secs * pps * k) / 10, y, button: 'left', buttons: 1 });
+    await mouse('mouseReleased', x + secs * pps, y); await sleep(600);
+    const long = await js('__long.slice()');
+    results.push({ step: `Drag a block ${secs} s into a zone`, ms: 0, longTasks: long.length, longest: long.length ? Math.max(...long) : 0 });
+  };
+  // 4 s: its middle is short of the zone's, so it stops at the zone.
+  await dragBy(4);
+  assert.ok(await js(`${row(0)}.textContent.includes('00:00:11:00')`), 'a drag short of the middle stops at the zone');
+  await js(`${undo};true`); await sleep(400);
+  // 6 s: past the middle, so it lands just after the zone.
+  await dragBy(6);
+  assert.ok(await js(`${row(0)}.textContent.includes('00:00:20:00')`), 'a drag past the middle lands after the zone');
+  await js(`${undo};true`); await sleep(400);
+}
+// A held move key stops at the zone; pressed again, it jumps it. Undo takes the jump back.
+await step('Select block 1', `${row(0)}.dispatchEvent(new MouseEvent('click',{bubbles:true}))`, `${row(0)}.getAttribute('aria-selected')==='true'`);
+await js(`${key('Escape', 'Escape')};true`); await sleep(300);
+await step('Move key held up to a zone', `for(let k=0;k<30;k++)${key('Period', '.', ',repeat:true')}`, `${row(0)}.textContent.includes('00:00:11:00')`);
+await step('Move key jumps the zone', key('Period', '.'), `${row(0)}.textContent.includes('00:00:20:00')`);
+await step('Undo the jump', undo, `${row(0)}.textContent.includes('00:00:11:00')`);
+
 console.table(results);
 const errors = await js('__errors');
 assert.deepEqual(errors, [], 'no errors on the page');

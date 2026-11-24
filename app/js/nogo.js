@@ -1,5 +1,6 @@
 // No-go zones: stretches of the programme where description can't go, such as a
-// broadcaster's ad breaks. Blocks stop at their edges, as they do at other blocks. They show
+// broadcaster's ad breaks. Blocks stop at their edges, and jump past them when dragged past the
+// middle or pressed on (see crossLimit and jumpZone in bulk.js). They show
 // in Write and Transcribe only, and stay in the project: no export or share carries them.
 
 import { parseTC } from './formats.js';
