@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.141.0",
+    "date": "2026-11-25",
+    "notes": "## No-go zones\n\n- QC mode now shows no-go zones, and the blocks inside them, outlined in red. They can't be changed there.\n- QC packages and shared projects include the zones. On a share link, only people who can edit change them.\n- Two copies of a project now merge their zones, rather than keeping one side's."
+  },
+  {
     "version": "0.140.0",
     "date": "2026-11-24",
     "notes": "## No-go zones\n\n- Mark stretches where description can't go, such as ad breaks. Click **File**, then **Import no-go zones…**, and paste a segment list. Or hold `Alt` and drag on the timeline.\n- Zones show as red stripes. Blocks stop at their edges, and blocks already inside are outlined in red.\n- To move a block past a zone, drag it more than halfway across, or press `,` or `.` again at the edge.\n- Zones work in Write and Transcribe, and stay in the project.\n\n## Ticked blocks\n\n- `,` and `.` now move all the ticked blocks, not just one.\n- The frame buttons beside **Move…**, and `Alt+Shift+←` / `→`, move them one frame."
