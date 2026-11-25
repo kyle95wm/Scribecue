@@ -1,6 +1,6 @@
 // No-go zones in headless, muted Chrome at 6× CPU slowdown, with a long script: importing a
 // segment list, blocks stopping at a zone's edge, no new block inside one, Alt+drag to draw
-// one, right-click to delete it, undo, QC hiding them, and keeping them after a reload.
+// one, right-click to delete it, undo, QC showing them without letting them change, and keeping them after a reload.
 // Says how long each step took and how many long tasks there were.
 // Usage: node scripts/nogo-smoke.mjs <devtools port> <site url> [blocks]
 import assert from 'node:assert/strict';
@@ -119,9 +119,15 @@ const rect = (bid) => js(`(()=>{const r=document.querySelector('.cue[data-id="${
 await js(`document.querySelector('#zones .zone').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:300,clientY:700}));document.querySelector('[data-zone=rename]').click();true`);
 await step('Rename', `${$('zoneName')}.value='Opening';${$('zoneNameGo')}.click()`, `document.querySelector('#zones .zone .zn').textContent==='Opening'`);
 
-// QC doesn't show them; Write does again.
-await step('QC hides zones', `document.querySelector('[data-mode=qc]').click()`, `${zones}===0 && ${nogo}===0`);
-await step('Write shows them', `document.querySelector('[data-mode=write]').click()`, `${zones}===3`);
+// QC shows them and the blocks in them, without the edges or the menu; Write can change them again.
+const nogoWrite = await js(nogo);
+await step('QC shows zones', `document.querySelector('[data-mode=qc]').click()`, `${zones}===3 && ${nogo}===${nogoWrite} && getComputedStyle(document.querySelector('#zones .zl')).display==='none' && !document.querySelector('#zones .zone').dataset.tip.includes('Drag')`);
+await js(`document.querySelector('#zones .zone').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:300,clientY:700}));true`); await sleep(300);
+assert.equal(await js(`${$('zoneMenu')}.hidden`), true, 'right-click in QC opens no zone menu');
+await js(`${key('Escape', 'Escape')};true`); await sleep(300);
+await js(`${key('KeyN', 'N', ',altKey:true,shiftKey:true')};true`); await sleep(300);
+assert.equal(await js(`${$('zonesDlg')}.open`), false, 'QC has no Import no-go zones');
+await step('Write shows them, with edges', `document.querySelector('[data-mode=write]').click()`, `${zones}===3 && getComputedStyle(document.querySelector('#zones .zl')).display!=='none'`);
 
 // Kept after a reload.
 await sleep(1500);

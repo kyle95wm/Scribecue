@@ -297,7 +297,7 @@ else is a **Note**.
 ## No-go zones
 
 No-go zones are stretches where description can't go, such as a broadcaster's ad breaks.
-They work in Write and Transcribe.
+Make and change them in Write and Transcribe. QC shows them, but can't change them.
 
 Blocks stop at a zone's edge. To move one past it:
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanZones, zoneAt, inZone, zoneLimits, parseSegments, zonesFromSegments, blocksInZones } from '../app/js/nogo.js';
+import { zonesAllowed, zonesShown, cleanZones, zoneAt, inZone, zoneLimits, parseSegments, zonesFromSegments, blocksInZones } from '../app/js/nogo.js';
 
 // A made-up list in the layout one broadcaster sends, as pasted, with segment 3 there four
 // times.
@@ -89,4 +89,12 @@ test('a project keeps its no-go zones', async () => {
   const back = fromProject(JSON.parse(JSON.stringify(toProject({ blocks: [], zones }))));
   assert.deepEqual(back.zones, zones);
   assert.equal('zones' in toProject({ blocks: [] }), false);
+});
+
+test('QC shows the zones but only Write and Transcribe change them', () => {
+  for (const m of ['write', 'transcribe']) { assert.ok(zonesAllowed(m)); assert.ok(zonesShown(m)); }
+  assert.ok(zonesShown('qc'));
+  assert.ok(!zonesAllowed('qc'));
+  assert.ok(!zonesShown('record'));
+  assert.ok(!zonesAllowed('record'));
 });

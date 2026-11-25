@@ -1,11 +1,15 @@
 // No-go zones: stretches of the programme where description can't go, such as a
 // broadcaster's ad breaks. Blocks stop at their edges, and jump past them when dragged past the
-// middle or pressed on (see crossLimit and jumpZone in bulk.js). They show
-// in Write and Transcribe only, and stay in the project: no export or share carries them.
+// middle or pressed on (see crossLimit and jumpZone in bulk.js). They're made and changed
+// in Write and Transcribe, shown in QC too, and stay in the project: no export or share
+// carries them.
 
 import { parseTC } from './formats.js';
 
+// Where zones can be drawn, changed and imported.
 export const zonesAllowed = (mode) => mode === 'write' || mode === 'transcribe';
+// Where they show and keep blocks out: QC shows them too, without changing them.
+export const zonesShown = (mode) => zonesAllowed(mode) || mode === 'qc';
 export const LABEL_MAX = 100;
 export const MIN_ZONE = 0.04; // a frame or so: anything shorter is dropped
 

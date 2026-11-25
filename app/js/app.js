@@ -55,7 +55,7 @@ import { isDriveRef, filterProjects, newerInDrive } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
 import { rangeIds, moveLimit, moveTicked, dragTicked, crossLimit, jumpZone, parseAmount, blockList } from './bulk.js';
-import { zonesAllowed, cleanZones, zoneAt, inZone, zoneLimits, parseSegments, zonesFromSegments, blocksInZones, newZoneId, MIN_ZONE, LABEL_MAX } from './nogo.js';
+import { zonesAllowed, zonesShown, cleanZones, zoneAt, inZone, zoneLimits, parseSegments, zonesFromSegments, blocksInZones, newZoneId, MIN_ZONE, LABEL_MAX } from './nogo.js';
 import { joinSentences } from './mergetext.js';
 import { ADDABLE, readScript, pickBlocks, asProjectName, span as scriptSpan, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote } from './addscript.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
@@ -1591,9 +1591,10 @@ function bounds(i) {
     hi: Math.min(n ? Math.max(n.start, c.end) : Math.max(duration(), c.end), z.hi),
   };
 }
-// No-go zones work in Write and Transcribe, where they show.
+// No-go zones show, and keep blocks out, in Write, Transcribe and QC. Only Write and
+// Transcribe change them (zonesAllowed).
 const NO_ZONES = [];
-const activeZones = () => (zonesAllowed(S.mode) ? S.zones : NO_ZONES);
+const activeZones = () => (zonesShown(S.mode) ? S.zones : NO_ZONES);
 const zoneName = (z) => z.label || 'No-go zone';
 // The blocks and no-go zones, in time order: what free gaps leave out.
 const taken = () => (activeZones().length ? [...S.cues, ...activeZones()].sort((a, b) => a.start - b.start) : S.cues);
@@ -3331,10 +3332,11 @@ function drawCues(W) {
 // Stretches where blocks can't go, such as a broadcaster's ad breaks, as hatched bands
 // under the blocks. Alt+drag across the empty lane draws one; drag its edges to change it;
 // right-click it to rename or delete it. File → Import no-go zones… makes them from a
-// segment list. In Write and Transcribe only. See nogo.js.
+// segment list. Shown in QC too, without the edges or the menu. See nogo.js.
 const zonesLayer = $('zones'), zoneEls = new Map();
 function drawZones(W) {
-  const t0 = S.view, t1 = t0 + W / S.pps, seen = new Set();
+  const t0 = S.view, t1 = t0 + W / S.pps, seen = new Set(), edit = zonesAllowed(S.mode);
+  zonesLayer.classList.toggle('readonly', !edit);
   for (const z of activeZones()) {
     if (z.end < t0 || z.start > t1) continue;
     let el = zoneEls.get(z.id);
@@ -3351,7 +3353,7 @@ function drawZones(W) {
     el.style.width = Math.max(2, (z.end - z.start) * S.pps) + 'px';
     const name = zoneName(z);
     if (el._name !== name) { el._name = name; el.children[1].textContent = name; }
-    el.dataset.tip = `${name}: no blocks from ${tc(z.start)} to ${tc(z.end)}. Drag its edges to change it; right-click to rename or delete it`;
+    el.dataset.tip = `${name}: no blocks from ${tc(z.start)} to ${tc(z.end)}${edit ? '. Drag its edges to change it; right-click to rename or delete it' : ''}`;
   }
   for (const [id, el] of zoneEls) if (!seen.has(id)) { el.remove(); zoneEls.delete(id); }
 }
