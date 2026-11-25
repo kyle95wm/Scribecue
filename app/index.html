@@ -55,6 +55,7 @@
           <button role="menuitem" data-act="newProject" class="not-qc not-record"><span><strong>New…</strong><span class="dim">a new project, or the next episode</span></span></button>
           <button role="menuitem" data-act="openSubs"><span><strong>Open…</strong><span class="dim">a project, a script (SRT or VTT), or video or audio</span></span><kbd><span class="mod"></span>O</kbd></button>
           <button role="menuitem" data-act="addScript" class="not-qc not-record"><span><strong>Add a script…</strong><span class="dim">episodes or other scripts, each where it starts in this video</span></span><span data-keys="addScript"><kbd>⌥⇧M</kbd></span></button>
+          <button role="menuitem" data-act="importZones" class="not-qc not-record"><span><strong>Import no-go zones…</strong><span class="dim">a broadcaster’s segment list: no blocks between segments</span></span><span data-keys="importZones"><kbd>⌥⇧N</kbd></span></button>
           <button role="menuitem" data-act="recents" id="recentsItem"><span><strong>Recents…</strong><span class="dim">projects, packages and recording files opened or saved lately</span></span><span data-keys="recents"><kbd>⌥⇧R</kbd></span></button>
           <button role="menuitem" data-act="openDrive" id="openDriveItem" hidden><span><strong>Open from Google Drive…</strong><span class="dim">a project you saved to Drive, on any computer</span></span><span data-keys="openDrive"><kbd>⌥⇧G</kbd></span></button>
           <button role="menuitem" data-act="sharedProjects" id="sharedBtn" class="not-record" hidden><span><strong>Shared projects…</strong><span class="dim">open one kept in this browser again, without its link</span></span></button>
@@ -297,6 +298,7 @@
     <div aria-hidden="true" id="bmHot" class="bm-hot" hidden data-tip=""></div>
     <div aria-hidden="true" class="lane" id="lane">
       <canvas id="wave"></canvas>
+      <div id="zones"></div>
       <div id="cues"></div>
       <div id="lasso" hidden></div>
       <div id="dragtip" hidden></div>
@@ -313,6 +315,11 @@
       <button data-zoom="take" class="record-only" aria-pressed="false" data-tip="Zoom to the selected block’s slot and take, to place it precisely. Again to zoom back (Z)">Take</button>
     </div>
   </section>
+  <div class="navmenu clipmenu" id="zoneMenu" role="menu" aria-label="No-go zone" hidden>
+    <button role="menuitem" data-zone="rename">Rename…</button>
+    <button role="menuitem" data-zone="delete">Delete this no-go zone</button>
+    <button role="menuitem" data-zone="clear">Delete every no-go zone</button>
+  </div>
   <div class="navmenu clipmenu" id="clipMenu" role="menu" aria-label="Take" hidden>
     <button role="menuitem" data-clip="play">Play the take</button>
     <button role="menuitem" data-clip="end">Go to the end of this part <kbd>E</kbd></button>
@@ -1207,6 +1214,23 @@ docker compose up -d --build</code></pre>
     <div class="updbtns"><button id="bulkEarlier">Earlier</button><button id="bulkLater">Later</button><span class="grow"></span><button id="bulkMoveCancel">Cancel</button></div>
   </dialog>
 
+  <dialog id="zonesDlg" class="updbox" aria-labelledby="zonesTitle">
+    <h2 id="zonesTitle">Import no-go zones</h2>
+    <p>Paste the segment list. Description can go inside each segment, after “come in after” and before “conclude by”. Everything outside them becomes a no-go zone, where blocks can’t go.</p>
+    <textarea id="zonesText" rows="10" spellcheck="false" aria-label="Segment list"
+      placeholder="Seg 1&#10;IN: 00:00:00:00&#10;(Description can come in after 00:00:02:00)&#10;OUT: 00:12:30:10&#10;(Description must conclude by 00:12:29:15)"></textarea>
+    <p id="zonesFound" class="dim small" aria-live="polite"></p>
+    <div class="updbtns"><button id="zonesGo" class="hl" disabled>Import</button><span class="grow"></span><button id="zonesCancel">Cancel</button></div>
+  </dialog>
+
+  <dialog id="zoneNameDlg" class="updbox" aria-labelledby="zoneNameTitle">
+    <h2 id="zoneNameTitle">Rename the no-go zone</h2>
+    <div class="ttsgrid">
+      <label for="zoneName">Name</label><input id="zoneName" type="text" maxlength="100" spellcheck="true" autocomplete="off">
+    </div>
+    <div class="updbtns"><button id="zoneNameGo" class="hl">Rename</button><span class="grow"></span><button id="zoneNameCancel">Cancel</button></div>
+  </dialog>
+
   <dialog id="addDlg" class="updbox" aria-labelledby="addTitle">
     <h2 id="addTitle">Add scripts</h2>
     <p>Each script’s blocks are added where it starts in this video. Type a time, or click a button. <strong>Choose blocks…</strong> adds only some, such as the credits.</p>
@@ -1914,6 +1938,7 @@ docker compose up -d --build</code></pre>
           <dl>
             <dt>Drag block</dt><dd>Move · drag an edge to resize, except with text to speech on</dd>
             <dt>Drag empty lane</dt><dd id="keysLaneDrag">Draw a new block</dd>
+            <dt><kbd>⌥</kbd>+drag empty lane</dt><dd>Draw a no-go zone, where blocks can’t go · drag its edges to change it, right-click to rename or delete it</dd>
             <dt><kbd>⇧</kbd>+drag empty lane</dt><dd id="keysLaneShift">Tick every block it crosses · drag a ticked block to move them all</dd>
             <dt>Click empty lane</dt><dd>Move the playhead there, and untick every block</dd>
             <dt><kbd><span class="mod"></span></kbd>+click / <kbd>⇧</kbd>+click block</dt><dd>Tick it, or every block in between</dd>
@@ -1943,6 +1968,7 @@ docker compose up -d --build</code></pre>
             <dt><kbd><span class="mod"></span>O</kbd> <kbd><span class="mod"></span>⇧O</kbd></dt><dd>Open a project or SRT/VTT · open video/audio</dd>
             <dt class="save-key"><kbd><span class="mod"></span>S</kbd> <kbd><span class="mod"></span>⇧S</kbd></dt><dd class="save-key">Save project · save project as</dd>
             <dt data-keys="addScript"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>M</kbd></dt><dd>Add a script: episodes or other scripts, each where it starts</dd>
+            <dt data-keys="importZones"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>N</kbd></dt><dd>Import no-go zones from a segment list</dd>
             <dt data-keys="recents"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>R</kbd></dt><dd>Recents: files opened or saved lately</dd>
             <dt data-keys="openDrive"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>G</kbd></dt><dd>Open a project from Google Drive</dd>
             <dt class="save-key" data-keys="saveDrive"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>U</kbd></dt><dd class="save-key">Save the project to Google Drive</dd>

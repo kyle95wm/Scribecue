@@ -54,7 +54,8 @@ import { projectName } from './driveprojects.js';
 import { isDriveRef, filterProjects, newerInDrive } from './driveprojects.js';
 import { initGuides, openGuide, guidesHere } from './guide.js';
 import { matcher, count as countMatches, replaceIn, nextMatch } from './findreplace.js';
-import { rangeIds, moveLimit, moveTicked, dragTicked, parseAmount, blockList } from './bulk.js';
+import { rangeIds, moveLimit, moveTicked, dragTicked, crossLimit, jumpZone, parseAmount, blockList } from './bulk.js';
+import { zonesAllowed, cleanZones, zoneAt, inZone, zoneLimits, parseSegments, zonesFromSegments, blocksInZones, newZoneId, MIN_ZONE, LABEL_MAX } from './nogo.js';
 import { joinSentences } from './mergetext.js';
 import { ADDABLE, readScript, pickBlocks, asProjectName, span as scriptSpan, endsAt, shiftScript, mergeScenes, mergeWords, countOverlaps, leftOutNote } from './addscript.js';
 import { autosaveState, AUTOSAVE_LABEL, AUTOSAVE_TIP, nextSave, canAutosave } from './autosave.js';
@@ -236,6 +237,7 @@ const S = {
   previousAudio: null, review: null, reviewId: '', qcSource: 'video', qcPreviewVoice: '', qcSettings: null, loadingProject: false, makingReview: false,
   comments: [], // comments at fixed timeline times
   bookmarks: [], // the writer's own bookmarks: { id, time, title, notes, kind }
+  zones: [], // no-go zones, where blocks can't go: { id, start, end, label } (nogo.js)
   notes: '', // the writer's notes about the programme, for AI help
   scenes: [], // AI help's summary of each stretch: [{ start, end, text, edited }]
   words: [], // names and terms the spelling check accepts in this project
@@ -582,7 +584,7 @@ function followPlayhead(t) {
 const undoStack = [], redoStack = [];
 let lastUndoTag = null, lastUndoTime = 0;
 // Checkpoints are immutable: undo shares them rather than copying whole scripts.
-const snapshot = () => ({ data: JSON.stringify({ cues: S.cues, sel: S.sel, comments: S.comments, bookmarks: S.bookmarks, laneEdits: S.laneEdits, projectId: S.projectId, extendedAll: S.extendedAll, ttsOff: S.ttsOff }), reviewHistory: S.reviewHistory, reviewAudio: S.reviewAudio, authorReadings: S.reviewId ? null : S.review });
+const snapshot = () => ({ data: JSON.stringify({ cues: S.cues, sel: S.sel, comments: S.comments, bookmarks: S.bookmarks, zones: S.zones, laneEdits: S.laneEdits, projectId: S.projectId, extendedAll: S.extendedAll, ttsOff: S.ttsOff }), reviewHistory: S.reviewHistory, reviewAudio: S.reviewAudio, authorReadings: S.reviewId ? null : S.review });
 
 // `tag` coalesces repeated identical actions (e.g. holding a nudge key) into one undo step.
 function pushUndo(snap = snapshot(), tag = null) {
@@ -617,6 +619,7 @@ function restore(snap) {
   S.cues = o.cues;
   S.comments = o.comments || [];
   S.bookmarks = o.bookmarks || [];
+  S.zones = o.zones || [];
   S.laneEdits = o.laneEdits || {};
   applyLaneEdits();
   S.extendedAll = o.extendedAll === true;
@@ -1039,7 +1042,7 @@ async function openShared(record, id, keep = false) {
   S.projectId = id;
   S.subName = UNTITLED; // the header shows the shared project's name, not the last project's
   sharedLib.setShare(S.projectId, record);
-  S.reviewHistory = null; S.cues = []; S.comments = []; S.bookmarks = []; S.laneEdits = {}; applyLaneEdits(); S.handle = null; handleStore.set(null);
+  S.reviewHistory = null; S.cues = []; S.comments = []; S.bookmarks = []; S.zones = []; S.laneEdits = {}; applyLaneEdits(); S.handle = null; handleStore.set(null);
   clearReview(); // a QC package open here isn't the shared project's
   changed();
   select(null);
@@ -1472,6 +1475,7 @@ function save() {
       words: S.words,
       comments: S.comments,
       bookmarks: S.bookmarks,
+      zones: S.zones,
       laneEdits: S.laneEdits,
       extendedAll: S.extendedAll,
       ttsOff: S.ttsOff,
@@ -1483,12 +1487,13 @@ function save() {
 function loadSaved() {
   try {
     const o = JSON.parse(localStorage.getItem(STORE_KEY));
-    if (o && (o.cues?.length || o.comments?.length || o.bookmarks?.length || validIdentity(o.projectId))) {
+    if (o && (o.cues?.length || o.comments?.length || o.bookmarks?.length || o.zones?.length || validIdentity(o.projectId))) {
       S.projectId = validIdentity(o.projectId) ? o.projectId : newIdentity();
       S.reviewHistory = cleanReviewHistory(o.reviewHistory);
       S.cues = (o.cues || []).map(revive);
       S.comments = cleanComments(o.comments, true);
       S.bookmarks = cleanBookmarks(o.bookmarks);
+      S.zones = cleanZones(o.zones);
       S.laneEdits = cleanLaneEdits(o.laneEdits);
       S.reviewId = typeof o.reviewId === 'string' ? o.reviewId : '';
       S.reviewAudio = S.reviewId ? null : cleanReviewAudio(o.reviewAudio);
@@ -1577,12 +1582,27 @@ function cueAt(t) {
 // ---------------------------------------------------------------- edit operations
 
 // Allowed range for cue i so it never newly overlaps its neighbours.
+// How far block i can go: to its neighbours, the ends of the programme, and the edges of
+// no-go zones.
 function bounds(i) {
-  const c = S.cues[i], p = S.cues[i - 1], n = S.cues[i + 1];
+  const c = S.cues[i], p = S.cues[i - 1], n = S.cues[i + 1], z = zoneLimits(activeZones(), c.start, c.end);
   return {
-    lo: p ? Math.min(p.end, c.start) : 0,
-    hi: n ? Math.max(n.start, c.end) : Math.max(duration(), c.end),
+    lo: Math.max(p ? Math.min(p.end, c.start) : 0, z.lo),
+    hi: Math.min(n ? Math.max(n.start, c.end) : Math.max(duration(), c.end), z.hi),
   };
+}
+// No-go zones work in Write and Transcribe, where they show.
+const NO_ZONES = [];
+const activeZones = () => (zonesAllowed(S.mode) ? S.zones : NO_ZONES);
+const zoneName = (z) => z.label || 'No-go zone';
+// The blocks and no-go zones, in time order: what free gaps leave out.
+const taken = () => (activeZones().length ? [...S.cues, ...activeZones()].sort((a, b) => a.start - b.start) : S.cues);
+// Where a new block from start to end can go: null if start is in a no-go zone, after
+// saying so, or the end cut short where the next zone begins.
+function roomOutsideZones(start, end) {
+  const zs = activeZones(), z = zoneAt(zs, start);
+  if (z) { toast(`That’s in a no-go zone: ${zoneName(z)}, to ${tc(z.end)}`); return null; }
+  return Math.min(end, zoneLimits(zs, start, start).hi);
 }
 function needSel() {
   const c = selCue();
@@ -1596,15 +1616,28 @@ function nudge(what, d) {
   const c = needSel(); if (!c) return;
   if (what === 'end' && endLocked(c)) return;
   const { lo, hi } = bounds(selIdx());
-  pushUndo(undefined, 'nudge-' + what + c.id);
+  const step = what === 'move' ? keyStep(new Set([c.id]), d) : null;
+  if (step && Math.abs(step.d) < 0.0005) return;
+  pushUndo(undefined, step?.jump ? 'jump' : 'nudge-' + what + c.id);
   if (what === 'start') { c.start = clamp(c.start + d, lo, c.end - MIN_DUR); resized(c, 'start'); }
   else if (what === 'end') { c.end = clamp(c.end + d, c.start + MIN_DUR, hi); resized(c, 'end'); }
   else {
-    d = clamp(d, lo - c.start, hi - c.end);
-    c.start += d; c.end += d;
+    c.start += step.d; c.end += step.d;
   }
   changed(c.id);
   revealRange(c.start, c.end);
+}
+
+// How far the move keys take the blocks in set: as far as d goes, up to a no-go zone. Pressed
+// again against the zone, rather than held, they jump past it, if there's room. { d, jump }
+let keyHeld = false;
+addEventListener('keydown', (e) => { keyHeld = e.repeat; }, true);
+addEventListener('keyup', () => { keyHeld = false; }, true);
+function keyStep(set, d) {
+  const zs = activeZones(), x = moveLimit(S.cues, set, d, duration(), zs);
+  if (Math.abs(x) >= 0.0005 || keyHeld || !zs.length) return { d: x, jump: false };
+  const j = jumpZone(S.cues, set, Math.sign(d), duration(), zs);
+  return { d: j, jump: Math.abs(j) >= 0.0005 };
 }
 
 // With several blocks ticked, the move keys move them all, as dragging one does. The start
@@ -1612,9 +1645,10 @@ function nudge(what, d) {
 // on its own.
 const nudgesTicked = () => ticking && ticked.size > 1 && (S.sel == null || ticked.has(S.sel));
 function nudgeTicked(d) {
-  if (Math.abs(moveLimit(S.cues, ticked, d, duration())) < 0.0005) return null;
-  pushUndo(undefined, 'nudge-ticked');
-  moveTicked(S.cues, ticked, d, duration());
+  const step = keyStep(ticked, d);
+  if (Math.abs(step.d) < 0.0005) return null;
+  pushUndo(undefined, step.jump ? 'jump' : 'nudge-ticked');
+  moveTicked(S.cues, ticked, step.d, duration());
   // Their order doesn't change, so refilling their rows is enough, as when dragging them.
   // Rebuilding the whole list on every press makes a held key lag on a long script.
   const c = (ticked.has(S.sel) && selCue()) || tickedCues()[0];
@@ -1915,6 +1949,10 @@ function newCue() {
 }
 
 function addBlock(start, end) {
+  const room = roomOutsideZones(start, end);
+  if (room == null) return null;
+  if (room - start < MIN_DUR) { toast('No room for a block before the no-go zone'); return null; }
+  end = room;
   pushUndo();
   const c = mk(start, end);
   // A block written with text to speech on takes its end from the reading.
@@ -2791,9 +2829,9 @@ function bulkMove(dir) {
   const by = parseAmount($('bulkMoveBy').value, S.fps);
   if (!(by > 0)) { toast('Type how far, such as 1.5 seconds or 00:00:01:12'); $('bulkMoveBy').select(); return; }
   bulkMoveDlg.close();
-  if (Math.abs(moveLimit(S.cues, ticked, dir * by, duration())) < 0.0005) return toast(`The ticked blocks can’t move ${dir < 0 ? 'earlier' : 'later'} without running into other blocks`);
+  if (Math.abs(moveLimit(S.cues, ticked, dir * by, duration(), activeZones())) < 0.0005) return toast(`The ticked blocks can’t move ${dir < 0 ? 'earlier' : 'later'} without running into other blocks`);
   pushUndo();
-  const d = moveTicked(S.cues, ticked, dir * by, duration());
+  const d = moveTicked(S.cues, ticked, dir * by, duration(), activeZones());
   changed();
   const short = Math.abs(d) < by - 0.0005 ? ', as far as they go' : '';
   toast(`Moved ${plural(ticked.size)} ${Math.abs(d).toFixed(3)} s ${dir < 0 ? 'earlier' : 'later'}${short} — ${undoHint()}`);
@@ -3225,6 +3263,7 @@ function drawTimeline() {
     wc.textAlign = 'left';
   }
 
+  drawZones(ww);
   drawCues(ww);
   drawDialogueLane();
   if (S.mode === 'record' && recorder) recorder.drawTrack(...fitCanvas(takeWave), t0, pps);
@@ -3235,7 +3274,7 @@ const cueEls = new Map();
 let ghostEl = null;
 const EXT_MARK = 30; // how wide an extended block's marker is, in pixels: room for its number
 function drawCues(W) {
-  const t0 = S.view, t1 = t0 + W / S.pps;
+  const t0 = S.view, t1 = t0 + W / S.pps, zs = activeZones();
   const seen = new Set(), ghost = pendingGhost();
   for (let i = 0; i < S.cues.length; i++) {
     const c = S.cues[i];
@@ -3267,6 +3306,7 @@ function drawCues(W) {
     // Too narrow to show, and a long film zoomed out draws thousands of these.
     el.classList.toggle('clash', w >= 8 && (overDialogue(c) > 0 || !!heardUnder(c)));
     el.classList.toggle('aidraft', !!c.ai && writing());
+    el.classList.toggle('nogo', zs.length > 0 && inZone(zs, c.start, c.end));
     el.children[1].textContent = w >= EXT_MARK ? '#' + (i + 1) + (c.ai && writing() && w > 50 ? ' · AI' : '') + (ttsOn() && c.speed && w > 70 ? ` · ${speedLabel(c.speed)}` : '') + (canComment() && c.comments?.some((n) => !n.resolved) ? ' · ●' : '') : '';
     if (el._text !== c.text) { el._text = c.text; el.children[2].textContent = c.text; }
   }
@@ -3285,6 +3325,156 @@ function drawCues(W) {
     if (!ghostEl.isConnected) cuesLayer.append(ghostEl);
   } else ghostEl?.remove();
 }
+
+// ---------------------------------------------------------------- no-go zones
+
+// Stretches where blocks can't go, such as a broadcaster's ad breaks, as hatched bands
+// under the blocks. Alt+drag across the empty lane draws one; drag its edges to change it;
+// right-click it to rename or delete it. File → Import no-go zones… makes them from a
+// segment list. In Write and Transcribe only. See nogo.js.
+const zonesLayer = $('zones'), zoneEls = new Map();
+function drawZones(W) {
+  const t0 = S.view, t1 = t0 + W / S.pps, seen = new Set();
+  for (const z of activeZones()) {
+    if (z.end < t0 || z.start > t1) continue;
+    let el = zoneEls.get(z.id);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'zone';
+      el.dataset.id = z.id;
+      el.innerHTML = '<span class="zl"></span><span class="zn"></span><span class="zr"></span>';
+      zoneEls.set(z.id, el);
+      zonesLayer.append(el);
+    }
+    seen.add(z.id);
+    el.style.left = (z.start - t0) * S.pps + 'px';
+    el.style.width = Math.max(2, (z.end - z.start) * S.pps) + 'px';
+    const name = zoneName(z);
+    if (el._name !== name) { el._name = name; el.children[1].textContent = name; }
+    el.dataset.tip = `${name}: no blocks from ${tc(z.start)} to ${tc(z.end)}. Drag its edges to change it; right-click to rename or delete it`;
+  }
+  for (const [id, el] of zoneEls) if (!seen.has(id)) { el.remove(); zoneEls.delete(id); }
+}
+const zoneById = (id) => S.zones.find((z) => z.id === id);
+// After zones change: undo, save, and say how many blocks are in them now.
+function zonesChanged(snap, said) {
+  pushUndo(snap);
+  changed();
+  const n = blocksInZones(S.cues, S.zones);
+  toast(`${said}${n ? ` — ${n === 1 ? '1 block is' : `${n} blocks are`} in a no-go zone, marked in red` : ''} — ${undoHint()}`);
+}
+// Alt+drag on the empty lane, or a zone's edge: where it can go, up to the zones beside it.
+function startZoneDrag(e, zEl) {
+  const z = zEl && zoneById(zEl.dataset.id), others = S.zones.filter((o) => o !== z);
+  if (z) {
+    const { lo, hi } = zoneLimits(others, z.start, z.end);
+    drag = { mode: e.target.closest('.zl') ? 'zoneStart' : 'zoneEnd', zone: z, x0: e.clientX, s0: z.start, e0: z.end, lo: Math.max(0, lo), hi: Math.min(duration(), hi), snap: snapshot(), moved: false, id: null };
+  } else {
+    const t = xToT(e.clientX);
+    if (zoneAt(S.zones, t)) return false;
+    const { lo, hi } = zoneLimits(S.zones, t, t);
+    drag = { mode: 'zoneNew', zone: null, x0: e.clientX, t0: t, lo: Math.max(0, lo), hi: Math.min(duration(), hi), snap: snapshot(), moved: false, id: null };
+  }
+  return true;
+}
+function dragZone(e, dx) {
+  const d = drag;
+  if (d.mode === 'zoneNew') {
+    const b = clamp(xToT(e.clientX), d.lo, d.hi);
+    if (!d.zone) { d.zone = { id: newZoneId(), start: d.t0, end: d.t0, label: '' }; S.zones.push(d.zone); S.zones.sort((a, z) => a.start - z.start); }
+    d.zone.start = Math.min(d.t0, b); d.zone.end = Math.max(d.t0, b);
+  } else if (d.mode === 'zoneStart') d.zone.start = clamp(d.s0 + dx / S.pps, d.lo, d.zone.end - MIN_ZONE);
+  else d.zone.end = clamp(d.e0 + dx / S.pps, d.zone.start + MIN_ZONE, d.hi);
+  tlDirty = true;
+  showDragTip(e, `${zoneName(d.zone)}  ·  ${tc(d.zone.start)} → ${tc(d.zone.end)}`);
+}
+function endZoneDrag(d) {
+  if (d.mode === 'zoneNew' && !d.moved) { S.playUntil = null; seek(d.t0, false); return; }
+  if (!d.moved || !d.zone) return;
+  if (d.zone.end - d.zone.start < MIN_ZONE) { S.zones = S.zones.filter((z) => z !== d.zone); tlDirty = true; return; }
+  S.zones.sort((a, z) => a.start - z.start);
+  zonesChanged(d.snap, d.mode === 'zoneNew' ? `No-go zone from ${tc(d.zone.start)} to ${tc(d.zone.end)}` : `${zoneName(d.zone)} now runs from ${tc(d.zone.start)} to ${tc(d.zone.end)}`);
+}
+
+// Right-click a zone: rename or delete it, or every zone.
+const zoneMenu = $('zoneMenu');
+let zoneMenuId = null;
+function openZoneMenu(e, id) {
+  closeMenus();
+  zoneMenuId = id;
+  zoneMenu.hidden = false;
+  // Above the pointer, since the timeline is at the bottom of the window.
+  const r = zoneMenu.getBoundingClientRect();
+  zoneMenu.style.left = Math.max(8, Math.min(e.clientX, innerWidth - r.width - 8)) + 'px';
+  zoneMenu.style.top = Math.max(8, e.clientY - r.height) + 'px';
+  zoneMenu.querySelector('[role=menuitem]').focus();
+}
+const zoneNameDlg = $('zoneNameDlg');
+zoneMenu.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-zone]'), z = zoneById(zoneMenuId);
+  if (!b) return;
+  closeMenus();
+  if (b.dataset.zone === 'clear') {
+    if (!S.zones.length) return;
+    const n = S.zones.length, snap = snapshot();
+    S.zones = [];
+    return zonesChanged(snap, `Deleted ${n === 1 ? 'the no-go zone' : `all ${n} no-go zones`}`);
+  }
+  if (!z) return;
+  if (b.dataset.zone === 'delete') {
+    const snap = snapshot();
+    S.zones = S.zones.filter((o) => o !== z);
+    return zonesChanged(snap, `Deleted ${zoneName(z)}`);
+  }
+  $('zoneName').value = z.label;
+  zoneNameDlg.showModal();
+  $('zoneName').select();
+});
+function renameZone() {
+  const z = zoneById(zoneMenuId);
+  zoneNameDlg.close();
+  const label = $('zoneName').value.trim().slice(0, LABEL_MAX);
+  if (!z || label === z.label) return;
+  const snap = snapshot();
+  z.label = label;
+  zonesChanged(snap, `Renamed to ${zoneName(z)}`);
+}
+$('zoneNameGo').addEventListener('click', renameZone);
+$('zoneNameCancel').addEventListener('click', () => zoneNameDlg.close());
+$('zoneName').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); renameZone(); } });
+
+// File → Import no-go zones…: a segment list pasted in, read as you type.
+const zonesDlg = $('zonesDlg'), zonesText = $('zonesText');
+let zonesFound = [];
+function openZones() {
+  if (!zonesAllowed(S.mode)) return toast('No-go zones work in Write and Transcribe mode');
+  zonesText.value = '';
+  readZones();
+  zonesDlg.showModal();
+  zonesText.focus();
+}
+function readZones() {
+  const { segments, skipped } = parseSegments(zonesText.value, S.fps);
+  zonesFound = zonesFromSegments(segments, S.hasVideo ? duration() : 0);
+  const found = $('zonesFound');
+  $('zonesGo').disabled = !zonesFound.length;
+  if (!zonesText.value.trim()) { found.textContent = 'Times are read at the project’s frame rate.'; return; }
+  if (!zonesFound.length) { found.textContent = 'No segments found yet. Each needs a time it starts and a time it ends.'; return; }
+  found.textContent = `${segments.length === 1 ? '1 segment' : `${segments.length} segments`}, so ${zonesFound.length === 1 ? '1 no-go zone' : `${zonesFound.length} no-go zones`}: `
+    + zonesFound.map((z) => `${tc(z.start)}–${tc(z.end)}`).join(', ') + '.'
+    + (skipped ? ` ${skipped === 1 ? '1 line wasn’t' : `${skipped} lines weren’t`} understood.` : '')
+    + (S.zones.length ? ` They replace the ${S.zones.length === 1 ? 'no-go zone' : `${S.zones.length} no-go zones`} there now.` : '')
+    + (S.hasVideo ? '' : ' Open the video first to run the last one to its end.');
+}
+zonesText.addEventListener('input', readZones);
+$('zonesCancel').addEventListener('click', () => zonesDlg.close());
+$('zonesGo').addEventListener('click', () => {
+  if (!zonesFound.length) return;
+  zonesDlg.close();
+  const snap = snapshot();
+  S.zones = zonesFound;
+  zonesChanged(snap, `Imported ${zonesFound.length === 1 ? '1 no-go zone' : `${zonesFound.length} no-go zones`}`);
+});
 
 function drawOverview() {
   const d = duration(), W = boxW(overview);
@@ -3378,7 +3568,12 @@ let drag = null;
 lane.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
   if (qcLocked()) { const el = e.target.closest('.cue'); if (el) { select(+el.dataset.id); openEditor(); } else seek(xToT(e.clientX)); return; }
-  const el = e.target.closest('.cue');
+  const el = e.target.closest('.cue'), zEl = e.target.closest('.zone');
+  // A no-go zone's edge, or Alt+drag across the empty lane to draw one.
+  if (!el && zonesAllowed(S.mode) && (e.altKey || (zEl && e.target.closest('.zl, .zr')))) {
+    if (startZoneDrag(e, e.altKey ? null : zEl)) { lane.setPointerCapture(e.pointerId); e.preventDefault(); }
+    return;
+  }
   if (el) {
     const id = +el.dataset.id, i = idx(id), c = S.cues[i];
     if (!c) return;
@@ -3426,16 +3621,19 @@ lane.addEventListener('pointermove', (e) => {
   }
 
   if (drag.mode === 'lasso') return lasso(e);
+  if (drag.mode.startsWith('zone')) return dragZone(e, dx);
   if (drag.mode === 'blank') {
     const ni = S.cues.findIndex((c) => c.start > drag.t0);
     const prev = ni < 0 ? S.cues[S.cues.length - 1] : S.cues[ni - 1];
     const next = ni < 0 ? null : S.cues[ni];
     if (prev && prev.end > drag.t0) { drag.mode = 'none'; return; }
+    const zs = activeZones(), zl = zoneLimits(zs, drag.t0, drag.t0);
+    if (zoneAt(zs, drag.t0)) { drag.mode = 'none'; return; } // no blocks in a no-go zone
     const c = mk(drag.t0, drag.t0 + MIN_DUR);
     S.cues.push(c);
     sortCues();
     renderList();
-    Object.assign(drag, { mode: 'create', id: c.id, lo: prev ? prev.end : 0, hi: next ? next.start : Infinity });
+    Object.assign(drag, { mode: 'create', id: c.id, lo: Math.max(prev ? prev.end : 0, zl.lo), hi: Math.min(next ? next.start : Infinity, zl.hi) });
     select(c.id, { seek: false, reveal: false });
   }
   if (drag.mode === 'none') return;
@@ -3450,9 +3648,10 @@ lane.addEventListener('pointermove', (e) => {
   }
 
   if (drag.mode === 'move') {
-    const len = drag.e0 - drag.s0;
-    const ns = clamp(drag.s0 + dt, lo, hi - len);
-    c.start = ns; c.end = ns + len;
+    // From where it started: up to a no-go zone, or past it once its middle passes the zone's.
+    c.start = drag.s0; c.end = drag.e0;
+    const d = crossLimit(S.cues, drag.one || (drag.one = new Set([c.id])), dt, duration(), activeZones());
+    c.start = drag.s0 + d; c.end = drag.e0 + d;
   } else if (drag.mode === 'start') {
     c.start = clamp(drag.s0 + dt, lo, c.end - MIN_DUR);
     resized(c, 'start');
@@ -3500,7 +3699,7 @@ function showDragTip(e, text) {
 // the rows in view need filling. from: { c: the block, k: its place, s and e: where it was,
 // r: its row if it's in view }. Returns how far they moved.
 function dragGroup(from, dt) {
-  const d = dragTicked(S.cues, ticked, from, dt, duration());
+  const d = dragTicked(S.cues, ticked, from, dt, duration(), activeZones());
   changed(drag.id);
   for (const { c, k, r } of from) if (r) fillRow(r, c, k);
   return d;
@@ -3513,6 +3712,7 @@ function endDrag() {
   dragtip.hidden = true;
   lassoEl.hidden = true;
   document.body.classList.remove('dragging', 'resize');
+  if (d.mode.startsWith('zone')) return endZoneDrag(d);
   if (d.mode === 'lasso' && !d.moved) { S.playUntil = null; seek(d.t0, false); } // a click seeks, whatever a drag does
   // A click on the empty lane, without Shift, unticks every block. Select stays on, to tick again.
   if ((d.mode === 'blank' || d.mode === 'lasso') && !d.moved && !d.shift && ticked.size) { ticked.clear(); tickAnchor = null; paintTicks(); }
@@ -5340,6 +5540,9 @@ function holdEnd() {
   if (prev && prev.end > a) a = prev.end;
   const next = S.cues.find((c) => c.start > a);
   if (next) b = Math.min(b, next.start);
+  const room = roomOutsideZones(a, b);
+  if (room == null) return;
+  b = room;
   if (b - a < MIN_DUR) return toast('No room for a block here');
   pushUndo();
   const c = mk(a, b);
@@ -6148,6 +6351,7 @@ function projectData() {
     words: S.words,
     comments: S.comments,
     bookmarks: S.bookmarks,
+    zones: S.zones,
     dialogueEdits: S.laneEdits,
     recording: S.recording,
     media: m,
@@ -6458,6 +6662,7 @@ async function openProject(file, handle = null, confirmed = false, expectedGener
   S.projectMedia = p.media;
   S.comments = p.comments;
   S.bookmarks = p.bookmarks;
+  S.zones = p.zones || [];
   S.laneEdits = p.dialogueEdits || {};
   applyLaneEdits();
   S.notes = p.notes;
@@ -6834,7 +7039,7 @@ async function enterRecording(r, name, raw = null) {
   S.projectMedia = r.media;
   clearReview();
   S.comments = [];
-  S.bookmarks = [];
+  S.bookmarks = []; S.zones = [];
   S.laneEdits = {};
   applyLaneEdits();
   S.notes = '';
@@ -7089,7 +7294,7 @@ function newProject(ask = true) {
   S.qcSettings = null;
   S.qcPreviewVoice = '';
   S.comments = [];
-  S.bookmarks = [];
+  S.bookmarks = []; S.zones = [];
   S.laneEdits = {};
   applyLaneEdits();
   if (!$('commentsDrawer').hidden) toggleComments(false);
@@ -7306,6 +7511,7 @@ async function loadSubsFile(file) {
   S.comments = [];
   // A Frazier script's markers become bookmarks.
   S.bookmarks = adc ? adcBookmarks(text) : [];
+  S.zones = [];
   S.projectId = newIdentity();
   S.reviewHistory = null;
   S.cues = parsed.map((c) => Object.assign(mk(c.start, c.end, c.text, c.speed), c.voice ? { voice: c.voice } : {}, blockDipOf(c), isVol(c.vol) ? { vol: c.vol } : {}, c.say ? { say: c.say } : {}));
@@ -8237,7 +8443,7 @@ const NO_LANE = 'No dialogue lane. Pick subtitles next to Dialogue, under the vi
 // Goes to the next stretch with room for a block, so it passes gaps already filled.
 function jumpGap(dir) {
   if (!S.dialogue) return toast(NO_LANE);
-  const gap = gapFrom(freeGaps(currentGaps(), S.cues), now(), dir);
+  const gap = gapFrom(freeGaps(currentGaps(), taken()), now(), dir);
   if (!gap) return toast(dir < 0 ? 'No free gap before the playhead' : 'No free gap after the playhead');
   S.playUntil = null;
   seek(gap.start);
@@ -8250,11 +8456,12 @@ function gapBlock(t = now(), whole = false) {
   if (qcLocked()) return toast('The script and timings are fixed in QC mode');
   if (!S.dialogue) return toast(NO_LANE);
   const near = 0.02; // a seek lands a frame or so off
-  const gap = freeGaps(currentGaps(), S.cues, MIN_DUR).find((g) => g.start - near <= t && t < g.end);
+  const gap = freeGaps(currentGaps(), taken(), MIN_DUR).find((g) => g.start - near <= t && t < g.end);
   if (!gap) return toast('The playhead isn’t in a free gap');
   const { start, end } = placeInGap(gap, whole ? gap.start : t);
   if (end - start < MIN_DUR) return toast('No room for a block here');
   const c = addBlock(start, end);
+  if (!c) return;
   if (whole) { S.playUntil = null; seek(c.start); }
   editText();
 }
@@ -8684,6 +8891,7 @@ for (const b of document.querySelectorAll('#videoSide button')) b.addEventListen
 const actions = {
   openSubs: () => openAny(),
   addScript: () => addScript(),
+  importZones: () => openZones(),
   saveProject: () => saveProject(),
   openVideo: () => openVideoPicker(),
   exportSrt: () => exportSubs('srt'),
@@ -8858,6 +9066,8 @@ initBookmarks({
 });
 // Right-click anywhere on the timeline to comment at that time.
 tl.addEventListener('contextmenu', (e) => {
+  const zEl = e.target.closest('.zone');
+  if (zEl && zonesAllowed(S.mode)) { e.preventDefault(); return openZoneMenu(e, zEl.dataset.id); }
   if (!canComment()) return;
   e.preventDefault(); toggleComments(true, clamp(xToT(e.clientX), 0, duration()));
 });
@@ -8901,11 +9111,11 @@ initAi({
   cues: () => S.cues,
   dialogueLines: () => S.dialogue?.lines || [],
   // The stretches no dialogue or block covers, or null without a dialogue lane.
-  freeGaps: (min) => (S.dialogue ? freeGaps(currentGaps(), S.cues, min) : null),
+  freeGaps: (min) => (S.dialogue ? freeGaps(currentGaps(), taken(), min) : null),
   duration: () => duration(),
   noLane: NO_LANE,
   identity: () => S.projectId,
-  isFree: (b) => !S.cues.some((c) => c.start < b.end && c.end > b.start),
+  isFree: (b) => !S.cues.some((c) => c.start < b.end && c.end > b.start) && !inZone(activeZones(), b.start, b.end),
   jobBusy: () => jobActive,
   runJob: runAiScript,
   undoKey: () => (IS_MAC ? '⌘Z' : 'Ctrl+Z'),
@@ -9341,6 +9551,7 @@ const RUN = {
   exportDialog: () => openExport(),
   recents: () => openRecents(),
   addScript: () => addScript(),
+  importZones: () => openZones(),
   openDrive: () => openFromDrive(),
   saveDrive: () => saveToDrive(),
   closeProject: () => closeProject(),
