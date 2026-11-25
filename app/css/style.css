@@ -788,6 +788,8 @@ textarea:disabled { opacity: 0.5; }
 #zones .zl { left: -3px; }
 #zones .zr { right: -3px; }
 #zones .zl:hover, #zones .zr:hover { background: color-mix(in srgb, var(--bad) 40%, transparent); }
+/* In QC, zones show but can't be changed. */
+#zones.readonly .zl, #zones.readonly .zr { display: none; }
 /* The dialogue from the subtitles, under the blocks. Read-only: a click moves the playhead. */
 .dialtrack { position: relative; height: 30px; flex: none; border-top: 1px solid var(--line); cursor: text; }
 .dialtrack[hidden] { display: none; }
