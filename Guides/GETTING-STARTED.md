@@ -493,6 +493,8 @@ blocks show a tick there. Drag any of them to move them all. Click empty space t
 To tick with a plain drag instead, choose **Ticks blocks** under **Dragging across the empty
 timeline** in **Settings → Editing**. `Shift`+drag then draws a block.
 
+The move keys, `,` and `.`, also move all the ticked blocks. So do `Alt+Shift+←` and `Alt+Shift+→`, a frame at a time.
+
 However you move them, they keep their gaps and stop short of blocks that aren't ticked.
 
 | Button | What it does |
@@ -500,6 +502,7 @@ However you move them, they keep their gaps and stop short of blocks that aren't
 | **All** / **None** | Tick every block the list shows, or none. Search first to tick only matching blocks. |
 | **Replace…** | Find and replace text in the ticked blocks. |
 | **Move…** | Move them earlier or later by an amount you type. |
+| ◀ ▶ | Move them one frame back or forward. |
 | **Voice…** | Give them a text to speech voice. |
 | **Extended** | Make them pause the video while they're read, or stop. |
 | **Delete…** | Delete them, after asking. `Del` does the same. |

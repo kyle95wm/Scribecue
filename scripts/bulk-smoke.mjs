@@ -1,5 +1,5 @@
 // Ticking blocks in headless, muted Chrome at 6× CPU slowdown, with a long script: Select,
-// Shift+click, All, Move…, Replace… in the ticked blocks, Extended, Delete… and undo. Then on
+// Shift+click, All, Move…, the move keys, Replace… in the ticked blocks, Extended, Delete… and undo. Then on
 // the timeline: Ctrl+click and Shift+click to tick, Shift+drag to lasso, and dragging the
 // ticked blocks together.
 // Says how long each took and how many long tasks there were.
@@ -51,6 +51,18 @@ await step('All', `${$('bulkAll')}.click()`, `${$('bulkCount')}.textContent==='$
 await step('None', `${$('bulkNone')}.click()`, `${$('bulkCount')}.textContent==='None ticked'`);
 await step('Tick 500 again', `${click(row(100))};${click(row(599), ',shiftKey:true')}`, `${$('bulkCount')}.textContent==='500 ticked'`);
 await step('Move 500 later', `${$('bulkMove')}.click();${$('bulkMoveBy')}.value='1';${$('bulkLater')}.click()`, `document.querySelectorAll('#list .row')[100].textContent.includes('00:06:41:00')`);
+// The move keys move all the ticked blocks (the last one clicked is selected and ticked).
+// Ten presses, as when the key is held, are one undo step.
+const tcs = (k) => `${row(k)}.textContent.match(/\\d\\d:\\d\\d:\\d\\d:\\d\\d/g)`;
+const key = (code, k, mods = '') => `document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'${k}',code:'${code}',bubbles:true${mods}}))`;
+await step('Nudge 500 later', key('Period', '.'), `${row(100)}.textContent.includes('00:06:41:02') && ${row(599)}.textContent.includes('00:39:57:02') && ${row(99)}.textContent.includes('00:06:36:00')`);
+await step('Nudge 500 earlier ×10', `for(let k=0;k<10;k++)${key('Comma', ',', ',repeat:true')}`, `${row(100)}.textContent.includes('00:06:40:02')`);
+// Later, they stop short of block 601, as Move… does.
+await step('Nudge 500 later ×30', `for(let k=0;k<30;k++)${key('Period', '.', ',repeat:true')}`, `${tcs(599)}[1]===${tcs(600)}[0]`);
+await step('Undo nudges', key('KeyZ', 'z', ',metaKey:true,ctrlKey:true'), `${row(100)}.textContent.includes('00:06:41:00')`);
+// The frame buttons beside Move… and Alt+Shift+← → move the ticked blocks a frame.
+await step('Frame button 500 later', `${$('bulkFwd')}.click()`, `${row(100)}.textContent.includes('00:06:41:01') && ${row(599)}.textContent.includes('00:39:57:01') && ${row(99)}.textContent.includes('00:06:36:00')`);
+await step('Alt+Shift+← 500 earlier', key('ArrowLeft', 'ArrowLeft', ',altKey:true,shiftKey:true'), `${row(100)}.textContent.includes('00:06:41:00') && ${row(99)}.textContent.includes('00:06:36:00')`);
 await step('Replace in 500', `${$('bulkReplace')}.click();${$('frFind')}.value='door';${$('frFind')}.dispatchEvent(new Event('input'));${$('frWith')}.value='gate';${$('frAll')}.click();${$('frClose')}.click()`, `document.querySelectorAll('#list .row .tx')[100].textContent.includes('gate') && document.querySelectorAll('#list .row .tx')[99].textContent.includes('door')`);
 await step('Extended on 500', `${$('bulkExt')}.click()`, `${$('bulkExt')}.getAttribute('aria-pressed')==='true'`);
 await step('Delete 500', `${$('bulkDel')}.click();${$('bulkDelGo')}.click()`, `document.querySelectorAll('#list .row').length===${N - 500}`);
@@ -139,7 +151,6 @@ await js(`${$('bulkNone')}.click();${click(row(499))};${click(row(0), ',shiftKey
 await sleep(800);
 assert.equal(await js(`${$('bulkCount')}.textContent`), '500 ticked');
 // Earlier steps made blocks 101 to 600 short, so the group goes until block 500 meets block 501.
-const tcs = (k) => `${row(k)}.textContent.match(/\\d\\d:\\d\\d:\\d\\d:\\d\\d/g)`;
 await tlDrag(2, 300, 'Drag 500 ticked later', `${tcs(499)}[1]===${tcs(500)}[0] && ${tcs(0)}[0]!=='00:00:00:00'`);
 
 console.table(results);

@@ -32,6 +32,14 @@ export function moveLimit(cues, ticked, d, end = 0) {
   return Math.min(Math.max(d, lo), hi);
 }
 
+// Moves the ticked blocks d seconds, or as far as moveLimit lets them, as Move… and the
+// nudge keys do. Returns how far they moved.
+export function moveTicked(cues, ticked, d, end = 0) {
+  d = moveLimit(cues, ticked, d, end);
+  if (d) for (const c of cues) if (ticked.has(c.id)) { c.start += d; c.end += d; }
+  return d;
+}
+
 // Dragging ticked blocks on the timeline: puts each back where the drag began, then moves
 // them all dt seconds, or as far as moveLimit lets them. Working from where they began means
 // dragging back after they've stopped short follows the pointer again. from: { c: the block,

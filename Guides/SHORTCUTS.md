@@ -36,7 +36,7 @@ takes them to another browser with your other settings.
 | `Shift+←` `Shift+→` | Three seconds back / forward |
 | `Shift+D` `D` | Previous / next free gap in the dialogue, with a dialogue lane showing |
 | `Shift+U` `U` | Previous / next block over dialogue, with a dialogue lane showing |
-| `Alt+Shift+←` `Alt+Shift+→` | Start of the block you're in, then the previous block / the next block, from the playhead |
+| `Alt+Shift+←` `Alt+Shift+→` | Start of the block you're in, then the previous block / the next block, from the playhead. With blocks ticked, moves them one frame back / forward |
 | `Home` `End` | Beginning / end of the video (`Fn+←` `Fn+→` on Mac laptops) |
 | `B` | [Bookmark](GETTING-STARTED.md#bookmarks) at the playhead, ready to name (Write and Transcribe) |
 | `Alt+Shift+J` | Jump to a timecode (`hh:mm:ss:ff`, `hh:mm:ss.mmm`, `mm:ss` or seconds) |

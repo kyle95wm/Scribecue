@@ -107,6 +107,10 @@
         <div class="bulkrow">
           <button id="bulkReplace" data-tip="Find and replace text in the ticked blocks. ⌥⇧F does it in every block">Replace…</button>
           <button id="bulkMove" data-tip="Move the ticked blocks earlier or later">Move…</button>
+          <span class="edmove">
+            <button id="bulkBack" aria-label="Move the ticked blocks back one frame" data-tip="Move the ticked blocks back one frame (⌥⇧←)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h2v10H3zM13 3v10L6 8z"/></svg></button>
+            <button id="bulkFwd" aria-label="Move the ticked blocks forward one frame" data-tip="Move the ticked blocks forward one frame (⌥⇧→)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3v10l7-5zM11 3h2v10h-2z"/></svg></button>
+          </span>
           <button id="bulkVoice" data-tip="Give the ticked blocks a text to speech voice">Voice…</button>
           <button id="bulkExt" aria-pressed="false" data-tip="The ticked blocks pause the video while they're read, or stop pausing it">Extended</button>
           <span class="grow"></span>
@@ -1892,7 +1896,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="play"><kbd>Space</kbd></dt><dd>Start / stop video</dd>
             <dt data-keys="frameBack frameFwd"><kbd>←</kbd> <kbd>→</kbd></dt><dd>One frame back / forward</dd>
             <dt data-keys="back3 fwd3"><kbd>⇧</kbd><kbd>←</kbd> <kbd>⇧</kbd><kbd>→</kbd></dt><dd>Three seconds back / forward</dd>
-            <dt data-keys="blockBack blockNext"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>←</kbd> <kbd>→</kbd></dt><dd>Start of this block, then the previous / next block</dd>
+            <dt data-keys="blockBack blockNext"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>←</kbd> <kbd>→</kbd></dt><dd>Start of this block, then the previous / next block. With blocks ticked, moves them one frame</dd>
             <dt data-keys="gapBack gapNext"><kbd>⇧</kbd><kbd>D</kbd> <kbd>D</kbd></dt><dd>Previous / next free gap in the dialogue</dd>
             <dt data-keys="overBack overNext"><kbd>⇧</kbd><kbd>U</kbd> <kbd>U</kbd></dt><dd>Previous / next block over dialogue</dd>
             <dt data-keys="videoStart videoEnd" data-pc="&lt;kbd&gt;Home&lt;/kbd&gt; &lt;kbd&gt;End&lt;/kbd&gt;"><kbd>Fn</kbd><kbd>←</kbd> <kbd>Fn</kbd><kbd>→</kbd></dt><dd data-pc="Beginning / end of video">Beginning / end of video (Home / End)</dd>
@@ -1991,7 +1995,7 @@ docker compose up -d --build</code></pre>
             <dt data-keys="setStart setEnd"><kbd>A</kbd> / <kbd>S</kbd></dt><dd>Set start / end to playhead</dd>
             <dt data-keys="startBack startFwd"><kbd>Q</kbd> <kbd>W</kbd></dt><dd>Start −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
             <dt data-keys="endBack endFwd"><kbd>E</kbd> <kbd>R</kbd></dt><dd>End −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
-            <dt data-keys="moveBack moveFwd"><kbd>,</kbd> <kbd>.</kbd></dt><dd>Move block −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
+            <dt data-keys="moveBack moveFwd"><kbd>,</kbd> <kbd>.</kbd></dt><dd>Move block, or the ticked ones, −/+ 100 ms (<kbd>⇧</kbd> 10 ms)</dd>
             <dt data-keys="split merge"><kbd>X</kbd> / <kbd>M</kbd></dt><dd>Split at playhead / merge with next</dd>
             <dt data-keys="deleteNow"><kbd>Del</kbd></dt><dd>Delete block now (undoable), or the ticked blocks, after asking</dd>
             <dt data-keys="tickMode"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>X</kbd></dt><dd>Tick blocks to change several at once, or stop (Esc)</dd>
