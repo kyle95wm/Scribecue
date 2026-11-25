@@ -331,7 +331,9 @@ shows the zones it found before you import them. Importing replaces any zones al
 
 Blocks already in a zone keep their times. They're outlined in red, to move or shorten.
 
-Zones save with the project. Exports, QC packages and shared projects leave them out.
+Zones save with the project. QC packages and shared projects include them. Exports leave them out.
+
+On a share link, only people who can edit change the zones. Everyone else sees them.
 
 ## Exporting
 

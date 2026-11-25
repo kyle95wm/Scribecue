@@ -2,6 +2,7 @@
 // Merge saved project snapshots against their exact shared ancestor, never by position.
 import { fromProject, toProject, cleanWords, validIdentity, HISTORY_LIMIT, HISTORY_CHARS } from './project.js';
 import { mergeComments } from './comments.js';
+import { cleanZones } from './nogo.js';
 
 const equal = (a, b) => {
   if (a === b) return true;
@@ -100,6 +101,9 @@ export function mergeProjects(base, local, remote, progress = () => {}, resoluti
   // Bookmarks merge one by one too, by id.
   const bookmarks = commentsOf(b.bookmarks, l.bookmarks, r.bookmarks, { kind: 'project', field: 'bookmarks' });
   if (bookmarks.length) project.bookmarks = bookmarks; else delete project.bookmarks;
+  // And no-go zones.
+  const zones = cleanZones(commentsOf(b.zones, l.zones, r.zones, { kind: 'project', field: 'zones' }));
+  if (zones.length) project.zones = zones; else delete project.zones;
   // Words people added are only ever added to, so both sides' count.
   const words = cleanWords([...(l.words || []), ...(r.words || [])]);
   if (words.length) project.words = words;

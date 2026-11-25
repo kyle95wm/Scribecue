@@ -98,3 +98,52 @@ test('QC shows the zones but only Write and Transcribe change them', () => {
   assert.ok(!zonesShown('record'));
   assert.ok(!zonesAllowed('record'));
 });
+
+const zid = (n) => `0000000${n}-0000-4000-8000-000000000000`.slice(-36);
+const zone = (n, start, end, label = '') => ({ id: zid(n), start, end, label });
+
+test('a QC package keeps the no-go zones', async () => {
+  const { buildReview, readReview } = await import('../app/js/qc.js');
+  const { toProject, fromProject } = await import('../app/js/project.js');
+  const zones = [zone(1, 10, 20, 'Break 1')];
+  const p = toProject({ blocks: [{ start: 3, end: 6, text: 'Mara arrives.' }], zones, settings: { mode: 'write', ttsBase: 1, ttsVoice: 'kokoro:bf_emma' } });
+  const make = async (b) => ({ blob: new Blob([new Uint8Array(100)], { type: 'audio/wav' }), secs: b.end - b.start, voice: 'kokoro:bf_emma' });
+  const r = await readReview(await buildReview(p, make));
+  assert.deepEqual(fromProject(r.project).zones, zones);
+});
+
+test('no-go zones reach the other people on a share link, with the script', async () => {
+  const { SharedProject } = await import('../app/js/shared.js');
+  const a = new SharedProject(), b = new SharedProject(), seen = [];
+  a.onUpdate((doc, u, origin) => { if (origin !== 'remote') b.apply(doc, u); });
+  b.onUpdate((doc, u, origin) => { if (origin !== 'remote') a.apply(doc, u); });
+  b.observe((uids, timeline, suggestions, marks) => seen.push(!!marks));
+  const list = [zone(2, 30, 40, 'Break 2'), zone(1, 10, 20, 'Break 1')];
+  a.write([], [], null, { zones: list });
+  assert.deepEqual(b.readZones(), [list[1], list[0]], 'in time order');
+  assert.deepEqual(b.read().zones, [list[1], list[0]]);
+  assert.deepEqual(seen, [true]);
+  assert.equal(a.write([], [], null, { zones: list }), 0, 'writing them again changes nothing');
+  a.write([], [], null, { zones: [{ ...list[1], end: 25 }] });
+  assert.deepEqual(b.readZones(), [{ ...list[1], end: 25 }]);
+  // Those who can't edit the script don't change them.
+  b.write([], [], null, { script: false, zones: [] });
+  assert.equal(a.readZones().length, 1);
+  // Undo takes back one's own change.
+  const undo = a.undoer(), mark0 = undo.step();
+  a.write([], [], null, { zones: [] });
+  undo.undoTo(mark0);
+  assert.equal(a.readZones().length, 1);
+});
+
+test('no-go zones changed in two copies merge one by one', async () => {
+  const { mergeProjects } = await import('../app/js/collaboration.js');
+  const { toProject, newIdentity } = await import('../app/js/project.js');
+  const base = toProject({ projectId: newIdentity(), blocks: [{ uid: newIdentity(), start: 1, end: 2, text: 'First' }], zones: [zone(1, 10, 20, 'Break')], settings: {} });
+  const local = structuredClone(base), remote = structuredClone(base);
+  local.zones.push(zone(2, 5, 8, 'Opening'));
+  remote.zones[0].label = 'Break 1';
+  const result = mergeProjects(base, local, remote);
+  assert.deepEqual(result.conflicts, []);
+  assert.deepEqual(result.project.zones.map((z) => z.label), ['Opening', 'Break 1']);
+});

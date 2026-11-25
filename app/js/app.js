@@ -1272,7 +1272,7 @@ function writeShared(only) {
   if (relay?.status === 'online' && !relay.unsent()) unsent.clear();
   if (only && role !== 'review' && role !== 'comment') for (const uid of only) unsent.set(uid, performance.now());
   const script = role !== 'review' && role !== 'comment';
-  shared.write(S.cues, S.comments, only, { script, bookmarks: script ? S.bookmarks : null });
+  shared.write(S.cues, S.comments, only, { script, bookmarks: script ? S.bookmarks : null, zones: script ? S.zones : null });
   if (role === 'review') shared.propose(S.cues, only, { link: myShare.link, name: savedName(), who: editorId() });
 }
 // The caret, after someone else's letters arrive in the text being typed: it stays with the
@@ -1328,7 +1328,7 @@ function applyShared(uids, timeline, suggestions = false, marks = false) {
     S.cues.splice(i, 1);
   }
   if (timeline) S.comments = shared.readTimeline();
-  if (marks) S.bookmarks = shared.readBookmarks();
+  if (marks) { S.bookmarks = shared.readBookmarks(); S.zones = shared.readZones(); }
   sharedIn = new Set(uids);
   try { changed(gone || many || timeline || marks || one == null ? null : one); } finally { sharedIn = null; }
   if (lostSel) select(null, { seek: false });

@@ -1,7 +1,7 @@
 // Two people sharing a project through the relay, each in their own headless, muted Chrome at
 // 6× CPU slowdown, with 1,500 blocks over two hours, through the Share and join dialogs. A
 // makes an edit link; B opens it (a wrong password first); typing passes both ways, once each
-// block is done; B reloads and is still in; B goes offline, edits, and catches up; A shares a
+// block is done; no-go zones pass both ways; B reloads and is still in; B goes offline, edits, and catches up; A shares a
 // separate Google key, which B reads Google voices with (Google's answers are stubbed in both
 // pages, so no real key is used); A's voice becomes B's, which B can't change; A takes the key
 // out; A turns the link off, makes a new one that B opens again; a link that expires lets B go
@@ -133,10 +133,24 @@ try {
   await a.shot('presence-row');
   await a.js(`document.activeElement.blur();true`);
 
+  // No-go zones go with the script: A imports some, B sees them and deletes one, A sees that.
+  const zoneList = 'Seg 1\nIN: 00:00:00:00\n(Description can come in after 00:00:02:00)\nOUT: 00:00:20:10\n(Description must conclude by 00:00:20:00)\n\nSeg 2\nIN: 00:00:29:00\n(Description can come in after 00:00:30:00)\nOUT: 00:00:50:00\n(Description must conclude by 00:00:49:00)\n';
+  await a.js(`document.body.dispatchEvent(new KeyboardEvent('keydown',{key:'N',code:'KeyN',altKey:true,shiftKey:true,bubbles:true}));true`);
+  await a.wait(`document.getElementById('zonesDlg').open`, 'A’s Import no-go zones window');
+  await a.fill('#zonesText', zoneList);
+  await a.click('#zonesGo');
+  await b.wait(`window.scribecueShared.readZones().length===3 && document.querySelectorAll('#zones .zone').length>0`, 'B sees A’s no-go zones');
+  // A zone on both timelines, wherever each is scrolled to.
+  const drawn = `[...document.querySelectorAll('#zones .zone')].map((e)=>e.dataset.id)`;
+  const onA = await a.js(drawn), gone = (await b.js(drawn)).find((zid) => onA.includes(zid));
+  assert.ok(gone, 'A and B both show a zone');
+  await b.js(`document.querySelector('#zones .zone[data-id="${gone}"]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:300,clientY:700}));document.querySelector('[data-zone=delete]').click();true`);
+  await a.wait(`window.scribecueShared.readZones().length===2 && !document.querySelector('#zones .zone[data-id="${gone}"]')`, 'A sees B delete a zone');
+
   // B reloads: still in the project, still connected, nothing to type again.
   await sleep(1800); // B's copy is kept a moment after each change
   await b.js(`window.__old=true;location.reload();true`);
-  await b.wait(`!window.__old && ${online} && (${rowText(2)}).includes('Sam typed this.')`, 'B back after reloading');
+  await b.wait(`!window.__old && ${online} && (${rowText(2)}).includes('Sam typed this.') && window.scribecueShared.readZones().length===2`, 'B back after reloading, with the zone');
   await b.watch();
 
   // B goes offline and edits; it arrives once B is back.

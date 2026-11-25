@@ -1,8 +1,8 @@
 // No-go zones: stretches of the programme where description can't go, such as a
 // broadcaster's ad breaks. Blocks stop at their edges, and jump past them when dragged past the
 // middle or pressed on (see crossLimit and jumpZone in bulk.js). They're made and changed
-// in Write and Transcribe, shown in QC too, and stay in the project: no export or share
-// carries them.
+// in Write and Transcribe, and shown in QC too. They go with the project, its QC packages
+// and its shared copy, but not in exports.
 
 import { parseTC } from './formats.js';
 
