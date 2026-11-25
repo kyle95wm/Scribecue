@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.140.0",
+    "date": "2026-11-24",
+    "notes": "## No-go zones\n\n- Mark stretches where description can't go, such as ad breaks. Click **File**, then **Import no-go zones…**, and paste a segment list. Or hold `Alt` and drag on the timeline.\n- Zones show as red stripes. Blocks stop at their edges, and blocks already inside are outlined in red.\n- To move a block past a zone, drag it more than halfway across, or press `,` or `.` again at the edge.\n- Zones work in Write and Transcribe, and stay in the project.\n\n## Ticked blocks\n\n- `,` and `.` now move all the ticked blocks, not just one.\n- The frame buttons beside **Move…**, and `Alt+Shift+←` / `→`, move them one frame."
+  },
+  {
     "version": "0.139.6",
     "date": "2026-11-21",
     "notes": "## Merging blocks\n\n- Merging a block with the next (`M`) now joins their text as sentences on one line, not on a new line.\n- A full stop and a space are added where the first block doesn't end a sentence."
